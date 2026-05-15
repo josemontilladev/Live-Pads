@@ -731,8 +731,16 @@ function renderGiSetlist(filter = '') {
 
 function applyGiSong(song) {
   // Update BPM
-  if (song.bpm && window.updateBPM) {
-    window.updateBPM(parseInt(song.bpm));
+  if (song.bpm) {
+    const v = parseInt(song.bpm);
+    if (!isNaN(v)) {
+      metro.setBPM(v);
+      q('#bpm-slider').value = metro.bpm;
+      q('#bpm-display').textContent = metro.bpm;
+      const liveBpm = q('#metro-bpm-live');
+      if(liveBpm) liveBpm.textContent = metro.bpm + ' BPM';
+      syncSlider(q('#bpm-slider'));
+    }
   }
   
   // Update Key
