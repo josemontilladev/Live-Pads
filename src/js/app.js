@@ -701,11 +701,8 @@ function renderGiSetlist(filter = '') {
     const el = document.createElement('div');
     el.className = 'gi-song-item';
     
-    // Convert song to string to pass it to inline click handlers safely
-    const songData = JSON.stringify(song).replace(/'/g, "&#39;");
-    
     el.innerHTML = `
-      <div style="flex: 1;" onclick='applyGiSong(${songData})'>
+      <div style="flex: 1; cursor: pointer;" class="gi-song-main">
         <div class="gi-song-title">${song.title}</div>
         <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
         <div class="gi-song-meta">
@@ -715,16 +712,21 @@ function renderGiSetlist(filter = '') {
         </div>
       </div>
       <div class="gi-song-actions" style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-         <button class="gi-action-btn" title="Secuencia Split-Track" onclick='loadAndPlayTrack(${songData}, "sequence")' style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+         <button class="gi-action-btn btn-seq" title="Secuencia Split-Track" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
             Secuencia
          </button>
-         <button class="gi-action-btn" title="Canción Original" onclick='loadAndPlayTrack(${songData}, "original")' style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+         <button class="gi-action-btn btn-orig" title="Canción Original" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
             Original
          </button>
       </div>
     `;
+    
+    el.querySelector('.gi-song-main').onclick = () => applyGiSong(song);
+    el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
+    el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
+
     container.appendChild(el);
   });
 }
