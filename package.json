@@ -18,11 +18,15 @@
     "appId": "com.livepads.app",
     "productName": "LivePads",
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "src/assets/logo.png"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "src/assets/logo.png",
+      "uninstallerIcon": "src/assets/logo.png",
+      "installerHeaderIcon": "src/assets/logo.png"
     },
     "directories": {
       "output": "dist"
