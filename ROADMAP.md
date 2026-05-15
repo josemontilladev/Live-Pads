@@ -34,6 +34,10 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Atajos de Teclado**: Mapeo completo por defecto para pads y batería.
 - **Soporte MIDI Nativo**: Capacidad de conectar un controlador y mapearlo a las funciones de disparo al instante a través de Web MIDI API.
 
+### 📦 Lanzamiento y Empaquetado
+- **Generación de Ejecutables (.exe)**: Construcción exitosa del instalador NSIS para Windows usando `electron-builder`.
+- **Resolución de Íconos**: Dimensionamiento y conversión automática (256x256) de los íconos de la aplicación y el instalador, resolviendo los errores del empaquetador.
+
 ---
 
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
@@ -47,10 +51,7 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 ### 📝 3. Gestión Avanzada de Setlist
 - Reordenamiento visual de canciones (`Drag & Drop`) dentro del Setlist para preparar el orden exacto del evento o servicio.
 
-### 📦 4. Lanzamiento y Empaquetado
-- Generar el instalador `.exe` (NSIS) y versiones portables pulidas con el ícono y metadatos correctos para distribución general.
-
-### 🎵 5. Reproductor de Secuencias (Split Tracks)
+### 🎵 4. Reproductor de Secuencias (Split Tracks)
 - **Modo Clásico (Próximo paso)**: Cargar archivos estéreo de secuencias (Pista lado Izquierdo / Click y Guía lado Derecho). Al reproducirse, la app silenciará su metrónomo interno. Ideal para el cableado estándar en Y hacia la consola principal.
 - **Modo Pro (Ruteo Web Audio)**: Investigar el ruteo interno de los canales izquierdo y derecho para enviar el click independientemente a los audífonos y mandar la pista en el master principal sin requerir ruteo físico externo complejo.
 

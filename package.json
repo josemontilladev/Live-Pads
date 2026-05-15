@@ -19,14 +19,11 @@
     "productName": "LivePads",
     "win": {
       "target": "nsis",
-      "icon": "src/assets/logo.png"
+      "icon": "src/assets/icon.png"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "src/assets/logo.png",
-      "uninstallerIcon": "src/assets/logo.png",
-      "installerHeaderIcon": "src/assets/logo.png"
+      "allowToChangeInstallationDirectory": true
     },
     "directories": {
       "output": "dist"
