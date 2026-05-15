@@ -1,0 +1,36 @@
+{
+  "name": "livepads",
+  "version": "1.0.0",
+  "description": "LivePads - Pads de adoración profesionales para iglesia y presentaciones en vivo",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win",
+    "dev": "electron . --dev"
+  },
+  "author": "LivePads",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.livepads.app",
+    "productName": "LivePads",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ]
+  }
+}
