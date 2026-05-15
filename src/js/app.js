@@ -12,6 +12,7 @@ let padBankIdx = 0, kitBankIdx = 0;
 let currentTheme = 'gi_setlist';
 let metroRunning = false;
 let presets = [];
+let giSetlistSongs = [];
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildThemesList();
   bindAll();
   loadPresets();
+  loadGiSetlistFromFile();
 
   q('#sidebar').classList.remove('open');
 });
@@ -348,6 +350,8 @@ function bindAll() {
   syncSlider(bpmSlider);
   q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
 
+  window.updateBPM = updateBPM; // Make it accessible globally for GI-Setlist
+
   // Time signatures
   qa('.sig-btn').forEach(btn => {
     btn.onclick = () => {
@@ -417,6 +421,42 @@ function bindAll() {
 
   // Setlist
   q('#btn-add-preset').onclick = () => showDialog('Guardar set', doSavePreset);
+  
+  // GI-Setlist UI bindings
+  qa('.s-toggle').forEach(btn => {
+    btn.onclick = () => {
+      qa('.s-toggle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      q('#setlist-list').classList.add('hidden');
+      q('#gi-setlist-list').classList.add('hidden');
+      q('#' + btn.dataset.target).classList.remove('hidden');
+    };
+  });
+
+  q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
+  q('#gi-file-input').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json = JSON.parse(ev.target.result);
+        if (json.data && json.data.songs) {
+          giSetlistSongs = json.data.songs;
+          renderGiSetlist();
+          // Switch to GI tab automatically
+          q('.s-toggle[data-target="gi-setlist-list"]').click();
+        } else {
+          alert('El archivo no parece ser un export de GI-Setlist válido.');
+        }
+      } catch (err) {
+        alert('Error al leer el archivo JSON.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  q('#gi-search').oninput = (e) => renderGiSetlist(e.target.value);
 
   // MIDI
   engine.initMIDI(msg => {
@@ -456,8 +496,8 @@ function toggleMetro() {
   metroRunning = metro.toggle();
   const btn = q('#btn-metro-main');
   btn.innerHTML = metroRunning
-    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> Detener metrónomo'
-    : '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg> Iniciar metrónomo';
+    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>';
   btn.classList.toggle('running', metroRunning);
   if (!metroRunning) {
     qa('.beat-dot').forEach(d => d.classList.remove('on'));
@@ -578,3 +618,107 @@ function applyPreset(p) {
 
 function showDialog(title) { q('#dialog-title').textContent = title; q('#dialog-overlay').classList.remove('hidden'); q('#dialog-name').value = ''; setTimeout(() => q('#dialog-name').focus(), 50); }
 function hideDialog() { q('#dialog-overlay').classList.add('hidden'); }
+
+/* ── GI-SETLIST LOGIC ── */
+async function loadGiSetlistFromFile() {
+  try {
+    // Attempt to auto-load from root if available
+    const res = await fetch('../canciones_app.json');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data && json.data.songs) {
+        giSetlistSongs = json.data.songs;
+        renderGiSetlist();
+      }
+    }
+  } catch (e) {
+    console.log('GI-Setlist local no encontrado, esperando importación manual.');
+  }
+}
+
+function renderGiSetlist(filter = '') {
+  const container = q('#gi-songs-container');
+  container.innerHTML = '';
+  
+  if (!giSetlistSongs.length) {
+    container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el botón de importar arriba.</div>';
+    return;
+  }
+
+  const term = filter.toLowerCase();
+  const filtered = giSetlistSongs.filter(s => 
+    s.title.toLowerCase().includes(term) || 
+    (s.artist && s.artist.toLowerCase().includes(term))
+  );
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
+    return;
+  }
+
+  filtered.forEach(song => {
+    const el = document.createElement('div');
+    el.className = 'gi-song-item';
+    el.innerHTML = `
+      <div class="gi-song-title">${song.title}</div>
+      <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
+      <div class="gi-song-meta">
+        <span class="gi-badge bpm">${song.bpm} BPM</span>
+        <span class="gi-badge key">${song.key || '-'}</span>
+        ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
+      </div>
+    `;
+    el.onclick = () => applyGiSong(song);
+    container.appendChild(el);
+  });
+}
+
+function applyGiSong(song) {
+  // Update BPM
+  if (song.bpm && window.updateBPM) {
+    window.updateBPM(parseInt(song.bpm));
+  }
+  
+  // Update Key
+  if (song.key) {
+    let key = song.key.replace('m', '').trim();
+    // Normalizar Do, Re, Mi si vienen así
+    const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
+    for (let es in esToEn) {
+      if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
+    }
+    
+    // Configurar bemoles o sostenidos
+    if (key.includes('b')) {
+      useFlats = true; 
+      q('#btn-flats').classList.add('active'); 
+      q('#btn-sharps').classList.remove('active');
+    } else if (key.includes('#')) {
+      useFlats = false; 
+      q('#btn-sharps').classList.add('active'); 
+      q('#btn-flats').classList.remove('active');
+    }
+    
+    buildKeyGrid();
+    
+    // Encontrar la nota en el grid y simular click si es diferente
+    if (activeKey !== key) {
+      // First stop current pad if any
+      if (activeKey) {
+        engine.stopPad();
+        activeKey = null;
+        qa('.key-btn').forEach(b => b.classList.remove('active'));
+      }
+      
+      // Attempt to play the new key
+      const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+      if (keys.includes(key)) {
+        onKeyClick(key);
+      }
+    }
+  }
+  
+  // Opcional: auto-iniciar metrónomo y ocultar sidebar
+  if (!metroRunning) toggleMetro();
+  // q('#sidebar').classList.remove('open'); // Descomentar si se quiere cerrar el sidebar automáticamente
+}

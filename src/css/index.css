@@ -102,7 +102,7 @@ html, body {
   flex: 1;
   padding: 20px;
   display: grid;
-  grid-template-columns: 300px 1fr 280px;
+  grid-template-columns: 320px 1fr 340px;
   grid-template-rows: auto 1fr;
   gap: 20px;
   overflow-y: auto;
@@ -245,13 +245,16 @@ html, body {
 .drum-vol-pct { font-size: 10px; color: var(--text-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 .drum-vol-item input { width: 100%; }
 
-/* ── PANEL METRO (inline) ── */
-#panel-metro {
+/* ── PANEL SETLIST (ahora en stage) ── */
+#panel-setlist {
   grid-column: 3;
   grid-row: 2;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
   min-width: 0;
   overflow-y: auto;
 }
@@ -514,3 +517,88 @@ input.pan-slider {
 .bank-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .bank-check { color: var(--blue); margin-left: auto; }
 
+/* ── GI-SETLIST ── */
+.setlist-tabs-toggle { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-hover); padding: 4px; border-radius: 10px; }
+.s-toggle { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.gi-search-input { width: 100%; padding: 10px 14px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 12px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.gi-search-input:focus { border-color: var(--blue); }
+.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; }
+.gi-song-item:hover { border-color: var(--blue); background: var(--bg-hover); transform: translateY(-1px); }
+.gi-song-title { font-size: 13px; font-weight: 800; color: var(--text); }
+.gi-song-artist { font-size: 11px; color: var(--text-muted); }
+.gi-song-meta { display: flex; gap: 10px; margin-top: 4px; font-size: 10px; font-weight: 700; }
+.gi-badge { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
+.gi-badge.key { background: rgba(251, 174, 0, 0.15); color: var(--blue); }
+.gi-badge.bpm { background: rgba(255, 255, 255, 0.1); color: #ddd; }
+
+/* ── HORIZONTAL METRONOME (FOOTER PLAYER) ── */
+.horizontal-metro {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  z-index: 1000;
+  min-height: 80px;
+}
+.hm-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hm-play {
+  flex: 0 0 160px;
+  gap: 10px;
+}
+.hm-bpm {
+  flex: 0 0 180px;
+  gap: 8px;
+}
+.hm-bpm-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hm-bpm-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hm-bpm-slider-wrap input { flex: 1; }
+.hm-compas {
+  flex: 0 0 180px;
+}
+.hm-sounds {
+  flex: 0 0 200px;
+}
+.hm-mix {
+  flex: 0 0 140px;
+}
+.hm-notacion {
+  flex: 0 0 120px;
+}
+
+#metro-beat-row {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.metro-main-btn {
+  padding: 10px 16px;
+  font-size: 13px;
+  width: auto;
+}
+.metro-bpm-big {
+  font-size: 32px;
+}
+.metro-adj {
+  width: 28px; height: 28px;
+}
+.sound-btn { padding: 6px 4px; font-size: 10px; }

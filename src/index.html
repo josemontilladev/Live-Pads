@@ -51,7 +51,7 @@
   </header>
 
   <!-- ═══ MAIN BODY ═══ -->
-  <div id="body">
+  <div id="body" style="flex-direction: column;">
     <main id="stage">
 
       <!-- Bank Selectors -->
@@ -115,97 +115,111 @@
         </div>
       </div>
 
-      <!-- ═══ METRONOME PANEL (inline, always visible) ═══ -->
-      <div id="panel-metro">
+      <!-- ═══ PANEL SETLIST (antes en sidebar) ═══ -->
+      <div id="panel-setlist">
+        <div class="setlist-header">
+          <span class="setlist-title">Setlist</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar GI-Setlist">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="icon-btn accent-btn" id="btn-add-preset" title="Guardar Preset">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <input type="file" id="gi-file-input" accept=".json" hidden>
+          </div>
+        </div>
+        
+        <div class="setlist-tabs-toggle">
+          <button class="s-toggle active" data-target="setlist-list">Mis Presets</button>
+          <button class="s-toggle" data-target="gi-setlist-list">GI-Setlist</button>
+        </div>
 
-        <!-- Beat visualizer -->
+        <div id="setlist-list"></div>
+        
+        <div id="gi-setlist-list" class="hidden">
+          <input type="text" id="gi-search" class="gi-search-input" placeholder="Buscar canción o artista...">
+          <div id="gi-songs-container"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ═══ METRONOME PANEL (Horizontal player at bottom) ═══ -->
+    <footer id="panel-metro" class="horizontal-metro">
+      
+      <div class="hm-section hm-play">
+        <button class="metro-main-btn" id="btn-metro-main" style="width: 50px; height: 50px; padding: 0; display: flex; justify-content: center; align-items: center; border-radius: 12px;">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>
+        </button>
         <div id="metro-beat-row">
           <div id="metro-beat-dots"></div>
-          <div id="metro-bpm-live">— BPM</div>
+          <div id="metro-bpm-live" style="margin-left:auto;">— BPM</div>
         </div>
+      </div>
 
-        <!-- Start/Stop -->
-        <button class="metro-main-btn" id="btn-metro-main">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>
-          Iniciar metrónomo
-        </button>
-
-        <!-- BPM row -->
-        <div class="metro-card">
-          <div class="metro-section-label">Tempo</div>
-          <div class="metro-bpm-row">
-            <button class="metro-adj" id="bpm-minus">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </button>
-            <div class="metro-bpm-big" id="bpm-display">120</div>
-            <button class="metro-adj" id="bpm-plus">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </button>
-          </div>
+      <div class="hm-section hm-bpm">
+        <div class="hm-bpm-controls">
+          <button class="metro-adj" id="bpm-minus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <div class="metro-bpm-big" id="bpm-display">120</div>
+          <button class="metro-adj" id="bpm-plus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        </div>
+        <div class="hm-bpm-slider-wrap">
           <input type="range" id="bpm-slider" min="30" max="300" value="120" class="blue-slider metro-slider">
-          <button class="tap-btn" id="tap-tempo">TAP TEMPO</button>
+          <button class="tap-btn" id="tap-tempo" style="width: auto; padding: 4px 10px; font-size: 10px;">TAP</button>
         </div>
+      </div>
 
-        <!-- Time signature + multiplier -->
-        <div class="metro-card">
-          <div class="metro-section-label">Compás</div>
-          <div class="metro-sig-row">
-            <button class="sig-btn active" data-v="2" data-label="2/4">2/4</button>
-            <button class="sig-btn" data-v="3" data-label="3/4">3/4</button>
-            <button class="sig-btn" data-v="4" data-label="4/4">4/4</button>
-            <button class="sig-btn" data-v="6" data-label="6/8">6/8</button>
-            <button class="sig-btn" data-v="12" data-label="12/8">12/8</button>
-          </div>
-          <div style="display:flex; gap:10px; margin-top:10px;">
-            <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
-            <button class="metro-mult-btn" id="btn-mult-2">2x</button>
-          </div>
+      <div class="hm-section hm-compas">
+        <div class="metro-sig-row" style="margin-bottom: 6px;">
+          <button class="sig-btn active" data-v="2" data-label="2/4">2/4</button>
+          <button class="sig-btn" data-v="3" data-label="3/4">3/4</button>
+          <button class="sig-btn" data-v="4" data-label="4/4">4/4</button>
+          <button class="sig-btn" data-v="6" data-label="6/8">6/8</button>
+          <button class="sig-btn" data-v="12" data-label="12/8">12/8</button>
         </div>
-
-        <!-- Click sound -->
-        <div class="metro-card">
-          <div class="metro-section-label">Sonido de click</div>
-          <div class="metro-sound-grid">
-            <button class="sound-btn" id="btn-ms-classic">Clásico</button>
-            <button class="sound-btn" id="btn-ms-woodblock">Woodblock</button>
-            <button class="sound-btn" id="btn-ms-percussive">Percusivo</button>
-            <button class="sound-btn" id="btn-ms-gentle">Suave</button>
-            <button class="sound-btn" id="btn-ms-blip">Blip</button>
-            <button class="sound-btn" id="btn-ms-digital">Digital</button>
-            <button class="sound-btn active" id="btn-ms-cowbell">Cowbell</button>
-          </div>
-          <div class="sb-row" style="padding:12px 0 0;">
-            <span class="sr-label" style="font-size:12px;">Volumen</span>
-            <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
-            <span class="sr-val" id="metro-vol-val">80%</span>
-          </div>
-          <!-- Pan del click -->
-          <div class="sb-row" style="padding:8px 0 0;">
-            <span class="sr-label" style="font-size:12px;">Pan</span>
-            <input type="range" id="metro-pan-slider" min="-100" max="100" value="0" class="pan-slider">
-            <span class="sr-val" id="metro-pan-val">C</span>
-          </div>
+        <div style="display:flex; gap:6px;">
+          <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
+          <button class="metro-mult-btn" id="btn-mult-2">2x</button>
         </div>
+      </div>
 
-        <!-- Notation -->
-        <div class="metro-card">
-          <div class="metro-section-label">Notación</div>
-          <div class="metro-sound-row">
-            <button class="sound-btn" id="btn-flats">Bemoles (Db)</button>
-            <button class="sound-btn active" id="btn-sharps">Sostenidos (C#)</button>
-          </div>
+      <div class="hm-section hm-sounds">
+        <div class="metro-sound-grid" style="grid-template-columns: repeat(4, 1fr);">
+          <button class="sound-btn" id="btn-ms-classic">Clás</button>
+          <button class="sound-btn" id="btn-ms-woodblock">Wood</button>
+          <button class="sound-btn" id="btn-ms-percussive">Perc</button>
+          <button class="sound-btn" id="btn-ms-gentle">Suave</button>
+          <button class="sound-btn" id="btn-ms-blip">Blip</button>
+          <button class="sound-btn" id="btn-ms-digital">Digit</button>
+          <button class="sound-btn active" id="btn-ms-cowbell" style="grid-column: span 2;">Cowbell</button>
         </div>
+      </div>
 
-      </div><!-- end panel-metro -->
+      <div class="hm-section hm-mix">
+        <div class="sb-row" style="padding:0 0 6px;">
+          <span class="sr-label" style="font-size:10px; min-width:30px;">Vol</span>
+          <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
+          <span class="sr-val" id="metro-vol-val" style="min-width:26px;">80%</span>
+        </div>
+        <div class="sb-row" style="padding:0;">
+          <span class="sr-label" style="font-size:10px; min-width:30px;">Pan</span>
+          <input type="range" id="metro-pan-slider" min="-100" max="100" value="0" class="pan-slider">
+          <span class="sr-val" id="metro-pan-val" style="min-width:26px;">C</span>
+        </div>
+      </div>
 
-    </main>
+      <div class="hm-section hm-notacion" style="display: flex; flex-direction: column; gap: 6px;">
+        <button class="sound-btn" id="btn-flats">Bemol (Db)</button>
+        <button class="sound-btn active" id="btn-sharps">Sost (C#)</button>
+      </div>
+
+    </footer>
 
     <aside id="sidebar">
       <div id="sidebar-overlay"></div>
       <div id="sidebar-inner">
         <div class="sidebar-tabs">
           <button class="stab active" data-tab="settings">Ajustes</button>
-          <button class="stab" data-tab="setlist">Setlist</button>
           <button class="stab" data-tab="themes">Temas</button>
         </div>
         <div class="sidebar-scroll">
@@ -246,16 +260,6 @@
             <div class="sb-card" id="sidebar-drum-volumes" style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;"></div>
           </div>
 
-          <!-- TAB: SETLIST -->
-          <div id="tab-setlist" class="stab-body">
-            <div class="setlist-header">
-              <span class="setlist-title">Setlist</span>
-              <button class="icon-btn accent-btn" id="btn-add-preset">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-            </div>
-            <div id="setlist-list"></div>
-          </div>
 
           <!-- TAB: THEMES -->
           <div id="tab-themes" class="stab-body">
