@@ -444,8 +444,7 @@ function bindAll() {
         const json = JSON.parse(ev.target.result);
         if (json.data && json.data.songs) {
           giSetlistSongs = json.data.songs;
-          const countEl = q('#app-title-count');
-          if (countEl) countEl.textContent = `Live Pads (${giSetlistSongs.length})`;
+          updateFilterCounts();
           renderGiSetlist();
           // Switch to GI tab automatically
           q('.s-toggle[data-target="gi-setlist-list"]').click();
@@ -632,6 +631,25 @@ function showDialog(title) { q('#dialog-title').textContent = title; q('#dialog-
 function hideDialog() { q('#dialog-overlay').classList.add('hidden'); }
 
 /* ── GI-SETLIST LOGIC ── */
+function updateFilterCounts() {
+  const total = giSetlistSongs.length;
+  const alabanzas = giSetlistSongs.filter(s => {
+    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+    return genre.includes('alabanza');
+  }).length;
+  const adoracion = giSetlistSongs.filter(s => {
+    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+    return genre.includes('adoracion');
+  }).length;
+
+  const btnAll = q('#btn-filter-all');
+  if (btnAll) btnAll.textContent = `Todas (${total})`;
+  const btnAla = q('#btn-filter-alabanza');
+  if (btnAla) btnAla.textContent = `Alabanza (${alabanzas})`;
+  const btnAdo = q('#btn-filter-adoracion');
+  if (btnAdo) btnAdo.textContent = `Adoración (${adoracion})`;
+}
+
 async function loadGiSetlistFromFile() {
   try {
     // Attempt to auto-load from root if available
@@ -640,8 +658,7 @@ async function loadGiSetlistFromFile() {
       const json = await res.json();
       if (json.data && json.data.songs) {
         giSetlistSongs = json.data.songs;
-        const countEl = q('#app-title-count');
-        if (countEl) countEl.textContent = `Live Pads (${giSetlistSongs.length})`;
+        updateFilterCounts();
         renderGiSetlist();
       }
     }
@@ -671,6 +688,9 @@ function renderGiSetlist(filter = '') {
     const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
     return genre.includes(currentGiGenre);
   });
+
+  // Sort alphabetically by title
+  filtered.sort((a, b) => a.title.localeCompare(b.title));
 
   if (!filtered.length) {
     container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
