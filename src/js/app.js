@@ -87,10 +87,27 @@ function buildKeyGrid() {
 }
 
 function onKeyClick(key) {
-  if (activeKey === key) { engine.stopPad(); activeKey = null; }
-  else { engine.playPad(key, PAD_BANKS[padBankIdx].synth); activeKey = key; }
-  qa('.key-btn').forEach(b => b.classList.toggle('active', b.dataset.key === activeKey));
+  if (activeKey === key) { 
+    engine.stopPad(); 
+    activeKey = null; 
+    preparedPadKey = key; // Keep it prepared
+    qa('.key-btn').forEach(b => {
+      b.classList.remove('active');
+      if(b.dataset.key === key) b.classList.add('prepared');
+    });
+  }
+  else { 
+    engine.playPad(key, PAD_BANKS[padBankIdx].synth); 
+    activeKey = key; 
+    preparedPadKey = null;
+    qa('.key-btn').forEach(b => {
+      b.classList.remove('prepared');
+      b.classList.toggle('active', b.dataset.key === activeKey);
+    });
+  }
 }
+
+let preparedPadKey = null;
 
 /* ── DRUM GRID ── */
 function buildDrumGrid(pads) {
@@ -577,8 +594,19 @@ function syncPanSlider(el) {
 function onKey(e) {
   if (e.target.tagName === 'INPUT') return;
   const k = e.key.toUpperCase();
-  if (e.code === 'Space') { e.preventDefault(); toggleMetro(); }
-  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; buildKeyGrid(); }
+  if (e.code === 'Space') { 
+    e.preventDefault(); 
+    if (preparedPadKey && !activeKey && !metroRunning) {
+       onKeyClick(preparedPadKey);
+       toggleMetro();
+    } else if (activeKey || metroRunning) {
+       if (activeKey) onKeyClick(activeKey);
+       if (metroRunning) toggleMetro();
+    } else {
+       toggleMetro();
+    }
+  }
+  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; preparedPadKey = null; buildKeyGrid(); }
 
   const padIdx = KEY_MAP_PADS.indexOf(k);
   if (padIdx !== -1) { const keys = useFlats ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
@@ -793,39 +821,37 @@ function applyGiSong(song) {
       if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
     }
     
-    // Configurar bemoles o sostenidos
+    // Check if flat or sharp
     if (key.includes('b')) {
       useFlats = true; 
       q('#btn-flats').classList.add('active'); 
       q('#btn-sharps').classList.remove('active');
-    } else if (key.includes('#')) {
+    } else {
       useFlats = false; 
       q('#btn-sharps').classList.add('active'); 
       q('#btn-flats').classList.remove('active');
     }
-    
     buildKeyGrid();
     
-    // Encontrar la nota en el grid y simular click si es diferente
-    if (activeKey !== key) {
-      // First stop current pad if any
-      if (activeKey) {
-        engine.stopPad();
-        activeKey = null;
-        qa('.key-btn').forEach(b => b.classList.remove('active'));
-      }
-      
-      // Attempt to play the new key
-      const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
-      if (keys.includes(key)) {
-        onKeyClick(key);
-      }
+    // Stop playing pad and metronome if they are running
+    if (activeKey) {
+      engine.stopPad();
+      activeKey = null;
+    }
+    if (metroRunning) {
+      toggleMetro();
+    }
+    
+    // Prepare the new key
+    const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+    if (keys.includes(key)) {
+      preparedPadKey = key;
+      qa('.key-btn').forEach(b => {
+        b.classList.remove('active', 'prepared');
+        if (b.dataset.key === key) b.classList.add('prepared');
+      });
     }
   }
-  
-  // Opcional: auto-iniciar metrónomo y ocultar sidebar
-  if (!metroRunning) toggleMetro();
-  // q('#sidebar').classList.remove('open'); // Descomentar si se quiere cerrar el sidebar automáticamente
 }
 
 /* ── TRACK PLAYER LOGIC ── */
