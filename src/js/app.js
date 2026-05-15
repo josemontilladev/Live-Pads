@@ -866,9 +866,14 @@ function startTrackPlayback(url, title, type) {
     q('#tp-time-current').textContent = "0:00";
   };
   
-  // Detener metrónomo si es secuencia
-  if (type === 'sequence' && metroRunning) {
+  // Detener metrónomo y pad ambiental
+  if (metroRunning) {
     toggleMetro();
+  }
+  if (activeKey) {
+    engine.stopPad();
+    activeKey = null;
+    qa('.key-btn').forEach(b => b.classList.remove('active'));
   }
   
   currentTrackAudio.play();
