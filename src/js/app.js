@@ -720,12 +720,51 @@ function renderGiSetlist(filter = '') {
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
             Original
          </button>
+         <button class="gi-action-btn btn-edit" title="Editar canción" style="padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+         </button>
       </div>
     `;
     
     el.querySelector('.gi-song-main').onclick = () => applyGiSong(song);
     el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
     el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
+    
+    el.querySelector('.btn-edit').onclick = (e) => {
+      e.stopPropagation();
+      el.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <input type="text" class="edit-title" value="${song.title}" placeholder="Título" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 13px; font-weight: 700; outline: none; box-sizing: border-box;">
+          <input type="text" class="edit-artist" value="${song.artist || ''}" placeholder="Artista" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; outline: none; box-sizing: border-box;">
+          <div style="display: flex; gap: 6px;">
+            <input type="text" class="edit-bpm" value="${song.bpm || ''}" placeholder="BPM" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+            <input type="text" class="edit-key" value="${song.key || ''}" placeholder="Tono" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+            <input type="text" class="edit-genre" value="${song.genre || ''}" placeholder="Género" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button class="gi-edit-btn save" style="flex: 1; padding: 6px; background: var(--blue); color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Guardar</button>
+            <button class="gi-edit-btn cancel" style="flex: 1; padding: 6px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; cursor: pointer;">Cancelar</button>
+          </div>
+        </div>
+      `;
+      
+      el.querySelector('.cancel').onclick = (ev) => {
+        ev.stopPropagation();
+        renderGiSetlist(q('#gi-search').value);
+      };
+      
+      el.querySelector('.save').onclick = (ev) => {
+        ev.stopPropagation();
+        song.title = el.querySelector('.edit-title').value;
+        song.artist = el.querySelector('.edit-artist').value;
+        song.bpm = el.querySelector('.edit-bpm').value;
+        song.key = el.querySelector('.edit-key').value;
+        song.genre = el.querySelector('.edit-genre').value;
+        
+        updateFilterCounts();
+        renderGiSetlist(q('#gi-search').value);
+      };
+    };
 
     container.appendChild(el);
   });
