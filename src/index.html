@@ -150,6 +150,25 @@
       </div>
     </main>
 
+    <!-- ═══ TRACK PLAYER (Secuencias / Original) ═══ -->
+    <div id="track-player-bar" class="hidden" style="flex-shrink: 0; background: var(--bg-hover); border-top: 1px solid var(--border); padding: 8px 24px; display: flex; align-items: center; gap: 16px; z-index: 1000;">
+      <button class="icon-btn" id="tp-play-btn" style="background: var(--blue); color: #000; border-radius: 50%; width: 32px; height: 32px;">
+         <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg>
+      </button>
+      <div id="tp-title" style="font-size: 13px; font-weight: 700; color: var(--text); min-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sin pista</div>
+      <span id="tp-time-current" style="font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 35px; text-align: right;">0:00</span>
+      <input type="range" id="tp-progress" min="0" max="100" value="0" class="blue-slider" style="flex: 1;">
+      <span id="tp-time-total" style="font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 35px;">0:00</span>
+      <div style="display: flex; align-items: center; gap: 8px; margin-left: 16px;">
+         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="16" height="16" style="color: var(--text-muted);"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+         <input type="range" id="tp-vol" min="0" max="100" value="80" class="blue-slider" style="width: 80px;">
+      </div>
+      <button class="icon-btn" id="tp-close-btn" style="width: 24px; height: 24px; margin-left: auto;">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <input type="file" id="tp-file-input" accept="audio/*" hidden>
+    </div>
+
     <!-- ═══ METRONOME PANEL (Horizontal player at bottom) ═══ -->
     <footer id="panel-metro" class="horizontal-metro">
       

@@ -23,7 +23,12 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ### 🥁 Baterías y Metrónomo
 - **Pads Interactivos**: Disparadores visuales con mapeo independiente de volumen y paneo.
-- **Metrónomo Completo**: Tap Tempo, compases (2/4, 3/4, 4/4, 6/8), multiplicador `2x`, subdivisión y múltiples sonidos seleccionables (Clásico, Cowbell, Woodblock, etc.).
+- **Metrónomo Completo (Interfaz Horizontal)**: Rediseñado como un reproductor inferior siempre visible. Incluye Tap Tempo, compases (2/4, 3/4, 4/4, 6/8), multiplicador `2x`, subdivisión y múltiples sonidos seleccionables.
+
+### 📋 Integración y Gestión de Setlist
+- **Conexión con GI-Setlist**: Importación nativa de bases de datos JSON (`canciones_app.json`) directamente a la app.
+- **Automatización en Vivo**: Un solo clic en cualquier canción configura automáticamente los BPM correctos y dispara la tonalidad del Pad ambiental.
+- **Filtros Dinámicos**: Barra de búsqueda inteligente, filtros de "Alabanza" y "Adoración" con contadores, y orden alfabético automático.
 
 ### ⌨️ Control y Conectividad
 - **Atajos de Teclado**: Mapeo completo por defecto para pads y batería.
@@ -43,8 +48,11 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - Reordenamiento visual de canciones (`Drag & Drop`) dentro del Setlist para preparar el orden exacto del evento o servicio.
 
 ### 📦 4. Lanzamiento y Empaquetado
-- Solucionar bloqueos de enlaces simbólicos en Electron Builder (Windows).
-- Generar el instalador `.exe` (NSIS) final pulido con el ícono y metadatos correctos para distribución general.
+- Generar el instalador `.exe` (NSIS) y versiones portables pulidas con el ícono y metadatos correctos para distribución general.
+
+### 🎵 5. Reproductor de Secuencias (Split Tracks)
+- **Modo Clásico (Próximo paso)**: Cargar archivos estéreo de secuencias (Pista lado Izquierdo / Click y Guía lado Derecho). Al reproducirse, la app silenciará su metrónomo interno. Ideal para el cableado estándar en Y hacia la consola principal.
+- **Modo Pro (Ruteo Web Audio)**: Investigar el ruteo interno de los canales izquierdo y derecho para enviar el click independientemente a los audífonos y mandar la pista en el master principal sin requerir ruteo físico externo complejo.
 
 ---
 *Documento actualizado en preparación para el primer commit oficial en GitHub.*

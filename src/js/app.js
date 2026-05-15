@@ -700,16 +700,31 @@ function renderGiSetlist(filter = '') {
   filtered.forEach(song => {
     const el = document.createElement('div');
     el.className = 'gi-song-item';
+    
+    // Convert song to string to pass it to inline click handlers safely
+    const songData = JSON.stringify(song).replace(/'/g, "&#39;");
+    
     el.innerHTML = `
-      <div class="gi-song-title">${song.title}</div>
-      <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
-      <div class="gi-song-meta">
-        <span class="gi-badge bpm">${song.bpm} BPM</span>
-        <span class="gi-badge key">${song.key || '-'}</span>
-        ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
+      <div style="flex: 1;" onclick='applyGiSong(${songData})'>
+        <div class="gi-song-title">${song.title}</div>
+        <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
+        <div class="gi-song-meta">
+          <span class="gi-badge bpm">${song.bpm} BPM</span>
+          <span class="gi-badge key">${song.key || '-'}</span>
+          ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
+        </div>
+      </div>
+      <div class="gi-song-actions" style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+         <button class="gi-action-btn" title="Secuencia Split-Track" onclick='loadAndPlayTrack(${songData}, "sequence")' style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
+            Secuencia
+         </button>
+         <button class="gi-action-btn" title="Canción Original" onclick='loadAndPlayTrack(${songData}, "original")' style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+            Original
+         </button>
       </div>
     `;
-    el.onclick = () => applyGiSong(song);
     container.appendChild(el);
   });
 }
@@ -762,4 +777,100 @@ function applyGiSong(song) {
   // Opcional: auto-iniciar metrónomo y ocultar sidebar
   if (!metroRunning) toggleMetro();
   // q('#sidebar').classList.remove('open'); // Descomentar si se quiere cerrar el sidebar automáticamente
+}
+
+/* ── TRACK PLAYER LOGIC ── */
+let currentTrackAudio = null;
+let currentTrackType = null;
+let currentTrackSong = null;
+
+window.loadAndPlayTrack = function(song, type) {
+  if (currentTrackAudio) {
+    currentTrackAudio.pause();
+    currentTrackAudio = null;
+  }
+  currentTrackSong = song;
+  const path = (song.audio && song.audio[type]) ? song.audio[type] : null;
+
+  if (!path) {
+    // Si no hay ruta en el JSON, abrimos el selector de archivos
+    const input = q('#tp-file-input');
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        startTrackPlayback(URL.createObjectURL(file), song.title, type);
+      }
+      input.value = ''; // reset
+    };
+    input.click();
+  } else {
+    startTrackPlayback(path, song.title, type);
+  }
+};
+
+function startTrackPlayback(url, title, type) {
+  currentTrackAudio = new Audio(url);
+  currentTrackType = type;
+  
+  q('#track-player-bar').classList.remove('hidden');
+  q('#tp-title').textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
+  
+  const playBtn = q('#tp-play-btn');
+  const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg>';
+  const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
+  
+  const updatePlayBtn = () => {
+    playBtn.innerHTML = currentTrackAudio.paused ? playIcon : pauseIcon;
+  };
+  
+  playBtn.onclick = () => {
+    if (currentTrackAudio.paused) currentTrackAudio.play();
+    else currentTrackAudio.pause();
+    updatePlayBtn();
+  };
+  
+  const formatTime = (s) => {
+    if (isNaN(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  currentTrackAudio.ontimeupdate = () => {
+    q('#tp-time-current').textContent = formatTime(currentTrackAudio.currentTime);
+    if (currentTrackAudio.duration) {
+      q('#tp-time-total').textContent = formatTime(currentTrackAudio.duration);
+      q('#tp-progress').value = (currentTrackAudio.currentTime / currentTrackAudio.duration) * 100;
+    }
+  };
+  
+  q('#tp-progress').oninput = (e) => {
+    if (currentTrackAudio.duration) {
+      currentTrackAudio.currentTime = (e.target.value / 100) * currentTrackAudio.duration;
+    }
+  };
+  
+  q('#tp-vol').oninput = (e) => {
+    currentTrackAudio.volume = e.target.value / 100;
+  };
+  currentTrackAudio.volume = q('#tp-vol').value / 100;
+  
+  q('#tp-close-btn').onclick = () => {
+    currentTrackAudio.pause();
+    q('#track-player-bar').classList.add('hidden');
+  };
+  
+  currentTrackAudio.onended = () => {
+    updatePlayBtn();
+    q('#tp-progress').value = 0;
+    q('#tp-time-current').textContent = "0:00";
+  };
+  
+  // Detener metrónomo si es secuencia
+  if (type === 'sequence' && metroRunning) {
+    toggleMetro();
+  }
+  
+  currentTrackAudio.play();
+  updatePlayBtn();
 }
