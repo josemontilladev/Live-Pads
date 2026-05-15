@@ -23,6 +23,7 @@
 
     <div class="topbar-center">
       <div class="topbar-logo">
+        <span id="app-title-count" style="font-size: 16px; font-weight: 800; letter-spacing: 0.5px;">Live Pads (0)</span>
         <img src="assets/logo.png" alt="LivePads Logo" style="height: 34px;">
       </div>
     </div>
@@ -139,6 +140,11 @@
         
         <div id="gi-setlist-list" class="hidden">
           <input type="text" id="gi-search" class="gi-search-input" placeholder="Buscar canción o artista...">
+          <div class="gi-filters" style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="gi-filter-btn active" data-genre="all">Todas</button>
+            <button class="gi-filter-btn" data-genre="alabanza">Alabanzas</button>
+            <button class="gi-filter-btn" data-genre="adoracion">Adoración</button>
+          </div>
           <div id="gi-songs-container"></div>
         </div>
       </div>

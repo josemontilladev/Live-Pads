@@ -531,6 +531,9 @@ input.pan-slider {
 .gi-badge { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
 .gi-badge.key { background: rgba(251, 174, 0, 0.15); color: var(--blue); }
 .gi-badge.bpm { background: rgba(255, 255, 255, 0.1); color: #ddd; }
+.gi-filter-btn { flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.gi-filter-btn:hover { border-color: var(--blue); color: var(--text); }
+.gi-filter-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
 
 /* ── HORIZONTAL METRONOME (FOOTER PLAYER) ── */
 .horizontal-metro {

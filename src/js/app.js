@@ -13,6 +13,7 @@ let currentTheme = 'gi_setlist';
 let metroRunning = false;
 let presets = [];
 let giSetlistSongs = [];
+let currentGiGenre = 'all';
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -443,6 +444,8 @@ function bindAll() {
         const json = JSON.parse(ev.target.result);
         if (json.data && json.data.songs) {
           giSetlistSongs = json.data.songs;
+          const countEl = q('#app-title-count');
+          if (countEl) countEl.textContent = `Live Pads (${giSetlistSongs.length})`;
           renderGiSetlist();
           // Switch to GI tab automatically
           q('.s-toggle[data-target="gi-setlist-list"]').click();
@@ -457,6 +460,15 @@ function bindAll() {
   };
 
   q('#gi-search').oninput = (e) => renderGiSetlist(e.target.value);
+  
+  qa('.gi-filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      qa('.gi-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentGiGenre = btn.dataset.genre;
+      renderGiSetlist(q('#gi-search').value);
+    };
+  });
 
   // MIDI
   engine.initMIDI(msg => {
@@ -628,6 +640,8 @@ async function loadGiSetlistFromFile() {
       const json = await res.json();
       if (json.data && json.data.songs) {
         giSetlistSongs = json.data.songs;
+        const countEl = q('#app-title-count');
+        if (countEl) countEl.textContent = `Live Pads (${giSetlistSongs.length})`;
         renderGiSetlist();
       }
     }
@@ -646,10 +660,17 @@ function renderGiSetlist(filter = '') {
   }
 
   const term = filter.toLowerCase();
-  const filtered = giSetlistSongs.filter(s => 
-    s.title.toLowerCase().includes(term) || 
-    (s.artist && s.artist.toLowerCase().includes(term))
-  );
+  const filtered = giSetlistSongs.filter(s => {
+    const matchText = s.title.toLowerCase().includes(term) || 
+                      (s.artist && s.artist.toLowerCase().includes(term));
+    if (!matchText) return false;
+    
+    if (currentGiGenre === 'all') return true;
+    
+    // Normalize string: remove accents and lowercase
+    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+    return genre.includes(currentGiGenre);
+  });
 
   if (!filtered.length) {
     container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
