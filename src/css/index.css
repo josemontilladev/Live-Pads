@@ -563,14 +563,48 @@ input.pan-slider {
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .gi-search-input { width: 100%; padding: 10px 14px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 12px; font-size: 13px; outline: none; transition: border-color 0.2s; }
 .gi-search-input:focus { border-color: var(--blue); }
-.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; }
+.gi-song-item { 
+  padding: 12px; 
+  background: var(--bg-card); 
+  border: 1px solid var(--border); 
+  border-radius: var(--r-md); 
+  margin-bottom: 8px; 
+  transition: all 0.2s; 
+  display: flex; 
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
 .gi-song-item:hover { border-color: var(--blue); background: var(--bg-hover); transform: translateY(-1px); }
+.gi-song-main { cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
 .gi-song-title { font-size: 13px; font-weight: 800; color: var(--text); }
 .gi-song-artist { font-size: 11px; color: var(--text-muted); }
-.gi-song-meta { display: flex; gap: 10px; margin-top: 4px; font-size: 10px; font-weight: 700; }
+.gi-song-meta { display: flex; gap: 8px; margin-top: 4px; font-size: 10px; font-weight: 700; }
 .gi-badge { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
 .gi-badge.key { background: rgba(251, 174, 0, 0.15); color: var(--blue); }
-.gi-badge.bpm { background: rgba(255, 255, 255, 0.1); color: #ddd; }
+
+.gi-song-actions { 
+  display: flex; 
+  gap: 6px; 
+  margin-top: 10px; 
+  padding-top: 10px; 
+  border-top: 1px solid rgba(255,255,255,0.05); 
+}
+.action-btn { 
+  width: 28px; height: 28px; border-radius: 6px; 
+  border: 1px solid var(--border); background: var(--bg-surface); 
+  color: var(--text-muted); cursor: pointer; display: flex; 
+  align-items: center; justify-content: center; transition: all 0.2s; 
+}
+.action-btn:hover { color: var(--blue); border-color: var(--blue); background: var(--bg-hover); }
+.action-btn.remove:hover { color: #ff4747; border-color: #ff4747; }
+.action-btn svg { width: 14px; height: 14px; }
+
+/* Drag & Drop */
+.gi-song-item.dragging { opacity: 0.4; transform: scale(0.95); border: 2px dashed var(--blue); }
+.drag-over { border-top: 3px solid var(--blue) !important; }
+
 .gi-filter-btn { flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .gi-filter-btn:hover { border-color: var(--blue); color: var(--text); }
 .gi-filter-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }

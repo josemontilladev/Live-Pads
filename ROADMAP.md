@@ -28,8 +28,11 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ### 📋 Integración y Gestión de Setlist
 - **Conexión con GI-Setlist**: Importación de archivos JSON y automatización total.
-- **Sincronización Inteligente**: Al seleccionar una canción, se configuran automáticamente los BPM, la tonalidad del Pad y el sistema de notación (Bemoles/Sostenidos) de forma instantánea.
-- **Filtros Dinámicos**: Búsqueda inteligente y filtrado por categorías de culto.
+- **Gestión de Listas de Servicio (Sunday Set)**: Nueva pestaña "Servicio" que permite crear una lista personalizada de canciones para eventos específicos a partir de la librería principal.
+- **Reordenamiento Interactivo**: Soporte completo para **Drag & Drop**, permitiendo organizar el orden exacto del servicio de forma visual.
+- **Sincronización Inteligente**: Al seleccionar una canción, se configuran automáticamente los BPM, la tonalidad del Pad y el sistema de notación (Bemoles/Sostenidos).
+- **Persistencia de Lista**: El set de servicio se guarda automáticamente en la memoria local, persistiendo incluso después de cerrar la aplicación.
+- **Filtros Dinámicos**: Búsqueda inteligente y filtrado por categorías de culto (Alabanza/Adoración).
 
 ### ⌨️ Control y Conectividad
 - **Atajos de Teclado**: Mapeo completo por defecto para pads y batería.

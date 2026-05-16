@@ -14,6 +14,7 @@ let metroRunning = false;
 let presets = [];
 let giSetlistSongs = [];
 let currentGiGenre = 'all';
+let serviceSongs   = [];
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildKeyGrid();
   buildMetroBeatDots(4);
   buildThemesList();
+  loadServiceSongs();
   bindAll();
   loadPresets();
   loadGiSetlistFromFile();
@@ -472,9 +474,15 @@ function bindAll() {
       btn.classList.add('active');
       q('#setlist-list').classList.add('hidden');
       q('#gi-setlist-list').classList.add('hidden');
+      q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
     };
   });
+
+  // Clear service list
+  const btnClear = q('#btn-clear-service');
+  if (btnClear) btnClear.onclick = clearServiceList;
+
 
   q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
   q('#gi-file-input').onchange = (e) => {
@@ -755,7 +763,7 @@ function renderGiSetlist(filter = '') {
     el.className = 'gi-song-item';
     
     el.innerHTML = `
-      <div style="flex: 1; cursor: pointer;" class="gi-song-main">
+      <div class="gi-song-main">
         <div class="gi-song-title">${song.title}</div>
         <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
         <div class="gi-song-meta">
@@ -764,17 +772,15 @@ function renderGiSetlist(filter = '') {
           ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
         </div>
       </div>
-      <div class="gi-song-actions" style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
-         <button class="gi-action-btn btn-seq" title="Secuencia Split-Track" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
-            Secuencia
+      <div class="gi-song-actions">
+         <button class="action-btn btn-seq" title="Secuencia Split-Track">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
          </button>
-         <button class="gi-action-btn btn-orig" title="Canción Original" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-            Original
+         <button class="action-btn btn-orig" title="Canción Original">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
          </button>
-         <button class="gi-action-btn btn-edit" title="Editar canción" style="padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+         <button class="action-btn btn-edit" title="Editar canción">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
          </button>
       </div>
     `;
@@ -783,6 +789,17 @@ function renderGiSetlist(filter = '') {
     el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
     el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
     
+    // Add to service button
+    const btnAdd = document.createElement('button');
+    btnAdd.className = 'action-btn';
+    btnAdd.title = 'Añadir al servicio de hoy';
+    btnAdd.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+    btnAdd.onclick = (e) => {
+      e.stopPropagation();
+      addToService(song);
+    };
+    el.querySelector('.gi-song-actions').appendChild(btnAdd);
+
     el.querySelector('.btn-edit').onclick = (e) => {
       e.stopPropagation();
       el.innerHTML = `
@@ -822,6 +839,165 @@ function renderGiSetlist(filter = '') {
     container.appendChild(el);
   });
 }
+
+/* ── SERVICE SETLIST LOGIC ── */
+function loadServiceSongs() {
+  const saved = localStorage.getItem('serviceSongs');
+  if (saved) {
+    try {
+      serviceSongs = JSON.parse(saved);
+      renderServiceList();
+    } catch(e) { serviceSongs = []; }
+  }
+}
+
+function saveServiceSongs() {
+  localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
+}
+
+function addToService(song) {
+  // Add a unique ID for drag and drop to work correctly even with duplicate songs
+  const songToAdd = { ...song, serviceId: Date.now() + Math.random() };
+  serviceSongs.push(songToAdd);
+  saveServiceSongs();
+  renderServiceList();
+  
+  // Optional: Visual feedback or switch to service tab
+  // openServiceTab();
+}
+
+function removeFromService(serviceId) {
+  serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
+  saveServiceSongs();
+  renderServiceList();
+}
+
+function clearServiceList() {
+  if (confirm('¿Vaciar toda la lista de servicio?')) {
+    serviceSongs = [];
+    saveServiceSongs();
+    renderServiceList();
+  }
+}
+
+function renderServiceList() {
+  const container = q('#service-songs-container');
+  const emptyMsg = q('#service-empty-msg');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  if (serviceSongs.length === 0) {
+    emptyMsg.classList.remove('hidden');
+    return;
+  }
+  
+  emptyMsg.classList.add('hidden');
+  
+  serviceSongs.forEach((song, index) => {
+    const el = document.createElement('div');
+    el.className = 'gi-song-item';
+    el.draggable = true;
+    el.dataset.index = index;
+    
+    el.innerHTML = `
+      <div class="gi-song-main">
+        <div class="gi-song-title">${song.title}</div>
+        <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
+        <div class="gi-song-meta">
+          <span class="gi-badge bpm">${song.bpm} BPM</span>
+          <span class="gi-badge key">${song.key || '-'}</span>
+          ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
+        </div>
+      </div>
+      <div class="gi-song-actions">
+         <button class="action-btn btn-seq" title="Secuencia Split-Track">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
+         </button>
+         <button class="action-btn btn-orig" title="Canción Original">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+         </button>
+         <button class="action-btn btn-edit" title="Editar canción">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+         </button>
+         <button class="action-btn btn-remove" title="Quitar de la lista" style="color: #ff4747;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+         </button>
+      </div>
+    `;
+    
+    el.querySelector('.gi-song-main').onclick = () => applyGiSong(song);
+    el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
+    el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
+    el.querySelector('.btn-remove').onclick = (e) => {
+      e.stopPropagation();
+      removeFromService(song.serviceId);
+    };
+
+    el.querySelector('.btn-edit').onclick = (e) => {
+      e.stopPropagation();
+      // ... edit logic same as above ...
+      el.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <input type="text" class="edit-title" value="${song.title}" placeholder="Título" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 13px; font-weight: 700; outline: none; box-sizing: border-box;">
+          <input type="text" class="edit-artist" value="${song.artist || ''}" placeholder="Artista" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; outline: none; box-sizing: border-box;">
+          <div style="display: flex; gap: 6px;">
+            <input type="text" class="edit-bpm" value="${song.bpm || ''}" placeholder="BPM" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+            <input type="text" class="edit-key" value="${song.key || ''}" placeholder="Tono" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+            <input type="text" class="edit-genre" value="${song.genre || ''}" placeholder="Género" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
+          </div>
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button class="gi-edit-btn save" style="flex: 1; padding: 6px; background: var(--blue); color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Guardar</button>
+            <button class="gi-edit-btn cancel" style="flex: 1; padding: 6px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; cursor: pointer;">Cancelar</button>
+          </div>
+        </div>
+      `;
+      el.querySelector('.cancel').onclick = (ev) => { ev.stopPropagation(); renderServiceList(); };
+      el.querySelector('.save').onclick = (ev) => {
+        ev.stopPropagation();
+        song.title = el.querySelector('.edit-title').value;
+        song.artist = el.querySelector('.edit-artist').value;
+        song.bpm = el.querySelector('.edit-bpm').value;
+        song.key = el.querySelector('.edit-key').value;
+        song.genre = el.querySelector('.edit-genre').value;
+        saveServiceSongs();
+        renderServiceList();
+      };
+    };
+    
+    // Drag and Drop events
+    el.ondragstart = (e) => {
+      el.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', index);
+    };
+    
+    el.ondragend = () => el.classList.remove('dragging');
+    
+    el.ondragover = (e) => {
+      e.preventDefault();
+      el.classList.add('drag-over');
+    };
+    
+    el.ondragleave = () => el.classList.remove('drag-over');
+    
+    el.ondrop = (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+      const toIndex = index;
+      
+      if (fromIndex !== toIndex) {
+        const movedItem = serviceSongs.splice(fromIndex, 1)[0];
+        serviceSongs.splice(toIndex, 0, movedItem);
+        saveServiceSongs();
+        renderServiceList();
+      }
+    };
+    
+    container.appendChild(el);
+  });
+}
+
 
 function applyGiSong(song) {
   // Update BPM
