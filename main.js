@@ -8,6 +8,16 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
+let mainWindow;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1360,
+    height: 860,
     minWidth: 1024,
     minHeight: 700,
     frame: false,
@@ -17,6 +27,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false
     },
   });
   mainWindow.loadFile('src/index.html');
@@ -78,7 +89,7 @@ ipcMain.handle('window-action', (_e, action) => {
 
 ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
   const folder = type === 'sequence' ? 'Sequences' : 'Original Tracks';
-  const destDir = path.join(__dirname, 'src', 'assets', folder);
+  const destDir = path.join(app.getPath('userData'), folder);
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   
   const fileName = path.basename(sourcePath);
@@ -88,18 +99,18 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
     fs.copyFileSync(sourcePath, destPath);
   }
   
-  return `assets/${folder}/${fileName}`;
+  return `file:///${destPath.replace(/\\/g, '/')}`;
 });
 
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {
-  const fp = path.join(__dirname, 'src', 'assets', 'setlists', 'canciones_app.json');
+  const fp = path.join(app.getPath('userData'), 'canciones_app.json');
   const data = { data: { songs } };
   fs.writeFileSync(fp, JSON.stringify(data, null, 2));
   return true;
 });
 
 ipcMain.handle('load-gi-setlist', async () => {
-  const fp = path.join(__dirname, 'src', 'assets', 'setlists', 'canciones_app.json');
+  const fp = path.join(app.getPath('userData'), 'canciones_app.json');
   if (fs.existsSync(fp)) {
     return JSON.parse(fs.readFileSync(fp, 'utf-8'));
   }
@@ -112,7 +123,7 @@ ipcMain.handle('get-absolute-path', (_e, relativePath) => {
 
 // Custom Drums
 ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
-  const destDir = path.join(__dirname, 'src', 'assets', 'UserDrums');
+  const destDir = path.join(app.getPath('userData'), 'UserDrums');
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   
   // Clean filename to avoid issues
@@ -120,19 +131,17 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
   const destPath = path.join(destDir, fileName);
   if (sourcePath !== destPath) fs.copyFileSync(sourcePath, destPath);
   
-  return `assets/UserDrums/${fileName}`;
+  return `file:///${destPath.replace(/\\/g, '/')}`;
 });
 
 ipcMain.handle('save-user-drums', async (_e, kitMap) => {
-  const destDir = path.join(__dirname, 'src', 'assets', 'UserDrums');
-  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-  const fp = path.join(destDir, 'user_drums.json');
+  const fp = path.join(app.getPath('userData'), 'user_drums.json');
   fs.writeFileSync(fp, JSON.stringify(kitMap, null, 2), 'utf-8');
   return true;
 });
 
 ipcMain.handle('load-user-drums', async () => {
-  const fp = path.join(__dirname, 'src', 'assets', 'UserDrums', 'user_drums.json');
+  const fp = path.join(app.getPath('userData'), 'user_drums.json');
   if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf-8'));
   return null;
 });
@@ -144,16 +153,13 @@ app.on('window-all-closed', () => app.quit());
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
 ipcMain.handle('save-midi-map', async (_e, mapData) => {
-  const destDir = path.join(__dirname, 'src', 'assets', 'Midi');
-  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-  const fp = path.join(destDir, 'midi_map.json');
+  const fp = path.join(app.getPath('userData'), 'midi_map.json');
   fs.writeFileSync(fp, JSON.stringify(mapData, null, 2));
   return true;
 });
 
 ipcMain.handle('load-midi-map', async () => {
-  const fp = path.join(__dirname, 'src', 'assets', 'Midi', 'midi_map.json');
+  const fp = path.join(app.getPath('userData'), 'midi_map.json');
   if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf-8'));
   return null;
 });
-
