@@ -1,6 +1,4 @@
 {
-  "version": "1.0",
-  "timestamp": "2026-05-08T14:47:37.957Z",
   "data": {
     "songs": [
       {
@@ -690,10 +688,13 @@
         "notes": "",
         "key": "B",
         "originalKey": "B",
-        "genre": "alabanza",
+        "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=_dAWSE7OnXs",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "audio": {
+          "sequence": "../assets/Sequences/Celebrare.mp3"
+        }
       },
       {
         "_id": "69c87fac68bad308a6ffc059",
@@ -788,7 +789,7 @@
         "lyrics": "[Intro] [Dm] [C] [Dm] [C] [Gm] [F]\r\n        [Dm] [C] [Dm] [C] [Gm] [F]\r\n\r\nPrimera Parte\r\n\r\n[Dm] [Dm] [C] [Dm] [C] [Gm] [F]\r\nMe encuentro en frente a Jericó\r\n[Dm] [Dm] [C] [Dm] [C] [Gm] [F]\r\nTierra que mi Padre me entregó\r\n\r\nPre-Estribillo\r\n\r\nBb\r\nSi Él lo prometió, lo creere\r\n[Gm]\r\nContra el enemigo me enfrentare\r\n[Em]\r\nNo me rendiré\r\n[A]\r\nHasta la victoria ver\r\n\r\nEstribillo\r\n\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán, caerán, caerán\r\n\r\nTodas caerán\r\n\r\n[Intro] [Dm] [C] [Dm] [C] [Gm] [F]\r\n        [Dm] [C] [Dm] [C] [Gm] [F]\r\n\r\nSegunda Parte\r\n\r\n[Dm] [Dm] [C] [Dm] [C] [Gm] [F]\r\nRevestido estoy con Su poder\r\n[Dm] [Dm] [C] [Dm] [C] [Gm] [F]\r\nY a todo gigante yo derrotaré\r\n\r\nPre-Estribillo\r\n\r\nBb\r\nÉl pelea por mi, no temeré\r\n[Gm]\r\ncontra el enemigo me enfrentaré\r\n[Em]\r\nNo me rendiré\r\n[A]\r\nHasta la victoria ver\r\n\r\nEstribillo\r\n\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán, caerán, caerán\r\n\r\nTodas caerán\r\n\r\n(Dm C F Gm)\r\n\r\nPuente\r\n\r\n[Dm] [C] [F]\r\nYo tome, Yo tome, Yo tome\r\n[Gm]\r\nLo que me robó\r\n[Dm] [C] [F]\r\nYo tome, Yo tome, Yo tome\r\n[Gm]\r\nLo que me robó\r\n[Dm] [C] [F]\r\nYo tome, Yo tome, Yo tome\r\n[Gm]\r\nLo que me robó\r\n[Dm] [C] [F]\r\nYo tome, Yo tome, Yo tome\r\n[Gm]\r\nLo que me robó\r\n[Dm] [C] [G/B]\r\nYo tome, Yo tome, Yo tome\r\nBb\r\nLo que me robó\r\n[Dm] [C] [G/B]\r\nYo tome, Yo tome, Yo tome\r\nBb\r\nLo que me robó\r\n\r\nEstribillo\r\n\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán\r\n[Dm]\r\nGrita y las murallas caerán\r\n[Dm]\r\nGrita y todas caerán, caerán, caerán\r\n\r\nTodas caerán\r\n\r\nPuente\r\n\r\n[Dm] [C] [G/B]\r\nYo tome, Yo tome, Yo tome\r\nBb\r\nLo que me robó\r\n[Dm] [C] [G/B]\r\nYo tome, Yo tome, Yo tome\r\nBb\r\nLo que me robó\r\n[Dm]\r\nGrita",
         "bpm": "185",
         "notes": "",
-        "key": "Dm",
+        "key": "F",
         "originalKey": "Dm",
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=mMrdziQaETU&list=RDmMrdziQaETU&start_radio=1",
@@ -1149,7 +1150,6 @@
         "createdAt": "2026-05-07T19:59:29.477Z",
         "__v": 0
       }
-    ],
-    "setlists": []
+    ]
   }
 }

@@ -2,7 +2,7 @@
 
 Un software profesional y ligero para la reproducción de pads ambientales y disparadores de batería en vivo, diseñado específicamente para iglesias y presentaciones musicales.
 
-**Repositorio Oficial**: [https://github.com/jmdesign2911/Live-Pads.git](https://github.com/jmdesign2911/Live-Pads.git)
+**Repositorio Oficial**: [https://github.com/josemontilladev/Live-Pads.git](https://github.com/josemontilladev/Live-Pads.git)
 
 ---
 

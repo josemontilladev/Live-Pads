@@ -1,4 +1,4 @@
-import { SynthEngine } from './audio/SynthEngine.js';
+﻿import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS, THEMES } from './data/banks.js';
 
@@ -14,7 +14,6 @@ let metroRunning = false;
 let presets = [];
 let giSetlistSongs = [];
 let currentGiGenre = 'all';
-let serviceSongs   = [];
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -22,7 +21,7 @@ const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
 const q  = s => document.querySelector(s);
 const qa = s => document.querySelectorAll(s);
 
-/* ── BOOT ── */
+/* ÔöÇÔöÇ BOOT ÔöÇÔöÇ */
 document.addEventListener('DOMContentLoaded', async () => {
   engine = new SynthEngine();
   await engine.init();
@@ -33,13 +32,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   metro.sound = 'cowbell';  // default: Cowbell
 
   applyTheme(currentTheme);
-  buildBankSelects();
-  loadPadBank(2); // Chris Rocha por defecto
+  loadPadBank(0);
   loadKitBank(0);
   buildKeyGrid();
   buildMetroBeatDots(4);
   buildThemesList();
-  loadServiceSongs();
   bindAll();
   loadPresets();
   loadGiSetlistFromFile();
@@ -47,39 +44,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   q('#sidebar').classList.remove('open');
 });
 
-/* ── BANK SELECTS ── */
-function buildBankSelects() {
-  const padSel = q('#pad-bank-select');
-  const kitSel = q('#kit-bank-select');
-  if (padSel) {
-    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
-    padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
-  }
-  if (kitSel) {
-    kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
-    kitSel.onchange = (e) => loadKitBank(parseInt(e.target.value));
-  }
-}
-
-/* ── PAD BANK ── */
+/* ÔöÇÔöÇ PAD BANK ÔöÇÔöÇ */
 function loadPadBank(idx) {
   padBankIdx = ((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length;
   const bank = PAD_BANKS[padBankIdx];
-  const padSel = q('#pad-bank-select');
-  if (padSel) padSel.value = padBankIdx;
+  q('#pad-bank-name').textContent = bank.name;
   engine.setPadBank(bank);
   if (activeKey) engine.playPad(activeKey);
+  buildPadBankList();
 }
 
-/* ── KIT BANK ── */
+/* ÔöÇÔöÇ KIT BANK ÔöÇÔöÇ */
 function loadKitBank(idx) {
   kitBankIdx = ((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length;
   const kit = KIT_BANKS[kitBankIdx];
-  const kitSel = q('#kit-bank-select');
-  if (kitSel) kitSel.value = kitBankIdx;
+  q('#kit-bank-name').textContent = kit.name;
   engine.initDrumVolumes(kit.pads);
   buildDrumGrid(kit.pads);
   buildDrumVolumes(kit.pads);
+  buildKitBankList();
   // Load real WAV samples in background
   engine.loadKitSamples(kit.pads).then(loadedIds => {
     loadedIds.forEach(id => {
@@ -89,7 +72,7 @@ function loadKitBank(idx) {
   });
 }
 
-/* ── KEY GRID ── */
+/* ÔöÇÔöÇ KEY GRID ÔöÇÔöÇ */
 function buildKeyGrid() {
   const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
   const grid = q('#key-grid'); grid.innerHTML = '';
@@ -104,29 +87,12 @@ function buildKeyGrid() {
 }
 
 function onKeyClick(key) {
-  if (activeKey === key) { 
-    engine.stopPad(); 
-    activeKey = null; 
-    preparedPadKey = key; // Keep it prepared
-    qa('.key-btn').forEach(b => {
-      b.classList.remove('active');
-      if(b.dataset.key === key) b.classList.add('prepared');
-    });
-  }
-  else { 
-    engine.playPad(key, PAD_BANKS[padBankIdx].synth); 
-    activeKey = key; 
-    preparedPadKey = null;
-    qa('.key-btn').forEach(b => {
-      b.classList.remove('prepared');
-      b.classList.toggle('active', b.dataset.key === activeKey);
-    });
-  }
+  if (activeKey === key) { engine.stopPad(); activeKey = null; }
+  else { engine.playPad(key, PAD_BANKS[padBankIdx].synth); activeKey = key; }
+  qa('.key-btn').forEach(b => b.classList.toggle('active', b.dataset.key === activeKey));
 }
 
-let preparedPadKey = null;
-
-/* ── DRUM GRID ── */
+/* ÔöÇÔöÇ DRUM GRID ÔöÇÔöÇ */
 function buildDrumGrid(pads) {
   const grid = q('#drum-grid'); grid.innerHTML = '';
   pads.forEach((pad, i) => {
@@ -145,7 +111,7 @@ function hitDrum(id, type, btn) {
   setTimeout(() => btn.classList.remove('hit'), 120);
 }
 
-/* ── DRUM VOLUMES ── */
+/* ÔöÇÔöÇ DRUM VOLUMES ÔöÇÔöÇ */
 function buildDrumVolumes(pads) {
   const container = q('#drum-volumes'); container.innerHTML = '';
   const sbContainer = q('#sidebar-drum-volumes'); sbContainer.innerHTML = '';
@@ -188,20 +154,14 @@ function buildDrumVolumes(pads) {
   }
 }
 
-/* ── METRO BEAT DOTS ── */
+/* ÔöÇÔöÇ METRO BEAT DOTS ÔöÇÔöÇ */
 function buildMetroBeatDots(n) {
   const c = q('#metro-beat-dots'); if (!c) return;
   c.innerHTML = '';
   for (let i = 0; i < n; i++) {
     const d = document.createElement('div');
-    d.className = 'beat-dot' + (metro.accents.includes(i) ? ' accent' : '');
+    d.className = 'beat-dot' + (i === 0 ? ' accent' : '');
     d.dataset.beat = i;
-    d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
-    d.onclick = () => {
-      metro.toggleAccent(i);
-      d.classList.toggle('accent', metro.accents.includes(i));
-      d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
-    };
     c.appendChild(d);
   }
 }
@@ -213,7 +173,7 @@ function onMetroBeat(beat) {
   q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
 }
 
-/* ── THEME ── */
+/* ÔöÇÔöÇ THEME ÔöÇÔöÇ */
 function applyTheme(id) {
   currentTheme = id;
   const t = THEMES[id]; if (!t) return;
@@ -254,7 +214,7 @@ function buildThemesList() {
   });
 }
 
-/* ── SYNC SLIDER ── */
+/* ÔöÇÔöÇ SYNC SLIDER ÔöÇÔöÇ */
 function syncSlider(el) {
   const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
   if (!el.classList.contains('grey-slider')) {
@@ -266,7 +226,7 @@ function bindToggle(el, cb) {
   el.onclick = () => { el.classList.toggle('on'); cb(el.classList.contains('on')); };
 }
 
-/* ── BIND ALL ── */
+/* ÔöÇÔöÇ BIND ALL ÔöÇÔöÇ */
 function bindAll() {
   const api = window.electronAPI;
 
@@ -303,34 +263,39 @@ function bindAll() {
   q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('settings'); };
   q('#menu-open-themes').onclick   = () => { closeMenu(); openSidebarTab('themes'); };
 
-  // Bank arrows (Removed, now using dropdowns)
-
+  // Bank arrows
+  q('#pad-bank-prev').onclick = () => loadPadBank(padBankIdx - 1);
+  q('#pad-bank-next').onclick = () => loadPadBank(padBankIdx + 1);
+  q('#kit-bank-prev').onclick = () => loadKitBank(kitBankIdx - 1);
+  q('#kit-bank-next').onclick = () => loadKitBank(kitBankIdx + 1);
+  q('#bank-row-pad').onclick  = e => { if (!e.target.closest('.bank-arrow')) openPicker('pad'); };
+  q('#bank-row-kit').onclick  = e => { if (!e.target.closest('.bank-arrow')) openPicker('kit'); };
 
   // Pad volume (stage)
   const pvolStage = q('#pad-vol-stage'), pvolValStage = q('#pad-vol-val-stage');
   const pvol = q('#pad-vol'), pvolVal = q('#pad-vol-val');
   const updatePadVol = val => {
     engine.setPadVolume(val / 100);
-    if (pvol) { pvol.value = val; pvolVal.textContent = val + '%'; syncSlider(pvol); }
-    if (pvolStage) { pvolStage.value = val; pvolValStage.textContent = val + '%'; syncSlider(pvolStage); }
+    pvol.value = val; pvolStage.value = val;
+    pvolVal.textContent = val + '%'; pvolValStage.textContent = val + '%';
+    syncSlider(pvol); syncSlider(pvolStage);
   };
-  if (pvolStage) pvolStage.oninput = () => updatePadVol(pvolStage.value);
-  if (pvol) pvol.oninput = () => updatePadVol(pvol.value);
-  if (pvol) syncSlider(pvol);
-  if (pvolStage) syncSlider(pvolStage);
+  pvolStage.oninput = () => updatePadVol(pvolStage.value);
+  pvol.oninput = () => updatePadVol(pvol.value);
+  syncSlider(pvol); syncSlider(pvolStage);
 
   // Pad pan
   const ppanStage = q('#pad-pan-stage'), ppanValStage = q('#pad-pan-val-stage');
   const ppan = q('#pad-pan'), ppanVal = q('#pad-pan-val');
   const updatePadPan = val => {
     engine.setPadPan(val / 100);
-    if (ppan) { ppan.value = val; ppanVal.textContent = panLabel(val); syncPanSlider(ppan); }
-    if (ppanStage) { ppanStage.value = val; ppanValStage.textContent = panShort(val); syncPanSlider(ppanStage); }
+    ppan.value = val; ppanStage.value = val;
+    ppanVal.textContent = panLabel(val); ppanValStage.textContent = panShort(val);
+    syncPanSlider(ppanStage); syncPanSlider(ppan);
   };
-  if (ppanStage) ppanStage.oninput = () => updatePadPan(ppanStage.value);
-  if (ppan) ppan.oninput = () => updatePadPan(ppan.value);
-  if (ppanStage) syncPanSlider(ppanStage);
-  if (ppan) syncPanSlider(ppan);
+  ppanStage.oninput = () => updatePadPan(ppanStage.value);
+  ppan.oninput = () => updatePadPan(ppan.value);
+  syncPanSlider(ppanStage); syncPanSlider(ppan);
 
   // Drum pan
   const drumPanStage = q('#drum-pan-stage'), drumPanVal = q('#drum-pan-val-stage');
@@ -347,27 +312,16 @@ function bindAll() {
   const lpf = q('#pad-lpf'), lpfToggle = q('#lpf-toggle');
   const updateLPF = (val, on) => {
     engine.setLPF(parseInt(val), on);
-    if (lpf) {
-      lpf.value = val;
-      lpfToggle.className = 'toggle-sw ' + (on ? 'on' : '');
-      syncSlider(lpf);
-    }
-    if (lpfStage) {
-      lpfStage.value = val;
-      lpfToggleStage.className = 'toggle-sw ' + (on ? 'on' : '');
-      syncSlider(lpfStage);
-    }
+    lpf.value = val; lpfStage.value = val;
+    lpfToggle.className = 'toggle-sw ' + (on ? 'on' : '');
+    lpfToggleStage.className = 'toggle-sw ' + (on ? 'on' : '');
+    syncSlider(lpf); syncSlider(lpfStage);
   };
-  if (lpfStage) {
-    lpfStage.oninput = () => updateLPF(lpfStage.value, lpfToggleStage.classList.contains('on'));
-    bindToggle(lpfToggleStage, on => updateLPF(lpfStage.value, on));
-  }
-  if (lpf) {
-    lpf.oninput = () => updateLPF(lpf.value, lpfToggle.classList.contains('on'));
-    bindToggle(lpfToggle, on => updateLPF(lpf.value, on));
-    syncSlider(lpf);
-  }
-  if (lpfStage) syncSlider(lpfStage);
+  lpfStage.oninput = () => updateLPF(lpfStage.value, lpfToggleStage.classList.contains('on'));
+  lpf.oninput = () => updateLPF(lpf.value, lpfToggle.classList.contains('on'));
+  bindToggle(lpfToggleStage, on => updateLPF(lpfStage.value, on));
+  bindToggle(lpfToggle, on => updateLPF(lpf.value, on));
+  syncSlider(lpf); syncSlider(lpfStage);
 
   // Master vol
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
@@ -378,7 +332,7 @@ function bindAll() {
   };
   syncSlider(mvol);
 
-  // ── METRO START/STOP ──
+  // ÔöÇÔöÇ METRO START/STOP ÔöÇÔöÇ
   q('#btn-metro-main').onclick = toggleMetro;
 
   // BPM
@@ -399,16 +353,19 @@ function bindAll() {
 
   window.updateBPM = updateBPM; // Make it accessible globally for GI-Setlist
 
-  // Time signatures (ahora es un select dropdown)
-  const sigSelect = q('#metro-sig-select');
-  if (sigSelect) {
-    sigSelect.value = '4'; // 4/4 por defecto
-    sigSelect.onchange = (e) => {
-      const n = parseInt(e.target.value);
+  // Time signatures
+  qa('.sig-btn').forEach(btn => {
+    btn.onclick = () => {
+      const n = parseInt(btn.dataset.v);
       metro.setBeats(n);
+      qa('.sig-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
       buildMetroBeatDots(n);
     };
-  }
+  });
+  // Default 4/4
+  q('.sig-btn[data-v="4"]').classList.add('active');
+  q('.sig-btn[data-v="2"]').classList.remove('active');
   metro.setBeats(4);
   buildMetroBeatDots(4);
 
@@ -426,16 +383,20 @@ function bindAll() {
     if (metro.running) { metro.stop(); metro.start(); }
   };
 
-  // Accent toggle — acentúa el primer tiempo del compás (Removed, now click dots)
-
-
-  // Click sound — Select dropdown
+  // Click sound ÔÇö Click Tracks profesionales
   metro.sound = 'cowbell';   // default
-  const soundSelect = q('#metro-sound-select');
-  if (soundSelect) {
-    soundSelect.value = 'cowbell';
-    soundSelect.onchange = (e) => { metro.sound = e.target.value; };
-  }
+  const setSound = (btn, sound) => {
+    qa('[id^="btn-ms-"]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    metro.sound = sound;
+  };
+  q('#btn-ms-classic').onclick    = e => setSound(e.currentTarget, 'classic');
+  q('#btn-ms-woodblock').onclick  = e => setSound(e.currentTarget, 'woodblock');
+  q('#btn-ms-percussive').onclick = e => setSound(e.currentTarget, 'percussive');
+  q('#btn-ms-gentle').onclick     = e => setSound(e.currentTarget, 'gentle');
+  q('#btn-ms-blip').onclick       = e => setSound(e.currentTarget, 'blip');
+  q('#btn-ms-digital').onclick    = e => setSound(e.currentTarget, 'digital');
+  q('#btn-ms-cowbell').onclick    = e => setSound(e.currentTarget, 'cowbell');
 
   // Metro volume + pan
   const metroVolSlider = q('#metro-vol-slider'), metroVolVal = q('#metro-vol-val');
@@ -455,14 +416,9 @@ function bindAll() {
   syncPanSlider(metroPanSlider);
   metroPanVal.textContent = 'C';
 
-  // Notation — Select dropdown
-  const notSelect = q('#metro-notation-select');
-  if (notSelect) {
-    notSelect.addEventListener('change', (e) => {
-      useFlats = e.target.value === 'flats';
-      buildKeyGrid();
-    });
-  }
+  // Notation
+  q('#btn-flats').onclick  = () => { useFlats = true;  q('#btn-flats').classList.add('active');  q('#btn-sharps').classList.remove('active'); buildKeyGrid(); };
+  q('#btn-sharps').onclick = () => { useFlats = false; q('#btn-sharps').classList.add('active'); q('#btn-flats').classList.remove('active');  buildKeyGrid(); };
 
   // Setlist
   q('#btn-add-preset').onclick = () => showDialog('Guardar set', doSavePreset);
@@ -474,15 +430,9 @@ function bindAll() {
       btn.classList.add('active');
       q('#setlist-list').classList.add('hidden');
       q('#gi-setlist-list').classList.add('hidden');
-      q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
     };
   });
-
-  // Clear service list
-  const btnClear = q('#btn-clear-service');
-  if (btnClear) btnClear.onclick = clearServiceList;
-
 
   q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
   q('#gi-file-input').onchange = (e) => {
@@ -499,7 +449,7 @@ function bindAll() {
           // Switch to GI tab automatically
           q('.s-toggle[data-target="gi-setlist-list"]').click();
         } else {
-          alert('El archivo no parece ser un export de GI-Setlist válido.');
+          alert('El archivo no parece ser un export de GI-Setlist v├ílido.');
         }
       } catch (err) {
         alert('Error al leer el archivo JSON.');
@@ -593,7 +543,7 @@ function buildPadBankList() {
 }
 
 function buildKitBankList() {
-  const list = q('#kit-bank-list'); list.innerHTML = '<div class="bank-picker-title">Kits de batería</div>';
+  const list = q('#kit-bank-list'); list.innerHTML = '<div class="bank-picker-title">Kits de bater├¡a</div>';
   KIT_BANKS.forEach((b, i) => {
     const btn = document.createElement('button'); btn.className = 'bank-picker-item' + (i === kitBankIdx ? ' active' : '');
     btn.innerHTML = `<div class="bank-color" style="background:${b.color}"></div><div><div style="font-weight:700">${b.name}</div><div style="font-size:10px;opacity:.6">${b.desc}</div></div>` + (i === kitBankIdx ? '<div class="bank-check"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><polyline points="20,6 9,17 4,12"/></svg></div>' : '');
@@ -627,19 +577,8 @@ function syncPanSlider(el) {
 function onKey(e) {
   if (e.target.tagName === 'INPUT') return;
   const k = e.key.toUpperCase();
-  if (e.code === 'Space') { 
-    e.preventDefault(); 
-    if (preparedPadKey && !activeKey && !metroRunning) {
-       onKeyClick(preparedPadKey);
-       toggleMetro();
-    } else if (activeKey || metroRunning) {
-       if (activeKey) onKeyClick(activeKey);
-       if (metroRunning) toggleMetro();
-    } else {
-       toggleMetro();
-    }
-  }
-  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; preparedPadKey = null; buildKeyGrid(); }
+  if (e.code === 'Space') { e.preventDefault(); toggleMetro(); }
+  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; buildKeyGrid(); }
 
   const padIdx = KEY_MAP_PADS.indexOf(k);
   if (padIdx !== -1) { const keys = useFlats ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
@@ -661,7 +600,7 @@ function renderPresets() {
   if (!presets.length) { list.innerHTML = '<div class="setlist-empty">No hay sets guardados</div>'; return; }
   presets.forEach(p => {
     const el = document.createElement('div'); el.className = 'preset-item';
-    el.innerHTML = `<div class="preset-info"><div class="preset-item-name">${p.name}</div><div class="preset-item-meta">${p.key || '—'} · ${p.bpm} BPM</div></div>
+    el.innerHTML = `<div class="preset-info"><div class="preset-item-name">${p.name}</div><div class="preset-item-meta">${p.key || 'ÔÇö'} ┬À ${p.bpm} BPM</div></div>
     <div class="preset-actions"><button class="pi-play"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polygon points="5,3 19,12 5,21"/></svg></button></div>`;
     el.onclick = () => applyPreset(p);
     list.appendChild(el);
@@ -691,7 +630,7 @@ function applyPreset(p) {
 function showDialog(title) { q('#dialog-title').textContent = title; q('#dialog-overlay').classList.remove('hidden'); q('#dialog-name').value = ''; setTimeout(() => q('#dialog-name').focus(), 50); }
 function hideDialog() { q('#dialog-overlay').classList.add('hidden'); }
 
-/* ── GI-SETLIST LOGIC ── */
+/* ÔöÇÔöÇ GI-SETLIST LOGIC ÔöÇÔöÇ */
 function updateFilterCounts() {
   const total = giSetlistSongs.length;
   const alabanzas = giSetlistSongs.filter(s => {
@@ -708,23 +647,13 @@ function updateFilterCounts() {
   const btnAla = q('#btn-filter-alabanza');
   if (btnAla) btnAla.textContent = `Alabanza (${alabanzas})`;
   const btnAdo = q('#btn-filter-adoracion');
-  if (btnAdo) btnAdo.textContent = `Adoración (${adoracion})`;
+  if (btnAdo) btnAdo.textContent = `Adoraci├│n (${adoracion})`;
 }
 
 async function loadGiSetlistFromFile() {
   try {
-    if (window.electronAPI && window.electronAPI.loadGiSetlist) {
-      const json = await window.electronAPI.loadGiSetlist();
-      if (json && json.data && json.data.songs) {
-        giSetlistSongs = json.data.songs;
-        updateFilterCounts();
-        renderGiSetlist();
-        return;
-      }
-    }
-    
-    // Fallback if not using Electron
-    const res = await fetch('../assets/setlists/canciones_app.json');
+    // Attempt to auto-load from root if available
+    const res = await fetch('../canciones_app.json');
     if (res.ok) {
       const json = await res.json();
       if (json.data && json.data.songs) {
@@ -734,7 +663,7 @@ async function loadGiSetlistFromFile() {
       }
     }
   } catch (e) {
-    console.log('GI-Setlist local no encontrado, esperando importación manual.');
+    console.log('GI-Setlist local no encontrado, esperando importaci├│n manual.');
   }
 }
 
@@ -743,7 +672,7 @@ function renderGiSetlist(filter = '') {
   container.innerHTML = '';
   
   if (!giSetlistSongs.length) {
-    container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el botón de importar arriba.</div>';
+    container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el bot├│n de importar arriba.</div>';
     return;
   }
 
@@ -773,7 +702,7 @@ function renderGiSetlist(filter = '') {
     el.className = 'gi-song-item';
     
     el.innerHTML = `
-      <div class="gi-song-main">
+      <div style="flex: 1; cursor: pointer;" class="gi-song-main">
         <div class="gi-song-title">${song.title}</div>
         <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
         <div class="gi-song-meta">
@@ -782,178 +711,14 @@ function renderGiSetlist(filter = '') {
           ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
         </div>
       </div>
-      <div class="gi-song-actions">
-         <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color: var(--blue);' : ''}">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
+      <div class="gi-song-actions" style="display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;">
+         <button class="gi-action-btn btn-seq" title="Secuencia Split-Track" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
+            Secuencia
          </button>
-         <button class="action-btn btn-orig" title="Canción Original" style="${song.audio && song.audio.original ? 'color: var(--blue);' : ''}">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-         </button>
-         <button class="action-btn btn-edit" title="Editar canción">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-         </button>
-      </div>
-    `;
-    
-    el.querySelector('.gi-song-main').onclick = () => applyGiSong(song);
-    el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
-    el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
-    
-    // Add to service button
-    const btnAdd = document.createElement('button');
-    btnAdd.className = 'action-btn';
-    btnAdd.title = 'Añadir al servicio de hoy';
-    btnAdd.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
-    btnAdd.onclick = (e) => {
-      e.stopPropagation();
-      addToService(song);
-      
-      // Feedback visual
-      const originalHtml = btnAdd.innerHTML;
-      btnAdd.innerHTML = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-      btnAdd.style.color = '#4ade80';
-      btnAdd.style.borderColor = '#4ade80';
-      
-      const metaDiv = el.querySelector('.gi-song-meta');
-      const badge = document.createElement('span');
-      badge.className = 'gi-badge';
-      badge.style.background = 'rgba(74, 222, 128, 0.15)';
-      badge.style.color = '#4ade80';
-      badge.textContent = 'En servicio';
-      metaDiv.appendChild(badge);
-      
-      setTimeout(() => {
-        btnAdd.innerHTML = originalHtml;
-        btnAdd.style.color = '';
-        btnAdd.style.borderColor = '';
-        if(metaDiv.contains(badge)) metaDiv.removeChild(badge);
-      }, 2000);
-    };
-    el.querySelector('.gi-song-actions').appendChild(btnAdd);
-
-    el.querySelector('.btn-edit').onclick = (e) => {
-      e.stopPropagation();
-      el.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <input type="text" class="edit-title" value="${song.title}" placeholder="Título" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 13px; font-weight: 700; outline: none; box-sizing: border-box;">
-          <input type="text" class="edit-artist" value="${song.artist || ''}" placeholder="Artista" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; outline: none; box-sizing: border-box;">
-          <div style="display: flex; gap: 6px;">
-            <input type="text" class="edit-bpm" value="${song.bpm || ''}" placeholder="BPM" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-            <input type="text" class="edit-key" value="${song.key || ''}" placeholder="Tono" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-            <input type="text" class="edit-genre" value="${song.genre || ''}" placeholder="Género" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-          </div>
-          <div style="display: flex; gap: 6px; margin-top: 4px;">
-            <button class="gi-edit-btn save" style="flex: 1; padding: 6px; background: var(--blue); color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Guardar</button>
-            <button class="gi-edit-btn cancel" style="flex: 1; padding: 6px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; cursor: pointer;">Cancelar</button>
-          </div>
-        </div>
-      `;
-      
-      el.querySelector('.cancel').onclick = (ev) => {
-        ev.stopPropagation();
-        renderGiSetlist(q('#gi-search').value);
-      };
-      
-      el.querySelector('.save').onclick = (ev) => {
-        ev.stopPropagation();
-        song.title = el.querySelector('.edit-title').value;
-        song.artist = el.querySelector('.edit-artist').value;
-        song.bpm = el.querySelector('.edit-bpm').value;
-        song.key = el.querySelector('.edit-key').value;
-        song.genre = el.querySelector('.edit-genre').value;
-        
-        if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-        updateFilterCounts();
-        renderGiSetlist(q('#gi-search').value);
-      };
-    };
-
-    container.appendChild(el);
-  });
-}
-
-/* ── SERVICE SETLIST LOGIC ── */
-function loadServiceSongs() {
-  const saved = localStorage.getItem('serviceSongs');
-  if (saved) {
-    try {
-      serviceSongs = JSON.parse(saved);
-      renderServiceList();
-    } catch(e) { serviceSongs = []; }
-  }
-}
-
-function saveServiceSongs() {
-  localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
-}
-
-function addToService(song) {
-  // Add a unique ID for drag and drop to work correctly even with duplicate songs
-  const songToAdd = { ...song, serviceId: Date.now() + Math.random() };
-  serviceSongs.push(songToAdd);
-  saveServiceSongs();
-  renderServiceList();
-  
-  // Optional: Visual feedback or switch to service tab
-  // openServiceTab();
-}
-
-function removeFromService(serviceId) {
-  serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
-  saveServiceSongs();
-  renderServiceList();
-}
-
-function clearServiceList() {
-  if (confirm('¿Vaciar toda la lista de servicio?')) {
-    serviceSongs = [];
-    saveServiceSongs();
-    renderServiceList();
-  }
-}
-
-function renderServiceList() {
-  const container = q('#service-songs-container');
-  const emptyMsg = q('#service-empty-msg');
-  if (!container) return;
-  
-  container.innerHTML = '';
-  
-  if (serviceSongs.length === 0) {
-    emptyMsg.classList.remove('hidden');
-    return;
-  }
-  
-  emptyMsg.classList.add('hidden');
-  
-  serviceSongs.forEach((song, index) => {
-    const el = document.createElement('div');
-    el.className = 'gi-song-item';
-    el.draggable = true;
-    el.dataset.index = index;
-    
-    el.innerHTML = `
-      <div class="gi-song-main">
-        <div class="gi-song-title">${song.title}</div>
-        <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
-        <div class="gi-song-meta">
-          <span class="gi-badge bpm">${song.bpm} BPM</span>
-          <span class="gi-badge key">${song.key || '-'}</span>
-          ${song.genre ? `<span class="gi-badge">${song.genre}</span>` : ''}
-        </div>
-      </div>
-      <div class="gi-song-actions">
-         <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color: var(--blue);' : ''}">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="6" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="18" cy="12" r="2"></circle></svg>
-         </button>
-         <button class="action-btn btn-orig" title="Canción Original" style="${song.audio && song.audio.original ? 'color: var(--blue);' : ''}">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
-         </button>
-         <button class="action-btn btn-edit" title="Editar canción">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-         </button>
-         <button class="action-btn btn-remove" title="Quitar de la lista" style="color: #ff4747;">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+         <button class="gi-action-btn btn-orig" title="Canci├│n Original" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+            Original
          </button>
       </div>
     `;
@@ -961,84 +726,10 @@ function renderServiceList() {
     el.querySelector('.gi-song-main').onclick = () => applyGiSong(song);
     el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
     el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
-    el.querySelector('.btn-remove').onclick = (e) => {
-      e.stopPropagation();
-      removeFromService(song.serviceId);
-    };
 
-    el.querySelector('.btn-edit').onclick = (e) => {
-      e.stopPropagation();
-      // ... edit logic same as above ...
-      el.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <input type="text" class="edit-title" value="${song.title}" placeholder="Título" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 13px; font-weight: 700; outline: none; box-sizing: border-box;">
-          <input type="text" class="edit-artist" value="${song.artist || ''}" placeholder="Artista" style="width: 100%; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; outline: none; box-sizing: border-box;">
-          <div style="display: flex; gap: 6px;">
-            <input type="text" class="edit-bpm" value="${song.bpm || ''}" placeholder="BPM" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-            <input type="text" class="edit-key" value="${song.key || ''}" placeholder="Tono" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-            <input type="text" class="edit-genre" value="${song.genre || ''}" placeholder="Género" style="flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 11px; text-align: center; outline: none; width: 0;">
-          </div>
-          <div style="display: flex; gap: 6px; margin-top: 4px;">
-            <button class="gi-edit-btn save" style="flex: 1; padding: 6px; background: var(--blue); color: #000; border: none; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">Guardar</button>
-            <button class="gi-edit-btn cancel" style="flex: 1; padding: 6px; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; cursor: pointer;">Cancelar</button>
-          </div>
-        </div>
-      `;
-      el.querySelector('.cancel').onclick = (ev) => { ev.stopPropagation(); renderServiceList(); };
-      el.querySelector('.save').onclick = (ev) => {
-        ev.stopPropagation();
-        song.title = el.querySelector('.edit-title').value;
-        song.artist = el.querySelector('.edit-artist').value;
-        song.bpm = el.querySelector('.edit-bpm').value;
-        song.key = el.querySelector('.edit-key').value;
-        song.genre = el.querySelector('.edit-genre').value;
-        
-        // Sincronizar con librería principal
-        const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-        if (giSong) {
-          giSong.title = song.title; giSong.artist = song.artist;
-          giSong.bpm = song.bpm; giSong.key = song.key; giSong.genre = song.genre;
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-        }
-        
-        saveServiceSongs();
-        renderServiceList();
-      };
-    };
-    
-    // Drag and Drop events
-    el.ondragstart = (e) => {
-      el.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', index);
-    };
-    
-    el.ondragend = () => el.classList.remove('dragging');
-    
-    el.ondragover = (e) => {
-      e.preventDefault();
-      el.classList.add('drag-over');
-    };
-    
-    el.ondragleave = () => el.classList.remove('drag-over');
-    
-    el.ondrop = (e) => {
-      e.preventDefault();
-      el.classList.remove('drag-over');
-      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-      const toIndex = index;
-      
-      if (fromIndex !== toIndex) {
-        const movedItem = serviceSongs.splice(fromIndex, 1)[0];
-        serviceSongs.splice(toIndex, 0, movedItem);
-        saveServiceSongs();
-        renderServiceList();
-      }
-    };
-    
     container.appendChild(el);
   });
 }
-
 
 function applyGiSong(song) {
   // Update BPM
@@ -1057,45 +748,48 @@ function applyGiSong(song) {
   // Update Key
   if (song.key) {
     let key = song.key.replace('m', '').trim();
-    // Normalizar Do, Re, Mi si vienen así
+    // Normalizar Do, Re, Mi si vienen as├¡
     const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
     for (let es in esToEn) {
       if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
     }
     
-    // Check if flat or sharp — update the select dropdown
-    const notSel = q('#metro-notation-select');
+    // Configurar bemoles o sostenidos
     if (key.includes('b')) {
-      useFlats = true;
-      if (notSel) notSel.value = 'flats';
-    } else {
-      useFlats = false;
-      if (notSel) notSel.value = 'sharps';
+      useFlats = true; 
+      q('#btn-flats').classList.add('active'); 
+      q('#btn-sharps').classList.remove('active');
+    } else if (key.includes('#')) {
+      useFlats = false; 
+      q('#btn-sharps').classList.add('active'); 
+      q('#btn-flats').classList.remove('active');
     }
+    
     buildKeyGrid();
     
-    // Stop playing pad and metronome if they are running
-    if (activeKey) {
-      engine.stopPad();
-      activeKey = null;
-    }
-    if (metroRunning) {
-      toggleMetro();
-    }
-    
-    // Prepare the new key
-    const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
-    if (keys.includes(key)) {
-      preparedPadKey = key;
-      qa('.key-btn').forEach(b => {
-        b.classList.remove('active', 'prepared');
-        if (b.dataset.key === key) b.classList.add('prepared');
-      });
+    // Encontrar la nota en el grid y simular click si es diferente
+    if (activeKey !== key) {
+      // First stop current pad if any
+      if (activeKey) {
+        engine.stopPad();
+        activeKey = null;
+        qa('.key-btn').forEach(b => b.classList.remove('active'));
+      }
+      
+      // Attempt to play the new key
+      const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+      if (keys.includes(key)) {
+        onKeyClick(key);
+      }
     }
   }
+  
+  // Opcional: auto-iniciar metr├│nomo y ocultar sidebar
+  if (!metroRunning) toggleMetro();
+  // q('#sidebar').classList.remove('open'); // Descomentar si se quiere cerrar el sidebar autom├íticamente
 }
 
-/* ── TRACK PLAYER LOGIC ── */
+/* ÔöÇÔöÇ TRACK PLAYER LOGIC ÔöÇÔöÇ */
 let currentTrackAudio = null;
 let currentTrackType = null;
 let currentTrackSong = null;
@@ -1109,118 +803,40 @@ window.loadAndPlayTrack = function(song, type) {
   const path = (song.audio && song.audio[type]) ? song.audio[type] : null;
 
   if (!path) {
-    if (window.electronAPI && window.electronAPI.openAudioFile) {
-      window.electronAPI.openAudioFile().then(async (file) => {
-        if (file && file.path) {
-          const newPath = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type });
-          
-          if (!song.audio) song.audio = {};
-          song.audio[type] = newPath;
-          
-          const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-          if (giSong) {
-            if (!giSong.audio) giSong.audio = {};
-            giSong.audio[type] = newPath;
-          }
-          
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          saveServiceSongs();
-          
-          // Refrescar vistas para colorear el botón
-          if (q('#gi-search')) renderGiSetlist(q('#gi-search').value);
-          renderServiceList();
-          
-          startTrackPlayback(newPath, song.title, type);
-        }
-      });
-    } else {
-      const input = q('#tp-file-input');
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          startTrackPlayback(URL.createObjectURL(file), song.title, type);
-        }
-        input.value = '';
-      };
-      input.click();
-    }
+    // Si no hay ruta en el JSON, abrimos el selector de archivos
+    const input = q('#tp-file-input');
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        startTrackPlayback(URL.createObjectURL(file), song.title, type);
+      }
+      input.value = ''; // reset
+    };
+    input.click();
   } else {
     startTrackPlayback(path, song.title, type);
   }
 };
 
-async function startTrackPlayback(url, title, type) {
-  let safeUrl = url;
-  if (safeUrl && typeof safeUrl === 'string') {
-    // FIX for old corrupted paths in JSON
-    safeUrl = safeUrl.replace('../assets/', 'assets/');
-  }
-
-  if (safeUrl && !safeUrl.startsWith('blob:') && !safeUrl.startsWith('http')) {
-    if (window.electronAPI && window.electronAPI.getAbsolutePath) {
-      try {
-        const absPath = await window.electronAPI.getAbsolutePath(safeUrl);
-        // Construir URL absoluta con protocolo file:/// y codificando espacios/símbolos
-        let fileUrl = 'file:///' + absPath.replace(/\\/g, '/');
-        safeUrl = encodeURI(fileUrl).replace(/#/g, '%23').replace(/\?/g, '%3F');
-      } catch (e) {
-        console.error("Error al obtener ruta absoluta", e);
-      }
-    } else {
-      safeUrl = encodeURI(url).replace(/#/g, '%23').replace(/\?/g, '%3F');
-      if (!safeUrl.startsWith('./') && !safeUrl.startsWith('/')) safeUrl = './' + safeUrl;
-    }
-  }
-  
-  currentTrackAudio = new Audio(safeUrl);
+function startTrackPlayback(url, title, type) {
+  currentTrackAudio = new Audio(url);
   currentTrackType = type;
   
-  currentTrackAudio.onerror = (e) => {
-    console.error("Error cargando el audio:", safeUrl, e);
-    q('#tp-title').textContent = "Error al cargar audio";
-  };
-  
+  q('#track-player-bar').classList.remove('hidden');
   q('#tp-title').textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
   
   const playBtn = q('#tp-play-btn');
-  const stopBtn = q('#tp-stop-btn');
-  const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>';
-  const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
+  const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg>';
+  const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
   
   const updatePlayBtn = () => {
     playBtn.innerHTML = currentTrackAudio.paused ? playIcon : pauseIcon;
-    if(currentTrackAudio.paused) {
-       playBtn.style.transform = 'scale(1)';
-    } else {
-       playBtn.style.transform = 'scale(0.96)';
-    }
   };
   
   playBtn.onclick = () => {
     if (currentTrackAudio.paused) currentTrackAudio.play();
     else currentTrackAudio.pause();
     updatePlayBtn();
-  };
-
-  stopBtn.onclick = () => {
-    currentTrackAudio.pause();
-    currentTrackAudio.currentTime = 0;
-    updatePlayBtn();
-    q('#tp-progress').value = 0;
-    q('#tp-time-current').textContent = "0:00";
-  };
-  
-  const loopBtn = q('#tp-loop-btn');
-  if (!loopBtn.dataset.active) loopBtn.dataset.active = 'false';
-  currentTrackAudio.loop = loopBtn.dataset.active === 'true';
-  loopBtn.style.color = currentTrackAudio.loop ? 'var(--blue)' : 'var(--text-muted)';
-  loopBtn.style.borderColor = currentTrackAudio.loop ? 'var(--blue)' : 'var(--border)';
-
-  loopBtn.onclick = () => {
-    currentTrackAudio.loop = !currentTrackAudio.loop;
-    loopBtn.dataset.active = currentTrackAudio.loop ? 'true' : 'false';
-    loopBtn.style.color = currentTrackAudio.loop ? 'var(--blue)' : 'var(--text-muted)';
-    loopBtn.style.borderColor = currentTrackAudio.loop ? 'var(--blue)' : 'var(--border)';
   };
   
   const formatTime = (s) => {
@@ -1235,50 +851,32 @@ async function startTrackPlayback(url, title, type) {
     if (currentTrackAudio.duration) {
       q('#tp-time-total').textContent = formatTime(currentTrackAudio.duration);
       q('#tp-progress').value = (currentTrackAudio.currentTime / currentTrackAudio.duration) * 100;
-      syncSlider(q('#tp-progress'));
     }
   };
   
   q('#tp-progress').oninput = (e) => {
     if (currentTrackAudio.duration) {
       currentTrackAudio.currentTime = (e.target.value / 100) * currentTrackAudio.duration;
-      syncSlider(e.target);
     }
   };
   
-  const tpVolSlider = q('#tp-vol');
-  const tpVolVal = q('#tp-vol-val');
-  
-  tpVolSlider.oninput = (e) => {
+  q('#tp-vol').oninput = (e) => {
     currentTrackAudio.volume = e.target.value / 100;
-    tpVolVal.textContent = e.target.value + '%';
-    syncSlider(e.target);
   };
-  
-  // Set initial value
-  currentTrackAudio.volume = tpVolSlider.value / 100;
-  tpVolVal.textContent = tpVolSlider.value + '%';
-  syncSlider(tpVolSlider);
+  currentTrackAudio.volume = q('#tp-vol').value / 100;
   
   q('#tp-close-btn').onclick = () => {
     currentTrackAudio.pause();
-    currentTrackAudio = null;
-    q('#tp-title').textContent = "Ninguna pista cargada";
-    q('#tp-time-current').textContent = "0:00";
-    q('#tp-time-total').textContent = "0:00";
-    q('#tp-progress').value = 0;
-    syncSlider(q('#tp-progress'));
-    playBtn.innerHTML = playIcon;
+    q('#track-player-bar').classList.add('hidden');
   };
   
   currentTrackAudio.onended = () => {
     updatePlayBtn();
     q('#tp-progress').value = 0;
-    syncSlider(q('#tp-progress'));
     q('#tp-time-current').textContent = "0:00";
   };
   
-  // Detener metrónomo y pad ambiental
+  // Detener metr├│nomo y pad ambiental
   if (metroRunning) {
     toggleMetro();
   }

@@ -76,6 +76,40 @@ ipcMain.handle('window-action', (_e, action) => {
   else if (action === 'close') mainWindow.close();
 });
 
+ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
+  const folder = type === 'sequence' ? 'Sequences' : 'Original Tracks';
+  const destDir = path.join(__dirname, 'src', 'assets', folder);
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+  
+  const fileName = path.basename(sourcePath);
+  const destPath = path.join(destDir, fileName);
+  
+  if (sourcePath !== destPath) {
+    fs.copyFileSync(sourcePath, destPath);
+  }
+  
+  return `assets/${folder}/${fileName}`;
+});
+
+ipcMain.handle('save-gi-setlist', async (_e, songs) => {
+  const fp = path.join(__dirname, 'src', 'assets', 'setlists', 'canciones_app.json');
+  const data = { data: { songs } };
+  fs.writeFileSync(fp, JSON.stringify(data, null, 2));
+  return true;
+});
+
+ipcMain.handle('load-gi-setlist', async () => {
+  const fp = path.join(__dirname, 'src', 'assets', 'setlists', 'canciones_app.json');
+  if (fs.existsSync(fp)) {
+    return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+  }
+  return null;
+});
+
+ipcMain.handle('get-absolute-path', (_e, relativePath) => {
+  return path.join(__dirname, 'src', relativePath);
+});
+
 /* ── App lifecycle ─────────────────────────────────── */
 
 app.whenReady().then(createWindow);
