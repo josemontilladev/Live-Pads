@@ -11,7 +11,7 @@ export class Metronome {
     this.multiplier = 1;
     this.volume  = 0.8;
     this.sound   = 'logic';  // default to real files
-    this.accent  = true;
+    this.accents = [0];      // Array of beat indices that should be accented
     this.pan     = 0;        // -1 left … 0 center … 1 right
   }
 
@@ -38,7 +38,21 @@ export class Metronome {
     if (this.running) { this.stop(); this.start(); }
   }
 
-  setBeats(n) { this.beats = n; }
+  setBeats(n) { 
+    this.beats = n; 
+    // Reset accents if they fall out of range, or keep them if they fit
+    this.accents = this.accents.filter(a => a < n);
+    if (this.accents.length === 0) this.accents = [0];
+  }
+
+  toggleAccent(idx) {
+    const pos = this.accents.indexOf(idx);
+    if (pos > -1) {
+      this.accents.splice(pos, 1);
+    } else {
+      this.accents.push(idx);
+    }
+  }
 
   tap() {
     const now = Date.now();
@@ -55,7 +69,7 @@ export class Metronome {
 
   _schedule() {
     if (!this.running) return;
-    const isAccent = this.accent && this.currentBeat === 0;
+    const isAccent = this.accents.includes(this.currentBeat);
     this.engine.playClick(isAccent, this.sound, this.volume, this.pan);
     if (this.onBeat) this.onBeat(this.currentBeat);
     this.currentBeat = (this.currentBeat + 1) % this.beats;

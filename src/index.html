@@ -55,26 +55,96 @@
   <div id="body" style="flex-direction: column;">
     <main id="stage">
 
-      <!-- Bank Selectors -->
-      <div id="bank-section">
-        <div class="bank-row" id="bank-row-pad">
-          <div class="bank-label">Pad</div>
-          <div class="bank-selector">
-            <button class="bank-arrow" id="pad-bank-prev"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"><polyline points="15,18 9,12 15,6"/></svg></button>
-            <div class="bank-name" id="pad-bank-name">Pad 1 (Estándar)</div>
-            <button class="bank-arrow" id="pad-bank-next"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"><polyline points="9,18 15,12 9,6"/></svg></button>
+      <!-- TOP MODULES: Bank + Metronome in 2-column grid -->
+      <div id="top-modules-grid">
+
+        <!-- Bank Selectors -->
+        <div id="bank-section">
+          <div class="bank-row">
+            <div class="bank-label">Pad</div>
+            <div class="bank-selector">
+              <select id="pad-bank-select" class="metro-dropdown"></select>
+            </div>
+          </div>
+          <div class="sb-div"></div>
+          <div class="bank-row">
+            <div class="bank-label">Kit de batería</div>
+            <div class="bank-selector">
+              <select id="kit-bank-select" class="metro-dropdown"></select>
+            </div>
           </div>
         </div>
-        <div class="sb-div"></div>
-        <div class="bank-row" id="bank-row-kit">
-          <div class="bank-label">Kit de batería</div>
-          <div class="bank-selector">
-            <button class="bank-arrow" id="kit-bank-prev"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"><polyline points="15,18 9,12 15,6"/></svg></button>
-            <div class="bank-name" id="kit-bank-name">Drum Kit 1 (Acústico)</div>
-            <button class="bank-arrow" id="kit-bank-next"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"><polyline points="9,18 15,12 9,6"/></svg></button>
+
+        <!-- Metronome (moved from bottom) -->
+        <footer id="panel-metro" class="horizontal-metro">
+
+          <div class="hm-section hm-play">
+            <button class="metro-main-btn" id="btn-metro-main" style="width:50px;height:50px;padding:0;display:flex;justify-content:center;align-items:center;border-radius:12px;">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>
+            </button>
+            <div id="metro-beat-row">
+              <div id="metro-beat-dots"></div>
+              <div id="metro-bpm-live" style="margin-left:auto;">— BPM</div>
+            </div>
           </div>
-        </div>
-      </div>
+
+          <div class="hm-section hm-bpm">
+            <div class="hm-bpm-controls">
+              <button class="metro-adj" id="bpm-minus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              <div class="metro-bpm-big" id="bpm-display">120</div>
+              <button class="metro-adj" id="bpm-plus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div class="hm-bpm-slider-wrap">
+              <input type="range" id="bpm-slider" min="30" max="300" value="120" class="blue-slider metro-slider">
+              <button class="tap-btn" id="tap-tempo" style="width:auto;padding:4px 10px;font-size:10px;">TAP</button>
+            </div>
+          </div>
+
+          <div class="hm-section hm-compas">
+            <select id="metro-sig-select" class="metro-dropdown" style="margin-bottom:6px;">
+              <option value="2">2/4</option>
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4</option>
+              <option value="6">6/8</option>
+              <option value="12">12/8</option>
+            </select>
+            <div style="display:flex;gap:6px;">
+              <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
+              <button class="metro-mult-btn" id="btn-mult-2">2x</button>
+            </div>
+          </div>
+
+          <div class="hm-section" style="display:flex;flex-direction:column;gap:6px;flex:0 0 110px;">
+            <select id="metro-sound-select" class="metro-dropdown">
+              <option value="classic">Clásico</option>
+              <option value="woodblock">Woodblock</option>
+              <option value="percussive">Percus.</option>
+              <option value="gentle">Suave</option>
+              <option value="blip">Blip</option>
+              <option value="digital">Digital</option>
+              <option value="cowbell" selected>Cowbell</option>
+            </select>
+            <select id="metro-notation-select" class="metro-dropdown">
+              <option value="flats">Bemol (Db)</option>
+              <option value="sharps" selected>Sost (C#)</option>
+            </select>
+          </div>
+
+          <div class="hm-section hm-mix">
+            <div class="sb-row" style="padding:0 0 6px;">
+              <span class="sr-label" style="font-size:10px;min-width:24px;">Vol</span>
+              <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
+              <span class="sr-val" id="metro-vol-val" style="min-width:26px;">80%</span>
+            </div>
+            <div class="sb-row" style="padding:0;">
+              <span class="sr-label" style="font-size:10px;min-width:24px;">Pan</span>
+              <input type="range" id="metro-pan-slider" min="-100" max="100" value="0" class="pan-slider">
+              <span class="sr-val" id="metro-pan-val" style="min-width:26px;">C</span>
+            </div>
+          </div>
+
+        </footer>
+      </div><!-- /top-modules-grid -->
 
       <!-- Keys + Pad controls -->
       <div id="panel-keys">
@@ -91,12 +161,6 @@
             <span class="sr-label">Pan</span>
             <input type="range" id="pad-pan-stage" min="-100" max="100" value="0" class="pan-slider">
             <span class="sr-val" id="pad-pan-val-stage">C</span>
-          </div>
-          <div class="sb-div"></div>
-          <div class="sb-row">
-            <span class="sr-label">Filtro</span>
-            <input type="range" id="pad-lpf-stage" min="800" max="18000" value="18000" class="blue-slider">
-            <div class="toggle-sw on" id="lpf-toggle-stage"></div>
           </div>
         </div>
       </div>
@@ -168,77 +232,6 @@
       </button>
       <input type="file" id="tp-file-input" accept="audio/*" hidden>
     </div>
-
-    <!-- ═══ METRONOME PANEL (Horizontal player at bottom) ═══ -->
-    <footer id="panel-metro" class="horizontal-metro">
-      
-      <div class="hm-section hm-play">
-        <button class="metro-main-btn" id="btn-metro-main" style="width: 50px; height: 50px; padding: 0; display: flex; justify-content: center; align-items: center; border-radius: 12px;">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>
-        </button>
-        <div id="metro-beat-row">
-          <div id="metro-beat-dots"></div>
-          <div id="metro-bpm-live" style="margin-left:auto;">— BPM</div>
-        </div>
-      </div>
-
-      <div class="hm-section hm-bpm">
-        <div class="hm-bpm-controls">
-          <button class="metro-adj" id="bpm-minus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <div class="metro-bpm-big" id="bpm-display">120</div>
-          <button class="metro-adj" id="bpm-plus"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-        </div>
-        <div class="hm-bpm-slider-wrap">
-          <input type="range" id="bpm-slider" min="30" max="300" value="120" class="blue-slider metro-slider">
-          <button class="tap-btn" id="tap-tempo" style="width: auto; padding: 4px 10px; font-size: 10px;">TAP</button>
-        </div>
-      </div>
-
-      <div class="hm-section hm-compas">
-        <div class="metro-sig-row" style="margin-bottom: 6px;">
-          <button class="sig-btn active" data-v="2" data-label="2/4">2/4</button>
-          <button class="sig-btn" data-v="3" data-label="3/4">3/4</button>
-          <button class="sig-btn" data-v="4" data-label="4/4">4/4</button>
-          <button class="sig-btn" data-v="6" data-label="6/8">6/8</button>
-          <button class="sig-btn" data-v="12" data-label="12/8">12/8</button>
-        </div>
-        <div style="display:flex; gap:6px;">
-          <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
-          <button class="metro-mult-btn" id="btn-mult-2">2x</button>
-        </div>
-      </div>
-
-      <div class="hm-section hm-sounds">
-        <div class="metro-sound-grid" style="grid-template-columns: repeat(4, 1fr);">
-          <button class="sound-btn" id="btn-ms-classic">Clás</button>
-          <button class="sound-btn" id="btn-ms-woodblock">Wood</button>
-          <button class="sound-btn" id="btn-ms-percussive">Perc</button>
-          <button class="sound-btn" id="btn-ms-gentle">Suave</button>
-          <button class="sound-btn" id="btn-ms-blip">Blip</button>
-          <button class="sound-btn" id="btn-ms-digital">Digit</button>
-          <button class="sound-btn active" id="btn-ms-cowbell" style="grid-column: span 2;">Cowbell</button>
-        </div>
-      </div>
-
-      <div class="hm-section hm-mix">
-        <div class="sb-row" style="padding:0 0 6px;">
-          <span class="sr-label" style="font-size:10px; min-width:30px;">Vol</span>
-          <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
-          <span class="sr-val" id="metro-vol-val" style="min-width:26px;">80%</span>
-        </div>
-        <div class="sb-row" style="padding:0;">
-          <span class="sr-label" style="font-size:10px; min-width:30px;">Pan</span>
-          <input type="range" id="metro-pan-slider" min="-100" max="100" value="0" class="pan-slider">
-          <span class="sr-val" id="metro-pan-val" style="min-width:26px;">C</span>
-        </div>
-      </div>
-
-      <div class="hm-section hm-notacion" style="display: flex; flex-direction: column; gap: 6px;">
-        <button class="sound-btn" id="btn-flats">Bemol (Db)</button>
-        <button class="sound-btn active" id="btn-sharps">Sost (C#)</button>
-      </div>
-
-    </footer>
 
     <aside id="sidebar">
       <div id="sidebar-overlay"></div>

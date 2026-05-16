@@ -32,7 +32,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   metro.sound = 'cowbell';  // default: Cowbell
 
   applyTheme(currentTheme);
-  loadPadBank(0);
+  buildBankSelects();
+  loadPadBank(2); // Chris Rocha por defecto
   loadKitBank(0);
   buildKeyGrid();
   buildMetroBeatDots(4);
@@ -44,25 +45,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   q('#sidebar').classList.remove('open');
 });
 
+/* ── BANK SELECTS ── */
+function buildBankSelects() {
+  const padSel = q('#pad-bank-select');
+  const kitSel = q('#kit-bank-select');
+  if (padSel) {
+    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
+  }
+  if (kitSel) {
+    kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    kitSel.onchange = (e) => loadKitBank(parseInt(e.target.value));
+  }
+}
+
 /* ── PAD BANK ── */
 function loadPadBank(idx) {
   padBankIdx = ((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length;
   const bank = PAD_BANKS[padBankIdx];
-  q('#pad-bank-name').textContent = bank.name;
+  const padSel = q('#pad-bank-select');
+  if (padSel) padSel.value = padBankIdx;
   engine.setPadBank(bank);
   if (activeKey) engine.playPad(activeKey);
-  buildPadBankList();
 }
 
 /* ── KIT BANK ── */
 function loadKitBank(idx) {
   kitBankIdx = ((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length;
   const kit = KIT_BANKS[kitBankIdx];
-  q('#kit-bank-name').textContent = kit.name;
+  const kitSel = q('#kit-bank-select');
+  if (kitSel) kitSel.value = kitBankIdx;
   engine.initDrumVolumes(kit.pads);
   buildDrumGrid(kit.pads);
   buildDrumVolumes(kit.pads);
-  buildKitBankList();
   // Load real WAV samples in background
   engine.loadKitSamples(kit.pads).then(loadedIds => {
     loadedIds.forEach(id => {
@@ -177,8 +192,14 @@ function buildMetroBeatDots(n) {
   c.innerHTML = '';
   for (let i = 0; i < n; i++) {
     const d = document.createElement('div');
-    d.className = 'beat-dot' + (i === 0 ? ' accent' : '');
+    d.className = 'beat-dot' + (metro.accents.includes(i) ? ' accent' : '');
     d.dataset.beat = i;
+    d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
+    d.onclick = () => {
+      metro.toggleAccent(i);
+      d.classList.toggle('accent', metro.accents.includes(i));
+      d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
+    };
     c.appendChild(d);
   }
 }
@@ -280,39 +301,34 @@ function bindAll() {
   q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('settings'); };
   q('#menu-open-themes').onclick   = () => { closeMenu(); openSidebarTab('themes'); };
 
-  // Bank arrows
-  q('#pad-bank-prev').onclick = () => loadPadBank(padBankIdx - 1);
-  q('#pad-bank-next').onclick = () => loadPadBank(padBankIdx + 1);
-  q('#kit-bank-prev').onclick = () => loadKitBank(kitBankIdx - 1);
-  q('#kit-bank-next').onclick = () => loadKitBank(kitBankIdx + 1);
-  q('#bank-row-pad').onclick  = e => { if (!e.target.closest('.bank-arrow')) openPicker('pad'); };
-  q('#bank-row-kit').onclick  = e => { if (!e.target.closest('.bank-arrow')) openPicker('kit'); };
+  // Bank arrows (Removed, now using dropdowns)
+
 
   // Pad volume (stage)
   const pvolStage = q('#pad-vol-stage'), pvolValStage = q('#pad-vol-val-stage');
   const pvol = q('#pad-vol'), pvolVal = q('#pad-vol-val');
   const updatePadVol = val => {
     engine.setPadVolume(val / 100);
-    pvol.value = val; pvolStage.value = val;
-    pvolVal.textContent = val + '%'; pvolValStage.textContent = val + '%';
-    syncSlider(pvol); syncSlider(pvolStage);
+    if (pvol) { pvol.value = val; pvolVal.textContent = val + '%'; syncSlider(pvol); }
+    if (pvolStage) { pvolStage.value = val; pvolValStage.textContent = val + '%'; syncSlider(pvolStage); }
   };
-  pvolStage.oninput = () => updatePadVol(pvolStage.value);
-  pvol.oninput = () => updatePadVol(pvol.value);
-  syncSlider(pvol); syncSlider(pvolStage);
+  if (pvolStage) pvolStage.oninput = () => updatePadVol(pvolStage.value);
+  if (pvol) pvol.oninput = () => updatePadVol(pvol.value);
+  if (pvol) syncSlider(pvol);
+  if (pvolStage) syncSlider(pvolStage);
 
   // Pad pan
   const ppanStage = q('#pad-pan-stage'), ppanValStage = q('#pad-pan-val-stage');
   const ppan = q('#pad-pan'), ppanVal = q('#pad-pan-val');
   const updatePadPan = val => {
     engine.setPadPan(val / 100);
-    ppan.value = val; ppanStage.value = val;
-    ppanVal.textContent = panLabel(val); ppanValStage.textContent = panShort(val);
-    syncPanSlider(ppanStage); syncPanSlider(ppan);
+    if (ppan) { ppan.value = val; ppanVal.textContent = panLabel(val); syncPanSlider(ppan); }
+    if (ppanStage) { ppanStage.value = val; ppanValStage.textContent = panShort(val); syncPanSlider(ppanStage); }
   };
-  ppanStage.oninput = () => updatePadPan(ppanStage.value);
-  ppan.oninput = () => updatePadPan(ppan.value);
-  syncPanSlider(ppanStage); syncPanSlider(ppan);
+  if (ppanStage) ppanStage.oninput = () => updatePadPan(ppanStage.value);
+  if (ppan) ppan.oninput = () => updatePadPan(ppan.value);
+  if (ppanStage) syncPanSlider(ppanStage);
+  if (ppan) syncPanSlider(ppan);
 
   // Drum pan
   const drumPanStage = q('#drum-pan-stage'), drumPanVal = q('#drum-pan-val-stage');
@@ -329,16 +345,27 @@ function bindAll() {
   const lpf = q('#pad-lpf'), lpfToggle = q('#lpf-toggle');
   const updateLPF = (val, on) => {
     engine.setLPF(parseInt(val), on);
-    lpf.value = val; lpfStage.value = val;
-    lpfToggle.className = 'toggle-sw ' + (on ? 'on' : '');
-    lpfToggleStage.className = 'toggle-sw ' + (on ? 'on' : '');
-    syncSlider(lpf); syncSlider(lpfStage);
+    if (lpf) {
+      lpf.value = val;
+      lpfToggle.className = 'toggle-sw ' + (on ? 'on' : '');
+      syncSlider(lpf);
+    }
+    if (lpfStage) {
+      lpfStage.value = val;
+      lpfToggleStage.className = 'toggle-sw ' + (on ? 'on' : '');
+      syncSlider(lpfStage);
+    }
   };
-  lpfStage.oninput = () => updateLPF(lpfStage.value, lpfToggleStage.classList.contains('on'));
-  lpf.oninput = () => updateLPF(lpf.value, lpfToggle.classList.contains('on'));
-  bindToggle(lpfToggleStage, on => updateLPF(lpfStage.value, on));
-  bindToggle(lpfToggle, on => updateLPF(lpf.value, on));
-  syncSlider(lpf); syncSlider(lpfStage);
+  if (lpfStage) {
+    lpfStage.oninput = () => updateLPF(lpfStage.value, lpfToggleStage.classList.contains('on'));
+    bindToggle(lpfToggleStage, on => updateLPF(lpfStage.value, on));
+  }
+  if (lpf) {
+    lpf.oninput = () => updateLPF(lpf.value, lpfToggle.classList.contains('on'));
+    bindToggle(lpfToggle, on => updateLPF(lpf.value, on));
+    syncSlider(lpf);
+  }
+  if (lpfStage) syncSlider(lpfStage);
 
   // Master vol
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
@@ -370,19 +397,16 @@ function bindAll() {
 
   window.updateBPM = updateBPM; // Make it accessible globally for GI-Setlist
 
-  // Time signatures
-  qa('.sig-btn').forEach(btn => {
-    btn.onclick = () => {
-      const n = parseInt(btn.dataset.v);
+  // Time signatures (ahora es un select dropdown)
+  const sigSelect = q('#metro-sig-select');
+  if (sigSelect) {
+    sigSelect.value = '4'; // 4/4 por defecto
+    sigSelect.onchange = (e) => {
+      const n = parseInt(e.target.value);
       metro.setBeats(n);
-      qa('.sig-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
       buildMetroBeatDots(n);
     };
-  });
-  // Default 4/4
-  q('.sig-btn[data-v="4"]').classList.add('active');
-  q('.sig-btn[data-v="2"]').classList.remove('active');
+  }
   metro.setBeats(4);
   buildMetroBeatDots(4);
 
@@ -400,20 +424,16 @@ function bindAll() {
     if (metro.running) { metro.stop(); metro.start(); }
   };
 
-  // Click sound — Click Tracks profesionales
+  // Accent toggle — acentúa el primer tiempo del compás (Removed, now click dots)
+
+
+  // Click sound — Select dropdown
   metro.sound = 'cowbell';   // default
-  const setSound = (btn, sound) => {
-    qa('[id^="btn-ms-"]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    metro.sound = sound;
-  };
-  q('#btn-ms-classic').onclick    = e => setSound(e.currentTarget, 'classic');
-  q('#btn-ms-woodblock').onclick  = e => setSound(e.currentTarget, 'woodblock');
-  q('#btn-ms-percussive').onclick = e => setSound(e.currentTarget, 'percussive');
-  q('#btn-ms-gentle').onclick     = e => setSound(e.currentTarget, 'gentle');
-  q('#btn-ms-blip').onclick       = e => setSound(e.currentTarget, 'blip');
-  q('#btn-ms-digital').onclick    = e => setSound(e.currentTarget, 'digital');
-  q('#btn-ms-cowbell').onclick    = e => setSound(e.currentTarget, 'cowbell');
+  const soundSelect = q('#metro-sound-select');
+  if (soundSelect) {
+    soundSelect.value = 'cowbell';
+    soundSelect.onchange = (e) => { metro.sound = e.target.value; };
+  }
 
   // Metro volume + pan
   const metroVolSlider = q('#metro-vol-slider'), metroVolVal = q('#metro-vol-val');
@@ -433,9 +453,14 @@ function bindAll() {
   syncPanSlider(metroPanSlider);
   metroPanVal.textContent = 'C';
 
-  // Notation
-  q('#btn-flats').onclick  = () => { useFlats = true;  q('#btn-flats').classList.add('active');  q('#btn-sharps').classList.remove('active'); buildKeyGrid(); };
-  q('#btn-sharps').onclick = () => { useFlats = false; q('#btn-sharps').classList.add('active'); q('#btn-flats').classList.remove('active');  buildKeyGrid(); };
+  // Notation — Select dropdown
+  const notSelect = q('#metro-notation-select');
+  if (notSelect) {
+    notSelect.addEventListener('change', (e) => {
+      useFlats = e.target.value === 'flats';
+      buildKeyGrid();
+    });
+  }
 
   // Setlist
   q('#btn-add-preset').onclick = () => showDialog('Guardar set', doSavePreset);
@@ -821,15 +846,14 @@ function applyGiSong(song) {
       if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
     }
     
-    // Check if flat or sharp
+    // Check if flat or sharp — update the select dropdown
+    const notSel = q('#metro-notation-select');
     if (key.includes('b')) {
-      useFlats = true; 
-      q('#btn-flats').classList.add('active'); 
-      q('#btn-sharps').classList.remove('active');
+      useFlats = true;
+      if (notSel) notSel.value = 'flats';
     } else {
-      useFlats = false; 
-      q('#btn-sharps').classList.add('active'); 
-      q('#btn-flats').classList.remove('active');
+      useFlats = false;
+      if (notSel) notSel.value = 'sharps';
     }
     buildKeyGrid();
     

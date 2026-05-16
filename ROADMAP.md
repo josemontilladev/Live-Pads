@@ -9,26 +9,27 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 ## 🚀 Implementado con Éxito
 
 ### 🎨 Diseño y UI (Aesthetics & UX)
-- **Sistema de Temas Premium**: Implementación de 6 temas completos que afectan fondos, tarjetas, textos e iluminación dinámica (ej. *Midnight Aurora*, *Clean Worship*, *GI.Setlist*, etc.).
-- **Compatibilidad Light/Dark**: Adaptación inteligente de textos y contrastes dependiendo de si el tema seleccionado es claro u oscuro.
-- **Grilla de Estilo "Bento"**: Layout limpio y ordenado para los 12 tonos de pads y los pads de batería, con sombras adaptativas y transiciones fluidas de 0.5s.
-- **Sidebar Dinámico y Resuelto**: Panel lateral para ajustes con sistema anti-bloqueo (corrección de *drag regions* e interacciones de `z-index`).
-- **Feedback Visual Avanzado**: Los botones tienen animaciones sutiles y reflejan el color de acento del tema. Además, los pads de batería muestran un punto visual (dot) cuando cargan un sample real exitosamente.
+- **Grilla de Estilo "Bento" Premium**: Layout limpio y ordenado para los 12 tonos de pads y batería. Los módulos superiores (Bancos y Metrónomo) ahora están integrados en una grilla de 2 columnas con bordes redondeados y estilo unificado.
+- **Modernización de Controles**: Reemplazo de botones y flechas por selectores dinámicos (`dropdowns`) para bancos de sonidos, compases y notación, logrando una interfaz más profesional y uniforme.
+- **Sistema de Temas Dinámico**: Implementación de 6 temas completos que afectan fondos, tarjetas y textos, con adaptación inteligente de contrastes.
+- **Feedback Visual Avanzado**: Los botones tienen animaciones sutiles y los pads de batería muestran un indicador visual (dot) cuando el sample real está cargado.
+- **Optimización de Espacio**: Limpieza de la bandeja de ajustes del pad (volumen/pan), moviendo controles avanzados (filtro LPF) exclusivamente al sidebar para reducir la carga cognitiva.
 
 ### 🔊 Motor de Audio y Optimización (SynthEngine.js)
-- **Precarga Inteligente (Asíncrona y Secuencial)**: Eliminación de picos de CPU y cuelgues al cambiar de banco mediante un cargador secuencial que da respiros de 50ms al procesador.
-- **Ataque Dinámico (Smart Attack)**: Si no hay pads sonando, el ataque es casi instantáneo (0.5s); si se está transicionando entre acordes, se aplica un crossfade suave y profesional (2.0s).
-- **Samples Reales en Batería y Pads**: Integración de archivos `.wav` y `.mp3` desde carpetas locales (`Foundations Pad`, `Organic Pad`, `Chris Rocha`, y librerías de batería), con fallback transparente a sintetizador en caso de fallo.
-- **Limitador Maestro (Anti-Clipping)**: Prevención de distorsión en vivo usando compresión dinámica integrada.
+- **Librería Chris Rocha por Defecto**: Configuración del banco de pads de Chris Rocha como sonido base al iniciar la app.
+- **Precarga Inteligente**: Eliminación de picos de CPU mediante carga secuencial de samples.
+- **Ataque Dinámico (Smart Attack)**: Crossfades suaves de 2.0s para transiciones entre acordes y ataque instantáneo para el inicio de sesión.
+- **Limitador Maestro**: Compresión integrada para evitar distorsión en vivo.
 
-### 🥁 Baterías y Metrónomo
-- **Pads Interactivos**: Disparadores visuales con mapeo independiente de volumen y paneo.
-- **Metrónomo Completo (Interfaz Horizontal)**: Rediseñado como un reproductor inferior siempre visible. Incluye Tap Tempo, compases (2/4, 3/4, 4/4, 6/8), multiplicador `2x`, subdivisión y múltiples sonidos seleccionables.
+### 🥁 Baterías y Metrónomo (Top Module)
+- **Metrónomo en Cabecera**: Reubicado en la parte superior para máxima visibilidad durante la ejecución. 
+- **Acentuación Manual por Tiempo**: Nueva funcionalidad interactiva que permite hacer clic en cualquier "beat dot" para activar/desactivar el acento en ese tiempo específico.
+- **Control Completo**: Tap Tempo, multiplicador `2x`, subdivisión y múltiples sonidos seleccionables via dropdown.
 
 ### 📋 Integración y Gestión de Setlist
-- **Conexión con GI-Setlist**: Importación nativa de bases de datos JSON (`canciones_app.json`) directamente a la app.
-- **Automatización en Vivo**: Un solo clic en cualquier canción configura automáticamente los BPM correctos y dispara la tonalidad del Pad ambiental.
-- **Filtros Dinámicos**: Barra de búsqueda inteligente, filtros de "Alabanza" y "Adoración" con contadores, y orden alfabético automático.
+- **Conexión con GI-Setlist**: Importación de archivos JSON y automatización total.
+- **Sincronización Inteligente**: Al seleccionar una canción, se configuran automáticamente los BPM, la tonalidad del Pad y el sistema de notación (Bemoles/Sostenidos) de forma instantánea.
+- **Filtros Dinámicos**: Búsqueda inteligente y filtrado por categorías de culto.
 
 ### ⌨️ Control y Conectividad
 - **Atajos de Teclado**: Mapeo completo por defecto para pads y batería.
