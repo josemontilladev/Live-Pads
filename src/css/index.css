@@ -676,3 +676,7 @@ input.pan-slider {
   width: 28px; height: 28px;
 }
 .sound-btn { padding: 6px 4px; font-size: 10px; }
+
+@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes preloaderSlide { 0% { left: -40%; } 100% { left: 100%; } }
+

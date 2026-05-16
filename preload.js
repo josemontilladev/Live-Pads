@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveGiSetlist: (songs) => ipcRenderer.invoke('save-gi-setlist', songs),
   loadGiSetlist: () => ipcRenderer.invoke('load-gi-setlist'),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),
+  assignDrumSample: (data) => ipcRenderer.invoke('assign-drum-sample', data),
+  saveUserDrums: (data) => ipcRenderer.invoke('save-user-drums', data),
+  loadUserDrums: () => ipcRenderer.invoke('load-user-drums'),
 });

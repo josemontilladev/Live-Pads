@@ -15,6 +15,8 @@ let presets = [];
 let giSetlistSongs = [];
 let currentGiGenre = 'all';
 let serviceSongs   = [];
+let isEditKitMode  = false;
+let customKitMap   = {};
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -32,6 +34,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   metro.onBeat = onMetroBeat;
   metro.sound = 'cowbell';  // default: Cowbell
 
+  if (window.electronAPI && window.electronAPI.loadUserDrums) {
+    customKitMap = (await window.electronAPI.loadUserDrums()) || {};
+  }
+  const customKit = {
+    id: 'custom_kit', name: 'Custom Kit (Tus sonidos)',
+    desc: 'Batería personalizada (Edita con el ✏️)', color: '#10b981',
+    pads: [
+      { id: 'c_kick', label: 'Kick', type: 'kick', sample: customKitMap['c_kick'] },
+      { id: 'c_snare', label: 'Snare', type: 'snare', sample: customKitMap['c_snare'] },
+      { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: customKitMap['c_hhc'] },
+      { id: 'c_clap', label: 'Clap', type: 'clap', sample: customKitMap['c_clap'] },
+      { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: customKitMap['c_perc1'] },
+      { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: customKitMap['c_perc2'] },
+      { id: 'c_crash', label: 'Crash', type: 'crash', sample: customKitMap['c_crash'] },
+      { id: 'c_ride', label: 'Ride', type: 'ride', sample: customKitMap['c_ride'] },
+    ]
+  };
+  KIT_BANKS.push(customKit);
+
   applyTheme(currentTheme);
   buildBankSelects();
   loadPadBank(2); // Chris Rocha por defecto
@@ -45,6 +66,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadGiSetlistFromFile();
 
   q('#sidebar').classList.remove('open');
+
+  // Hide preloader smoothly
+  setTimeout(() => {
+    const preloader = q('#preloader');
+    if (preloader) {
+      preloader.style.opacity = '0';
+      preloader.style.visibility = 'hidden';
+      setTimeout(() => preloader.remove(), 800); // clean from DOM
+    }
+  }, 800);
 });
 
 /* ── BANK SELECTS ── */
@@ -139,7 +170,32 @@ function buildDrumGrid(pads) {
   });
 }
 
-function hitDrum(id, type, btn) {
+async function hitDrum(id, type, btn) {
+  if (isEditKitMode) {
+    if (!window.electronAPI) return;
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'audio/mp3, audio/wav';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const resPath = await window.electronAPI.assignDrumSample({ sourcePath: file.path, padName: id });
+      if (resPath) {
+        customKitMap[id] = resPath;
+        await window.electronAPI.saveUserDrums(customKitMap);
+        const ckit = KIT_BANKS.find(k => k.id === 'custom_kit');
+        if (ckit) {
+          const pad = ckit.pads.find(p => p.id === id);
+          if (pad) pad.sample = resPath;
+        }
+        engine.loadKitSamples(KIT_BANKS[kitBankIdx].pads).then(() => {
+          btn.classList.add('has-sample');
+          btn.style.borderColor = 'var(--blue)';
+        });
+      }
+    };
+    input.click();
+    return;
+  }
   if (!engine.playCustomDrum(id, id)) engine.playDrum(type, id);
   btn.classList.add('hit');
   setTimeout(() => btn.classList.remove('hit'), 120);
@@ -270,6 +326,22 @@ function bindToggle(el, cb) {
 function bindAll() {
   const api = window.electronAPI;
 
+  const btnEditKit = q('#btn-edit-kit');
+  if (btnEditKit) {
+    btnEditKit.onclick = () => {
+      isEditKitMode = !isEditKitMode;
+      btnEditKit.style.color = isEditKitMode ? 'var(--blue)' : 'var(--text-muted)';
+      btnEditKit.style.borderColor = isEditKitMode ? 'var(--blue)' : 'var(--border)';
+      if (isEditKitMode) {
+        const customIdx = KIT_BANKS.findIndex(k => k.id === 'custom_kit');
+        if (customIdx >= 0) {
+          q('#kit-bank-select').value = customIdx;
+          loadKitBank(customIdx);
+        }
+      }
+    };
+  }
+
   // Window controls
   if (api) {
     q('#btn-min').onclick   = () => api.windowAction('minimize');
@@ -324,23 +396,22 @@ function bindAll() {
   const ppan = q('#pad-pan'), ppanVal = q('#pad-pan-val');
   const updatePadPan = val => {
     engine.setPadPan(val / 100);
-    if (ppan) { ppan.value = val; ppanVal.textContent = panLabel(val); syncPanSlider(ppan); }
+    if (ppan) { ppan.value = val; ppanVal.textContent = panShort(val); syncPanSlider(ppan); }
     if (ppanStage) { ppanStage.value = val; ppanValStage.textContent = panShort(val); syncPanSlider(ppanStage); }
   };
   if (ppanStage) ppanStage.oninput = () => updatePadPan(ppanStage.value);
   if (ppan) ppan.oninput = () => updatePadPan(ppan.value);
-  if (ppanStage) syncPanSlider(ppanStage);
-  if (ppan) syncPanSlider(ppan);
+  if (ppanStage) updatePadPan(ppanStage.value);
 
   // Drum pan
   const drumPanStage = q('#drum-pan-stage'), drumPanVal = q('#drum-pan-val-stage');
-  drumPanStage.oninput = () => {
+  const updateDrumPan = () => {
     engine.setDrumPan(drumPanStage.value / 100);
     drumPanVal.textContent = panShort(drumPanStage.value);
     syncPanSlider(drumPanStage);
   };
-  syncPanSlider(drumPanStage);
-  drumPanVal.textContent = 'C';
+  drumPanStage.oninput = updateDrumPan;
+  updateDrumPan();
 
   // LPF
   const lpfStage = q('#pad-lpf-stage'), lpfToggleStage = q('#lpf-toggle-stage');
@@ -447,13 +518,13 @@ function bindAll() {
   syncSlider(metroVolSlider);
 
   const metroPanSlider = q('#metro-pan-slider'), metroPanVal = q('#metro-pan-val');
-  metroPanSlider.oninput = () => {
+  const updateMetroPan = () => {
     metro.pan = metroPanSlider.value / 100;
     metroPanVal.textContent = panShort(metroPanSlider.value);
     syncPanSlider(metroPanSlider);
   };
-  syncPanSlider(metroPanSlider);
-  metroPanVal.textContent = 'C';
+  metroPanSlider.oninput = updateMetroPan;
+  updateMetroPan();
 
   // Notation — Select dropdown
   const notSelect = q('#metro-notation-select');
@@ -494,6 +565,9 @@ function bindAll() {
         const json = JSON.parse(ev.target.result);
         if (json.data && json.data.songs) {
           giSetlistSongs = json.data.songs;
+          if (window.electronAPI && window.electronAPI.saveGiSetlist) {
+            window.electronAPI.saveGiSetlist(giSetlistSongs);
+          }
           updateFilterCounts();
           renderGiSetlist();
           // Switch to GI tab automatically

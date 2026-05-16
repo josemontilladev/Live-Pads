@@ -110,6 +110,33 @@ ipcMain.handle('get-absolute-path', (_e, relativePath) => {
   return path.join(__dirname, 'src', relativePath);
 });
 
+// Custom Drums
+ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
+  const destDir = path.join(__dirname, 'src', 'assets', 'UserDrums');
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+  
+  // Clean filename to avoid issues
+  const fileName = `${padName.replace(/[^a-z0-9]/gi, '_')}_${path.basename(sourcePath)}`;
+  const destPath = path.join(destDir, fileName);
+  if (sourcePath !== destPath) fs.copyFileSync(sourcePath, destPath);
+  
+  return `assets/UserDrums/${fileName}`;
+});
+
+ipcMain.handle('save-user-drums', async (_e, kitMap) => {
+  const destDir = path.join(__dirname, 'src', 'assets', 'UserDrums');
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+  const fp = path.join(destDir, 'user_drums.json');
+  fs.writeFileSync(fp, JSON.stringify(kitMap, null, 2), 'utf-8');
+  return true;
+});
+
+ipcMain.handle('load-user-drums', async () => {
+  const fp = path.join(__dirname, 'src', 'assets', 'UserDrums', 'user_drums.json');
+  if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+  return null;
+});
+
 /* ── App lifecycle ─────────────────────────────────── */
 
 app.whenReady().then(createWindow);
