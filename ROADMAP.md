@@ -65,8 +65,9 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - Mapeo nativo del teclado de la laptop (ej. números para pads, espacio para play/stop) como fallback.
 - Guardar el diccionario de mapeo en disco (`JSON`) para que sobreviva a los reinicios.
 
-### 📂 2. Gestión de Samples del Usuario
-- Construir una interfaz gráfica para que el usuario pueda arrastrar y soltar (`Drag & Drop`) sus propios `.wav` y organizarlos en sus propios presets de Pads y Baterías.
+### 📂 2. Gestión de Samples del Usuario (¡COMPLETADO!)
+- ✅ Interfaz gráfica de edición con un clic en los pads para buscar y asignar sonidos `.wav` personalizados.
+- ✅ Persistencia automática en `UserDrums` a través del `SynthEngine` y `main.js`.
 
 ---
 *Documento actualizado en preparación para el mapeo MIDI avanzado.*

@@ -142,3 +142,18 @@ ipcMain.handle('load-user-drums', async () => {
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+ipcMain.handle('save-midi-map', async (_e, mapData) => {
+  const destDir = path.join(__dirname, 'src', 'assets', 'Midi');
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+  const fp = path.join(destDir, 'midi_map.json');
+  fs.writeFileSync(fp, JSON.stringify(mapData, null, 2));
+  return true;
+});
+
+ipcMain.handle('load-midi-map', async () => {
+  const fp = path.join(__dirname, 'src', 'assets', 'Midi', 'midi_map.json');
+  if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+  return null;
+});
+

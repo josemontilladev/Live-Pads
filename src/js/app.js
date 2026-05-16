@@ -17,6 +17,9 @@ let currentGiGenre = 'all';
 let serviceSongs   = [];
 let isEditKitMode  = false;
 let customKitMap   = {};
+let isMidiLearnMode = false;
+let midiLearnTarget = null;
+let customMidiMap = {};
 
 const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
 const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
@@ -36,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (window.electronAPI && window.electronAPI.loadUserDrums) {
     customKitMap = (await window.electronAPI.loadUserDrums()) || {};
+  }
+  if (window.electronAPI && window.electronAPI.loadMidiMap) {
+    customMidiMap = (await window.electronAPI.loadMidiMap()) || {};
   }
   const customKit = {
     id: 'custom_kit', name: 'Custom Kit (Tus sonidos)',
@@ -374,6 +380,16 @@ function bindAll() {
   q('#menu-save-set').onclick    = () => { closeMenu(); showDialog('Guardar set', doSavePreset); };
   q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('settings'); };
   q('#menu-open-themes').onclick   = () => { closeMenu(); openSidebarTab('themes'); };
+  const btnMidiLearn = q('#menu-midi-learn');
+  if (btnMidiLearn) {
+    btnMidiLearn.onclick = () => {
+      closeMenu();
+      isMidiLearnMode = true;
+      midiLearnTarget = null;
+      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo MIDI: Haz clic en un botón de la app. (Clic aquí para salir)';
+      q('#midi-learn-overlay').style.display = 'block';
+    };
+  }
 
   // Bank arrows (Removed, now using dropdowns)
 
@@ -597,6 +613,39 @@ function bindAll() {
   engine.initMIDI(msg => {
     const [cmd, note, velocity] = msg.data;
     if (cmd >= 144 && cmd <= 159 && velocity > 0) {
+      if (isMidiLearnMode && midiLearnTarget) {
+        customMidiMap[note] = midiLearnTarget;
+        if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
+        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} a la nota ${note}. Selecciona otro o sal.`;
+        midiLearnTarget = null;
+        return;
+      }
+
+      const mapping = customMidiMap[note];
+      if (mapping) {
+        if (mapping.action === 'pad') {
+          onKeyClick(mapping.id);
+        } else if (mapping.action === 'drum') {
+          const kit = KIT_BANKS[kitBankIdx];
+          if (!kit) return;
+          const pad = kit.pads.find(p => p.type === mapping.id);
+          if (pad) {
+            const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
+            if (btn) btn.classList.add('hit');
+            setTimeout(() => { if(btn) btn.classList.remove('hit'); }, 120);
+            if (!engine.playCustomDrum(pad.id, pad.id)) engine.playDrum(pad.type, pad.id);
+          }
+        } else if (mapping.action === 'metro') {
+          toggleMetro();
+        } else if (mapping.action === 'play_seq') {
+          q('#tp-play-btn').click();
+        } else if (mapping.action === 'stop_seq') {
+          q('#tp-stop-btn').click();
+        }
+        return;
+      }
+
+      // Hardcoded fallback map
       if (note >= 60 && note <= 71) {
         const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
         onKeyClick(keys[note - 60]);
@@ -612,6 +661,38 @@ function bindAll() {
       }
     }
   });
+
+  // Midi Learn Intercept
+  document.addEventListener('click', (e) => {
+    if (!isMidiLearnMode) return;
+    
+    if (e.target.closest('#midi-learn-overlay')) {
+       isMidiLearnMode = false;
+       q('#midi-learn-overlay').style.display = 'none';
+       midiLearnTarget = null;
+       e.stopPropagation(); e.preventDefault();
+       return;
+    }
+
+    const keyBtn = e.target.closest('.key-btn');
+    const drumBtn = e.target.closest('.drum-btn');
+    const metroBtn = e.target.closest('#btn-metro-main');
+    const playSeqBtn = e.target.closest('#tp-play-btn');
+    const stopSeqBtn = e.target.closest('#tp-stop-btn');
+
+    let target = null;
+    if (keyBtn) target = { action: 'pad', id: keyBtn.dataset.key };
+    else if (drumBtn) target = { action: 'drum', id: drumBtn.dataset.type };
+    else if (metroBtn) target = { action: 'metro' };
+    else if (playSeqBtn) target = { action: 'play_seq' };
+    else if (stopSeqBtn) target = { action: 'stop_seq' };
+    else return; // unmappable
+
+    e.stopPropagation();
+    e.preventDefault();
+    midiLearnTarget = target;
+    q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu Wordle.`;
+  }, true);
 
   // Dialog
   q('#dialog-cancel').onclick = hideDialog;

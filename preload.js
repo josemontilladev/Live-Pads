@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   assignDrumSample: (data) => ipcRenderer.invoke('assign-drum-sample', data),
   saveUserDrums: (data) => ipcRenderer.invoke('save-user-drums', data),
   loadUserDrums: () => ipcRenderer.invoke('load-user-drums'),
+  loadMidiMap: () => ipcRenderer.invoke('load-midi-map'),
+  saveMidiMap: (data) => ipcRenderer.invoke('save-midi-map', data)
 });
