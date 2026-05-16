@@ -42,22 +42,31 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Generación de Ejecutables (.exe)**: Construcción exitosa del instalador NSIS para Windows usando `electron-builder`.
 - **Resolución de Íconos**: Dimensionamiento y conversión automática (256x256) de los íconos de la aplicación y el instalador, resolviendo los errores del empaquetador.
 
+### 🎵 Reproductor de Pistas y Secuencias
+- **Archivos Locales Robustos**: Sistema nativo de IPC (`fs`) que copia automáticamente los archivos originales y secuencias del usuario a `src/assets/`, manteniendo la persistencia a prueba de errores.
+- **Rutas a Prueba de Fallos**: Construcción dinámica de URIs (`file:///`) para evitar fallos por espacios o caracteres especiales en Windows.
+- **Modo Loop**: Botón de repetición infinita para secuencias.
+- **Feedback Visual Inteligente**: Los botones de Setlist se iluminan automáticamente cuando detectan que la canción ya tiene un audio vinculado.
+
 ---
 
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
 
-### 📂 1. Gestión de Samples del Usuario
-- Construir una interfaz gráfica para que el usuario pueda arrastrar y soltar (`Drag & Drop`) sus propios `.wav` y organizarlos en sus propios presets.
+### 🎛️ 1. Mapeo Personalizado de Controles (MIDI/Teclado)
+**Fase 1: Integración del Motor MIDI (Web MIDI API)**
+- Conectar la aplicación con los puertos USB de la PC para detectar controladores físicos.
+- Lectura en tiempo real de señales `Note On`, `Note Off` y `Control Change`.
 
-### 🎛️ 2. Mapeo Personalizado de Controles (MIDI/Teclado)
-- Panel visual para editar el mapeo nativo: permitir asignar libremente qué tecla física o nota MIDI dispara qué acción o pad específico.
+**Fase 2: Modo "MIDI Learn" (Mapeo Interactivo visual)**
+- Botón global para entrar en "Modo Edición/Mapeo".
+- Flujo click-to-map: Clic en el botón de la app -> Presionar tecla en el controlador -> Enlace creado.
 
-### 📝 3. Gestión Avanzada de Setlist
-- Reordenamiento visual de canciones (`Drag & Drop`) dentro del Setlist para preparar el orden exacto del evento o servicio.
+**Fase 3: Persistencia y Atajos QWERTY**
+- Mapeo nativo del teclado de la laptop (ej. números para pads, espacio para play/stop) como fallback.
+- Guardar el diccionario de mapeo en disco (`JSON`) para que sobreviva a los reinicios.
 
-### 🎵 4. Reproductor de Secuencias (Split Tracks)
-- **Modo Clásico (Próximo paso)**: Cargar archivos estéreo de secuencias (Pista lado Izquierdo / Click y Guía lado Derecho). Al reproducirse, la app silenciará su metrónomo interno. Ideal para el cableado estándar en Y hacia la consola principal.
-- **Modo Pro (Ruteo Web Audio)**: Investigar el ruteo interno de los canales izquierdo y derecho para enviar el click independientemente a los audífonos y mandar la pista en el master principal sin requerir ruteo físico externo complejo.
+### 📂 2. Gestión de Samples del Usuario
+- Construir una interfaz gráfica para que el usuario pueda arrastrar y soltar (`Drag & Drop`) sus propios `.wav` y organizarlos en sus propios presets de Pads y Baterías.
 
 ---
-*Documento actualizado en preparación para el primer commit oficial en GitHub.*
+*Documento actualizado en preparación para el mapeo MIDI avanzado.*
