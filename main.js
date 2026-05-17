@@ -21,6 +21,21 @@ function createWindow() {
     },
   });
   mainWindow.loadFile('src/index.html');
+
+  // Handle MIDI permissions to prevent drops on hot reload (Ctrl+R)
+  mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
+    if (permission === 'midi' || permission === 'midiSysex') {
+      return true;
+    }
+    return false;
+  });
+
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'midi' || permission === 'midiSysex') {
+      return callback(true);
+    }
+    return callback(false);
+  });
 }
 
 /* ── IPC Handlers ──────────────────────────────────── */
