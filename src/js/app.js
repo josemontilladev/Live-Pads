@@ -611,17 +611,22 @@ function bindAll() {
 
   // MIDI
   engine.initMIDI(msg => {
-    const [cmd, note, velocity] = msg.data;
-    if (cmd >= 144 && cmd <= 159 && velocity > 0) {
+    const [cmd, data1, data2] = msg.data;
+    const isNoteOn = cmd >= 144 && cmd <= 159;
+    const isCC = cmd >= 176 && cmd <= 191;
+
+    if ((isNoteOn || isCC) && data2 > 0) {
+      const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
+
       if (isMidiLearnMode && midiLearnTarget) {
-        customMidiMap[note] = midiLearnTarget;
+        customMidiMap[mapKey] = midiLearnTarget;
         if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
-        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} a la nota ${note}. Selecciona otro o sal.`;
+        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
         midiLearnTarget = null;
         return;
       }
 
-      const mapping = customMidiMap[note];
+      const mapping = customMidiMap[mapKey] || customMidiMap[data1];
       if (mapping) {
         if (mapping.action === 'pad') {
           onKeyClick(mapping.id);
@@ -646,17 +651,19 @@ function bindAll() {
       }
 
       // Hardcoded fallback map
-      if (note >= 60 && note <= 71) {
-        const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
-        onKeyClick(keys[note - 60]);
-      } else {
-        const kit = KIT_BANKS[kitBankIdx];
-        if (!kit) return;
-        const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
-        const mappedType = typeMap[note];
-        if (mappedType) {
-          const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
-          if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
+      if (isNoteOn) {
+        if (data1 >= 60 && data1 <= 71) {
+          const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+          onKeyClick(keys[data1 - 60]);
+        } else {
+          const kit = KIT_BANKS[kitBankIdx];
+          if (!kit) return;
+          const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
+          const mappedType = typeMap[data1];
+          if (mappedType) {
+            const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
+            if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
+          }
         }
       }
     }
@@ -691,7 +698,7 @@ function bindAll() {
     e.stopPropagation();
     e.preventDefault();
     midiLearnTarget = target;
-    q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu Wordle.`;
+    q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
   }, true);
 
   // Dialog
