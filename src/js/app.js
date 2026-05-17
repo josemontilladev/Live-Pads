@@ -16,7 +16,6 @@ let giSetlistSongs = [];
 let currentGiGenre = 'all';
 let serviceSongs   = [];
 let isEditKitMode  = false;
-let customKitMap   = {};
 let isMidiLearnMode = false;
 let midiLearnTarget = null;
 let customMidiMap = {};
@@ -37,27 +36,77 @@ document.addEventListener('DOMContentLoaded', async () => {
   metro.onBeat = onMetroBeat;
   metro.sound = 'cowbell';  // default: Cowbell
 
+  let customKitsData = { kits: [] };
   if (window.electronAPI && window.electronAPI.loadUserDrums) {
-    customKitMap = (await window.electronAPI.loadUserDrums()) || {};
+    const raw = await window.electronAPI.loadUserDrums();
+    if (raw) {
+      if (raw.kits) {
+        customKitsData = raw;
+      } else if (raw.kitName) {
+        // Migrate legacy format
+        customKitsData = {
+          kits: [{
+            id: 'custom_kit_legacy',
+            kitName: raw.kitName || 'Custom Kit',
+            lbl_c_kick: raw.lbl_c_kick, c_kick: raw.c_kick,
+            lbl_c_snare: raw.lbl_c_snare, c_snare: raw.c_snare,
+            lbl_c_hhc: raw.lbl_c_hhc, c_hhc: raw.c_hhc,
+            lbl_c_clap: raw.lbl_c_clap, c_clap: raw.c_clap,
+            lbl_c_perc1: raw.lbl_c_perc1, c_perc1: raw.c_perc1,
+            lbl_c_perc2: raw.lbl_c_perc2, c_perc2: raw.c_perc2,
+            lbl_c_crash: raw.lbl_c_crash, c_crash: raw.c_crash,
+            lbl_c_ride: raw.lbl_c_ride, c_ride: raw.c_ride,
+          }]
+        };
+      }
+    }
   }
+
+  // Load custom kits into KIT_BANKS
+  if (customKitsData.kits && customKitsData.kits.length > 0) {
+    customKitsData.kits.forEach(k => {
+      KIT_BANKS.push({
+        id: k.id || `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        name: k.kitName || 'Custom Kit',
+        desc: 'Batería personalizada (Edita con el ✏️)',
+        color: '#10b981',
+        isCustom: true, // Mark it so we know we can edit/delete it!
+        pads: [
+          { id: 'c_kick', label: k.lbl_c_kick || 'Kick', type: 'kick', sample: k.c_kick },
+          { id: 'c_snare', label: k.lbl_c_snare || 'Snare', type: 'snare', sample: k.c_snare },
+          { id: 'c_hhc', label: k.lbl_c_hhc || 'HH Cerr', type: 'hihatC', sample: k.c_hhc },
+          { id: 'c_clap', label: k.lbl_c_clap || 'Clap', type: 'clap', sample: k.c_clap },
+          { id: 'c_perc1', label: k.lbl_c_perc1 || 'Tom 1', type: 'tomH', sample: k.c_perc1 },
+          { id: 'c_perc2', label: k.lbl_c_perc2 || 'Tom 2', type: 'tomM', sample: k.c_perc2 },
+          { id: 'c_crash', label: k.lbl_c_crash || 'Crash', type: 'crash', sample: k.c_crash },
+          { id: 'c_ride', label: k.lbl_c_ride || 'Ride', type: 'ride', sample: k.c_ride },
+        ]
+      });
+    });
+  } else {
+    // If no custom kits exist, create one default custom kit
+    KIT_BANKS.push({
+      id: `custom_kit_${Date.now()}`,
+      name: 'PadLab Custom',
+      desc: 'Batería personalizada (Edita con el ✏️)',
+      color: '#10b981',
+      isCustom: true,
+      pads: [
+        { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
+        { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
+        { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
+        { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
+        { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
+        { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
+        { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
+        { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
+      ]
+    });
+  }
+
   if (window.electronAPI && window.electronAPI.loadMidiMap) {
     customMidiMap = (await window.electronAPI.loadMidiMap()) || {};
   }
-  const customKit = {
-    id: 'custom_kit', name: customKitMap['kitName'] || 'Custom Kit (Tus sonidos)',
-    desc: 'Batería personalizada (Edita con el ✏️)', color: '#10b981',
-    pads: [
-      { id: 'c_kick', label: customKitMap['lbl_c_kick'] || 'Kick', type: 'kick', sample: customKitMap['c_kick'] },
-      { id: 'c_snare', label: customKitMap['lbl_c_snare'] || 'Snare', type: 'snare', sample: customKitMap['c_snare'] },
-      { id: 'c_hhc', label: customKitMap['lbl_c_hhc'] || 'HH Cerr', type: 'hihatC', sample: customKitMap['c_hhc'] },
-      { id: 'c_clap', label: customKitMap['lbl_c_clap'] || 'Clap', type: 'clap', sample: customKitMap['c_clap'] },
-      { id: 'c_perc1', label: customKitMap['lbl_c_perc1'] || 'Tom 1', type: 'tomH', sample: customKitMap['c_perc1'] },
-      { id: 'c_perc2', label: customKitMap['lbl_c_perc2'] || 'Tom 2', type: 'tomM', sample: customKitMap['c_perc2'] },
-      { id: 'c_crash', label: customKitMap['lbl_c_crash'] || 'Crash', type: 'crash', sample: customKitMap['c_crash'] },
-      { id: 'c_ride', label: customKitMap['lbl_c_ride'] || 'Ride', type: 'ride', sample: customKitMap['c_ride'] },
-    ]
-  };
-  KIT_BANKS.push(customKit);
 
   applyTheme(currentTheme);
   buildBankSelects();
@@ -110,12 +159,25 @@ function loadPadBank(idx) {
   if (activeKey) engine.playPad(activeKey);
 }
 
-/* ── KIT BANK ── */
 function loadKitBank(idx) {
   kitBankIdx = ((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length;
   const kit = KIT_BANKS[kitBankIdx];
   const kitSel = q('#kit-bank-select');
   if (kitSel) kitSel.value = kitBankIdx;
+  
+  // Show or hide the trash button depending on whether this is a custom kit
+  const btnDelete = q('#btn-delete-kit');
+  if (btnDelete) {
+    btnDelete.style.display = kit.isCustom ? 'flex' : 'none';
+  }
+  
+  // Toggle opacity and availability of the edit pencil button
+  const btnEdit = q('#btn-edit-kit');
+  if (btnEdit) {
+    btnEdit.style.opacity = kit.isCustom ? '1' : '0.2';
+    btnEdit.style.pointerEvents = kit.isCustom ? 'auto' : 'none';
+  }
+
   engine.initDrumVolumes(kit.pads);
   buildDrumGrid(kit.pads);
   buildDrumVolumes(kit.pads);
@@ -213,8 +275,10 @@ function buildDrumGrid(pads) {
     lbl.addEventListener('blur', async () => {
       if (lbl.textContent.trim() !== pad.label) {
         pad.label = lbl.textContent.trim() || 'Pad';
-        customKitMap[`lbl_${pad.id}`] = pad.label;
-        if (window.electronAPI) window.electronAPI.saveUserDrums(customKitMap);
+        const currentKit = KIT_BANKS[kitBankIdx];
+        if (currentKit && currentKit.isCustom) {
+          saveCustomKitsToStorage();
+        }
       }
     });
 
@@ -239,12 +303,11 @@ async function hitDrum(id, type, btn) {
     
     const resPath = await window.electronAPI.assignDrumSample({ sourcePath: fileData.path, padName: id });
     if (resPath) {
-      customKitMap[id] = resPath;
-      await window.electronAPI.saveUserDrums(customKitMap);
-      const ckit = KIT_BANKS.find(k => k.id === 'custom_kit');
-      if (ckit) {
-        const pad = ckit.pads.find(p => p.id === id);
+      const currentKit = KIT_BANKS[kitBankIdx];
+      if (currentKit && currentKit.isCustom) {
+        const pad = currentKit.pads.find(p => p.id === id);
         if (pad) pad.sample = resPath;
+        saveCustomKitsToStorage();
       }
       engine.loadSingleDrum(id, resPath).then((success) => {
         if (success) {
@@ -387,9 +450,58 @@ function bindToggle(el, cb) {
 function bindAll() {
   const api = window.electronAPI;
 
+  const btnCreateKit = q('#btn-create-kit');
+  if (btnCreateKit) {
+    btnCreateKit.onclick = () => {
+      const name = prompt('Nombre del nuevo kit de batería personalizado:', 'Mi Nuevo Kit');
+      if (!name || !name.trim()) return;
+      const newKit = {
+        id: `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        name: name.trim(),
+        desc: 'Batería personalizada (Edita con el ✏️)',
+        color: '#10b981',
+        isCustom: true,
+        pads: [
+          { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
+          { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
+          { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
+          { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
+          { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
+          { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
+          { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
+          { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
+        ]
+      };
+      KIT_BANKS.push(newKit);
+      saveCustomKitsToStorage();
+      buildBankSelects();
+      loadKitBank(KIT_BANKS.length - 1);
+    };
+  }
+
+  const btnDeleteKit = q('#btn-delete-kit');
+  if (btnDeleteKit) {
+    btnDeleteKit.onclick = () => {
+      const currentKit = KIT_BANKS[kitBankIdx];
+      if (!currentKit || !currentKit.isCustom) return;
+      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el kit "${currentKit.name}"?`)) {
+        KIT_BANKS.splice(kitBankIdx, 1);
+        saveCustomKitsToStorage();
+        buildBankSelects();
+        loadKitBank(0);
+      }
+    };
+  }
+
   const btnEditKit = q('#btn-edit-kit');
   if (btnEditKit) {
     btnEditKit.onclick = () => {
+      const currentKit = KIT_BANKS[kitBankIdx];
+      if (!currentKit || !currentKit.isCustom) {
+        alert('Selecciona un kit personalizado primero.');
+        return;
+      }
+      
       isEditKitMode = !isEditKitMode;
       btnEditKit.style.color = isEditKitMode ? 'var(--blue)' : 'var(--text-muted)';
       btnEditKit.style.borderColor = isEditKitMode ? 'var(--blue)' : 'transparent';
@@ -399,23 +511,17 @@ function bindAll() {
         btnEditKit.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="18" height="18"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
       }
       
-      const customIdx = KIT_BANKS.findIndex(k => k.id === 'custom_kit');
       const kitSelect = q('#kit-bank-select');
       const selectWrapper = kitSelect.parentElement;
 
       if (isEditKitMode) {
-        if (customIdx >= 0) {
-          kitSelect.value = customIdx;
-          loadKitBank(customIdx);
-        }
-        const kitName = KIT_BANKS[customIdx].name;
         const input = document.createElement('input');
         input.type = 'text';
         input.id = 'edit-kit-name-input';
         input.className = 'metro-dropdown';
         input.style.width = '100%';
         input.style.border = '1px solid var(--blue)';
-        input.value = kitName;
+        input.value = currentKit.name;
         kitSelect.style.display = 'none';
         selectWrapper.insertBefore(input, kitSelect);
         input.focus();
@@ -423,14 +529,13 @@ function bindAll() {
         const input = q('#edit-kit-name-input');
         if (input) {
            const newName = input.value.trim() || 'Custom Kit';
-           KIT_BANKS[customIdx].name = newName;
-           customKitMap.kitName = newName;
-           if (window.electronAPI) window.electronAPI.saveUserDrums(customKitMap);
+           currentKit.name = newName;
+           saveCustomKitsToStorage();
            input.remove();
         }
         kitSelect.style.display = 'block';
         buildBankSelects();
-        kitSelect.value = customIdx;
+        kitSelect.value = kitBankIdx;
       }
 
       qa('.drum-btn').forEach(b => {
@@ -1624,4 +1729,33 @@ async function startTrackPlayback(url, title, type) {
   
   currentTrackAudio.play();
   updatePlayBtn();
+}
+
+function saveCustomKitsToStorage() {
+  const customKits = KIT_BANKS.filter(k => k.isCustom).map(k => {
+    const getSample = (padId) => {
+      const p = k.pads.find(pad => pad.id === padId);
+      return p ? p.sample : null;
+    };
+    const getLabel = (padId) => {
+      const p = k.pads.find(pad => pad.id === padId);
+      return p ? p.label : '';
+    };
+    return {
+      id: k.id,
+      kitName: k.name,
+      lbl_c_kick: getLabel('c_kick'), c_kick: getSample('c_kick'),
+      lbl_c_snare: getLabel('c_snare'), c_snare: getSample('c_snare'),
+      lbl_c_hhc: getLabel('c_hhc'), c_hhc: getSample('c_hhc'),
+      lbl_c_clap: getLabel('c_clap'), c_clap: getSample('c_clap'),
+      lbl_c_perc1: getLabel('c_perc1'), c_perc1: getSample('c_perc1'),
+      lbl_c_perc2: getLabel('c_perc2'), c_perc2: getSample('c_perc2'),
+      lbl_c_crash: getLabel('c_crash'), c_crash: getSample('c_crash'),
+      lbl_c_ride: getLabel('c_ride'), c_ride: getSample('c_ride'),
+    };
+  });
+  
+  if (window.electronAPI && window.electronAPI.saveUserDrums) {
+    window.electronAPI.saveUserDrums({ kits: customKits });
+  }
 }
