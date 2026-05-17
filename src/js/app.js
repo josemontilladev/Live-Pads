@@ -980,9 +980,24 @@ function renderPresets() {
   if (!presets.length) { list.innerHTML = '<div class="setlist-empty">No hay sets guardados</div>'; return; }
   presets.forEach(p => {
     const el = document.createElement('div'); el.className = 'preset-item';
-    el.innerHTML = `<div class="preset-info"><div class="preset-item-name">${p.name}</div><div class="preset-item-meta">${p.key || '—'} · ${p.bpm} BPM</div></div>
-    <div class="preset-actions"><button class="pi-play"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polygon points="5,3 19,12 5,21"/></svg></button></div>`;
-    el.onclick = () => applyPreset(p);
+    el.innerHTML = `<div class="preset-info" style="flex: 1;"><div class="preset-item-name">${p.name}</div><div class="preset-item-meta">${p.key || '—'} · ${p.bpm} BPM</div></div>
+    <div class="preset-actions" style="display: flex; gap: 6px; align-items: center;">
+      <button class="pi-play" style="padding: 6px;"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polygon points="5,3 19,12 5,21"/></svg></button>
+      <button class="pi-delete" title="Eliminar" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-muted)'" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:6px; display:flex; align-items:center; transition:color 0.2s;"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
+    </div>`;
+    
+    el.querySelector('.preset-info').onclick = () => applyPreset(p);
+    el.querySelector('.pi-play').onclick = (e) => { e.stopPropagation(); applyPreset(p); };
+    el.querySelector('.pi-delete').onclick = async (e) => {
+      e.stopPropagation();
+      if (confirm(`¿Estás seguro de que deseas eliminar el preset "${p.name}"?`)) {
+        presets = presets.filter(item => item.id !== p.id);
+        renderPresets();
+        if (window.electronAPI && window.electronAPI.deletePreset) {
+          await window.electronAPI.deletePreset(p.id);
+        }
+      }
+    };
     list.appendChild(el);
   });
 }
