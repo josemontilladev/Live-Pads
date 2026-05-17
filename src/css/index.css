@@ -877,20 +877,37 @@ input.pan-slider {
 
 /* ── SOUND POOL MODAL ── */
 #sound-pool-modal {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px);
-  display: flex; align-items: center; justify-content: center; z-index: 3500;
-  animation: fadeIn 0.2s ease-out;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  /* NO animation — the global body * transition fights it and keeps opacity:0 */
+  opacity: 1 !important;
+  animation: none !important;
+}
+#sound-pool-modal, #sound-pool-modal * {
+  transition: none !important;
+  animation: none !important;
 }
 .pool-box {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
   width: 480px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
   overflow: hidden;
+  opacity: 1 !important;
 }
 .pool-header {
   padding: 20px 24px;

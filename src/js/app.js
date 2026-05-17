@@ -288,12 +288,10 @@ function buildDrumGrid(pads) {
     });
 
     btn.onmousedown = (e) => {
-      console.log("DEBUG: drum-btn onmousedown", { target: e.target, isLbl: e.target === lbl, isEditKitMode });
       if (isEditKitMode && e.target === lbl) return;
       hitDrum(pad.id, pad.type, btn);
     };
     btn.addEventListener('touchstart', e => { 
-      console.log("DEBUG: drum-btn touchstart", { target: e.target, isLbl: e.target === lbl, isEditKitMode });
       if (isEditKitMode && e.target === lbl) return;
       e.preventDefault(); hitDrum(pad.id, pad.type, btn); 
     });
@@ -303,18 +301,21 @@ function buildDrumGrid(pads) {
 }
 
 async function hitDrum(id, type, btn) {
-  console.log("DEBUG: hitDrum triggered", { id, type, isEditKitMode });
   if (isEditKitMode) {
-    if (!window.electronAPI) {
-      console.warn("DEBUG: window.electronAPI is missing!");
-      return;
-    }
+    if (!window.electronAPI) return;
     
+    const currentKit = KIT_BANKS[kitBankIdx];
+    const kitId = currentKit ? currentKit.id : 'unknown';
+
     const onUploadNew = async () => {
       const fileData = await window.electronAPI.openAudioFile();
       if (!fileData || !fileData.path) return;
       
-      const resPath = await window.electronAPI.assignDrumSample({ sourcePath: fileData.path, padName: id });
+      const resPath = await window.electronAPI.assignDrumSample({
+        sourcePath: fileData.path,
+        padName: id,
+        kitId: kitId
+      });
       if (resPath) {
         assignSampleToPad(id, resPath, btn);
       }
@@ -324,7 +325,6 @@ async function hitDrum(id, type, btn) {
       assignSampleToPad(id, resPath, btn);
     };
 
-    const currentKit = KIT_BANKS[kitBankIdx];
     const pad = currentKit ? currentKit.pads.find(p => p.id === id) : null;
     const padLabel = pad ? pad.label : 'Pad';
 
@@ -363,12 +363,21 @@ function getCleanSampleName(path) {
 }
 
 function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
-  console.log("DEBUG: openSoundPoolModal entry", { padId, padLabel });
   const existing = q('#sound-pool-modal');
   if (existing) existing.remove();
 
   const modal = document.createElement('div');
   modal.id = 'sound-pool-modal';
+
+  // ── Inline styles REQUIRED: the global `body * { transition: all 0.5s }` rule
+  // makes CSS-class-based opacity transitions fight and keep the modal hidden.
+  Object.assign(modal.style, {
+    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+    background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(16px)',
+    webkitBackdropFilter: 'blur(16px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: '99999', opacity: '1', transition: 'none', fontFamily: "'Inter', sans-serif"
+  });
 
   const uniqueSamples = new Set();
   const sampleList = [];
@@ -377,110 +386,237 @@ function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
       kit.pads.forEach(p => {
         if (p.sample && !uniqueSamples.has(p.sample)) {
           uniqueSamples.add(p.sample);
-          sampleList.push({
-            path: p.sample,
-            id: p.id,
-            label: p.label
-          });
+          sampleList.push({ path: p.sample, id: p.id, label: p.label, kitName: kit.name });
         }
       });
     }
   });
 
-  console.log("DEBUG: sampleList populated", sampleList);
-  let listHtml = '';
+  // ── Build the box
+  const box = document.createElement('div');
+  Object.assign(box.style, {
+    background: '#111111', border: '1px solid rgba(255,255,255,0.09)',
+    borderRadius: '20px', width: '460px', maxHeight: '76vh',
+    display: 'flex', flexDirection: 'column',
+    boxShadow: '0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)',
+    overflow: 'hidden', transition: 'none', opacity: '1'
+  });
+
+  // ── Header
+  const header = document.createElement('div');
+  Object.assign(header.style, {
+    padding: '22px 24px 18px', display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)'
+  });
+  const titleWrap = document.createElement('div');
+  const badge = document.createElement('span');
+  Object.assign(badge.style, {
+    display: 'inline-block', background: 'rgba(251,174,0,0.15)', color: '#FBAE00',
+    fontSize: '10px', fontWeight: '700', letterSpacing: '1px',
+    textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', marginBottom: '6px'
+  });
+  badge.textContent = 'Selector de sonido';
+  const titleEl = document.createElement('h3');
+  Object.assign(titleEl.style, { margin: '0', fontSize: '17px', fontWeight: '700', color: '#fff', lineHeight: '1.2' });
+  titleEl.textContent = padLabel;
+  titleWrap.appendChild(badge);
+  titleWrap.appendChild(titleEl);
+
+  const closeBtn = document.createElement('button');
+  Object.assign(closeBtn.style, {
+    background: 'rgba(255,255,255,0.06)', border: 'none', color: '#aaa',
+    cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0',
+    transition: 'none'
+  });
+  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.12)'; closeBtn.style.color = '#fff'; };
+  closeBtn.onmouseleave = () => { closeBtn.style.background = 'rgba(255,255,255,0.06)'; closeBtn.style.color = '#aaa'; };
+  header.appendChild(titleWrap);
+  header.appendChild(closeBtn);
+
+  // ── Content
+  const content = document.createElement('div');
+  Object.assign(content.style, {
+    padding: '20px 24px', overflowY: 'auto', flex: '1',
+    display: 'flex', flexDirection: 'column', gap: '16px'
+  });
+
+  // Upload button
+  const uploadBtn = document.createElement('button');
+  Object.assign(uploadBtn.style, {
+    background: 'linear-gradient(135deg, #FBAE00 0%, #e09900 100%)',
+    color: '#000', border: 'none', padding: '13px 18px', borderRadius: '12px',
+    fontWeight: '700', fontSize: '13px', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%',
+    boxShadow: '0 4px 16px rgba(251,174,0,0.25)', transition: 'none', letterSpacing: '0.3px'
+  });
+  uploadBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Subir nuevo archivo desde PC`;
+  uploadBtn.onmouseenter = () => { uploadBtn.style.boxShadow = '0 6px 24px rgba(251,174,0,0.4)'; uploadBtn.style.filter = 'brightness(1.07)'; };
+  uploadBtn.onmouseleave = () => { uploadBtn.style.boxShadow = '0 4px 16px rgba(251,174,0,0.25)'; uploadBtn.style.filter = ''; };
+
+  // Section label
+  const sectionLabel = document.createElement('div');
+  Object.assign(sectionLabel.style, {
+    fontSize: '10px', fontWeight: '800', color: 'rgba(255,255,255,0.3)',
+    textTransform: 'uppercase', letterSpacing: '1.2px'
+  });
+  sectionLabel.textContent = sampleList.length > 0
+    ? `${sampleList.length} sonido${sampleList.length !== 1 ? 's' : ''} disponible${sampleList.length !== 1 ? 's' : ''}`
+    : 'Sonidos en la App';
+
+  // List container
+  const listEl = document.createElement('div');
+  Object.assign(listEl.style, {
+    display: 'flex', flexDirection: 'column', gap: '6px',
+    maxHeight: '300px', overflowY: 'auto', paddingRight: '2px'
+  });
+
   if (sampleList.length === 0) {
-    listHtml = '<div class="pool-empty">Aún no has cargado ningún sonido en tus kits.</div>';
+    const empty = document.createElement('div');
+    Object.assign(empty.style, {
+      textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px',
+      padding: '32px 0', lineHeight: '1.6'
+    });
+    empty.innerHTML = `<div style="font-size:28px;margin-bottom:10px;">🥁</div>Aún no has cargado sonidos.<br>Usa "Subir nuevo archivo" para comenzar.`;
+    listEl.appendChild(empty);
   } else {
     sampleList.forEach((item, idx) => {
       const cleanName = getCleanSampleName(item.path);
-      listHtml += `
-        <div class="pool-item">
-          <div class="pool-item-name" title="${cleanName}">${cleanName}</div>
-          <div class="pool-item-actions">
-            <button class="pool-btn-play" data-idx="${idx}" title="Preescuchar">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                <polygon points="5,3 19,12 5,21"/>
-              </svg>
-            </button>
-            <button class="pool-btn-assign" data-idx="${idx}">Asignar</button>
-          </div>
-        </div>
-      `;
+
+      const row = document.createElement('div');
+      Object.assign(row.style, {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', borderRadius: '10px', gap: '10px',
+        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+        cursor: 'default', transition: 'none'
+      });
+      row.onmouseenter = () => { row.style.background = 'rgba(255,255,255,0.07)'; row.style.borderColor = 'rgba(255,255,255,0.1)'; };
+      row.onmouseleave = () => { row.style.background = 'rgba(255,255,255,0.03)'; row.style.borderColor = 'rgba(255,255,255,0.05)'; };
+
+      const nameEl = document.createElement('div');
+      Object.assign(nameEl.style, {
+        flex: '1', overflow: 'hidden', minWidth: '0'
+      });
+      const nameText = document.createElement('div');
+      Object.assign(nameText.style, {
+        fontSize: '13px', fontWeight: '500', color: '#e0e0e0',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      });
+      nameText.textContent = cleanName;
+      nameText.title = cleanName;
+      const kitTag = document.createElement('div');
+      Object.assign(kitTag.style, {
+        fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '1px',
+        fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+      });
+      kitTag.textContent = item.kitName || '';
+      nameEl.appendChild(nameText);
+      nameEl.appendChild(kitTag);
+
+      const actions = document.createElement('div');
+      Object.assign(actions.style, { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: '0' });
+
+      // ── Play button
+      const playBtn = document.createElement('button');
+      Object.assign(playBtn.style, {
+        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)',
+        color: '#ccc', width: '30px', height: '30px', borderRadius: '8px',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'none'
+      });
+      const iconPlay = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><polygon points="5,3 19,12 5,21"/></svg>`;
+      const iconStop = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
+      playBtn.innerHTML = iconPlay;
+      playBtn.title = 'Preescuchar';
+      playBtn.onmouseenter = () => { if (playBtn.innerHTML === iconPlay) { playBtn.style.background = 'rgba(255,255,255,0.15)'; playBtn.style.color = '#fff'; } };
+      playBtn.onmouseleave = () => { if (playBtn.innerHTML === iconPlay) { playBtn.style.background = 'rgba(255,255,255,0.07)'; playBtn.style.color = '#ccc'; } };
+      playBtn.onclick = () => {
+        // Reset the previously active play button if any
+        if (window.previewBtn && window.previewBtn !== playBtn) {
+          window.previewBtn.innerHTML = iconPlay;
+          window.previewBtn.style.color = '#ccc';
+          window.previewBtn.style.borderColor = 'rgba(255,255,255,0.08)';
+          window.previewBtn.style.background = 'rgba(255,255,255,0.07)';
+        }
+        if (window.previewAudio) {
+          window.previewAudio.pause();
+          window.previewAudio.onended = null;
+          window.previewAudio.onerror = null;
+          window.previewAudio = null;
+        }
+        playBtn.innerHTML = iconStop;
+        playBtn.style.color = '#FBAE00';
+        playBtn.style.borderColor = 'rgba(251,174,0,0.4)';
+        playBtn.style.background = 'rgba(251,174,0,0.1)';
+        window.previewBtn = playBtn;
+
+        const resetBtn = () => {
+          playBtn.innerHTML = iconPlay;
+          playBtn.style.color = '#ccc';
+          playBtn.style.borderColor = 'rgba(255,255,255,0.08)';
+          playBtn.style.background = 'rgba(255,255,255,0.07)';
+          if (window.previewBtn === playBtn) window.previewBtn = null;
+          window.previewAudio = null;
+        };
+
+        const audio = new Audio(item.path);
+        audio.volume = 0.8;
+        audio.onerror = () => {
+          console.error('Audio load error for:', item.path);
+          resetBtn();
+        };
+        audio.onended = resetBtn;
+        window.previewAudio = audio;
+        audio.play().catch(err => {
+          console.error('Preview error:', err, item.path);
+          resetBtn();
+        });
+      };
+
+      // ── Assign button
+      const assignBtn = document.createElement('button');
+      Object.assign(assignBtn.style, {
+        background: '#FBAE00', border: 'none', color: '#000',
+        fontWeight: '700', fontSize: '11px', padding: '6px 14px',
+        borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.3px', transition: 'none'
+      });
+      assignBtn.textContent = 'Usar';
+      assignBtn.onmouseenter = () => { assignBtn.style.background = '#ffc130'; };
+      assignBtn.onmouseleave = () => { assignBtn.style.background = '#FBAE00'; };
+      assignBtn.onclick = () => {
+        if (window.previewAudio) { window.previewAudio.pause(); window.previewAudio.onended = null; window.previewAudio = null; }
+        modal.remove();
+        onAssign(item.path);
+      };
+
+      actions.appendChild(playBtn);
+      actions.appendChild(assignBtn);
+      row.appendChild(nameEl);
+      row.appendChild(actions);
+      listEl.appendChild(row);
     });
   }
 
-  modal.innerHTML = `
-    <div class="pool-box">
-      <div class="pool-header">
-        <h3>Asignar sonido a ${padLabel}</h3>
-        <button class="pool-close">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="pool-content">
-        <button class="pool-upload-btn">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17,8 12,3 7,8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-          Subir archivo nuevo desde PC
-        </button>
-        <div class="pool-list-title">Sonidos cargados en la App</div>
-        <div class="pool-list">
-          ${listHtml}
-        </div>
-      </div>
-    </div>
-  `;
 
+  content.appendChild(uploadBtn);
+  content.appendChild(sectionLabel);
+  content.appendChild(listEl);
+  box.appendChild(header);
+  box.appendChild(content);
+  modal.appendChild(box);
   document.body.appendChild(modal);
 
   const close = () => {
-    if (window.previewAudio) {
-      window.previewAudio.pause();
-      window.previewAudio = null;
-    }
+    if (window.previewAudio) { window.previewAudio.pause(); window.previewAudio.onended = null; window.previewAudio = null; }
     modal.remove();
   };
-  modal.querySelector('.pool-close').onclick = close;
+  closeBtn.onclick = close;
   modal.onclick = (e) => { if (e.target === modal) close(); };
-
-  modal.querySelector('.pool-upload-btn').onclick = () => {
-    close();
-    onUploadNew();
-  };
-
-  modal.querySelectorAll('.pool-btn-play').forEach(btn => {
-    btn.onclick = () => {
-      const idx = parseInt(btn.dataset.idx);
-      const item = sampleList[idx];
-      if (item) {
-        if (window.previewAudio) {
-          window.previewAudio.pause();
-        }
-        window.previewAudio = new Audio(item.path);
-        window.previewAudio.volume = 0.8;
-        window.previewAudio.play().catch(err => console.error("Error playing preview:", err));
-      }
-    };
-  });
-
-  modal.querySelectorAll('.pool-btn-assign').forEach(btn => {
-    btn.onclick = () => {
-      const idx = parseInt(btn.dataset.idx);
-      const item = sampleList[idx];
-      if (item) {
-        close();
-        onAssign(item.path);
-      }
-    };
-  });
+  uploadBtn.onclick = () => { close(); onUploadNew(); };
 }
+
+
 
 /* ── DRUM VOLUMES ── */
 function buildDrumVolumes(pads) {
@@ -610,6 +746,11 @@ function bindAll() {
   const btnCreateKit = q('#btn-create-kit');
   if (btnCreateKit) {
     btnCreateKit.onclick = () => {
+      // Exit edit mode first so contentEditable pads don't steal focus from the dialog
+      if (isEditKitMode) {
+        const btnEditKit = q('#btn-edit-kit');
+        if (btnEditKit) btnEditKit.click();
+      }
       showDialog('Nuevo kit de batería', 'Ej. Worship Acoustic', (name) => {
         if (!name || !name.trim()) return;
         const newKit = {

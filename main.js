@@ -112,7 +112,6 @@ function createWindow() {
     },
   });
   mainWindow.loadFile('src/index.html');
-  mainWindow.webContents.openDevTools();
 
   // Handle MIDI permissions to prevent drops on hot reload (Ctrl+R)
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
@@ -212,10 +211,13 @@ ipcMain.handle('get-absolute-path', (_e, relativePath) => {
 });
 
 // Custom Drums
-ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
-  const prefix = padName.replace(/[^a-z0-9]/gi, '_') + '_';
+ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId }) => {
+  // Include kitId in prefix so each kit's files are isolated — prevents cross-kit deletion
+  const safeKitId = (kitId || 'kit').replace(/[^a-z0-9]/gi, '_');
+  const safePadName = padName.replace(/[^a-z0-9]/gi, '_');
+  const prefix = `${safeKitId}_${safePadName}_`;
   
-  // Clean old files for this pad in both directories
+  // Clean old files for THIS specific kit+pad combo only
   const cleanDir = (dir) => {
     if (fs.existsSync(dir)) {
       const files = fs.readdirSync(dir);
@@ -229,7 +231,7 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
   cleanDir(path.join(app.getPath('userData'), 'UserDrums'));
   cleanDir(path.join(__dirname, 'defaults', 'UserDrums'));
 
-  // Generate unique filename
+  // Generate unique filename with kit+pad prefix
   const fileName = `${prefix}${Date.now()}_${path.basename(sourcePath).replace(/[^a-z0-9.]/gi, '_')}`;
   const relPath = path.join('UserDrums', fileName);
   
