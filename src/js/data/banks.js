@@ -165,6 +165,20 @@ export const KIT_BANKS = [
       { id: 'rj_perc3',  label: 'Old Comp',   type: 'tomH',   sample: 'assets/Drums Pad/99 Drum Samples II/Perc - Old Computer.wav' },
     ]
   },
+  {
+    id: 'padlab', name: 'PadLab Kit',
+    desc: 'Tu Kit personalizado (precargado de fábrica)', color: '#10b981',
+    pads: [
+      { id: 'pl_kick',   label: 'Kick',      type: 'kick',   sample: 'assets/Drums Pad/PadLab/kick.wav'   },
+      { id: 'pl_snare',  label: 'Snare',     type: 'snare',  sample: 'assets/Drums Pad/PadLab/snare.wav'  },
+      { id: 'pl_clap',   label: 'Clap',      type: 'clap',   sample: 'assets/Drums Pad/PadLab/clap.wav'   },
+      { id: 'pl_hhc',    label: 'HH Cerr',   type: 'hihatC', sample: 'assets/Drums Pad/PadLab/hhc.wav'    },
+      { id: 'pl_hho',    label: 'HH Abie',   type: 'hihatO', sample: 'assets/Drums Pad/PadLab/hho.wav'    },
+      { id: 'pl_tom1',   label: 'Tom 1',     type: 'tomH',   sample: 'assets/Drums Pad/PadLab/tom1.wav'   },
+      { id: 'pl_crash',  label: 'Crash',     type: 'crash',  sample: 'assets/Drums Pad/PadLab/crash.wav'  },
+      { id: 'pl_ride',   label: 'Ride',      type: 'ride',   sample: 'assets/Drums Pad/PadLab/ride.wav'   },
+    ]
+  },
 ];
 
 export { THEMES };
