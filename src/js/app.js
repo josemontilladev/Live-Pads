@@ -303,31 +303,174 @@ function buildDrumGrid(pads) {
 async function hitDrum(id, type, btn) {
   if (isEditKitMode) {
     if (!window.electronAPI) return;
-    const fileData = await window.electronAPI.openAudioFile();
-    if (!fileData || !fileData.path) return;
     
-    const resPath = await window.electronAPI.assignDrumSample({ sourcePath: fileData.path, padName: id });
-    if (resPath) {
-      const currentKit = KIT_BANKS[kitBankIdx];
-      if (currentKit && currentKit.isCustom) {
-        const pad = currentKit.pads.find(p => p.id === id);
-        if (pad) pad.sample = resPath;
-        saveCustomKitsToStorage();
+    const onUploadNew = async () => {
+      const fileData = await window.electronAPI.openAudioFile();
+      if (!fileData || !fileData.path) return;
+      
+      const resPath = await window.electronAPI.assignDrumSample({ sourcePath: fileData.path, padName: id });
+      if (resPath) {
+        assignSampleToPad(id, resPath, btn);
       }
-      engine.loadSingleDrum(id, resPath).then((success) => {
-        if (success) {
-          btn.classList.add('has-sample');
-          const oldBg = btn.style.background;
-          btn.style.background = 'var(--blue)';
-          setTimeout(() => { btn.style.background = oldBg; }, 300);
-        }
-      });
-    }
+    };
+    
+    const onAssignPool = (resPath) => {
+      assignSampleToPad(id, resPath, btn);
+    };
+
+    const currentKit = KIT_BANKS[kitBankIdx];
+    const pad = currentKit ? currentKit.pads.find(p => p.id === id) : null;
+    const padLabel = pad ? pad.label : 'Pad';
+
+    openSoundPoolModal(id, padLabel, onAssignPool, onUploadNew);
     return;
   }
   if (!engine.playCustomDrum(id, id)) engine.playDrum(type, id);
   btn.classList.add('hit');
   setTimeout(() => btn.classList.remove('hit'), 120);
+}
+
+function assignSampleToPad(id, resPath, btn) {
+  const currentKit = KIT_BANKS[kitBankIdx];
+  if (currentKit && currentKit.isCustom) {
+    const pad = currentKit.pads.find(p => p.id === id);
+    if (pad) pad.sample = resPath;
+    saveCustomKitsToStorage();
+  }
+  engine.loadSingleDrum(id, resPath).then((success) => {
+    if (success) {
+      btn.classList.add('has-sample');
+      const oldBg = btn.style.background;
+      btn.style.background = 'var(--blue)';
+      setTimeout(() => { btn.style.background = oldBg; }, 300);
+    }
+  });
+}
+
+function getCleanSampleName(path) {
+  const filename = path.split('/').pop().split('\\').pop();
+  let clean = filename.replace(/^c_[a-z0-9]+_[0-9]+_/i, '');
+  clean = clean.replace(/\.[a-z0-9]+$/i, '');
+  clean = clean.replace(/_/g, ' ');
+  return clean || filename;
+}
+
+function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
+  const existing = q('#sound-pool-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'sound-pool-modal';
+
+  const uniqueSamples = new Set();
+  const sampleList = [];
+  KIT_BANKS.forEach(kit => {
+    if (kit.isCustom && kit.pads) {
+      kit.pads.forEach(p => {
+        if (p.sample && !uniqueSamples.has(p.sample)) {
+          uniqueSamples.add(p.sample);
+          sampleList.push({
+            path: p.sample,
+            id: p.id,
+            label: p.label
+          });
+        }
+      });
+    }
+  });
+
+  let listHtml = '';
+  if (sampleList.length === 0) {
+    listHtml = '<div class="pool-empty">Aún no has cargado ningún sonido en tus kits.</div>';
+  } else {
+    sampleList.forEach((item, idx) => {
+      const cleanName = getCleanSampleName(item.path);
+      listHtml += `
+        <div class="pool-item">
+          <div class="pool-item-name" title="${cleanName}">${cleanName}</div>
+          <div class="pool-item-actions">
+            <button class="pool-btn-play" data-idx="${idx}" title="Preescuchar">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                <polygon points="5,3 19,12 5,21"/>
+              </svg>
+            </button>
+            <button class="pool-btn-assign" data-idx="${idx}">Asignar</button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  modal.innerHTML = `
+    <div class="pool-box">
+      <div class="pool-header">
+        <h3>Asignar sonido a ${padLabel}</h3>
+        <button class="pool-close">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="pool-content">
+        <button class="pool-upload-btn">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17,8 12,3 7,8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Subir archivo nuevo desde PC
+        </button>
+        <div class="pool-list-title">Sonidos cargados en la App</div>
+        <div class="pool-list">
+          \${listHtml}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const close = () => {
+    if (window.previewAudio) {
+      window.previewAudio.pause();
+      window.previewAudio = null;
+    }
+    modal.remove();
+  };
+  modal.querySelector('.pool-close').onclick = close;
+  modal.onclick = (e) => { if (e.target === modal) close(); };
+
+  modal.querySelector('.pool-upload-btn').onclick = () => {
+    close();
+    onUploadNew();
+  };
+
+  modal.querySelectorAll('.pool-btn-play').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.dataset.idx);
+      const item = sampleList[idx];
+      if (item) {
+        if (window.previewAudio) {
+          window.previewAudio.pause();
+        }
+        window.previewAudio = new Audio(item.path);
+        window.previewAudio.volume = 0.8;
+        window.previewAudio.play().catch(err => console.error("Error playing preview:", err));
+      }
+    };
+  });
+
+  modal.querySelectorAll('.pool-btn-assign').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.dataset.idx);
+      const item = sampleList[idx];
+      if (item) {
+        close();
+        onAssign(item.path);
+      }
+    };
+  });
 }
 
 /* ── DRUM VOLUMES ── */

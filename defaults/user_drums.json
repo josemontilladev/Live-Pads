@@ -39,6 +39,26 @@
       "c_crash": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_crash_1778982697605_Tom_2.wav",
       "lbl_c_ride": "Tom 3",
       "c_ride": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_ride_1778982704551_Tom_3.wav"
+    },
+    {
+      "id": "custom_kit_1778982898545_m05am",
+      "kitName": "Worship Drums",
+      "lbl_c_kick": "Kick",
+      "c_kick": null,
+      "lbl_c_snare": "Snare",
+      "c_snare": null,
+      "lbl_c_hhc": "HH Cerr",
+      "c_hhc": null,
+      "lbl_c_clap": "Clap",
+      "c_clap": null,
+      "lbl_c_perc1": "Tom 1",
+      "c_perc1": null,
+      "lbl_c_perc2": "Tom 2",
+      "c_perc2": null,
+      "lbl_c_crash": "Crash",
+      "c_crash": null,
+      "lbl_c_ride": "Ride",
+      "c_ride": null
     }
   ]
 }
