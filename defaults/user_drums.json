@@ -63,22 +63,22 @@
     {
       "id": "custom_kit_1778985592787_pbo3d",
       "kitName": "Worship EFX",
-      "lbl_c_kick": "Kick",
-      "c_kick": null,
-      "lbl_c_snare": "Snare",
-      "c_snare": null,
-      "lbl_c_hhc": "HH Cerr",
-      "c_hhc": null,
-      "lbl_c_clap": "Clap",
-      "c_clap": null,
-      "lbl_c_perc1": "Tom 1",
-      "c_perc1": null,
-      "lbl_c_perc2": "Tom 2",
-      "c_perc2": null,
-      "lbl_c_crash": "Crash",
-      "c_crash": null,
-      "lbl_c_ride": "Ride",
-      "c_ride": null
+      "lbl_c_kick": "Blop FX",
+      "c_kick": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_kick_1778986163303_Blop_FX.wav",
+      "lbl_c_snare": "Boom FX",
+      "c_snare": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_snare_1778986176924_Boom_FX.wav",
+      "lbl_c_hhc": "Noise FX",
+      "c_hhc": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_hhc_1778986184944_Noise_FX.wav",
+      "lbl_c_clap": "Perc FX",
+      "c_clap": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_clap_1778986197188_Perc_FX.wav",
+      "lbl_c_perc1": "Sub Kick FX",
+      "c_perc1": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_perc1_1778986205303_Sub_Kick_FX.wav",
+      "lbl_c_perc2": "Swell FX",
+      "c_perc2": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_perc2_1778986213410_Swell_FX.wav",
+      "lbl_c_crash": "Tumb FX",
+      "c_crash": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_crash_1778986221781_Tumb_FX.wav",
+      "lbl_c_ride": "Wood FX",
+      "c_ride": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/custom_kit_1778985592787_pbo3d_c_ride_1778986228481_Wood_FX.wav"
     }
   ]
 }
