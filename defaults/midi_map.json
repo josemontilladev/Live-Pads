@@ -1,35 +1,11 @@
 {
-  "note_48": {
-    "action": "drum",
-    "id": "kick"
-  },
-  "note_45": {
-    "action": "drum",
-    "id": "snare"
-  },
   "note_49": {
-    "action": "drum",
-    "id": "clap"
-  },
-  "note_51": {
     "action": "drum",
     "id": "hihatC"
   },
   "note_36": {
     "action": "drum",
-    "id": "hihatO"
-  },
-  "note_38": {
-    "action": "drum",
     "id": "tomH"
-  },
-  "note_42": {
-    "action": "drum",
-    "id": "crash"
-  },
-  "note_46": {
-    "action": "drum",
-    "id": "ride"
   },
   "note_60": {
     "action": "pad",
@@ -90,5 +66,29 @@
   "cc_14": {
     "action": "slider",
     "id": "metro-pan-slider"
+  },
+  "note_48": {
+    "action": "drum",
+    "id": "kick"
+  },
+  "note_45": {
+    "action": "drum",
+    "id": "snare"
+  },
+  "note_51": {
+    "action": "drum",
+    "id": "clap"
+  },
+  "note_38": {
+    "action": "drum",
+    "id": "tomM"
+  },
+  "note_42": {
+    "action": "drum",
+    "id": "crash"
+  },
+  "note_46": {
+    "action": "drum",
+    "id": "ride"
   }
 }

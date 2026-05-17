@@ -2,9 +2,9 @@
 const THEMES = {
   gi_setlist: {
     name: 'GI.Setlist', desc: 'Estilo oficial · Gold & Dark',
-    bg1: '#0a0a0a', bg2: '#050505', bg3: '#0f0f0f', blue: '#FBAE00',
+    bg1: '#050505', bg2: '#0f0f0f', bg3: '#0f0f0f', blue: '#FBAE00',
     bgHover: '#1f1f1f', border: 'rgba(255,255,255,0.08)',
-    swatch: 'linear-gradient(135deg,#FBAE00,#050505)'
+    swatch: 'linear-gradient(135deg,#FBAE00,#0f0f0f)'
   },
   midnight: {
     name: 'Midnight Aurora', desc: 'Teal profundo · Nocturno',

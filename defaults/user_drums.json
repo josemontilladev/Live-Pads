@@ -1,9 +1,21 @@
 {
-  "kitName": "PadLab",
-  "lbl_c_snare": "Kick 1",
-  "c_snare": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_snare_1778980765488_Kick_1.wav",
-  "c_kick": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_kick_1778979492768_Clap_1.wav",
-  "lbl_c_kick": "Clap 1",
-  "c_hhc": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_hhc_1778981044526_Sub_Kick.wav",
-  "lbl_c_hhc": "Sub Kick"
+  "kits": [
+    {
+      "id": "custom_kit_legacy",
+      "kitName": "PadLab",
+      "lbl_c_kick": "Clap 1",
+      "c_kick": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_kick_1778979492768_Clap_1.wav",
+      "lbl_c_snare": "Kick 1",
+      "c_snare": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_snare_1778980765488_Kick_1.wav",
+      "lbl_c_hhc": "Sub Kick",
+      "c_hhc": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_hhc_1778981044526_Sub_Kick.wav",
+      "lbl_c_clap": "Tom 1",
+      "c_clap": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_clap_1778981714417_Tom_1.wav",
+      "lbl_c_perc1": "Tom 2",
+      "c_perc1": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_perc1_1778981723852_Tom_2.wav",
+      "lbl_c_perc2": "Tom 2",
+      "lbl_c_crash": "Crash",
+      "lbl_c_ride": "Ride"
+    }
+  ]
 }
