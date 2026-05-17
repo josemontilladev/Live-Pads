@@ -2,7 +2,7 @@
   "kits": [
     {
       "id": "custom_kit_legacy",
-      "kitName": "PadLab",
+      "kitName": "Drum Kit 1 PADLAB",
       "lbl_c_kick": "Clap 1",
       "c_kick": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_kick_1778979492768_Clap_1.wav",
       "lbl_c_snare": "Kick 1",
@@ -13,9 +13,12 @@
       "c_clap": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_clap_1778981714417_Tom_1.wav",
       "lbl_c_perc1": "Tom 2",
       "c_perc1": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_perc1_1778981723852_Tom_2.wav",
-      "lbl_c_perc2": "Tom 2",
-      "lbl_c_crash": "Crash",
-      "lbl_c_ride": "Ride"
+      "lbl_c_perc2": "Tom 3",
+      "c_perc2": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_perc2_1778982098351_Tom_3.wav",
+      "lbl_c_crash": "Tumb 1",
+      "c_crash": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_crash_1778982089406_Tumb_1.wav",
+      "lbl_c_ride": "Wood 1",
+      "c_ride": "file:///C:/Users/josem/AppData/Roaming/livepads/UserDrums/c_ride_1778982103673_Wood_1.wav"
     }
   ]
 }

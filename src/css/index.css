@@ -131,7 +131,7 @@ html, body {
   flex-shrink: 0;
 }
 .bank-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
-.bank-label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; }
+.bank-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.3px; }
 .bank-selector {
   display: flex;
   align-items: center;

@@ -453,29 +453,30 @@ function bindAll() {
   const btnCreateKit = q('#btn-create-kit');
   if (btnCreateKit) {
     btnCreateKit.onclick = () => {
-      const name = prompt('Nombre del nuevo kit de batería personalizado:', 'Mi Nuevo Kit');
-      if (!name || !name.trim()) return;
-      const newKit = {
-        id: `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        name: name.trim(),
-        desc: 'Batería personalizada (Edita con el ✏️)',
-        color: '#10b981',
-        isCustom: true,
-        pads: [
-          { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
-          { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
-          { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
-          { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
-          { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
-          { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
-          { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
-          { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
-        ]
-      };
-      KIT_BANKS.push(newKit);
-      saveCustomKitsToStorage();
-      buildBankSelects();
-      loadKitBank(KIT_BANKS.length - 1);
+      showDialog('Nuevo kit de batería', 'Ej. Worship Acoustic', (name) => {
+        if (!name || !name.trim()) return;
+        const newKit = {
+          id: `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          name: name.trim(),
+          desc: 'Batería personalizada (Edita con el ✏️)',
+          color: '#10b981',
+          isCustom: true,
+          pads: [
+            { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
+            { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
+            { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
+            { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
+            { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
+            { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
+            { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
+            { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
+          ]
+        };
+        KIT_BANKS.push(newKit);
+        saveCustomKitsToStorage();
+        buildBankSelects();
+        loadKitBank(KIT_BANKS.length - 1);
+      });
     };
   }
 
@@ -755,7 +756,7 @@ function bindAll() {
   }
 
   // Setlist
-  q('#btn-add-preset').onclick = () => showDialog('Guardar set', doSavePreset);
+  q('#btn-add-preset').onclick = () => showDialog('Guardar set', 'Nombre…', doSavePreset);
   
   // GI-Setlist UI bindings
   qa('.s-toggle').forEach(btn => {
@@ -923,7 +924,6 @@ function bindAll() {
 
   // Dialog
   q('#dialog-cancel').onclick = hideDialog;
-  q('#dialog-ok').onclick = () => { doSavePreset(q('#dialog-name').value.trim()); hideDialog(); };
 
   // Keyboard
   document.addEventListener('keydown', onKey);
@@ -1127,7 +1127,19 @@ function applyPreset(p) {
   updateBPM(p.bpm);
 }
 
-function showDialog(title) { q('#dialog-title').textContent = title; q('#dialog-overlay').classList.remove('hidden'); q('#dialog-name').value = ''; setTimeout(() => q('#dialog-name').focus(), 50); }
+function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
+  q('#dialog-title').textContent = title;
+  q('#dialog-overlay').classList.remove('hidden');
+  q('#dialog-name').value = '';
+  q('#dialog-name').placeholder = placeholder;
+  setTimeout(() => q('#dialog-name').focus(), 50);
+  if (onConfirm) {
+    q('#dialog-ok').onclick = () => {
+      onConfirm(q('#dialog-name').value.trim());
+      hideDialog();
+    };
+  }
+}
 function hideDialog() { q('#dialog-overlay').classList.add('hidden'); }
 
 /* ── GI-SETLIST LOGIC ── */
