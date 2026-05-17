@@ -8,16 +8,6 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const path = require('path');
-const fs = require('fs');
-
-let mainWindow;
-
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1360,
-    height: 860,
     minWidth: 1024,
     minHeight: 700,
     frame: false,
