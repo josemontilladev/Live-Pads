@@ -52,18 +52,16 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
 
-### 🎛️ 1. Mapeo Personalizado de Controles (MIDI/Teclado)
+### 🎛️ 1. Mapeo Personalizado de Controles (MIDI/Teclado) (¡COMPLETADO!)
 **Fase 1: Integración del Motor MIDI (Web MIDI API)**
-- Conectar la aplicación con los puertos USB de la PC para detectar controladores físicos.
-- Lectura en tiempo real de señales `Note On`, `Note Off` y `Control Change`.
+- ✅ Conectado la aplicación con los puertos USB de la PC para detectar controladores físicos.
+- ✅ Lectura en tiempo real de señales `Note On`, `Note Off` y `Control Change`.
 
-**Fase 2: Modo "MIDI Learn" (Mapeo Interactivo visual)**
-- Botón global para entrar en "Modo Edición/Mapeo".
-- Flujo click-to-map: Clic en el botón de la app -> Presionar tecla en el controlador -> Enlace creado.
-
-**Fase 3: Persistencia y Atajos QWERTY**
-- Mapeo nativo del teclado de la laptop (ej. números para pads, espacio para play/stop) como fallback.
-- Guardar el diccionario de mapeo en disco (`JSON`) para que sobreviva a los reinicios.
+**Fase 2 y 3: Modo Mapeo Unificado (MIDI Learn / Teclado) y Persistencia**
+- ✅ Botón global en el menú para entrar en "Modo Mapeo MIDI / Teclado".
+- ✅ Flujo unificado: Clic en el botón de la app -> Presionar tecla en el controlador O tecla en la PC -> Enlace creado.
+- ✅ Mapeo visual: Los pads de la interfaz se actualizan con la tecla QWERTY asignada para indicar cuál debes tocar.
+- ✅ Diccionario persistente en disco (`midi_map.json`) para revivir configuraciones tras cerrar la app.
 
 ### 📂 2. Gestión de Samples del Usuario (¡COMPLETADO!)
 - ✅ Interfaz gráfica de edición con un clic en los pads para buscar y asignar sonidos `.wav` personalizados.

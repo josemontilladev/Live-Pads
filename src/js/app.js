@@ -138,6 +138,27 @@ function buildKeyGrid() {
     btn.onclick = () => onKeyClick(key);
     grid.appendChild(btn);
   });
+  if (typeof updateKeyHints === 'function') updateKeyHints();
+}
+
+function updateKeyHints() {
+  qa('.key-btn').forEach(btn => {
+    const key = btn.dataset.key;
+    const padIdx = (useFlats ? KEYS_FLAT : KEYS_SHARP).indexOf(key);
+    let hint = KEY_MAP_PADS[padIdx] || '';
+    const customKey = Object.keys(customMidiMap).find(k => k.startsWith('kbd_') && customMidiMap[k].action === 'pad' && customMidiMap[k].id === key);
+    if (customKey) hint = customKey.replace('kbd_Key', '').replace('kbd_Digit', '').replace('kbd_', '');
+    const hintEl = btn.querySelector('.kbd-hint');
+    if(hintEl) hintEl.textContent = hint;
+  });
+  qa('.drum-btn').forEach((btn, i) => {
+    const type = btn.dataset.type;
+    let hint = KEY_MAP_DRUMS[i] || '';
+    const customKey = Object.keys(customMidiMap).find(k => k.startsWith('kbd_') && customMidiMap[k].action === 'drum' && customMidiMap[k].id === type);
+    if (customKey) hint = customKey.replace('kbd_Key', '').replace('kbd_Digit', '').replace('kbd_', '');
+    const hintEl = btn.querySelector('.kbd-hint');
+    if(hintEl) hintEl.textContent = hint;
+  });
 }
 
 function onKeyClick(key) {
@@ -174,6 +195,7 @@ function buildDrumGrid(pads) {
     btn.addEventListener('touchstart', e => { e.preventDefault(); hitDrum(pad.id, pad.type, btn); });
     grid.appendChild(btn);
   });
+  if (typeof updateKeyHints === 'function') updateKeyHints();
 }
 
 async function hitDrum(id, type, btn) {
@@ -386,7 +408,7 @@ function bindAll() {
       closeMenu();
       isMidiLearnMode = true;
       midiLearnTarget = null;
-      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo MIDI: Haz clic en un botón de la app. (Clic aquí para salir)';
+      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: Haz clic en un botón de la app. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
     };
   }
@@ -615,19 +637,33 @@ function bindAll() {
     const isNoteOn = cmd >= 144 && cmd <= 159;
     const isCC = cmd >= 176 && cmd <= 191;
 
-    if ((isNoteOn || isCC) && data2 > 0) {
-      const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
+    if (!isNoteOn && !isCC) return;
+    const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
 
-      if (isMidiLearnMode && midiLearnTarget) {
+    if (isMidiLearnMode && midiLearnTarget) {
+      if (data2 > 0) {
         customMidiMap[mapKey] = midiLearnTarget;
         if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
         q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
         midiLearnTarget = null;
+      }
+      return;
+    }
+
+    const mapping = customMidiMap[mapKey] || customMidiMap[data1];
+    if (mapping) {
+      if (mapping.action === 'slider') {
+        const sliderEl = q('#' + mapping.id);
+        if (sliderEl) {
+          const min = parseFloat(sliderEl.min) || 0;
+          const max = parseFloat(sliderEl.max) || 100;
+          sliderEl.value = min + ((data2 / 127) * (max - min));
+          sliderEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         return;
       }
 
-      const mapping = customMidiMap[mapKey] || customMidiMap[data1];
-      if (mapping) {
+      if (data2 > 0) {
         if (mapping.action === 'pad') {
           onKeyClick(mapping.id);
         } else if (mapping.action === 'drum') {
@@ -647,23 +683,23 @@ function bindAll() {
         } else if (mapping.action === 'stop_seq') {
           q('#tp-stop-btn').click();
         }
-        return;
       }
+      return;
+    }
 
-      // Hardcoded fallback map
-      if (isNoteOn) {
-        if (data1 >= 60 && data1 <= 71) {
-          const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
-          onKeyClick(keys[data1 - 60]);
-        } else {
-          const kit = KIT_BANKS[kitBankIdx];
-          if (!kit) return;
-          const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
-          const mappedType = typeMap[data1];
-          if (mappedType) {
-            const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
-            if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
-          }
+    // Hardcoded fallback map
+    if (isNoteOn && data2 > 0) {
+      if (data1 >= 60 && data1 <= 71) {
+        const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+        onKeyClick(keys[data1 - 60]);
+      } else {
+        const kit = KIT_BANKS[kitBankIdx];
+        if (!kit) return;
+        const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
+        const mappedType = typeMap[data1];
+        if (mappedType) {
+          const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
+          if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
         }
       }
     }
@@ -686,6 +722,7 @@ function bindAll() {
     const metroBtn = e.target.closest('#btn-metro-main');
     const playSeqBtn = e.target.closest('#tp-play-btn');
     const stopSeqBtn = e.target.closest('#tp-stop-btn');
+    const slider = e.target.closest('input[type="range"]');
 
     let target = null;
     if (keyBtn) target = { action: 'pad', id: keyBtn.dataset.key };
@@ -693,6 +730,7 @@ function bindAll() {
     else if (metroBtn) target = { action: 'metro' };
     else if (playSeqBtn) target = { action: 'play_seq' };
     else if (stopSeqBtn) target = { action: 'stop_seq' };
+    else if (slider && slider.id) target = { action: 'slider', id: slider.id };
     else return; // unmappable
 
     e.stopPropagation();
@@ -788,7 +826,48 @@ function syncPanSlider(el) {
 
 function onKey(e) {
   if (e.target.tagName === 'INPUT') return;
-  const k = e.key.toUpperCase();
+
+  const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
+  
+  if (isMidiLearnMode && midiLearnTarget) {
+    e.preventDefault();
+    customMidiMap[`kbd_${k}`] = midiLearnTarget;
+    if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
+    const kName = k.replace('Key', '').replace('Digit', '');
+    q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} a la tecla ${kName}. Selecciona otro o sal.`;
+    midiLearnTarget = null;
+    updateKeyHints();
+    return;
+  }
+
+  // Check custom keyboard mapping
+  const mapping = customMidiMap[`kbd_${k}`];
+  if (mapping) {
+    e.preventDefault();
+    if (mapping.action === 'pad') {
+      onKeyClick(mapping.id);
+    } else if (mapping.action === 'drum') {
+      const kit = KIT_BANKS[kitBankIdx];
+      if (!kit) return;
+      const pad = kit.pads.find(p => p.type === mapping.id);
+      if (pad) {
+        const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
+        if (btn) btn.classList.add('hit');
+        setTimeout(() => { if(btn) btn.classList.remove('hit'); }, 120);
+        if (!engine.playCustomDrum(pad.id, pad.id)) engine.playDrum(pad.type, pad.id);
+      }
+    } else if (mapping.action === 'metro') {
+      toggleMetro();
+    } else if (mapping.action === 'play_seq') {
+      const btn = q('#tp-play-btn'); if (btn) btn.click();
+    } else if (mapping.action === 'stop_seq') {
+      const btn = q('#tp-stop-btn'); if (btn) btn.click();
+    }
+    return;
+  }
+
+  // Fallbacks
+  const kUpper = e.key.toUpperCase();
   if (e.code === 'Space') { 
     e.preventDefault(); 
     if (preparedPadKey && !activeKey && !metroRunning) {
@@ -803,10 +882,10 @@ function onKey(e) {
   }
   if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; preparedPadKey = null; buildKeyGrid(); }
 
-  const padIdx = KEY_MAP_PADS.indexOf(k);
+  const padIdx = KEY_MAP_PADS.indexOf(kUpper);
   if (padIdx !== -1) { const keys = useFlats ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
 
-  const drumIdx = KEY_MAP_DRUMS.indexOf(k);
+  const drumIdx = KEY_MAP_DRUMS.indexOf(kUpper);
   if (drumIdx !== -1) {
     const kit = KIT_BANKS[kitBankIdx];
     const pad = kit.pads[drumIdx];
