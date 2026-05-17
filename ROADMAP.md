@@ -17,7 +17,7 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ### 🔊 Motor de Audio y Optimización (SynthEngine.js)
 - **Librería Chris Rocha por Defecto**: Configuración del banco de pads de Chris Rocha como sonido base al iniciar la app.
-- **Precarga Inteligente**: Eliminación de picos de CPU mediante carga secuencial de samples.
+- **Precarga Inteligente**: Carga inteligente bajo demanda para evitar consumos de memoria innecesarios.
 - **Ataque Dinámico (Smart Attack)**: Crossfades suaves de 2.0s para transiciones entre acordes y ataque instantáneo para el inicio de sesión.
 - **Limitador Maestro**: Compresión integrada para evitar distorsión en vivo.
 
@@ -25,6 +25,9 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Metrónomo en Cabecera**: Reubicado en la parte superior para máxima visibilidad durante la ejecución. 
 - **Acentuación Manual por Tiempo**: Nueva funcionalidad interactiva que permite hacer clic en cualquier "beat dot" para activar/desactivar el acento en ese tiempo específico.
 - **Control Completo**: Tap Tempo, multiplicador `2x`, subdivisión y múltiples sonidos seleccionables via dropdown.
+- **Aislamiento Multikit Anticolisión**: Corrección del bug de sobrescritura de archivos duplicando prefijos de kit (`{kitId}_{padId}_timestamp`). Los kits cargados (*Worship Drums*, *EFX 1*, *Drum Kit 1 PADLAB*) son 100% independientes y no se pesan entre sí.
+- **Rediseño Premium de Sonidos**: Modal con blur glassmorphism, badges dorados, animación inteligente de play/stop por fila y control robusto de errores de reproducción.
+- **Etiquetado de Origen**: Visualización clara del nombre del kit parentizado en el modal de asignación para distinguir muestras similares rápidamente.
 
 ### 📋 Integración y Gestión de Setlist
 - **Conexión con GI-Setlist**: Importación de archivos JSON y automatización total.
@@ -38,8 +41,10 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Atajos de Teclado**: Mapeo completo por defecto para pads y batería.
 - **Soporte MIDI Nativo**: Capacidad de conectar un controlador y mapearlo a las funciones de disparo al instante a través de Web MIDI API.
 
-### 📦 Lanzamiento y Empaquetado
+### 📦 Lanzamiento, Portabilidad y Empaquetado
 - **Generación de Ejecutables (.exe)**: Construcción exitosa del instalador NSIS para Windows usando `electron-builder`.
+- **Portabilidad Total de Datos de Usuario**: Inclusión de la carpeta `defaults/**/*` en el proceso de empaquetado del `package.json`.
+- **Auto-Configuración en Primer Inicio**: Al instalar el `.exe` en una nueva PC, el sistema automáticamente copia los kits de batería, archivos de audio locales, secuencias, canciones y configuraciones de presets, y reescribe dinámicamente las rutas locales (`file:///`) del nuevo equipo.
 - **Resolución de Íconos**: Dimensionamiento y conversión automática (256x256) de los íconos de la aplicación y el instalador, resolviendo los errores del empaquetador.
 
 ### 🎵 Reproductor de Pistas y Secuencias
@@ -52,20 +57,8 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
 
-### 🎛️ 1. Mapeo Personalizado de Controles (MIDI/Teclado) (¡COMPLETADO!)
-**Fase 1: Integración del Motor MIDI (Web MIDI API)**
-- ✅ Conectado la aplicación con los puertos USB de la PC para detectar controladores físicos.
-- ✅ Lectura en tiempo real de señales `Note On`, `Note Off` y `Control Change`.
-
-**Fase 2 y 3: Modo Mapeo Unificado (MIDI Learn / Teclado) y Persistencia**
-- ✅ Botón global en el menú para entrar en "Modo Mapeo MIDI / Teclado".
-- ✅ Flujo unificado: Clic en el botón de la app -> Presionar tecla en el controlador O tecla en la PC -> Enlace creado.
-- ✅ Mapeo visual: Los pads de la interfaz se actualizan con la tecla QWERTY asignada para indicar cuál debes tocar.
-- ✅ Diccionario persistente en disco (`midi_map.json`) para revivir configuraciones tras cerrar la app.
-
-### 📂 2. Gestión de Samples del Usuario (¡COMPLETADO!)
-- ✅ Interfaz gráfica de edición con un clic en los pads para buscar y asignar sonidos `.wav` personalizados.
-- ✅ Persistencia automática en `UserDrums` a través del `SynthEngine` y `main.js`.
+- 🔍 Pruebas finales de estabilidad y rendimiento en escenarios reales.
+- 🎹 Expansión de funciones avanzadas de sincronización de clock en metrónomos externos.
 
 ---
-*Documento actualizado en preparación para el mapeo MIDI avanzado.*
+*Documento actualizado y sincronizado en preparación para distribución portátil.*
