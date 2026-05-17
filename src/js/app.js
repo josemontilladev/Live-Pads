@@ -279,6 +279,11 @@ function buildDrumGrid(pads) {
         if (currentKit && currentKit.isCustom) {
           saveCustomKitsToStorage();
         }
+        // Sync volume labels below in real-time
+        const mainLabel = q(`#lbl-dvol-text-${pad.id}`);
+        if (mainLabel) mainLabel.textContent = pad.label;
+        const sbLabel = q(`#sb-lbl-dvol-text-${pad.id}`);
+        if (sbLabel) sbLabel.textContent = pad.label;
       }
     });
 
@@ -333,14 +338,14 @@ function buildDrumVolumes(pads) {
     const item = document.createElement('div'); item.className='drum-vol-item';
     item.innerHTML = `
       <div class="drum-vol-header">
-        <label>${pad.label}</label>
+        <label id="lbl-dvol-text-${pad.id}">${pad.label}</label>
         <span class="drum-vol-pct" id="dpct-${pad.id}">80%</span>
       </div>
       <input type="range" min="0" max="100" value="80" id="dvol-${pad.id}">`;
     container.appendChild(item);
 
     const sbItem = document.createElement('div'); sbItem.className='sb-row'; sbItem.style.padding='0';
-    sbItem.innerHTML = `<span class="sr-label" style="min-width:70px;">${pad.label}</span>
+    sbItem.innerHTML = `<span class="sr-label" id="sb-lbl-dvol-text-${pad.id}" style="min-width:70px;">${pad.label}</span>
       <input type="range" min="0" max="100" value="80" id="sb-dvol-${pad.id}" class="blue-slider">
       <span class="sr-val" id="sb-dpct-${pad.id}">80%</span>`;
     sbContainer.appendChild(sbItem);
