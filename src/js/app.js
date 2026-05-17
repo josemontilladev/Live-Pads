@@ -1905,7 +1905,7 @@ async function startTrackPlayback(url, title, type) {
     safeUrl = safeUrl.replace('../assets/', 'assets/');
   }
 
-  if (safeUrl && !safeUrl.startsWith('blob:') && !safeUrl.startsWith('http')) {
+  if (safeUrl && !safeUrl.startsWith('blob:') && !safeUrl.startsWith('http') && !safeUrl.startsWith('file:')) {
     if (window.electronAPI && window.electronAPI.getAbsolutePath) {
       try {
         const absPath = await window.electronAPI.getAbsolutePath(safeUrl);

@@ -872,8 +872,14 @@ input.pan-slider {
 }
 .sound-btn { padding: 6px 4px; font-size: 10px; }
 
+/* ── PRELOADER TRANSITIONS BYPASS ── */
+#preloader, #preloader * {
+  transition: none !important;
+}
+
 @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes preloaderSlide { 0% { left: -40%; } 100% { left: 100%; } }
+
 
 /* ── SOUND POOL MODAL ── */
 #sound-pool-modal {
@@ -995,3 +1001,260 @@ input.pan-slider {
 .pool-btn-assign:hover { opacity: 0.9; transform: scale(1.03); }
 .pool-empty { text-align: center; font-size: 12px; color: var(--text-muted); padding: 20px 0; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── RESPONSIVE LAPTOP / SMALL SCREEN HEIGHTS ── */
+@media (max-height: 850px) {
+  /* stage adjustments */
+  #stage {
+    padding: 12px;
+    gap: 12px;
+    grid-template-columns: 320px 1fr 310px;
+  }
+  #top-modules-grid {
+    gap: 12px;
+    grid-template-columns: 320px 1fr;
+  }
+
+  /* bank section adjustments */
+  #bank-section {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .bank-row {
+    gap: 4px;
+  }
+  .bank-selector .metro-dropdown {
+    height: 30px;
+    font-size: 12px;
+  }
+  .sb-div {
+    margin: 4px 0;
+  }
+
+  /* metronome section adjustments */
+  .horizontal-metro {
+    padding: 8px 14px;
+    min-height: 70px;
+    gap: 12px;
+  }
+  .metro-main-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .metro-main-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .metro-bpm-big {
+    font-size: 26px;
+  }
+  .metro-adj {
+    width: 26px;
+    height: 26px;
+  }
+  .metro-dropdown {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .hm-bpm-slider-wrap {
+    gap: 6px;
+  }
+  .tap-btn {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+  .hm-mix {
+    flex: 0 0 140px;
+  }
+
+  /* panel keys adjustments */
+  #panel-keys {
+    padding: 12px;
+    gap: 10px;
+  }
+  .key-grid {
+    gap: 6px;
+  }
+  .key-btn {
+    padding: 6px 4px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+  .kbd-hint {
+    top: 3px;
+    right: 3px;
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  /* pad volume tray card adjustments */
+  #pad-volume-tray {
+    padding: 10px 14px;
+  }
+  .tray-header {
+    font-size: 11px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+  .sb-row {
+    padding: 6px 10px;
+    gap: 10px;
+  }
+  .sr-label {
+    font-size: 11px;
+    min-width: 40px;
+  }
+  .sr-val {
+    font-size: 10px;
+    min-width: 22px;
+  }
+
+  /* panel drums adjustments */
+  #panel-drums {
+    gap: 10px;
+  }
+  .drum-grid {
+    gap: 6px;
+  }
+  .drum-btn {
+    padding: 8px 10px;
+    border-radius: 8px;
+  }
+  .drum-btn .drum-label {
+    font-size: 11px;
+  }
+  #drum-volume-tray {
+    padding: 10px 14px;
+  }
+  .drum-vol-item {
+    padding: 6px;
+    gap: 2px;
+    border-radius: 8px;
+  }
+  .drum-vol-header label {
+    font-size: 10px;
+  }
+  .drum-vol-pct {
+    font-size: 9px;
+  }
+
+  /* panel setlist adjustments */
+  #panel-setlist {
+    padding: 12px;
+  }
+  .setlist-header {
+    margin-bottom: 10px;
+  }
+  .setlist-title {
+    font-size: 14px;
+  }
+  .setlist-tabs-toggle {
+    margin-bottom: 10px;
+    padding: 2px;
+    border-radius: 8px;
+  }
+  .s-toggle {
+    padding: 5px;
+    font-size: 10px;
+    border-radius: 5px;
+  }
+  .gi-search-input {
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .gi-filters {
+    margin-bottom: 8px !important;
+    gap: 4px !important;
+  }
+  .gi-filter-btn {
+    padding: 4px;
+    font-size: 10px;
+  }
+  .gi-song-item {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+  }
+  .gi-song-title {
+    font-size: 12px;
+  }
+  .gi-song-artist {
+    font-size: 10px;
+  }
+  .gi-song-meta {
+    margin-top: 2px;
+    font-size: 9px;
+  }
+  .gi-song-actions {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+  .action-btn {
+    width: 24px;
+    height: 24px;
+  }
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* topbar and player heights */
+  #topbar {
+    height: 48px;
+    padding: 0 16px;
+  }
+  .topbar-logo img {
+    height: 28px !important;
+  }
+  .topbar-logo span {
+    font-size: 14px !important;
+  }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .icon-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .wm-btn {
+    width: 36px;
+    height: 48px;
+  }
+
+  #track-player-bar {
+    height: 60px !important;
+    padding: 8px 16px !important;
+    gap: 12px !important;
+  }
+  #tp-play-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  #tp-play-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  #tp-stop-btn, #tp-loop-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  #tp-stop-btn svg, #tp-loop-btn svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  #tp-title {
+    font-size: 12px !important;
+  }
+  #tp-vol {
+    width: 60px !important;
+  }
+}
+

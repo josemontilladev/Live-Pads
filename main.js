@@ -31,36 +31,55 @@ function initializeUserData() {
 // Mirror dynamic updates back into the project's defaults folder in development
 function saveToBoth(relativeSubPath, contentString) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
-  const defPath = path.join(__dirname, 'defaults', relativeSubPath);
   
   fs.mkdirSync(path.dirname(userPath), { recursive: true });
-  fs.mkdirSync(path.dirname(defPath), { recursive: true });
-  
   fs.writeFileSync(userPath, contentString, 'utf-8');
-  fs.writeFileSync(defPath, contentString, 'utf-8');
+
+  // Only mirror back to defaults in development (not when packaged inside read-only app.asar)
+  if (!app.isPackaged) {
+    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
+    try {
+      fs.mkdirSync(path.dirname(defPath), { recursive: true });
+      fs.writeFileSync(defPath, contentString, 'utf-8');
+    } catch (e) {
+      console.warn("Could not save to defaults folder in development:", e.message);
+    }
+  }
 }
 
 function deleteFromBoth(relativeSubPath) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
-  const defPath = path.join(__dirname, 'defaults', relativeSubPath);
-  
   if (fs.existsSync(userPath)) {
     try { fs.unlinkSync(userPath); } catch(e){}
   }
-  if (fs.existsSync(defPath)) {
-    try { fs.unlinkSync(defPath); } catch(e){}
+
+  // Only delete from defaults in development
+  if (!app.isPackaged) {
+    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
+    if (fs.existsSync(defPath)) {
+      try { fs.unlinkSync(defPath); } catch(e){}
+    }
   }
 }
 
 function copyToBoth(sourcePath, relativeSubPath) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
-  const defPath = path.join(__dirname, 'defaults', relativeSubPath);
   
   fs.mkdirSync(path.dirname(userPath), { recursive: true });
-  fs.mkdirSync(path.dirname(defPath), { recursive: true });
+  if (sourcePath !== userPath) {
+    try { fs.copyFileSync(sourcePath, userPath); } catch(e){ console.error("Error copying to userPath:", e); }
+  }
   
-  if (sourcePath !== userPath) fs.copyFileSync(sourcePath, userPath);
-  if (sourcePath !== defPath) fs.copyFileSync(sourcePath, defPath);
+  // Only copy to defaults in development (packaged app.asar is read-only)
+  if (!app.isPackaged) {
+    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
+    try {
+      fs.mkdirSync(path.dirname(defPath), { recursive: true });
+      if (sourcePath !== defPath) fs.copyFileSync(sourcePath, defPath);
+    } catch (e) {
+      console.warn("Could not copy to defaults folder in development:", e.message);
+    }
+  }
 }
 
 // Rewrite absolute file:/// paths dynamically on loading to make them cross-platform/user-portable
@@ -229,7 +248,9 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId }) 
     }
   };
   cleanDir(path.join(app.getPath('userData'), 'UserDrums'));
-  cleanDir(path.join(__dirname, 'defaults', 'UserDrums'));
+  if (!app.isPackaged) {
+    cleanDir(path.join(__dirname, 'defaults', 'UserDrums'));
+  }
 
   // Generate unique filename with kit+pad prefix
   const fileName = `${prefix}${Date.now()}_${path.basename(sourcePath).replace(/[^a-z0-9.]/gi, '_')}`;

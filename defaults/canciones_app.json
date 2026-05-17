@@ -41,7 +41,10 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=L9maRVUyNS0",
         "createdAt": "2026-03-29T01:26:04.978Z",
-        "__v": 0
+        "__v": 0,
+        "audio": {
+          "sequence": "file:///C:/Users/josem/AppData/Roaming/livepads/Sequences/Siempre me sostienes.mp3"
+        }
       },
       {
         "_id": "69c87fac68bad308a6ffc02b",
