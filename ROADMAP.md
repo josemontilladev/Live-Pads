@@ -14,6 +14,8 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Sistema de Temas Dinámico**: Implementación de 6 temas completos que afectan fondos, tarjetas y textos, con adaptación inteligente de contrastes.
 - **Feedback Visual Avanzado**: Los botones tienen animaciones sutiles y los pads de batería muestran un indicador visual (dot) cuando el sample real está cargado.
 - **Optimización de Espacio**: Limpieza de la bandeja de ajustes del pad (volumen/pan), moviendo controles avanzados (filtro LPF) exclusivamente al sidebar para reducir la carga cognitiva.
+- **Adaptabilidad de Pantalla Laptop**: Sistema de rejilla responsiva fluida a través de Media Queries CSS para alturas de pantalla de 850px o menores, compactando controles de volumen, pan y grillas de botones para evitar desbordamientos y optimizar el espacio en pantallas de laptops de directo.
+- **Preloader Infinitamente Dinámico**: Corrección del bug de animación estática en la pantalla de carga preliminar desactivando selectivamente transiciones CSS generales, logrando un preloader fluido a 60fps reales.
 
 ### 🔊 Motor de Audio y Optimización (SynthEngine.js)
 - **Librería Chris Rocha por Defecto**: Configuración del banco de pads de Chris Rocha como sonido base al iniciar la app.
@@ -46,12 +48,14 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Portabilidad Total de Datos de Usuario**: Inclusión de la carpeta `defaults/**/*` en el proceso de empaquetado del `package.json`.
 - **Auto-Configuración en Primer Inicio**: Al instalar el `.exe` en una nueva PC, el sistema automáticamente copia los kits de batería, archivos de audio locales, secuencias, canciones y configuraciones de presets, y reescribe dinámicamente las rutas locales (`file:///`) del nuevo equipo.
 - **Resolución de Íconos**: Dimensionamiento y conversión automática (256x256) de los íconos de la aplicación y el instalador, resolviendo los errores del empaquetador.
+- **Aislamiento de Escritura en Producción**: Integración de validaciones de escritura inteligente `app.isPackaged` en los servicios de guardado y copia en segundo plano (`saveToBoth`, `copyToBoth`), garantizando que la aplicación instalada escriba y actualice datos en la carpeta de usuario segura (`userData`) y evite excepciones fatales por intentar escribir en el archivo de solo lectura `app.asar` del ejecutable.
 
 ### 🎵 Reproductor de Pistas y Secuencias
 - **Archivos Locales Robustos**: Sistema nativo de IPC (`fs`) que copia automáticamente los archivos originales y secuencias del usuario a `src/assets/`, manteniendo la persistencia a prueba de errores.
 - **Rutas a Prueba de Fallos**: Construcción dinámica de URIs (`file:///`) para evitar fallos por espacios o caracteres especiales en Windows.
 - **Modo Loop**: Botón de repetición infinita para secuencias.
 - **Feedback Visual Inteligente**: Los botones de Setlist se iluminan automáticamente cuando detectan que la canción ya tiene un audio vinculado.
+- **Resolución de Rutas Absolutas Inteligente**: Corrección del bug de distorsión de rutas que causaba fallos al reproducir secuencias asociadas con el protocolo nativo `file:///`, permitiendo una carga instantánea y libre de errores desde cualquier módulo.
 
 ---
 
