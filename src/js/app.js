@@ -288,10 +288,12 @@ function buildDrumGrid(pads) {
     });
 
     btn.onmousedown = (e) => {
+      console.log("DEBUG: drum-btn onmousedown", { target: e.target, isLbl: e.target === lbl, isEditKitMode });
       if (isEditKitMode && e.target === lbl) return;
       hitDrum(pad.id, pad.type, btn);
     };
     btn.addEventListener('touchstart', e => { 
+      console.log("DEBUG: drum-btn touchstart", { target: e.target, isLbl: e.target === lbl, isEditKitMode });
       if (isEditKitMode && e.target === lbl) return;
       e.preventDefault(); hitDrum(pad.id, pad.type, btn); 
     });
@@ -301,8 +303,12 @@ function buildDrumGrid(pads) {
 }
 
 async function hitDrum(id, type, btn) {
+  console.log("DEBUG: hitDrum triggered", { id, type, isEditKitMode });
   if (isEditKitMode) {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI) {
+      console.warn("DEBUG: window.electronAPI is missing!");
+      return;
+    }
     
     const onUploadNew = async () => {
       const fileData = await window.electronAPI.openAudioFile();
@@ -322,6 +328,7 @@ async function hitDrum(id, type, btn) {
     const pad = currentKit ? currentKit.pads.find(p => p.id === id) : null;
     const padLabel = pad ? pad.label : 'Pad';
 
+    console.log("DEBUG: opening sound pool modal for", { id, padLabel });
     openSoundPoolModal(id, padLabel, onAssignPool, onUploadNew);
     return;
   }
@@ -356,6 +363,7 @@ function getCleanSampleName(path) {
 }
 
 function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
+  console.log("DEBUG: openSoundPoolModal entry", { padId, padLabel });
   const existing = q('#sound-pool-modal');
   if (existing) existing.remove();
 
@@ -379,6 +387,7 @@ function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
     }
   });
 
+  console.log("DEBUG: sampleList populated", sampleList);
   let listHtml = '';
   if (sampleList.length === 0) {
     listHtml = '<div class="pool-empty">Aún no has cargado ningún sonido en tus kits.</div>';
