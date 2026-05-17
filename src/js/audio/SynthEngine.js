@@ -794,6 +794,20 @@ export class SynthEngine {
     try { this.customDrums[id] = await this.ctx.decodeAudioData(arrayBuffer); } catch(e) { console.error(e); }
   }
 
+  async loadSingleDrum(id, url) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok && resp.status !== 0) throw new Error(`HTTP ${resp.status}`);
+      const ab = await resp.arrayBuffer();
+      this.customDrums[id] = await this.ctx.decodeAudioData(ab);
+      console.log('Single drum sample loaded:', id, url);
+      return true;
+    } catch(e) {
+      console.warn('Single drum sample not loaded:', url, e.message);
+      return false;
+    }
+  }
+
   playCustomDrum(id, padId) {
     if (!this.customDrums[id]) return false;
     const now = this.ctx.currentTime;

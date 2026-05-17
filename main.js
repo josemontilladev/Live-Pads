@@ -116,8 +116,17 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName }) => {
   const destDir = path.join(app.getPath('userData'), 'UserDrums');
   if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
   
-  // Clean filename to avoid issues
-  const fileName = `${padName.replace(/[^a-z0-9]/gi, '_')}_${path.basename(sourcePath)}`;
+  // Clean old files for this pad
+  const prefix = padName.replace(/[^a-z0-9]/gi, '_') + '_';
+  const files = fs.readdirSync(destDir);
+  for (const f of files) {
+    if (f.startsWith(prefix)) {
+      try { fs.unlinkSync(path.join(destDir, f)); } catch(e){}
+    }
+  }
+
+  // Generate unique filename
+  const fileName = `${prefix}${Date.now()}_${path.basename(sourcePath).replace(/[^a-z0-9.]/gi, '_')}`;
   const destPath = path.join(destDir, fileName);
   if (sourcePath !== destPath) fs.copyFileSync(sourcePath, destPath);
   

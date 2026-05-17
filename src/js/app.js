@@ -44,17 +44,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     customMidiMap = (await window.electronAPI.loadMidiMap()) || {};
   }
   const customKit = {
-    id: 'custom_kit', name: 'Custom Kit (Tus sonidos)',
+    id: 'custom_kit', name: customKitMap['kitName'] || 'Custom Kit (Tus sonidos)',
     desc: 'Batería personalizada (Edita con el ✏️)', color: '#10b981',
     pads: [
-      { id: 'c_kick', label: 'Kick', type: 'kick', sample: customKitMap['c_kick'] },
-      { id: 'c_snare', label: 'Snare', type: 'snare', sample: customKitMap['c_snare'] },
-      { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: customKitMap['c_hhc'] },
-      { id: 'c_clap', label: 'Clap', type: 'clap', sample: customKitMap['c_clap'] },
-      { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: customKitMap['c_perc1'] },
-      { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: customKitMap['c_perc2'] },
-      { id: 'c_crash', label: 'Crash', type: 'crash', sample: customKitMap['c_crash'] },
-      { id: 'c_ride', label: 'Ride', type: 'ride', sample: customKitMap['c_ride'] },
+      { id: 'c_kick', label: customKitMap['lbl_c_kick'] || 'Kick', type: 'kick', sample: customKitMap['c_kick'] },
+      { id: 'c_snare', label: customKitMap['lbl_c_snare'] || 'Snare', type: 'snare', sample: customKitMap['c_snare'] },
+      { id: 'c_hhc', label: customKitMap['lbl_c_hhc'] || 'HH Cerr', type: 'hihatC', sample: customKitMap['c_hhc'] },
+      { id: 'c_clap', label: customKitMap['lbl_c_clap'] || 'Clap', type: 'clap', sample: customKitMap['c_clap'] },
+      { id: 'c_perc1', label: customKitMap['lbl_c_perc1'] || 'Tom 1', type: 'tomH', sample: customKitMap['c_perc1'] },
+      { id: 'c_perc2', label: customKitMap['lbl_c_perc2'] || 'Tom 2', type: 'tomM', sample: customKitMap['c_perc2'] },
+      { id: 'c_crash', label: customKitMap['lbl_c_crash'] || 'Crash', type: 'crash', sample: customKitMap['c_crash'] },
+      { id: 'c_ride', label: customKitMap['lbl_c_ride'] || 'Ride', type: 'ride', sample: customKitMap['c_ride'] },
     ]
   };
   KIT_BANKS.push(customKit);
@@ -90,10 +90,12 @@ function buildBankSelects() {
   const kitSel = q('#kit-bank-select');
   if (padSel) {
     padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    padSel.value = padBankIdx;
     padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
   }
   if (kitSel) {
     kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    kitSel.value = kitBankIdx;
     kitSel.onchange = (e) => loadKitBank(parseInt(e.target.value));
   }
 }
@@ -201,9 +203,29 @@ function buildDrumGrid(pads) {
   pads.forEach((pad, i) => {
     const btn = document.createElement('button');
     btn.className = 'drum-btn'; btn.dataset.drum = pad.id; btn.dataset.type = pad.type;
-    btn.innerHTML = `<span class="drum-label">${pad.label}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>`;
-    btn.onmousedown = () => hitDrum(pad.id, pad.type, btn);
-    btn.addEventListener('touchstart', e => { e.preventDefault(); hitDrum(pad.id, pad.type, btn); });
+    btn.innerHTML = `<span class="drum-label" spellcheck="false">${pad.label}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>`;
+    
+    if (pad.sample) {
+      btn.classList.add('has-sample');
+    }
+
+    const lbl = btn.querySelector('.drum-label');
+    lbl.addEventListener('blur', async () => {
+      if (lbl.textContent.trim() !== pad.label) {
+        pad.label = lbl.textContent.trim() || 'Pad';
+        customKitMap[`lbl_${pad.id}`] = pad.label;
+        if (window.electronAPI) window.electronAPI.saveUserDrums(customKitMap);
+      }
+    });
+
+    btn.onmousedown = (e) => {
+      if (isEditKitMode && e.target === lbl) return;
+      hitDrum(pad.id, pad.type, btn);
+    };
+    btn.addEventListener('touchstart', e => { 
+      if (isEditKitMode && e.target === lbl) return;
+      e.preventDefault(); hitDrum(pad.id, pad.type, btn); 
+    });
     grid.appendChild(btn);
   });
   if (typeof updateKeyHints === 'function') updateKeyHints();
@@ -212,27 +234,27 @@ function buildDrumGrid(pads) {
 async function hitDrum(id, type, btn) {
   if (isEditKitMode) {
     if (!window.electronAPI) return;
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'audio/mp3, audio/wav';
-    input.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const resPath = await window.electronAPI.assignDrumSample({ sourcePath: file.path, padName: id });
-      if (resPath) {
-        customKitMap[id] = resPath;
-        await window.electronAPI.saveUserDrums(customKitMap);
-        const ckit = KIT_BANKS.find(k => k.id === 'custom_kit');
-        if (ckit) {
-          const pad = ckit.pads.find(p => p.id === id);
-          if (pad) pad.sample = resPath;
-        }
-        engine.loadKitSamples(KIT_BANKS[kitBankIdx].pads).then(() => {
-          btn.classList.add('has-sample');
-          btn.style.borderColor = 'var(--blue)';
-        });
+    const fileData = await window.electronAPI.openAudioFile();
+    if (!fileData || !fileData.path) return;
+    
+    const resPath = await window.electronAPI.assignDrumSample({ sourcePath: fileData.path, padName: id });
+    if (resPath) {
+      customKitMap[id] = resPath;
+      await window.electronAPI.saveUserDrums(customKitMap);
+      const ckit = KIT_BANKS.find(k => k.id === 'custom_kit');
+      if (ckit) {
+        const pad = ckit.pads.find(p => p.id === id);
+        if (pad) pad.sample = resPath;
       }
-    };
-    input.click();
+      engine.loadSingleDrum(id, resPath).then((success) => {
+        if (success) {
+          btn.classList.add('has-sample');
+          const oldBg = btn.style.background;
+          btn.style.background = 'var(--blue)';
+          setTimeout(() => { btn.style.background = oldBg; }, 300);
+        }
+      });
+    }
     return;
   }
   if (!engine.playCustomDrum(id, id)) engine.playDrum(type, id);
@@ -370,14 +392,57 @@ function bindAll() {
     btnEditKit.onclick = () => {
       isEditKitMode = !isEditKitMode;
       btnEditKit.style.color = isEditKitMode ? 'var(--blue)' : 'var(--text-muted)';
-      btnEditKit.style.borderColor = isEditKitMode ? 'var(--blue)' : 'var(--border)';
+      btnEditKit.style.borderColor = isEditKitMode ? 'var(--blue)' : 'transparent';
       if (isEditKitMode) {
-        const customIdx = KIT_BANKS.findIndex(k => k.id === 'custom_kit');
+        btnEditKit.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+      } else {
+        btnEditKit.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="18" height="18"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
+      }
+      
+      const customIdx = KIT_BANKS.findIndex(k => k.id === 'custom_kit');
+      const kitSelect = q('#kit-bank-select');
+      const selectWrapper = kitSelect.parentElement;
+
+      if (isEditKitMode) {
         if (customIdx >= 0) {
-          q('#kit-bank-select').value = customIdx;
+          kitSelect.value = customIdx;
           loadKitBank(customIdx);
         }
+        const kitName = KIT_BANKS[customIdx].name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'edit-kit-name-input';
+        input.className = 'metro-dropdown';
+        input.style.width = '100%';
+        input.style.border = '1px solid var(--blue)';
+        input.value = kitName;
+        kitSelect.style.display = 'none';
+        selectWrapper.insertBefore(input, kitSelect);
+        input.focus();
+      } else {
+        const input = q('#edit-kit-name-input');
+        if (input) {
+           const newName = input.value.trim() || 'Custom Kit';
+           KIT_BANKS[customIdx].name = newName;
+           customKitMap.kitName = newName;
+           if (window.electronAPI) window.electronAPI.saveUserDrums(customKitMap);
+           input.remove();
+        }
+        kitSelect.style.display = 'block';
+        buildBankSelects();
+        kitSelect.value = customIdx;
       }
+
+      qa('.drum-btn').forEach(b => {
+        const lbl = b.querySelector('.drum-label');
+        if (isEditKitMode) {
+           b.classList.add('edit-pulse');
+           if(lbl) lbl.contentEditable = true;
+        } else {
+           b.classList.remove('edit-pulse');
+           if(lbl) lbl.contentEditable = false;
+        }
+      });
     };
   }
 
@@ -837,7 +902,7 @@ function syncPanSlider(el) {
 }
 
 function onKey(e) {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
 
   const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
   
