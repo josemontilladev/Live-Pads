@@ -161,6 +161,17 @@ function updateKeyHints() {
   });
 }
 
+function clearMappingForTarget(target, isKeyboard) {
+  Object.keys(customMidiMap).forEach(key => {
+    if (isKeyboard && !key.startsWith('kbd_')) return;
+    if (!isKeyboard && key.startsWith('kbd_')) return;
+    const mapping = customMidiMap[key];
+    if (mapping && mapping.action === target.action && mapping.id === target.id) {
+      delete customMidiMap[key];
+    }
+  });
+}
+
 function onKeyClick(key) {
   if (activeKey === key) { 
     engine.stopPad(); 
@@ -642,6 +653,7 @@ function bindAll() {
 
     if (isMidiLearnMode && midiLearnTarget) {
       if (data2 > 0) {
+        clearMappingForTarget(midiLearnTarget, false);
         customMidiMap[mapKey] = midiLearnTarget;
         if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
         q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
@@ -831,6 +843,7 @@ function onKey(e) {
   
   if (isMidiLearnMode && midiLearnTarget) {
     e.preventDefault();
+    clearMappingForTarget(midiLearnTarget, true);
     customMidiMap[`kbd_${k}`] = midiLearnTarget;
     if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
     const kName = k.replace('Key', '').replace('Digit', '');
