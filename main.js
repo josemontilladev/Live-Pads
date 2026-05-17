@@ -112,6 +112,7 @@ function createWindow() {
     },
   });
   mainWindow.loadFile('src/index.html');
+  mainWindow.webContents.openDevTools();
 
   // Handle MIDI permissions to prevent drops on hot reload (Ctrl+R)
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {

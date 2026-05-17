@@ -423,7 +423,7 @@ function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
         </button>
         <div class="pool-list-title">Sonidos cargados en la App</div>
         <div class="pool-list">
-          \${listHtml}
+          ${listHtml}
         </div>
       </div>
     </div>
