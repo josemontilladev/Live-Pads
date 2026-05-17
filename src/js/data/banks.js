@@ -169,8 +169,8 @@ export const KIT_BANKS = [
     id: 'padlab', name: 'PadLab Kit',
     desc: 'Tu Kit personalizado (precargado de fábrica)', color: '#10b981',
     pads: [
-      { id: 'pl_kick',   label: 'Kick',      type: 'kick',   sample: 'assets/Drums Pad/PadLab/kick.wav'   },
-      { id: 'pl_snare',  label: 'Snare',     type: 'snare',  sample: 'assets/Drums Pad/PadLab/snare.wav'  },
+      { id: 'pl_kick',   label: 'Clap 1',    type: 'kick',   sample: 'assets/Drums Pad/PadLab/clap.wav'   },
+      { id: 'pl_snare',  label: 'Kick 1',    type: 'snare',  sample: 'assets/Drums Pad/PadLab/kick.wav'   },
       { id: 'pl_clap',   label: 'Clap',      type: 'clap',   sample: 'assets/Drums Pad/PadLab/clap.wav'   },
       { id: 'pl_hhc',    label: 'HH Cerr',   type: 'hihatC', sample: 'assets/Drums Pad/PadLab/hhc.wav'    },
       { id: 'pl_hho',    label: 'HH Abie',   type: 'hihatO', sample: 'assets/Drums Pad/PadLab/hho.wav'    },
