@@ -102,6 +102,14 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Acceso Inmediato a Kits Personalizados (Custom Kits First)**:
   * Reestructuración del arreglo `KIT_BANKS` mediante la sustitución del método `.push()` por `.unshift()`. Esto posiciona automáticamente todos los kits creados por el usuario (como *Drum Kit 1*, *EFX 1*, *Worship Drums*) en la cabecera de los listados desplegables y controles, asegurando un acceso y cambio sumamente veloz durante ejecuciones en directo.
   * Actualización de la creación de kits de batería para que los nuevos bancos se antepongan de forma instantánea al principio de la lista y se activen de inmediato en la visual.
+- **Fase 1: Seguridad & Resiliencia Offline (Local-First config.json)**:
+  * Aislamiento total de credenciales: La URI de la base de datos de MongoDB Atlas se eliminó por completo del código frontend, quedando el renderizado ciego a claves.
+  * Archivo local dinámico: Creación automática de `config.json` en el directorio seguro `userData` (`C:\Users\<Usuario>\AppData\Roaming\Live Pads\config.json`) al iniciar por primera vez, permitiendo configurarlo en caliente en producción sin recompilar.
+  * Bypass DNS SRV para VPNs/Proxies (Cloudflare WARP): Implementación de redirección de servidores DNS nativos en `main.js` (`dns.setServers(['1.1.1.1', '8.8.8.8'])`), evitando que programas de túneles e ISPs locales bloqueen las consultas de conexión a MongoDB.
+  * Límite de tiempo de red: Límite de 4 segundos de respuesta para evitar bloqueos del sistema principal.
+  * Alertas Flotantes Premium (`showToast`): Reemplazo completo de cuadros `alert()` nativos por notificaciones translúcidas de estilo "glassmorphism" con desenfoque de fondo real, iconos animados vectoriales SVG y transiciones con rebote elástico.
+- **Fase 2: Pool de Audio y Latencia Cero (Rendimiento)**:
+  * Liberación Segura de Hardware de Decodificadores de Audio: Implementación del método `cleanupTrackAudio()` en `app.js` que pausa, limpia la propiedad `.src`, fuerza la recarga del búfer nativo con `.load()`, y desconecta los callbacks de eventos de red y error antes de asignar `null`. Previene fugas de memoria y bloqueos de límite físico de decodificación por parte del sistema operativo al cambiar repetidamente de pistas.
 
 ---
 

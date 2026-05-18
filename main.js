@@ -2,6 +2,14 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
+const dns = require('dns');
+
+// Bypasses Cloudflare WARP & local proxy DNS SRV query blocks on Windows
+try {
+  dns.setServers(['1.1.1.1', '8.8.8.8']);
+} catch (e) {
+  console.warn("Could not set DNS servers:", e.message);
+}
 
 let mainWindow;
 
@@ -26,6 +34,17 @@ function initializeUserData() {
       }
     };
     copyRecursive(defaultsPath, userDataPath);
+  }
+  
+  // Auto-initialize config.json for secure credentials customization
+  const configPath = path.join(userDataPath, 'config.json');
+  if (!fs.existsSync(configPath)) {
+    const defaultUri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
+    try {
+      fs.writeFileSync(configPath, JSON.stringify({ mongoUri: defaultUri }, null, 2), 'utf-8');
+    } catch (e) {
+      console.error("Failed to auto-create config.json:", e.message);
+    }
   }
 }
 
@@ -246,13 +265,32 @@ ipcMain.handle('load-gi-setlist', async () => {
   return null;
 });
 
-ipcMain.handle('sync-mongo-setlist', async (_e, uri) => {
+ipcMain.handle('sync-mongo-setlist', async () => {
+  let uri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
+  const configPath = path.join(app.getPath('userData'), 'config.json');
+  
   try {
-    const client = new MongoClient(uri);
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config.mongoUri) {
+        uri = config.mongoUri;
+      }
+    } else {
+      // Auto-create config.json with default so they can customize it easily in userData directory
+      fs.writeFileSync(configPath, JSON.stringify({ mongoUri: uri }, null, 2), 'utf-8');
+    }
+  } catch (e) {
+    console.warn("Could not read config.json, using default:", e.message);
+  }
+
+  try {
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 4000 // 4 seconds timeout for fast offline detection
+    });
     await client.connect();
     const db = client.db('gi-setlist');
     const collection = db.collection('songs');
-    const songs = await collection.find({}).toArray();
+    const songs = collection ? await collection.find({}).toArray() : [];
     await client.close();
     return songs.map(s => {
       const obj = { ...s };

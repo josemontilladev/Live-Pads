@@ -30,6 +30,64 @@ const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
 const q  = s => document.querySelector(s);
 const qa = s => document.querySelectorAll(s);
 
+// Global Toast Notification Helper for professional UX
+window.showToast = function(message, type = 'info') {
+  let container = q('#toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; pointer-events: none;';
+    document.body.appendChild(container);
+  }
+  
+  const toast = document.createElement('div');
+  let bg = 'rgba(0, 170, 255, 0.9)'; // info / blue
+  let color = '#000';
+  let border = '1px solid var(--blue)';
+  
+  if (type === 'success') {
+    bg = 'rgba(16, 185, 129, 0.95)'; // emerald
+    color = '#fff';
+    border = '1px solid #10b981';
+  } else if (type === 'error') {
+    bg = 'rgba(239, 68, 68, 0.95)'; // red
+    color = '#fff';
+    border = '1px solid #ef4444';
+  } else if (type === 'warning') {
+    bg = 'rgba(245, 158, 11, 0.95)'; // amber
+    color = '#000';
+    border = '1px solid #f59e0b';
+  }
+  
+  toast.style.cssText = `background: ${bg}; color: ${color}; border: ${border}; backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 10px 25px rgba(0,0,0,0.3); opacity: 0; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px;`;
+  
+  // Icon SVG
+  let icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  if (type === 'success') {
+    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><polyline points="20,6 9,17 4,12"/></svg>';
+  } else if (type === 'error') {
+    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  } else if (type === 'warning') {
+    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  }
+  
+  toast.innerHTML = `${icon}<span>${message}</span>`;
+  container.appendChild(toast);
+  
+  // Slide up and bounce in
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+  });
+  
+  // Slide out and remove
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-20px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+};
+
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
   engine = new SynthEngine();
@@ -1207,8 +1265,7 @@ function bindAll() {
         btnSyncGi.style.animation = 'pulse 1s infinite';
         btnSyncGi.style.color = '#fbae00';
         
-        const uri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
-        const mongoSongs = await window.electronAPI.syncMongoSetlist(uri);
+        const mongoSongs = await window.electronAPI.syncMongoSetlist();
         
         if (!mongoSongs || !mongoSongs.length) {
            throw new Error("No se encontraron canciones en MongoDB");
@@ -1252,13 +1309,13 @@ function bindAll() {
           if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
           updateFilterCounts();
           renderGiSetlist(q('#gi-search').value);
-          alert(`Sincronización exitosa.\n\nNuevas canciones: ${newCount}\nCanciones actualizadas: ${updatedCount}`);
+          showToast(`Sincronización exitosa. Nuevas: ${newCount}, Actualizadas: ${updatedCount}`, 'success');
         } else {
-          alert('Sincronización exitosa.\n\nTu librería ya está al día, no hubo cambios.');
+          showToast('Tu librería ya está al día, sin cambios.', 'success');
         }
       } catch (e) {
         console.error('Error sincronizando con MongoDB:', e);
-        alert('Error sincronizando con la base de datos de GI-Setlist.\\nVerifica tu conexión a internet.');
+        showToast('Error de red. Operando en Modo Local.', 'warning');
       } finally {
         btnSyncGi.style.animation = '';
         btnSyncGi.style.color = '';
@@ -2731,8 +2788,7 @@ function applyGiSong(song) {
   } else {
     // Clear track player if no audio is available for the new song
     if (currentTrackAudio) {
-      currentTrackAudio.pause();
-      currentTrackAudio = null;
+      cleanupTrackAudio();
       q('#tp-title').textContent = "Sin pista seleccionada";
       q('#tp-time-current').textContent = "0:00";
       q('#tp-time-total').textContent = "0:00";
@@ -2747,11 +2803,25 @@ let currentTrackAudio = null;
 let currentTrackType = null;
 let currentTrackSong = null;
 
-window.loadAndPlayTrack = function(song, type) {
+// Safe audio release and hardware decoder garbage collection
+function cleanupTrackAudio() {
   if (currentTrackAudio) {
-    currentTrackAudio.pause();
+    try {
+      currentTrackAudio.pause();
+      currentTrackAudio.src = '';
+      currentTrackAudio.load(); // Force immediate release of OS audio resources
+      currentTrackAudio.onerror = null;
+      currentTrackAudio.ontimeupdate = null;
+      currentTrackAudio.onended = null;
+    } catch (e) {
+      console.warn("Error cleaning up audio element:", e);
+    }
     currentTrackAudio = null;
   }
+}
+
+window.loadAndPlayTrack = function(song, type) {
+  cleanupTrackAudio();
   currentTrackSong = song;
   const path = (song.audio && song.audio[type]) ? song.audio[type] : null;
 
@@ -2893,8 +2963,7 @@ async function startTrackPlayback(url, title, type) {
   }
   
   q('#tp-close-btn').onclick = () => {
-    currentTrackAudio.pause();
-    currentTrackAudio = null;
+    cleanupTrackAudio();
     q('#tp-title').textContent = "Ninguna pista cargada";
     q('#tp-time-current').textContent = "0:00";
     q('#tp-time-total').textContent = "0:00";

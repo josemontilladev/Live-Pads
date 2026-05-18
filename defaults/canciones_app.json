@@ -823,7 +823,10 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=EjPeIENlQRY",
         "createdAt": "2026-03-29T01:26:04.983Z",
         "__v": 0,
-        "id": "song_53_1779065777451"
+        "id": "song_53_1779065777451",
+        "audio": {
+          "sequence": "file:///livepads/Sequences/Eco.mp3"
+        }
       },
       {
         "_id": "69c87fac68bad308a6ffc05e",
