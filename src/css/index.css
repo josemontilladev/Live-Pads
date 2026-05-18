@@ -26,7 +26,7 @@ body * { transition: var(--transition-theme); }
 .hidden { display: none !important; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -987,8 +987,41 @@ input.pan-slider {
     padding: 3px 6px;
     font-size: 9px;
   }
+  .hm-play {
+    flex: 0 1 130px;
+    gap: 6px;
+  }
+  #metro-beat-dots {
+    gap: 6px;
+  }
+  .beat-dot {
+    width: 8px;
+    height: 8px;
+  }
+  #metro-bpm-live {
+    font-size: 11px;
+  }
+  .hm-bpm {
+    flex: 0 1 145px;
+    gap: 6px;
+  }
+  .hm-compas {
+    flex: 0 1 90px;
+    gap: 4px;
+  }
+  .horizontal-metro > .hm-section:nth-child(4) {
+    flex: 0 1 90px !important;
+    gap: 4px !important;
+  }
   .hm-mix {
-    flex: 0 0 140px;
+    flex: 0 1 125px;
+    gap: 4px;
+  }
+  .horizontal-metro .sb-row {
+    gap: 6px;
+  }
+  .tray-pan-row {
+    min-width: 0 !important;
   }
 
   /* panel keys adjustments */
