@@ -172,10 +172,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   applyTheme(currentTheme);
   buildBankSelects();
-  loadPadBank(2); // Chris Rocha por defecto
-  // Load EFX 1 by name; fall back to index 0 if not found
-  const efx1Idx = KIT_BANKS.findIndex(k => k.name === 'EFX 1');
-  loadKitBank(efx1Idx >= 0 ? efx1Idx : 0);
+  
+  // Restore last selected Pad Bank or default to Chris Rocha (index 2)
+  const savedPadIdx = localStorage.getItem('lastPadBankIdx');
+  if (savedPadIdx !== null) {
+    loadPadBank(parseInt(savedPadIdx));
+  } else {
+    loadPadBank(2); // Chris Rocha por defecto
+  }
+  
+  // Restore last selected Kit Bank or default to EFX 1
+  const savedKitIdx = localStorage.getItem('lastKitBankIdx');
+  if (savedKitIdx !== null) {
+    loadKitBank(parseInt(savedKitIdx));
+  } else {
+    const efx1Idx = KIT_BANKS.findIndex(k => k.name === 'EFX 1');
+    loadKitBank(efx1Idx >= 0 ? efx1Idx : 0);
+  }
   buildKeyGrid();
   buildMetroBeatDots(4);
   buildThemesList();
@@ -221,6 +234,9 @@ function loadPadBank(idx) {
   if (padSel) padSel.value = padBankIdx;
   engine.setPadBank(bank);
   if (activeKey) engine.playPad(activeKey);
+  
+  // Save last selected Pad Bank persistently
+  localStorage.setItem('lastPadBankIdx', padBankIdx);
 }
 
 function loadKitBank(idx) {
@@ -254,6 +270,9 @@ function loadKitBank(idx) {
     // Re-apply MIDI/keyboard hints after async kit load so the mapping stays visible
     if (typeof updateKeyHints === 'function') updateKeyHints();
   });
+  
+  // Save last selected Kit Bank persistently
+  localStorage.setItem('lastKitBankIdx', kitBankIdx);
 }
 
 /* ── KEY GRID ── */
