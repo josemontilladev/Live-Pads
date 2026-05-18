@@ -216,11 +216,11 @@
         <div class="setlist-header">
           <span class="setlist-title">Setlist</span>
           <div style="display: flex; gap: 8px;">
+            <button class="icon-btn accent-btn" id="btn-sync-gi" title="Sincronizar con base de datos" style="display: none;">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            </button>
             <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar GI-Setlist">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-            <button class="icon-btn accent-btn" id="btn-add-preset" title="Guardar Preset">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
             <input type="file" id="gi-file-input" accept=".json" hidden>
           </div>
@@ -256,7 +256,7 @@
         <div id="gi-setlist-list">
           <div style="display: flex; gap: 8px; margin-bottom: 12px;">
             <input type="text" id="gi-search" class="gi-search-input" placeholder="Buscar canción o artista..." style="flex: 1; margin-bottom: 0;">
-            <button class="icon-btn accent-btn" id="btn-add-gi-song" title="Nueva canción" style="width: 38px; height: 38px; border-radius: 8px; flex-shrink: 0; background: var(--blue); color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; transition: transform 0.15s;">
+            <button class="icon-btn accent-btn" id="btn-add-gi-song" title="Nueva canción" style="flex-shrink: 0; transition: transform 0.15s;">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
           </div>

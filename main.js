@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { MongoClient } = require('mongodb');
 
 let mainWindow;
 
@@ -243,6 +244,25 @@ ipcMain.handle('load-gi-setlist', async () => {
     return rewritePaths(raw);
   }
   return null;
+});
+
+ipcMain.handle('sync-mongo-setlist', async (_e, uri) => {
+  try {
+    const client = new MongoClient(uri);
+    await client.connect();
+    const db = client.db('gi-setlist');
+    const collection = db.collection('songs');
+    const songs = await collection.find({}).toArray();
+    await client.close();
+    return songs.map(s => {
+      const obj = { ...s };
+      if (obj._id) obj._id = obj._id.toString();
+      return obj;
+    });
+  } catch (err) {
+    console.error('Mongo sync error:', err);
+    throw err;
+  }
 });
 
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {

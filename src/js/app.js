@@ -67,29 +67,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Load custom kits into KIT_BANKS
+  // Load custom kits into KIT_BANKS (prepended so they are at the top)
   if (customKitsData.kits && customKitsData.kits.length > 0) {
-    customKitsData.kits.forEach(k => {
-      KIT_BANKS.push({
-        id: k.id || `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        name: k.kitName || 'Custom Kit',
-        desc: 'Batería personalizada (Edita con el ✏️)',
-        color: '#10b981',
-        isCustom: true, // Mark it so we know we can edit/delete it!
-        pads: [
-          { id: 'c_kick', label: k.lbl_c_kick || 'Kick', type: 'kick', sample: k.c_kick },
-          { id: 'c_snare', label: k.lbl_c_snare || 'Snare', type: 'snare', sample: k.c_snare },
-          { id: 'c_hhc', label: k.lbl_c_hhc || 'HH Cerr', type: 'hihatC', sample: k.c_hhc },
-          { id: 'c_clap', label: k.lbl_c_clap || 'Clap', type: 'clap', sample: k.c_clap },
-          { id: 'c_perc1', label: k.lbl_c_perc1 || 'Tom 1', type: 'tomH', sample: k.c_perc1 },
-          { id: 'c_perc2', label: k.lbl_c_perc2 || 'Tom 2', type: 'tomM', sample: k.c_perc2 },
-          { id: 'c_crash', label: k.lbl_c_crash || 'Crash', type: 'crash', sample: k.c_crash },
-          { id: 'c_ride', label: k.lbl_c_ride || 'Ride', type: 'ride', sample: k.c_ride },
-        ]
-      });
-    });
+    const loadedCustomKits = customKitsData.kits.map(k => ({
+      id: k.id || `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      name: k.kitName || 'Custom Kit',
+      desc: 'Batería personalizada (Edita con el ✏️)',
+      color: '#10b981',
+      isCustom: true, // Mark it so we know we can edit/delete it!
+      pads: [
+        { id: 'c_kick', label: k.lbl_c_kick || 'Kick', type: 'kick', sample: k.c_kick },
+        { id: 'c_snare', label: k.lbl_c_snare || 'Snare', type: 'snare', sample: k.c_snare },
+        { id: 'c_hhc', label: k.lbl_c_hhc || 'HH Cerr', type: 'hihatC', sample: k.c_hhc },
+        { id: 'c_clap', label: k.lbl_c_clap || 'Clap', type: 'clap', sample: k.c_clap },
+        { id: 'c_perc1', label: k.lbl_c_perc1 || 'Tom 1', type: 'tomH', sample: k.c_perc1 },
+        { id: 'c_perc2', label: k.lbl_c_perc2 || 'Tom 2', type: 'tomM', sample: k.c_perc2 },
+        { id: 'c_crash', label: k.lbl_c_crash || 'Crash', type: 'crash', sample: k.c_crash },
+        { id: 'c_ride', label: k.lbl_c_ride || 'Ride', type: 'ride', sample: k.c_ride },
+      ]
+    }));
+    KIT_BANKS.unshift(...loadedCustomKits);
   } else {
     // If no custom kits exist, create one default custom kit
-    KIT_BANKS.push({
+    KIT_BANKS.unshift({
       id: `custom_kit_${Date.now()}`,
       name: 'PadLab Custom',
       desc: 'Batería personalizada (Edita con el ✏️)',
@@ -751,6 +751,31 @@ function bindToggle(el, cb) {
 function bindAll() {
   const api = window.electronAPI;
 
+  // Track Player Volume & Progress startup sync
+  const tpVolSlider = q('#tp-vol');
+  const tpVolVal = q('#tp-vol-val');
+  if (tpVolSlider && tpVolVal) {
+    tpVolSlider.oninput = (e) => {
+      if (currentTrackAudio) {
+        currentTrackAudio.volume = e.target.value / 100;
+      }
+      tpVolVal.textContent = e.target.value + '%';
+      syncSlider(e.target);
+    };
+    syncSlider(tpVolSlider);
+  }
+
+  const tpProgress = q('#tp-progress');
+  if (tpProgress) {
+    tpProgress.oninput = (e) => {
+      if (currentTrackAudio && currentTrackAudio.duration) {
+        currentTrackAudio.currentTime = (e.target.value / 100) * currentTrackAudio.duration;
+        syncSlider(e.target);
+      }
+    };
+    syncSlider(tpProgress);
+  }
+
   const btnCreateKit = q('#btn-create-kit');
   if (btnCreateKit) {
     btnCreateKit.onclick = () => {
@@ -778,10 +803,10 @@ function bindAll() {
             { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
           ]
         };
-        KIT_BANKS.push(newKit);
+        KIT_BANKS.unshift(newKit);
         saveCustomKitsToStorage();
         buildBankSelects();
-        loadKitBank(KIT_BANKS.length - 1);
+        loadKitBank(0);
       });
     };
   }
@@ -1122,7 +1147,10 @@ function bindAll() {
   }
 
   // Setlist
-  q('#btn-add-preset').onclick = () => showDialog('Guardar set', 'Nombre…', doSavePreset);
+  const btnAddPreset = q('#btn-add-preset');
+  if (btnAddPreset) {
+    btnAddPreset.onclick = () => showDialog('Guardar set', 'Nombre…', doSavePreset);
+  }
   
   // GI-Setlist UI bindings
   qa('.s-toggle').forEach(btn => {
@@ -1133,21 +1161,26 @@ function bindAll() {
       q('#gi-setlist-list').classList.add('hidden');
       q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
-
+  
       // Update top-level button visibility based on active tab
       const target = btn.dataset.target;
       const btnImport = q('#btn-import-gi');
-      const btnAddPreset = q('#btn-add-preset');
-      if (btnImport && btnAddPreset) {
+      const btnSync = q('#btn-sync-gi');
+      const btnAddPresetEl = q('#btn-add-preset');
+      
+      if (btnImport) {
         if (target === 'setlist-list') {
           btnImport.style.display = 'none';
-          btnAddPreset.style.display = 'flex';
+          if (btnSync) btnSync.style.display = 'none';
+          if (btnAddPresetEl) btnAddPresetEl.style.display = 'flex';
         } else if (target === 'gi-setlist-list') {
           btnImport.style.display = 'flex';
-          btnAddPreset.style.display = 'none';
+          if (btnSync) btnSync.style.display = 'flex';
+          if (btnAddPresetEl) btnAddPresetEl.style.display = 'none';
         } else {
           btnImport.style.display = 'none';
-          btnAddPreset.style.display = 'none';
+          if (btnSync) btnSync.style.display = 'none';
+          if (btnAddPresetEl) btnAddPresetEl.style.display = 'none';
         }
       }
     };
@@ -1166,6 +1199,72 @@ function bindAll() {
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
 
+  const btnSyncGi = q('#btn-sync-gi');
+  if (btnSyncGi) {
+    btnSyncGi.onclick = async () => {
+      if (!window.electronAPI) return;
+      try {
+        btnSyncGi.style.animation = 'pulse 1s infinite';
+        btnSyncGi.style.color = '#fbae00';
+        
+        const uri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
+        const mongoSongs = await window.electronAPI.syncMongoSetlist(uri);
+        
+        if (!mongoSongs || !mongoSongs.length) {
+           throw new Error("No se encontraron canciones en MongoDB");
+        }
+        
+        let updatedCount = 0;
+        let newCount = 0;
+
+        mongoSongs.forEach(mSong => {
+          const existingIdx = giSetlistSongs.findIndex(s => 
+            (s._id && s._id === mSong._id) || 
+            (s.title.toLowerCase() === mSong.title.toLowerCase() && (s.artist || '').toLowerCase() === (mSong.artist || '').toLowerCase())
+          );
+
+          if (existingIdx >= 0) {
+            const existing = giSetlistSongs[existingIdx];
+            let changed = false;
+            if (!existing._id) { existing._id = mSong._id; changed = true; }
+            if (existing.lyrics !== mSong.lyrics) { existing.lyrics = mSong.lyrics; changed = true; }
+            if (existing.bpm !== mSong.bpm) { existing.bpm = mSong.bpm; changed = true; }
+            if (existing.key !== mSong.key) { existing.key = mSong.key; changed = true; }
+            if (existing.genre !== mSong.genre) { existing.genre = mSong.genre; changed = true; }
+            
+            if (changed) updatedCount++;
+          } else {
+            giSetlistSongs.push({
+              id: 'song_sync_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+              _id: mSong._id,
+              title: mSong.title,
+              artist: mSong.artist || '',
+              bpm: mSong.bpm || '',
+              key: mSong.key || '',
+              genre: mSong.genre || '',
+              lyrics: mSong.lyrics || ''
+            });
+            newCount++;
+          }
+        });
+        
+        if (updatedCount > 0 || newCount > 0) {
+          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+          updateFilterCounts();
+          renderGiSetlist(q('#gi-search').value);
+          alert(`Sincronización exitosa.\n\nNuevas canciones: ${newCount}\nCanciones actualizadas: ${updatedCount}`);
+        } else {
+          alert('Sincronización exitosa.\n\nTu librería ya está al día, no hubo cambios.');
+        }
+      } catch (e) {
+        console.error('Error sincronizando con MongoDB:', e);
+        alert('Error sincronizando con la base de datos de GI-Setlist.\\nVerifica tu conexión a internet.');
+      } finally {
+        btnSyncGi.style.animation = '';
+        btnSyncGi.style.color = '';
+      }
+    };
+  }
 
   q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
   q('#gi-file-input').onchange = (e) => {
@@ -2787,26 +2886,11 @@ async function startTrackPlayback(url, title, type) {
     }
   };
   
-  q('#tp-progress').oninput = (e) => {
-    if (currentTrackAudio.duration) {
-      currentTrackAudio.currentTime = (e.target.value / 100) * currentTrackAudio.duration;
-      syncSlider(e.target);
-    }
-  };
-  
-  const tpVolSlider = q('#tp-vol');
-  const tpVolVal = q('#tp-vol-val');
-  
-  tpVolSlider.oninput = (e) => {
-    currentTrackAudio.volume = e.target.value / 100;
-    tpVolVal.textContent = e.target.value + '%';
-    syncSlider(e.target);
-  };
-  
   // Set initial value
-  currentTrackAudio.volume = tpVolSlider.value / 100;
-  tpVolVal.textContent = tpVolSlider.value + '%';
-  syncSlider(tpVolSlider);
+  const tpVolSlider = q('#tp-vol');
+  if (tpVolSlider) {
+    currentTrackAudio.volume = tpVolSlider.value / 100;
+  }
   
   q('#tp-close-btn').onclick = () => {
     currentTrackAudio.pause();

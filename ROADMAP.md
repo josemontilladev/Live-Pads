@@ -87,6 +87,21 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
     * Desarrollamos un motor de parseo inteligente en JS que detecta automáticamente secciones (como `INTRO`, `VERSO 1`, `CORO`, `PUENTE`) y las resalta dinámicamente con color azul neón, así como líneas completas de solo acordes.
     * Modal de edición de letras completamente pulido y simplificado (eliminados botones de formato de texto innecesarios) y clases CSS refactorizadas para un diseño "frameless" del acordeón sin fondos redundantes.
     * Auto-colapso dinámico de otros acordeones para mantener la pantalla despejada y auto-scroll fluido del elemento seleccionado.
+- **Sincronización en la Nube con MongoDB (Cloud Sync)**:
+  * Integración nativa del driver oficial de MongoDB.
+  * Implementación de un proceso IPC `sync-mongo-setlist` seguro en `main.js` para la recuperación de canciones y metadatos desde la base de datos en la nube.
+  * Algoritmo de fusión inteligente en `app.js` que compara elementos mediante ID, título y artista, permitiendo evitar duplicados y actualizar de forma dinámica letras, acordes, secuencias y BPMs.
+  * Botón estético de sincronización con animación dorada de pulsación (`pulse`) que provee un feedback visual interactivo excelente del estado de carga.
+- **Diseño Estético Discreto y de Alta Gama (UI/UX Polish)**:
+  * Reducción y estilización del tamaño de todos los botones de acción amarillos principales (`.accent-btn` para Sincronizar, Importar, Añadir Canción) a un formato minimalista y discreto de **`34px`**, con iconos unificados de **`16px`** y esquinas redondeadas de `8px`.
+  * Remoción total del botón redundante e confuso de "Guardar Preset" (`+`) de la cabecera en el panel superior, dejando únicamente el botón "+" de adición de canciones en la parte inferior para una experiencia de usuario sumamente enfocada y libre de errores.
+  * Corrección del bug de superposición de visibilidad de botones en pestañas mediante la desactivación del atributo `!important` en el display de flexbox de `.accent-btn`, permitiendo que JavaScript oculte y muestre de manera natural los botones dinámicos en las vistas de Presets, Librería y Servicio.
+- **Inicialización de Volumen Sin Pistas**:
+  * Refactorización y reubicación de los controladores de eventos de entrada y sincronización del slider de volumen (`#tp-vol`) y progreso (`#tp-progress`) hacia el bloque global de arranque `bindAll()`.
+  * Eliminación del error de inicialización nula y habilitación de la sincronización del relleno de color amarillo al 80% desde el primer milisegundo de ejecución del software, sin importar que no haya ningún archivo de audio cargado todavía.
+- **Acceso Inmediato a Kits Personalizados (Custom Kits First)**:
+  * Reestructuración del arreglo `KIT_BANKS` mediante la sustitución del método `.push()` por `.unshift()`. Esto posiciona automáticamente todos los kits creados por el usuario (como *Drum Kit 1*, *EFX 1*, *Worship Drums*) en la cabecera de los listados desplegables y controles, asegurando un acceso y cambio sumamente veloz durante ejecuciones en directo.
+  * Actualización de la creación de kits de batería para que los nuevos bancos se antepongan de forma instantánea al principio de la lista y se activen de inmediato en la visual.
 
 ---
 
