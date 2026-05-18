@@ -1213,31 +1213,181 @@ input.pan-slider {
   }
 }
 
-/* Letra y Acordes Accordion Styling */
+/* ── LETRA Y ACORDES — Accordion ── */
 .gi-lyrics-accordion {
   border-top: 1px solid var(--border);
-  margin-top: 12px;
-  padding-top: 14px;
-  max-height: 420px;
+  margin-top: 10px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease;
+}
+.gi-lyrics-accordion.open {
+  max-height: 700px;
   overflow-y: auto;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 16px;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4);
+  opacity: 1;
+  padding-top: 12px;
+  padding-bottom: 4px;
 }
-
-.gi-lyrics-accordion::-webkit-scrollbar {
-  width: 4px;
-}
-
-.gi-lyrics-accordion::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+.gi-lyrics-accordion.open::-webkit-scrollbar { width: 3px; }
+.gi-lyrics-accordion.open::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
   border-radius: 10px;
 }
+
+/* Accordion header: edit icon + chord pill, right-aligned */
+.lyrics-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 10px;
+  margin-right: 8px;
+}
+.lyrics-edit-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: 5px; transition: all 0.15s;
+}
+.lyrics-edit-btn:hover { color: var(--blue); background: rgba(255,255,255,0.06); }
+
+/* Chord toggle: text pill */
+.lyrics-chord-pill {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-chord-pill.active {
+  background: rgba(251,174,0,0.08);
+  border-color: rgba(251,174,0,0.35);
+  color: var(--blue);
+}
+
+/* ── LYRICS EDITOR MODAL ── */
+.lyrics-editor-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.02);
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lyrics-section-select {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px; font-weight: 700;
+  outline: none; cursor: pointer;
+  padding: 5px 10px;
+  transition: border-color 0.2s;
+  font-family: var(--font-main);
+}
+.lyrics-section-select:hover { border-color: var(--blue); }
+.toolbar-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+.format-tool-btn.chord-btn {
+  color: var(--blue); font-weight: 900;
+  font-family: 'Consolas', monospace; font-size: 12px;
+}
+.lyrics-preview-btn {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 12px;
+  font-size: 10px; font-weight: 800;
+  color: var(--text-muted);
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-preview-btn:hover { border-color: var(--blue); color: var(--text); }
+.lyrics-preview-btn.active { color: var(--blue); border-color: var(--blue); }
+
+/* Modal panel */
+.lyrics-modal-overlay {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  display: flex; justify-content: flex-end; align-items: flex-start;
+  z-index: 9999;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.lyrics-modal-panel {
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-strong);
+  width: 520px; max-width: 95vw;
+  height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 24px;
+  box-shadow: -12px 0 40px rgba(0,0,0,0.6);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+.lyrics-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 20px; flex-shrink: 0;
+}
+.lyrics-modal-title {
+  margin: 0; font-size: 10px; font-weight: 900;
+  color: var(--blue); text-transform: uppercase; letter-spacing: 1.5px;
+}
+.lyrics-modal-subtitle {
+  margin: 5px 0 0; font-size: 12px;
+  color: var(--text-muted); font-weight: 500;
+}
+.lyrics-modal-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%; width: 28px; height: 28px;
+  color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.lyrics-modal-close:hover { border-color: var(--border-strong); color: var(--text); background: rgba(255,255,255,0.04); }
+.lyrics-modal-footer {
+  display: flex; gap: 10px; justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding-top: 16px; flex-shrink: 0;
+}
+.lyrics-modal-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); padding: 9px 20px;
+  border-radius: 6px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-modal-cancel:hover { border-color: var(--border-strong); color: var(--text); }
+.lyrics-modal-save {
+  background: var(--blue); border: none; color: #000;
+  padding: 9px 24px; border-radius: 6px;
+  font-size: 12px; font-weight: 800;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-modal-save:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 .lyrics-text-content {
   color: #e5e5e5;
   user-select: text;
+}
+
+.lyrics-preview-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-y: auto;
+  user-select: text;
+  box-sizing: border-box;
 }
 
 .section-header-line {
@@ -1266,15 +1416,21 @@ input.pan-slider {
   font-size: 13px;
   line-height: 1.5;
   margin-bottom: 8px;
-  font-family: var(--font-main), sans-serif; /* beautiful Sans-serif (Inter)! */
+  font-family: var(--font-main), sans-serif;
   letter-spacing: 0.2px;
 }
 
+.lyric-line.has-inline-chords {
+  margin-top: 18px; /* space for the floating chords */
+}
+
 .inline-chord {
+  position: absolute;
+  transform: translateY(-1.35em);
   color: #fbae00;
   font-weight: 800;
-  font-family: 'Consolas', 'Monaco', 'Menlo', monospace; 
-  margin: 0 4px;
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-size: 12.5px;
 }
 
 .hide-chords .chord-line {
@@ -1290,13 +1446,12 @@ input.pan-slider {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 12px;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .chord-toggle-btn:hover {

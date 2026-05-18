@@ -1739,10 +1739,11 @@ function formatLyrics(lyrics) {
       let formattedChords = rawLine.replace(/\[|\]/g, '');
       html += `<div class="chord-line">${formattedChords}</div>`;
     } else {
+      const hasChords = /\[([^\]<>]+)\]/.test(rawLine);
       let formattedLyrics = rawLine.replace(/\[([^\]<>]+)\]/g, (match, chord) => {
         return `<span class="inline-chord">${chord}</span>`;
       });
-      html += `<div class="lyric-line">${formattedLyrics}</div>`;
+      html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${formattedLyrics}</div>`;
     }
   }
   
@@ -1824,100 +1825,57 @@ function insertTextAtCursor(textarea, textToInsert) {
 function openLyricsEditorModal(song, onSaveCallback) {
   const overlay = document.createElement('div');
   overlay.id = 'gi-lyrics-modal';
-  overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-    z-index: 9999;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  `;
+  overlay.className = 'lyrics-modal-overlay';
   
   const content = document.createElement('div');
-  content.style.cssText = `
-    background: rgba(18, 18, 18, 0.98);
-    border-left: 1px solid var(--border);
-    width: 540px;
-    max-width: 95vw;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 28px 24px;
-    box-shadow: -10px 0 40px rgba(0,0,0,0.6);
-    transform: translateX(100%);
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-sizing: border-box;
-  `;
+  content.className = 'lyrics-modal-panel';
   
   content.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div class="lyrics-modal-header">
       <div>
-        <h3 style="margin:0; font-size:16px; font-weight:850; color:var(--blue); text-transform:uppercase; letter-spacing:0.5px;">Editar Letra y Acordes</h3>
-        <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-muted); font-weight:500;">${song.title} - ${song.artist || 'Sin artista'}</p>
+        <h3 class="lyrics-modal-title">Editar Letra y Acordes</h3>
+        <p class="lyrics-modal-subtitle">${song.title} — ${song.artist || 'Sin artista'}</p>
       </div>
-      <button class="modal-close-btn" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:50%; width:30px; height:30px; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition: all 0.2s;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      <button class="modal-close-btn lyrics-modal-close">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
     
-    <div style="flex:1; min-height:0; margin-bottom:24px; display:flex; flex-direction:column; gap:12px;">
-      <!-- Formatting Toolbar (Consolidated with Sections Dropdown) -->
-      <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.01); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
-        <div style="position:relative; display:inline-block; display:flex; align-items:center;">
-          <select class="format-select" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px; font-weight:700; outline:none; cursor:pointer; padding:6px 12px; transition: all 0.2s;">
-            <option value="normal" style="background:#121212; color:#888;">+ SECCIÓN</option>
-            <option value="intro" style="background:#121212; color:#fff;">Intro</option>
-            <option value="verso" style="background:#121212; color:#fff;">Verso</option>
-            <option value="pre-coro" style="background:#121212; color:#fff;">Pre-Coro</option>
-            <option value="coro" style="background:#121212; color:#fff;">Coro</option>
-            <option value="puente" style="background:#121212; color:#fff;">Puente</option>
-            <option value="instrumental" style="background:#121212; color:#fff;">Instrumental</option>
-            <option value="solo" style="background:#121212; color:#fff;">Solo</option>
-            <option value="final" style="background:#121212; color:#fff;">Final</option>
-          </select>
-        </div>
-        
-        <div style="width:1px; height:14px; background:var(--border);"></div>
-        
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button type="button" class="format-tool-btn" data-action="bold" title="Negrita (Wrap selection in **)">B</button>
-          <button type="button" class="format-tool-btn" data-action="italic" style="font-style:italic;" title="Itálica (Wrap selection in *)">I</button>
-          <button type="button" class="format-tool-btn" data-action="underline" style="text-decoration:underline;" title="Subrayado (Wrap selection in __)">U</button>
-          <button type="button" class="format-tool-btn" data-action="chord" title="Convertir a Acorde (Wrap selection in [])" style="color:#fbae00; font-weight:900; font-family:'Consolas',monospace;">[ ]</button>
-        </div>
-        
-        <div style="width:1px; height:14px; background:var(--border);"></div>
-        
-        <button type="button" class="format-tool-btn clear-format-btn" data-action="clear" title="Limpiar formato" style="font-size:9px; font-weight:600;">Tx</button>
-        
+    <div style="flex:1; min-height:0; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
+      <div class="lyrics-editor-toolbar">
+        <select class="format-select lyrics-section-select">
+          <option value="normal" style="background:#121212; color:#888;">+ SECCIÓN</option>
+          <option value="intro" style="background:#121212; color:#fff;">Intro</option>
+          <option value="verso" style="background:#121212; color:#fff;">Verso</option>
+          <option value="pre-coro" style="background:#121212; color:#fff;">Pre-Coro</option>
+          <option value="coro" style="background:#121212; color:#fff;">Coro</option>
+          <option value="puente" style="background:#121212; color:#fff;">Puente</option>
+          <option value="instrumental" style="background:#121212; color:#fff;">Instrumental</option>
+          <option value="solo" style="background:#121212; color:#fff;">Solo</option>
+          <option value="final" style="background:#121212; color:#fff;">Final</option>
+        </select>
+        <div class="toolbar-sep"></div>
+        <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Envolver selección en [ ]">[ ]</button>
+        <button type="button" class="format-tool-btn" data-action="clear" title="Limpiar formato de selección">Tx</button>
         <div style="margin-left:auto;">
-          <button class="btn-preview-toggle" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; padding:4px 12px; font-size:10px; font-weight:800; color:var(--text-muted); cursor:pointer; transition:all 0.2s;">Vista Previa</button>
+          <button class="btn-preview-toggle lyrics-preview-btn">Vista Previa</button>
         </div>
       </div>
       
-      <!-- Workspace Container -->
       <div class="editor-workspace" style="flex:1; position:relative; min-height:0;">
         <div class="editor-container">
           <div class="editor-highlight"></div>
           <textarea class="editor-textarea" placeholder="[Intro]\n[C#m] [B] [A]\n\n[Verso 1]\n[C#m]              [B]\nMi Dios todo lo puede hacer..." spellcheck="false" style="tab-size:4; overflow-y:auto;"></textarea>
         </div>
-        
-        <div class="modal-preview-panel" style="position:absolute; top:0; left:0; width:100%; height:100%; padding:16px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:8px; overflow-y:auto; display:none; user-select:text; box-sizing:border-box;">
+        <div class="modal-preview-panel lyrics-preview-panel" style="display:none;">
           <div class="lyrics-text-content" style="font-size:12px;"></div>
         </div>
       </div>
     </div>
     
-    <div style="display:flex; gap:12px; justify-content:flex-end; border-top: 1px solid var(--border); padding-top: 16px;">
-      <button class="modal-btn cancel-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); padding:10px 24px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Cancelar</button>
-      <button class="modal-btn save-btn" style="background:var(--blue); border:none; color:#000; padding:10px 28px; border-radius:6px; font-size:12px; font-weight:800; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 12px rgba(0,170,255,0.2);">Guardar Cambios</button>
+    <div class="lyrics-modal-footer">
+      <button class="modal-btn cancel-btn lyrics-modal-cancel">Cancelar</button>
+      <button class="modal-btn save-btn lyrics-modal-save">Guardar Cambios</button>
     </div>
   `;
   
@@ -1963,13 +1921,7 @@ function openLyricsEditorModal(song, onSaveCallback) {
     btn.onclick = (e) => {
       e.stopPropagation();
       const action = btn.getAttribute('data-action');
-      if (action === 'bold') {
-        wrapTextareaSelection(textarea, '**', '**');
-      } else if (action === 'italic') {
-        wrapTextareaSelection(textarea, '*', '*');
-      } else if (action === 'underline') {
-        wrapTextareaSelection(textarea, '__', '__');
-      } else if (action === 'chord') {
+      if (action === 'chord') {
         wrapTextareaSelection(textarea, '[', ']');
       } else if (action === 'clear') {
         const start = textarea.selectionStart;
@@ -2133,21 +2085,14 @@ function renderGiSetlist(filter = '', editSongId = null) {
         </button>
       </div>
       
-      <div class="gi-lyrics-accordion" style="display: ${isLyricsOpen ? 'block' : 'none'}; border-top: 1px solid var(--border); margin-top: 10px; padding: 12px;">
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; justify-content: space-between;">
-          <span style="font-size: 11px; font-weight: 800; color: #fbae00; text-transform: uppercase; letter-spacing: 1px;">Letra y Acordes</span>
-          <div style="display: flex; gap: 6px;">
-            <button class="edit-lyrics-btn" title="Editar letra y acordes" style="background: rgba(0, 170, 255, 0.06); border: 1px solid rgba(0, 170, 255, 0.25); border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--blue); cursor: pointer; transition: all 0.2s ease;">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </button>
-            <button class="chord-toggle-btn" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}" style="${showChords ? 'background: rgba(251, 174, 0, 0.06); border: 1px solid rgba(251, 174, 0, 0.25); color: #fbae00;' : 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--text-muted);'} width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 6px; transition: all 0.2s ease;">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 8h10M3 13h10M3 18h7" />
-                <path d="M17 18V5c3 0 4.5 2 4.5 4.5s-1.5 4-3 4" />
-                <circle cx="14" cy="18" r="3" />
-              </svg>
-            </button>
-          </div>
+      <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
+        <div class="lyrics-accordion-header">
+          <button class="lyrics-edit-btn" title="Editar letra y acordes">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+          <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
+            ${showChords ? 'Con acordes' : 'Solo letra'}
+          </button>
         </div>
         <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
           ${formatLyrics(song.lyrics)}
@@ -2281,7 +2226,7 @@ function renderGiSetlist(filter = '', editSongId = null) {
     }
 
     // Lyrics editor modal trigger
-    const btnEditLyrics = el.querySelector('.edit-lyrics-btn');
+    const btnEditLyrics = el.querySelector('.lyrics-edit-btn');
     if (btnEditLyrics) {
       btnEditLyrics.onclick = (e) => {
         e.stopPropagation();
@@ -2439,21 +2384,14 @@ function renderServiceList() {
         </button>
       </div>
       
-      <div class="gi-lyrics-accordion" style="display: ${isLyricsOpen ? 'block' : 'none'}; border-top: 1px solid var(--border); margin-top: 10px; padding: 12px;">
-        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; justify-content: space-between;">
-          <span style="font-size: 11px; font-weight: 800; color: #fbae00; text-transform: uppercase; letter-spacing: 1px;">Letra y Acordes</span>
-          <div style="display: flex; gap: 6px;">
-            <button class="edit-lyrics-btn" title="Editar letra y acordes" style="background: rgba(0, 170, 255, 0.06); border: 1px solid rgba(0, 170, 255, 0.25); border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--blue); cursor: pointer; transition: all 0.2s ease;">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </button>
-            <button class="chord-toggle-btn" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}" style="${showChords ? 'background: rgba(251, 174, 0, 0.06); border: 1px solid rgba(251, 174, 0, 0.25); color: #fbae00;' : 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--text-muted);'} width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 6px; transition: all 0.2s ease;">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 8h10M3 13h10M3 18h7" />
-                <path d="M17 18V5c3 0 4.5 2 4.5 4.5s-1.5 4-3 4" />
-                <circle cx="14" cy="18" r="3" />
-              </svg>
-            </button>
-          </div>
+      <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
+        <div class="lyrics-accordion-header">
+          <button class="lyrics-edit-btn" title="Editar letra y acordes">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+          <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
+            ${showChords ? 'Con acordes' : 'Solo letra'}
+          </button>
         </div>
         <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
           ${formatLyrics(song.lyrics)}
@@ -2486,7 +2424,7 @@ function renderServiceList() {
     }
 
     // Lyrics editor modal trigger
-    const btnEditLyrics = el.querySelector('.edit-lyrics-btn');
+    const btnEditLyrics = el.querySelector('.lyrics-edit-btn');
     if (btnEditLyrics) {
       btnEditLyrics.onclick = (e) => {
         e.stopPropagation();
