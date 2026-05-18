@@ -117,6 +117,9 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Fase 4: Renderizado Ultra Eficiente & UI Fluida (DOM Optimization)**:
   * Optimización mediante `DocumentFragment`: Modificados los motores de renderizado `renderGiSetlist()` y `renderServiceList()` para estructurar las grillas de canciones en memoria antes de inyectarlas en el DOM.
   * Eliminación de DOM Thrashing: Reducción de repintados y recalculados de diseño por parte de Chromium de **81 ciclos a 1 solo ciclo de dibujado**. Esto garantiza que la navegación, búsquedas rápidas en directo y el arrastre de canciones (Drag & Drop) corran a unos fluidos y constantes 60fps.
+- **Fase 5: Flujo de Trabajo e Interfaz en Vivo (Workflow & UX)**:
+  * Envoltura inteligente de acordes en el editor: Rediseño del botón `[ ]` en la barra de herramientas del editor de letras con un algoritmo regex de detección selectiva. Envuelve dinámicamente múltiples acordes (ej. `F#m E` pasa a `[F#m] [E]`) respetando el espaciado original exacto para que no se arruine la alineación sobre la letra, y unificando de forma inteligente los acordes combinados con barra (ej. `[F#/E]`, `[E/G#]`).
+  * Persistencia y memoria de estado en el escenario: Integración de almacenamiento persistente (`localStorage`) en `app.js` para retener la combinación activa de Pad Bank y Kit de Batería preferida. La app inicia de forma instantánea con el último preset utilizado, eliminando baches de tiempo muerto de reconfiguración durante el directo.
 
 ---
 
