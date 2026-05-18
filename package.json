@@ -12,7 +12,8 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "mp3-cutter": "^1.0.6"
   },
   "build": {
     "appId": "com.livepads.app",
@@ -32,7 +33,9 @@
       "main.js",
       "preload.js",
       "src/**/*",
-      "defaults/**/*"
+      "defaults/**/*",
+      "!**/*.asd",
+      "!**/*.wav.asd"
     ]
   },
   "dependencies": {
