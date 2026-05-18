@@ -2182,6 +2182,8 @@ function renderGiSetlist(filter = '', editSongId = null) {
     return;
   }
 
+  const fragment = document.createDocumentFragment();
+
   filtered.forEach((song, idx) => {
     const el = document.createElement('div');
     el.className = 'gi-song-item';
@@ -2408,8 +2410,11 @@ function renderGiSetlist(filter = '', editSongId = null) {
       triggerEdit();
     }
 
-    container.appendChild(el);
+    fragment.appendChild(el);
   });
+
+  container.appendChild(fragment);
+}
 }
 
 /* ── SERVICE SETLIST LOGIC ── */
@@ -2481,6 +2486,8 @@ function renderServiceList() {
   }
   
   emptyMsg.classList.add('hidden');
+  
+  const fragment = document.createDocumentFragment();
   
   serviceSongs.forEach((song, index) => {
     const el = document.createElement('div');
@@ -2705,8 +2712,11 @@ function renderServiceList() {
       }
     };
     
-    container.appendChild(el);
+    fragment.appendChild(el);
   });
+  
+  container.appendChild(fragment);
+}
 }
 
 
