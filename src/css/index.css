@@ -183,8 +183,10 @@ html, body {
 .key-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 1fr);
   gap: 12px;
   flex: 1;
+  min-height: 0;
 }
 .key-btn {
   display: flex; flex-direction: column;
@@ -995,12 +997,15 @@ input.pan-slider {
     gap: 10px;
   }
   .key-grid {
+    grid-template-rows: repeat(4, 1fr);
     gap: 6px;
+    min-height: 0;
   }
   .key-btn {
     padding: 6px 4px;
     font-size: 14px;
     border-radius: 8px;
+    min-height: 0;
   }
   .kbd-hint {
     top: 3px;
