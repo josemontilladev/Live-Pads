@@ -279,13 +279,13 @@ export class SynthEngine {
     this.activePadNodes = [{ src, gain, isBuf: true }];
   }
 
-  async _stopPad() {
+  async _stopPad(fadeTime = 0.4) {
     const nodes = this.activePadNodes;
     this.activePadNodes = [];
-    this._fadeOutNodes(nodes, 0.4);
+    this._fadeOutNodes(nodes, fadeTime);
   }
 
-  stopPad() { this._stopPad(); }
+  stopPad(fadeTime = 0.4) { this._stopPad(fadeTime); }
 
   playDrum(type, padId) {
     if (!this.ctx) return;

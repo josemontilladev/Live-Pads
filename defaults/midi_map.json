@@ -68,8 +68,7 @@
     "id": "metro-pan-slider"
   },
   "note_48": {
-    "action": "drum",
-    "id": "kick"
+    "action": "play_seq"
   },
   "note_45": {
     "action": "drum",
@@ -90,5 +89,14 @@
   "note_46": {
     "action": "drum",
     "id": "ride"
+  },
+  "note_53": {
+    "action": "prev_song"
+  },
+  "note_55": {
+    "action": "next_song"
+  },
+  "note_50": {
+    "action": "stop_seq"
   }
 }

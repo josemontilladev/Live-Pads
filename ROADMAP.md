@@ -55,14 +55,40 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 - **Rutas a Prueba de Fallos**: Construcción dinámica de URIs (`file:///`) para evitar fallos por espacios o caracteres especiales en Windows.
 - **Modo Loop**: Botón de repetición infinita para secuencias.
 - **Feedback Visual Inteligente**: Los botones de Setlist se iluminan automáticamente cuando detectan que la canción ya tiene un audio vinculado.
-- **Resolución de Rutas Absolutas Inteligente**: Corrección del bug de distorsión de rutas que causaba fallos al reproducir secuencias asociadas con el protocolo nativo `file:///`, permitiendo una carga instantánea y libre de errores desde cualquier módulo.
+- **Resolución de Rutas Absolutas Inteligente**: Corrección de bug de distorsión de rutas que causaba fallos al reproducir secuencias asociadas con el protocolo nativo virtual `/livepads/`, resolviendo la carga en el ejecutable y permitiendo una carga instantánea y libre de errores desde cualquier módulo.
+- **Carga Automática en Pausa**: Al seleccionar cualquier canción, su secuencia/original asociada se monta automáticamente en el reproductor en estado pausado, lista para el disparo sincronizado en vivo.
+
+### ⚡ Flujo de Interpretación en Vivo ("Play Maestro") & Integración MIDI
+- **Disparo Maestro Sincronizado (Space / MIDI)**: Sincronización universal mediante la Barra Espaciadora o botón MIDI mapeado. Si hay secuencia, reproduce secuenciador + pad simultáneamente. Si no hay secuencia, inicia automáticamente pad + metrónomo.
+- **Parada Maestra Instantánea**: Detiene absolutamente todo (Pads, Metrónomo, Secuencias) con un solo toque (Space / MIDI Stop).
+- **Gestión Inteligente de Metrónomo**: Detección dinámica de presencia de secuencia; si la canción tiene secuencia, omite el metrónomo (asumiendo que la secuencia ya contiene el click) y si no, lo enciende por defecto.
+- **Mapeo MIDI Extendido (MIDI Learn)**: Soporte completo para mapear físicamente los botones de Siguiente (`Sig`), Anterior (`Ant`), Repetir Bucle (`Loop`), y botones universales de Play y Stop a cualquier tecla o pad de un controlador físico.
+- **Mensaje de Confirmación Flotante**: Al agregar una canción al setlist de servicio desde la librería principal, se muestra una hermosa burbuja de confirmación animada que dice "¡Añadida al servicio!" que se desvanece de forma premium en 1 segundo.
+- **Navegación Táctil y Teclado en Servicio**: 
+  - Destacado visual de la canción activa en el Sunday Setlist mediante bordes neón.
+  - Navegación rápida y fluida usando las flechas del teclado (`Arriba`/`Abajo`/`Izquierda`/`Derecha`) bloqueando conflictos en cuadros de búsqueda.
+  - Nuevos botones estéticos ultra modernos de cheurones SVG para control visual de avance.
+  - **Transición Continua Sin Silencios**: Eliminación del silencio abrupto al cambiar de canción. Si el pad está sonando, la aplicación realiza un crossfade automático y continuo de 2.0 segundos hacia la nueva tonalidad de la canción seleccionada, creando una atmósfera ininterrumpida de fondo.
+  - **Desvanecimiento de Parada Suave (Fade Out)**: Al presionar el botón de detener o la barra espaciadora, la secuencia y el metrónomo se apagan al instante, pero el pad ambiental se desvanece de manera gradual y profesional durante 5.0 segundos completos, evitando cortes secos e incómodos al finalizar los cantos.
+  - **Menú de Hamburguesa Simplificado y Útil**: Limpieza completa de opciones redundantes para dejar un panel ultra elegante y enfocado. Incluye únicamente: Mapeo MIDI / Teclado, Ajustes de audio, Temas visuales, Pantalla completa (con soporte nativo de ventana de Electron) y la nueva pestaña informativa **Info** integrada directamente en el sidebar lateral de la aplicación.
+  - **Añadir Canciones Manualmente con Auto-Ordenamiento**: Integración de un botón estético de suma "+" al lado de la barra de búsqueda en la sección "Librería". Permite añadir canciones nuevas al catálogo local al instante, situando el editor inline **automáticamente al inicio de la lista (posición superior)** para evitar desplazamientos. Al guardar, la canción se reordena alfabéticamente en su lugar correcto.
+  - **Cabecera Contextual Inteligente (UX Simplificada)**: Ocultamiento inteligente de los botones superiores del setlist según la pestaña activa:
+    * En **Presets**, se muestra únicamente el botón `+` para guardar presets de estado actual.
+    * En **Librería**, se muestra únicamente el botón de Importar JSON para cargar canciones.
+    * En **Servicio**, se ocultan ambos botones para limpiar la visual y evitar toda confusión.
+  - **Editores Inline con Select Dropdowns**: Conversión de campos de entrada manuales (Tono y Género) en selectores desplegables preestablecidos (`select`). El género incluye Alabanza/Adoración, y el tono incluye las 17 variantes de escalas principales, simplificando la captura al máximo con un diseño oscuro premium.
+  - **Sincronización de Selección en Librería (Individualizada)**: Selección y resaltado unificado e individual para las canciones de la Librería. Al cargar el catálogo, cada canción recibe un identificador único persistente para garantizar que al hacer clic sobre una de ellas, **únicamente esa canción** adquiera el hermoso contorno iluminado azul neón y el indicador visual de reproducción en tiempo real.
+  - **Edición Directa Inline de BPM (Minimalista y Discreto)**: Campo de edición interactivo de BPM mejorado. Al hacer clic sobre el número grande de BPM, se abre un campo de entrada flotante de tipo texto (evitando los toscos controles numéricos del navegador) con un filtro estricto que solo permite ingresar números. Luce un elegante fondo traslúcido y un borde neón azul difuminado de estilo "glassmorphism", integrándose a la perfección con la interfaz profesional.
+
+---
+
+  - **Empaquetado y Compilación Nativa (`.exe`)**: Creación exitosa del instalador autónomo autoejecutable `LivePads Setup 1.0.0.exe` de 64 bits utilizando `electron-builder`. Incluye todos los recursos locales integrados, configuraciones personalizadas de instalación de NSIS y soporte de empaquetado optimizado para distribución.
 
 ---
 
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
 
-- 🔍 Pruebas finales de estabilidad y rendimiento en escenarios reales.
-- 🎹 Expansión de funciones avanzadas de sincronización de clock en metrónomos externos.
+- 🎹 Realizar pruebas finales de estabilidad y rendimiento en escenarios de presentación en vivo (iglesias/eventos).
 
 ---
 *Documento actualizado y sincronizado en preparación para distribución portátil.*

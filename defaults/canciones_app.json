@@ -1152,6 +1152,18 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=vM5j9zXvjI8",
         "createdAt": "2026-05-07T19:59:29.477Z",
         "__v": 0
+      },
+      {
+        "id": "song_1779060797833",
+        "title": "Nueva Canción",
+        "artist": "",
+        "bpm": "",
+        "key": "",
+        "genre": "adoracion",
+        "audio": {
+          "sequence": null,
+          "original": null
+        }
       }
     ]
   }

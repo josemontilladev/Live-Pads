@@ -88,12 +88,31 @@ function rewritePaths(obj) {
   const userDataPath = app.getPath('userData').replace(/\\/g, '/');
   
   const processValue = (val) => {
-    if (typeof val === 'string' && val.includes('/livepads/')) {
+    if (typeof val !== 'string') return val;
+
+    // New sentinel format: rewrite to current userData
+    if (val.includes('/livepads/')) {
       const parts = val.split('/livepads/');
       if (parts.length > 1) {
         return `file:///${userDataPath}/${parts[1]}`;
       }
     }
+
+    // Legacy migration: absolute file:/// paths referencing known subfolders.
+    // Detects the subfolder name and re-roots it under current userData,
+    // so existing data survives across machines after building the .exe.
+    if (val.startsWith('file:///')) {
+      const normalizedVal = val.replace(/\\/g, '/');
+      const knownSubs = ['UserDrums/', 'Sequences/', 'Original%20Tracks/', 'Original Tracks/'];
+      for (const sub of knownSubs) {
+        const idx = normalizedVal.indexOf('/' + sub);
+        if (idx !== -1) {
+          const relPart = normalizedVal.slice(idx + 1); // e.g. "UserDrums/file.mp3"
+          return `file:///${userDataPath}/${relPart}`;
+        }
+      }
+    }
+
     return val;
   };
 
@@ -197,6 +216,7 @@ ipcMain.handle('window-action', (_e, action) => {
   if (action === 'minimize') mainWindow.minimize();
   else if (action === 'maximize') mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();
   else if (action === 'close') mainWindow.close();
+  else if (action === 'fullscreen') mainWindow.setFullScreen(!mainWindow.isFullScreen());
 });
 
 ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
@@ -205,9 +225,9 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
   const relPath = path.join(folder, fileName);
   
   copyToBoth(sourcePath, relPath);
-  
-  const destPath = path.join(app.getPath('userData'), relPath);
-  return `file:///${destPath.replace(/\\/g, '/')}`;
+
+  // Use sentinel format so rewritePaths() can relocate on any machine
+  return `file:///livepads/${relPath.replace(/\\/g, '/')}`;
 });
 
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {
@@ -226,6 +246,10 @@ ipcMain.handle('load-gi-setlist', async () => {
 });
 
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
+  if (relativePath.includes('/livepads/')) {
+    const parts = relativePath.split('/livepads/');
+    return path.join(app.getPath('userData'), parts[1]);
+  }
   return path.join(__dirname, 'src', relativePath);
 });
 
@@ -257,9 +281,9 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId }) 
   const relPath = path.join('UserDrums', fileName);
   
   copyToBoth(sourcePath, relPath);
-  
-  const destPath = path.join(app.getPath('userData'), relPath);
-  return `file:///${destPath.replace(/\\/g, '/')}`;
+
+  // Use sentinel format so rewritePaths() can relocate on any machine
+  return `file:///livepads/${relPath.replace(/\\/g, '/')}`;
 });
 
 ipcMain.handle('save-user-drums', async (_e, kitMap) => {
