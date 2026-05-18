@@ -79,10 +79,16 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
   - **Editores Inline con Select Dropdowns**: Conversión de campos de entrada manuales (Tono y Género) en selectores desplegables preestablecidos (`select`). El género incluye Alabanza/Adoración, y el tono incluye las 17 variantes de escalas principales, simplificando la captura al máximo con un diseño oscuro premium.
   - **Sincronización de Selección en Librería (Individualizada)**: Selección y resaltado unificado e individual para las canciones de la Librería. Al cargar el catálogo, cada canción recibe un identificador único persistente para garantizar que al hacer clic sobre una de ellas, **únicamente esa canción** adquiera el hermoso contorno iluminado azul neón y el indicador visual de reproducción en tiempo real.
   - **Edición Directa Inline de BPM (Minimalista y Discreto)**: Campo de edición interactivo de BPM mejorado. Al hacer clic sobre el número grande de BPM, se abre un campo de entrada flotante de tipo texto (evitando los toscos controles numéricos del navegador) con un filtro estricto que solo permite ingresar números. Luce un elegante fondo traslúcido y un borde neón azul difuminado de estilo "glassmorphism", integrándose a la perfección con la interfaz profesional.
+  - **Letra y Acordes: Acordeón Premium & Integración**:
+    * Se incorporó un botón discreto de visualización de letras (`btn-lyrics`) con un elegante icono de documento en la fila de acciones de cada canción.
+    * Al hacer clic, despliega suavemente un acordeón de letras de la canción `.gi-lyrics-accordion` debajo de la tarjeta en **Librería** y **Servicio**.
+    * Incluye un selector interactivo tipo "glassmorphism" en la cabecera del acordeón para alternar instantáneamente entre la vista "Con Acordes" (resaltando los acordes en color oro `#fbae00`) y "Solo Letra" (ocultando los corchetes).
+    * Desarrollamos un motor de parseo inteligente en JS que detecta automáticamente secciones (como `INTRO`, `VERSO 1`, `CORO`, `PUENTE`) y las resalta dinámicamente con color azul neón.
+    * Auto-colapso dinámico de otros acordeones para mantener la pantalla despejada y auto-scroll fluido del elemento seleccionado.
 
 ---
 
-  - **Empaquetado y Compilación Nativa (`.exe`)**: Creación exitosa del instalador autónomo autoejecutable `LivePads Setup 1.0.0.exe` de 64 bits utilizando `electron-builder`. Incluye todos los recursos locales integrados, configuraciones personalizadas de instalación de NSIS y soporte de empaquetado optimizado para distribución.
+  - **Empaquetado y Compilación Nativa (`.exe`)**: Creación exitosa del instalador autónomo autoejecutable `LivePads Setup 1.0.0.exe` de 64 bits utilizando `electron-builder`. Incluye todos los recursos locales integrados, configuraciones personalizadas de instalación de NSIS, el nuevo sistema interactivo de acordeón de letras y soporte de empaquetado optimizado para distribución.
 
 ---
 

@@ -13,7 +13,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://youtu.be/8jU0cs0E1JA",
         "createdAt": "2026-03-29T01:26:04.976Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_0_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc029",
@@ -27,7 +28,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=hJOYi2_18Dw",
         "createdAt": "2026-03-29T01:26:04.977Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_1_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02a",
@@ -44,7 +46,8 @@
         "__v": 0,
         "audio": {
           "sequence": "file:///C:/Users/josem/AppData/Roaming/livepads/Sequences/Siempre me sostienes.mp3"
-        }
+        },
+        "id": "song_2_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02b",
@@ -59,7 +62,8 @@
         "youtubeUrl": "https://youtu.be/IxD3JiOo9DY",
         "createdAt": "2026-03-29T01:26:04.978Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_3_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02c",
@@ -74,7 +78,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=eJJREqUAE2U",
         "createdAt": "2026-03-29T01:26:04.978Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_4_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02d",
@@ -88,7 +93,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=te60HukrL6Q",
         "createdAt": "2026-03-29T01:26:04.979Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_5_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02e",
@@ -102,7 +108,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=KL1oX0duc64",
         "createdAt": "2026-03-29T01:26:04.979Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_6_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc02f",
@@ -117,7 +124,8 @@
         "youtubeUrl": "https://youtu.be/qDQpBSU_WVI?si=Rs6qZUD4eV5PapJV",
         "createdAt": "2026-03-29T01:26:04.979Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_7_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc030",
@@ -131,7 +139,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=Uq7rVAGtrlU",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_8_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc031",
@@ -145,7 +154,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://youtu.be/h8dAwGUHUhE?si=bhJ-1O5DFwdbrOBy",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_9_1779065777450"
       },
       {
         "_id": "69c87fac68bad308a6ffc032",
@@ -159,7 +169,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://youtu.be/fotr0PhVPgg",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_10_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc033",
@@ -173,7 +184,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=ejCg_T7q5_o",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_11_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc034",
@@ -187,7 +199,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://youtu.be/Ma9_KUsEA1w",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_12_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc035",
@@ -201,7 +214,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://m.youtube.com/watch?v=7us5BqKyN-o",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_13_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc036",
@@ -215,7 +229,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=q25pIX5x-sI",
         "createdAt": "2026-03-29T01:26:04.980Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_14_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc037",
@@ -229,7 +244,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=-zRnmtoSQoI",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_15_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc038",
@@ -243,7 +259,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=xgodK2Nv2KQ",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_16_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc039",
@@ -257,7 +274,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=GmKYb7nl8rM",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_17_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03a",
@@ -271,13 +289,14 @@
         "genre": "Adoración",
         "youtubeUrl": "https://youtu.be/gzsXbBYbmes?si=ia3aKATEwCR3t5DA",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_18_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03b",
         "title": "Aleluya (Gloria Al Rey) ",
         "artist": "Gateway Worship Español",
-        "lyrics": "INTRO: \r\nF#m - E - D - Bm7\r\n\r\n\r\nVERSO 1:\r\n\r\nF#m\r\nHay un nombre\r\n[E] D - Bm7\r\nSobre todo nombre es\r\nF#m E D - Bm7\r\nSu nombre Tiene todo el poder\r\n\r\n\r\nCORO 1:\r\n\r\n[D] E F#m\r\n// Aleluya, Aleluya, Aleluya\r\n[A/E] Esus4 (D) ----(SOLO PARA PASAR EL PUENTE)\r\nGloria al Rey //\r\n\r\nVERSO 2:\r\n\r\nF#m\r\nGrande y fuerte\r\n[E] D - Bm7\r\nReina con autoridad\r\nF#m E D - Bm7\r\nSu reino, Siempre permanecerá\r\n\r\n\r\nINTERLUDIO: D - F#m - A - C#m\r\n\r\n\r\nPUENTE:\r\n\r\n[D]\r\n//// Hay libertad\r\nF#m\r\nHay sanidad\r\n[A]\r\nEterna paz\r\nC#m\r\nEn el nombre de Cristo ////\r\n\r\n[D]\r\nHay libertad\r\nF#m\r\nHay sanidad\r\n[A]\r\nEterna paz\r\n[E] [D] [E]\r\nEn el nombre de Cristoooooo\r\n\r\n\r\nRAP:\r\n\r\nF#m\r\n// Grande y fuerte\r\n(El mar en dos abrió)\r\nC#m\r\nGrande y fuerte\r\n(Las murallas derribó)\r\n[D]\r\nManá del cielo proveyó\r\nEsus4 E\r\nNada a ellos les faltó\r\nF#m\r\nSobre todo\r\n(Príncipe de paz)\r\nC#m\r\nEs Su nombre\r\n(El cordero y león)\r\n[D]\r\nÉl la muerte derrotó\r\nEsus4 E\r\nY la historia Él cambió //\r\n\r\n\r\nCORO 2:\r\n\r\n[D]\r\nAleluya\r\n(Poderoso Dios)\r\n[E]\r\nAleluya\r\n(La muerte venció)\r\nF#m\r\nAleluya\r\n(Y vida nos dio)\r\n[A] Esus4\r\nGloria al Rey\r\n[D]\r\nAleluya\r\n(Majestuoso Rey)\r\n[E]\r\nAleluya\r\n(En Su trono está)\r\nF#m\r\nAleluya\r\n(Reina con Poder)\r\n[A/E] [E]\r\nGloria al Rey\r\n\r\n\r\nRAP 2 :\r\n\r\n[Bm7]\r\nEl proveedor, El que liberta\r\n[A/C#]\r\nEl que sana, El que calma las tormentas\r\n[D]\r\nVenció gigantes, Y al ciego le dio vista\r\nEsus4\r\nDetuvo el sol , Y al pueblo le dio la conquista\r\n[Bm7]\r\nÉl es grande y poderoso\r\n[A/C#]\r\nEl universo cuenta lo grandioso\r\n[D]\r\nÉl no miente, ni se arrepiente Rey victorioso,\r\n[E]\r\nÉl venció la muerte\r\n\r\n\r\nCORO 3:\r\n\r\n[Bm7]\r\nAleluya\r\n[A/C#]\r\nAleluya\r\n[D]\r\nAleluya\r\n[A/E] [E]\r\nGloria el rey\r\n\r\n[Bm7]\r\nAleluya\r\n[A/C#]\r\nAleluya\r\n[D]\r\nAleluya\r\n[A] E/G# ---- (VUELVES AL CORO 2)\r\nGloria el rey\r\n\r\n\r\nFINAL:\r\n\r\n[D]\r\nAleluya\r\n[E]\r\nAleluya\r\nF#m\r\nAleluya\r\n[A] Esus4 - D\r\nGloria el rey",
+        "lyrics": "[INTRO]\nF#m - E - D - Bm7\n\n\nVERSO 1:\n\nF#m\nHay un nombre\n[E] D - Bm7\nSobre todo nombre es\nF#m E D - Bm7\nSu nombre Tiene todo el poder\n\n\nCORO 1:\n\n[D] E F#m\n// Aleluya, Aleluya, Aleluya\n[A/E] Esus4 (D) ----(SOLO PARA PASAR EL PUENTE)\nGloria al Rey //\n\nVERSO 2:\n\nF#m\nGrande y fuerte\n[E] D - Bm7\nReina con autoridad\nF#m E D - Bm7\nSu reino, Siempre permanecerá\n\n\nINTERLUDIO: D - F#m - A - C#m\n\n\nPUENTE:\n\n[D]\n//// Hay libertad\nF#m\nHay sanidad\n[A]\nEterna paz\nC#m\nEn el nombre de Cristo ////\n\n[D]\nHay libertad\nF#m\nHay sanidad\n[A]\nEterna paz\n[E] [D] [E]\nEn el nombre de Cristoooooo\n\n\nRAP:\n\nF#m\n// Grande y fuerte\n(El mar en dos abrió)\nC#m\nGrande y fuerte\n(Las murallas derribó)\n[D]\nManá del cielo proveyó\nEsus4 E\nNada a ellos les faltó\nF#m\nSobre todo\n(Príncipe de paz)\nC#m\nEs Su nombre\n(El cordero y león)\n[D]\nÉl la muerte derrotó\nEsus4 E\nY la historia Él cambió //\n\n\nCORO 2:\n\n[D]\nAleluya\n(Poderoso Dios)\n[E]\nAleluya\n(La muerte venció)\nF#m\nAleluya\n(Y vida nos dio)\n[A] Esus4\nGloria al Rey\n[D]\nAleluya\n(Majestuoso Rey)\n[E]\nAleluya\n(En Su trono está)\nF#m\nAleluya\n(Reina con Poder)\n[A/E] [E]\nGloria al Rey\n\n\nRAP 2 :\n\n[Bm7]\nEl proveedor, El que liberta\n[A/C#]\nEl que sana, El que calma las tormentas\n[D]\nVenció gigantes, Y al ciego le dio vista\nEsus4\nDetuvo el sol , Y al pueblo le dio la conquista\n[Bm7]\nÉl es grande y poderoso\n[A/C#]\nEl universo cuenta lo grandioso\n[D]\nÉl no miente, ni se arrepiente Rey victorioso,\n[E]\nÉl venció la muerte\n\n\nCORO 3:\n\n[Bm7]\nAleluya\n[A/C#]\nAleluya\n[D]\nAleluya\n[A/E] [E]\nGloria el rey\n\n[Bm7]\nAleluya\n[A/C#]\nAleluya\n[D]\nAleluya\n[A] E/G# ---- (VUELVES AL CORO 2)\nGloria el rey\n\n\nFINAL:\n\n[D]\nAleluya\n[E]\nAleluya\nF#m\nAleluya\n[A] Esus4 - D\nGloria el rey",
         "bpm": "158",
         "notes": "",
         "key": "A",
@@ -285,7 +304,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=qa5_wtH_lNI",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_19_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03c",
@@ -299,7 +319,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://youtu.be/0P5pu_Xqf6o",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_20_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03d",
@@ -313,7 +334,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=pMKPV0zAnCQ",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_21_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03e",
@@ -327,7 +349,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=g_pW6uizhwA",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_22_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc03f",
@@ -341,7 +364,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=4WUBRtsH2yQ&list=RD4WUBRtsH2yQ&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.981Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_23_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc040",
@@ -356,7 +380,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=cZuAkXrN6CE&t",
         "createdAt": "2026-03-29T01:26:04.981Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_24_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc041",
@@ -370,7 +395,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://youtu.be/ZmFF_qN38uI",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_25_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc042",
@@ -385,7 +411,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=yQSnOk_0nik",
         "createdAt": "2026-03-29T01:26:04.982Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_26_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc043",
@@ -399,7 +426,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=ZgL-FDWZl7s",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_27_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc044",
@@ -413,7 +441,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=Y4bLvcRC-0g&list=RDY4bLvcRC-0g&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_28_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc045",
@@ -427,7 +456,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://youtu.be/167Dg0Kntts",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_29_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc046",
@@ -441,7 +471,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=vU06GdNHWKc",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_30_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc047",
@@ -455,7 +486,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=OYpbkI7mvgo",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_31_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc048",
@@ -469,7 +501,8 @@
         "genre": "adoracion",
         "youtubeUrl": "http://youtube.com/watch?v=-uy0J3-XH9E",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_32_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc049",
@@ -483,7 +516,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://youtu.be/RjHQgBwFEag",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_33_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04a",
@@ -497,7 +531,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=2h7sqz9yNl0&list=RD2h7sqz9yNl0&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_34_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04b",
@@ -511,7 +546,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=xq1Ym5TR8fE",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_35_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04c",
@@ -525,7 +561,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=ig2D_iX835s",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_36_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04d",
@@ -539,7 +576,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=iMOANXvkT2g",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_37_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04e",
@@ -553,7 +591,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=KnIEf7V8-rM",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_38_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc04f",
@@ -567,7 +606,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=SCXQkNHF0Iw",
         "createdAt": "2026-03-29T01:26:04.982Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_39_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc050",
@@ -581,7 +621,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://youtu.be/dRv3sV-pxCo",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_40_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc051",
@@ -595,7 +636,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=pgUEQ6-Z1tc",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_41_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc052",
@@ -609,7 +651,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://youtu.be/F7k-doXZRYE?si=86YZ7VP4vphxzAnw",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_42_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc053",
@@ -623,7 +666,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=Wo7eAFNOhKY&list=RDWo7eAFNOhKY&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_43_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc054",
@@ -637,7 +681,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=Fw-h0g85rxw",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_44_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc055",
@@ -651,7 +696,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://youtu.be/hhPY08ThFQg",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_45_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc056",
@@ -666,7 +712,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=sFGifL48VFA",
         "createdAt": "2026-03-29T01:26:04.983Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_46_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc057",
@@ -680,7 +727,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=SnIzImY9wO4",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_47_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc058",
@@ -697,7 +745,8 @@
         "__v": 0,
         "audio": {
           "sequence": "../assets/Sequences/Celebrare.mp3"
-        }
+        },
+        "id": "song_48_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc059",
@@ -712,7 +761,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=Sc2FbBvQP2w",
         "createdAt": "2026-03-29T01:26:04.983Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_49_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05a",
@@ -726,7 +776,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=8lghRMu7uGY",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_50_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05b",
@@ -741,7 +792,8 @@
         "youtubeUrl": "https://youtu.be/5wAfWuKWKJw",
         "createdAt": "2026-03-29T01:26:04.983Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_51_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05c",
@@ -755,7 +807,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=8AOMOM5dU-w",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_52_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05d",
@@ -769,7 +822,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=EjPeIENlQRY",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_53_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05e",
@@ -783,7 +837,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=__3XYC_1s0Q",
         "createdAt": "2026-03-29T01:26:04.983Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_54_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc05f",
@@ -797,7 +852,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=mMrdziQaETU&list=RDmMrdziQaETU&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_55_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc060",
@@ -811,7 +867,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://youtu.be/uyo458ifMFw",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_56_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc061",
@@ -825,7 +882,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=eJshpEZQQqU",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_57_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc062",
@@ -839,7 +897,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=By1D67IzxI4",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_58_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc063",
@@ -853,7 +912,8 @@
         "genre": "adoracion",
         "youtubeUrl": "https://www.youtube.com/watch?v=TEnn2itLIbI",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_59_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc064",
@@ -868,7 +928,8 @@
         "youtubeUrl": "https://youtu.be/KTxfFEB8gAI",
         "createdAt": "2026-03-29T01:26:04.984Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_60_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc065",
@@ -882,7 +943,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=CluL3dQKC2w",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_61_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc066",
@@ -897,7 +959,8 @@
         "youtubeUrl": "https://youtu.be/FJS_nIuPymc",
         "createdAt": "2026-03-29T01:26:04.984Z",
         "__v": 0,
-        "vocalistKey": ""
+        "vocalistKey": "",
+        "id": "song_62_1779065777451"
       },
       {
         "_id": "69c87fac68bad308a6ffc067",
@@ -911,7 +974,8 @@
         "genre": "alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=wxHn8oE4004&list=RDwxHn8oE4004&start_radio=1",
         "createdAt": "2026-03-29T01:26:04.984Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_63_1779065777451"
       },
       {
         "_id": "69c88f79ed94ad233cac3482",
@@ -926,7 +990,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=X2N2hPzWBeg",
         "createdAt": "2026-03-29T02:33:29.775Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_64_1779065777451"
       },
       {
         "_id": "69c8a8d5a7a2a6330ff5ec50",
@@ -941,7 +1006,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=zOCbWOw0PPE",
         "createdAt": "2026-03-29T04:21:41.157Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_65_1779065777451"
       },
       {
         "_id": "69d18c14ef7c63f45d0fe481",
@@ -956,7 +1022,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=Td8scpJSM80",
         "createdAt": "2026-04-04T22:09:24.217Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_66_1779065777451"
       },
       {
         "_id": "69d18e4fd90aa9bc57898722",
@@ -971,7 +1038,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=c5oOhtQTM3g",
         "createdAt": "2026-04-04T22:18:55.465Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_67_1779065777451"
       },
       {
         "_id": "69d19027d90aa9bc57898726",
@@ -986,7 +1054,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=bhPdS_ZUKg8",
         "createdAt": "2026-04-04T22:26:47.411Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_68_1779065777451"
       },
       {
         "_id": "69d1933f7a4c071da23690a9",
@@ -1001,7 +1070,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=wLkjaI70fx8",
         "createdAt": "2026-04-04T22:39:59.410Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_69_1779065777451"
       },
       {
         "_id": "69d193a37a4c071da23690ab",
@@ -1016,7 +1086,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=O6kqO9AKZE0",
         "createdAt": "2026-04-04T22:41:39.594Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_70_1779065777451"
       },
       {
         "_id": "69d7be234e9ed575012bab31",
@@ -1031,7 +1102,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=C75PF1pOM40",
         "createdAt": "2026-04-09T14:56:35.900Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_71_1779065777451"
       },
       {
         "_id": "69d7ce78613c2d81f0466c00",
@@ -1046,7 +1118,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=fHOQo86W1wI",
         "createdAt": "2026-04-09T16:06:16.839Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_72_1779065777451"
       },
       {
         "_id": "69d7d94df6642a159ae4b120",
@@ -1061,7 +1134,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=654Dn_9LWy4",
         "createdAt": "2026-04-09T16:52:29.244Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_73_1779065777451"
       },
       {
         "_id": "69da72257568ef1e6f3a4646",
@@ -1076,7 +1150,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=vxPGLttU5ZU&list=RDvxPGLttU5ZU&start_radio=1",
         "createdAt": "2026-04-11T16:09:09.851Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_74_1779065777451"
       },
       {
         "_id": "69da7a5ee3fcc0327489215b",
@@ -1091,7 +1166,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=w66bfbeKny0&list=RDw66bfbeKny0&start_radio=1",
         "createdAt": "2026-04-11T16:44:14.066Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_75_1779065777451"
       },
       {
         "_id": "69e65231600abb32923e56ec",
@@ -1106,7 +1182,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=IaVCe3hF9Yc",
         "createdAt": "2026-04-20T16:20:01.191Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_76_1779065777451"
       },
       {
         "_id": "69f3cbb5caa2aa453d7eba37",
@@ -1121,7 +1198,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://youtu.be/TDhsn0gET5U?si=NY6ofj8Urbz-RPjo",
         "createdAt": "2026-04-30T21:37:57.758Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_77_1779065777451"
       },
       {
         "_id": "69fce2f196d5bafa2d0ff150",
@@ -1136,7 +1214,8 @@
         "genre": "Alabanza",
         "youtubeUrl": "https://www.youtube.com/watch?v=FCuPqbvEnH0",
         "createdAt": "2026-05-07T19:07:29.597Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_78_1779065777451"
       },
       {
         "_id": "69fcef21634d14f0bf054dd3",
@@ -1151,7 +1230,8 @@
         "genre": "Adoración",
         "youtubeUrl": "https://www.youtube.com/watch?v=vM5j9zXvjI8",
         "createdAt": "2026-05-07T19:59:29.477Z",
-        "__v": 0
+        "__v": 0,
+        "id": "song_79_1779065777451"
       },
       {
         "id": "song_1779060797833",

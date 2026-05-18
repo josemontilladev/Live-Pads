@@ -17,6 +17,8 @@ let currentGiGenre = 'all';
 let serviceSongs   = [];
 let activeServiceIndex = -1;
 let activeGiSongId = null;
+let openAccordionSongId = null;
+let openAccordionServiceId = null;
 let isEditKitMode  = false;
 let isMidiLearnMode = false;
 let midiLearnTarget = null;
@@ -1680,6 +1682,368 @@ async function loadGiSetlistFromFile() {
   }
 }
 
+function formatLyrics(lyrics) {
+  if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
+  
+  const cleanLyrics = lyrics.replace(/\r/g, '');
+  const lines = cleanLyrics.split('\n');
+  
+  let html = '';
+  
+  const chordRegex = /^[A-G][b#]?(?:maj|min|m|maj7|min7|m7|dim|aug|sus\d*|add\d*|no\d*|2|4|5|6|7|9|11|13)*(?:\/[A-G][b#]?)?$/i;
+  
+  function isChordLine(line) {
+    const clean = line.replace(/\[|\]/g, '').trim();
+    if (clean.length === 0) return false;
+    
+    const tokens = clean.split(/\s+/);
+    let chordCount = 0;
+    let wordCount = 0;
+    
+    for (const token of tokens) {
+      if (/^x\d+$/i.test(token)) continue; 
+      
+      const cleanToken = token.replace(/[()]/g, '');
+      if (chordRegex.test(cleanToken)) {
+        chordCount++;
+      } else {
+        wordCount++;
+      }
+    }
+    
+    return chordCount > 0 && wordCount === 0;
+  }
+  
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+    
+    if (trimmed.length === 0) {
+      html += '<div class="lyrics-spacer" style="height:10px;"></div>';
+      continue;
+    }
+    
+    const isBracketedHeader = trimmed.startsWith('[') && trimmed.endsWith(']') && !isChordLine(trimmed);
+    const sectionKeywords = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO'];
+    const isKeywordHeader = sectionKeywords.some(keyword => {
+      return trimmed.toUpperCase().startsWith(keyword);
+    }) && trimmed.split(/\s+/).length <= 3;
+    
+    if (isBracketedHeader || isKeywordHeader) {
+      const headerText = trimmed.replace(/\[|\]/g, '');
+      html += `<div class="section-header-line">${headerText}</div>`;
+      continue;
+    }
+    
+    if (isChordLine(rawLine)) {
+      let formattedChords = rawLine.replace(/\[|\]/g, '');
+      html += `<div class="chord-line">${formattedChords}</div>`;
+    } else {
+      let formattedLyrics = rawLine.replace(/\[([^\]<>]+)\]/g, (match, chord) => {
+        return `<span class="inline-chord">${chord}</span>`;
+      });
+      html += `<div class="lyric-line">${formattedLyrics}</div>`;
+    }
+  }
+  
+  return html;
+}
+
+function highlightSyntax(text) {
+  if (!text) return '';
+  
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  const sectionKeywords = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO', 'VERSE', 'CHORUS', 'BRIDGE', 'PRE-CHORUS'];
+  
+  html = html.replace(/(\[[^\]\n]+\])/g, (match) => {
+    const clean = match.replace(/\[|\]/g, '').toUpperCase().trim();
+    const isHeader = sectionKeywords.some(kw => clean.startsWith(kw));
+    if (isHeader) {
+      return `<span style="color:#60a5fa; font-weight:800; font-family:'Inter', system-ui, sans-serif;">${match}</span>`;
+    }
+    return `<span style="color:#fbae00; font-weight:800; font-family:'Consolas', 'Monaco', monospace; font-size: 13px;">${match}</span>`;
+  });
+  
+  return html + (html.endsWith('\n') ? ' ' : '');
+}
+
+function wrapTextareaSelection(textarea, before, after) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+  const replacement = before + selected + after;
+  
+  const savedScrollTop = textarea.scrollTop;
+  const savedScrollLeft = textarea.scrollLeft;
+  
+  textarea.value = text.substring(0, start) + replacement + text.substring(end);
+  
+  textarea.focus();
+  textarea.selectionStart = start + before.length;
+  textarea.selectionEnd = start + before.length + selected.length;
+  
+  textarea.scrollTop = savedScrollTop;
+  textarea.scrollLeft = savedScrollLeft;
+  
+  textarea.dispatchEvent(new Event('input'));
+}
+
+function insertTextAtCursor(textarea, textToInsert) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  
+  let prefix = '';
+  if (start > 0 && text[start - 1] !== '\n') {
+    prefix = '\n';
+  }
+  
+  const replacement = prefix + textToInsert + '\n';
+  
+  const savedScrollTop = textarea.scrollTop;
+  const savedScrollLeft = textarea.scrollLeft;
+  
+  textarea.value = text.substring(0, start) + replacement + text.substring(end);
+  
+  textarea.focus();
+  const newCursorPos = start + replacement.length;
+  textarea.selectionStart = newCursorPos;
+  textarea.selectionEnd = newCursorPos;
+  
+  textarea.scrollTop = savedScrollTop;
+  textarea.scrollLeft = savedScrollLeft;
+  
+  textarea.dispatchEvent(new Event('input'));
+}
+
+function openLyricsEditorModal(song, onSaveCallback) {
+  const overlay = document.createElement('div');
+  overlay.id = 'gi-lyrics-modal';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: rgba(18, 18, 18, 0.98);
+    border-left: 1px solid var(--border);
+    width: 540px;
+    max-width: 95vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 24px;
+    box-shadow: -10px 0 40px rgba(0,0,0,0.6);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+  `;
+  
+  content.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div>
+        <h3 style="margin:0; font-size:16px; font-weight:850; color:var(--blue); text-transform:uppercase; letter-spacing:0.5px;">Editar Letra y Acordes</h3>
+        <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-muted); font-weight:500;">${song.title} - ${song.artist || 'Sin artista'}</p>
+      </div>
+      <button class="modal-close-btn" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:50%; width:30px; height:30px; color:var(--text-muted); cursor:pointer; display:flex; align-items:center; justify-content:center; transition: all 0.2s;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    
+    <div style="flex:1; min-height:0; margin-bottom:24px; display:flex; flex-direction:column; gap:12px;">
+      <!-- Formatting Toolbar (Consolidated with Sections Dropdown) -->
+      <div style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.01); padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+        <div style="position:relative; display:inline-block; display:flex; align-items:center;">
+          <select class="format-select" style="background:rgba(0,0,0,0.4); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px; font-weight:700; outline:none; cursor:pointer; padding:6px 12px; transition: all 0.2s;">
+            <option value="normal" style="background:#121212; color:#888;">+ SECCIÓN</option>
+            <option value="intro" style="background:#121212; color:#fff;">Intro</option>
+            <option value="verso" style="background:#121212; color:#fff;">Verso</option>
+            <option value="pre-coro" style="background:#121212; color:#fff;">Pre-Coro</option>
+            <option value="coro" style="background:#121212; color:#fff;">Coro</option>
+            <option value="puente" style="background:#121212; color:#fff;">Puente</option>
+            <option value="instrumental" style="background:#121212; color:#fff;">Instrumental</option>
+            <option value="solo" style="background:#121212; color:#fff;">Solo</option>
+            <option value="final" style="background:#121212; color:#fff;">Final</option>
+          </select>
+        </div>
+        
+        <div style="width:1px; height:14px; background:var(--border);"></div>
+        
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="format-tool-btn" data-action="bold" title="Negrita (Wrap selection in **)">B</button>
+          <button type="button" class="format-tool-btn" data-action="italic" style="font-style:italic;" title="Itálica (Wrap selection in *)">I</button>
+          <button type="button" class="format-tool-btn" data-action="underline" style="text-decoration:underline;" title="Subrayado (Wrap selection in __)">U</button>
+          <button type="button" class="format-tool-btn" data-action="chord" title="Convertir a Acorde (Wrap selection in [])" style="color:#fbae00; font-weight:900; font-family:'Consolas',monospace;">[ ]</button>
+        </div>
+        
+        <div style="width:1px; height:14px; background:var(--border);"></div>
+        
+        <button type="button" class="format-tool-btn clear-format-btn" data-action="clear" title="Limpiar formato" style="font-size:9px; font-weight:600;">Tx</button>
+        
+        <div style="margin-left:auto;">
+          <button class="btn-preview-toggle" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:6px; padding:4px 12px; font-size:10px; font-weight:800; color:var(--text-muted); cursor:pointer; transition:all 0.2s;">Vista Previa</button>
+        </div>
+      </div>
+      
+      <!-- Workspace Container -->
+      <div class="editor-workspace" style="flex:1; position:relative; min-height:0;">
+        <div class="editor-container">
+          <div class="editor-highlight"></div>
+          <textarea class="editor-textarea" placeholder="[Intro]\n[C#m] [B] [A]\n\n[Verso 1]\n[C#m]              [B]\nMi Dios todo lo puede hacer..." spellcheck="false" style="tab-size:4; overflow-y:auto;"></textarea>
+        </div>
+        
+        <div class="modal-preview-panel" style="position:absolute; top:0; left:0; width:100%; height:100%; padding:16px; background:rgba(0,0,0,0.5); border:1px solid var(--border); border-radius:8px; overflow-y:auto; display:none; user-select:text; box-sizing:border-box;">
+          <div class="lyrics-text-content" style="font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="display:flex; gap:12px; justify-content:flex-end; border-top: 1px solid var(--border); padding-top: 16px;">
+      <button class="modal-btn cancel-btn" style="background:transparent; border:1px solid var(--border); color:var(--text); padding:10px 24px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; transition:all 0.2s;">Cancelar</button>
+      <button class="modal-btn save-btn" style="background:var(--blue); border:none; color:#000; padding:10px 28px; border-radius:6px; font-size:12px; font-weight:800; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 12px rgba(0,170,255,0.2);">Guardar Cambios</button>
+    </div>
+  `;
+  
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+  
+  const textarea = overlay.querySelector('.editor-textarea');
+  const highlight = overlay.querySelector('.editor-highlight');
+  
+  // Set value after attaching to avoid cursor reset issues
+  textarea.value = song.lyrics || '';
+  
+  setTimeout(() => {
+    overlay.style.opacity = '1';
+    content.style.transform = 'translateX(0)';
+  }, 10);
+  
+  const closeModal = () => {
+    overlay.style.opacity = '0';
+    content.style.transform = 'translateX(100%)';
+    setTimeout(() => overlay.remove(), 300);
+  };
+  
+  overlay.querySelector('.modal-close-btn').onclick = closeModal;
+  overlay.querySelector('.cancel-btn').onclick = closeModal;
+  
+  const previewPanel = overlay.querySelector('.modal-preview-panel');
+  const previewBtn = overlay.querySelector('.btn-preview-toggle');
+  
+  highlight.innerHTML = highlightSyntax(textarea.value);
+  
+  textarea.oninput = () => {
+    highlight.innerHTML = highlightSyntax(textarea.value);
+    highlight.scrollTop = textarea.scrollTop;
+    highlight.scrollLeft = textarea.scrollLeft;
+  };
+  textarea.onscroll = () => {
+    highlight.scrollTop = textarea.scrollTop;
+    highlight.scrollLeft = textarea.scrollLeft;
+  };
+  
+  overlay.querySelectorAll('.format-tool-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const action = btn.getAttribute('data-action');
+      if (action === 'bold') {
+        wrapTextareaSelection(textarea, '**', '**');
+      } else if (action === 'italic') {
+        wrapTextareaSelection(textarea, '*', '*');
+      } else if (action === 'underline') {
+        wrapTextareaSelection(textarea, '__', '__');
+      } else if (action === 'chord') {
+        wrapTextareaSelection(textarea, '[', ']');
+      } else if (action === 'clear') {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selected = text.substring(start, end);
+        const cleaned = selected.replace(/[\*_\[\]]/g, '');
+        
+        const savedScrollTop = textarea.scrollTop;
+        textarea.value = text.substring(0, start) + cleaned + text.substring(end);
+        textarea.focus();
+        textarea.selectionStart = start;
+        textarea.selectionEnd = start + cleaned.length;
+        textarea.scrollTop = savedScrollTop;
+        textarea.dispatchEvent(new Event('input'));
+      }
+    };
+  });
+  
+  const formatSelect = overlay.querySelector('.format-select');
+  formatSelect.onchange = (e) => {
+    const val = formatSelect.value;
+    if (val === 'intro') {
+      insertTextAtCursor(textarea, '[INTRO]');
+    } else if (val === 'verso') {
+      insertTextAtCursor(textarea, '[VERSO 1]');
+    } else if (val === 'pre-coro') {
+      insertTextAtCursor(textarea, '[PRE-CORO]');
+    } else if (val === 'coro') {
+      insertTextAtCursor(textarea, '[CORO]');
+    } else if (val === 'puente') {
+      insertTextAtCursor(textarea, '[PUENTE]');
+    } else if (val === 'instrumental') {
+      insertTextAtCursor(textarea, '[INSTRUMENTAL]');
+    } else if (val === 'solo') {
+      insertTextAtCursor(textarea, '[SOLO]');
+    } else if (val === 'final') {
+      insertTextAtCursor(textarea, '[FINAL]');
+    }
+    formatSelect.value = 'normal';
+  };
+  
+  let isPreview = false;
+  previewBtn.onclick = () => {
+    isPreview = !isPreview;
+    if (isPreview) {
+      previewBtn.textContent = 'Editar Letra';
+      previewBtn.style.color = 'var(--blue)';
+      previewBtn.style.borderColor = 'var(--blue)';
+      textarea.parentNode.style.display = 'none';
+      previewPanel.style.display = 'block';
+      previewPanel.querySelector('.lyrics-text-content').innerHTML = formatLyrics(textarea.value);
+    } else {
+      previewBtn.textContent = 'Vista Previa';
+      previewBtn.style.color = '';
+      previewBtn.style.borderColor = '';
+      textarea.parentNode.style.display = 'block';
+      previewPanel.style.display = 'none';
+      highlight.innerHTML = highlightSyntax(textarea.value);
+      setTimeout(() => {
+        highlight.scrollTop = textarea.scrollTop;
+      }, 10);
+    }
+  };
+  
+  overlay.querySelector('.save-btn').onclick = () => {
+    onSaveCallback(textarea.value);
+    closeModal();
+  };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeModal();
+  };
+}
+
 function renderGiSetlist(filter = '', editSongId = null) {
   const container = q('#gi-songs-container');
   container.innerHTML = '';
@@ -1714,12 +2078,20 @@ function renderGiSetlist(filter = '', editSongId = null) {
     const el = document.createElement('div');
     el.className = 'gi-song-item';
     const isActive = song.id && activeGiSongId && (song.id === activeGiSongId);
+    const isLyricsOpen = song.id && (song.id === openAccordionSongId);
+    const showChords = !!song.showChords;
 
     if (isActive) {
       el.style.borderColor = 'var(--blue)';
       el.style.background = 'rgba(0, 170, 255, 0.05)';
       el.style.boxShadow = '0 0 10px rgba(0, 170, 255, 0.15)';
     }
+
+    const lyricsBtnStyle = song.lyrics 
+      ? (isLyricsOpen 
+         ? 'color:#fbae00; border-color:#fbae00; background:rgba(251,174,0,0.06);' 
+         : 'color:#fbae00; border-color:#fbae00;') 
+      : 'opacity:0.4; cursor:not-allowed;';
 
     el.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
@@ -1741,6 +2113,9 @@ function renderGiSetlist(filter = '', editSongId = null) {
         </div>
       </div>
       <div class="gi-song-actions" style="justify-content: flex-end; margin-top: 8px;">
+        <button class="action-btn btn-lyrics ${isLyricsOpen ? 'active' : ''}" title="Ver letra y acordes" style="${lyricsBtnStyle}" ${song.lyrics ? '' : 'disabled'}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </button>
         <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color:var(--blue); border-color:var(--blue);' : ''}">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
         </button>
@@ -1756,6 +2131,27 @@ function renderGiSetlist(filter = '', editSongId = null) {
         <button class="action-btn btn-remove-lib" title="Eliminar de la librería" style="color: #ff4747;">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
+      </div>
+      
+      <div class="gi-lyrics-accordion" style="display: ${isLyricsOpen ? 'block' : 'none'}; border-top: 1px solid var(--border); margin-top: 10px; padding: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 800; color: #fbae00; text-transform: uppercase; letter-spacing: 1px;">Letra y Acordes</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="edit-lyrics-btn" title="Editar letra y acordes" style="background: rgba(0, 170, 255, 0.06); border: 1px solid rgba(0, 170, 255, 0.25); border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--blue); cursor: pointer; transition: all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+            <button class="chord-toggle-btn" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}" style="${showChords ? 'background: rgba(251, 174, 0, 0.06); border: 1px solid rgba(251, 174, 0, 0.25); color: #fbae00;' : 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--text-muted);'} width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 6px; transition: all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 8h10M3 13h10M3 18h7" />
+                <path d="M17 18V5c3 0 4.5 2 4.5 4.5s-1.5 4-3 4" />
+                <circle cx="14" cy="18" r="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
+          ${formatLyrics(song.lyrics)}
+        </div>
       </div>
     `;
 
@@ -1868,6 +2264,45 @@ function renderGiSetlist(filter = '', editSongId = null) {
       triggerEdit();
     };
 
+    // Lyrics accordion trigger
+    const btnLyrics = el.querySelector('.btn-lyrics');
+    if (btnLyrics) {
+      btnLyrics.onclick = (e) => {
+        e.stopPropagation();
+        if (openAccordionSongId === song.id) {
+          openAccordionSongId = null;
+        } else {
+          openAccordionSongId = song.id;
+          openAccordionServiceId = null;
+        }
+        renderGiSetlist(q('#gi-search').value);
+        renderServiceList();
+      };
+    }
+
+    // Lyrics editor modal trigger
+    const btnEditLyrics = el.querySelector('.edit-lyrics-btn');
+    if (btnEditLyrics) {
+      btnEditLyrics.onclick = (e) => {
+        e.stopPropagation();
+        openLyricsEditorModal(song, (newLyrics) => {
+          song.lyrics = newLyrics;
+          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+          renderGiSetlist(q('#gi-search').value);
+        });
+      };
+    }
+
+    // Chord toggle inside the accordion
+    const btnChordToggle = el.querySelector('.chord-toggle-btn');
+    if (btnChordToggle) {
+      btnChordToggle.onclick = (e) => {
+        e.stopPropagation();
+        song.showChords = !song.showChords;
+        renderGiSetlist(q('#gi-search').value);
+      };
+    }
+
     if (editSongId === song.id) {
       triggerEdit();
     }
@@ -1950,6 +2385,8 @@ function renderServiceList() {
     const el = document.createElement('div');
     el.className = 'gi-song-item';
     const isActive = (index === activeServiceIndex);
+    const isLyricsOpen = song.serviceId && (song.serviceId === openAccordionServiceId);
+    const showChords = !!song.showChords;
     
     if (isActive) {
       el.style.borderColor = 'var(--blue)';
@@ -1958,6 +2395,12 @@ function renderServiceList() {
     }
     el.draggable = true;
     el.dataset.index = index;
+
+    const lyricsBtnStyle = song.lyrics 
+      ? (isLyricsOpen 
+         ? 'color:#fbae00; border-color:#fbae00; background:rgba(251,174,0,0.06);' 
+         : 'color:#fbae00; border-color:#fbae00;') 
+      : 'opacity:0.4; cursor:not-allowed;';
     
     el.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
@@ -1979,6 +2422,9 @@ function renderServiceList() {
         </div>
       </div>
       <div class="gi-song-actions" style="justify-content: flex-end; margin-top: 8px;">
+        <button class="action-btn btn-lyrics ${isLyricsOpen ? 'active' : ''}" title="Ver letra y acordes" style="${lyricsBtnStyle}" ${song.lyrics ? '' : 'disabled'}>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </button>
         <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color:var(--blue); border-color:var(--blue);' : ''}">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
         </button>
@@ -1992,6 +2438,27 @@ function renderServiceList() {
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
+      
+      <div class="gi-lyrics-accordion" style="display: ${isLyricsOpen ? 'block' : 'none'}; border-top: 1px solid var(--border); margin-top: 10px; padding: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; justify-content: space-between;">
+          <span style="font-size: 11px; font-weight: 800; color: #fbae00; text-transform: uppercase; letter-spacing: 1px;">Letra y Acordes</span>
+          <div style="display: flex; gap: 6px;">
+            <button class="edit-lyrics-btn" title="Editar letra y acordes" style="background: rgba(0, 170, 255, 0.06); border: 1px solid rgba(0, 170, 255, 0.25); border-radius: 6px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--blue); cursor: pointer; transition: all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
+            <button class="chord-toggle-btn" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}" style="${showChords ? 'background: rgba(251, 174, 0, 0.06); border: 1px solid rgba(251, 174, 0, 0.25); color: #fbae00;' : 'background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); color: var(--text-muted);'} width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 6px; transition: all 0.2s ease;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 8h10M3 13h10M3 18h7" />
+                <path d="M17 18V5c3 0 4.5 2 4.5 4.5s-1.5 4-3 4" />
+                <circle cx="14" cy="18" r="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
+          ${formatLyrics(song.lyrics)}
+        </div>
+      </div>
     `;
     
     el.onclick = () => applyGiSong(song);
@@ -2001,6 +2468,58 @@ function renderServiceList() {
       e.stopPropagation();
       removeFromService(song.serviceId);
     };
+
+    // Lyrics accordion trigger
+    const btnLyrics = el.querySelector('.btn-lyrics');
+    if (btnLyrics) {
+      btnLyrics.onclick = (e) => {
+        e.stopPropagation();
+        if (openAccordionServiceId === song.serviceId) {
+          openAccordionServiceId = null;
+        } else {
+          openAccordionServiceId = song.serviceId;
+          openAccordionSongId = null;
+        }
+        renderGiSetlist(q('#gi-search').value);
+        renderServiceList();
+      };
+    }
+
+    // Lyrics editor modal trigger
+    const btnEditLyrics = el.querySelector('.edit-lyrics-btn');
+    if (btnEditLyrics) {
+      btnEditLyrics.onclick = (e) => {
+        e.stopPropagation();
+        openLyricsEditorModal(song, (newLyrics) => {
+          song.lyrics = newLyrics;
+          
+          // Sincronizar con librería principal
+          const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+          if (giSong) {
+            giSong.lyrics = song.lyrics;
+            if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+          }
+          
+          saveServiceSongs();
+          renderGiSetlist(q('#gi-search').value);
+          renderServiceList();
+        });
+      };
+    }
+
+    // Chord toggle inside the accordion
+    const btnChordToggle = el.querySelector('.chord-toggle-btn');
+    if (btnChordToggle) {
+      btnChordToggle.onclick = (e) => {
+        e.stopPropagation();
+        song.showChords = !song.showChords;
+        // Sincronizar con librería principal
+        const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+        if (giSong) giSong.showChords = song.showChords;
+        renderGiSetlist(q('#gi-search').value);
+        renderServiceList();
+      };
+    }
 
     el.querySelector('.btn-edit').onclick = (e) => {
       e.stopPropagation();
