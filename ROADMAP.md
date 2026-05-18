@@ -81,9 +81,11 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
   - **Edición Directa Inline de BPM (Minimalista y Discreto)**: Campo de edición interactivo de BPM mejorado. Al hacer clic sobre el número grande de BPM, se abre un campo de entrada flotante de tipo texto (evitando los toscos controles numéricos del navegador) con un filtro estricto que solo permite ingresar números. Luce un elegante fondo traslúcido y un borde neón azul difuminado de estilo "glassmorphism", integrándose a la perfección con la interfaz profesional.
   - **Letra y Acordes: Acordeón Premium & Integración**:
     * Se incorporó un botón discreto de visualización de letras (`btn-lyrics`) con un elegante icono de documento en la fila de acciones de cada canción.
-    * Al hacer clic, despliega suavemente un acordeón de letras de la canción `.gi-lyrics-accordion` debajo de la tarjeta en **Librería** y **Servicio**.
-    * Incluye un selector interactivo tipo "glassmorphism" en la cabecera del acordeón para alternar instantáneamente entre la vista "Con Acordes" (resaltando los acordes en color oro `#fbae00`) y "Solo Letra" (ocultando los corchetes).
-    * Desarrollamos un motor de parseo inteligente en JS que detecta automáticamente secciones (como `INTRO`, `VERSO 1`, `CORO`, `PUENTE`) y las resalta dinámicamente con color azul neón.
+    * Al hacer clic, despliega suavemente un acordeón de letras de la canción `.gi-lyrics-accordion` debajo de la tarjeta en **Librería** y **Servicio**, con un límite ampliado (`max-height: 700px`) para evitar cortes.
+    * Incluye un selector interactivo tipo píldora de texto en la cabecera del acordeón para alternar instantáneamente entre la vista "Con acordes" y "Solo letra".
+    * **Acordes Inline Flotantes Premium**: Motor de renderizado actualizado que detecta los acordes integrados en el texto y los posiciona exactamente flotando sobre la sílaba correspondiente (estilo UltimateGuitar), brindando una estética altamente profesional.
+    * Desarrollamos un motor de parseo inteligente en JS que detecta automáticamente secciones (como `INTRO`, `VERSO 1`, `CORO`, `PUENTE`) y las resalta dinámicamente con color azul neón, así como líneas completas de solo acordes.
+    * Modal de edición de letras completamente pulido y simplificado (eliminados botones de formato de texto innecesarios) y clases CSS refactorizadas para un diseño "frameless" del acordeón sin fondos redundantes.
     * Auto-colapso dinámico de otros acordeones para mantener la pantalla despejada y auto-scroll fluido del elemento seleccionado.
 
 ---
