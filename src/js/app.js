@@ -1933,7 +1933,15 @@ function wrapTextareaSelection(textarea, before, after) {
   const end = textarea.selectionEnd;
   const text = textarea.value;
   const selected = text.substring(start, end);
-  const replacement = before + selected + after;
+  
+  let replacement;
+  if (before === '[' && after === ']') {
+    // Intelligent chord wrapping: wrap each word individually, preserving spacing,
+    // and treating unified slash chords (e.g. F#/E) as a single chord.
+    replacement = selected.replace(/[^\s\[\]]+/g, match => '[' + match + ']');
+  } else {
+    replacement = before + selected + after;
+  }
   
   const savedScrollTop = textarea.scrollTop;
   const savedScrollLeft = textarea.scrollLeft;
@@ -1941,8 +1949,14 @@ function wrapTextareaSelection(textarea, before, after) {
   textarea.value = text.substring(0, start) + replacement + text.substring(end);
   
   textarea.focus();
-  textarea.selectionStart = start + before.length;
-  textarea.selectionEnd = start + before.length + selected.length;
+  if (before === '[' && after === ']') {
+    // Select the entire newly wrapped string
+    textarea.selectionStart = start;
+    textarea.selectionEnd = start + replacement.length;
+  } else {
+    textarea.selectionStart = start + before.length;
+    textarea.selectionEnd = start + before.length + selected.length;
+  }
   
   textarea.scrollTop = savedScrollTop;
   textarea.scrollLeft = savedScrollLeft;
@@ -2415,7 +2429,6 @@ function renderGiSetlist(filter = '', editSongId = null) {
 
   container.appendChild(fragment);
 }
-}
 
 /* ── SERVICE SETLIST LOGIC ── */
 function loadServiceSongs() {
@@ -2716,7 +2729,6 @@ function renderServiceList() {
   });
   
   container.appendChild(fragment);
-}
 }
 
 

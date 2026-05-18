@@ -100,7 +100,7 @@
         "_id": "69c87fac68bad308a6ffc02e",
         "title": "Celebramos",
         "artist": "Marco Barrientos",
-        "lyrics": "VERSO 1\r\n\r\n[A]\r\nDamos gloria al Padre\r\n[D]\r\nCantamos gloria al Hijo\r\nF#m A/C# D\r\nGloria al Santo Espíritu de Dios\r\n[A] [D]\r\nComo en el Cielo venga aquí tu reino\r\nF#m E\r\nQue la tierra tiemble ante tu voz\r\n\r\nCORO 1\r\n\r\n[A]\r\nCantamos Santo\r\n[E/G#]\r\nDios de Israel\r\nF#m\r\nEl Dios que siempre fue\r\n[D]\r\nEl que siempre sera\r\n[A]\r\nAlfa y omega\r\n\r\nINTERLUDIO\r\n[A] [E/G#]\r\n\r\nVERSO 1\r\n\r\n[A]\r\nDamos gloria al Padre\r\n[D]\r\nCantamos gloria al Hijo\r\nF#m A/C# D\r\nGloria al Santo Espíritu de Dios\r\n[A] [D]\r\nComo en el Cielo venga aquí tu reino\r\nF#m E\r\nQue la tierra tiemble ante tu voz\r\n\r\n\r\nCORO 1\r\n\r\n[A]\r\nCantamos Santo\r\n[E/G#]\r\nDios de Israel\r\nF#m\r\nEl Dios que siempre fue\r\n[D]\r\nEl que siempre sera\r\n[A]\r\nAlfa y omega\r\n\r\n\r\nCORO 2\r\n\r\n[A]\r\nDigno\r\n[E/G#]\r\nLa muerte el venció\r\nF#m\r\nJesus resucitó\r\n[D]\r\nEn gloria volvera\r\n\r\nTodopoderoso\r\n\r\n\r\nPUENTE X2\r\n\r\n[A] [E/G#]\r\nDeclaramos tu victoria\r\nF#m D\r\nCelebramos hoy con danza\r\n[A] [E/G#]\r\nProclamamos tu grandeza\r\nF#m D\r\nCon un grito de alabanza\r\n\r\n\r\nCORO 1\r\n\r\n[A]\r\nSanto\r\n[E/G#]\r\nDios de Israel\r\nF#m\r\nEl Dios que siempre fue\r\n[D]\r\nEl que siempre sera\r\n\r\nAlfa y omega\r\n\r\n\r\nCORO 2\r\n\r\n[A]\r\nDigno\r\n[E/G#]\r\nLa muerte el venció\r\nF#m\r\nJesus resucitó\r\n[D]\r\nEn gloria volvera\r\n\r\nTodopoderoso\r\n\r\n\r\nINTERLUDIO\r\n[A] E/G# F#m D\r\n\r\nPUENTE\r\n[A] [E/G#]\r\nDeclaramos tu victoria\r\n\r\nF#m D\r\nCelebramos hoy con danza\r\n[A] [E/G#]\r\nProclamamos tu grandeza\r\nF#m D\r\nCon un grito de alabanza\r\n\r\nINTERLUDIO\r\n[A] E/G# F#m D\r\n\r\n\r\nso",
+        "lyrics": "VERSO 1\n\n[A]\nDamos gloria al Padre\n[D]\nCantamos gloria al Hijo\n[F#m] [A/C#] [D]\nGloria al Santo Espíritu de Dios\n[A] [D]\nComo en el Cielo venga aquí tu reino\nF#m E\nQue la tierra tiemble ante tu voz\n\nCORO 1\n\n[A]\nCantamos Santo\n[E/G#]\nDios de Israel\nF#m\nEl Dios que siempre fue\n[D]\nEl que siempre sera\n[A]\nAlfa y omega\n\nINTERLUDIO\n[A] [E/G#]\n\nVERSO 1\n\n[A]\nDamos gloria al Padre\n[D]\nCantamos gloria al Hijo\nF#m A/C# D\nGloria al Santo Espíritu de Dios\n[A] [D]\nComo en el Cielo venga aquí tu reino\nF#m E\nQue la tierra tiemble ante tu voz\n\n\nCORO 1\n\n[A]\nCantamos Santo\n[E/G#]\nDios de Israel\nF#m\nEl Dios que siempre fue\n[D]\nEl que siempre sera\n[A]\nAlfa y omega\n\n\nCORO 2\n\n[A]\nDigno\n[E/G#]\nLa muerte el venció\nF#m\nJesus resucitó\n[D]\nEn gloria volvera\n\nTodopoderoso\n\n\nPUENTE X2\n\n[A] [E/G#]\nDeclaramos tu victoria\nF#m D\nCelebramos hoy con danza\n[A] [E/G#]\nProclamamos tu grandeza\nF#m D\nCon un grito de alabanza\n\n\nCORO 1\n\n[A]\nSanto\n[E/G#]\nDios de Israel\nF#m\nEl Dios que siempre fue\n[D]\nEl que siempre sera\n\nAlfa y omega\n\n\nCORO 2\n\n[A]\nDigno\n[E/G#]\nLa muerte el venció\nF#m\nJesus resucitó\n[D]\nEn gloria volvera\n\nTodopoderoso\n\n\nINTERLUDIO\n[A] E/G# F#m D\n\nPUENTE\n[A] [E/G#]\nDeclaramos tu victoria\n\nF#m D\nCelebramos hoy con danza\n[A] [E/G#]\nProclamamos tu grandeza\nF#m D\nCon un grito de alabanza\n\nINTERLUDIO\n[A] E/G# F#m D\n\n\nso",
         "bpm": "137",
         "notes": "",
         "key": "A",
@@ -109,7 +109,8 @@
         "youtubeUrl": "https://www.youtube.com/watch?v=KL1oX0duc64",
         "createdAt": "2026-03-29T01:26:04.979Z",
         "__v": 0,
-        "id": "song_6_1779065777450"
+        "id": "song_6_1779065777450",
+        "showChords": true
       },
       {
         "_id": "69c87fac68bad308a6ffc02f",
@@ -825,7 +826,7 @@
         "__v": 0,
         "id": "song_53_1779065777451",
         "audio": {
-          "sequence": "file:///livepads/Sequences/Eco.mp3"
+          "sequence": "file:///C:/Users/josem/AppData/Roaming/livepads/Sequences/Eco.mp3"
         }
       },
       {
