@@ -127,14 +127,23 @@
     padding: 1px 3px;
   }
 
-  /* pad volume tray card adjustments */
+  /* pad volume tray card adjustments — compacted on laptop heights so
+     the panel fits below the 12-key grid without the bottom keys (A/A#/B)
+     overlapping the Vol/Pan rows. */
   #pad-volume-tray {
-    padding: 10px 14px;
+    padding: 6px 14px 8px;
   }
   .tray-header {
     font-size: 11px;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+  }
+  #pad-volume-tray .sb-row {
+    padding: 4px 10px;
+    gap: 10px;
+  }
+  #pad-volume-tray .sb-div {
+    margin: 2px 0;
   }
   .sb-row {
     padding: 6px 10px;
