@@ -6,9 +6,96 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
-## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (duodécima pasada)
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (decimotercera pasada — landing + cross-platform)
 
 ### Estado al cerrar
+
+- **Última fase completada**: 🎨 Fase 35 — Landing page pública en `/docs` con screenshots reales + Mac frame + cross-platform builds
+- **app.js**: ~755 líneas (-76% desde el origen 3055) — sin cambios esta sesión
+- **Total módulos**: **43** archivos JS + 11 módulos CSS
+- **Pads Amb**: 137 MB sin pérdida audible
+- **Instalador NSIS**: 250 MB (rebuild verificado en `dist/LivePads-Setup-1.0.0.exe`)
+- **Landing pública**: https://josemontilladev.github.io/Live-Pads/ (servida desde `/docs` por GitHub Pages)
+- **Último commit**: `fc2f2aa` — "Docs: Real screenshots in landing + Mac frame, cross-platform build scripts"
+
+### Fase 35 (esta sesión) — landing page + cross-platform packaging
+
+**Contexto**: ya teníamos la app empaquetada y pulida. Esta sesión fue 100% sobre presentación al equipo de la iglesia + abrir la puerta a Mac/Linux.
+
+1. **Landing page nueva** (`docs/index.html`, `docs/styles.css`, `docs/script.js`):
+   - 8 secciones: Nav sticky, Hero, Features, Tour de pantallas, Personas, Atajos, FAQ, Download CTA, Footer
+   - Tema gold `#FBAE00` sobre fondo oscuro — matchea el theme GI.Setlist del app
+   - Sin frameworks ni build step (HTML/CSS/JS plano, GitHub Pages compatible)
+   - `IntersectionObserver` para reveal-on-scroll, respeta `prefers-reduced-motion`
+   - Nav con backdrop blur al hacer scroll past 12px
+2. **Screenshots reales del app reemplazan los mockups HTML/CSS** (decisión del usuario tras ver que los mockups no transmitían el feel real):
+   - `docs/assets/hero.png` — vista principal
+   - `docs/assets/playing.png` — setlist con banner "Now playing"
+   - `docs/assets/editor_letras.png` — editor con acordes
+   - `docs/assets/mapeo.png` — listado MIDI
+   - `docs/assets/prevuelo.png` — checklist de pre-vuelo
+3. **Mac-style window chrome alrededor de cada screenshot** (`.mac-window` + `.mac-chrome` con traffic lights rojo/amarillo/verde):
+   - Aplicado a los 4 tour shots
+   - Hero usa override `.hero-mac-window` con más énfasis: `perspective(1400px) rotateX(6deg)` + sombra 40/100px + glow 120px
+4. **Cleanup de CSS legacy**: borrados ~516 líneas del bloque `.mockup-frame` / `.mkh-*` / `.mkl-*` / `.mkm-*` / `.mkp-*` / `.mk-card` / `.mk-np` / `.mk-tabs` / `.mk-search` / `.mk-pill` / `.mk-icon-btn`. `docs/styles.css` pasó de ~1276 a 761 líneas.
+5. **Cross-platform builds en `package.json`**:
+   - `npm run build:mac` — DMG x64 + arm64 (category `public.app-category.music`) — requiere correr en Mac
+   - `npm run build:linux` — AppImage x64 (category `AudioVideo;Audio`)
+   - `npm run build:all` — los tres a la vez
+6. **README.md**: link a GitHub Pages + tabla de scripts ampliada con mac/linux/all
+7. **Limpieza**: eliminado `docs/lyrics_module_analysis.md` (doc obsoleto de análisis interno)
+8. **Audit menor**: `SoundPoolModal` confirmado limpio — no usa `confirm()`/`alert()`/`prompt()` nativos
+
+### Decisiones tomadas (para no re-debatir en próximas sesiones)
+
+- **❌ Companion mobile descartado**: la iglesia no tiene WiFi/internet estable. Cualquier feature que dependa de red queda fuera del alcance.
+- **❌ Print/PDF de setlist descartado**: poco valor real, alto trabajo. La app es para uso en vivo, no para distribuir setlists impresos.
+- **❌ Grabación interna de la mezcla descartada**: complejidad alta (Web Audio destination + worker encoder), no es lo que el usuario necesita.
+- **✅ Cross-platform abierto**: scripts de Mac/Linux están listos. Cuando haya una Mac disponible, `npm run build:mac` empaca DMG sin más config.
+- **✅ Screenshots reales > mockups**: si en el futuro se rediseña la UI, hay que regenerar los 5 PNGs en `docs/assets/` con la app real corriendo.
+
+### Cómo retomar mañana
+
+1. `cd c:\Users\josem\OneDrive\Escritorio\Live Pads`
+2. Verificar app: `npm start`
+3. Verificar landing local: abrir `docs/index.html` en navegador (o `npx serve docs`)
+4. Verificar GitHub Pages activo en: https://josemontilladev.github.io/Live-Pads/ — si no carga, revisar **Settings → Pages → Source: main / /docs** en GitHub
+
+### Pendientes potenciales (no prioritarios, candidatos para próxima sesión)
+
+#### 🟢 Landing / marketing
+- **Open Graph + Twitter meta tags** en `docs/index.html` para previews al compartir el link en WhatsApp/Slack
+- **Favicon** específico para la landing (ahora hereda el del icono del app o ninguno)
+- **Sección de testimonios** una vez el equipo lo use por unas semanas
+- **Vídeo demo de 30s** embebido — opcional, solo si surge el ánimo de grabarlo
+- **i18n inglés** de la landing — solo si hay interés de difundir fuera de hispanohablantes
+
+#### 🟢 App polish (heredado del checkpoint anterior, sigue válido)
+- **Boot profiling** — medir cold-start real, apuntar a <500ms hasta interactividad
+- **Virtualización del song list** — si la librería supera 200 canciones, render virtual paga
+- **Asset audit segunda pasada** — los pads ya están en LAME V0; los click tracks podrían tener oportunidad
+
+#### 🟡 Builds reales cross-platform
+- **Probar `npm run build:mac`** en una Mac física (los DMGs no se pueden empacar desde Windows)
+- **Probar `npm run build:linux`** — debería funcionar desde Windows pero hay que validar el AppImage en una distro real
+- **Code signing**: ni Windows ni Mac están firmados. Si se distribuye fuera del círculo cercano, evaluar costo de certificado (Windows EV: ~$300/año, Apple Developer: $99/año)
+
+#### 🔴 Refactors estructurales (sigue válido del checkpoint anterior)
+- Render functions surgical refactor (lo que queda)
+- Web Workers para parseo de letras largas (~2000 versos)
+
+### Lo que NO debes hacer (sigue válido)
+
+- ❌ Tocar el `body * { transition }` — eliminado en Fase 16, era el peor offender de fluidez
+- ❌ Re-introducir mockups HTML/CSS en la landing — usar screenshots reales
+- ❌ Añadir features que requieran internet en vivo — la iglesia no tiene WiFi estable
+- ❌ Subir `audio_assets/originales/` al repo — gitignored a propósito
+
+---
+
+## 📍 CHECKPOINT ANTERIOR — Sesión cerrada 2026-05-19 (duodécima pasada)
+
+### Estado al cerrar (snapshot histórico)
 
 - **Última fase completada**: 🏗️ Fase 34 — 17 mejoras UX adicionales (atajos, MIDI status, touch reorder, modal edición, README)
 - **app.js**: ~755 líneas (-76% desde el origen 3055)
