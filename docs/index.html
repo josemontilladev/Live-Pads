@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Pads — Plataforma profesional de directo para iglesias</title>
+  <meta name="description" content="Pads ambientales, metrónomo, drums, setlist sincronizado con MongoDB, letras con acordes, mapeo MIDI y atajos. Diseñado para directores de alabanza.">
+  <link rel="icon" href="assets/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav id="nav" class="nav">
+  <div class="nav-inner">
+    <a href="#top" class="nav-brand">
+      <img src="assets/logo.png" alt="Live Pads" class="nav-logo">
+      <span>Live Pads</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#tour">Tour</a>
+      <a href="#para-quien">Para quién</a>
+      <a href="#atajos">Atajos</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a href="#download" class="nav-cta">Descargar</a>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<header id="top" class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="container">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Edición Profesional · v1.0
+    </div>
+    <h1 class="hero-title">
+      La cabina del director<br>
+      <span class="accent">de alabanza</span>, en una sola pantalla.
+    </h1>
+    <p class="hero-sub">
+      Pads ambientales continuos, metrónomo con timing sample-accurate,
+      drums MIDI-mapeables, setlist con letras y acordes, transposición
+      en vivo, y un mapeo de teclado / MIDI que se aprende solo. Sin
+      ratón, sin latencia, sin silencios entre canciones.
+    </p>
+    <div class="hero-cta-row">
+      <a href="#download" class="cta cta-primary">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar para Windows
+      </a>
+      <a href="https://github.com/josemontilladev/Live-Pads" target="_blank" rel="noopener" class="cta cta-ghost">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 .5C5.4.5 0 5.9 0 12.5c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.3v3.4c0 .3.2.7.8.6C20.6 22.3 24 17.8 24 12.5 24 5.9 18.6.5 12 .5z"/></svg>
+        Ver código en GitHub
+      </a>
+    </div>
+
+    <div class="hero-screenshot">
+      <div class="hero-screenshot-frame">
+        <!-- Reemplaza este placeholder con un screenshot real de la app -->
+        <div class="screenshot-placeholder">
+          <div class="ss-placeholder-label">📸 Screenshot principal de la app</div>
+          <div class="ss-placeholder-hint">Sustituir <code>docs/assets/hero.png</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ FEATURES ═══ -->
+<section id="features" class="section">
+  <div class="container">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Características</span>
+      Todo lo que necesita un servicio en vivo
+    </h2>
+    <p class="section-sub">
+      Cada control está pensado para uso con teclado o MIDI — la cabina
+      no necesita ratón. Cero latencia entre canciones, transiciones
+      cruzadas suaves, y un editor de letras con acordes que se
+      transpone con dos clicks.
+    </p>
+
+    <div class="features-grid">
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </div>
+        <h3>Pads ambientales continuos</h3>
+        <p>3 bancos × 12 notas, crossfade automático de 2s entre tonos. Sin huecos cuando cambias de canción a media intro.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3>Metrónomo sample-accurate</h3>
+        <p>Lookahead scheduler de 100ms (Chris Wilson). Tap tempo, 5 compases, 7 sonidos, 1x/2x multiplier. Visualizador de beats clickable.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
+        </div>
+        <h3>Drum pads + kits custom</h3>
+        <p>8 pads MIDI-mapeables, edición inline de nombres, asignación de samples MP3 desde disco. Crea tus propios kits sin salir de la app.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <h3>Setlist con MongoDB sync</h3>
+        <p>Importa, exporta, sincroniza con tu base remota. Búsqueda por título, artista o tono ("tono:G"). Favoritos, filtros, drag & drop.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h3>Letras con acordes</h3>
+        <p>Editor con auto-save, importación desde LaCuerda.net, transposición en vivo (±12 semitonos), preview formateado, secciones [VERSO 1] [CORO].</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><line x1="12" y1="3" x2="12" y2="21"></line><line x1="8" y1="3" x2="8" y2="12"></line><line x1="16" y1="3" x2="16" y2="12"></line></svg>
+        </div>
+        <h3>MIDI &amp; teclado mapeables</h3>
+        <p>Asigna cualquier control a cualquier tecla o nota MIDI con modo Learn. Soporte CC para sliders. Vista de mapeos con clear individual.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <h3>Spotlight Ctrl+K</h3>
+        <p>Búsqueda global instantánea entre canciones y comandos. Fuzzy matching, navegación con flechas, Enter ejecuta. Como Linear o Notion.</p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>
+        </div>
+        <h3>6 temas premium</h3>
+        <p>GI.Setlist, Midnight Aurora, Crimson Power, Clean Worship, Deep Sea, Ambient Purple. Cambio instantáneo, persistencia, preview on hover.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TOUR VISUAL ═══ -->
+<section id="tour" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Tour visual</span>
+      Pensada para el directo
+    </h2>
+
+    <div class="tour-row">
+      <div class="tour-copy">
+        <span class="tour-num">01</span>
+        <h3>Now Playing siempre visible</h3>
+        <p>Un banner encima del setlist muestra qué canción está sonando con el título en grande. Click → te lleva a la card en la librería. Para que sepas dónde estás sin escanear 80 entradas.</p>
+        <ul class="tour-bullets">
+          <li>Tab "prepara" la siguiente canción sin reproducir</li>
+          <li>Canciones ya pasadas dimmean al 45%</li>
+          <li>Indicador "3 / 8 · ~32 min" del progreso del set</li>
+        </ul>
+      </div>
+      <div class="tour-shot">
+        <div class="screenshot-placeholder">
+          <div class="ss-placeholder-label">📸 Setlist + Now Playing</div>
+          <div class="ss-placeholder-hint"><code>docs/assets/tour-setlist.png</code></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-row tour-row--reverse">
+      <div class="tour-copy">
+        <span class="tour-num">02</span>
+        <h3>Editor de letras con acordes</h3>
+        <p>Auto-save cada 1.5s. Importa directamente desde LaCuerda.net con un click. Transpón ±12 semitonos respetando tu notación (sostenidos o bemoles). Pre-vista formateada con secciones [VERSO 1], [CORO], [PUENTE].</p>
+        <ul class="tour-bullets">
+          <li>Ctrl+S guarda y cierra</li>
+          <li>Ctrl+[ envuelve selección en corchetes</li>
+          <li>Vista previa instantánea con toggle</li>
+        </ul>
+      </div>
+      <div class="tour-shot">
+        <div class="screenshot-placeholder">
+          <div class="ss-placeholder-label">📸 Editor de letras</div>
+          <div class="ss-placeholder-hint"><code>docs/assets/tour-lyrics.png</code></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-row">
+      <div class="tour-copy">
+        <span class="tour-num">03</span>
+        <h3>MIDI &amp; teclado mapeable</h3>
+        <p>Modo Learn: clic en cualquier control, toca una tecla o pad MIDI, listo. La vista "Mapeos activos" muestra todos los enlaces actuales (TECLADO vs MIDI) con un × para borrar individualmente. Sin abrir DevTools.</p>
+        <ul class="tour-bullets">
+          <li>CC support para sliders de volumen / pan</li>
+          <li>Fallback automático: nota MIDI 60-71 → pads C-B</li>
+          <li>El nombre del controlador conectado aparece en topbar</li>
+        </ul>
+      </div>
+      <div class="tour-shot">
+        <div class="screenshot-placeholder">
+          <div class="ss-placeholder-label">📸 MIDI Learn / Mappings</div>
+          <div class="ss-placeholder-hint"><code>docs/assets/tour-midi.png</code></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-row tour-row--reverse">
+      <div class="tour-copy">
+        <span class="tour-num">04</span>
+        <h3>Pre-vuelo antes del servicio</h3>
+        <p>Antes de empezar, abre el checklist desde el menú. 6 verificaciones: salida de audio activa, banco de pads cargado, kit de drums OK, MIDI mapeado, lista de canciones populada, metadatos BPM y tono completos.</p>
+        <ul class="tour-bullets">
+          <li>Verde ✓ o ámbar ⚠ por fila</li>
+          <li>Resumen final: "Todo listo" o "N por revisar"</li>
+          <li>Detalles inline de qué falta</li>
+        </ul>
+      </div>
+      <div class="tour-shot">
+        <div class="screenshot-placeholder">
+          <div class="ss-placeholder-label">📸 Pre-vuelo checklist</div>
+          <div class="ss-placeholder-hint"><code>docs/assets/tour-preflight.png</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PARA QUIÉN ═══ -->
+<section id="para-quien" class="section">
+  <div class="container">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Para quién está hecho</span>
+      Diseñado por y para el equipo de cabina
+    </h2>
+
+    <div class="persona-grid">
+      <article class="persona-card">
+        <div class="persona-emoji">🎤</div>
+        <h3>Directores de alabanza</h3>
+        <p>Controla pads, BPM, tono y crossfades sin distraer al equipo. La pantalla del director es la cabina, no un papel impreso.</p>
+        <ul>
+          <li>Atajos de un sólo tecla para cada pad</li>
+          <li>Setlist visible mientras tocas</li>
+          <li>Transposición en vivo si cambia el tono</li>
+        </ul>
+      </article>
+
+      <article class="persona-card">
+        <div class="persona-emoji">🎹</div>
+        <h3>Músicos</h3>
+        <p>Letra con acordes en pantalla grande, transpuesta a tu tono, formateada con secciones claras. Sin papeles que se traspapelan.</p>
+        <ul>
+          <li>Importación rápida desde LaCuerda</li>
+          <li>Acordes Toggle on/off por canción</li>
+          <li>BPM y tono visible siempre</li>
+        </ul>
+      </article>
+
+      <article class="persona-card">
+        <div class="persona-emoji">🎛️</div>
+        <h3>Técnicos de cabina</h3>
+        <p>Mapea cualquier control MIDI desde tu controlador físico. Faders para volumen, pads para drums, knobs para filtros. Una sola fuente de verdad.</p>
+        <ul>
+          <li>Modo Learn intuitivo</li>
+          <li>Soporte CC para sliders</li>
+          <li>Mapeos exportables / portables</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ATAJOS DESTACADOS ═══ -->
+<section id="atajos" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Power-user</span>
+      Sin tocar el ratón
+    </h2>
+    <p class="section-sub">
+      Cada milisegundo cuenta en directo. Estos atajos cubren el 90% del flujo
+      del servicio sin levantar las manos del teclado.
+    </p>
+
+    <div class="shortcuts-grid">
+      <div class="shortcut-card shortcut-card--feature">
+        <kbd class="kbd-big">Ctrl + K</kbd>
+        <h3>Spotlight global</h3>
+        <p>Busca cualquier canción o comando. Fuzzy matching estilo Linear, navegación con flechas, Enter ejecuta.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">Espacio</kbd>
+        <h4>Play / Stop maestro</h4>
+        <p>Pad + track + metrónomo en un solo botón.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">Tab</kbd>
+        <h4>Preparar siguiente</h4>
+        <p>Stagea la siguiente canción sin reproducir.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">1 — =</kbd>
+        <h4>Tocar pad C—B</h4>
+        <p>Fila superior dispara los 12 pads cromáticos.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">Q W E R<br>A S D F</kbd>
+        <h4>Disparar drums</h4>
+        <p>8 pads del kit activo, hit-and-fade.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">↑ ↓ ← →</kbd>
+        <h4>Navegar servicio</h4>
+        <p>Avanza o retrocede en el setlist en vivo.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">Ctrl + N</kbd>
+        <h4>Nueva canción</h4>
+        <p>Inline edit form se abre instantáneamente.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">Esc</kbd>
+        <h4>Pánico</h4>
+        <p>Detiene todo y cierra cualquier modal.</p>
+      </div>
+
+      <div class="shortcut-card">
+        <kbd class="kbd-big">?</kbd>
+        <h4>Ayuda</h4>
+        <p>Lista completa de atajos en el sidebar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section id="faq" class="section">
+  <div class="container container-narrow">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Preguntas frecuentes</span>
+      Lo que suelen preguntar
+    </h2>
+
+    <details class="faq-item" open>
+      <summary>¿En qué sistemas operativos funciona?</summary>
+      <p>Por ahora solo Windows (instalador NSIS de 250 MB). Está construido en Electron, así que un build para macOS y Linux es trivial — pídelo cuando lo necesites.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>¿Necesito internet?</summary>
+      <p>No. La app funciona 100% offline. Solo necesitas internet si quieres sincronizar el setlist con tu base remota de MongoDB (opcional, configurable en <code>%APPDATA%\LivePads\config.json</code>).</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>¿Funciona con cualquier controlador MIDI?</summary>
+      <p>Sí. Usa el modo "MIDI Learn": click en cualquier control de la app, toca tu pad / tecla / knob, listo. Soporta NoteOn, CC y mappings de teclado para los que prefieren tocar todo desde el portátil.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>¿De dónde salen las letras y acordes?</summary>
+      <p>Tres opciones: (1) escribirlas a mano en el editor con auto-save, (2) importar desde una URL de LaCuerda.net con un click, (3) sincronizar con tu base de MongoDB si ya las tienes ahí.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>¿Cómo persiste mi configuración entre arranques?</summary>
+      <p>Todo se guarda en <code>%APPDATA%\LivePads\</code>: librería de canciones, kits personalizados, mapeos MIDI/teclado, preferencias de tema, último banco de pads usado.</p>
+    </details>
+
+    <details class="faq-item">
+      <summary>¿Es código abierto?</summary>
+      <p>Sí. Repositorio en <a href="https://github.com/josemontilladev/Live-Pads" target="_blank" rel="noopener">github.com/josemontilladev/Live-Pads</a>. Uso personal y eclesiástico.</p>
+    </details>
+  </div>
+</section>
+
+<!-- ═══ DOWNLOAD CTA ═══ -->
+<section id="download" class="section download-section">
+  <div class="container container-narrow">
+    <div class="download-card">
+      <img src="assets/logo.png" alt="" class="download-logo">
+      <h2>¿Listo para tu próximo servicio?</h2>
+      <p>Descarga la última versión y prueba sin compromiso. Tu librería existente (si tienes una) se importa directo desde un .json.</p>
+      <div class="download-actions">
+        <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="cta cta-primary cta-large" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="20" height="20"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar para Windows
+        </a>
+        <a href="https://github.com/josemontilladev/Live-Pads" class="cta cta-ghost cta-large" target="_blank" rel="noopener">
+          Ver en GitHub
+        </a>
+      </div>
+      <p class="download-fineprint">
+        Windows 10/11 · 250 MB · Edición Profesional v1.0
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-row">
+      <div class="footer-brand">
+        <img src="assets/logo.png" alt="Live Pads" class="footer-logo">
+        <div>
+          <strong>Live Pads</strong>
+          <p>Plataforma profesional de directo para iglesias.</p>
+        </div>
+      </div>
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#tour">Tour</a>
+        <a href="#atajos">Atajos</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/josemontilladev/Live-Pads" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      © 2026 Live Pads · Construido con Electron, Web Audio + amor por el directo.
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
