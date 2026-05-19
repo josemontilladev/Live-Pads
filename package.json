@@ -1,44 +1,74 @@
 {
   "name": "livepads",
   "version": "1.0.0",
-  "description": "LivePads - Pads de adoración profesionales para iglesia y presentaciones en vivo",
+  "description": "LivePads — Pads de adoración profesionales para iglesia y presentaciones en vivo",
   "main": "main.js",
+  "author": {
+    "name": "LivePads",
+    "email": "proyectos@pencilspeech.com"
+  },
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "dev": "electron . --dev",
     "build": "electron-builder --win",
-    "dev": "electron . --dev"
+    "build:dir": "electron-builder --win --dir",
+    "rebuild": "electron-rebuild -f -w mongodb"
   },
-  "author": "LivePads",
-  "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
     "mp3-cutter": "^1.0.6"
   },
+  "dependencies": {
+    "mongodb": "^7.2.0"
+  },
   "build": {
     "appId": "com.livepads.app",
     "productName": "LivePads",
-    "win": {
-      "target": "nsis",
-      "icon": "src/assets/icon.png"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
+    "copyright": "Copyright © 2026 LivePads",
+    "asar": true,
+    "compression": "maximum",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
       "preload.js",
       "src/**/*",
-      "defaults/**/*",
-      "!**/*.asd",
-      "!**/*.wav.asd"
-    ]
-  },
-  "dependencies": {
-    "mongodb": "^7.2.0"
+      "!src/**/*.map",
+      "!**/*.{md,markdown,log,bak,backup,asd}",
+      "!**/{.DS_Store,Thumbs.db,.git,.gitignore,.idea,.vscode,.editorconfig}",
+      "!**/{test,tests,__tests__,spec,__mocks__}/**",
+      "!**/{LICENSE,README,CHANGELOG,HISTORY,CONTRIBUTING}*",
+      "!**/node_modules/*/{example,examples,demo,docs,doc,sample,samples}/**"
+    ],
+    "extraResources": [
+      {
+        "from": "defaults",
+        "to": "defaults",
+        "filter": ["**/*", "!**/.gitkeep"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "src/assets/icon.png",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "signtoolOptions": {
+        "publisherName": "LivePads"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LivePads",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

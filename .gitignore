@@ -1,5 +1,27 @@
+# Dependencies & builds
 node_modules/
 dist/
+out/
+
+# Binarios grandes (descargar localmente si se necesitan)
 ffmpeg.exe
-.DS_Store
+*.exe
+
+# Logs y temporales
 *.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Configuracion local con credenciales / userData
+config.local.json
+.env
+.env.*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code session data
+.claude/

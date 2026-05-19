@@ -19,7 +19,9 @@ export class SynthEngine {
   }
 
   async init() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // latencyHint: 'interactive' minimizes audio buffer size for live triggering.
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC({ latencyHint: 'interactive' });
     this.masterGain = this.ctx.createGain(); this.masterGain.gain.value = 1;
     this.padGain    = this.ctx.createGain(); this.padGain.gain.value = 0.75;
     this.padPanNode = this.ctx.createStereoPanner();
@@ -69,45 +71,81 @@ export class SynthEngine {
   }
 
   async _preloadBank(bank) {
-    // Preload sequentially to avoid freezing the UI with concurrent decodes
-    const notes = ['C','G','D','A','E','B','Gb','Db','Ab','Eb','Bb','F']; 
-    for (const n of notes) {
-      if (this.currentPadBank !== bank) break; // abort if bank changed
+    // Two-phase preload optimized for worship key distribution:
+    //   1) PRIORITY notes (C, G, D, A, F — the most common keys in worship)
+    //      are decoded in parallel, so the first 5 likely-pressed keys are
+    //      ready ASAP after the bank loads.
+    //   2) The remaining 7 notes load sequentially with a tiny breather so
+    //      the main thread stays responsive for UI work happening alongside.
+    const PRIORITY = ['C', 'G', 'D', 'A', 'F'];
+    const REST     = ['E', 'B', 'Bb', 'Eb', 'Db', 'Gb', 'Ab'];
+
+    // Phase 1: parallel decode of the priority notes.
+    await Promise.all(PRIORITY.map(n => {
+      if (this.currentPadBank !== bank) return Promise.resolve();
+      return this._ensurePadAmb(n);
+    }));
+    if (this.currentPadBank !== bank) return;
+
+    // Phase 2: sequential decode of the rest, breathing between each.
+    for (const n of REST) {
+      if (this.currentPadBank !== bank) break;
       await this._ensurePadAmb(n);
-      await new Promise(r => setTimeout(r, 50)); // small breather for main thread
+      await new Promise(r => setTimeout(r, 50));
     }
   }
 
-  /* ── Load real click audio files from Click Tracks ── */
-  async loadClickBuffers() {
-    // NOTE: filenames have a DOUBLE SPACE after the dash: "New Click -  "
-    const base = 'assets/Click Tracks/New Click -  ';
-    // accent = beat 1 (accents file), normal = every other beat (quarter file)
-    const files = [
-      { key: 'classic_accent',    path: `${base}Classic-accents.mp3` },
-      { key: 'classic_normal',    path: `${base}Classic-quarter.mp3` },
-      { key: 'blip_accent',       path: `${base}Blip-accents.mp3` },
-      { key: 'blip_normal',       path: `${base}Blip-quarter.mp3` },
-      { key: 'cowbell_accent',    path: `${base}Cowbell-accents.mp3` },
-      { key: 'cowbell_normal',    path: `${base}Cowbell-quarter.mp3` },
-      { key: 'digital_accent',    path: `${base}Digital-accents.mp3` },
-      { key: 'digital_normal',    path: `${base}Digital-sixteenth.mp3` },
-      { key: 'gentle_accent',     path: `${base}Gentle-accents.mp3` },
-      { key: 'gentle_normal',     path: `${base}Gentle-quarter.mp3` },
-      { key: 'percussive_accent', path: `${base}Percussive-accents.mp3` },
-      { key: 'percussive_normal', path: `${base}Percussive-quarter.mp3` },
-      { key: 'woodblock_accent',  path: `${base}Woodblock-accents.mp3` },
-      { key: 'woodblock_normal',  path: `${base}Woodblock-quarter.mp3` },
-    ];
-    await Promise.all(files.map(async f => {
+  /* ── Click track manifests ── */
+  // Per-sound accent + normal mp3 paths. Loaded lazily so boot only pays
+  // for the default sound; the rest decode on first use of each sound.
+  static get CLICK_FILE_MAP() {
+    const base = 'assets/Click Tracks/New Click -  '; // double space is intentional
+    return {
+      classic:    { accent: `${base}Classic-accents.mp3`,    normal: `${base}Classic-quarter.mp3` },
+      blip:       { accent: `${base}Blip-accents.mp3`,       normal: `${base}Blip-quarter.mp3` },
+      cowbell:    { accent: `${base}Cowbell-accents.mp3`,    normal: `${base}Cowbell-quarter.mp3` },
+      digital:    { accent: `${base}Digital-accents.mp3`,    normal: `${base}Digital-sixteenth.mp3` },
+      gentle:     { accent: `${base}Gentle-accents.mp3`,     normal: `${base}Gentle-quarter.mp3` },
+      percussive: { accent: `${base}Percussive-accents.mp3`, normal: `${base}Percussive-quarter.mp3` },
+      woodblock:  { accent: `${base}Woodblock-accents.mp3`,  normal: `${base}Woodblock-quarter.mp3` },
+    };
+  }
+
+  // Decode one sound's accent+normal pair. Idempotent + dedupes concurrent
+  // calls so playClick + UI sound-change both arrive at the same promise.
+  ensureClickSound(soundName) {
+    if (!this._clickLoading) this._clickLoading = {};
+    const accentKey = `${soundName}_accent`;
+    const normalKey = `${soundName}_normal`;
+    if (this._clickBuffers[accentKey] && this._clickBuffers[normalKey]) return Promise.resolve();
+    if (this._clickLoading[soundName]) return this._clickLoading[soundName];
+
+    const map = SynthEngine.CLICK_FILE_MAP[soundName];
+    if (!map) return Promise.resolve();
+
+    const decode = async (key, path) => {
       try {
-        const resp = await fetch(f.path);
+        const resp = await fetch(path);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const ab = await resp.arrayBuffer();
-        this._clickBuffers[f.key] = await this.ctx.decodeAudioData(ab);
-      } catch(e) { console.warn('Click file not loaded:', f.path, e.message); }
-    }));
-    console.log('Click buffers loaded:', Object.keys(this._clickBuffers).join(', '));
+        this._clickBuffers[key] = await this.ctx.decodeAudioData(ab);
+      } catch (e) {
+        console.warn('Click file not loaded:', path, e.message);
+      }
+    };
+
+    const p = Promise.all([
+      decode(accentKey, map.accent),
+      decode(normalKey, map.normal)
+    ]).finally(() => { delete this._clickLoading[soundName]; });
+
+    this._clickLoading[soundName] = p;
+    return p;
+  }
+
+  // Default click sound only — others load on demand when the user picks them.
+  async loadClickBuffers(defaultSound = 'cowbell') {
+    await this.ensureClickSound(defaultSound);
   }
 
   /* ── Lazy-load ambient pad file — deduped, abort-safe ── */
@@ -849,11 +887,13 @@ export class SynthEngine {
     return successfulIds;
   }
 
-  /* ── Realistic metronome clicks ── */
-  playClick(accent, soundType, volume, pan = 0) {
+  /* ── Realistic metronome clicks ──
+     `when` lets a lookahead scheduler request sample-accurate playback at a
+     future AudioContext time. Omit (or pass <= currentTime) for "play now". */
+  playClick(accent, soundType, volume, pan = 0, when = 0) {
     if (!this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
-    const now = this.ctx.currentTime;
+    const now = (when && when > this.ctx.currentTime) ? when : this.ctx.currentTime;
 
     // Try real audio file first
     const fileKey = `${soundType}_${accent ? 'accent' : 'normal'}`;

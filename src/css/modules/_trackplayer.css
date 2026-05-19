@@ -1,0 +1,116 @@
+/* ── Track Player bar (bottom bar) ────────────────────────────────────
+   All visual rules live here instead of inline on the markup. */
+#track-player-bar {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 1000;
+  height: 76px;
+}
+.tp-transport { display: flex; gap: 10px; }
+.tp-play, .tp-stop, .tp-loop {
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+}
+.tp-play  { background: var(--blue); color: #000; transition: transform 0.15s; }
+.tp-stop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+.tp-loop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+
+.tp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+}
+.tp-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+#tp-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.3px;
+}
+.tp-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: 10px;
+}
+.tp-vol-row { padding: 0; }
+.tp-vol-label { font-size: 10px; min-width: 24px; }
+.tp-vol-slider { width: 80px; }
+.tp-vol-val { min-width: 26px; }
+.tp-close {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+/* Floating "Añadida al servicio" popup over the library card after click.
+   Uses transform + opacity for the fade-out (GPU-friendly). */
+.gi-song-item.has-popup { position: relative; }
+.added-popup {
+  position: absolute;
+  right: 10px;
+  bottom: 45px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #000;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px var(--glow);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.4s, transform 0.4s;
+  will-change: opacity, transform;
+}
+.added-popup.leaving {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Inline BPM editor input — replaces a giant `input.style.cssText` blob
+   in app.js. Same look, but parseable + themable from one place. */
+#bpm-inline-input {
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--accent);
+  background: var(--glow);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  width: 85px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  margin: 0 auto;
+  display: block;
+  padding: 2px 4px;
+  box-sizing: border-box;
+  box-shadow: 0 0 10px var(--glow);
+}
+

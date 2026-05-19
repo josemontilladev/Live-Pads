@@ -12,15 +12,13 @@
 <body>
 
   <!-- Preloader -->
-  <div id="preloader" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:var(--bg-main, #0a0a0a); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity 0.6s ease-out, visibility 0.6s ease-out;">
-    <img src="assets/logo.png" alt="Live Pads Logo" style="width: 110px; height: 110px; margin-bottom: 24px; animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);">
-    <div style="font-family:'Montserrat', sans-serif; font-size: 26px; font-weight: 800; color: #fff; letter-spacing: 2px;">LIVE PADS</div>
-    <div style="margin-top: 15px; width: 60px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; position: relative;">
-       <div style="position: absolute; top:0; left:0; height:100%; width:40%; background: var(--blue, #0ea5e9); border-radius:2px; animation: preloaderSlide 1.2s infinite ease-in-out;"></div>
-    </div>
+  <div id="preloader">
+    <img src="assets/logo.png" alt="Live Pads Logo" class="preloader-logo">
+    <div class="preloader-title">LIVE PADS</div>
+    <div class="preloader-bar"><div class="preloader-fill"></div></div>
   </div>
 
-  <div id="midi-learn-overlay" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:var(--blue); color:#000; padding:12px 24px; border-radius:8px; z-index:10000; display:none; font-weight:bold; box-shadow:0 4px 12px rgba(0,0,0,0.5); cursor:pointer;">
+  <div id="midi-learn-overlay">
     🎹 Modo Mapeo MIDI: Haz clic en un control de la app. (Clic aquí para salir)
   </div>
 
@@ -37,13 +35,13 @@
 
     <div class="topbar-center">
       <div class="topbar-logo">
-        <span style="font-size: 16px; font-weight: 800; letter-spacing: 0.5px;">Live Pads</span>
-        <img src="assets/logo.png" alt="LivePads Logo" style="height: 34px;">
+        <span class="topbar-logo-text">Live Pads</span>
+        <img src="assets/logo.png" alt="LivePads Logo" class="topbar-logo-img">
       </div>
     </div>
 
     <div class="topbar-right">
-      <div style="display:flex; align-items:center; gap:12px;">
+      <div class="topbar-actions">
         <button class="icon-btn" id="btn-settings-toggle" title="Ajustes">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none">
             <circle cx="12" cy="12" r="3"/>
@@ -66,7 +64,7 @@
   </header>
 
   <!-- ═══ MAIN BODY ═══ -->
-  <div id="body" style="flex-direction: column;">
+  <div id="body">
     <main id="stage">
 
       <!-- TOP MODULES: Bank + Metronome in 2-column grid -->
@@ -83,15 +81,15 @@
           <div class="sb-div"></div>
           <div class="bank-row">
             <div class="bank-label">Kit de batería</div>
-            <div class="bank-selector" style="display:flex; gap:4px; align-items:center;">
+            <div class="bank-selector bank-selector--with-actions">
               <select id="kit-bank-select" class="metro-dropdown"></select>
-              <button id="btn-create-kit" style="background:transparent; border:none; color:var(--text-muted); opacity:0.5; width:32px; height:32px; border-radius:6px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Crear Nuevo Kit Personalizado">
+              <button id="btn-create-kit" class="kit-action-btn" title="Crear Nuevo Kit Personalizado">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
-              <button id="btn-edit-kit" style="background:transparent; border:none; color:var(--text-muted); opacity:0.5; width:32px; height:32px; border-radius:6px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Editar Kit Personalizado">
+              <button id="btn-edit-kit" class="kit-action-btn" title="Editar Kit Personalizado">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="18" height="18"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
               </button>
-              <button id="btn-delete-kit" style="background:transparent; border:none; color:var(--text-muted); opacity:0.5; width:32px; height:32px; border-radius:6px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; cursor:pointer; display:none;" title="Eliminar Kit Personalizado">
+              <button id="btn-delete-kit" class="kit-action-btn kit-action-btn--hidden" title="Eliminar Kit Personalizado">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
               </button>
             </div>
@@ -102,12 +100,12 @@
         <footer id="panel-metro" class="horizontal-metro">
 
           <div class="hm-section hm-play">
-            <button class="metro-main-btn" id="btn-metro-main" style="width:50px;height:50px;padding:0;display:flex;justify-content:center;align-items:center;border-radius:12px;">
+            <button class="metro-main-btn metro-main-btn--square" id="btn-metro-main">
               <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>
             </button>
             <div id="metro-beat-row">
               <div id="metro-beat-dots"></div>
-              <div id="metro-bpm-live" style="margin-left:auto;">— BPM</div>
+              <div id="metro-bpm-live">— BPM</div>
             </div>
           </div>
 
@@ -119,25 +117,25 @@
             </div>
             <div class="hm-bpm-slider-wrap">
               <input type="range" id="bpm-slider" min="30" max="300" value="120" class="blue-slider metro-slider">
-              <button class="tap-btn" id="tap-tempo" style="width:auto;padding:4px 10px;font-size:10px;">TAP</button>
+              <button class="tap-btn tap-btn--compact" id="tap-tempo">TAP</button>
             </div>
           </div>
 
           <div class="hm-section hm-compas">
-            <select id="metro-sig-select" class="metro-dropdown" style="margin-bottom:6px;">
+            <select id="metro-sig-select" class="metro-dropdown metro-sig-select">
               <option value="2">2/4</option>
               <option value="3">3/4</option>
               <option value="4" selected>4/4</option>
               <option value="6">6/8</option>
               <option value="12">12/8</option>
             </select>
-            <div style="display:flex;gap:6px;">
+            <div class="metro-mult-row">
               <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
               <button class="metro-mult-btn" id="btn-mult-2">2x</button>
             </div>
           </div>
 
-          <div class="hm-section" style="display:flex;flex-direction:column;gap:6px;flex:0 0 110px;">
+          <div class="hm-section hm-section--sounds">
             <select id="metro-sound-select" class="metro-dropdown">
               <option value="classic">Clásico</option>
               <option value="woodblock">Woodblock</option>
@@ -154,15 +152,15 @@
           </div>
 
           <div class="hm-section hm-mix">
-            <div class="sb-row" style="padding:0 0 6px;">
-              <span class="sr-label" style="font-size:10px;min-width:24px;">Vol</span>
+            <div class="sb-row sb-row--metro">
+              <span class="sr-label sr-label--metro">Vol</span>
               <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
-              <span class="sr-val" id="metro-vol-val" style="min-width:26px;">80%</span>
+              <span class="sr-val sr-val--metro" id="metro-vol-val">80%</span>
             </div>
-            <div class="sb-row" style="padding:0;">
-              <span class="sr-label" style="font-size:10px;min-width:24px;">Pan</span>
+            <div class="sb-row sb-row--metro-bottom">
+              <span class="sr-label sr-label--metro">Pan</span>
               <input type="range" id="metro-pan-slider" min="-100" max="100" value="-100" class="pan-slider">
-              <span class="sr-val" id="metro-pan-val" style="min-width:26px;">L100</span>
+              <span class="sr-val sr-val--metro" id="metro-pan-val">L100</span>
             </div>
           </div>
 
@@ -172,7 +170,7 @@
       <!-- Keys + Pad controls -->
       <div id="panel-keys">
         <div class="key-grid" id="key-grid"></div>
-        <div id="pad-volume-tray" class="sb-card" style="margin-top:auto; margin-bottom:0; flex-shrink: 0;">
+        <div id="pad-volume-tray" class="sb-card">
           <div class="tray-header">Ajustes de pad</div>
           <div class="sb-row">
             <span class="sr-label">Vol</span>
@@ -192,18 +190,18 @@
       <div id="panel-drums">
         <div class="drum-grid" id="drum-grid"></div>
         <div id="drum-volume-tray" class="sb-card">
-          <div class="tray-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div class="tray-header tray-header--drum">
             <span>Pads de batería</span>
-            <div style="display: flex; gap: 16px; align-items: center; font-size: 11px; font-weight: normal;">
-              <div class="tray-pan-row" style="margin:0; padding:0; justify-content:flex-end;">
-                <span class="sr-label" style="min-width:auto; margin-right:4px;">Vol</span>
-                <input type="range" id="drum-master-vol-stage" min="0" max="100" value="80" class="blue-slider" style="width: 80px;">
-                <span class="sr-val" id="drum-master-vol-val-stage" style="min-width:30px;">80%</span>
+            <div class="drum-tray-controls">
+              <div class="tray-pan-row tray-pan-row--flush">
+                <span class="sr-label sr-label--inline">Vol</span>
+                <input type="range" id="drum-master-vol-stage" min="0" max="100" value="80" class="blue-slider slider--80">
+                <span class="sr-val sr-val--narrow" id="drum-master-vol-val-stage">80%</span>
               </div>
-              <div class="tray-pan-row" style="margin:0; padding:0; justify-content:flex-end;">
-                <span class="tray-pan-label" style="min-width:auto; margin-right:4px;">Pan</span>
-                <input type="range" id="drum-pan-stage" min="-100" max="100" value="100" class="pan-slider" style="width: 80px;">
-                <span class="sr-val" id="drum-pan-val-stage" style="min-width:30px;">R100</span>
+              <div class="tray-pan-row tray-pan-row--flush">
+                <span class="tray-pan-label sr-label--inline">Pan</span>
+                <input type="range" id="drum-pan-stage" min="-100" max="100" value="100" class="pan-slider slider--80">
+                <span class="sr-val sr-val--narrow" id="drum-pan-val-stage">R100</span>
               </div>
             </div>
           </div>
@@ -215,8 +213,8 @@
       <div id="panel-setlist">
         <div class="setlist-header">
           <span class="setlist-title">Setlist</span>
-          <div style="display: flex; gap: 8px;">
-            <button class="icon-btn accent-btn" id="btn-sync-gi" title="Sincronizar con base de datos" style="display: none;">
+          <div class="setlist-header-actions">
+            <button class="icon-btn accent-btn hidden" id="btn-sync-gi" title="Sincronizar con base de datos">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
             </button>
             <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar GI-Setlist">
@@ -235,35 +233,50 @@
         <div id="setlist-list" class="hidden"></div>
 
         <div id="service-setlist-list" class="hidden">
-          <div class="service-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
-            <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">Tu lista de hoy</span>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button class="icon-btn" id="btn-service-prev" title="Canción anterior" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; padding: 0;">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" style="margin-top: -1px;"><polyline points="18 15 12 9 6 15"/></svg>
+          <div class="service-actions">
+            <span class="service-actions-label">Tu lista de hoy</span>
+            <div class="service-actions-nav">
+              <button class="icon-btn service-nav-btn" id="btn-service-prev" title="Canción anterior">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" class="svg-nudge-up"><polyline points="18 15 12 9 6 15"/></svg>
               </button>
-              <button class="icon-btn" id="btn-service-next" title="Canción siguiente" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; padding: 0;">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" style="margin-top: 1px;"><polyline points="6 9 12 15 18 9"/></svg>
+              <button class="icon-btn service-nav-btn" id="btn-service-next" title="Canción siguiente">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" class="svg-nudge-down"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
-              <button class="icon-btn" id="btn-clear-service" title="Vaciar lista" style="font-size: 10px; color: #ff4747; margin-left: 8px;">Vaciar</button>
+              <button class="icon-btn btn-clear-service" id="btn-clear-service" title="Vaciar lista">Vaciar</button>
             </div>
           </div>
           <div id="service-songs-container" class="drag-container"></div>
-          <div id="service-empty-msg" style="padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 12px; border: 2px dashed var(--border); border-radius: 12px;">
+          <div id="service-empty-msg" class="empty-state">
             No hay canciones en el set de hoy.<br>Añádelas desde la <b>Librería</b>.
           </div>
         </div>
         
         <div id="gi-setlist-list">
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="text" id="gi-search" class="gi-search-input" placeholder="Buscar canción o artista..." style="flex: 1; margin-bottom: 0;">
-            <button class="icon-btn accent-btn" id="btn-add-gi-song" title="Nueva canción" style="flex-shrink: 0; transition: transform 0.15s;">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            </button>
-          </div>
-          <div class="gi-filters" style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <button class="gi-filter-btn active" data-genre="all" id="btn-filter-all">Todas</button>
-            <button class="gi-filter-btn" data-genre="alabanza" id="btn-filter-alabanza">Alabanza</button>
-            <button class="gi-filter-btn" data-genre="adoracion" id="btn-filter-adoracion">Adoración</button>
+          <div class="gi-sticky-header">
+            <div class="gi-search-row">
+              <input type="text" id="gi-search" class="gi-search-input gi-search-input--inline" placeholder="Buscar canción o artista...">
+              <button class="icon-btn gi-filter-toggle no-shrink" id="btn-gi-filter-toggle" title="Filtrar por categoría" aria-haspopup="true" aria-expanded="false">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="16" height="16"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+                <span class="gi-filter-dot" id="gi-filter-dot" hidden></span>
+              </button>
+              <button class="icon-btn accent-btn btn-add-gi-song" id="btn-add-gi-song" title="Nueva canción">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <div id="gi-filter-menu" class="gi-filter-menu hidden" role="menu">
+                <button class="gi-filter-option active" data-genre="all" role="menuitem">
+                  <span class="gi-filter-option-label">Todas</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-all">0</span>
+                </button>
+                <button class="gi-filter-option" data-genre="alabanza" role="menuitem">
+                  <span class="gi-filter-option-label">Alabanza</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-alabanza">0</span>
+                </button>
+                <button class="gi-filter-option" data-genre="adoracion" role="menuitem">
+                  <span class="gi-filter-option-label">Adoración</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-adoracion">0</span>
+                </button>
+              </div>
+            </div>
           </div>
           <div id="gi-songs-container"></div>
         </div>
@@ -271,37 +284,36 @@
     </main>
 
     <!-- ═══ TRACK PLAYER (Secuencias / Original) ═══ -->
-    <div id="track-player-bar" style="flex-shrink: 0; background: var(--bg-card); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 20px; z-index: 1000; height: 76px;">
-      <div style="display: flex; gap: 10px;">
-        <button class="icon-btn" id="tp-play-btn" style="background: var(--blue); color: #000; border-radius: 50%; width: 44px; height: 44px; transition: transform 0.15s;">
+    <div id="track-player-bar">
+      <div class="tp-transport">
+        <button class="icon-btn tp-play" id="tp-play-btn">
            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>
         </button>
-         <button class="icon-btn" id="tp-stop-btn" style="background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); border-radius: 50%; width: 44px; height: 44px; transition: all 0.15s;" title="Detener">
+         <button class="icon-btn tp-stop" id="tp-stop-btn" title="Detener">
             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="6" width="12" height="12"/></svg>
          </button>
-         <button class="icon-btn" id="tp-loop-btn" style="background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); border-radius: 50%; width: 44px; height: 44px; transition: all 0.15s;" title="Repetir (Loop)">
+         <button class="icon-btn tp-loop" id="tp-loop-btn" title="Repetir (Loop)">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
          </button>
       </div>
-      
-      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 0 10px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-          <div id="tp-title" style="font-size: 14px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.3px;">Ninguna pista cargada</div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums;">
+
+      <div class="tp-info">
+        <div class="tp-info-header">
+          <div id="tp-title">Ninguna pista cargada</div>
+          <div class="tp-time">
             <span id="tp-time-current">0:00</span> / <span id="tp-time-total">0:00</span>
           </div>
         </div>
         <input type="range" id="tp-progress" min="0" max="100" value="0" class="blue-slider">
       </div>
 
-      <div style="display: flex; align-items: center; gap: 20px; margin-left: 10px;">
-
-         <div class="sb-row" style="padding:0;">
-            <span class="sr-label" style="font-size:10px;min-width:24px;">Vol</span>
-            <input type="range" id="tp-vol" min="0" max="100" value="80" class="blue-slider" style="width: 80px;">
-            <span class="sr-val" id="tp-vol-val" style="min-width:26px;">80%</span>
+      <div class="tp-right">
+         <div class="sb-row tp-vol-row">
+            <span class="sr-label tp-vol-label">Vol</span>
+            <input type="range" id="tp-vol" min="0" max="100" value="80" class="blue-slider tp-vol-slider">
+            <span class="sr-val tp-vol-val" id="tp-vol-val">80%</span>
          </div>
-         <button class="icon-btn" id="tp-close-btn" style="width: 32px; height: 32px; background: var(--bg-hover); border-radius: 8px;" title="Cerrar pista">
+         <button class="icon-btn tp-close" id="tp-close-btn" title="Cerrar pista">
            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
          </button>
       </div>
@@ -323,7 +335,7 @@
             <div class="sb-label">Ajustes generales</div>
             <div class="sb-card">
               <div class="sb-row">
-                <span class="sr-label" style="min-width: 60px;">Maestro</span>
+                <span class="sr-label sr-label--wide">Maestro</span>
                 <input type="range" id="master-vol" min="0" max="100" value="100" class="blue-slider">
                 <span class="sr-val" id="master-vol-val">100%</span>
               </div>
@@ -353,12 +365,12 @@
             <div class="sb-label">Pads de batería</div>
             <div class="sb-card">
               <div class="sb-row">
-                <span class="sr-label" style="min-width:70px;">Maestro</span>
+                <span class="sr-label sr-label--xwide">Maestro</span>
                 <input type="range" id="drum-master-vol" min="0" max="100" value="80" class="blue-slider">
                 <span class="sr-val" id="drum-master-vol-val">80%</span>
               </div>
             </div>
-            <div class="sb-card" id="sidebar-drum-volumes" style="padding:16px 20px; display:flex; flex-direction:column; gap:16px;"></div>
+            <div class="sb-card" id="sidebar-drum-volumes"></div>
           </div>
 
 
@@ -370,29 +382,29 @@
 
           <!-- TAB: ABOUT -->
           <div id="tab-about" class="stab-body">
-            <div class="about-sidebar-panel" style="padding: 24px 20px; text-align: center;">
-              <img src="assets/logo.png" alt="Logo" style="width: 70px; height: 70px; margin-bottom: 12px; filter: drop-shadow(0 0 8px rgba(0,170,255,0.6));">
-              <h3 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1.5px; color: #fff;">LIVE PADS</h3>
-              <div style="font-size: 11px; color: var(--blue); font-weight: 700; margin-bottom: 18px; letter-spacing: 0.5px;">Versión 1.0.0 — Edición Profesional</div>
-              
-              <p style="font-size: 12px; color: var(--text-muted); line-height: 1.6; text-align: left; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+            <div class="about-sidebar-panel">
+              <img src="assets/logo.png" alt="Logo" class="about-logo">
+              <h3 class="about-title">LIVE PADS</h3>
+              <div class="about-version">Versión 1.0.0 — Edición Profesional</div>
+
+              <p class="about-blurb">
                 Live Pads es una robusta plataforma de directo diseñada para directores de alabanza y músicos. Integra colchones de pads continuos, metrónomo interactivo y reproductor híbrido de secuencias con mapeo MIDI extendido y transiciones cruzadas sin silencios.
               </p>
-              
-              <div style="text-align: left; font-size: 11px;">
-                <b style="color: #fff;">Atajos Rápidos de Teclado:</b>
-                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; color: var(--text-muted);">
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px;">
+
+              <div class="about-shortcuts">
+                <b class="about-shortcuts-title">Atajos Rápidos de Teclado:</b>
+                <div class="about-shortcuts-list">
+                  <div class="about-shortcut-row">
                     <span>Play/Stop Maestro</span>
-                    <kbd style="background:var(--bg-surface); padding:2px 6px; border: 1px solid var(--border); border-radius:4px; font-family:monospace; color:#fff;">Spacebar</kbd>
+                    <kbd class="kbd-chip">Spacebar</kbd>
                   </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 6px;">
+                  <div class="about-shortcut-row">
                     <span>Pánico (Silencio)</span>
-                    <kbd style="background:var(--bg-surface); padding:2px 6px; border: 1px solid var(--border); border-radius:4px; font-family:monospace; color:#fff;">Esc</kbd>
+                    <kbd class="kbd-chip">Esc</kbd>
                   </div>
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px;">
+                  <div class="about-shortcut-row about-shortcut-row--last">
                     <span>Navegar Setlist</span>
-                    <kbd style="background:var(--bg-surface); padding:2px 6px; border: 1px solid var(--border); border-radius:4px; font-family:monospace; color:#fff;">↑ / ↓</kbd>
+                    <kbd class="kbd-chip">↑ / ↓</kbd>
                   </div>
                 </div>
               </div>
@@ -407,7 +419,7 @@
   <!-- Overlays -->
   <div id="menu-overlay" class="hidden" onclick="closeMenu()"></div>
   <div id="menu-popover" class="hidden">
-    <button class="menu-item" id="menu-midi-learn" style="color:var(--blue);">
+    <button class="menu-item menu-item--accent" id="menu-midi-learn">
       <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><line x1="12" y1="3" x2="12" y2="21"></line><line x1="8" y1="3" x2="8" y2="12"></line><line x1="16" y1="3" x2="16" y2="12"></line></svg>
       Mapeo MIDI / Teclado
     </button>

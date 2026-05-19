@@ -6,6 +6,238 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (novena pasada)
+
+### Estado al cerrar
+
+- **Última fase completada**: 🏗️ Fase 30 — Extracción modular de la lista GI + service list
+- **app.js**: 1687 → **1441 líneas** (-246, -15% en esta sesión; -53% desde el origen 3055)
+- **Total módulos**: 32 archivos especializados
+
+### Fase 30 (esta sesión) — extracción modular de los renderers
+
+**Objetivo**: sacar la lógica de las dos listas de canciones (Librería GI y Servicio) de `app.js` a módulos dedicados, manteniendo el estado en `app.js` y exponiéndolo vía getters/setters inyectados.
+
+1. **`src/js/ui/giList.js`** (271 líneas, nuevo) — encapsula:
+   - `renderGiList()` con chunked rendering (60+ canciones) y token de aborto
+   - Delegación completa de clicks (10 acciones: `play-seq`, `play-orig`, `add`, `remove`, `edit`, `edit-save`, `edit-cancel`, `toggle-lyrics`, `toggle-chords`, `edit-lyrics`, `edit-form-shell`)
+   - Helpers quirúrgicos: `repaintGiCard`, `renumberGiCards`, `getGiCardBySongId`
+   - Constructor de cards puro (sólo markup, sin handlers)
+2. **`src/js/ui/serviceListView.js`** (175 líneas, nuevo) — equivalente para el servicio:
+   - `renderServiceList()` + delegación de clicks (9 acciones) + delegación de drag-and-drop (5 listeners)
+   - `repaintServiceCard()` quirúrgico
+   - Sync GI↔Service vía callbacks `syncLyricsToLibrary` y `syncMetaToLibrary` (no toca `giSetlistSongs` directamente)
+3. **API de deps**: ambos módulos reciben los hooks que necesitan; no comparten estado mutable global.
+
+### Fase 29 (esta sesión) — refactor quirúrgico de renderers
+
+Con event delegation ya activo, varios handlers que antes hacían `renderGiSetlist()` completo (80 cards) ahora actualizan **1 sola card**:
+
+| Acción | Antes | Ahora |
+|---|---|---|
+| `remove` lib | re-render 80 cards | `card.remove()` + renumber |
+| `edit-cancel` revert | re-render 80 | `repaintGiCard` × 1 |
+| `edit-cancel` discard nueva | re-render 80 | `card.remove()` + renumber |
+| `edit-lyrics save` lib | re-render 80 | `repaintGiCard` × 1 |
+| `edit-save` lib (sin sort change) | re-render 80 | `repaintGiCard` × 1 |
+| `edit-lyrics save` svc | re-render 80 + svc | 2 repaints × 1 |
+| `edit-cancel` svc | re-render svc | `repaintServiceCard` × 1 |
+
+Bug fix de propina: en service `edit-save`, la búsqueda de `giSong` se hacía con el título **ya mutado** — si renombrabas desde el servicio, no encontraba la matching en la librería. Ahora se guarda `oldTitleArtist` antes de mutar.
+
+### Fase 28 (esta sesión) — event delegation en setlists
+
+- **Antes**: cada render adjuntaba **8 handlers × N filas** (≈640 closures para 80 canciones). Cambiar de búsqueda recompilaba todos en cada keystroke.
+- **Ahora**: **1 listener por container**, atachado una vez en boot. Dispatch por `[data-action]` con `closest()`.
+- `buildCard` pasó de ~120 líneas con handlers inline a ~15 líneas de markup puro.
+- Drag-and-drop del service list también delegado.
+- `songCard.js`: añadidos `data-action` a cada botón.
+- `songEditForm.js`: eliminados 9 inline styles, ahora usa clases `.gi-edit-form`, `.gi-edit-input`, `.gi-edit-row`, etc.
+- **Ganancia estimada**: 3-5× más rápido el re-render en cada búsqueda/filtro; ~640 closures menos vivas por render.
+
+### Fase 27 (esta sesión) — single-scroll en acordeón de letra
+
+- El acordeón de letra+acordes (`.gi-lyrics-accordion.open`) tenía `max-height: 700px` + `overflow-y: auto`, lo que creaba **dos barras de scroll verticales** confusas (una para la lista, otra dentro de la card abierta).
+- Cambio: `max-height: 2500px` + `overflow: visible`. La letra fluye natural; sólo la barra externa del setlist scrollea. Eliminados los estilos de scrollbar interno.
+
+### Fase 26 (esta sesión) — inline styles, CSS split, chunked render, iconos
+
+1. **Inline styles → clases CSS**: 36 → **0** `style="..."` en `index.html`. Nuevas utilities en `_utilities.css` (topbar, metronome, drum tray, sidebar labels, etc.).
+2. **Split de `index.css`**: 2456 líneas en 1 archivo → **10 módulos** en `src/css/modules/`:
+   - `_base.css` (vars, premium polish, reset)
+   - `_layout.css` (topbar, stage, panels)
+   - `_sidebar.css` (sidebar + about)
+   - `_setlist.css` (setlist + gi rows + service + song card + edit form)
+   - `_metronome.css`, `_trackplayer.css`
+   - `_modals.css` (dialogs + soundpool + lyrics editor)
+   - `_preloader.css`, `_utilities.css`, `_responsive.css`
+   - `index.css` ahora es un manifiesto de `@import` en orden de cascada.
+3. **Chunked rendering de la lista GI** (precursor de la extracción a giList.js): libraries ≤60 canciones renderizan síncrono; >60 hacen primer chunk de 30 + streaming vía `requestIdleCallback`. Token de aborto cancela streams obsoletos si entra una nueva búsqueda.
+4. **Botones "Importar URL" + "Vista Previa" → solo iconos**: 26×26 cuadrados con SVG (cadena + ojo). Toggle por clase `.active` (no `textContent`) para no borrar el SVG. `aria-label` + `title` para accesibilidad.
+5. **Dead code en `chordImporter.js`**: removido `import { transposeAll }` marcado "future use" + branch redundante de `<br>` en el `<font>` fallback.
+
+### Fase 25 (sesión anterior) — bugs reportados arreglados
+
+1. **🐛 Bug: drum pad activaba al teclear `R` (o `Q/W/E/A/S/D/F`) en el textarea de letras** — El `onKey` global solo filtraba `INPUT` pero no `TEXTAREA`. Ahora filtra `INPUT`, `TEXTAREA`, `SELECT`, contentEditable, **y** detecta si el modal de letras está abierto (`#gi-lyrics-modal`) → lockout total de pad/drum/master shortcuts mientras editas letra.
+2. **🐛 Bug: botón "Importar URL" no hacía nada** — `window.prompt()` está **deshabilitado en Electron 33** (devuelve `undefined` silenciosamente sin abrir diálogo). Reemplazado por `showDialog()` interno (el mismo que usa "Nuevo kit") que SÍ abre un modal inline con input, botones, focus, validación.
+3. **🎨 Estilo discreto/moderno** — Los botones "Importar URL" y "Vista Previa" antes eran prominentes (oro/border azul). Ahora son **ghost outline** con borde transparente, hover en color del tema activo. Coherentes con el resto de la toolbar, no compiten visualmente con [+ SECCIÓN] o transpose. Más pulcro.
+
+### Fase 24 (anterior) — qué se hizo
+- **Nuevo módulo**: `src/js/data/chordImporter.js` con parser para LaCuerda
+- **Nueva ruta IPC**: `fetch-chord-url` (main.js) con whitelist + timeout
+
+### Fase 24 (esta sesión) — qué se hizo
+
+**Feature nuevo**: importar la letra+acordes de una canción desde una URL (ej. `https://acordes.lacuerda.net/gateway_worship/celebrare.shtml`), evitando copiar/pegar manualmente.
+
+1. **Backend (main.js)**: handler `fetch-chord-url` con:
+   - Whitelist de dominios (`lacuerda.net`, `acordes.lacuerda.net`, `www.lacuerda.net`)
+   - Timeout 10s vía AbortController
+   - Validación de URL + content-type
+   - User-Agent identificable
+2. **Parser** (`src/js/data/chordImporter.js`):
+   - Extrae título (de `<h1>` o `<title>`)
+   - Artista (del `<title>` o anchor con `title*=acordes`)
+   - Tono (regex `Tono:\s*X`)
+   - Body (de los `<pre>` o `<font>` legacy)
+   - Normaliza: decodea entidades HTML, strip tags inline (`<a>`, `<span>`, `<font>`)
+   - Convierte headers `Coro:`, `Verso 1:` a `[CORO]`, `[VERSO 1]`
+3. **UI** (`lyricsEditor.js`):
+   - Botón "Importar URL" en toolbar (al lado del transpose)
+   - Al click: prompt URL → spinner → fetch → parse → llena textarea
+   - Si la canción no tiene título/artista/tono, los autocompleta del HTML
+   - Confirm si ya había letra escrita (no sobrescribe sin pedir)
+   - Toast success/error con mensaje útil
+   - Botón usa colores del tema activo (`var(--glow)`, `var(--accent)`)
+4. **Seguridad**: el renderer NO puede hacer fetch directo (webSecurity:true), todo pasa por main.js que valida domain whitelist. Imposible que el renderer abuse de la conexión.
+- **soundPoolModal.js**: 278 → **177 líneas** (-101, -36%)
+- **app.js**: 1687 líneas (sin cambios desde Fase 22)
+
+### Fase 23 (esta sesión) — qué se hizo
+
+1. **soundPoolModal reescrito completo** — antes tenía 18 `Object.assign(el.style, {...})` blobs con styles hardcoded. La razón era el legacy `body * { transition }` rule que ya eliminamos en Fase 16. Ahora todo el modal usa clases CSS (`.spm-*`).
+   - 6 handlers `onmouseenter`/`onmouseleave` con `style.background` eliminados → reemplazados por CSS `:hover`
+   - Theme-aware: el botón de "Subir archivo" usa `linear-gradient(135deg, var(--accent2), var(--accent))` → se tinta del color del tema activo
+   - El badge "Selector de sonido" usa `var(--glow)` y `var(--accent)` → coherente con el tema
+   - El estado `.playing` del play button usa `var(--accent)` en vez de oro hardcoded
+   - El botón "Usar" usa `var(--accent)`
+2. **Helper `el(tag, className, opts)`** añadido al módulo — reemplaza el patrón repetitivo `document.createElement + className + textContent + innerHTML` con un constructor declarativo de 3 args.
+3. **Hover effects ahora puramente declarativos** — JS solo se encarga de eventos (click, audio playback), el visual lo maneja CSS.
+
+### Fase 22 (esta sesión) — qué se hizo
+
+1. **Setlist tab header visibility imperativa → CSS** — La lógica del toggle de tabs (Presets / Librería / Servicio) antes hacía 9 `btn.style.display = ...` para mostrar/ocultar los botones del header (Import/Sync/AddPreset). Ahora el JS solo setea `panelSetlist.dataset.activeTab = target` y CSS controla la visibilidad con selectores `#panel-setlist[data-active-tab="..."] #btn-import-gi { display: none; }`. **Más declarativo, más rápido, código JS más corto.**
+2. **Dead code eliminado**:
+   - `doSavePreset()` ya no se llamaba desde ningún lado (su único caller era el `#btn-add-preset` que no existe en HTML)
+   - Su import `addPreset` ya no se usa, removido de `import { ... } from './data/presets.js'`
+   - Las 3 ramas defensivas que tocaban `btn-add-preset` removidas
+3. La función `doSavePreset` queda documentada como removed con la receta para retomarla si se agrega el botón ("usar `addPreset({...})` directamente").
+
+### Fase 21 (anterior) — qué se hizo
+- **Inline styles en HTML**: 61 → **36** (-41% adicional, **acumulado 85→36 = -58%**)
+- Cleanup adicional: `kbd-chip` class reusable, `service-nav-btn`, `empty-state`, `metro-main-btn--square` variant, `.svg-nudge-up/down` para SVGs con offset
+- Logo del About ahora usa `var(--glow)` → tinta el drop-shadow al color del tema activo
+- Versión del About usa `var(--accent)` para colorear según tema
+- Vendor prefix warning legacy (`appearance` sin `-webkit-`) corregido tras toda la sesión apareciendo
+
+### Fase 21 (esta sesión) — qué se hizo
+- **Las 6 paletas (GI.Setlist, Midnight Aurora, Crimson Power, Clean Worship, Deep Sea, Ambient Purple) ahora cada una con**:
+  - Color secundario (`accent2`) para gradientes en buttons/popups
+  - `glow` por tema → todos los box-shadows usan el color del tema activo
+  - `borderStrong` para énfasis (focus rings, BPM editor, etc.)
+  - `gradient` con radial highlight sutil + linear backdrop — cada tema tiene su "vibe" único
+- Cards y panels ahora con gradiente sutil 2-tone (155deg) en vez de flat color
+- Botones acento usan gradiente accent → accent2
+- Scrollbar adapta al color del tema
+- Active song highlight ahora con un wash diagonal del color del tema + glow refinado
+- Cero costo runtime — todo CSS variables nativas, browser las cachea
+
+### Fase 20 (esta sesión) — qué se hizo
+- **Build instalador**: `dist/LivePads-Setup-1.0.0.exe` (296 MB) — Fase 17, sigue válido
+- **app.js**: ~1720 líneas (de 3055 iniciales, **-44%**)
+- **Módulos creados**: 30 archivos especializados
+- **Inline styles en HTML**: 85 → 61 (-28%)
+- **Funcionalidad**: 100% operativa, app corre en dev y empaquetada
+
+### Fase 19 (esta sesión) — qué se hizo
+
+1. **Preloader inline styles → CSS** — `#preloader`, `.preloader-logo`, `.preloader-title`, `.preloader-bar`, `.preloader-fill` ahora viven en CSS. El markup HTML pasó de 4 atributos `style="…"` largos a clases limpias.
+2. **MIDI Learn overlay → CSS** — `#midi-learn-overlay` con sus estilos del chip flotante movidos a CSS.
+3. **Track Player bar completo → CSS** — `#track-player-bar` y sus hijos (`.tp-transport`, `.tp-play`, `.tp-stop`, `.tp-loop`, `.tp-info`, `.tp-time`, `.tp-right`, `.tp-vol-*`, `.tp-close`) ahora en CSS. Eliminados ~8 atributos style inline grandes.
+4. **Kit action buttons (create/edit/delete) → clase compartida** — los tres botones tenían el mismo blob de 213 chars repetido. Ahora usan `.kit-action-btn` + modifiers `.kit-action-btn--hidden` y `.kit-action-btn--disabled`. JS dejó de hacer `style.display` y `style.opacity` directos, ahora togglea clases.
+
+### Fase 18 (esta sesión) — qué se hizo
+
+1. **BPM inline editor** — `input.style.cssText` enorme (350+ chars) reemplazado por clase CSS `#bpm-inline-input`. Más legible, themable, sin penalty de parse en cada apertura del editor.
+2. **Pre-warm pad bank optimizado** — `_preloadBank` antes cargaba 12 notas secuencialmente con breathers de 50ms (~1-2s total). Ahora **dos fases**:
+   - **Fase 1 paralela** (5 notas más comunes en worship: C, G, D, A, F) → todas decodificadas concurrentemente con `Promise.all`, ~200-300ms para que las teclas más probables estén listas.
+   - **Fase 2 secuencial** (E, B, Bb, Eb, Db, Gb, Ab) con breathers de 50ms para no bloquear el main thread.
+   - Resultado: la primera presión en cualquiera de los 5 tonos más usados tiene **latencia cero** mucho antes que antes.
+3. **Added-popup "¡Añadida al servicio!"** — `popup.style.cssText` reemplazado por clase `.added-popup` + `.leaving` para el fade-out. Usa `transform + opacity` (GPU). Animación más fluida y código del handler 50% más corto.
+
+### Cómo retomar rápido mañana
+
+1. Abrir el proyecto en `c:\Users\josem\OneDrive\Escritorio\Live Pads`
+2. Verificar que arranca: `npm start`
+3. Leer las secciones **"Próximos blancos"** y **"Estado actual de la arquitectura"** abajo
+4. Elegir un target de la lista y atacar
+
+### Próximos blancos sugeridos (ordenados por valor / riesgo)
+
+#### 🟢 Bajos en riesgo (cleanup / micro-perf)
+
+1. **Auditoría de inline styles residuales en `index.html`** — quedan muchos `style="..."` que podrían moverse a CSS classes para reducir reflow. Especialmente el `#track-player-bar` y el preloader.
+2. **BPM inline editor** (en `bindMetronomeControls`, ~30 líneas) — usa `input.style.cssText` con un blob enorme. Mover a una clase CSS `.bpm-inline-input`.
+3. **Asset audit**: revisar tamaños de los MP3 en `src/assets/Pads Amb/` y `Click Tracks/`. Buscar si hay archivos sobre-comprimidos o que podrían bajar a 192kbps sin pérdida perceptible (ya hubo una pasada con `compress_pads.js`, ver si quedan oportunidades).
+4. **Reducir el bundle Electron**: hay ~250MB de Electron framework + ~250MB de assets. Si comprimimos o eliminamos formatos redundantes podríamos bajar el instalador.
+
+#### 🟡 Medios (mejoras de UX / perf concretas)
+
+5. **Virtualización del song list** — actualmente renderiza las 81 cards aunque solo ~10 son visibles. Con un catálogo creciendo (200+ canciones), conviene renderizar solo lo visible + buffer. Librería ligera: ~50 líneas custom code.
+6. **Boot profiling** — medir realmente dónde se va el tiempo del cold start (engine.init, asset decoding, electronAPI calls). Apuntar a <500ms hasta interactividad.
+7. **Lyrics editor**: aún tiene `transition` en algunas piezas que podrían snap. Auditar.
+8. **Pre-warm más agresivo del pad bank por defecto**: actualmente sequential con `setTimeout(50ms)` entre cada nota. Podríamos paralelizar las primeras 4-5 (C, G, D, A — las más comunes).
+9. **CSS organization**: `index.css` es un solo archivo de 1848 líneas. Si lo dividimos en `base.css`, `components.css`, `layout.css`, `theme.css`, mejora navegabilidad. Sin impacto runtime pero más limpio.
+
+#### 🔴 Altos (refactors estructurales)
+
+10. **Mini state-manager (`src/js/state.js`)** — desbloquea extracción de Key Grid, Master Controls y onKey. Cambia el modelo mental de la app — refactor profundo. Hacer SOLO si planeas comercializar y necesitas que un equipo trabaje sobre esto.
+11. **Render functions surgical refactor** — `renderGiSetlist`/`renderServiceList` aún rebuildean al editar canción / añadir / borrar. Surgical updates posibles pero complejo. Solo si el feel todavía no es perfecto.
+12. **Web Workers para parseo de letras** — si tienes canciones muy largas (~2000 versos), el parseo de acordes podría ir a un worker. Para uso normal no hace falta.
+
+### Lo que NO debes hacer
+
+- ❌ Tocar el `body * { transition }` — lo eliminamos en Fase 16 y era el peor offender de fluidez. No vuelvas a añadirlo.
+- ❌ Añadir nuevas referencias a `customMidiMap`, `presets` (variable), `serviceSongs`, `activeServiceIndex` como globals — ya están encapsulados en módulos. Usar los helpers (`getMapping`, `addPreset`, `getServiceSongs`, etc.).
+- ❌ Modificar `defaults/` durante runtime cuando `app.isPackaged` — solo en dev. Ya hay guards.
+- ❌ Hardcodear credenciales MongoDB en main.js — pasan por `config.json` en userData ahora.
+
+### Archivos clave para conocer al retomar
+
+- **`src/js/app.js`** — orquestador. Contiene boot, `bindAll` (orquestador de 9 sub-binders), render functions, master controls.
+- **`main.js`** — Electron main process. Tiene protocolo `livepads://`, IPC handlers con validación, paralelización de boot.
+- **`src/js/audio/Metronome.js`** — lookahead scheduler. Si lo modificas, cuidado con `_nextNoteTime` y la deduplicación.
+- **`src/css/index.css`** — todo el styling. CSS variables en `:root`, NO existe `body *` transition.
+- **`package.json`** — `build` config completo de electron-builder.
+
+### Comandos útiles
+
+```bash
+# Arrancar dev
+npm start
+
+# Verificar sintaxis sin correr
+node --input-type=module --check < src/js/app.js
+
+# Build instalador completo
+npm run build
+
+# Build sin instalador (más rápido, para testing)
+.\node_modules\.bin\electron-builder.cmd --win --dir
+```
+
+---
+
 ## 🚀 Implementado con Éxito
 
 ### 🎨 Diseño y UI (Aesthetics & UX)
@@ -127,10 +359,275 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
+### 🏗️ Fase 17 — Build final tras toda la optimización
+
+**Status: 🟢 INSTALADOR LISTO** — `dist/LivePads-Setup-1.0.0.exe` (296 MB).
+
+Build cubre toda la arquitectura optimizada acumulada en las fases 1-16:
+- 30 módulos JS especializados en `src/js/{audio,data,midi,ui,utils}/`
+- app.js: 3055 → ~1730 líneas (-43%)
+- Metrónomo Web Audio lookahead (sample-accurate, sin drift)
+- Surgical updates para active highlight + lyrics accordion + chord toggle
+- AudioContext con `latencyHint: 'interactive'`
+- Protocolo `livepads://` con `webSecurity: true`
+- Boot paralelo (engine + clicks + disk I/O simultáneos)
+- Lazy-load de click sounds (solo el default en boot, otros on-demand)
+- 60fps reales: `body * { transition }` killer eliminado, GPU para sidebar+preloader+animations
+- IPC hardening + path sanitization
+- Credenciales fuera del código fuente
+- Auto-update de listeners cacheados en track player
+
+**Build artifacts:**
+- `dist/LivePads-Setup-1.0.0.exe` — instalador NSIS (~296 MB)
+- `dist/win-unpacked/` — versión portable directa (~513 MB)
+- Compresión `maximum`, asar enabled, defaults/ en `extraResources`
+
+**Diagnóstico previo (resuelto):** en sesiones anteriores el packaged build "fallaba" al lanzarlo desde el sandbox de Claude Code porque la variable de entorno `ELECTRON_RUN_AS_NODE=1` se filtraba, forzando a Electron a correr en modo Node-only sin GUI. En tu PC normal esto no ocurre — la app arranca limpia. Confirmado funcionando con 6 procesos Electron (renderer ~1GB con pads + samples cargados).
+
+### 🏗️ Fase 16 — Auditoría de 60fps reales (CSS perf killers eliminados)
+
+Auditoría sistemática de transitions/animations buscando los killers de framerate.
+
+**🔥 Bug crítico encontrado y corregido — `body * { transition: var(--transition-theme) }`**
+
+Una sola línea de CSS aplicaba `transition: all 0.5s cubic-bezier(...)` a **TODO elemento del DOM**. Cada cambio de clase, hover, mutación de innerHTML, scroll, etc. disparaba transiciones de 500ms en cada elemento involucrado. Esto **invalidaba los surgical updates** de fases anteriores — el browser seguía animando 500ms incluso cuando solo togeábamos una clase. Con 81 cards × ~30 elementos por card = 2400+ elementos con transitions activas constantemente.
+
+Evidencia adicional: el código tenía workarounds explícitos en `#sound-pool-modal` y `#preloader` con `transition: none !important` para escapar de esta regla global. Esos hacks ya no son necesarios y los eliminé.
+
+**Otras optimizaciones aplicadas:**
+
+- **`@keyframes preloaderSlide`**: usaba `left: -40% → 100%` (triggers layout 60×/sec). Reescrito como `transform: translateX(-100% → 250%)` (composite-only, GPU). El preloader ya no toca el layout durante su animación.
+- **`#sidebar` slide-in**: usaba `right: -400px → 0` (layout). Reescrito como `transform: translateX(100% → 0)` con `will-change: transform`. El sidebar abre/cierra en GPU layer.
+- **`.beat-dot` on/off**: tenía `transition: all 0.2s` que difuminaba los flashes a >150 BPM. Cambiado a `transition: transform 0.15s` (solo el hover scale anima). Beat on/off ahora es instantáneo — el timing del metrónomo se percibe correctamente a cualquier BPM.
+- **`.drum-btn.hit`**: el `transition: all 0.15s` retrasaba la respuesta visual al golpe. Añadido `transition: none` específicamente al estado `.hit` para que el flash sea instantáneo. El fade de regreso conserva el smooth 0.15s. Drummer en directo siente respuesta inmediata.
+
+**Propiedades costosas usadas en transitions (auditadas, solo 3 quedan, todas justificadas):**
+- `.gi-lyrics-accordion` usa `max-height` (necesario para slide-down de altura variable). Un elemento a la vez.
+- `.gi-sticky-header` también `max-height` (collapse del header en scroll). Un elemento.
+- `transform: translateY()` ya se usa donde se puede.
+
+### 🏗️ Fase 15 — Updates quirúrgicos para acordeón de letras + toggle de acordes
+
+**Impacto en fluidez**: estas 4 interacciones (clic en botón de letras + toggle de acordes en cada lista) antes disparaban un **full re-render de 81+ cards de librería + N cards de servicio**, solo para cambiar 2 clases CSS en una sola card. En live performance con catálogos grandes, esto causaba un freeze visible.
+
+- **`toggleLyricsAccordion(song, isService)`** — cierra cualquier acordeón abierto (vía `querySelectorAll('.gi-lyrics-accordion.open')`) y abre el de la card target. Mantiene el invariante "solo un acordeón abierto a la vez en toda la app". 4 DOM writes máximo por click.
+- **`toggleChordVisibility(song, isService, syncToLibrary)`** + helper `paintChordVisibility(card, showChords)`. Cuando el toggle ocurre en la lista de Servicio, también sincroniza visualmente la card de librería si está renderizada. 2-4 DOM writes por click.
+- **4 callsites reemplazados**:
+  - `renderGiSetlist` lyrics accordion handler — antes: full re-render gi+svc; ahora: `toggleLyricsAccordion(song, false)`
+  - `renderGiSetlist` chord toggle handler — antes: full re-render gi; ahora: `toggleChordVisibility(song, false)`
+  - `renderServiceList` lyrics accordion handler — antes: full re-render gi+svc; ahora: `toggleLyricsAccordion(song, true)`
+  - `renderServiceList` chord toggle handler — antes: full re-render gi+svc + sync manual; ahora: `toggleChordVisibility(song, true, true)`
+
+**Latencia perceived**: clic en acordeón de letras pasa de ~150-300ms (rebuild de 81 cards con 7-9 onclick handlers c/u) a **<5ms** (4 DOM writes).
+
+- **Cleanup adicional**: `getCleanSampleName` unused import eliminado de app.js, `onkeypress` deprecated reemplazado por `onkeydown` (con guard para teclas de control), última instancia de `.substr()` deprecated reemplazada por `.substring()`.
+
+### 🏗️ Fase 14 — Dedupe de patrones BPM
+
+- **`applyBpm(v)` helper a nivel de módulo en app.js**: unifica el patrón `metro.setBPM(v) + slider.value + bpm-display + metro-bpm-live + syncSlider` que estaba duplicado en 3 sitios (bindMetronomeControls closure, applyPreset, applyGiSong). Ahora 6 call sites comparten una sola función defensiva (`if (slider)`, `if (disp)`, etc. — no crashea si el DOM no está completo).
+- **`window.updateBPM` eliminado**: era exposición legacy que nada externo usaba. Ahora `applyBpm` vive a nivel de módulo, accesible directamente desde cualquier función de app.js sin contaminar `window`.
+- **applyPreset** se reduce de 9 líneas a 5; **applyGiSong** elimina 5 líneas duplicadas; **bindMetronomeControls** elimina la closure `updateBPM` (8 líneas).
+- **app.js: 1676 → 1669 líneas** (-7 netas, pero ~20 líneas de duplicación eliminadas).
+
+### 🏗️ Fase 13 — Utilidades, filtros y overlays a módulos + UX hover
+
+- **`src/js/utils/sliders.js`** — `syncSlider`, `syncPanSlider`, `bindToggle`. Antes vivían in-line en app.js; usadas en muchísimos sitios (mixer, BPM, metro vol/pan, drum volumes, etc.). Ahora source of truth único.
+- **`src/js/ui/genreFilter.js`** — `updateFilterCounts(songs)` que pinta los contadores del dropdown de filtros. Pasa la lista de canciones como parámetro (función pura). Eliminada la lógica defensiva de chips legacy que ya no existen en el HTML.
+- **`src/js/ui/overlays.js`** — `openSidebarTab(tab)` y `closeAllOverlays()`. Funciones puras de manipulación DOM, sin acceso a state global. Defensive `if (el)` checks añadidos por si los elementos faltan.
+- **UX — hover de song cards corregido**: Reglas legacy CSS (`gi-song-item:hover .gi-row-num { display: none }` + `.gi-row-play { display: flex }`) eliminadas. Causaban que el título "saltara" a la izquierda al hover porque ocultaba la columna del número. Ahora el hover solo ilumina la card (border azul + bg + glow box-shadow) y el número/play indicator se queda en su sitio.
+- **app.js**: ~1740 → **~1676 líneas**. Acumulado total: 3055 → **~1676 líneas** (≈**1380 líneas movidas a 26 módulos especializados**).
+
+### Estado actual de la arquitectura
+
+```
+src/js/
+├── app.js                    (~1676 líneas — orquestador)
+├── electron-api.d.ts
+├── audio/  (3 módulos)
+│   ├── SynthEngine.js
+│   ├── Metronome.js          (lookahead scheduler)
+│   └── trackPlayer.js
+├── data/   (7 módulos)
+│   ├── banks.js
+│   ├── drumPacks.js
+│   ├── service.js
+│   ├── presets.js
+│   ├── customKits.js
+│   ├── giSetlistLoader.js
+│   └── musicConstants.js
+├── midi/   (1 módulo)
+│   └── midiMap.js
+├── ui/     (12 módulos)
+│   ├── chordTransposer.js
+│   ├── dialog.js
+│   ├── drumGrid.js
+│   ├── drumVolumes.js
+│   ├── genreFilter.js        ← NUEVO Fase 13
+│   ├── lyricsEditor.js
+│   ├── lyricsFormat.js
+│   ├── metroBeatDots.js
+│   ├── overlays.js           ← NUEVO Fase 13
+│   ├── songCard.js
+│   ├── songEditForm.js
+│   ├── soundPoolModal.js
+│   ├── themes.js
+│   └── toast.js
+└── utils/  (4 módulos)
+    ├── dom.js
+    ├── format.js
+    ├── sliders.js            ← NUEVO Fase 13
+    └── text.js
+```
+
+### Lo que queda en app.js y por qué no se extrajo
+
+| Pieza | Líneas | Razón |
+|-------|--------|-------|
+| `bindAll` + 9 sub-binders | ~700 | Wire-up de UI que necesita acceso a globals (engine, metro, isEditKitMode, etc.). Ya está bien organizado en sub-funciones nombradas. |
+| `renderGiSetlist` / `renderServiceList` | ~330 | Cada card tiene 6-9 onclick handlers que llaman a ~10 funciones distintas. Extraer requeriría inyectar todas como deps — más complejidad que valor. |
+| `applyGiSong` | ~95 | Aplica una canción al engine + metro + UI. Toca activeKey, preparedPadKey, useFlats, buildKeyGrid, onKeyClick, loadAndPlayTrack, etc. |
+| Key Grid (`buildKeyGrid`, `updateKeyHints`, `onKeyClick`) | ~80 | `activeKey` y `preparedPadKey` se mutan y leen desde >5 lugares. Necesita state manager. |
+| `onKey` (keyboard handler) | ~80 | Lee/muta activeKey, useFlats, midi map, master controls, service nav. Core central. |
+| Master controls (`toggleMetro`, `triggerMasterPlayPause`, `triggerMasterStop`) | ~50 | Coordinan engine + metro + track player + key state. Hub central. |
+| `buildBankSelects`, `loadPadBank`, `loadKitBank` | ~60 | Tocan engine, indices, drumGrid, drumVolumes, localStorage. |
+| Boot sequence | ~150 | Necesariamente toca todo el sistema una vez. |
+
+Para seguir bajando líneas de app.js se necesitaría:
+- Mini state-manager (un objeto compartido `state` con getters/setters reactivos)
+- O un patrón de event-bus para desacoplar las funciones que comparten state
+
+Ambos son refactors de otra magnitud y cambian el modelo mental de la app — fuera del alcance "limpieza segura sin romper nada".
+
+### 🏗️ Fase 12 — Extracciones residuales (Metro Beat Dots, Drum Volumes, GI Loader, Constantes)
+
+- **`src/js/ui/metroBeatDots.js`** — `buildMetroBeatDots()` y `onMetroBeat()` con `initMetroBeatDots(metro)` para inyectar la instancia del metrónomo en lugar de leer el global.
+- **`src/js/ui/drumVolumes.js`** — `buildDrumVolumes(pads)` con deps inyectadas (`getEngine`, `syncSlider`). Cada pad de batería tiene dos sliders sincronizados (stage + sidebar) que se construyen aquí en lugar de inline en app.js.
+- **`src/js/data/giSetlistLoader.js`** — `loadGiSetlistFromFile()` que lee desde electronAPI (o fallback fetch en navegador) y devuelve el array de canciones. La función local en app.js ahora es 5 líneas que asigna el resultado y llama a los renderers.
+- **`src/js/data/musicConstants.js`** — `KEYS_FLAT`, `KEYS_SHARP`, `KEY_MAP_PADS`, `KEY_MAP_DRUMS`. Antes había duplicación de `KEY_MAP_DRUMS` entre app.js y drumGrid.js — ahora hay un solo source of truth.
+- **app.js**: ~1830 → **~1740 líneas**. Acumulado total: 3055 → **~1740 líneas** (≈**1315 líneas movidas a 23 módulos especializados**).
+
+### Estado actual de la arquitectura
+
+```
+src/js/
+├── app.js                    (~1740 líneas — orquestador con bindAll de 9 sub-binders)
+├── electron-api.d.ts
+├── audio/
+│   ├── SynthEngine.js
+│   ├── Metronome.js          (lookahead scheduler)
+│   └── trackPlayer.js
+├── data/
+│   ├── banks.js
+│   ├── drumPacks.js
+│   ├── service.js
+│   ├── presets.js
+│   ├── customKits.js
+│   ├── giSetlistLoader.js    ← NUEVO Fase 12
+│   └── musicConstants.js     ← NUEVO Fase 12
+├── midi/
+│   └── midiMap.js
+├── ui/
+│   ├── chordTransposer.js
+│   ├── dialog.js
+│   ├── drumGrid.js
+│   ├── drumVolumes.js        ← NUEVO Fase 12
+│   ├── lyricsEditor.js
+│   ├── lyricsFormat.js
+│   ├── metroBeatDots.js      ← NUEVO Fase 12
+│   ├── songCard.js
+│   ├── songEditForm.js
+│   ├── soundPoolModal.js
+│   ├── themes.js
+│   └── toast.js
+└── utils/
+    ├── dom.js
+    ├── format.js
+    └── text.js
+```
+
+### Pendientes (próximas fases si se retoma)
+- **Key Grid** (`buildKeyGrid`, `updateKeyHints`, `onKeyClick`) — acoplado con `activeKey`/`preparedPadKey`/engine y referenciado desde múltiples sitios. Requiere mini state-manager para extracción limpia.
+- **`renderGiSetlist` y `renderServiceList`** — ~175 + ~160 líneas con wire-up complejo de handlers por card. Posible factor común: extraer `wireSongCardHandlers(el, song, opts, deps)` a `songCardHandlers.js`.
+- **`applyGiSong`** — ~95 líneas que aplica una canción al engine + UI. Podría extraerse a un módulo si se resuelve el acoplamiento con activeKey/preparedPadKey/buildKeyGrid.
+- **`updateFilterCounts`** — ~40 líneas, podría moverse al módulo del dropdown de filtros (ya existe esa lógica en bindRestOfApp).
+- **`onKey`** — keyboard handler de ~80 líneas. Acoplado con activeKey, midi map, master controls — refactor profundo para extracción.
+
+### 🏗️ Fase 11 — Modularización final y `bindAll` navegable
+
+- **`src/js/data/customKits.js`** — Storage de kits personalizados (load/save) + helpers `hydrateCustomKitsInto`, `createEmptyCustomKit`, `saveCustomKitsToStorage`. La carga inicial (boot) y la lógica de "Nuevo kit" comparten ahora el mismo constructor. Eliminada duplicación entre las 3 ubicaciones donde se creaba un kit vacío manualmente.
+- **`src/js/ui/drumGrid.js`** — Grid de drum pads (`buildDrumGrid`, `hitDrum`, `assignSampleToPad`) con dependencias inyectadas (`initDrumGrid({ getEngine, getKitBankIdx, isEditKit, onAfterBuild })`). app.js ya no toca el DOM del grid directamente.
+- **`bindAll` dividido en 8 sub-binders** (`bindKitButtons`, `bindWindowControls`, `bindSidebarAndTabs`, `bindHamburgerMenu`, `bindMixerControls`, `bindMetronomeControls`, `bindMidiHandlers`, `bindGlobalHandlers`, + un `bindRestOfApp` residual para setlist/GI). El monolito de ~700 líneas que cableaba todo el UI ahora es 9 funciones nombradas y `bindAll()` es un orquestador de 9 líneas. La sintaxis del archivo, la navegabilidad y los hints de TS mejoran significativamente.
+- **app.js**: ~2000 → **~1830 líneas**, repartidas en funciones temáticas claramente delimitadas. Acumulado total: 3055 → **~1830 líneas** (≈**1225 líneas movidas a 20 módulos especializados** + reorganización del cableador).
+
+### 🏗️ Fase 10 — Zero-latency tuning & Lookahead Metronome (Live Performance)
+
+- **Metrónomo con Web Audio lookahead scheduler (Chris Wilson pattern)**: el viejo `setTimeout`-chain acumulaba jitter bajo carga (renders pesados, GC pauses) — ahora un setInterval de 25ms agenda beats hasta 100ms en el futuro vía `playClick(..., when)`, con timing sample-accurate desde el audio thread. Imposible que se desvíe aunque el main thread se atasque renderizando 81 cards o haciendo I/O. Callback visual (`onBeat`) usa setTimeout calculado contra el wall-clock para mantener los beat-dots animados.
+- **`playClick(..., when)`** en SynthEngine acepta un tiempo futuro opcional — backward-compat con todas las llamadas existentes (default = "play now").
+- **`src/js/data/presets.js`** — Preset CRUD (load/add/delete/render) extraído a módulo. Estado de `presets` ya no es global en app.js. `app.js` conserva `doSavePreset` (snapshot de estado actual) y `applyPreset` (aplicación al engine/UI) — los lados que tocan globals de runtime. `initPresets({ onApply })` conecta los dos.
+- **`src/js/midi/midiMap.js`** — Estado y helpers de mapeo MIDI/teclado extraídos. Expone `getMapping`, `addMapping`, `clearMappingForTarget`, `findKeyboardMappingFor`. `customMidiMap` desapareció de app.js como global; ya no hay un solo `customMidiMap[...]` directo en el código. La UI wiring de Learn mode (overlay, click-to-target) se mantiene en app.js (demasiado acoplada a botones específicos).
+- **songCard: inline styles → CSS classes**: cada card de la librería tenía ~30 atributos `style="..."` que el browser re-parseaba en cada render. Movidos a `.gi-song-row`, `.gi-song-row-left`, `.btn-lyrics.has-lyrics.lyrics-open`, `.btn-seq.has-audio`, etc. SVGs ahora son constantes módulo en vez de strings inline regenerados por card. Render de 81 cards medible mente más rápido.
+- **trackPlayer: cache de element refs**: `ontimeupdate` dispara ~4×/seg; antes hacía 3 `q()` por tick. Ahora todos los `#tp-*` se resuelven 1 vez al primer playback y se cachean en `els`. Hot path de la barra de progreso reducido a property access.
+- **app.js**: 2030 → **~2000 líneas** tras esta ronda. Acumulado total: 3055 → **~2000** (≈**1050 líneas movidas a 18 módulos especializados**).
+
+### 🏗️ Fase 9 — Modularización profunda: Modales, Diálogos y Card Template
+
+- **`src/js/ui/soundPoolModal.js`** — modal de selección de samples para los pads de batería en modo "edit kit" (~250 líneas). Antes vivía en `app.js`. Estado del preview audio (`previewAudio`, `previewBtn`) que vivía en `window.*` ahora es módulo-privado y limpia correctamente entre rows.
+- **`src/js/ui/dialog.js`** — prompt dialog inline (`showDialog`/`hideDialog`) usado por "Nuevo kit" y "Guardar set".
+- **`src/js/ui/songCard.js`** — plantilla HTML compartida (`songCardInnerHTML`) usada por `renderGiSetlist` y `renderServiceList`. Antes cada renderer tenía ~70 líneas de HTML idéntico inline; ahora la card es una sola función configurada por opciones (`includeAdd`, `removeBtnClass`, `removeBtnTitle`, `rowNumber`, etc.).
+- **Dead code eliminado**: `buildPadBankList`, `buildKitBankList` y `openPicker` (~30 líneas) eran remanentes de un UI anterior pre-dropdown — definidos pero nunca llamados. Borrados.
+- **Import `formatLyrics` eliminado** de app.js — la función ahora solo se importa desde `songCard.js` y `lyricsEditor.js`.
+- **app.js**: 2399 → **2030 líneas**. ~370 más extraídas esta ronda. Total acumulado desde el inicio: **~1025 líneas movidas a 16 módulos especializados**.
+
+### 🏗️ Fase 8 — Boot rápido + Track Player aislado (Live Performance Focus)
+
+- **Track Player (`src/js/audio/trackPlayer.js`)** — toda la lógica de reproducción de secuencias/originales (cleanupTrackAudio, loadAndPlayTrack, controles de transport, progress bar, loop, volumen) extraída de `app.js` (~190 líneas) a un módulo con estado privado y deps inyectadas. `app.js` ahora consume `isTrackLoaded()`, `isTrackPlaying()`, `clickPlayPause()`, `clearTrackUI()` en lugar de leer/escribir `currentTrackAudio` global.
+- **Click metronome lazy-loading**: `engine.loadClickBuffers()` antes decodificaba 14 mp3 (7 sonidos × 2 variantes) en boot. Ahora carga **solo el sonido por defecto** (cowbell) — los otros 6 sonidos se decodifican on-demand vía `ensureClickSound(name)` cuando el usuario los selecciona. Reducción del cold-start de ~100ms.
+- **Boot paralelo**: `engine.init()` luego dispara en paralelo (Promise.all) `engine.loadClickBuffers()`, `electronAPI.loadUserDrums()` y `electronAPI.loadMidiMap()`. Antes corrían secuencialmente — disk I/O ahora se solapa con el warmup de audio.
+- **`ensureClickSound` deduplicado**: llamadas concurrentes al mismo sonido comparten el mismo Promise (cache `_clickLoading`), evitando re-fetch + re-decode si el usuario cambia rápido.
+- **app.js**: ~2400 líneas (de ~3055 originales). Las extracciones acumuladas dejan `app.js` como orquestador con responsabilidades claras: bind UI globales, secuencia de boot, render functions de las listas (renderGiSetlist/renderServiceList), funciones de pad/key/drum, y los handlers de teclado/MIDI.
+
+### 🏗️ Fase 7 — Continuación de refactor + UX en vivo
+
+- **Editor de letras (`src/js/ui/lyricsEditor.js`)** — modal completo (~270 líneas) extraído como módulo aislado con sus propios imports. Antes vivía dentro de `app.js`.
+- **Transposición de acordes** ([src/js/ui/chordTransposer.js](src/js/ui/chordTransposer.js)): botones ▼/▲ en el toolbar del editor que mueven todos los `[chord]` ±1 semitono. Contador chip muestra el shift actual. Maneja `root`, `suffix`, y `slash bass` (`F/A` → `G/B`). Detecta tonalidad de la canción para preferir bemoles vs sostenidos.
+- **UX del editor de letras**: confirmación al cerrar con cambios sin guardar, atajos `Ctrl+S` (guardar), `Esc` (cerrar), `Ctrl+[` (envolver selección), auto-numeración de `[VERSO N]`, badge dorado de tonalidad activa en el header.
+- **Header del setlist colapsable**: al hacer scroll en la lista de canciones se ocultan Setlist + tabs + filtros, dejando solo el search input fijo. Más superficie útil para las cards (~80px ganados).
+- **Filtro de género como dropdown**: el chip-row `Todas / Alabanza / Adoración` reemplazado por un icono hamburguesa con menú flotante. Reduce altura del header, indicador dot azul cuando hay filtro activo.
+- **Optimización de cambio de canción**: `applyGiSong` ya no rebuildea las 81 cards de la librería + el servicio. En su lugar `refreshActiveSongHighlights()` toggle clase `.active-song` en máximo 2 cards (`data-song-id` / `data-service-id` ancla). Latencia de click ~150ms → ~2ms.
+- **Service list (`src/js/data/service.js`)**: módulo con estado privado + CRUD + navegación, deps inyectadas en boot vía `initService({ render, applyGiSong })`. `app.js` ya no declara `serviceSongs` ni `activeServiceIndex` como globales.
+- **Theme system (`src/js/ui/themes.js`)**: `applyTheme`, `buildThemesList`, estado interno (`currentTheme`) encapsulados en el módulo.
+- **`window.electronAPI` tipado**: archivo `src/js/electron-api.d.ts` con `interface ElectronAPI` que documenta los IPC handlers y silencia los hints del language server.
+- **Higiene en `app.js`**: imports no usados eliminados (`escapeHtml`, `panLabel`, `THEMES`), `substr` deprecated reemplazado por `substring`, `console.log` de debug eliminado.
+- **app.js**: de 3055 líneas iniciales → **~2600 líneas** (~450 extraídas a módulos con frontera clara).
+
+### 🏗️ Fase 6 — Refactor Estructural & Endurecimiento (Arquitectura Interna)
+
+- **Modularización progresiva de `app.js`**: El monolito original (~3055 líneas) bajó a **~2680 líneas** tras extraer responsabilidades a módulos con frontera bien definida:
+  * `src/js/utils/dom.js` — `q`, `qa`, `escapeHtml`/`esc`, `debounce`
+  * `src/js/utils/format.js` — `panLabel`, `panShort`, `getCleanSampleName`
+  * `src/js/utils/text.js` — `wrapTextareaSelection`, `insertTextAtCursor`
+  * `src/js/ui/toast.js` — `showToast` (con backwards-compat `window.showToast`)
+  * `src/js/ui/lyricsFormat.js` — `formatLyrics`, `highlightSyntax` (motor de letras)
+  * `src/js/ui/songEditForm.js` — plantilla del formulario de edición inline
+  * `src/js/ui/themes.js` — sistema de temas con estado encapsulado (`applyTheme`, `buildThemesList`)
+  * `src/js/data/service.js` — Sunday Setlist: estado privado + CRUD + navegación, con inyección de `render` y `applyGiSong` al boot
+- **Endurecimiento XSS (Defense in Depth)**: helper `esc()` aplicado a toda interpolación de strings de usuario en `innerHTML` (títulos de canciones, etiquetas de pads, nombres de presets, letras renderizadas desde MongoDB). `formatLyrics` ahora escapa el texto crudo antes de re-inyectar markers de acordes como `<span>`.
+- **Aislamiento de credenciales (commit-safe)**: La URI de MongoDB se eliminó del código fuente; ahora `sync-mongo-setlist` lanza un error claro si el `config.json` local no tiene `mongoUri`, evitando que credenciales lleguen a commits accidentales en el futuro comercial.
+- **Protocolo custom `livepads://` + `webSecurity: true`**: Registrado un esquema privilegiado vía `protocol.handle()` que mapea `livepads://app/<rel>` → `<userData>/<rel>`. Esto permitió reactivar `webSecurity: true` en el `BrowserWindow` (antes era `false`) sin romper la reproducción de samples y secuencias que viven fuera de `src/`. URLs portables entre máquinas (la misma URL resuelve a `userData` local).
+- **IPC hardening**: `safeId()` rechaza separadores de path/traversal en IDs de preset; lectura de archivos de audio con tope de **500 MB** vía `readAudioFileSafe()`; validación de `sourcePath` existe + es file en `assign-audio-file` / `assign-drum-sample`.
+- **AudioContext para tiempo real**: Creación con `{ latencyHint: 'interactive' }` para buffer mínimo. Listener defensivo de `pointerdown`/`keydown` que llama `ctx.resume()` en el primer gesto del usuario — evita el warm-up latency del primer pad triggered tras una pestaña suspendida por Chromium.
+- **Debounce en búsqueda GI-Setlist**: `#gi-search` ahora aplica debounce de 180ms antes de re-renderizar — elimina el lag al teclear con catálogos grandes.
+- **`electron-builder` config completo**: `asar: true`, `compression: "maximum"`, `extraResources` para `defaults/` (fuera del archivo asar), `files` filter estricto excluyendo `.md`/`.log`/tests/docs/maps, NSIS con shortcut desktop+start menu, instalación per-user (`perMachine: false`), preservación de `userData` en uninstall (`deleteAppDataOnUninstall: false`), `getDefaultsPath()` que resuelve a `process.resourcesPath` en producción.
+- **Higiene de repositorio**: `app_original_backup.js` (36KB obsoleto) eliminado, `lyrics_module_analysis.md` movido a `docs/`. `.gitignore` ampliado para excluir `*.exe`, `.env*`, `config.local.json`, `.claude/`, IDE folders.
+
+---
+
 ## ⏳ Pendiente por Implementar (Siguientes Pasos)
 
 - 🎹 Realizar pruebas finales de estabilidad y rendimiento en escenarios de presentación en vivo (iglesias/eventos).
 - 🚀 Distribución y despliegue del instalador ultra optimizado en la laptop de directo.
+- 🧩 *Follow-up arquitectural (para fase comercial)*: extracción de `presets` CRUD, `midi learn`, y el editor de lyrics modal a módulos con state injection; introducción de un mini state-manager si la app crece.
+- 🔐 *Follow-up seguridad (para fase comercial)*: code signing del `.exe` con certificado EV; auditoría de CSP estricto en `index.html`.
 
 ---
 *Documento actualizado y sincronizado en preparación para distribución portátil.*

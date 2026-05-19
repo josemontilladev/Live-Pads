@@ -1,0 +1,678 @@
+/* ── PANEL SETLIST (ahora en stage) ── */
+#panel-setlist {
+  grid-column: 3;
+  grid-row: 2;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Beat visualizer */
+#metro-beat-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#metro-beat-dots { display: flex; gap: 10px; align-items: center; }
+.beat-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  /* PERF: only the hover scale is animated. Beat on/off flashes are
+     instant so the tempo is perceived correctly at high BPM (a 200ms
+     fade would smear at >150 BPM). */
+  transition: transform 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.beat-dot.on { background: var(--blue); box-shadow: 0 0 10px var(--blue); }
+.beat-dot.accent { border: 2px solid var(--blue); background: rgba(255,188,0,0.2); }
+.beat-dot.accent.on { background: var(--blue); box-shadow: 0 0 15px var(--blue); }
+.beat-dot:hover { transform: scale(1.2); background: rgba(255,255,255,0.2); }
+#metro-bpm-live {
+  font-size: 13px; font-weight: 800; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Square variant of the metro start button (used in the inline metro row) */
+.metro-main-btn--square {
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border-radius: 12px;
+}
+
+/* Start button */
+.metro-main-btn {
+  width: 100%; padding: 14px;
+  background: var(--blue); border: none; border-radius: var(--r-md);
+  color: #000; font-size: 14px; font-weight: 900;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: all 0.15s; letter-spacing: 0.3px;
+}
+.metro-main-btn:hover { filter: brightness(1.1); }
+.metro-main-btn:active { transform: scale(0.97); }
+.metro-main-btn.running { background: #ff4747; color: #fff; }
+
+/* Metro cards */
+.metro-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+.metro-section-label {
+  font-size: 10px; font-weight: 900; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;
+}
+
+/* BPM controls */
+.metro-bpm-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 14px;
+}
+.metro-adj {
+  width: 36px; height: 36px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.metro-adj:hover { border-color: var(--blue); color: var(--blue); }
+.metro-adj svg { width: 16px; height: 16px; }
+.metro-bpm-big {
+  font-size: 42px; font-weight: 900; color: var(--blue);
+  font-variant-numeric: tabular-nums; letter-spacing: -2px;
+  text-align: center; flex: 1;
+}
+.metro-slider { width: 100%; margin-bottom: 12px; }
+
+/* Tap tempo */
+.tap-btn {
+  width: 100%; padding: 12px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-weight: 800; font-size: 12px;
+  cursor: pointer; letter-spacing: 1px; transition: all 0.15s;
+}
+.tap-btn:active { background: var(--blue); color: #000; border-color: var(--blue); transform: scale(0.97); }
+
+/* Time signature */
+.metro-sig-row {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+}
+.sig-btn {
+  padding: 10px 4px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 800;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.sig-btn:hover { border-color: var(--blue); color: var(--text); }
+.sig-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+
+/* Multiplier */
+.metro-mult-btn {
+  flex: 1; padding: 8px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 800;
+  cursor: pointer; transition: all 0.15s;
+}
+.metro-mult-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+
+/* Sound buttons */
+.metro-sound-row  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.metro-sound-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sound-btn {
+  padding: 10px 6px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.sound-btn:hover { border-color: var(--blue); color: var(--text); }
+.sound-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+
+/* Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%; height: 4px;
+  background: var(--border-strong); border-radius: 3px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: #fff; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+input.blue-slider {
+  background: linear-gradient(to right, var(--blue) 0%, var(--blue) var(--pct, 50%), rgba(255,255,255,0.12) var(--pct, 50%));
+}
+/* Pan slider: grey track with white line at center */
+input.pan-slider {
+  background: linear-gradient(to right, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.12) 50%);
+  position: relative;
+}
+
+/* Toggle */
+.toggle-sw {
+  width: 42px; height: 22px; background: var(--bg-hover); border-radius: 11px;
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle-sw.on { background: var(--blue); }
+.toggle-sw::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  background: var(--text-muted); border-radius: 50%;
+  transition: transform 0.2s, background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.toggle-sw.on::after { transform: translateX(20px); background: #000; }
+
+/* ── GI-SETLIST ── */
+.setlist-tabs-toggle { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-hover); padding: 4px; border-radius: 10px; }
+.s-toggle { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.gi-search-input { width: 100%; padding: 10px 14px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 12px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.gi-search-input:focus { border-color: var(--blue); }
+.gi-song-item { 
+  padding: 12px; 
+  background: var(--bg-card); 
+  border: 1px solid var(--border); 
+  border-radius: var(--r-md); 
+  margin-bottom: 8px; 
+  transition: all 0.2s; 
+  display: flex; 
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.gi-song-item:hover { border-color: var(--blue); background: var(--bg-hover); transform: translateY(-1px); }
+.gi-song-main { cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.gi-song-title { font-size: 13px; font-weight: 800; color: var(--text); }
+.gi-song-artist { font-size: 11px; color: var(--text-muted); }
+.gi-song-meta { display: flex; gap: 8px; margin-top: 4px; font-size: 10px; font-weight: 700; }
+.gi-badge { padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--text-muted); }
+.gi-badge.key { background: rgba(251, 174, 0, 0.15); color: var(--blue); }
+
+.gi-song-actions { 
+  display: flex; 
+  gap: 6px; 
+  margin-top: 10px; 
+  padding-top: 10px; 
+  border-top: 1px solid rgba(255,255,255,0.05); 
+}
+.action-btn { 
+  width: 28px; height: 28px; border-radius: 6px; 
+  border: 1px solid var(--border); background: var(--bg-surface); 
+  color: var(--text-muted); cursor: pointer; display: flex; 
+  align-items: center; justify-content: center; transition: all 0.2s; 
+}
+.action-btn:hover { color: var(--blue); border-color: var(--blue); background: var(--bg-hover); }
+.action-btn.remove:hover { color: #ff4747; border-color: #ff4747; }
+.action-btn svg { width: 14px; height: 14px; }
+
+/* Drag & Drop */
+.gi-song-item.dragging { opacity: 0.4; transform: scale(0.95); border: 2px dashed var(--blue); }
+.drag-over { border-top: 3px solid var(--blue) !important; }
+
+.gi-filter-btn { flex: 1; padding: 6px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.gi-filter-btn:hover { border-color: var(--blue); color: var(--text); }
+.gi-filter-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+
+/* ── GI-SETLIST — Spotify-style rows ── */
+
+/* Library tab: lock search + filters at the top of the panel, only the song
+   list scrolls. #gi-setlist-list becomes a vertical flex container so the
+   header (.gi-sticky-header) keeps its natural height and #gi-songs-container
+   absorbs the remaining space and scrolls on its own. */
+#gi-setlist-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#gi-setlist-list .gi-sticky-header {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+#gi-setlist-list.scrolled .gi-sticky-header {
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Filter icon button (between search and the "+" add). The orange dot
+   appears only when a non-default genre filter is active. */
+.gi-filter-toggle {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: 18px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+}
+.gi-filter-toggle:hover { color: var(--text); border-color: var(--blue); }
+.gi-filter-toggle.active { color: var(--blue); border-color: var(--blue); background: rgba(0, 170, 255, 0.06); }
+.gi-filter-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 6px var(--blue);
+}
+
+/* Dropdown menu that replaces the inline filter chips. Anchors below the
+   filter icon button (which is positioned within .gi-search-row). */
+.gi-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 50px; /* nudged so it sits under the filter icon, not under "+" */
+  min-width: 170px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  display: flex; flex-direction: column; gap: 2px;
+  animation: gi-menu-pop 0.14s ease;
+}
+@keyframes gi-menu-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.gi-filter-option {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  padding: 9px 12px;
+  background: transparent; border: none;
+  color: var(--text); font-size: 12px; font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer; text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.gi-filter-option:hover { background: var(--bg-hover); }
+.gi-filter-option.active {
+  background: rgba(0, 170, 255, 0.08);
+  color: var(--blue);
+  font-weight: 800;
+}
+.gi-filter-option-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 2px 7px;
+  border-radius: 10px;
+  min-width: 22px; text-align: center;
+}
+.gi-filter-option.active .gi-filter-option-count {
+  background: rgba(0, 170, 255, 0.18);
+  color: var(--blue);
+}
+
+/* When the song list is scrolled, also collapse the panel-wide chrome
+   (Setlist title row + Presets/Librería/Servicio tabs). Only the search
+   input remains visible — closest match to the user's request. */
+#panel-setlist.songs-scrolled .setlist-header,
+#panel-setlist.songs-scrolled .setlist-tabs-toggle {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-width: 0;
+}
+.setlist-header,
+.setlist-tabs-toggle {
+  transition: max-height 0.22s ease, opacity 0.18s ease,
+              margin-top 0.22s ease, margin-bottom 0.22s ease,
+              padding 0.22s ease;
+  max-height: 80px; /* large enough for normal layout */
+  overflow: hidden;
+}
+#gi-songs-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px; /* breathing room for the scrollbar */
+}
+
+/* Same locked-header pattern for the Servicio tab. */
+#service-setlist-list:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#service-setlist-list .service-actions {
+  flex-shrink: 0;
+}
+#service-songs-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.setlist-tabs-toggle { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-hover); padding: 4px; border-radius: 10px; }
+.s-toggle { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+/* Search */
+.gi-search-input {
+  width: 100%; padding: 9px 14px 9px 36px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 20px; color: #fff; margin-bottom: 10px;
+  font-size: 12px; outline: none; transition: border-color 0.2s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 12px center;
+}
+.gi-search-input:focus { border-color: var(--blue); }
+
+/* Filter chips */
+.gi-filter-btn { flex: 1; padding: 5px; background: transparent; border: 1px solid var(--border); border-radius: 20px; color: var(--text-muted); font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px; }
+.gi-filter-btn:hover { border-color: var(--blue); color: var(--text); }
+.gi-filter-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+
+/* Column header row */
+.gi-list-header {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  gap: 8px;
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  align-items: center;
+}
+.gi-list-header span {
+  font-size: 9px; font-weight: 900; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1.2px;
+}
+
+/* Song row — Spotify style */
+.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden; }
+.gi-song-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+/* Row number column (the play indicator is rendered inside .gi-row-num
+   via .gi-row-num-text / .gi-row-num-play; active-song toggles which one
+   is visible). On hover we only light up the card border + background,
+   the row number itself stays put so the title doesn't shift left. */
+.gi-row-num {
+  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  text-align: center; min-width: 20px; font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Title + artist block */
+.gi-song-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  cursor: pointer;
+}
+.gi-song-title {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gi-song-artist {
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Right side: meta badges + action buttons */
+.gi-song-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.gi-song-meta {
+  display: flex; gap: 5px; align-items: center;
+}
+.gi-badge {
+  padding: 2px 7px; border-radius: 20px;
+  background: rgba(255,255,255,0.07); color: var(--text-muted);
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+.gi-badge.bpm { color: var(--text-muted); }
+.gi-badge.key { background: rgba(251,174,0,0.12); color: var(--blue); }
+.gi-badge.genre { display: none; } /* Hide genre — too long for compact layout */
+
+/* Action buttons — hidden until hover */
+.gi-song-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+
+.action-btn {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: all 0.15s;
+  flex-shrink: 0;
+}
+.action-btn:hover { color: var(--blue); background: rgba(255,255,255,0.08); }
+.action-btn svg { width: 13px; height: 13px; }
+
+/* Drag & Drop */
+.gi-song-item.dragging { opacity: 0.3; background: var(--bg-card); }
+
+/* Active song highlight — class-based so applyGiSong() can toggle the
+   indicator on two cards instead of re-rendering the whole list.
+   Uses var(--glow) so the highlight color matches the active theme. */
+.gi-song-item.active-song {
+  border-color: var(--accent);
+  background:
+    linear-gradient(120deg, var(--glow), transparent 70%),
+    var(--bg-card);
+  box-shadow: 0 0 14px var(--glow);
+}
+.gi-song-item.active-song .gi-song-title {
+  color: var(--accent);
+  font-weight: 800;
+}
+.gi-song-item.active-song .gi-row-num {
+  color: var(--accent) !important;
+}
+/* Each card renders BOTH the row number and the play icon — the active-song
+   class swaps which one is visible, no innerHTML rebuild needed. */
+.gi-row-num-play { display: none; }
+.gi-song-item.active-song .gi-row-num-text { display: none; }
+.gi-song-item.active-song .gi-row-num-play { display: inline-block; }
+.drag-over { box-shadow: 0 -2px 0 var(--blue); }
+
+/* ── Song Card layout (replaces inline styles in songCard.js) ── */
+.gi-song-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.gi-song-row-left {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.gi-song-item .gi-row-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-muted);
+  width: 20px;
+  text-align: center;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gi-song-item .gi-song-main {
+  flex: 1;
+  min-width: 0;
+}
+.gi-song-item .gi-song-title {
+  /* Override the global nowrap+ellipsis rule — song titles wrap in cards */
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.2;
+  margin-bottom: 3px;
+}
+.gi-song-item .gi-song-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.gi-badge.hidden-genre { display: none; }
+.gi-song-item .gi-song-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* Action button state colors — were inline styles, now driven by classes */
+.action-btn.btn-lyrics.no-lyrics {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.action-btn.btn-lyrics.has-lyrics {
+  color: #fbae00;
+  border-color: #fbae00;
+}
+.action-btn.btn-lyrics.has-lyrics.lyrics-open {
+  background: rgba(251, 174, 0, 0.06);
+}
+.action-btn.btn-seq.has-audio,
+.action-btn.btn-orig.has-audio {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.action-btn.btn-remove,
+.action-btn.btn-remove-lib {
+  color: #ff4747;
+}
+
+.sound-btn { padding: 6px 4px; font-size: 10px; }
+
+/* Setlist header buttons (Import / Sync) visibility per active tab.
+   #panel-setlist[data-active-tab="..."] is set by JS when a .s-toggle
+   button is clicked. Import + Sync are only relevant on the Library tab. */
+#panel-setlist[data-active-tab="setlist-list"] #btn-import-gi,
+#panel-setlist[data-active-tab="setlist-list"] #btn-sync-gi,
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-import-gi,
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-sync-gi {
+  display: none;
+}
+
+/* ── Service tab header (prev/next/clear buttons) ─────────────────── */
+.service-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.service-actions-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.service-actions-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.service-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  padding: 0;
+}
+.svg-nudge-up   { margin-top: -1px; }
+.svg-nudge-down { margin-top: 1px; }
+.btn-clear-service {
+  font-size: 10px;
+  color: #ff4747;
+  margin-left: 8px;
+}
+
+/* Reusable empty-state box (dashed border + muted text) */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+}
+
+
+/* ── Inline edit form (Library only) ───────────────────────────────────
+   Rendered into a song card when the user clicks the pencil action.
+   Replaces the card's inner HTML; the card scaffold is reused so the
+   visual position doesn't jump. */
+.gi-edit-form {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.gi-edit-row     { display: flex; gap: 6px; }
+.gi-edit-actions { display: flex; gap: 6px; margin-top: 4px; }
+.gi-edit-input {
+  width: 100%;
+  padding: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  outline: none;
+  box-sizing: border-box;
+}
+.gi-edit-input--title { font-size: 13px; font-weight: 700; }
+.gi-edit-input--small { flex: 1; width: 0; text-align: center; }
+select.gi-edit-input { cursor: pointer; text-align: left; }
+.gi-edit-input:focus { border-color: var(--accent); }
+
+.gi-edit-btn {
+  flex: 1;
+  padding: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.gi-edit-btn.save   { background: var(--blue); color: #000; border-color: var(--blue); font-weight: 700; }
+.gi-edit-btn.save:hover   { filter: brightness(1.08); }
+.gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); }

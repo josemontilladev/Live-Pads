@@ -1,0 +1,58 @@
+/* ═══════════════════════════════════════════════════════
+   Utility classes (extracted from inline styles — Fase 26)
+   ═══════════════════════════════════════════════════════ */
+
+/* Topbar */
+.topbar-logo-text { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; }
+.topbar-logo-img { height: 34px; }
+.topbar-actions { display: flex; align-items: center; gap: 12px; }
+
+/* Body root flex direction (was inline) */
+#body { flex-direction: column; }
+
+/* Bank kit row already has bank-selector class; the inline flex+gap was redundant.
+   Add modifier for the kit row that hosts action buttons. */
+.bank-selector--with-actions { display: flex; gap: 4px; align-items: center; }
+
+/* Metronome compact controls */
+.tap-btn--compact { width: auto; padding: 4px 10px; font-size: 10px; }
+.metro-sig-select { margin-bottom: 6px; }
+.metro-mult-row { display: flex; gap: 6px; }
+.hm-section--sounds { display: flex; flex-direction: column; gap: 6px; flex: 0 0 110px; }
+
+/* Metronome mix rows (slim variants of .sb-row / .sr-label / .sr-val) */
+.sb-row--metro { padding: 0 0 6px; }
+.sb-row--metro-bottom { padding: 0; }
+.sr-label--metro { font-size: 10px; min-width: 24px; }
+.sr-val--metro { min-width: 26px; }
+
+/* Pad volume tray (was inline) */
+#pad-volume-tray { margin-top: auto; margin-bottom: 0; flex-shrink: 0; }
+
+/* Drum tray header layout */
+.tray-header--drum { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.drum-tray-controls { display: flex; gap: 16px; align-items: center; font-size: 11px; font-weight: normal; }
+.tray-pan-row--flush { margin: 0; padding: 0; justify-content: flex-end; }
+.sr-label--inline { min-width: auto; margin-right: 4px; }
+.sr-val--narrow { min-width: 30px; }
+.slider--80 { width: 80px; }
+
+/* Setlist header actions */
+.setlist-header-actions { display: flex; gap: 8px; }
+
+/* GI search row */
+.gi-search-row { display: flex; gap: 8px; align-items: center; position: relative; }
+.gi-search-input--inline { flex: 1; margin-bottom: 0; }
+.no-shrink { flex-shrink: 0; }
+.btn-add-gi-song { flex-shrink: 0; transition: transform 0.15s; }
+
+/* Sidebar settings — wider labels */
+.sr-label--wide { min-width: 60px; }
+.sr-label--xwide { min-width: 70px; }
+
+/* Sidebar drum volumes card */
+#sidebar-drum-volumes { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Menu items with accent text */
+.menu-item--accent { color: var(--blue); }
+

@@ -1,0 +1,721 @@
+/* ── DIALOGS & OVERLAYS ── */
+#dialog-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  /* 100000 = above every other overlay (lyrics modal 9999, midi 10000,
+     sound pool 99999). This is the top-most inline prompt so it must win
+     against anything that could be open underneath. */
+  z-index: 100000;
+}
+.dialog-box {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 36px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,1);
+}
+.dialog-box h3 { font-size: 18px; font-weight: 800; }
+.dialog-input {
+  width: 100%; padding: 14px; background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: #fff; margin: 20px 0; font-size: 16px; outline: none; font-weight: 600;
+}
+.dialog-input:focus { border-color: var(--blue); }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.d-ok { background: var(--blue); color: #000; font-weight: 900; padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
+.d-cancel { background: transparent; color: var(--text-muted); font-weight: 700; padding: 12px 24px; border: none; cursor: pointer; font-size: 14px; }
+
+/* Menu Popover */
+#menu-popover {
+  position: absolute; top: 56px; left: 16px; width: 240px;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  z-index: 3100; padding: 6px; display: flex; flex-direction: column;
+}
+.menu-item {
+  padding: 11px 14px; border-radius: 8px; background: transparent; border: none;
+  color: var(--text); font-size: 13px; font-weight: 700;
+  text-align: left; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 10px;
+}
+.menu-item:hover { background: var(--bg-hover); color: var(--blue); }
+.menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+#menu-overlay { position: fixed; inset: 0; z-index: 3000; }
+
+/* Bank pickers */
+.bank-picker {
+  position: fixed; background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  z-index: 2200; padding: 6px; min-width: 260px; max-height: 340px; overflow-y: auto;
+}
+.bank-picker-title { font-size: 11px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; padding: 10px 14px 6px; }
+.bank-picker-item {
+  width: 100%; padding: 12px 14px; border-radius: 8px; background: transparent; border: none;
+  color: var(--text); font-size: 13px; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; transition: all 0.15s;
+}
+.bank-picker-item:hover { background: var(--bg-hover); }
+.bank-picker-item.active { background: rgba(251,174,0,0.08); }
+.bank-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.bank-check { color: var(--blue); margin-left: auto; }
+
+/* ── SOUND POOL MODAL ──
+   Premium glassmorphism modal. All styles class-based. Accent buttons use
+   the active theme (var(--accent), var(--glow)) so the modal feels native
+   in every theme. */
+#sound-pool-modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  font-family: 'Inter', sans-serif;
+}
+.spm-box {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  width: 460px;
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.spm-header {
+  padding: 22px 24px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.spm-badge {
+  display: inline-block;
+  background: var(--glow);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-bottom: 6px;
+}
+.spm-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+.spm-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.spm-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.spm-content {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.spm-upload {
+  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  color: #000;
+  border: none;
+  padding: 13px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-shadow: 0 4px 16px var(--glow);
+  letter-spacing: 0.3px;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+.spm-upload:hover {
+  box-shadow: 0 6px 24px var(--glow);
+  filter: brightness(1.07);
+}
+.spm-section-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+.spm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.spm-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  padding: 32px 0;
+  line-height: 1.6;
+}
+.spm-empty-emoji {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+.spm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: default;
+  transition: background 0.15s, border-color 0.15s;
+}
+.spm-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.spm-row-name {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+.spm-row-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e0e0e0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spm-row-kit {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 1px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spm-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.spm-play {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ccc;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.spm-play:not(.playing):hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.spm-play.playing {
+  background: var(--glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.spm-assign {
+  background: var(--accent);
+  border: none;
+  color: #000;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: filter 0.15s;
+}
+.spm-assign:hover { filter: brightness(1.12); }
+
+/* ── LETRA Y ACORDES — Accordion ── */
+.gi-lyrics-accordion {
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease;
+}
+.gi-lyrics-accordion.open {
+  /* Big max-height so the actual content height is never clipped — letting
+     the lyrics flow naturally means the OUTER setlist scrollbar handles
+     everything, eliminating the confusing double-scrollbar (one for the
+     card list, one inside the expanded card). */
+  max-height: 2500px;
+  overflow: visible;
+  opacity: 1;
+  padding-top: 12px;
+  padding-bottom: 4px;
+}
+
+/* Accordion header: edit icon + chord pill, right-aligned */
+.lyrics-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 10px;
+  margin-right: 8px;
+}
+.lyrics-edit-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: 5px; transition: all 0.15s;
+}
+.lyrics-edit-btn:hover { color: var(--blue); background: rgba(255,255,255,0.06); }
+
+/* Chord toggle: text pill */
+.lyrics-chord-pill {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-chord-pill.active {
+  background: rgba(251,174,0,0.08);
+  border-color: rgba(251,174,0,0.35);
+  color: var(--blue);
+}
+
+/* ── LYRICS EDITOR MODAL ── */
+.lyrics-editor-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.02);
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lyrics-section-select {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px; font-weight: 700;
+  outline: none; cursor: pointer;
+  padding: 5px 10px;
+  transition: border-color 0.2s;
+  font-family: var(--font-main);
+}
+.lyrics-section-select:hover { border-color: var(--blue); }
+.toolbar-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+.format-tool-btn.chord-btn {
+  color: var(--blue); font-weight: 900;
+  font-family: 'Consolas', monospace; font-size: 12px;
+}
+/* Subtle ghost button — matches .import-url-btn styling for visual
+   cohesion in the editor toolbar. */
+.lyrics-preview-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.lyrics-preview-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--glow);
+}
+.lyrics-preview-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--glow);
+}
+
+/* Modal panel */
+.lyrics-modal-overlay {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  display: flex; justify-content: flex-end; align-items: flex-start;
+  z-index: 9999;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.lyrics-modal-panel {
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-strong);
+  width: 520px; max-width: 95vw;
+  height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 24px;
+  box-shadow: -12px 0 40px rgba(0,0,0,0.6);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+.lyrics-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 20px; flex-shrink: 0;
+}
+.lyrics-modal-title {
+  margin: 0; font-size: 10px; font-weight: 900;
+  color: var(--blue); text-transform: uppercase; letter-spacing: 1.5px;
+}
+.lyrics-modal-subtitle {
+  margin: 5px 0 0; font-size: 12px;
+  color: var(--text-muted); font-weight: 500;
+}
+.lyrics-modal-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%; width: 28px; height: 28px;
+  color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.lyrics-modal-close:hover { border-color: var(--border-strong); color: var(--text); background: rgba(255,255,255,0.04); }
+.lyrics-modal-footer {
+  display: flex; gap: 10px; justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 16px; flex-shrink: 0;
+}
+.lyrics-shortcut-hint {
+  font-size: 10px; color: var(--text-muted);
+  letter-spacing: 0.4px; opacity: 0.7;
+}
+
+/* Tonality badge in the modal subtitle */
+.lyrics-key-badge {
+  display: inline-block;
+  margin-left: 8px; padding: 2px 8px;
+  background: rgba(255, 174, 0, 0.12);
+  border: 1px solid rgba(255, 174, 0, 0.35);
+  border-radius: 10px;
+  color: #fbae00;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+}
+
+/* Discreet "ghost" buttons for the lyrics editor toolbar (Import URL and
+   Vista Previa). Outline-only with subtle accent on hover — matches the
+   minimalist tooling row without competing with the [+ SECCIÓN] dropdown
+   or the chord/transpose controls. */
+.import-url-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px;
+  padding: 4px 9px !important;
+  border-radius: 6px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.import-url-btn:hover {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  background: var(--glow) !important;
+}
+.import-url-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+.import-url-btn svg {
+  width: 12px; height: 12px;
+  opacity: 0.85;
+}
+
+/* Icon-only variant — square chip, just the SVG, no text. Used by the
+   Importar URL and Vista Previa buttons in the lyrics editor toolbar. */
+.format-tool-btn.icon-only,
+.btn-preview-toggle.icon-only,
+.import-url-btn.icon-only {
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  gap: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.format-tool-btn.icon-only svg,
+.btn-preview-toggle.icon-only svg,
+.import-url-btn.icon-only svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+}
+
+.lyrics-preview-spacer { flex: 1; }
+
+/* Transpose control group in the editor toolbar */
+.transpose-group {
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.transpose-btn {
+  font-size: 11px !important;
+  min-width: 24px;
+  padding: 6px 8px !important;
+}
+.transpose-counter {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 24px; padding: 0 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px; font-weight: 800;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.transpose-counter.shifted {
+  background: rgba(0, 170, 255, 0.08);
+  border-color: rgba(0, 170, 255, 0.4);
+  color: var(--blue);
+}
+.lyrics-modal-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); padding: 9px 20px;
+  border-radius: 6px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-modal-cancel:hover { border-color: var(--border-strong); color: var(--text); }
+.lyrics-modal-save {
+  background: var(--blue); border: none; color: #000;
+  padding: 9px 24px; border-radius: 6px;
+  font-size: 12px; font-weight: 800;
+  cursor: pointer; transition: all 0.2s;
+}
+.lyrics-modal-save:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.lyrics-text-content {
+  color: #e5e5e5;
+  user-select: text;
+}
+
+.lyrics-preview-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-y: auto;
+  user-select: text;
+  box-sizing: border-box;
+}
+
+.section-header-line {
+  color: #60a5fa !important; /* blue neón like the screenshot */
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.chord-line {
+  color: #fbae00; /* beautiful premium gold */
+  font-weight: 800;
+  font-size: 12.5px;
+  line-height: 1.1;
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace; 
+  white-space: pre; /* crucial to preserve spaces between chords! */
+}
+
+.lyric-line {
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  font-family: var(--font-main), sans-serif;
+  letter-spacing: 0.2px;
+}
+
+.lyric-line.has-inline-chords {
+  margin-top: 18px; /* space for the floating chords */
+}
+
+.inline-chord {
+  position: absolute;
+  transform: translateY(-1.35em);
+  color: #fbae00;
+  font-weight: 800;
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-size: 12.5px;
+}
+
+.hide-chords .chord-line {
+  display: none !important;
+}
+
+.hide-chords .inline-chord {
+  display: none !important;
+}
+
+.chord-toggle-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.3px;
+}
+
+.chord-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #fbae00;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(251, 174, 0, 0.2);
+}
+
+.action-btn.btn-lyrics.active {
+  color: #fbae00;
+  border-color: #fbae00;
+  background: rgba(251, 174, 0, 0.08);
+}
+
+/* Premium Code editor styling with syntax overlay */
+.editor-container {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.editor-textarea, .editor-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.editor-textarea {
+  color: transparent;
+  caret-color: #fff;
+  z-index: 2;
+  resize: none;
+  overflow-y: auto;
+}
+
+.editor-highlight {
+  color: #cbd5e1;
+  z-index: 1;
+  overflow-y: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Modern pill and format toolbar buttons */
+.sec-pill-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sec-pill-btn:hover {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.format-tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.format-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
