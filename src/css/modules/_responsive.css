@@ -33,19 +33,10 @@
     min-height: 70px;
     gap: 12px;
   }
-  .metro-main-btn {
-    width: 42px;
-    height: 42px;
-    padding: 0;
-    border-radius: 8px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-  .metro-main-btn svg {
-    width: 18px;
-    height: 18px;
-  }
+  /* The metro main play button intentionally KEEPS its desktop size
+     (50×50, declared on .metro-main-btn--square in _setlist.css) — this
+     control is the user's primary visual anchor during a live service
+     so it stays uniform across screen sizes. */
   .metro-bpm-big {
     font-size: 26px;
   }
