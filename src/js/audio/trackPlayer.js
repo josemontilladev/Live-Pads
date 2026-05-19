@@ -199,6 +199,19 @@ async function startTrackPlayback(url, title, type) {
     }
   };
 
+  // Stamp the duration onto the song the first time we discover it. The
+  // service-list total-time estimate (updateServiceMeta) sums these so
+  // the user sees a real ETA instead of a 4-min heuristic per song.
+  audio.addEventListener('loadedmetadata', () => {
+    if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    if (currentSong && (!currentSong.durationSec || currentSong.durationSec !== Math.round(audio.duration))) {
+      currentSong.durationSec = Math.round(audio.duration);
+      if (typeof deps.onDurationDiscovered === 'function') {
+        deps.onDurationDiscovered(currentSong);
+      }
+    }
+  }, { once: true });
+
   if (els.volSlider) audio.volume = els.volSlider.value / 100;
 
   if (els.closeBtn) els.closeBtn.onclick = () => {

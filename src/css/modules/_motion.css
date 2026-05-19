@@ -167,3 +167,15 @@
     transform: none;
   }
 }
+
+/* MIDI Learn mode dim — when body.midi-learning is set, fade the
+   whole UI 30% so the user sees they're in a modal interaction
+   waiting for a click target. The pulsing #midi-learn-overlay chip
+   on top is excluded so it stays at full intensity. */
+body.midi-learning #app {
+  filter: saturate(0.55) brightness(0.7);
+  transition: filter 0.25s ease;
+}
+body.midi-learning #midi-learn-overlay {
+  filter: none !important;
+}

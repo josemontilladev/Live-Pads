@@ -40,6 +40,22 @@ import {
 export function bindMidiHandlers(deps) {
   const engine = deps.getEngine();
 
+  // Render the device-name pill in the topbar. Hidden when no MIDI device
+  // is connected (or before MIDI access resolves on app boot).
+  const renderDevicePill = (names) => {
+    const pill = q('#midi-status-pill');
+    if (!pill) return;
+    if (!names || names.length === 0) {
+      pill.classList.add('hidden');
+      pill.textContent = '';
+      return;
+    }
+    const label = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
+    pill.textContent = label;
+    pill.title = names.join(' • ');
+    pill.classList.remove('hidden');
+  };
+
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;
     const isNoteOn = cmd >= 144 && cmd <= 159;
@@ -118,7 +134,7 @@ export function bindMidiHandlers(deps) {
         }
       }
     }
-  });
+  }, renderDevicePill);
 
   // Midi Learn click intercept — while learn-mode is on, the first click
   // on any mappable control marks it as the next target; the next MIDI
@@ -130,6 +146,7 @@ export function bindMidiHandlers(deps) {
       setIsMidiLearnMode(false);
       q('#midi-learn-overlay').style.display = 'none';
       setMidiLearnTarget(null);
+      document.body.classList.remove('midi-learning');
       e.stopPropagation(); e.preventDefault();
       return;
     }

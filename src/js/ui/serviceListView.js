@@ -8,6 +8,7 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { getOpenAccordionServiceId } from '../state/store.js';
+import { bindTouchReorder } from '../utils/touchReorder.js';
 
 let deps = null;
 
@@ -53,13 +54,29 @@ function updateServiceMeta(songs) {
   if (!el) return;
   const n = songs.length;
   if (n === 0) { el.textContent = ''; return; }
-  const minutes = n * 4;
+
+  // Sum durationSec when known (cached on first play by trackPlayer);
+  // fall back to 240s (4 min) per unknown song. The ~ prefix signals
+  // "still estimating" when at least one song hasn't been timed yet.
+  let totalSec = 0;
+  let unknownCount = 0;
+  for (const s of songs) {
+    if (typeof s.durationSec === 'number' && s.durationSec > 0) {
+      totalSec += s.durationSec;
+    } else {
+      totalSec += 240;
+      unknownCount++;
+    }
+  }
+  const minutes = Math.max(1, Math.round(totalSec / 60));
+  const prefix = unknownCount > 0 ? '~' : '';
+
   const songLabel = n === 1 ? 'canción' : 'canciones';
   const activeIdx = deps.getActiveIndex();
   const positionPart = (activeIdx >= 0 && activeIdx < n)
     ? `${activeIdx + 1} / ${n} · `
     : '';
-  el.textContent = `${positionPart}${n} ${songLabel} · ~${minutes} min`;
+  el.textContent = `${positionPart}${n} ${songLabel} · ${prefix}${minutes} min`;
 }
 
 function buildCard(song, index, activeIdx) {
@@ -110,6 +127,12 @@ function findSong(serviceId) {
 function initDelegation() {
   const container = q('#service-songs-container');
   if (!container) return;
+
+  // Touch reorder — mirrors the native drag handlers below for finger users.
+  bindTouchReorder('#service-songs-container', '.gi-song-item', 'index', (fromIdx, toIdx) => {
+    deps.reorderService(fromIdx, toIdx);
+    renderServiceList();
+  });
 
   container.addEventListener('click', (e) => {
     const card = e.target.closest('.gi-song-item');

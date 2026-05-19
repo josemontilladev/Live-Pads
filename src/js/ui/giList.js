@@ -7,6 +7,7 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { confirmDialog } from './dialog.js';
+import { bindTouchReorder } from '../utils/touchReorder.js';
 import {
   getSongs, setSongs,
   getCurrentGenre,
@@ -112,16 +113,20 @@ export function renderGiList(filter = '', editSongId = null) {
   // stays responsive — first chunk paints immediately, the rest stream in
   // during idle frames. Surgical-update call sites all check `if (match)`
   // before touching the DOM, so unmounted cards are harmless no-ops.
+  // Only the plain-text search term gets highlighted — the "tono:G"
+  // mode filters by key, which doesn't map to a substring in title/artist.
+  const highlightTerm = keyPrefix === null ? textTerm : '';
+
   if (filtered.length <= CHUNK_THRESHOLD) {
     const fragment = document.createDocumentFragment();
-    filtered.forEach((song, idx) => fragment.appendChild(buildCard(song, idx, editSongId)));
+    filtered.forEach((song, idx) => fragment.appendChild(buildCard(song, idx, editSongId, highlightTerm)));
     container.appendChild(fragment);
     return;
   }
 
   const firstChunk = document.createDocumentFragment();
   const firstCount = Math.min(CHUNK_SIZE, filtered.length);
-  for (let i = 0; i < firstCount; i++) firstChunk.appendChild(buildCard(filtered[i], i, editSongId));
+  for (let i = 0; i < firstCount; i++) firstChunk.appendChild(buildCard(filtered[i], i, editSongId, highlightTerm));
   container.appendChild(firstChunk);
 
   const token = ++renderToken;
@@ -133,7 +138,7 @@ export function renderGiList(filter = '', editSongId = null) {
     if (cursor >= filtered.length) return;
     const frag = document.createDocumentFragment();
     const end = Math.min(cursor + CHUNK_SIZE, filtered.length);
-    for (let i = cursor; i < end; i++) frag.appendChild(buildCard(filtered[i], i, editSongId));
+    for (let i = cursor; i < end; i++) frag.appendChild(buildCard(filtered[i], i, editSongId, highlightTerm));
     container.appendChild(frag);
     cursor = end;
     if (cursor < filtered.length) schedule(streamNext);
@@ -141,7 +146,7 @@ export function renderGiList(filter = '', editSongId = null) {
   schedule(streamNext);
 }
 
-function buildCard(song, idx, editSongId) {
+function buildCard(song, idx, editSongId, searchTerm = '') {
   const el = document.createElement('div');
   el.className = 'gi-song-item';
   if (song.id != null) el.dataset.songId = String(song.id);
@@ -161,7 +166,8 @@ function buildCard(song, idx, editSongId) {
     showChords: !!song.showChords,
     includeAdd: true,
     removeBtnClass: 'btn-remove-lib',
-    removeBtnTitle: 'Eliminar de la librería'
+    removeBtnTitle: 'Eliminar de la librería',
+    searchTerm
   });
 
   if (editSongId === song.id) {
@@ -232,6 +238,16 @@ function initDelegation() {
   const container = q('#gi-songs-container');
   if (!container) return;
 
+  // Touch reorder (pairs with the native HTML5 drag below for mouse users).
+  bindTouchReorder('#gi-songs-container', '.gi-song-item', 'libIndex', (fromIdx, toIdx) => {
+    const arr = getSongs();
+    const [moved] = arr.splice(fromIdx, 1);
+    arr.splice(toIdx, 0, moved);
+    deps.persist();
+    const searchInput = q('#gi-search');
+    renderGiList(searchInput ? searchInput.value : '');
+  });
+
   container.addEventListener('click', (e) => {
     const card = e.target.closest('.gi-song-item');
     if (!card || !container.contains(card)) return;
@@ -268,6 +284,18 @@ function initDelegation() {
           repaintGiCard(card, song);
         });
         return;
+      case 'assign-audio-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
+      case 'assign-audio-orig': deps.loadAndPlayTrack(song, 'original'); return;
+      case 'clear-audio-seq':
+      case 'clear-audio-orig': {
+        const slot = action === 'clear-audio-seq' ? 'sequence' : 'original';
+        if (song.audio) song.audio[slot] = null;
+        deps.persist();
+        // Re-render the inline edit form so the status pill flips
+        // from "✓ asignado" back to the "Asignar archivo" button.
+        card.innerHTML = songEditFormHTML(song);
+        return;
+      }
       case 'edit': {
         card.innerHTML = songEditFormHTML(song, { placeholderForNewSong: true });
         const firstInput = card.querySelector('.edit-title');

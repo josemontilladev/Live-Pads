@@ -7,6 +7,7 @@
 
 import { q, qa, debounce } from '../utils/dom.js';
 import { showToast } from './toast.js';
+import { confirmDialog } from './dialog.js';
 import {
   getSongs, setSongs,
   getCurrentGenre, setCurrentGenre,
@@ -50,13 +51,23 @@ function bindImportExport(deps) {
     btnImportGi.classList.add('is-loading');
     const reader = new FileReader();
     reader.onload = (ev) => {
+      const finish = () => {
+        btnImportGi.classList.remove('is-loading');
+        e.target.value = ''; // Reset so re-importing same file re-fires onchange
+      };
       try {
         const json = JSON.parse(ev.target.result);
-        if (json.data && json.data.songs) {
-          const imported = json.data.songs.map((s, idx) => {
-            if (!s.id) s.id = 'song_imp_' + idx + '_' + Date.now();
-            return s;
-          });
+        if (!json.data || !json.data.songs) {
+          showToast('El archivo no parece ser un export válido.', 'warning');
+          finish();
+          return;
+        }
+        const imported = json.data.songs.map((s, idx) => {
+          if (!s.id) s.id = 'song_imp_' + idx + '_' + Date.now();
+          return s;
+        });
+
+        const commit = () => {
           setSongs(imported);
           if (window.electronAPI && window.electronAPI.saveGiSetlist) {
             window.electronAPI.saveGiSetlist(getSongs());
@@ -65,15 +76,28 @@ function bindImportExport(deps) {
           renderGiList();
           q('.s-toggle[data-target="gi-setlist-list"]').click();
           showToast(`Importadas ${imported.length} canción${imported.length === 1 ? '' : 'es'}.`, 'success');
+          finish();
+        };
+
+        // If the user already has a library, the import REPLACES it. That's
+        // destructive (no merge / undo), so guard with a confirm dialog when
+        // there's anything to lose.
+        const currentCount = getSongs().length;
+        if (currentCount > 0) {
+          confirmDialog({
+            title: 'Reemplazar librería',
+            message: `Tu librería tiene ${currentCount} ${currentCount === 1 ? 'canción' : 'canciones'}. Importar este archivo las sustituirá por ${imported.length}. ¿Continuar?`,
+            confirmLabel: 'Reemplazar',
+            danger: true,
+            onConfirm: commit,
+            onCancel: finish,
+          });
         } else {
-          showToast('El archivo no parece ser un export válido.', 'warning');
+          commit();
         }
       } catch (err) {
         showToast('Error al leer el archivo JSON.', 'warning');
-      } finally {
-        btnImportGi.classList.remove('is-loading');
-        // Reset the input so re-importing the same file fires onchange again.
-        e.target.value = '';
+        finish();
       }
     };
     reader.onerror = () => {
@@ -98,6 +122,18 @@ function bindSearchAndAdd(deps) {
   searchInput.oninput = (e) => {
     refreshClearBtn();
     debouncedRender(e.target.value);
+  };
+  // Enter "commits" the current filter by applying the FIRST card in the
+  // filtered library — fast workflow when you're searching for a specific
+  // song to load. Shift+Enter is reserved (browser default focuses next
+  // form field) so plain Enter is unambiguous here.
+  searchInput.onkeydown = (e) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    const firstCard = q('#gi-songs-container .gi-song-item[data-song-id]');
+    if (firstCard) {
+      e.preventDefault();
+      firstCard.click();
+    }
   };
   if (clearBtn) {
     clearBtn.onclick = () => {

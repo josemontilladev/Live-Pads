@@ -1,4 +1,8 @@
-/* ── PANEL SETLIST (ahora en stage) ── */
+/* ── PANEL SETLIST (ahora en stage) ──
+   Panel itself does NOT scroll; the inner song container handles that.
+   This keeps .gi-sticky-header (search + filter row) pinned at the top
+   while the user scrolls through 80+ cards. The setlist header, the
+   now-playing banner and the tab toggle stay above the sticky search. */
 #panel-setlist {
   grid-column: 3;
   grid-row: 2;
@@ -9,7 +13,15 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+#gi-songs-container,
+#service-songs-container,
+#setlist-list {
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Beat visualizer */
@@ -983,3 +995,75 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-song-item.dragging::after,
 .gi-song-item.active-song::after,
 .gi-song-item.queued-next::after { opacity: 0 !important; }
+
+/* Search match highlight — wraps the matching substring in song title /
+   artist when there's a free-text search active. Theme-aware via accent. */
+.gi-song-item mark.search-hit {
+  background: var(--glow);
+  color: var(--accent);
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: inherit;
+}
+
+/* Audio assignment section inside the inline edit form. One row per
+   track type (sequence / original) — pill if the path is set + a small
+   × to clear; otherwise a compact "Asignar archivo" button that proxies
+   to the existing seq/orig play flow (which prompts for a file). */
+.gi-edit-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+.gi-edit-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.gi-edit-audio-label {
+  flex: 0 0 60px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.gi-edit-audio-status.has {
+  color: #4ade80;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.gi-edit-audio-clear {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+.gi-edit-audio-clear:hover { border-color: #ff4747; color: #ff4747; }
+.gi-edit-audio-assign {
+  flex: 1;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.gi-edit-audio-assign:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  border-style: solid;
+}
