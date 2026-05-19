@@ -6,7 +6,8 @@ scheduler, reproductor híbrido de secuencias/originales, mapeo MIDI y
 teclado, sincronización con MongoDB, transposición automática de acordes
 y editor de letras con auto-save.
 
-**Repo:** https://github.com/josemontilladev/Live-Pads
+- 🌐 **Página oficial:** https://josemontilladev.github.io/Live-Pads/
+- 📦 **Repo:** https://github.com/josemontilladev/Live-Pads
 
 ---
 
@@ -50,9 +51,12 @@ Si nunca usas MongoDB, ignora este paso completamente.
 | `npm run dev` | Igual que start pero con flag --dev |
 | `npm run build` | Empaqueta el instalador NSIS para Windows (~250 MB) |
 | `npm run build:dir` | Empaqueta sin crear el .exe (más rápido para iterar) |
+| `npm run build:mac` | Empaqueta `.dmg` para macOS (x64 + arm64) — requiere correr en Mac |
+| `npm run build:linux` | Empaqueta `.AppImage` para Linux x64 |
+| `npm run build:all` | Empaqueta los tres a la vez (requiere correr en Mac para los `.dmg`) |
 | `npm run rebuild` | Recompila el módulo nativo de mongodb tras un upgrade |
 
-El instalador termina en `dist/LivePads-Setup-1.0.0.exe`.
+El instalador termina en `dist/LivePads-Setup-1.0.0.exe` (o `.dmg` / `.AppImage` según target).
 
 ---
 

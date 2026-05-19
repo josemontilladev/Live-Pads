@@ -61,13 +61,15 @@
     </div>
 
     <div class="hero-screenshot">
-      <div class="hero-screenshot-frame">
-        <!-- Reemplaza este placeholder con un screenshot real de la app -->
-        <div class="screenshot-placeholder">
-          <div class="ss-placeholder-label">📸 Screenshot principal de la app</div>
-          <div class="ss-placeholder-hint">Sustituir <code>docs/assets/hero.png</code></div>
-        </div>
+      <!-- Mac-window frame (mismo chrome que los tour shots) con el
+           screenshot real de la cabina principal. Hover lift via
+           .mac-window:hover heredado. -->
+      <div class="mac-window hero-mac-window">
+        <div class="mac-chrome"><span></span><span></span><span></span></div>
+        <img src="assets/hero.png" alt="Live Pads — vista principal de la cabina" class="mac-shot">
       </div>
+      <!-- Halo decorativo detrás del screenshot, da profundidad. -->
+      <div class="hero-halo" aria-hidden="true"></div>
     </div>
   </div>
 </header>
@@ -174,9 +176,9 @@
         </ul>
       </div>
       <div class="tour-shot">
-        <div class="screenshot-placeholder">
-          <div class="ss-placeholder-label">📸 Setlist + Now Playing</div>
-          <div class="ss-placeholder-hint"><code>docs/assets/tour-setlist.png</code></div>
+        <div class="mac-window">
+          <div class="mac-chrome"><span></span><span></span><span></span></div>
+          <img src="assets/playing.png" alt="Setlist con banner Sonando y card activa" class="mac-shot">
         </div>
       </div>
     </div>
@@ -193,9 +195,9 @@
         </ul>
       </div>
       <div class="tour-shot">
-        <div class="screenshot-placeholder">
-          <div class="ss-placeholder-label">📸 Editor de letras</div>
-          <div class="ss-placeholder-hint"><code>docs/assets/tour-lyrics.png</code></div>
+        <div class="mac-window">
+          <div class="mac-chrome"><span></span><span></span><span></span></div>
+          <img src="assets/editor_letras.png" alt="Editor de letras con acordes y transposición" class="mac-shot">
         </div>
       </div>
     </div>
@@ -212,9 +214,9 @@
         </ul>
       </div>
       <div class="tour-shot">
-        <div class="screenshot-placeholder">
-          <div class="ss-placeholder-label">📸 MIDI Learn / Mappings</div>
-          <div class="ss-placeholder-hint"><code>docs/assets/tour-midi.png</code></div>
+        <div class="mac-window">
+          <div class="mac-chrome"><span></span><span></span><span></span></div>
+          <img src="assets/mapeo.png" alt="Vista de mapeos MIDI y teclado activos" class="mac-shot">
         </div>
       </div>
     </div>
@@ -231,9 +233,9 @@
         </ul>
       </div>
       <div class="tour-shot">
-        <div class="screenshot-placeholder">
-          <div class="ss-placeholder-label">📸 Pre-vuelo checklist</div>
-          <div class="ss-placeholder-hint"><code>docs/assets/tour-preflight.png</code></div>
+        <div class="mac-window">
+          <div class="mac-chrome"><span></span><span></span><span></span></div>
+          <img src="assets/prevuelo.png" alt="Modal Pre-vuelo con checks de audio, MIDI y servicio" class="mac-shot">
         </div>
       </div>
     </div>
