@@ -7,6 +7,13 @@ out/
 ffmpeg.exe
 *.exe
 
+# Backups locales de audio re-encoded (los originales son recuperables
+# desde git history). Conservamos los .gitkeep para que las carpetas
+# sigan tracked.
+audio_assets/originales/**
+audio_assets/secuencias/**
+!audio_assets/**/.gitkeep
+
 # Logs y temporales
 *.log
 *.tmp

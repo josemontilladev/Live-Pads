@@ -6,13 +6,39 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
-## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (novena pasada)
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (décima pasada)
 
 ### Estado al cerrar
 
-- **Última fase completada**: 🏗️ Fase 30 — Extracción modular de la lista GI + service list
-- **app.js**: 1687 → **1441 líneas** (-246, -15% en esta sesión; -53% desde el origen 3055)
-- **Total módulos**: 32 archivos especializados
+- **Última fase completada**: 🏗️ Fase 31 — Re-encode de pads + extracción mongoSync + songState
+- **app.js**: 1687 → **1294 líneas** (-393, -23% en esta sesión; -58% desde el origen 3055)
+- **Total módulos**: **34** archivos especializados
+- **Pads Amb**: 193 MB → **137 MB** (-56 MB, -29%) sin pérdida audible de calidad
+
+### Fase 31 (esta sesión) — re-encode audio + extracciones finales
+
+1. **Re-encode de pads ambientales** (Foundations + Organic banks):
+   - 24 archivos × 320 kbps CBR stereo → **LAME VBR V0** (≈233 kbps Foundations, ≈189 kbps Organic)
+   - Duración exacta preservada (offset de 25ms de encoder delay LAME — gapless playback respetado por Web Audio)
+   - Foundations: 85 MB → 63 MB (-26%)
+   - Organic: 83 MB → 49 MB (-41% — material con alta redundancia harmónica comprimió mejor)
+   - Chris Rocha: sin tocar (ya estaba a 96 kbps mono)
+   - **Backup** de originales en `audio_assets/originales/` (fuera del bundle del instalador via `files:` de electron-builder)
+2. **`data/mongoSync.js`** (89 líneas, nuevo) — extracción del handler de sync MongoDB (`#btn-sync-gi`).
+   - API: `bindMongoSync({ getSongs, persist, rerender, updateFilterCounts, getSearchFilter })`
+   - Atado una sola vez en boot; el handler de antes vivía inline en `bindRestOfApp`.
+3. **`ui/songState.js`** (125 líneas, nuevo) — extracción de las 4 primitivas de estado visual compartidas entre la librería GI y el servicio:
+   - `refreshActiveSongHighlights()` — surgical highlight (≤2 cards por list).
+   - `toggleLyricsAccordion(song, isService)` — exclusividad cross-list (sólo un acordeón abierto).
+   - `paintChordVisibility(card, showChords)` — pinta el texto + el botón pill.
+   - `toggleChordVisibility(song, isService, syncToLibrary)` — flip + sync opcional a librería.
+   - API: `initSongState({ getActiveGiSongId, getOpenAccordionSongId/Service+setters, getGiSongs })`.
+
+### Auditoría de extracciones restantes
+
+Las funciones `bindMidiHandlers` (120 líneas), `bindMetronomeControls` (126), `bindRestOfApp` (146), `bindKitButtons` (91) NO se extrajeron en esta sesión — están tightly coupled a 10-18 globals mutables (engine, metro, KIT_BANKS, isMidiLearnMode, midiLearnTarget, kitBankIdx, useFlats, isEditKitMode, activeKey, preparedPadKey, metroRunning). Su extracción correcta requiere primero el **state manager central** (refactor 🔴 pendiente del ROADMAP) para no crear deps objects de >10 entradas que anulen la ganancia organizacional.
+
+### Fase 30 (esta sesión) — extracción modular de los renderers
 
 ### Fase 30 (esta sesión) — extracción modular de los renderers
 

@@ -3,7 +3,6 @@ import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc, debounce } from './utils/dom.js';
 import { panShort } from './utils/format.js';
-import { showToast } from './ui/toast.js';
 import { songEditFormHTML } from './ui/songEditForm.js';
 import { songCardInnerHTML } from './ui/songCard.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
@@ -29,6 +28,7 @@ import {
   hydrateCustomKitsInto, saveCustomKitsToStorage, createEmptyCustomKit
 } from './data/customKits.js';
 import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
+import { bindMongoSync } from './data/mongoSync.js';
 import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter.js';
 import { openSidebarTab, closeAllOverlays } from './ui/overlays.js';
 import { initDrumGrid, buildDrumGrid, hitDrum } from './ui/drumGrid.js';
@@ -43,6 +43,12 @@ import {
 import {
   initServiceList, renderServiceList as renderServiceListModule
 } from './ui/serviceListView.js';
+import {
+  initSongState,
+  refreshActiveSongHighlights,
+  toggleLyricsAccordion,
+  toggleChordVisibility,
+} from './ui/songState.js';
 
 let engine, metro;
 let activeKey = null;
@@ -91,6 +97,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   applyTheme(getCurrentTheme());
   initService({ render: renderServiceList, applyGiSong });
+  initSongState({
+    getActiveGiSongId: () => activeGiSongId,
+    getOpenAccordionSongId: () => openAccordionSongId,
+    setOpenAccordionSongId: (v) => { openAccordionSongId = v; },
+    getOpenAccordionServiceId: () => openAccordionServiceId,
+    setOpenAccordionServiceId: (v) => { openAccordionServiceId = v; },
+    getGiSongs: () => giSetlistSongs,
+  });
   initGiList({
     getSongs: () => giSetlistSongs,
     setSongs: (s) => { giSetlistSongs = s; },
@@ -772,71 +786,13 @@ function bindRestOfApp() {
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
 
-  const btnSyncGi = q('#btn-sync-gi');
-  if (btnSyncGi) {
-    btnSyncGi.onclick = async () => {
-      if (!window.electronAPI) return;
-      try {
-        btnSyncGi.style.animation = 'pulse 1s infinite';
-        btnSyncGi.style.color = '#fbae00';
-        
-        const mongoSongs = await window.electronAPI.syncMongoSetlist();
-        
-        if (!mongoSongs || !mongoSongs.length) {
-           throw new Error("No se encontraron canciones en MongoDB");
-        }
-        
-        let updatedCount = 0;
-        let newCount = 0;
-
-        mongoSongs.forEach(mSong => {
-          const existingIdx = giSetlistSongs.findIndex(s => 
-            (s._id && s._id === mSong._id) || 
-            (s.title.toLowerCase() === mSong.title.toLowerCase() && (s.artist || '').toLowerCase() === (mSong.artist || '').toLowerCase())
-          );
-
-          if (existingIdx >= 0) {
-            const existing = giSetlistSongs[existingIdx];
-            let changed = false;
-            if (!existing._id) { existing._id = mSong._id; changed = true; }
-            if (existing.lyrics !== mSong.lyrics) { existing.lyrics = mSong.lyrics; changed = true; }
-            if (existing.bpm !== mSong.bpm) { existing.bpm = mSong.bpm; changed = true; }
-            if (existing.key !== mSong.key) { existing.key = mSong.key; changed = true; }
-            if (existing.genre !== mSong.genre) { existing.genre = mSong.genre; changed = true; }
-            
-            if (changed) updatedCount++;
-          } else {
-            giSetlistSongs.push({
-              id: 'song_sync_' + Date.now() + '_' + Math.random().toString(36).substring(2,7),
-              _id: mSong._id,
-              title: mSong.title,
-              artist: mSong.artist || '',
-              bpm: mSong.bpm || '',
-              key: mSong.key || '',
-              genre: mSong.genre || '',
-              lyrics: mSong.lyrics || ''
-            });
-            newCount++;
-          }
-        });
-        
-        if (updatedCount > 0 || newCount > 0) {
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          updateFilterCounts();
-          renderGiList(q('#gi-search').value);
-          showToast(`Sincronización exitosa. Nuevas: ${newCount}, Actualizadas: ${updatedCount}`, 'success');
-        } else {
-          showToast('Tu librería ya está al día, sin cambios.', 'success');
-        }
-      } catch (e) {
-        console.error('Error sincronizando con MongoDB:', e);
-        showToast('Error de red. Operando en Modo Local.', 'warning');
-      } finally {
-        btnSyncGi.style.animation = '';
-        btnSyncGi.style.color = '';
-      }
-    };
-  }
+  bindMongoSync({
+    getSongs: () => giSetlistSongs,
+    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs); },
+    rerender: renderGiList,
+    updateFilterCounts,
+    getSearchFilter: () => q('#gi-search')?.value || '',
+  });
 
   q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
   q('#gi-file-input').onchange = (e) => {
@@ -1262,109 +1218,6 @@ async function loadGiSetlistFromFile() {
 const renderServiceList = renderServiceListModule;
 
 
-// Targeted highlight update: toggles the `.active-song` class on at most
-// two cards per list — orders of magnitude cheaper than a full re-render of
-// 81 library cards when the user just switches songs in live.
-function refreshActiveSongHighlights() {
-  const giContainer = q('#gi-songs-container');
-  if (giContainer) {
-    giContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
-    if (activeGiSongId != null) {
-      const match = getGiCardBySongId(activeGiSongId);
-      if (match) match.classList.add('active-song');
-    }
-  }
-
-  const svcContainer = q('#service-songs-container');
-  if (svcContainer) {
-    svcContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
-    const idx = getActiveServiceIndex();
-    if (idx >= 0) {
-      const songs = getServiceSongs();
-      const target = songs[idx];
-      if (target && target.serviceId != null) {
-        const sel = `.gi-song-item[data-service-id="${CSS.escape(String(target.serviceId))}"]`;
-        const match = svcContainer.querySelector(sel);
-        if (match) match.classList.add('active-song');
-      }
-    }
-  }
-}
-
-// Toggle a song's lyrics accordion open/closed WITHOUT a full re-render.
-// Closes any other accordion (in either container) first to keep state
-// consistent with the global "only one accordion open at a time" rule.
-function toggleLyricsAccordion(song, isService) {
-  const id = isService ? song.serviceId : song.id;
-  const wasOpen = isService
-    ? (openAccordionServiceId === id)
-    : (openAccordionSongId === id);
-
-  // Close any currently-open accordion across both lists.
-  qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
-  qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
-
-  if (wasOpen) {
-    // It was open → user clicked again to close it. State cleared.
-    openAccordionSongId = null;
-    openAccordionServiceId = null;
-    return;
-  }
-
-  // Set the new active accordion + close the other container's pointer.
-  if (isService) { openAccordionServiceId = id; openAccordionSongId = null; }
-  else           { openAccordionSongId = id; openAccordionServiceId = null; }
-
-  // Apply the visual change only to the affected card.
-  const containerSel = isService ? '#service-songs-container' : '#gi-songs-container';
-  const attr = isService ? 'data-service-id' : 'data-song-id';
-  const card = q(`${containerSel} .gi-song-item[${attr}="${CSS.escape(String(id))}"]`);
-  if (card) {
-    const accordion = card.querySelector('.gi-lyrics-accordion');
-    const btn = card.querySelector('.btn-lyrics');
-    if (accordion) accordion.classList.add('open');
-    if (btn) btn.classList.add('active');
-  }
-}
-
-// Apply the chord-visibility state to a single song card (whichever
-// container it lives in). Only touches 2 DOM elements per card.
-function paintChordVisibility(card, showChords) {
-  if (!card) return;
-  const textContent = card.querySelector('.lyrics-text-content');
-  const toggleBtn = card.querySelector('.chord-toggle-btn');
-  if (textContent) textContent.classList.toggle('hide-chords', !showChords);
-  if (toggleBtn) {
-    toggleBtn.classList.toggle('active', showChords);
-    toggleBtn.textContent = showChords ? 'Con acordes' : 'Solo letra';
-    toggleBtn.title = showChords ? 'Ocultar acordes' : 'Mostrar acordes';
-  }
-}
-
-// Flip a song's `showChords` flag and update the visible cards in place —
-// no full re-render. When `syncToLibrary` is true, mirrors the change onto
-// the matching library song so both lists stay aligned.
-function toggleChordVisibility(song, isService, syncToLibrary = false) {
-  song.showChords = !song.showChords;
-
-  // Update the originating card (service or library, depending on context).
-  const ownContainerSel = isService ? '#service-songs-container' : '#gi-songs-container';
-  const ownAttr = isService ? 'data-service-id' : 'data-song-id';
-  const ownId = isService ? song.serviceId : song.id;
-  paintChordVisibility(
-    q(`${ownContainerSel} .gi-song-item[${ownAttr}="${CSS.escape(String(ownId))}"]`),
-    song.showChords
-  );
-
-  // If service-side, also mirror state + UI onto the matching library song.
-  if (syncToLibrary && isService) {
-    const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-    if (giSong) {
-      giSong.showChords = song.showChords;
-      paintChordVisibility(getGiCardBySongId(giSong.id), giSong.showChords);
-    }
-  }
-}
 
 function applyGiSong(song) {
   // Sync activeGiSongId
