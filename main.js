@@ -193,7 +193,21 @@ function createWindow() {
       webSecurity: true
     },
   });
-  mainWindow.loadFile('src/index.html');
+  // Clear Chromium's HTTP cache on every boot so a freshly-installed build
+  // never serves stale CSS/HTML/JS that the previous version compiled into
+  // `%APPDATA%\LivePads\Cache\`. Without this, NSIS upgrades can render the
+  // old UI even after the .exe is replaced — the renderer's preload hits
+  // the cache before loading from disk.
+  //
+  // Cost: 5–20 ms per launch (cache is small for a local-file Electron app).
+  // The async call doesn't block window creation; loadFile() runs after,
+  // and the fresh fetch lands well within the first paint.
+  mainWindow.webContents.session.clearCache()
+    .then(() => mainWindow.loadFile('src/index.html'))
+    .catch((err) => {
+      console.warn('Cache clear failed, loading anyway:', err);
+      mainWindow.loadFile('src/index.html');
+    });
 
   // Handle MIDI permissions to prevent drops on hot reload (Ctrl+R)
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
