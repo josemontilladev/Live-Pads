@@ -196,9 +196,14 @@
     border-radius: 5px;
   }
   .gi-search-input {
-    padding: 6px 10px;
+    /* Preserve the 32px left padding that reserves space for the lupa SVG
+       (background-image). The previous shorthand `padding: 6px 10px;`
+       collapsed all four sides, making the icon overlap the placeholder
+       text on laptop-height screens. */
+    padding: 6px 10px 6px 32px;
     margin-bottom: 8px;
     font-size: 11px;
+    background-position: 10px center;
   }
   .gi-filters {
     margin-bottom: 8px !important;
