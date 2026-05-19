@@ -13,6 +13,9 @@
     "dev": "electron . --dev",
     "build": "electron-builder --win",
     "build:dir": "electron-builder --win --dir",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder --win --mac --linux",
     "rebuild": "electron-rebuild -f -w mongodb"
   },
   "devDependencies": {
@@ -60,6 +63,22 @@
       "signtoolOptions": {
         "publisherName": "LivePads"
       }
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "src/assets/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "icon": "src/assets/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "AudioVideo;Audio"
     },
     "nsis": {
       "oneClick": false,
