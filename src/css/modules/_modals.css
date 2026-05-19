@@ -958,3 +958,261 @@
 }
 #preflight-overlay .pf-summary.is-ok   { background: rgba(74, 222, 128, 0.12);  color: #4ade80; }
 #preflight-overlay .pf-summary.is-warn { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+
+/* ── MIDI / Keyboard mappings list overlay ────────────────────────────
+   Same visual vocabulary as cheat sheet + preflight: backdrop blur, panel
+   slides up, × to close. One row per mapping with a × to delete it. */
+#mappings-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 100001;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+#mappings-overlay.open { opacity: 1; }
+
+#mappings-overlay .mp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  width: 560px; max-width: 100%;
+  max-height: 82vh;
+  display: flex; flex-direction: column;
+  padding: 26px 28px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  transform: translateY(10px) scale(0.985);
+  transition: transform 0.28s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#mappings-overlay.open .mp-panel { transform: translateY(0) scale(1); }
+
+#mappings-overlay .mp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#mappings-overlay .mp-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#mappings-overlay .mp-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#mappings-overlay .mp-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#mappings-overlay .mp-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+#mappings-overlay .mp-body { overflow-y: auto; flex: 1; }
+#mappings-overlay .mp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+#mappings-overlay .mp-row {
+  display: grid;
+  grid-template-columns: 64px auto 18px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+#mappings-overlay .mp-key-kind {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+#mappings-overlay .mp-key-kind.kbd  { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
+#mappings-overlay .mp-key-kind.midi { background: var(--glow); color: var(--accent); }
+#mappings-overlay .mp-key {
+  font-family: 'Inter', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--text);
+}
+#mappings-overlay .mp-arrow { color: var(--text-muted); opacity: 0.5; }
+#mappings-overlay .mp-target { color: var(--text); font-weight: 500; }
+#mappings-overlay .mp-clear {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#mappings-overlay .mp-clear:hover { border-color: #ff4747; color: #ff4747; }
+
+#mappings-overlay .mp-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+#mappings-overlay .mp-empty p { margin: 4px 0; font-size: 13px; }
+#mappings-overlay .mp-empty-hint { font-size: 11px; opacity: 0.7; }
+
+/* ── Spotlight (Ctrl+K) ────────────────────────────────────────────────
+   Floating command palette anchored near the top of the viewport.
+   Same chrome as cheat sheet / preflight but with the search input as
+   first-class citizen (focus on open). Results render below as buttons
+   with keyboard navigation (↑↓ Enter). */
+#spotlight-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12vh 24px 24px;
+  z-index: 100002;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+#spotlight-overlay.open { opacity: 1; }
+#spotlight-overlay .sp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  width: 600px; max-width: 100%;
+  max-height: 70vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.85);
+  transform: translateY(-8px) scale(0.99);
+  transition: transform 0.22s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#spotlight-overlay.open .sp-panel { transform: translateY(0) scale(1); }
+
+#spotlight-overlay .sp-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+#spotlight-overlay .sp-icon { color: var(--text-muted); flex-shrink: 0; }
+#spotlight-overlay .sp-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+}
+#spotlight-overlay .sp-input::placeholder { color: var(--text-muted); }
+#spotlight-overlay .sp-hint {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+#spotlight-overlay .sp-results {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px;
+}
+#spotlight-overlay .sp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+#spotlight-overlay .sp-row.is-active,
+#spotlight-overlay .sp-row:hover {
+  background: var(--bg-hover);
+}
+#spotlight-overlay .sp-row.is-active {
+  border: 1px solid var(--accent);
+  padding: 8px 11px;
+}
+#spotlight-overlay .sp-row-kind {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+#spotlight-overlay .sp-row-text {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+#spotlight-overlay .sp-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#spotlight-overlay .sp-row-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#spotlight-overlay .sp-empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+#spotlight-overlay .sp-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+#spotlight-overlay .sp-footer kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 9px;
+  color: var(--text);
+  font-weight: 700;
+  margin-right: 4px;
+}

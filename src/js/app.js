@@ -6,6 +6,8 @@ import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { hideDialog } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { openPreflight } from './ui/preflight.js';
+import { openMappingsList } from './ui/mappingsList.js';
+import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
@@ -489,6 +491,14 @@ function bindHamburgerMenu() {
     };
   }
 
+  const btnMappings = q('#menu-mappings');
+  if (btnMappings) {
+    btnMappings.onclick = () => {
+      closeMenu();
+      openMappingsList();
+    };
+  }
+
   const btnMidiLearn = q('#menu-midi-learn');
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
@@ -664,6 +674,18 @@ function onKey(e) {
   // Don't capture keypresses meant for any text editor — INPUT, TEXTAREA,
   // SELECT, or contentEditable. Previously only INPUT was filtered, so
   // typing 'R' in the lyrics textarea would trigger the drum pad.
+
+  // Ctrl/Cmd+K opens Spotlight — handled BEFORE the input/textarea filter
+  // so it works even when focus is inside the search input or lyrics
+  // editor. The Spotlight overlay itself manages its own keydown after
+  // that, so we don't compete.
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    if (isSpotlightOpen()) closeSpotlight();
+    else openSpotlight();
+    return;
+  }
+
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
   // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
