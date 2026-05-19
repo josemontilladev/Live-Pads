@@ -1,10 +1,25 @@
-// Inline prompt dialog (the #dialog-overlay element in index.html). Used for
-// "Nuevo kit", "Guardar set", and similar single-input prompts.
+// Inline modal dialogs (the #dialog-overlay element in index.html). Two
+// flavours sharing the same DOM:
 //
-// Plain show/hide helpers — the markup lives in the HTML so the dialog can
-// share styling with the rest of the app's modals.
+//   - showDialog(title, placeholder, onConfirm) — single-input prompt
+//     (used by "Nuevo kit", "Guardar set", etc.)
+//   - confirmDialog({ title, message, confirmLabel, danger, onConfirm })
+//     — yes/no confirmation, replacing the browser-native `confirm()`
+//     that looks foreign in the app's themed UI.
+//
+// The markup lives in the HTML so styling shares the rest of the app's
+// modal vocabulary (overlay blur, box border, button row).
 
 import { q } from '../utils/dom.js';
+
+function resetDialogChrome() {
+  const msg   = q('#dialog-message');
+  const input = q('#dialog-name');
+  const okBtn = q('#dialog-ok');
+  if (msg)   { msg.classList.add('hidden'); msg.textContent = ''; }
+  if (input) { input.classList.remove('hidden'); input.value = ''; }
+  if (okBtn) { okBtn.classList.remove('d-ok--danger'); okBtn.textContent = 'Guardar'; }
+}
 
 export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
   const titleEl = q('#dialog-title');
@@ -12,9 +27,9 @@ export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
   const input = q('#dialog-name');
   if (!titleEl || !overlay || !input) return;
 
+  resetDialogChrome();
   titleEl.textContent = title;
   overlay.classList.remove('hidden');
-  input.value = '';
   input.placeholder = placeholder;
   setTimeout(() => input.focus(), 50);
 
@@ -27,6 +42,58 @@ export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
       };
     }
   }
+}
+
+/**
+ * Yes/no confirmation modal — drop-in replacement for browser `confirm()`.
+ *
+ * @param {Object} opts
+ *   - title         {string}
+ *   - message       {string}  body text shown under the title
+ *   - confirmLabel  {string}  optional, defaults to 'Eliminar'
+ *   - danger        {boolean} optional, paints OK button red (destructive)
+ *   - onConfirm     {Function} fires on OK
+ *   - onCancel      {Function} optional, fires on Cancel
+ */
+export function confirmDialog({ title, message, confirmLabel = 'Eliminar', danger = true, onConfirm, onCancel }) {
+  const titleEl  = q('#dialog-title');
+  const overlay  = q('#dialog-overlay');
+  const msgEl    = q('#dialog-message');
+  const input    = q('#dialog-name');
+  const okBtn    = q('#dialog-ok');
+  const cancelBtn = q('#dialog-cancel');
+  if (!titleEl || !overlay || !msgEl || !input || !okBtn || !cancelBtn) return;
+
+  resetDialogChrome();
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  msgEl.classList.remove('hidden');
+  input.classList.add('hidden');
+  okBtn.textContent = confirmLabel;
+  if (danger) okBtn.classList.add('d-ok--danger');
+
+  overlay.classList.remove('hidden');
+  setTimeout(() => okBtn.focus(), 50);
+
+  okBtn.onclick = () => {
+    if (typeof onConfirm === 'function') onConfirm();
+    hideDialog();
+  };
+  cancelBtn.onclick = () => {
+    if (typeof onCancel === 'function') onCancel();
+    hideDialog();
+  };
+}
+
+/** Promise wrapper around confirmDialog — resolves true on OK, false on Cancel. */
+export function confirmDialogAsync(opts) {
+  return new Promise(resolve => {
+    confirmDialog({
+      ...opts,
+      onConfirm: () => resolve(true),
+      onCancel:  () => resolve(false),
+    });
+  });
 }
 
 export function hideDialog() {

@@ -42,4 +42,10 @@ export function bindSetlistTabs() {
 
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
+
+  // Empty-state CTA — switches to the Library tab so the user can add songs.
+  const btnGoLib = q('#btn-service-go-library');
+  if (btnGoLib) {
+    btnGoLib.onclick = () => q('.s-toggle[data-target="gi-setlist-list"]')?.click();
+  }
 }

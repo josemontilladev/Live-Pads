@@ -25,6 +25,7 @@ export function renderServiceList() {
 
   const songs = deps.getSongs();
   const activeIdx = deps.getActiveIndex();
+  updateServiceMeta(songs);
 
   if (songs.length === 0) {
     if (emptyMsg) emptyMsg.classList.remove('hidden');
@@ -36,6 +37,29 @@ export function renderServiceList() {
   const fragment = document.createDocumentFragment();
   songs.forEach((song, index) => fragment.appendChild(buildCard(song, index, activeIdx)));
   container.appendChild(fragment);
+}
+
+// Update the "X canciones · ~Y min" subtitle next to "Tu lista de hoy".
+// When a song is currently active in the service, also prepend the
+// position cue ("3 / 8 ·") so the leader sees at a glance how far into
+// the set they are. 4 min/song is a worship-service heuristic; swap for
+// a real sum once duration becomes a per-song stored field.
+export function refreshServiceMeta() {
+  if (deps) updateServiceMeta(deps.getSongs());
+}
+
+function updateServiceMeta(songs) {
+  const el = q('#service-meta');
+  if (!el) return;
+  const n = songs.length;
+  if (n === 0) { el.textContent = ''; return; }
+  const minutes = n * 4;
+  const songLabel = n === 1 ? 'canción' : 'canciones';
+  const activeIdx = deps.getActiveIndex();
+  const positionPart = (activeIdx >= 0 && activeIdx < n)
+    ? `${activeIdx + 1} / ${n} · `
+    : '';
+  el.textContent = `${positionPart}${n} ${songLabel} · ~${minutes} min`;
 }
 
 function buildCard(song, index, activeIdx) {
@@ -100,6 +124,13 @@ function initDelegation() {
       case 'play-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
       case 'play-orig': deps.loadAndPlayTrack(song, 'original'); return;
       case 'remove':    deps.removeFromService(song.serviceId); return;
+      case 'toggle-favorite':
+        song.favorite = !song.favorite;
+        // Mirror onto the matching library song so the star sticks.
+        deps.syncFavoriteToLibrary(song);
+        deps.persistServiceSongs();
+        repaintServiceCard(card, song);
+        return;
       case 'toggle-lyrics': deps.toggleLyricsAccordion(song, true); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, true, true); return;
       case 'edit-lyrics':

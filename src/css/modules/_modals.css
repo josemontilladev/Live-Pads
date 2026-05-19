@@ -17,8 +17,20 @@
   border-radius: var(--r-md); color: #fff; margin: 20px 0; font-size: 16px; outline: none; font-weight: 600;
 }
 .dialog-input:focus { border-color: var(--blue); }
+.dialog-message {
+  /* Body text for confirmation dialogs (e.g. "¿Eliminar esta canción?").
+     Shows above the actions row when confirmDialog() is used; hidden in
+     plain prompts via the .hidden class. */
+  margin: 16px 0 24px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+  opacity: 0.92;
+}
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .d-ok { background: var(--blue); color: #000; font-weight: 900; padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
+.d-ok--danger { background: #ff4747; color: #fff; }
 .d-cancel { background: transparent; color: var(--text-muted); font-weight: 700; padding: 12px 24px; border: none; cursor: pointer; font-size: 14px; }
 
 /* Menu Popover */
@@ -423,6 +435,37 @@
   font-size: 10px; color: var(--text-muted);
   letter-spacing: 0.4px; opacity: 0.7;
 }
+.lyrics-modal-actions {
+  display: flex; gap: 8px;
+}
+
+/* Autosave indicator — fades in while saving, then settles into the
+   "saved" state for 2s before disappearing. data-state attribute is
+   flipped from JS (idle / saving / saved). */
+.lyrics-autosave-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.lyrics-autosave-indicator[data-state="saving"] {
+  opacity: 0.7;
+  color: var(--text-muted);
+}
+.lyrics-autosave-indicator[data-state="saved"] {
+  opacity: 1;
+  color: #4ade80;
+}
+.lyrics-autosave-indicator[data-state="idle"]   { opacity: 0; }
+.lyrics-autosave-indicator[data-state="saving"] .lai-icon-saved { display: none; }
+.lyrics-autosave-indicator[data-state="saved"]  .lai-icon-saved { display: inline-block; }
+.lyrics-autosave-indicator[data-state="idle"]   .lai-icon-saved { display: none; }
 
 /* Tonality badge in the modal subtitle */
 .lyrics-key-badge {
@@ -719,3 +762,199 @@
   color: #fff;
 }
 
+
+/* ── Shortcuts list (rendered inside sidebar #tab-shortcuts) ─────────
+   Same domain-grouped layout we had in the overlay version but in a
+   compact single-column form factor that fits the 360-ish px sidebar
+   width. cheatSheet.js renders the markup into #shortcuts-content. */
+#shortcuts-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 18px;
+}
+#shortcuts-content .cs-section h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+#shortcuts-content .cs-section dl {
+  margin: 0;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+#shortcuts-content .cs-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+#shortcuts-content .cs-row dt { margin: 0; }
+#shortcuts-content .cs-row dd { margin: 0; color: var(--text-muted); }
+#shortcuts-content kbd {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: 'Inter', monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+/* ── Toast stack ───────────────────────────────────────────────────────
+   Anchored above the track-player bar (76px tall) so a stack of toasts
+   never overlaps the transport controls. Per-type background/border is
+   set inline by toast.js — this block only handles layout + animation.
+   Right-aligned stack, slides up from bottom on enter, fades up on exit. */
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 96px; /* 76px track player + 20px gap */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10000;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: auto;
+}
+.toast--in  { opacity: 1; transform: translateY(0); }
+.toast--out { opacity: 0; transform: translateY(-20px); }
+
+/* ── Pre-flight checklist overlay ────────────────────────────────────
+   Same vocabulary as the cheat sheet: backdrop blur, panel slides up,
+   close via ×, click backdrop or Esc. Each row shows a check (green
+   ✓) or warning (amber ⚠) with a description. */
+#preflight-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 100001;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+#preflight-overlay.open { opacity: 1; }
+
+#preflight-overlay .pf-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  width: 520px; max-width: 100%;
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  padding: 26px 28px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  transform: translateY(10px) scale(0.985);
+  transition: transform 0.28s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#preflight-overlay.open .pf-panel { transform: translateY(0) scale(1); }
+
+#preflight-overlay .pf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#preflight-overlay .pf-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#preflight-overlay .pf-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#preflight-overlay .pf-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#preflight-overlay .pf-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#preflight-overlay .pf-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+#preflight-overlay .pf-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#preflight-overlay .pf-row--ok   { border-color: rgba(74, 222, 128, 0.35); }
+#preflight-overlay .pf-row--warn { border-color: rgba(245, 158, 11, 0.4); }
+
+#preflight-overlay .pf-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+#preflight-overlay .pf-row--ok   .pf-icon { background: rgba(74, 222, 128, 0.18);  color: #4ade80; }
+#preflight-overlay .pf-row--warn .pf-icon { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
+
+#preflight-overlay .pf-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+#preflight-overlay .pf-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+#preflight-overlay .pf-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+#preflight-overlay .pf-summary {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+#preflight-overlay .pf-summary.is-ok   { background: rgba(74, 222, 128, 0.12);  color: #4ade80; }
+#preflight-overlay .pf-summary.is-warn { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }

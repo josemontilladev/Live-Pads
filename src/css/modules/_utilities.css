@@ -46,6 +46,32 @@
 .no-shrink { flex-shrink: 0; }
 .btn-add-gi-song { flex-shrink: 0; transition: transform 0.15s; }
 
+/* Search input + clear-X overlay. The wrap is flex:1 so it inherits the
+   width allotted to the search column; the input has padding-right to
+   leave room for the absolutely-positioned × button. */
+.gi-search-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.gi-search-wrap .gi-search-input { padding-right: 30px; }
+.gi-search-clear {
+  position: absolute;
+  top: 50%; right: 8px;
+  transform: translateY(-50%);
+  width: 18px; height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.gi-search-clear:hover { background: rgba(255, 255, 255, 0.16); color: var(--text); }
+.gi-search-clear.hidden { display: none; }
+
 /* Sidebar settings — wider labels */
 .sr-label--wide { min-width: 60px; }
 .sr-label--xwide { min-width: 70px; }

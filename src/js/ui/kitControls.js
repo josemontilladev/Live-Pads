@@ -14,7 +14,7 @@
 
 import { q } from '../utils/dom.js';
 import { KIT_BANKS } from '../data/banks.js';
-import { showDialog } from './dialog.js';
+import { showDialog, confirmDialog } from './dialog.js';
 import { createEmptyCustomKit, saveCustomKitsToStorage } from '../data/customKits.js';
 import {
   getKitBankIdx,
@@ -54,12 +54,18 @@ export function bindKitControls(d) {
     btnDeleteKit.onclick = () => {
       const currentKit = KIT_BANKS[getKitBankIdx()];
       if (!currentKit || !currentKit.isCustom) return;
-      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el kit "${currentKit.name}"?`)) {
-        KIT_BANKS.splice(getKitBankIdx(), 1);
-        saveCustomKitsToStorage();
-        deps.buildBankSelects();
-        deps.loadKitBank(0);
-      }
+      confirmDialog({
+        title: 'Eliminar kit',
+        message: `¿Eliminar permanentemente el kit "${currentKit.name}"? Los samples asignados a sus pads se perderán.`,
+        confirmLabel: 'Eliminar',
+        danger: true,
+        onConfirm: () => {
+          KIT_BANKS.splice(getKitBankIdx(), 1);
+          saveCustomKitsToStorage();
+          deps.buildBankSelects();
+          deps.loadKitBank(0);
+        }
+      });
     };
   }
 

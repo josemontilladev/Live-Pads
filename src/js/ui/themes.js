@@ -1,19 +1,30 @@
 import { q, esc } from '../utils/dom.js';
 import { THEMES } from '../data/banks.js';
 
-let currentTheme = 'gi_setlist';
+const STORAGE_KEY = 'livepads.theme';
+
+// Restore the user's last selection on boot. Falls back to gi_setlist if
+// the saved value is missing or no longer matches a known theme (handles
+// the case where a theme was renamed/removed between versions).
+let currentTheme = (() => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && THEMES[saved]) return saved;
+  } catch { /* localStorage may throw in private mode */ }
+  return 'gi_setlist';
+})();
 
 export function getCurrentTheme() {
   return currentTheme;
 }
 
-export function applyTheme(id) {
+// Visual-only theme switch: sets the CSS custom properties + body
+// backdrop. Used for both committed selections and the hover preview.
+function paintTheme(id) {
   const t = THEMES[id];
   if (!t) return;
-  currentTheme = id;
 
   const s = document.documentElement.style;
-  // Core palette (used everywhere)
   s.setProperty('--blue', t.blue);
   s.setProperty('--accent', t.blue); // semantic alias — `--blue` is legacy
   s.setProperty('--accent2', t.accent2 || t.blue);
@@ -27,11 +38,18 @@ export function applyTheme(id) {
   s.setProperty('--text', t.text || '#ffffff');
   s.setProperty('--text-muted', t.textMuted || '#a3a3a3');
 
-  // Premium body backdrop: subtle radial highlight + cohesive linear blend.
-  // Per-theme `gradient` lets each palette breathe its own vibe.
   const fallbackBg = `linear-gradient(155deg, ${t.bg1} 0%, ${t.bg2} 50%, ${t.bg1} 100%)`;
   document.body.style.background = t.gradient || fallbackBg;
+}
 
+// Public: commits a theme as the user's choice. Hover preview uses
+// paintTheme() instead and reverts on mouseleave. Persists to
+// localStorage so the choice survives app restart.
+export function applyTheme(id) {
+  if (!THEMES[id]) return;
+  currentTheme = id;
+  paintTheme(id);
+  try { localStorage.setItem(STORAGE_KEY, id); } catch { /* ignore */ }
   buildThemesList();
 }
 
@@ -52,6 +70,11 @@ export function buildThemesList() {
       ${currentTheme === id ? '<div class="theme-check"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><polyline points="20,6 9,17 4,12"/></svg></div>' : ''}
     `;
     item.onclick = () => applyTheme(id);
+    // Hover preview — paint without committing. mouseleave reverts to
+    // whichever theme is currently committed, so darting between rows
+    // lets the user "feel" each palette without scrolling away to undo.
+    item.onmouseenter = () => { if (id !== currentTheme) paintTheme(id); };
+    item.onmouseleave = () => { if (id !== currentTheme) paintTheme(currentTheme); };
     container.appendChild(item);
     const div = document.createElement('div');
     div.className = 'theme-div';

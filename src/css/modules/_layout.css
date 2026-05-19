@@ -151,6 +151,28 @@
   border-color: var(--blue); color: var(--blue);
   box-shadow: inset 0 0 0 1px var(--blue);
 }
+
+/* Fade-out progress indicator — a 3px bar at the bottom of the pad
+   that drains right-to-left over PAD_STOP_FADE_S (5s). Lets the user
+   see exactly when the audio tail will end so they can plan the next
+   key trigger. The bar respects the active theme via var(--accent). */
+.key-btn.fading-out::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--accent), var(--accent2, var(--accent)));
+  box-shadow: 0 0 10px var(--glow);
+  transform-origin: right center;
+  animation: pad-fade-progress 5s linear forwards;
+  pointer-events: none;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+@keyframes pad-fade-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
 .kbd-hint {
   position: absolute; top: 6px; right: 6px;
   font-size: 9px; font-weight: 800; color: var(--text-muted);

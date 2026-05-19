@@ -25,7 +25,8 @@ export function bindGiToolbar(deps) {
 }
 
 function bindImportExport(deps) {
-  q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
+  const btnImportGi = q('#btn-import-gi');
+  btnImportGi.onclick = () => q('#gi-file-input').click();
 
   const btnExportGi = q('#btn-export-gi');
   if (btnExportGi) {
@@ -43,28 +44,41 @@ function bindImportExport(deps) {
   q('#gi-file-input').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    // Loading state: pulse the import button + dim it so the user sees
+    // that something's happening, even on tiny files (parse is sync but
+    // big libraries can take a couple hundred ms to render afterward).
+    btnImportGi.classList.add('is-loading');
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
         const json = JSON.parse(ev.target.result);
         if (json.data && json.data.songs) {
-          setSongs(json.data.songs.map((s, idx) => {
+          const imported = json.data.songs.map((s, idx) => {
             if (!s.id) s.id = 'song_imp_' + idx + '_' + Date.now();
             return s;
-          }));
+          });
+          setSongs(imported);
           if (window.electronAPI && window.electronAPI.saveGiSetlist) {
             window.electronAPI.saveGiSetlist(getSongs());
           }
           deps.updateFilterCounts();
           renderGiList();
-          // Switch to GI tab automatically
           q('.s-toggle[data-target="gi-setlist-list"]').click();
+          showToast(`Importadas ${imported.length} canción${imported.length === 1 ? '' : 'es'}.`, 'success');
         } else {
-          alert('El archivo no parece ser un export de GI-Setlist válido.');
+          showToast('El archivo no parece ser un export válido.', 'warning');
         }
       } catch (err) {
-        alert('Error al leer el archivo JSON.');
+        showToast('Error al leer el archivo JSON.', 'warning');
+      } finally {
+        btnImportGi.classList.remove('is-loading');
+        // Reset the input so re-importing the same file fires onchange again.
+        e.target.value = '';
       }
+    };
+    reader.onerror = () => {
+      btnImportGi.classList.remove('is-loading');
+      showToast('No se pudo leer el archivo.', 'warning');
     };
     reader.readAsText(file);
   };
@@ -72,8 +86,28 @@ function bindImportExport(deps) {
 
 function bindSearchAndAdd(deps) {
   // Search input — debounced re-render of the library so typing doesn't
-  // recompile the card list on every keystroke.
-  q('#gi-search').oninput = debounce((e) => renderGiList(e.target.value), 180);
+  // recompile the card list on every keystroke. The clear-X button shows
+  // whenever the input has content and resets the search instantly.
+  const searchInput = q('#gi-search');
+  const clearBtn = q('#gi-search-clear');
+  const debouncedRender = debounce((v) => renderGiList(v), 180);
+  const refreshClearBtn = () => {
+    if (!clearBtn) return;
+    clearBtn.classList.toggle('hidden', !searchInput.value);
+  };
+  searchInput.oninput = (e) => {
+    refreshClearBtn();
+    debouncedRender(e.target.value);
+  };
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      searchInput.value = '';
+      refreshClearBtn();
+      renderGiList('');
+      searchInput.focus();
+    };
+  }
+  refreshClearBtn();
 
   // "+ Nueva canción" — inserts a placeholder song and immediately opens
   // the inline edit form (handled by giList.js via the editSongId param).

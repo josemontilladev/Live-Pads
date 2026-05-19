@@ -3,7 +3,7 @@ import { wrapTextareaSelection, insertTextAtCursor } from '../utils/text.js';
 import { formatLyrics, highlightSyntax } from './lyricsFormat.js';
 import { transposeAll, keyPrefersFlats } from './chordTransposer.js';
 import { parseChordPage } from '../data/chordImporter.js';
-import { showDialog } from './dialog.js';
+import { showDialog, confirmDialog, confirmDialogAsync } from './dialog.js';
 
 // Section dropdown -> bracket tag inserted into the textarea. Verso auto-
 // increments based on existing [VERSO N] tokens to save keystrokes when
@@ -80,9 +80,13 @@ function modalHTML(song) {
 
     <div class="lyrics-modal-footer">
       <span class="lyrics-shortcut-hint">Ctrl+S guardar · Esc cerrar</span>
-      <div style="display:flex; gap:8px;">
-        <button class="modal-btn cancel-btn lyrics-modal-cancel">Cancelar</button>
-        <button class="modal-btn save-btn lyrics-modal-save">Guardar Cambios</button>
+      <span class="lyrics-autosave-indicator" data-state="idle">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="12" height="12" class="lai-icon-saved"><polyline points="20 6 9 17 4 12"/></svg>
+        <span class="lai-text"></span>
+      </span>
+      <div class="lyrics-modal-actions">
+        <button class="modal-btn cancel-btn lyrics-modal-cancel">Cerrar</button>
+        <button class="modal-btn save-btn lyrics-modal-save">Guardar</button>
       </div>
     </div>
   `;
@@ -104,9 +108,9 @@ export function openLyricsEditorModal(song, onSaveCallback) {
   const highlight = overlay.querySelector('.editor-highlight');
 
   // Set value after attaching to avoid cursor reset issues
-  const initialLyrics = song.lyrics || '';
-  textarea.value = initialLyrics;
-  const isDirty = () => textarea.value !== initialLyrics;
+  let savedLyrics = song.lyrics || '';
+  textarea.value = savedLyrics;
+  const isDirty = () => textarea.value !== savedLyrics;
 
   // Accidental preference: flat-leaning keys (F, Bb, Eb, ...) get flat names
   // on transposition; sharp keys get sharps. Null = preserve original per chord.
@@ -118,12 +122,19 @@ export function openLyricsEditorModal(song, onSaveCallback) {
   }, 10);
 
   const closeModal = (force = false) => {
-    if (!force && isDirty()) {
-      if (!confirm('Tienes cambios sin guardar. ¿Descartarlos y cerrar?')) return;
-    }
-    overlay.style.opacity = '0';
-    content.style.transform = 'translateX(100%)';
-    setTimeout(() => overlay.remove(), 300);
+    const animateOut = () => {
+      overlay.style.opacity = '0';
+      content.style.transform = 'translateX(100%)';
+      setTimeout(() => overlay.remove(), 300);
+    };
+    if (force || !isDirty()) { animateOut(); return; }
+    confirmDialog({
+      title: 'Cambios sin guardar',
+      message: '¿Descartar los cambios y cerrar el editor?',
+      confirmLabel: 'Descartar',
+      danger: true,
+      onConfirm: animateOut,
+    });
   };
 
   overlay.querySelector('.modal-close-btn').onclick = () => closeModal();
@@ -224,9 +235,14 @@ export function openLyricsEditorModal(song, onSaveCallback) {
       if (!parsed.lyrics || !parsed.lyrics.trim()) {
         throw new Error('No se encontró letra en esa página');
       }
-      if (textarea.value.trim() &&
-          !window.confirm('El editor ya tiene contenido. ¿Reemplazar con la letra importada?')) {
-        return;
+      if (textarea.value.trim()) {
+        const ok = await confirmDialogAsync({
+          title: 'Reemplazar letra',
+          message: 'El editor ya tiene contenido. ¿Reemplazar con la letra importada de la URL?',
+          confirmLabel: 'Reemplazar',
+          danger: false,
+        });
+        if (!ok) return;
       }
       textarea.value = parsed.lyrics;
       refreshHighlight();
@@ -293,8 +309,55 @@ export function openLyricsEditorModal(song, onSaveCallback) {
     }
   };
 
-  const saveLyrics = () => {
+  // Autosave: silent persist (no close) used by debounced typing + blur.
+  // Keeps savedLyrics in sync so isDirty() reflects truth and the close
+  // confirmation only fires for genuinely unsaved edits.
+  const indicator = overlay.querySelector('.lyrics-autosave-indicator');
+  const indicatorText = indicator?.querySelector('.lai-text');
+  let savingTimer = null;
+  const setIndicator = (state, label) => {
+    if (!indicator) return;
+    indicator.dataset.state = state;
+    if (indicatorText) indicatorText.textContent = label;
+    if (state === 'saved' && savingTimer == null) {
+      // Fade away after 2s of stillness so it doesn't feel "stuck".
+      savingTimer = setTimeout(() => {
+        if (indicator.dataset.state === 'saved') {
+          indicator.dataset.state = 'idle';
+          if (indicatorText) indicatorText.textContent = '';
+        }
+        savingTimer = null;
+      }, 2000);
+    }
+  };
+
+  const autosaveLyrics = () => {
+    if (!isDirty()) return;
+    setIndicator('saving', 'Guardando…');
     onSaveCallback(textarea.value);
+    savedLyrics = textarea.value;
+    setIndicator('saved', 'Guardado');
+  };
+
+  // Debounced autosave: 1.5s after the last keystroke. Also fires on blur
+  // so users who tab away mid-edit don't lose work either.
+  let autosaveDebounce = null;
+  const scheduleAutosave = () => {
+    if (autosaveDebounce) clearTimeout(autosaveDebounce);
+    autosaveDebounce = setTimeout(() => {
+      autosaveDebounce = null;
+      autosaveLyrics();
+    }, 1500);
+  };
+  textarea.addEventListener('input', scheduleAutosave);
+  textarea.addEventListener('blur', () => {
+    if (autosaveDebounce) { clearTimeout(autosaveDebounce); autosaveDebounce = null; }
+    autosaveLyrics();
+  });
+
+  const saveLyrics = () => {
+    if (autosaveDebounce) { clearTimeout(autosaveDebounce); autosaveDebounce = null; }
+    autosaveLyrics();
     closeModal(true); // force close — we just saved, so dirty=false
   };
 
