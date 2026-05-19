@@ -91,8 +91,20 @@
     gap: 4px !important;
   }
   .hm-mix {
-    flex: 0 1 125px;
+    /* Wider than the rest of the metro sections so the vol/pan slider
+       tracks are long enough to show the yellow fill clearly even at
+       pan=-100/+100. At 125px the thumb covered ~25% of the visible
+       track and the colour band looked invisible on laptop screens. */
+    flex: 0 1 200px;
     gap: 4px;
+  }
+  .hm-mix .blue-slider,
+  .hm-mix .pan-slider {
+    /* Force the slider to claim the row's remaining space — the labels
+       (Vol / Pan / 80% / L100) are fixed-width so the slider becomes
+       as long as possible. */
+    flex: 1;
+    min-width: 80px;
   }
   .horizontal-metro .sb-row {
     gap: 6px;
