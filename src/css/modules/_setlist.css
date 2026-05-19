@@ -577,12 +577,14 @@ input.pan-slider {
 
 .sound-btn { padding: 6px 4px; font-size: 10px; }
 
-/* Setlist header buttons (Import / Sync) visibility per active tab.
-   #panel-setlist[data-active-tab="..."] is set by JS when a .s-toggle
-   button is clicked. Import + Sync are only relevant on the Library tab. */
+/* Setlist header buttons (Sync / Import / Export) visibility per active
+   tab. #panel-setlist[data-active-tab="..."] is set by JS when a .s-toggle
+   button is clicked. These actions are only relevant on the Library tab. */
 #panel-setlist[data-active-tab="setlist-list"] #btn-import-gi,
+#panel-setlist[data-active-tab="setlist-list"] #btn-export-gi,
 #panel-setlist[data-active-tab="setlist-list"] #btn-sync-gi,
 #panel-setlist[data-active-tab="service-setlist-list"] #btn-import-gi,
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-export-gi,
 #panel-setlist[data-active-tab="service-setlist-list"] #btn-sync-gi {
   display: none;
 }

@@ -6,14 +6,52 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
-## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (décima pasada)
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (undécima pasada)
 
 ### Estado al cerrar
 
-- **Última fase completada**: 🏗️ Fase 31 — Re-encode de pads + extracción mongoSync + songState
-- **app.js**: 1687 → **1294 líneas** (-393, -23% en esta sesión; -58% desde el origen 3055)
-- **Total módulos**: **34** archivos especializados
+- **Última fase completada**: 🏗️ Fase 32 — Motion polish + state manager + descomposición completa de `bindRestOfApp`
+- **app.js**: 1687 → **745 líneas** (-942, **-56% en esta sesión; -76% desde el origen 3055**)
+- **Total módulos**: **41** archivos especializados
 - **Pads Amb**: 193 MB → **137 MB** (-56 MB, -29%) sin pérdida audible de calidad
+- **Instalador NSIS**: 297 MB → **250 MB** (-16%)
+
+### Fase 32 (esta sesión) — motion polish, state manager, extracciones finales
+
+1. **`_motion.css`** (167 líneas, nuevo módulo CSS) — capa de polish táctil sin glassmorphism:
+   - Press-down `scale(0.96)` en 60ms + spring release de 180ms en todos los botones touch
+   - `:focus-visible` rings premium con doble box-shadow `accent` + `glow` del tema activo
+   - Tactile inner-shadow en hover de `.key-btn` y `.drum-btn` ("iluminado desde arriba")
+   - Tokens centralizados en `:root` (`--ease-press`, `--ease-spring`, `--ease-release`, `--press-scale`)
+   - `@media (prefers-reduced-motion)` respeta accesibilidad
+2. **`state/store.js`** (94 líneas, nuevo) — state manager central, **conservador y sin pub/sub**.
+   Cubre 11 piezas de state mutable:
+   - Library: songs, currentGenre, activeSongId
+   - Accordion exclusivity: openAccordionSongId, openAccordionServiceId
+   - Banks: padBankIdx, kitBankIdx
+   - Audio/metro: activeKey, preparedPadKey, useFlats, metroRunning
+   - UI modes: isEditKitMode, isMidiLearnMode, midiLearnTarget
+   Sólo quedan en app.js como `let`: `engine` y `metro` (instances creadas una vez, no resetean).
+3. **Migración masiva de `app.js` al store**: todos los `let` viejos eliminados, lecturas vía `getX()`, escrituras vía `setX(v)`. Bug fix encontrado: una regex de migración con `(?!\s*=)` excluyó incorrectamente `activeKey === key` ([app.js:354](src/js/app.js#L354)) por el `=` de `===`; fix manual + sweep verifico que no quedaron más.
+4. **Extracciones de `bind*` (5 nuevos módulos UI)**:
+   - **`ui/kitControls.js`** (124 líneas) — CRUD de drum kits custom + modo edición de nombres de pads
+   - **`midi/midiBindings.js`** (164 líneas) — MIDI listener + learn-mode click intercept
+   - **`ui/mixerControls.js`** (99 líneas) — pad/drum/master vol+pan + LPF filter
+   - **`ui/metronomeControls.js`** (146 líneas) — play/stop/BPM/sig/mult/sound/vol/pan/notation + inline BPM editor
+   - **`ui/setlistTabs.js`** (45 líneas) — toggle de tabs Presets/Librería/Servicio + prev/next/clear
+   - **`ui/giToolbar.js`** (150 líneas) — search input + add-song + import/export JSON + dropdown de filtro de género
+5. **Sidebar close button**: añadido botón × en esquina superior derecha del sidebar de ajustes (antes sólo se cerraba con Esc).
+6. **Sync MongoDB visible**: el botón `#btn-sync-gi` estaba oculto por mi error en Fase 26 (cambié `style="display:none"` a `class="hidden"`); ahora vuelve a aparecer en pestaña Librería como antes.
+7. **Export GI Library**: nuevo botón en setlist header que descarga la librería completa a `livepads-library-YYYY-MM-DD.json` (formato round-trippable con el botón de importar). Implementado en `giSetlistLoader.js`.
+
+### Auditoría final
+
+`bindRestOfApp` desapareció — quedó como un orchestrador de 18 líneas que llama a los 5 módulos extraídos + `bindMidiHandlers` + `bindGlobalHandlers`. **Cero `bindX()` grandes en `app.js`**. Las funciones que quedan en `app.js`:
+- `bindAll` y sub-coordinators (`bindWindowControls`, `bindSidebarAndTabs`, `bindHamburgerMenu`, `bindGlobalHandlers`) — todos < 30 líneas
+- `applyGiSong`, `applyBpm`, `toggleMetro`, `triggerMasterPlayPause/Stop`, `onKeyClick`, `onKey`, `applyPreset`, `loadPadBank`, `loadKitBank`, `buildBankSelects`, `buildKeyGrid`, `updateKeyHints`, `refreshActiveSongHighlights` (usa store)
+- Boot async + helpers — la columna vertebral del arranque
+
+### Fase 31 (anterior) — re-encode audio + extracciones finales
 
 ### Fase 31 (esta sesión) — re-encode audio + extracciones finales
 

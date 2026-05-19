@@ -214,11 +214,14 @@
         <div class="setlist-header">
           <span class="setlist-title">Setlist</span>
           <div class="setlist-header-actions">
-            <button class="icon-btn accent-btn hidden" id="btn-sync-gi" title="Sincronizar con base de datos">
+            <button class="icon-btn accent-btn" id="btn-sync-gi" title="Sincronizar con base de datos">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
             </button>
-            <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar GI-Setlist">
+            <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar librería desde .json">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="icon-btn accent-btn" id="btn-export-gi" title="Exportar librería a .json">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             </button>
             <input type="file" id="gi-file-input" accept=".json" hidden>
           </div>
@@ -323,6 +326,9 @@
     <aside id="sidebar">
       <div id="sidebar-overlay"></div>
       <div id="sidebar-inner">
+        <button class="sidebar-close-btn" id="btn-sidebar-close" title="Cerrar (Esc)" aria-label="Cerrar panel lateral">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
         <div class="sidebar-tabs">
           <button class="stab active" data-tab="settings">Ajustes</button>
           <button class="stab" data-tab="themes">Temas</button>
