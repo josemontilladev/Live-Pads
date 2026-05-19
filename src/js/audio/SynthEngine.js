@@ -1035,11 +1035,19 @@ export class SynthEngine {
   /* ── Click pan helper ── */
   setClickPan(v) { this._clickPan = v; }
 
-  async initMIDI(onMidiMessage) {
+  async initMIDI(onMidiMessage, onDevicesChanged) {
     if (!navigator.requestMIDIAccess) return;
     try {
       const midiAccess = await navigator.requestMIDIAccess();
-      const bindInputs = (ma) => { for (let input of ma.inputs.values()) input.onmidimessage = onMidiMessage; };
+      const collectNames = (ma) => {
+        const names = [];
+        for (const input of ma.inputs.values()) names.push(input.name || 'MIDI input');
+        return names;
+      };
+      const bindInputs = (ma) => {
+        for (const input of ma.inputs.values()) input.onmidimessage = onMidiMessage;
+        if (typeof onDevicesChanged === 'function') onDevicesChanged(collectNames(ma));
+      };
       bindInputs(midiAccess);
       midiAccess.onstatechange = (e) => bindInputs(e.target);
     } catch (err) { console.warn('MIDI Access failed:', err); }

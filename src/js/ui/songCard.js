@@ -33,6 +33,20 @@ const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="
 
 const ADD_BTN_HTML = `<button class="action-btn btn-add" data-action="add" title="Añadir al servicio">${ICON_ADD}</button>`;
 
+// Wrap occurrences of `needle` inside the (already HTML-escaped) `haystack`
+// with <mark class="search-hit">. needle is case-insensitive and matches
+// as a literal substring (no regex meta-chars). Returns the original
+// string when needle is empty or absent.
+function highlightMatch(haystackEscaped, needle) {
+  if (!needle) return haystackEscaped;
+  const trimmed = needle.trim();
+  if (!trimmed) return haystackEscaped;
+  // Build a case-insensitive regex from the literal needle. Escape regex
+  // meta-chars so users typing "?" or "." don't break the search.
+  const safe = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return haystackEscaped.replace(new RegExp(safe, 'gi'), m => `<mark class="search-hit">${m}</mark>`);
+}
+
 export function songCardInnerHTML(song, opts) {
   const {
     rowNumber,
@@ -40,8 +54,16 @@ export function songCardInnerHTML(song, opts) {
     showChords,
     includeAdd,
     removeBtnClass = 'btn-remove',
-    removeBtnTitle = 'Quitar de la lista'
+    removeBtnTitle = 'Quitar de la lista',
+    searchTerm = ''
   } = opts;
+
+  // Highlight applies only to plain text search (not the `tono:G` mode,
+  // which the giList passes through as an empty searchTerm).
+  const titleHtml  = highlightMatch(esc(song.title), searchTerm);
+  const artistHtml = song.artist
+    ? highlightMatch(esc(song.artist), searchTerm)
+    : 'Sin artista';
 
   // Static layout has moved to CSS (.gi-song-item-row, .gi-song-actions, etc.)
   // Only the dynamic class toggles stay in the template — every other inline
@@ -61,8 +83,8 @@ export function songCardInnerHTML(song, opts) {
           ${ICON_PLAY}
         </div>
         <div class="gi-song-main">
-          <div class="gi-song-title">${esc(song.title)}</div>
-          <div class="gi-song-artist">${esc(song.artist) || 'Sin artista'}</div>
+          <div class="gi-song-title">${titleHtml}</div>
+          <div class="gi-song-artist">${artistHtml}</div>
         </div>
       </div>
       <div class="gi-song-meta">

@@ -85,8 +85,8 @@ function modalHTML(song) {
         <span class="lai-text"></span>
       </span>
       <div class="lyrics-modal-actions">
-        <button class="modal-btn cancel-btn lyrics-modal-cancel">Cerrar</button>
-        <button class="modal-btn save-btn lyrics-modal-save">Guardar</button>
+        <button class="modal-btn cancel-btn lyrics-modal-cancel" title="Cerrar (Esc)">Cerrar</button>
+        <button class="modal-btn save-btn lyrics-modal-save" title="Guardar y cerrar (Ctrl+S)">Guardar</button>
       </div>
     </div>
   `;

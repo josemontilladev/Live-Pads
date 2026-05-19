@@ -6,7 +6,6 @@
 // The checks read state from the engine + the central store + service.js
 // — no mutation. Trigger from the hamburger menu ("Pre-vuelo").
 
-import { q } from '../utils/dom.js';
 import { KIT_BANKS, PAD_BANKS } from '../data/banks.js';
 import { getServiceSongs } from '../data/service.js';
 import { getPadBankIdx, getKitBankIdx } from '../state/store.js';

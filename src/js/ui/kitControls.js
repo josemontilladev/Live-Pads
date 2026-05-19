@@ -15,6 +15,7 @@
 import { q } from '../utils/dom.js';
 import { KIT_BANKS } from '../data/banks.js';
 import { showDialog, confirmDialog } from './dialog.js';
+import { showToast } from './toast.js';
 import { createEmptyCustomKit, saveCustomKitsToStorage } from '../data/customKits.js';
 import {
   getKitBankIdx,
@@ -74,7 +75,7 @@ export function bindKitControls(d) {
     btnEditKit.onclick = () => {
       const currentKit = KIT_BANKS[getKitBankIdx()];
       if (!currentKit || !currentKit.isCustom) {
-        alert('Selecciona un kit personalizado primero.');
+        showToast('Selecciona un kit personalizado primero.', 'warning');
         return;
       }
 

@@ -6,6 +6,7 @@ import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { hideDialog } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { openPreflight } from './ui/preflight.js';
+import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
 import { bindMetronomeControls } from './ui/metronomeControls.js';
@@ -184,6 +185,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const searchInput = q('#gi-search');
       if (searchInput) renderGiList(searchInput.value);
       renderServiceList();
+    },
+    // Cache audio duration onto the library song the first time it plays,
+    // so the service-list total-time estimate (4-min heuristic by default)
+    // upgrades to real values as the user works through their setlist.
+    onDurationDiscovered: (song) => {
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
+      if (giSong && (!giSong.durationSec || giSong.durationSec !== song.durationSec)) {
+        giSong.durationSec = song.durationSec;
+        if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+        renderServiceList();
+      }
     }
   });
 
@@ -485,6 +497,9 @@ function bindHamburgerMenu() {
       setMidiLearnTarget(null);
       q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: Haz clic en un botón de la app. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
+      // Body-level flag → CSS dims the whole UI to emphasize learn-mode
+      // is modal. Exit (in midiBindings.js) removes the class.
+      document.body.classList.add('midi-learning');
     };
   }
 }
@@ -721,6 +736,21 @@ function onKey(e) {
     triggerMasterPlayPause();
   }
 
+  // Ctrl/Cmd+N — quick-add new song. Switches to the Library tab (in case
+  // the user is browsing another tab) and clicks the existing add button
+  // so all the same wiring (empty song template, edit form, focus first
+  // input) runs without duplication.
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+    const addBtn = q('#btn-add-gi-song');
+    if (addBtn) {
+      e.preventDefault();
+      const libTab = q('.s-toggle[data-target="gi-setlist-list"]');
+      if (libTab && !libTab.classList.contains('active')) libTab.click();
+      addBtn.click();
+      return;
+    }
+  }
+
   // Tab — "prepare next song" workflow. Reads (without advancing) the
   // service list's next song and stages its key as the prepared pad,
   // so the next Space press will trigger a smooth crossfade into it.
@@ -862,6 +892,11 @@ function applyGiSong(song) {
           if (b.dataset.key === key) b.classList.add('prepared');
         });
       }
+    } else {
+      // Key doesn't map to any of the 12 chromatic pads (e.g. "Em7b5",
+      // unusual jazz extensions). Surface a warning so the user knows
+      // why the pad didn't auto-prepare instead of silently failing.
+      showToast(`Tono "${song.key}" no se reconoce — el pad no se preparó automáticamente.`, 'warning');
     }
   }
 
