@@ -22,31 +22,39 @@ export function songEditFormHTML(song, { placeholderForNewSong = false } = {}) {
       `<option value="${k}" ${song.key === k ? 'selected' : ''}>${label}</option>`
     )).join('');
 
-  // Audio status section — hidden for the "Nueva Canción" placeholder
-  // (no point showing audio slots before the song exists). For existing
-  // songs, shows a row per track type with a status pill + clear button
-  // when the path is set, or "Asignar archivo" when empty. Assign goes
-  // through the existing seq/orig play buttons (which already prompt for
-  // a file when the song has no audio).
+  // Audio section — collapsible to reduce visual weight. Auto-expands
+  // when at least one slot has audio assigned (so the user sees the
+  // status + clear option immediately); otherwise stays closed behind
+  // a "Audio (Secuencia + Original)" summary line that the user can
+  // expand if they want to attach files.
   const seqPath = song.audio && song.audio.sequence;
   const origPath = song.audio && song.audio.original;
+  const hasAnyAudio = !!(seqPath || origPath);
   const audioSection = placeholderForNewSong ? '' : `
-      <div class="gi-edit-audio">
-        <div class="gi-edit-audio-row">
-          <span class="gi-edit-audio-label">Secuencia</span>
-          ${seqPath
-            ? `<span class="gi-edit-audio-status has">✓ asignado</span>
-               <button class="gi-edit-audio-clear" data-action="clear-audio-seq" type="button" title="Quitar audio de secuencia">×</button>`
-            : `<button class="gi-edit-audio-assign" data-action="assign-audio-seq" type="button">Asignar archivo</button>`}
+      <details class="gi-edit-audio-details" ${hasAnyAudio ? 'open' : ''}>
+        <summary class="gi-edit-audio-summary">
+          Audio
+          ${hasAnyAudio
+            ? `<span class="gi-edit-audio-summary-badge">${(seqPath ? 1 : 0) + (origPath ? 1 : 0)}/2 asignados</span>`
+            : `<span class="gi-edit-audio-summary-badge">sin archivos</span>`}
+        </summary>
+        <div class="gi-edit-audio">
+          <div class="gi-edit-audio-row">
+            <span class="gi-edit-audio-label">Secuencia</span>
+            ${seqPath
+              ? `<span class="gi-edit-audio-status has">✓ asignado</span>
+                 <button class="gi-edit-audio-clear" data-action="clear-audio-seq" type="button" title="Quitar audio de secuencia">×</button>`
+              : `<button class="gi-edit-audio-assign" data-action="assign-audio-seq" type="button">Asignar archivo</button>`}
+          </div>
+          <div class="gi-edit-audio-row">
+            <span class="gi-edit-audio-label">Original</span>
+            ${origPath
+              ? `<span class="gi-edit-audio-status has">✓ asignado</span>
+                 <button class="gi-edit-audio-clear" data-action="clear-audio-orig" type="button" title="Quitar audio original">×</button>`
+              : `<button class="gi-edit-audio-assign" data-action="assign-audio-orig" type="button">Asignar archivo</button>`}
+          </div>
         </div>
-        <div class="gi-edit-audio-row">
-          <span class="gi-edit-audio-label">Original</span>
-          ${origPath
-            ? `<span class="gi-edit-audio-status has">✓ asignado</span>
-               <button class="gi-edit-audio-clear" data-action="clear-audio-orig" type="button" title="Quitar audio original">×</button>`
-            : `<button class="gi-edit-audio-assign" data-action="assign-audio-orig" type="button">Asignar archivo</button>`}
-        </div>
-      </div>
+      </details>
   `;
 
   return `

@@ -27,6 +27,9 @@ export function bindTouchReorder(containerSelector, itemSelector, indexAttr, onR
   let pressTimer = null;
   let dragging = null;       // card currently being dragged
   let dragOverCard = null;   // last card the finger was over
+  let ghost = null;          // clone that follows the finger
+  let ghostOffsetX = 0;
+  let ghostOffsetY = 0;
   const LONG_PRESS_MS = 300;
 
   const clearDragOver = () => {
@@ -36,9 +39,37 @@ export function bindTouchReorder(containerSelector, itemSelector, indexAttr, onR
     }
   };
 
+  const positionGhost = (clientX, clientY) => {
+    if (!ghost) return;
+    ghost.style.transform = `translate(${clientX - ghostOffsetX}px, ${clientY - ghostOffsetY}px)`;
+  };
+
+  const buildGhost = (card, clientX, clientY) => {
+    const rect = card.getBoundingClientRect();
+    ghost = card.cloneNode(true);
+    ghost.classList.add('touch-ghost');
+    ghost.style.position = 'fixed';
+    ghost.style.left = '0';
+    ghost.style.top = '0';
+    ghost.style.width = rect.width + 'px';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.zIndex = '99999';
+    ghost.style.opacity = '0.92';
+    ghost.style.willChange = 'transform';
+    ghostOffsetX = clientX - rect.left;
+    ghostOffsetY = clientY - rect.top;
+    document.body.appendChild(ghost);
+    positionGhost(clientX, clientY);
+  };
+
+  const removeGhost = () => {
+    if (ghost) { ghost.remove(); ghost = null; }
+  };
+
   const endDrag = (commit) => {
     if (!dragging) return;
     dragging.classList.remove('dragging');
+    removeGhost();
     if (commit && dragOverCard && dragOverCard !== dragging) {
       const fromIdx = parseInt(dragging.dataset[indexAttr], 10);
       const toIdx   = parseInt(dragOverCard.dataset[indexAttr], 10);
@@ -58,10 +89,12 @@ export function bindTouchReorder(containerSelector, itemSelector, indexAttr, onR
     // need to remain tappable.
     if (e.target.closest('button')) return;
 
+    const startX = e.clientX, startY = e.clientY;
     pressTimer = setTimeout(() => {
       pressTimer = null;
       dragging = card;
       card.classList.add('dragging');
+      buildGhost(card, startX, startY);
     }, LONG_PRESS_MS);
   }, { passive: true });
 
@@ -71,9 +104,15 @@ export function bindTouchReorder(containerSelector, itemSelector, indexAttr, onR
     if (!dragging) return;
     e.preventDefault();
 
-    // pointer events expose clientX/Y; map to elementFromPoint to find
-    // which card the finger is currently over.
+    positionGhost(e.clientX, e.clientY);
+
+    // Hide ghost momentarily to read what's UNDER it (elementFromPoint
+    // otherwise returns the ghost itself).
+    const prevDisp = ghost ? ghost.style.display : '';
+    if (ghost) ghost.style.display = 'none';
     const target = document.elementFromPoint(e.clientX, e.clientY);
+    if (ghost) ghost.style.display = prevDisp;
+
     const overCard = target ? target.closest(itemSelector) : null;
     if (overCard !== dragOverCard) {
       clearDragOver();

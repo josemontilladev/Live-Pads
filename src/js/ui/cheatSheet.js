@@ -51,6 +51,8 @@ const SECTIONS = [
   {
     title: 'General',
     rows: [
+      ['Ctrl+K',          'Búsqueda global (Spotlight)'],
+      ['Ctrl+N',          'Nueva canción'],
       ['?',               'Mostrar este panel'],
       ['Esc',             'Cerrar paneles / overlays'],
     ],

@@ -45,6 +45,15 @@ export function findKeyboardMappingFor(action, id) {
   return k ? { key: k, target: map[k] } : null;
 }
 
+// Delete a single mapping by its key (e.g. "note_60" or "kbd_KeyA").
+// Used by the MIDI mappings list UI to clear individual entries.
+export function deleteMapping(mapKey) {
+  if (mapKey in map) {
+    delete map[mapKey];
+    persistAsync();
+  }
+}
+
 function persistAsync() {
   if (window.electronAPI && window.electronAPI.saveMidiMap) {
     window.electronAPI.saveMidiMap(map);

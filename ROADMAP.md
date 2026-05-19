@@ -6,15 +6,74 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
-## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (undécima pasada)
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (duodécima pasada)
 
 ### Estado al cerrar
 
-- **Última fase completada**: 🏗️ Fase 32 — Motion polish + state manager + descomposición completa de `bindRestOfApp`
-- **app.js**: 1687 → **745 líneas** (-942, **-56% en esta sesión; -76% desde el origen 3055**)
-- **Total módulos**: **41** archivos especializados
-- **Pads Amb**: 193 MB → **137 MB** (-56 MB, -29%) sin pérdida audible de calidad
-- **Instalador NSIS**: 297 MB → **250 MB** (-16%)
+- **Última fase completada**: 🏗️ Fase 34 — 17 mejoras UX adicionales (atajos, MIDI status, touch reorder, modal edición, README)
+- **app.js**: ~755 líneas (-76% desde el origen 3055)
+- **Total módulos**: **43** archivos JS + 11 módulos CSS
+- **Pads Amb**: 137 MB sin pérdida audible
+- **Instalador NSIS**: 250 MB
+
+### Fase 34 (esta sesión) — pulido UX final + maintenance
+
+1. **Atajos + flujo**:
+   - `Ctrl+N` quick-add nueva canción (cambia tab + dispara botón)
+   - `Enter` en buscador aplica la primera card filtrada
+   - Tooltips `Ctrl+S` / `Esc` en el editor de letras
+2. **Guardas + feedback**:
+   - Toast warning cuando el tono de una canción no mapea a las 12 notas cromáticas
+   - `confirmDialog` cuando se importa JSON sobre librería poblada (evita overwrite silencioso)
+   - Último `alert()` nativo (kitControls) reemplazado por `showToast`
+3. **Búsqueda + MIDI**:
+   - `<mark.search-hit>` resalta el match en title/artist usando `var(--accent)` + `var(--glow)`
+   - Pill `🟢 [device name]` en topbar via `MIDIAccess.inputs`, auto-update con `statechange`
+   - UI dim global durante MIDI Learn: `body.midi-learning` → `filter: saturate(0.55) brightness(0.7)` en `#app`
+4. **Layout**:
+   - Sticky search header: `#panel-setlist` deja de scrollear, scroll vive en los containers `#gi-songs-container`/`#service-songs-container`
+5. **Tiempo real del servicio**:
+   - `audio.onloadedmetadata` graba `song.durationSec` la primera vez que cada canción se reproduce, persistido en GI-Setlist
+   - `updateServiceMeta` suma duraciones reales + 240s fallback para canciones desconocidas; prefijo `~` si hay incógnitas
+6. **Touch reorder** (`src/js/utils/touchReorder.js`, nuevo):
+   - Long-press 300ms + pointermove + drop con `elementFromPoint`
+   - Coexiste con HTML5 drag (mouse usa el flujo nativo, touch usa pointer events)
+   - Wired en library + servicio
+7. **Modal de edición expandido**:
+   - `songEditForm` ahora incluye sección "Audio" con status pill (`✓ asignado`) + clear-X cuando el slot está lleno, o "Asignar archivo" cuando vacío
+   - Nuevos `data-action`: `assign-audio-seq/orig`, `clear-audio-seq/orig`
+   - Sólo para canciones existentes (no en placeholder "Nueva Canción")
+8. **README.md nuevo**: setup, scripts npm, atajos esenciales, estructura del proyecto, instrucciones de `%APPDATA%\LivePads\config.json` para MongoDB sync
+
+### Fase 33 (esta sesión) — premium UX en vivo (24 mejoras)
+
+1. **Now playing banner** clickeable encima del setlist con título + artista, click hace scroll-to + flash de 0.95s en la library
+2. **Auto-scroll del servicio** al cambiar de canción (`scrollIntoView` smooth)
+3. **Played-song fade**: cards anteriores al active-idx dimmean a 45% opacity
+4. **Tab prepara siguiente canción** sin reproducir; badge "PRÓXIMA" en la card encolada
+5. **Indicador `3 / 8 · N canciones · ~M min`** en pestaña Servicio
+6. **Heartbeat pulse** en botón Play del metrónomo cuando running
+7. **Fade-progress bar** de 5s en key-pad activa durante stopPad
+8. **Pestaña Atajos en sidebar** (sustituye al modal overlay)
+9. **Botón ?** en topbar abre Atajos
+10. **Pre-vuelo modal** desde menú hamburguesa (6 checks)
+11. **Empty states** Library + Service con icono + CTAs
+12. **× clear** en buscador
+13. **Búsqueda por tono** (`tono:G`, `key:Cm`)
+14. **Favoritos ★** + filtro dedicado (sync GI↔Service)
+15. **Auto-save de letras** 1.5s debounce + on blur + indicador "Guardando…/Guardado✓"
+16. **6 `confirm()` nativos** reemplazados por `confirmDialog`/`confirmDialogAsync`
+17. **Drag-and-drop en Library** + cursor `grab` + 6-dot grip hint en hover
+18. **Drop zone bar** 4px accent con glow + animation
+19. **Loading state** durante import JSON
+20. **Vaciar Servicio** → icono de papelera (hover rojo)
+21. **Theme preview on hover** + persistencia en `localStorage`
+22. **MIDI learn overlay** slim, top-center, pill rounded
+23. **Toasts** anclados arriba del track player
+24. **Sidebar close button** ×
+25. **Export GI Library** a `livepads-library-YYYY-MM-DD.json`
+
+### Fase 32 (sesión anterior) — motion polish, state manager, extracciones finales
 
 ### Fase 32 (esta sesión) — motion polish, state manager, extracciones finales
 

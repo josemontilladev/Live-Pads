@@ -1067,3 +1067,56 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   color: var(--accent);
   border-style: solid;
 }
+
+/* Collapsible audio section in the inline edit form. Defaults to closed
+   for songs without audio assigned (keeps the form compact); auto-opens
+   for songs that already have files (so status + clear are visible). */
+.gi-edit-audio-details {
+  margin: 2px 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.gi-edit-audio-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  user-select: none;
+  list-style: none;
+  padding: 2px 0;
+}
+.gi-edit-audio-summary::-webkit-details-marker { display: none; }
+.gi-edit-audio-summary::before {
+  content: '▸';
+  font-size: 8px;
+  transition: transform 0.15s ease;
+}
+.gi-edit-audio-details[open] .gi-edit-audio-summary::before {
+  transform: rotate(90deg);
+}
+.gi-edit-audio-summary-badge {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+/* Touch-reorder ghost — a clone of the card that follows the finger.
+   Position/opacity are set inline by touchReorder.js; only the visual
+   tilt + shadow come from CSS so they match the rest of the
+   drag-and-drop language. */
+.touch-ghost {
+  pointer-events: none !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  transform: rotate(-2deg);
+  filter: brightness(1.06);
+  border: 1px solid var(--accent) !important;
+}
