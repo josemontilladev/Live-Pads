@@ -1,41 +1,78 @@
-/* ─── Theme definitions ─────────────────────────────── */
+/* ─── Theme definitions ───────────────────────────────
+   Each theme drives a set of CSS variables consumed by index.css. The
+   palette extras (accent2, glow, borderStrong, gradient) power the
+   premium look: subtle 2-tone card gradients, glow on active states,
+   stronger borders on focused elements, and a refined body backdrop. */
 const THEMES = {
   gi_setlist: {
     name: 'GI.Setlist', desc: 'Estilo oficial · Gold & Dark',
-    bg1: '#050505', bg2: '#0f0f0f', bg3: '#0f0f0f', blue: '#FBAE00',
-    bgHover: '#1f1f1f', border: 'rgba(255,255,255,0.08)',
+    // Backgrounds
+    bg1: '#050505', bg2: '#0f0f0f', bg3: '#181818',
+    bgHover: '#232323',
+    // Primary + secondary accents
+    blue: '#FBAE00', accent2: '#FFD45C',
+    // Borders + glow + body backdrop
+    border: 'rgba(255,255,255,0.06)',
+    borderStrong: 'rgba(251,174,0,0.22)',
+    glow: 'rgba(251,174,0,0.20)',
+    gradient: 'radial-gradient(at 18% 0%, rgba(251,174,0,0.06) 0%, transparent 45%), linear-gradient(155deg, #050505 0%, #0f0f0f 50%, #050505 100%)',
     swatch: 'linear-gradient(135deg,#FBAE00,#0f0f0f)'
   },
   midnight: {
     name: 'Midnight Aurora', desc: 'Teal profundo · Nocturno',
-    bg1: '#020617', bg2: '#0f172a', bg3: '#1e293b', blue: '#2dd4bf',
-    bgHover: '#1e293b', border: 'rgba(45,212,191,0.15)',
-    swatch: 'linear-gradient(135deg,#2dd4bf,#0f172a)'
+    bg1: '#020314', bg2: '#0a1228', bg3: '#131c35',
+    bgHover: '#1e2a4a',
+    blue: '#2dd4bf', accent2: '#67e8f9',
+    border: 'rgba(45,212,191,0.10)',
+    borderStrong: 'rgba(45,212,191,0.30)',
+    glow: 'rgba(45,212,191,0.22)',
+    gradient: 'radial-gradient(at 80% 100%, rgba(103,232,249,0.08) 0%, transparent 50%), linear-gradient(155deg, #020314 0%, #0a1228 50%, #020314 100%)',
+    swatch: 'linear-gradient(135deg,#67e8f9,#2dd4bf 50%,#0a1228)'
   },
   crimson: {
     name: 'Crimson Power', desc: 'Energía · Rojo & Negro',
-    bg1: '#000000', bg2: '#111111', bg3: '#1a1a1a', blue: '#ef4444',
-    bgHover: '#1a1a1a', border: 'rgba(239,68,68,0.15)',
-    swatch: 'linear-gradient(135deg,#ef4444,#000)'
+    bg1: '#0a0606', bg2: '#141010', bg3: '#1d1818',
+    bgHover: '#2a1f1f',
+    blue: '#ef4444', accent2: '#f87171',
+    border: 'rgba(239,68,68,0.10)',
+    borderStrong: 'rgba(239,68,68,0.28)',
+    glow: 'rgba(239,68,68,0.22)',
+    gradient: 'radial-gradient(at 100% 0%, rgba(239,68,68,0.07) 0%, transparent 45%), linear-gradient(155deg, #0a0606 0%, #141010 50%, #0a0606 100%)',
+    swatch: 'linear-gradient(135deg,#f87171,#ef4444 50%,#141010)'
   },
   clean: {
     name: 'Clean Worship', desc: 'Minimalista · Claro & Azul',
-    bg1: '#f8fafc', bg2: '#ffffff', bg3: '#f1f5f9', blue: '#0ea5e9',
+    bg1: '#fafbfd', bg2: '#ffffff', bg3: '#f1f5f9',
+    bgHover: '#e2e8f0',
+    blue: '#0ea5e9', accent2: '#38bdf8',
     text: '#0f172a', textMuted: '#64748b',
-    bgHover: '#e2e8f0', border: 'rgba(15,23,42,0.08)',
-    swatch: 'linear-gradient(135deg,#0ea5e9,#f8fafc)'
+    border: 'rgba(15,23,42,0.06)',
+    borderStrong: 'rgba(14,165,233,0.30)',
+    glow: 'rgba(14,165,233,0.16)',
+    gradient: 'radial-gradient(at 18% 0%, rgba(14,165,233,0.06) 0%, transparent 50%), linear-gradient(155deg, #fafbfd 0%, #ffffff 50%, #fafbfd 100%)',
+    swatch: 'linear-gradient(135deg,#38bdf8,#0ea5e9 50%,#ffffff)'
   },
   deep_sea: {
     name: 'Deep Sea', desc: 'Azul oceánico profundo',
-    bg1: '#0c4a6e', bg2: '#082f49', bg3: '#075985', blue: '#38bdf8',
-    bgHover: '#075985', border: 'rgba(56,189,248,0.15)',
-    swatch: 'linear-gradient(135deg,#38bdf8,#082f49)'
+    bg1: '#051a2c', bg2: '#082f49', bg3: '#0c4a6e',
+    bgHover: '#075985',
+    blue: '#38bdf8', accent2: '#7dd3fc',
+    border: 'rgba(56,189,248,0.12)',
+    borderStrong: 'rgba(125,211,252,0.32)',
+    glow: 'rgba(56,189,248,0.22)',
+    gradient: 'radial-gradient(at 80% 100%, rgba(125,211,252,0.10) 0%, transparent 50%), linear-gradient(155deg, #051a2c 0%, #082f49 50%, #051a2c 100%)',
+    swatch: 'linear-gradient(135deg,#7dd3fc,#38bdf8 50%,#082f49)'
   },
   ambient: {
     name: 'Ambient Purple', desc: 'Atmósfera · Púrpura',
-    bg1: '#1e1b4b', bg2: '#312e81', bg3: '#4338ca', blue: '#a5b4fc',
-    bgHover: '#4338ca', border: 'rgba(165,180,252,0.2)',
-    swatch: 'linear-gradient(135deg,#a5b4fc,#1e1b4b)'
+    bg1: '#0c0a1f', bg2: '#1a163a', bg3: '#2a2454',
+    bgHover: '#3a3070',
+    blue: '#a78bfa', accent2: '#c4b5fd',
+    border: 'rgba(167,139,250,0.14)',
+    borderStrong: 'rgba(196,181,253,0.32)',
+    glow: 'rgba(167,139,250,0.24)',
+    gradient: 'radial-gradient(at 100% 0%, rgba(196,181,253,0.10) 0%, transparent 50%), linear-gradient(155deg, #0c0a1f 0%, #1a163a 50%, #0c0a1f 100%)',
+    swatch: 'linear-gradient(135deg,#c4b5fd,#a78bfa 50%,#1a163a)'
   }
 };
 

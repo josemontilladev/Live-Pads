@@ -1,0 +1,67 @@
+/* ── HORIZONTAL METRONOME (ahora en top-modules-grid) ── */
+.horizontal-metro {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 1;
+  min-height: 80px;
+}
+.hm-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.hm-play {
+  flex: 0 0 160px;
+  gap: 10px;
+}
+.hm-bpm {
+  flex: 0 0 180px;
+  gap: 8px;
+}
+.hm-bpm-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hm-bpm-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hm-bpm-slider-wrap input { flex: 1; }
+.hm-compas {
+  flex: 0 0 120px;
+  gap: 6px;
+}
+.hm-mix {
+  flex: 0 0 160px;
+  gap: 4px;
+}
+
+#metro-beat-row {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.metro-main-btn {
+  padding: 10px 16px;
+  font-size: 13px;
+  width: auto;
+}
+.metro-bpm-big {
+  font-size: 32px;
+}
+.metro-adj {
+  width: 28px; height: 28px;
+}
+

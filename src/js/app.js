@@ -1,176 +1,170 @@
 import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
-import { PAD_BANKS, KIT_BANKS, THEMES } from './data/banks.js';
-
-const KEYS_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const KEYS_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
+import { q, qa, esc, debounce } from './utils/dom.js';
+import { panShort } from './utils/format.js';
+import { showToast } from './ui/toast.js';
+import { songEditFormHTML } from './ui/songEditForm.js';
+import { songCardInnerHTML } from './ui/songCard.js';
+import { openLyricsEditorModal } from './ui/lyricsEditor.js';
+import { showDialog, hideDialog } from './ui/dialog.js';
+import { applyTheme, buildThemesList, getCurrentTheme } from './ui/themes.js';
+import {
+  initService, getServiceSongs, getActiveServiceIndex,
+  loadServiceSongs, saveServiceSongs, addToService, removeFromService,
+  clearServiceList, serviceNextSong, servicePrevSong,
+  reorderService, syncActiveByTitleArtist
+} from './data/service.js';
+import {
+  initTrackPlayer, loadAndPlayTrack, clearTrackUI,
+  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause
+} from './audio/trackPlayer.js';
+import {
+  initPresets, loadPresets as loadPresetsModule
+} from './data/presets.js';
+import {
+  setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor
+} from './midi/midiMap.js';
+import {
+  hydrateCustomKitsInto, saveCustomKitsToStorage, createEmptyCustomKit
+} from './data/customKits.js';
+import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
+import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter.js';
+import { openSidebarTab, closeAllOverlays } from './ui/overlays.js';
+import { initDrumGrid, buildDrumGrid, hitDrum } from './ui/drumGrid.js';
+import { initMetroBeatDots, buildMetroBeatDots, onMetroBeat } from './ui/metroBeatDots.js';
+import { initDrumVolumes, buildDrumVolumes } from './ui/drumVolumes.js';
+import { KEYS_FLAT, KEYS_SHARP, KEY_MAP_PADS, KEY_MAP_DRUMS } from './data/musicConstants.js';
+import { syncSlider, syncPanSlider, bindToggle } from './utils/sliders.js';
+import {
+  initGiList, renderGiList,
+  repaintGiCard, getGiCardBySongId
+} from './ui/giList.js';
+import {
+  initServiceList, renderServiceList as renderServiceListModule
+} from './ui/serviceListView.js';
 
 let engine, metro;
 let activeKey = null;
 let useFlats = false;
 let padBankIdx = 0, kitBankIdx = 0;
-let currentTheme = 'gi_setlist';
 let metroRunning = false;
-let presets = [];
 let giSetlistSongs = [];
 let currentGiGenre = 'all';
-let serviceSongs   = [];
-let activeServiceIndex = -1;
 let activeGiSongId = null;
 let openAccordionSongId = null;
 let openAccordionServiceId = null;
 let isEditKitMode  = false;
 let isMidiLearnMode = false;
 let midiLearnTarget = null;
-let customMidiMap = {};
-
-const KEY_MAP_PADS  = ['1','2','3','4','5','6','7','8','9','0','-','='];
-const KEY_MAP_DRUMS = ['Q','W','E','R','A','S','D','F'];
-
-const q  = s => document.querySelector(s);
-const qa = s => document.querySelectorAll(s);
-
-// Global Toast Notification Helper for professional UX
-window.showToast = function(message, type = 'info') {
-  let container = q('#toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; pointer-events: none;';
-    document.body.appendChild(container);
-  }
-  
-  const toast = document.createElement('div');
-  let bg = 'rgba(0, 170, 255, 0.9)'; // info / blue
-  let color = '#000';
-  let border = '1px solid var(--blue)';
-  
-  if (type === 'success') {
-    bg = 'rgba(16, 185, 129, 0.95)'; // emerald
-    color = '#fff';
-    border = '1px solid #10b981';
-  } else if (type === 'error') {
-    bg = 'rgba(239, 68, 68, 0.95)'; // red
-    color = '#fff';
-    border = '1px solid #ef4444';
-  } else if (type === 'warning') {
-    bg = 'rgba(245, 158, 11, 0.95)'; // amber
-    color = '#000';
-    border = '1px solid #f59e0b';
-  }
-  
-  toast.style.cssText = `background: ${bg}; color: ${color}; border: ${border}; backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 10px 25px rgba(0,0,0,0.3); opacity: 0; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px;`;
-  
-  // Icon SVG
-  let icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
-  if (type === 'success') {
-    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><polyline points="20,6 9,17 4,12"/></svg>';
-  } else if (type === 'error') {
-    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-  } else if (type === 'warning') {
-    icon = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-  }
-  
-  toast.innerHTML = `${icon}<span>${message}</span>`;
-  container.appendChild(toast);
-  
-  // Slide up and bounce in
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-  });
-  
-  // Slide out and remove
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(-20px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
-};
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
   engine = new SynthEngine();
+
+  // Boot phase 1: kick off everything that can run in parallel.
+  //   - Engine init (must complete before we touch audio nodes)
+  //   - Default click sound decode (depends on engine.ctx)
+  //   - User drums + MIDI map from disk (Node-side IPC, independent)
   await engine.init();
-  await engine.loadClickBuffers();    // load real click audio files
-  // Pad Amb files are lazy-loaded on first keypress (files are ~48MB each)
+  const clickWarmup = engine.loadClickBuffers(); // default = 'cowbell'
+  const userDrumsP = window.electronAPI?.loadUserDrums
+    ? window.electronAPI.loadUserDrums()
+    : Promise.resolve(null);
+  const midiMapP = window.electronAPI?.loadMidiMap
+    ? window.electronAPI.loadMidiMap()
+    : Promise.resolve(null);
+
+  // Pad Amb files are lazy-loaded on first keypress (~48MB each, see _ensurePadAmb).
   metro = new Metronome(engine);
+  initMetroBeatDots(metro);
   metro.onBeat = onMetroBeat;
-  metro.sound = 'cowbell';  // default: Cowbell
+  metro.sound = 'cowbell';
 
-  let customKitsData = { kits: [] };
-  if (window.electronAPI && window.electronAPI.loadUserDrums) {
-    const raw = await window.electronAPI.loadUserDrums();
-    if (raw) {
-      if (raw.kits) {
-        customKitsData = raw;
-      } else if (raw.kitName) {
-        // Migrate legacy format
-        customKitsData = {
-          kits: [{
-            id: 'custom_kit_legacy',
-            kitName: raw.kitName || 'Custom Kit',
-            lbl_c_kick: raw.lbl_c_kick, c_kick: raw.c_kick,
-            lbl_c_snare: raw.lbl_c_snare, c_snare: raw.c_snare,
-            lbl_c_hhc: raw.lbl_c_hhc, c_hhc: raw.c_hhc,
-            lbl_c_clap: raw.lbl_c_clap, c_clap: raw.c_clap,
-            lbl_c_perc1: raw.lbl_c_perc1, c_perc1: raw.c_perc1,
-            lbl_c_perc2: raw.lbl_c_perc2, c_perc2: raw.c_perc2,
-            lbl_c_crash: raw.lbl_c_crash, c_crash: raw.c_crash,
-            lbl_c_ride: raw.lbl_c_ride, c_ride: raw.c_ride,
-          }]
-        };
+  const [, rawDrums, rawMidi] = await Promise.all([clickWarmup, userDrumsP, midiMapP]);
+
+  // Prepend custom drum kits (loaded from disk or one empty default) into KIT_BANKS.
+  hydrateCustomKitsInto(KIT_BANKS, rawDrums);
+
+  // MIDI map was loaded in parallel above; just commit it now.
+  setMidiMap(rawMidi);
+
+  applyTheme(getCurrentTheme());
+  initService({ render: renderServiceList, applyGiSong });
+  initGiList({
+    getSongs: () => giSetlistSongs,
+    setSongs: (s) => { giSetlistSongs = s; },
+    getCurrentGenre: () => currentGiGenre,
+    getActiveSongId: () => activeGiSongId,
+    getOpenAccordionId: () => openAccordionSongId,
+    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs); },
+    onApplySong: applyGiSong,
+    loadAndPlayTrack,
+    addToService,
+    openLyricsEditorModal,
+    toggleLyricsAccordion,
+    toggleChordVisibility,
+    updateFilterCounts,
+  });
+  initServiceList({
+    getSongs: getServiceSongs,
+    getActiveIndex: getActiveServiceIndex,
+    getOpenAccordionId: () => openAccordionServiceId,
+    persistServiceSongs: saveServiceSongs,
+    onApplySong: applyGiSong,
+    loadAndPlayTrack,
+    removeFromService,
+    reorderService,
+    openLyricsEditorModal,
+    toggleLyricsAccordion,
+    toggleChordVisibility,
+    syncLyricsToLibrary: (song) => {
+      const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+      if (!giSong) return;
+      giSong.lyrics = song.lyrics;
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      const giCard = getGiCardBySongId(giSong.id);
+      if (giCard) repaintGiCard(giCard, giSong);
+    },
+    syncMetaToLibrary: (oldKey, song) => {
+      const giSong = giSetlistSongs.find(s => (s.title + '\x00' + s.artist) === oldKey);
+      if (!giSong) return;
+      giSong.title = song.title;
+      giSong.artist = song.artist;
+      giSong.bpm = song.bpm;
+      giSong.key = song.key;
+      giSong.genre = song.genre;
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      // Title/artist may have moved the library card in sort order → full re-render.
+      renderGiList(q('#gi-search').value);
+    },
+  });
+  initDrumGrid({
+    getEngine: () => engine,
+    getKitBankIdx: () => kitBankIdx,
+    isEditKit: () => isEditKitMode,
+    onAfterBuild: () => { if (typeof updateKeyHints === 'function') updateKeyHints(); }
+  });
+  initDrumVolumes({ getEngine: () => engine, syncSlider });
+
+  // Hook the track player to app.js helpers so it stays decoupled.
+  initTrackPlayer({
+    syncSlider,
+    onAudioPathAssigned: (song, type, newPath) => {
+      // Sync the new file path back into the library + persist + refresh views.
+      const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+      if (giSong) {
+        if (!giSong.audio) giSong.audio = {};
+        giSong.audio[type] = newPath;
       }
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      saveServiceSongs();
+      const searchInput = q('#gi-search');
+      if (searchInput) renderGiList(searchInput.value);
+      renderServiceList();
     }
-  }
+  });
 
-  // Load custom kits into KIT_BANKS
-  // Load custom kits into KIT_BANKS (prepended so they are at the top)
-  if (customKitsData.kits && customKitsData.kits.length > 0) {
-    const loadedCustomKits = customKitsData.kits.map(k => ({
-      id: k.id || `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-      name: k.kitName || 'Custom Kit',
-      desc: 'Batería personalizada (Edita con el ✏️)',
-      color: '#10b981',
-      isCustom: true, // Mark it so we know we can edit/delete it!
-      pads: [
-        { id: 'c_kick', label: k.lbl_c_kick || 'Kick', type: 'kick', sample: k.c_kick },
-        { id: 'c_snare', label: k.lbl_c_snare || 'Snare', type: 'snare', sample: k.c_snare },
-        { id: 'c_hhc', label: k.lbl_c_hhc || 'HH Cerr', type: 'hihatC', sample: k.c_hhc },
-        { id: 'c_clap', label: k.lbl_c_clap || 'Clap', type: 'clap', sample: k.c_clap },
-        { id: 'c_perc1', label: k.lbl_c_perc1 || 'Tom 1', type: 'tomH', sample: k.c_perc1 },
-        { id: 'c_perc2', label: k.lbl_c_perc2 || 'Tom 2', type: 'tomM', sample: k.c_perc2 },
-        { id: 'c_crash', label: k.lbl_c_crash || 'Crash', type: 'crash', sample: k.c_crash },
-        { id: 'c_ride', label: k.lbl_c_ride || 'Ride', type: 'ride', sample: k.c_ride },
-      ]
-    }));
-    KIT_BANKS.unshift(...loadedCustomKits);
-  } else {
-    // If no custom kits exist, create one default custom kit
-    KIT_BANKS.unshift({
-      id: `custom_kit_${Date.now()}`,
-      name: 'PadLab Custom',
-      desc: 'Batería personalizada (Edita con el ✏️)',
-      color: '#10b981',
-      isCustom: true,
-      pads: [
-        { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
-        { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
-        { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
-        { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
-        { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
-        { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
-        { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
-        { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
-      ]
-    });
-  }
-
-  if (window.electronAPI && window.electronAPI.loadMidiMap) {
-    customMidiMap = (await window.electronAPI.loadMidiMap()) || {};
-  }
-
-  applyTheme(currentTheme);
   buildBankSelects();
   
   // Restore last selected Pad Bank or default to Chris Rocha (index 2)
@@ -194,8 +188,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildThemesList();
   loadServiceSongs();
   bindAll();
-  loadPresets();
+  initPresets({ onApply: applyPreset });
+  loadPresetsModule();
   loadGiSetlistFromFile();
+
+  // Defensive: Chromium suspends AudioContexts created before the first user
+  // gesture. Resume on the first pointer/key event so the first pad/drum hit
+  // has no warm-up latency.
+  const resumeAudio = () => {
+    if (engine && engine.ctx && engine.ctx.state === 'suspended') {
+      engine.ctx.resume().catch(() => {});
+    }
+    document.removeEventListener('pointerdown', resumeAudio, true);
+    document.removeEventListener('keydown', resumeAudio, true);
+  };
+  document.addEventListener('pointerdown', resumeAudio, true);
+  document.addEventListener('keydown', resumeAudio, true);
+
+  // When scrolling either song list, collapse the panel-wide chrome (Setlist
+  // header + tab toggle) plus the local filters, leaving only the search input
+  // pinned at the top. Passive listeners — never block scroll.
+  const panelSetlist = q('#panel-setlist');
+  const giSongsContainer = q('#gi-songs-container');
+  const giSetlistList = q('#gi-setlist-list');
+  const serviceSongsContainer = q('#service-songs-container');
+
+  const wireScrollChrome = (scroller) => {
+    if (!scroller || !panelSetlist) return;
+    const update = () => {
+      const scrolled = scroller.scrollTop > 8;
+      panelSetlist.classList.toggle('songs-scrolled', scrolled);
+      if (scroller === giSongsContainer && giSetlistList) {
+        giSetlistList.classList.toggle('scrolled', scrolled);
+      }
+    };
+    scroller.addEventListener('scroll', update, { passive: true });
+  };
+  wireScrollChrome(giSongsContainer);
+  wireScrollChrome(serviceSongsContainer);
 
   q('#sidebar').classList.remove('open');
 
@@ -215,12 +245,12 @@ function buildBankSelects() {
   const padSel = q('#pad-bank-select');
   const kitSel = q('#kit-bank-select');
   if (padSel) {
-    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
     padSel.value = padBankIdx;
     padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
   }
   if (kitSel) {
-    kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${b.name}</option>`).join('');
+    kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
     kitSel.value = kitBankIdx;
     kitSel.onchange = (e) => loadKitBank(parseInt(e.target.value));
   }
@@ -245,18 +275,12 @@ function loadKitBank(idx) {
   const kitSel = q('#kit-bank-select');
   if (kitSel) kitSel.value = kitBankIdx;
   
-  // Show or hide the trash button depending on whether this is a custom kit
+  // Show/hide the trash button + toggle edit pencil availability based on
+  // whether the active kit is user-custom. Class-based so it stays themable.
   const btnDelete = q('#btn-delete-kit');
-  if (btnDelete) {
-    btnDelete.style.display = kit.isCustom ? 'flex' : 'none';
-  }
-  
-  // Toggle opacity and availability of the edit pencil button
+  if (btnDelete) btnDelete.classList.toggle('kit-action-btn--hidden', !kit.isCustom);
   const btnEdit = q('#btn-edit-kit');
-  if (btnEdit) {
-    btnEdit.style.opacity = kit.isCustom ? '1' : '0.2';
-    btnEdit.style.pointerEvents = kit.isCustom ? 'auto' : 'none';
-  }
+  if (btnEdit) btnEdit.classList.toggle('kit-action-btn--disabled', !kit.isCustom);
 
   engine.initDrumVolumes(kit.pads);
   buildDrumGrid(kit.pads);
@@ -291,35 +315,28 @@ function buildKeyGrid() {
 }
 
 function updateKeyHints() {
+  const cleanHint = (key) => key.replace('kbd_Key', '').replace('kbd_Digit', '').replace('kbd_', '');
+
   qa('.key-btn').forEach(btn => {
     const key = btn.dataset.key;
     const padIdx = (useFlats ? KEYS_FLAT : KEYS_SHARP).indexOf(key);
     let hint = KEY_MAP_PADS[padIdx] || '';
-    const customKey = Object.keys(customMidiMap).find(k => k.startsWith('kbd_') && customMidiMap[k].action === 'pad' && customMidiMap[k].id === key);
-    if (customKey) hint = customKey.replace('kbd_Key', '').replace('kbd_Digit', '').replace('kbd_', '');
+    const found = findKeyboardMappingFor('pad', key);
+    if (found) hint = cleanHint(found.key);
     const hintEl = btn.querySelector('.kbd-hint');
-    if(hintEl) hintEl.textContent = hint;
+    if (hintEl) hintEl.textContent = hint;
   });
   qa('.drum-btn').forEach((btn, i) => {
     const type = btn.dataset.type;
     let hint = KEY_MAP_DRUMS[i] || '';
-    const customKey = Object.keys(customMidiMap).find(k => k.startsWith('kbd_') && customMidiMap[k].action === 'drum' && customMidiMap[k].id === type);
-    if (customKey) hint = customKey.replace('kbd_Key', '').replace('kbd_Digit', '').replace('kbd_', '');
+    const found = findKeyboardMappingFor('drum', type);
+    if (found) hint = cleanHint(found.key);
     const hintEl = btn.querySelector('.kbd-hint');
-    if(hintEl) hintEl.textContent = hint;
+    if (hintEl) hintEl.textContent = hint;
   });
 }
 
-function clearMappingForTarget(target, isKeyboard) {
-  Object.keys(customMidiMap).forEach(key => {
-    if (isKeyboard && !key.startsWith('kbd_')) return;
-    if (!isKeyboard && key.startsWith('kbd_')) return;
-    const mapping = customMidiMap[key];
-    if (mapping && mapping.action === target.action && mapping.id === target.id) {
-      delete customMidiMap[key];
-    }
-  });
-}
+// clearMappingForTarget now lives in midi/midiMap.js (imported above).
 
 function onKeyClick(key) {
   if (activeKey === key) { 
@@ -344,515 +361,27 @@ function onKeyClick(key) {
 
 let preparedPadKey = null;
 
-/* ── DRUM GRID ── */
-function buildDrumGrid(pads) {
-  const grid = q('#drum-grid'); grid.innerHTML = '';
-  pads.forEach((pad, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'drum-btn'; btn.dataset.drum = pad.id; btn.dataset.type = pad.type;
-    btn.innerHTML = `<span class="drum-label" spellcheck="false">${pad.label}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>`;
-    
-    if (pad.sample) {
-      btn.classList.add('has-sample');
-    }
-
-    const lbl = btn.querySelector('.drum-label');
-    lbl.addEventListener('blur', async () => {
-      if (lbl.textContent.trim() !== pad.label) {
-        pad.label = lbl.textContent.trim() || 'Pad';
-        const currentKit = KIT_BANKS[kitBankIdx];
-        if (currentKit && currentKit.isCustom) {
-          saveCustomKitsToStorage();
-        }
-        // Sync volume labels below in real-time
-        const mainLabel = q(`#lbl-dvol-text-${pad.id}`);
-        if (mainLabel) mainLabel.textContent = pad.label;
-        const sbLabel = q(`#sb-lbl-dvol-text-${pad.id}`);
-        if (sbLabel) sbLabel.textContent = pad.label;
-      }
-    });
-
-    btn.onmousedown = (e) => {
-      if (isEditKitMode && e.target === lbl) return;
-      hitDrum(pad.id, pad.type, btn);
-    };
-    btn.addEventListener('touchstart', e => { 
-      if (isEditKitMode && e.target === lbl) return;
-      e.preventDefault(); hitDrum(pad.id, pad.type, btn); 
-    });
-    grid.appendChild(btn);
-  });
-  if (typeof updateKeyHints === 'function') updateKeyHints();
-}
-
-async function hitDrum(id, type, btn) {
-  if (isEditKitMode) {
-    if (!window.electronAPI) return;
-    
-    const currentKit = KIT_BANKS[kitBankIdx];
-    const kitId = currentKit ? currentKit.id : 'unknown';
-
-    const onUploadNew = async () => {
-      const fileData = await window.electronAPI.openAudioFile();
-      if (!fileData || !fileData.path) return;
-      
-      const resPath = await window.electronAPI.assignDrumSample({
-        sourcePath: fileData.path,
-        padName: id,
-        kitId: kitId
-      });
-      if (resPath) {
-        assignSampleToPad(id, resPath, btn);
-      }
-    };
-    
-    const onAssignPool = (resPath) => {
-      assignSampleToPad(id, resPath, btn);
-    };
-
-    const pad = currentKit ? currentKit.pads.find(p => p.id === id) : null;
-    const padLabel = pad ? pad.label : 'Pad';
-
-    console.log("DEBUG: opening sound pool modal for", { id, padLabel });
-    openSoundPoolModal(id, padLabel, onAssignPool, onUploadNew);
-    return;
-  }
-  if (!engine.playCustomDrum(id, id)) engine.playDrum(type, id);
-  btn.classList.add('hit');
-  setTimeout(() => btn.classList.remove('hit'), 120);
-}
-
-function assignSampleToPad(id, resPath, btn) {
-  const currentKit = KIT_BANKS[kitBankIdx];
-  if (currentKit && currentKit.isCustom) {
-    const pad = currentKit.pads.find(p => p.id === id);
-    if (pad) pad.sample = resPath;
-    saveCustomKitsToStorage();
-  }
-  engine.loadSingleDrum(id, resPath).then((success) => {
-    if (success) {
-      btn.classList.add('has-sample');
-      const oldBg = btn.style.background;
-      btn.style.background = 'var(--blue)';
-      setTimeout(() => { btn.style.background = oldBg; }, 300);
-    }
-  });
-}
-
-function getCleanSampleName(path) {
-  const filename = path.split('/').pop().split('\\').pop();
-  let clean = filename.replace(/^c_[a-z0-9]+_[0-9]+_/i, '');
-  clean = clean.replace(/\.[a-z0-9]+$/i, '');
-  clean = clean.replace(/_/g, ' ');
-  return clean || filename;
-}
-
-function openSoundPoolModal(padId, padLabel, onAssign, onUploadNew) {
-  const existing = q('#sound-pool-modal');
-  if (existing) existing.remove();
-
-  const modal = document.createElement('div');
-  modal.id = 'sound-pool-modal';
-
-  // ── Inline styles REQUIRED: the global `body * { transition: all 0.5s }` rule
-  // makes CSS-class-based opacity transitions fight and keep the modal hidden.
-  Object.assign(modal.style, {
-    position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-    background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(16px)',
-    webkitBackdropFilter: 'blur(16px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: '99999', opacity: '1', transition: 'none', fontFamily: "'Inter', sans-serif"
-  });
-
-  const uniqueSamples = new Set();
-  const sampleList = [];
-  KIT_BANKS.forEach(kit => {
-    if (kit.isCustom && kit.pads) {
-      kit.pads.forEach(p => {
-        if (p.sample && !uniqueSamples.has(p.sample)) {
-          uniqueSamples.add(p.sample);
-          sampleList.push({ path: p.sample, id: p.id, label: p.label, kitName: kit.name });
-        }
-      });
-    }
-  });
-
-  // ── Build the box
-  const box = document.createElement('div');
-  Object.assign(box.style, {
-    background: '#111111', border: '1px solid rgba(255,255,255,0.09)',
-    borderRadius: '20px', width: '460px', maxHeight: '76vh',
-    display: 'flex', flexDirection: 'column',
-    boxShadow: '0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04)',
-    overflow: 'hidden', transition: 'none', opacity: '1'
-  });
-
-  // ── Header
-  const header = document.createElement('div');
-  Object.assign(header.style, {
-    padding: '22px 24px 18px', display: 'flex', alignItems: 'center',
-    justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)'
-  });
-  const titleWrap = document.createElement('div');
-  const badge = document.createElement('span');
-  Object.assign(badge.style, {
-    display: 'inline-block', background: 'rgba(251,174,0,0.15)', color: '#FBAE00',
-    fontSize: '10px', fontWeight: '700', letterSpacing: '1px',
-    textTransform: 'uppercase', padding: '2px 8px', borderRadius: '20px', marginBottom: '6px'
-  });
-  badge.textContent = 'Selector de sonido';
-  const titleEl = document.createElement('h3');
-  Object.assign(titleEl.style, { margin: '0', fontSize: '17px', fontWeight: '700', color: '#fff', lineHeight: '1.2' });
-  titleEl.textContent = padLabel;
-  titleWrap.appendChild(badge);
-  titleWrap.appendChild(titleEl);
-
-  const closeBtn = document.createElement('button');
-  Object.assign(closeBtn.style, {
-    background: 'rgba(255,255,255,0.06)', border: 'none', color: '#aaa',
-    cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0',
-    transition: 'none'
-  });
-  closeBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
-  closeBtn.onmouseenter = () => { closeBtn.style.background = 'rgba(255,255,255,0.12)'; closeBtn.style.color = '#fff'; };
-  closeBtn.onmouseleave = () => { closeBtn.style.background = 'rgba(255,255,255,0.06)'; closeBtn.style.color = '#aaa'; };
-  header.appendChild(titleWrap);
-  header.appendChild(closeBtn);
-
-  // ── Content
-  const content = document.createElement('div');
-  Object.assign(content.style, {
-    padding: '20px 24px', overflowY: 'auto', flex: '1',
-    display: 'flex', flexDirection: 'column', gap: '16px'
-  });
-
-  // Upload button
-  const uploadBtn = document.createElement('button');
-  Object.assign(uploadBtn.style, {
-    background: 'linear-gradient(135deg, #FBAE00 0%, #e09900 100%)',
-    color: '#000', border: 'none', padding: '13px 18px', borderRadius: '12px',
-    fontWeight: '700', fontSize: '13px', cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%',
-    boxShadow: '0 4px 16px rgba(251,174,0,0.25)', transition: 'none', letterSpacing: '0.3px'
-  });
-  uploadBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="15" height="15"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Subir nuevo archivo desde PC`;
-  uploadBtn.onmouseenter = () => { uploadBtn.style.boxShadow = '0 6px 24px rgba(251,174,0,0.4)'; uploadBtn.style.filter = 'brightness(1.07)'; };
-  uploadBtn.onmouseleave = () => { uploadBtn.style.boxShadow = '0 4px 16px rgba(251,174,0,0.25)'; uploadBtn.style.filter = ''; };
-
-  // Section label
-  const sectionLabel = document.createElement('div');
-  Object.assign(sectionLabel.style, {
-    fontSize: '10px', fontWeight: '800', color: 'rgba(255,255,255,0.3)',
-    textTransform: 'uppercase', letterSpacing: '1.2px'
-  });
-  sectionLabel.textContent = sampleList.length > 0
-    ? `${sampleList.length} sonido${sampleList.length !== 1 ? 's' : ''} disponible${sampleList.length !== 1 ? 's' : ''}`
-    : 'Sonidos en la App';
-
-  // List container
-  const listEl = document.createElement('div');
-  Object.assign(listEl.style, {
-    display: 'flex', flexDirection: 'column', gap: '6px',
-    maxHeight: '300px', overflowY: 'auto', paddingRight: '2px'
-  });
-
-  if (sampleList.length === 0) {
-    const empty = document.createElement('div');
-    Object.assign(empty.style, {
-      textAlign: 'center', color: 'rgba(255,255,255,0.25)', fontSize: '13px',
-      padding: '32px 0', lineHeight: '1.6'
-    });
-    empty.innerHTML = `<div style="font-size:28px;margin-bottom:10px;">🥁</div>Aún no has cargado sonidos.<br>Usa "Subir nuevo archivo" para comenzar.`;
-    listEl.appendChild(empty);
-  } else {
-    sampleList.forEach((item, idx) => {
-      const cleanName = getCleanSampleName(item.path);
-
-      const row = document.createElement('div');
-      Object.assign(row.style, {
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 14px', borderRadius: '10px', gap: '10px',
-        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
-        cursor: 'default', transition: 'none'
-      });
-      row.onmouseenter = () => { row.style.background = 'rgba(255,255,255,0.07)'; row.style.borderColor = 'rgba(255,255,255,0.1)'; };
-      row.onmouseleave = () => { row.style.background = 'rgba(255,255,255,0.03)'; row.style.borderColor = 'rgba(255,255,255,0.05)'; };
-
-      const nameEl = document.createElement('div');
-      Object.assign(nameEl.style, {
-        flex: '1', overflow: 'hidden', minWidth: '0'
-      });
-      const nameText = document.createElement('div');
-      Object.assign(nameText.style, {
-        fontSize: '13px', fontWeight: '500', color: '#e0e0e0',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-      });
-      nameText.textContent = cleanName;
-      nameText.title = cleanName;
-      const kitTag = document.createElement('div');
-      Object.assign(kitTag.style, {
-        fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '1px',
-        fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-      });
-      kitTag.textContent = item.kitName || '';
-      nameEl.appendChild(nameText);
-      nameEl.appendChild(kitTag);
-
-      const actions = document.createElement('div');
-      Object.assign(actions.style, { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: '0' });
-
-      // ── Play button
-      const playBtn = document.createElement('button');
-      Object.assign(playBtn.style, {
-        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.08)',
-        color: '#ccc', width: '30px', height: '30px', borderRadius: '8px',
-        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'none'
-      });
-      const iconPlay = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><polygon points="5,3 19,12 5,21"/></svg>`;
-      const iconStop = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
-      playBtn.innerHTML = iconPlay;
-      playBtn.title = 'Preescuchar';
-      playBtn.onmouseenter = () => { if (playBtn.innerHTML === iconPlay) { playBtn.style.background = 'rgba(255,255,255,0.15)'; playBtn.style.color = '#fff'; } };
-      playBtn.onmouseleave = () => { if (playBtn.innerHTML === iconPlay) { playBtn.style.background = 'rgba(255,255,255,0.07)'; playBtn.style.color = '#ccc'; } };
-      playBtn.onclick = () => {
-        // Reset the previously active play button if any
-        if (window.previewBtn && window.previewBtn !== playBtn) {
-          window.previewBtn.innerHTML = iconPlay;
-          window.previewBtn.style.color = '#ccc';
-          window.previewBtn.style.borderColor = 'rgba(255,255,255,0.08)';
-          window.previewBtn.style.background = 'rgba(255,255,255,0.07)';
-        }
-        if (window.previewAudio) {
-          window.previewAudio.pause();
-          window.previewAudio.onended = null;
-          window.previewAudio.onerror = null;
-          window.previewAudio = null;
-        }
-        playBtn.innerHTML = iconStop;
-        playBtn.style.color = '#FBAE00';
-        playBtn.style.borderColor = 'rgba(251,174,0,0.4)';
-        playBtn.style.background = 'rgba(251,174,0,0.1)';
-        window.previewBtn = playBtn;
-
-        const resetBtn = () => {
-          playBtn.innerHTML = iconPlay;
-          playBtn.style.color = '#ccc';
-          playBtn.style.borderColor = 'rgba(255,255,255,0.08)';
-          playBtn.style.background = 'rgba(255,255,255,0.07)';
-          if (window.previewBtn === playBtn) window.previewBtn = null;
-          window.previewAudio = null;
-        };
-
-        const audio = new Audio(item.path);
-        audio.volume = 0.8;
-        audio.onerror = () => {
-          console.error('Audio load error for:', item.path);
-          resetBtn();
-        };
-        audio.onended = resetBtn;
-        window.previewAudio = audio;
-        audio.play().catch(err => {
-          console.error('Preview error:', err, item.path);
-          resetBtn();
-        });
-      };
-
-      // ── Assign button
-      const assignBtn = document.createElement('button');
-      Object.assign(assignBtn.style, {
-        background: '#FBAE00', border: 'none', color: '#000',
-        fontWeight: '700', fontSize: '11px', padding: '6px 14px',
-        borderRadius: '8px', cursor: 'pointer', letterSpacing: '0.3px', transition: 'none'
-      });
-      assignBtn.textContent = 'Usar';
-      assignBtn.onmouseenter = () => { assignBtn.style.background = '#ffc130'; };
-      assignBtn.onmouseleave = () => { assignBtn.style.background = '#FBAE00'; };
-      assignBtn.onclick = () => {
-        if (window.previewAudio) { window.previewAudio.pause(); window.previewAudio.onended = null; window.previewAudio = null; }
-        modal.remove();
-        onAssign(item.path);
-      };
-
-      actions.appendChild(playBtn);
-      actions.appendChild(assignBtn);
-      row.appendChild(nameEl);
-      row.appendChild(actions);
-      listEl.appendChild(row);
-    });
-  }
-
-
-  content.appendChild(uploadBtn);
-  content.appendChild(sectionLabel);
-  content.appendChild(listEl);
-  box.appendChild(header);
-  box.appendChild(content);
-  modal.appendChild(box);
-  document.body.appendChild(modal);
-
-  const close = () => {
-    if (window.previewAudio) { window.previewAudio.pause(); window.previewAudio.onended = null; window.previewAudio = null; }
-    modal.remove();
-  };
-  closeBtn.onclick = close;
-  modal.onclick = (e) => { if (e.target === modal) close(); };
-  uploadBtn.onclick = () => { close(); onUploadNew(); };
-}
-
-
+// Drum grid (buildDrumGrid, hitDrum, assignSampleToPad) -> src/js/ui/drumGrid.js
 
 /* ── DRUM VOLUMES ── */
-function buildDrumVolumes(pads) {
-  const container = q('#drum-volumes'); container.innerHTML = '';
-  const sbContainer = q('#sidebar-drum-volumes'); sbContainer.innerHTML = '';
-  for (const pad of pads) {
-    const item = document.createElement('div'); item.className='drum-vol-item';
-    item.innerHTML = `
-      <div class="drum-vol-header">
-        <label id="lbl-dvol-text-${pad.id}">${pad.label}</label>
-        <span class="drum-vol-pct" id="dpct-${pad.id}">80%</span>
-      </div>
-      <input type="range" min="0" max="100" value="80" id="dvol-${pad.id}">`;
-    container.appendChild(item);
+/* ── BIND ALL ──
+   The big "wire up the UI" function. Split into named sub-binders for
+   navigability — each runs once at boot, no separate test cases needed.
+   Sub-binders reference module-scope `engine`, `metro`, KIT_BANKS, etc.,
+   so they're defined at module level too (no closure tricks). */
 
-    const sbItem = document.createElement('div'); sbItem.className='sb-row'; sbItem.style.padding='0';
-    sbItem.innerHTML = `<span class="sr-label" id="sb-lbl-dvol-text-${pad.id}" style="min-width:70px;">${pad.label}</span>
-      <input type="range" min="0" max="100" value="80" id="sb-dvol-${pad.id}" class="blue-slider">
-      <span class="sr-val" id="sb-dpct-${pad.id}">80%</span>`;
-    sbContainer.appendChild(sbItem);
-
-    const slider   = item.querySelector('input');
-    const sbSlider = sbItem.querySelector('input');
-    const pctEl    = item.querySelector('.drum-vol-pct');
-    const sbPctEl  = sbItem.querySelector('.sr-val');
-
-    slider.oninput = function() {
-      engine.setDrumPadVolume(pad.id, this.value/100);
-      sbSlider.value = this.value;
-      pctEl.textContent = this.value + '%';
-      sbPctEl.textContent = this.value + '%';
-      syncSlider(this); syncSlider(sbSlider);
-    };
-    sbSlider.oninput = function() {
-      engine.setDrumPadVolume(pad.id, this.value/100);
-      slider.value = this.value;
-      pctEl.textContent = this.value + '%';
-      sbPctEl.textContent = this.value + '%';
-      syncSlider(this); syncSlider(slider);
-    };
-    syncSlider(slider); syncSlider(sbSlider);
-  }
-}
-
-/* ── METRO BEAT DOTS ── */
-function buildMetroBeatDots(n) {
-  const c = q('#metro-beat-dots'); if (!c) return;
-  c.innerHTML = '';
-  for (let i = 0; i < n; i++) {
-    const d = document.createElement('div');
-    d.className = 'beat-dot' + (metro.accents.includes(i) ? ' accent' : '');
-    d.dataset.beat = i;
-    d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
-    d.onclick = () => {
-      metro.toggleAccent(i);
-      d.classList.toggle('accent', metro.accents.includes(i));
-      d.title = metro.accents.includes(i) ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
-    };
-    c.appendChild(d);
-  }
-}
-
-function onMetroBeat(beat) {
-  qa('.beat-dot').forEach(d => {
-    d.classList.toggle('on', parseInt(d.dataset.beat) === beat);
-  });
-  q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
-}
-
-/* ── THEME ── */
-function applyTheme(id) {
-  currentTheme = id;
-  const t = THEMES[id]; if (!t) return;
-  const s = document.documentElement.style;
-  s.setProperty('--blue', t.blue);
-  s.setProperty('--bg-main', t.bg1);
-  s.setProperty('--bg-card', t.bg2);
-  s.setProperty('--bg-surface', t.bg3);
-  s.setProperty('--bg-hover', t.bgHover || '#1f1f1f');
-  s.setProperty('--border', t.border || 'rgba(255,255,255,0.08)');
-  
-  // Optional text color
-  s.setProperty('--text', t.text || '#ffffff');
-  s.setProperty('--text-muted', t.textMuted || '#a3a3a3');
-  
-  document.body.style.background = `linear-gradient(155deg, ${t.bg1} 0%, ${t.bg2} 50%, ${t.bg1} 100%)`;
-  buildThemesList();
-}
-
-function buildThemesList() {
-  const container = q('#themes-list'); if (!container) return;
-  container.innerHTML = '';
-  Object.keys(THEMES).forEach(id => {
-    const t = THEMES[id];
-    const item = document.createElement('div');
-    item.className = 'theme-item' + (currentTheme === id ? ' active' : '');
-    item.innerHTML = `
-      <div class="theme-swatch" style="background:${t.swatch}"></div>
-      <div class="theme-info">
-        <div class="theme-name">${t.name}</div>
-        <div class="theme-desc">${t.desc}</div>
-      </div>
-      ${currentTheme === id ? '<div class="theme-check"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><polyline points="20,6 9,17 4,12"/></svg></div>' : ''}
-    `;
-    item.onclick = () => applyTheme(id);
-    container.appendChild(item);
-    const div = document.createElement('div'); div.className='theme-div'; container.appendChild(div);
-  });
-}
-
-/* ── SYNC SLIDER ── */
-function syncSlider(el) {
-  const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
-  if (!el.classList.contains('grey-slider')) {
-    el.style.background = `linear-gradient(to right,var(--blue) ${pct}%,rgba(255,255,255,.12) ${pct}%)`;
-  }
-}
-
-function bindToggle(el, cb) {
-  el.onclick = () => { el.classList.toggle('on'); cb(el.classList.contains('on')); };
-}
-
-/* ── BIND ALL ── */
 function bindAll() {
-  const api = window.electronAPI;
+  bindTrackPlayerControls();
+  bindKitButtons();
+  bindWindowControls();
+  bindSidebarAndTabs();
+  bindHamburgerMenu();
+  bindMixerControls();
+  bindMetronomeControls();
+  bindRestOfApp();
+}
 
-  // Track Player Volume & Progress startup sync
-  const tpVolSlider = q('#tp-vol');
-  const tpVolVal = q('#tp-vol-val');
-  if (tpVolSlider && tpVolVal) {
-    tpVolSlider.oninput = (e) => {
-      if (currentTrackAudio) {
-        currentTrackAudio.volume = e.target.value / 100;
-      }
-      tpVolVal.textContent = e.target.value + '%';
-      syncSlider(e.target);
-    };
-    syncSlider(tpVolSlider);
-  }
-
-  const tpProgress = q('#tp-progress');
-  if (tpProgress) {
-    tpProgress.oninput = (e) => {
-      if (currentTrackAudio && currentTrackAudio.duration) {
-        currentTrackAudio.currentTime = (e.target.value / 100) * currentTrackAudio.duration;
-        syncSlider(e.target);
-      }
-    };
-    syncSlider(tpProgress);
-  }
-
+function bindKitButtons() {
   const btnCreateKit = q('#btn-create-kit');
   if (btnCreateKit) {
     btnCreateKit.onclick = () => {
@@ -863,24 +392,7 @@ function bindAll() {
       }
       showDialog('Nuevo kit de batería', 'Ej. Worship Acoustic', (name) => {
         if (!name || !name.trim()) return;
-        const newKit = {
-          id: `custom_kit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-          name: name.trim(),
-          desc: 'Batería personalizada (Edita con el ✏️)',
-          color: '#10b981',
-          isCustom: true,
-          pads: [
-            { id: 'c_kick', label: 'Kick', type: 'kick', sample: null },
-            { id: 'c_snare', label: 'Snare', type: 'snare', sample: null },
-            { id: 'c_hhc', label: 'HH Cerr', type: 'hihatC', sample: null },
-            { id: 'c_clap', label: 'Clap', type: 'clap', sample: null },
-            { id: 'c_perc1', label: 'Tom 1', type: 'tomH', sample: null },
-            { id: 'c_perc2', label: 'Tom 2', type: 'tomM', sample: null },
-            { id: 'c_crash', label: 'Crash', type: 'crash', sample: null },
-            { id: 'c_ride', label: 'Ride', type: 'ride', sample: null },
-          ]
-        };
-        KIT_BANKS.unshift(newKit);
+        KIT_BANKS.unshift(createEmptyCustomKit(name.trim()));
         saveCustomKitsToStorage();
         buildBankSelects();
         loadKitBank(0);
@@ -959,15 +471,21 @@ function bindAll() {
       });
     };
   }
+}
 
-  // Window controls
-  if (api) {
-    q('#btn-min').onclick   = () => api.windowAction('minimize');
-    q('#btn-max').onclick   = () => api.windowAction('maximize');
-    q('#btn-close').onclick = () => api.windowAction('close');
-  }
+function bindWindowControls() {
+  const api = window.electronAPI;
+  if (!api) return;
+  q('#btn-min').onclick   = () => api.windowAction('minimize');
+  q('#btn-max').onclick   = () => api.windowAction('maximize');
+  q('#btn-close').onclick = () => api.windowAction('close');
+}
 
-  // Sidebar
+// Everything else that bindAll() used to wire: sidebar, hamburger menu,
+// mixer sliders, metronome controls, setlist/GI bindings, MIDI listener,
+// and the document-level keyboard / click handlers. Kept as one block for
+// now because all sections share module-scope state (engine, metro, etc.).
+function bindSidebarAndTabs() {
   q('#btn-settings-toggle').onclick = () => q('#sidebar').classList.toggle('open');
   q('#sidebar-overlay').onclick = () => q('#sidebar').classList.remove('open');
 
@@ -979,8 +497,9 @@ function bindAll() {
       q(`#tab-${btn.dataset.tab}`).classList.add('visible');
     };
   });
+}
 
-  // Hamburger
+function bindHamburgerMenu() {
   q('#btn-menu').onclick = () => {
     const pop = q('#menu-popover'), ov = q('#menu-overlay');
     const vis = !pop.classList.contains('hidden');
@@ -995,7 +514,7 @@ function bindAll() {
     window.electronAPI.windowAction('fullscreen');
   };
   q('#menu-about').onclick = () => { closeMenu(); openSidebarTab('about'); };
-  
+
   const btnMidiLearn = q('#menu-midi-learn');
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
@@ -1006,11 +525,10 @@ function bindAll() {
       q('#midi-learn-overlay').style.display = 'block';
     };
   }
+}
 
-  // Bank arrows (Removed, now using dropdowns)
-
-
-  // Pad volume (stage)
+function bindMixerControls() {
+  // Pad volume (stage + sidebar mirror)
   const pvolStage = q('#pad-vol-stage'), pvolValStage = q('#pad-vol-val-stage');
   const pvol = q('#pad-vol'), pvolVal = q('#pad-vol-val');
   const updatePadVol = val => {
@@ -1035,7 +553,7 @@ function bindAll() {
   if (ppan) ppan.oninput = () => updatePadPan(ppan.value);
   if (ppanStage) updatePadPan(ppanStage.value);
 
-  // Drum Master Volume (controls the main drumGain node — all pads together)
+  // Drum master volume (drumGain node — all pads together)
   const drumMasterVolStage    = q('#drum-master-vol-stage');
   const drumMasterVolValStage = q('#drum-master-vol-val-stage');
   const drumMasterVol         = q('#drum-master-vol');
@@ -1047,7 +565,7 @@ function bindAll() {
   };
   if (drumMasterVolStage) drumMasterVolStage.oninput = () => updateDrumMasterVol(drumMasterVolStage.value);
   if (drumMasterVol)      drumMasterVol.oninput      = () => updateDrumMasterVol(drumMasterVol.value);
-  updateDrumMasterVol(80); // init at 80% matching engine default
+  updateDrumMasterVol(80); // matches engine default
 
   // Drum pan
   const drumPanStage = q('#drum-pan-stage'), drumPanVal = q('#drum-pan-val-stage');
@@ -1059,7 +577,7 @@ function bindAll() {
   drumPanStage.oninput = updateDrumPan;
   updateDrumPan();
 
-  // LPF
+  // LPF on the pad bus
   const lpfStage = q('#pad-lpf-stage'), lpfToggleStage = q('#lpf-toggle-stage');
   const lpf = q('#pad-lpf'), lpfToggle = q('#lpf-toggle');
   const updateLPF = (val, on) => {
@@ -1086,7 +604,7 @@ function bindAll() {
   }
   if (lpfStage) syncSlider(lpfStage);
 
-  // Master vol
+  // Master volume (final stage)
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
   mvol.oninput = () => {
     engine.setMasterVolume(mvol.value / 100);
@@ -1094,27 +612,20 @@ function bindAll() {
     syncSlider(mvol);
   };
   syncSlider(mvol);
+}
 
-  // ── METRO START/STOP ──
+function bindMetronomeControls() {
+  // Start/Stop
   q('#btn-metro-main').onclick = toggleMetro;
 
-  // BPM
+  // BPM controls — all delegate to the module-level applyBpm() helper.
   const bpmSlider = q('#bpm-slider'), bpmDisp = q('#bpm-display');
-  const updateBPM = v => {
-    metro.setBPM(v);
-    bpmSlider.value = metro.bpm;
-    bpmDisp.textContent = metro.bpm;
-    q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
-    syncSlider(bpmSlider);
-  };
-  bpmSlider.oninput = () => updateBPM(parseInt(bpmSlider.value));
-  q('#bpm-minus').onclick = () => updateBPM(metro.bpm - 1);
-  q('#bpm-plus').onclick  = () => updateBPM(metro.bpm + 1);
-  q('#tap-tempo').onclick = () => updateBPM(metro.tap());
+  bpmSlider.oninput = () => applyBpm(parseInt(bpmSlider.value));
+  q('#bpm-minus').onclick = () => applyBpm(metro.bpm - 1);
+  q('#bpm-plus').onclick  = () => applyBpm(metro.bpm + 1);
+  q('#tap-tempo').onclick = () => applyBpm(metro.tap());
   syncSlider(bpmSlider);
   q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
-
-  window.updateBPM = updateBPM; // Make it accessible globally for GI-Setlist
 
   // Click-to-edit inline BPM
   bpmDisp.style.cursor = 'pointer';
@@ -1127,10 +638,10 @@ function bindAll() {
     input.id = 'bpm-inline-input';
     input.type = 'text';
     input.value = currentBpm;
-    input.style.cssText = 'font-size: 34px; font-weight: 900; color: var(--blue); background: rgba(0, 170, 255, 0.08); border: 1px solid rgba(0, 170, 255, 0.25); border-radius: 8px; outline: none; width: 85px; text-align: center; font-variant-numeric: tabular-nums; font-family: inherit; margin: 0 auto; display: block; padding: 2px 4px; box-sizing: border-box; box-shadow: 0 0 10px rgba(0, 170, 255, 0.1);';
 
-    input.onkeypress = (e) => {
-      if (e.key < '0' || e.key > '9') e.preventDefault();
+    input.onkeydown = (e) => {
+      // Allow control keys (Backspace, Delete, arrows, Enter, Tab, Escape).
+      if (e.key.length === 1 && (e.key < '0' || e.key > '9')) e.preventDefault();
     };
 
     bpmDisp.innerHTML = '';
@@ -1142,7 +653,7 @@ function bindAll() {
       let val = parseInt(input.value);
       if (isNaN(val) || val < 30) val = 30;
       if (val > 300) val = 300;
-      updateBPM(val);
+      applyBpm(val);
     };
 
     input.onblur = () => {
@@ -1193,7 +704,13 @@ function bindAll() {
   const soundSelect = q('#metro-sound-select');
   if (soundSelect) {
     soundSelect.value = 'cowbell';
-    soundSelect.onchange = (e) => { metro.sound = e.target.value; };
+    soundSelect.onchange = (e) => {
+      const newSound = e.target.value;
+      // Decode the new sound's mp3 pair on demand (idempotent + deduped).
+      // Fire-and-forget — by the time the next beat schedules, buffers are ready.
+      engine.ensureClickSound(newSound);
+      metro.sound = newSound;
+    };
   }
 
   // Metro volume + pan
@@ -1222,14 +739,14 @@ function bindAll() {
       buildKeyGrid();
     });
   }
+}
 
-  // Setlist
-  const btnAddPreset = q('#btn-add-preset');
-  if (btnAddPreset) {
-    btnAddPreset.onclick = () => showDialog('Guardar set', 'Nombre…', doSavePreset);
-  }
-  
-  // GI-Setlist UI bindings
+function bindRestOfApp() {
+  // GI-Setlist tab toggle. The header-button visibility (Import / Sync /
+  // AddPreset) per active tab is driven by a `data-active-tab` attribute
+  // on #panel-setlist, so the CSS owns the show/hide rules — much cleaner
+  // than 9 imperative `style.display = ...` assignments.
+  const panelSetlist = q('#panel-setlist');
   qa('.s-toggle').forEach(btn => {
     btn.onclick = () => {
       qa('.s-toggle').forEach(b => b.classList.remove('active'));
@@ -1238,28 +755,7 @@ function bindAll() {
       q('#gi-setlist-list').classList.add('hidden');
       q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
-  
-      // Update top-level button visibility based on active tab
-      const target = btn.dataset.target;
-      const btnImport = q('#btn-import-gi');
-      const btnSync = q('#btn-sync-gi');
-      const btnAddPresetEl = q('#btn-add-preset');
-      
-      if (btnImport) {
-        if (target === 'setlist-list') {
-          btnImport.style.display = 'none';
-          if (btnSync) btnSync.style.display = 'none';
-          if (btnAddPresetEl) btnAddPresetEl.style.display = 'flex';
-        } else if (target === 'gi-setlist-list') {
-          btnImport.style.display = 'flex';
-          if (btnSync) btnSync.style.display = 'flex';
-          if (btnAddPresetEl) btnAddPresetEl.style.display = 'none';
-        } else {
-          btnImport.style.display = 'none';
-          if (btnSync) btnSync.style.display = 'none';
-          if (btnAddPresetEl) btnAddPresetEl.style.display = 'none';
-        }
-      }
+      if (panelSetlist) panelSetlist.dataset.activeTab = btn.dataset.target;
     };
   });
 
@@ -1311,7 +807,7 @@ function bindAll() {
             if (changed) updatedCount++;
           } else {
             giSetlistSongs.push({
-              id: 'song_sync_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+              id: 'song_sync_' + Date.now() + '_' + Math.random().toString(36).substring(2,7),
               _id: mSong._id,
               title: mSong.title,
               artist: mSong.artist || '',
@@ -1327,7 +823,7 @@ function bindAll() {
         if (updatedCount > 0 || newCount > 0) {
           if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
           updateFilterCounts();
-          renderGiSetlist(q('#gi-search').value);
+          renderGiList(q('#gi-search').value);
           showToast(`Sincronización exitosa. Nuevas: ${newCount}, Actualizadas: ${updatedCount}`, 'success');
         } else {
           showToast('Tu librería ya está al día, sin cambios.', 'success');
@@ -1359,7 +855,7 @@ function bindAll() {
             window.electronAPI.saveGiSetlist(giSetlistSongs);
           }
           updateFilterCounts();
-          renderGiSetlist();
+          renderGiList();
           // Switch to GI tab automatically
           q('.s-toggle[data-target="gi-setlist-list"]').click();
         } else {
@@ -1372,7 +868,7 @@ function bindAll() {
     reader.readAsText(file);
   };
 
-  q('#gi-search').oninput = (e) => renderGiSetlist(e.target.value);
+  q('#gi-search').oninput = debounce((e) => renderGiList(e.target.value), 180);
   
   const btnAddGiSong = q('#btn-add-gi-song');
   if (btnAddGiSong) {
@@ -1394,20 +890,65 @@ function bindAll() {
         window.electronAPI.saveGiSetlist(giSetlistSongs);
       }
       updateFilterCounts();
-      renderGiSetlist(q('#gi-search').value, newSong.id);
+      renderGiList(q('#gi-search').value, newSong.id);
     };
   }
   
-  qa('.gi-filter-btn').forEach(btn => {
-    btn.onclick = () => {
-      qa('.gi-filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentGiGenre = btn.dataset.genre;
-      renderGiSetlist(q('#gi-search').value);
+  // Genre filter dropdown — replaces the inline chips with a popover menu
+  // anchored to the filter icon next to the search input. Keeps the search
+  // row compact so the first song card sits closer to the header.
+  const filterToggle = q('#btn-gi-filter-toggle');
+  const filterMenu = q('#gi-filter-menu');
+  const filterDot = q('#gi-filter-dot');
+
+  const refreshFilterActiveStates = () => {
+    qa('.gi-filter-option').forEach(opt => {
+      opt.classList.toggle('active', opt.dataset.genre === currentGiGenre);
+    });
+    const customFilter = currentGiGenre !== 'all';
+    if (filterToggle) filterToggle.classList.toggle('active', customFilter);
+    if (filterDot) filterDot.hidden = !customFilter;
+  };
+  refreshFilterActiveStates();
+
+  const closeFilterMenu = () => {
+    if (!filterMenu) return;
+    filterMenu.classList.add('hidden');
+    if (filterToggle) filterToggle.setAttribute('aria-expanded', 'false');
+  };
+
+  if (filterToggle && filterMenu) {
+    filterToggle.onclick = (e) => {
+      e.stopPropagation();
+      const willOpen = filterMenu.classList.contains('hidden');
+      filterMenu.classList.toggle('hidden');
+      filterToggle.setAttribute('aria-expanded', String(willOpen));
+    };
+    // Click anywhere outside closes the menu.
+    document.addEventListener('click', (e) => {
+      if (filterMenu.classList.contains('hidden')) return;
+      if (filterMenu.contains(e.target) || filterToggle.contains(e.target)) return;
+      closeFilterMenu();
+    });
+  }
+
+  qa('.gi-filter-option').forEach(opt => {
+    opt.onclick = (e) => {
+      e.stopPropagation();
+      currentGiGenre = opt.dataset.genre;
+      refreshFilterActiveStates();
+      closeFilterMenu();
+      renderGiList(q('#gi-search').value);
     };
   });
 
-  // MIDI
+  bindMidiHandlers();
+  bindGlobalHandlers();
+}
+
+// MIDI listener (incoming notes/CC → mapped action) + the document-level
+// click capture that runs while Learn mode is active.
+function bindMidiHandlers() {
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;
     const isNoteOn = cmd >= 144 && cmd <= 159;
@@ -1419,15 +960,14 @@ function bindAll() {
     if (isMidiLearnMode && midiLearnTarget) {
       if (data2 > 0) {
         clearMappingForTarget(midiLearnTarget, false);
-        customMidiMap[mapKey] = midiLearnTarget;
-        if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
+        addMapping(mapKey, midiLearnTarget);
         q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
         midiLearnTarget = null;
       }
       return;
     }
 
-    const mapping = customMidiMap[mapKey] || customMidiMap[data1];
+    const mapping = getMapping(mapKey, data1);
     if (mapping) {
       if (mapping.action === 'slider') {
         const sliderEl = q('#' + mapping.id);
@@ -1527,14 +1067,13 @@ function bindAll() {
     midiLearnTarget = target;
     q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
   }, true);
+}
 
-  // Dialog
+// Document-level handlers that don't fit anywhere else: dialog cancel,
+// keyboard shortcuts, and click-outside-to-close for the bank pickers.
+function bindGlobalHandlers() {
   q('#dialog-cancel').onclick = hideDialog;
-
-  // Keyboard
   document.addEventListener('keydown', onKey);
-
-  // Close pickers on click outside
   document.addEventListener('click', () => {
     q('#pad-bank-picker').classList.add('hidden');
     q('#kit-bank-picker').classList.add('hidden');
@@ -1553,118 +1092,65 @@ function toggleMetro() {
   }
 }
 
-function openSidebarTab(tab) {
-  q('#sidebar').classList.add('open');
-  qa('.stab').forEach(b => b.classList.remove('active'));
-  qa('.stab-body').forEach(b => b.classList.remove('visible'));
-  q(`.stab[data-tab="${tab}"]`).classList.add('active');
-  q(`#tab-${tab}`).classList.add('visible');
-}
-
-function closeAllOverlays() {
-  q('#menu-popover').classList.add('hidden');
-  q('#menu-overlay').classList.add('hidden');
-  q('#dialog-overlay').classList.add('hidden');
-  q('#pad-bank-picker').classList.add('hidden');
-  q('#kit-bank-picker').classList.add('hidden');
-}
+// openSidebarTab / closeAllOverlays -> src/js/ui/overlays.js
+// Legacy alias kept for inline HTML onclick handlers (if any).
 window.closeMenu = closeAllOverlays;
 
-function buildPadBankList() {
-  const list = q('#pad-bank-list'); list.innerHTML = '<div class="bank-picker-title">Sonidos de pads</div>';
-  PAD_BANKS.forEach((b, i) => {
-    const btn = document.createElement('button'); btn.className = 'bank-picker-item' + (i === padBankIdx ? ' active' : '');
-    btn.innerHTML = `<div class="bank-color" style="background:${b.color}"></div><div><div style="font-weight:700">${b.name}</div><div style="font-size:10px;opacity:.6">${b.desc}</div></div>` + (i === padBankIdx ? '<div class="bank-check"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><polyline points="20,6 9,17 4,12"/></svg></div>' : '');
-    btn.onclick = () => { loadPadBank(i); q('#pad-bank-picker').classList.add('hidden'); };
-    list.appendChild(btn);
-  });
-}
-
-function buildKitBankList() {
-  const list = q('#kit-bank-list'); list.innerHTML = '<div class="bank-picker-title">Kits de batería</div>';
-  KIT_BANKS.forEach((b, i) => {
-    const btn = document.createElement('button'); btn.className = 'bank-picker-item' + (i === kitBankIdx ? ' active' : '');
-    btn.innerHTML = `<div class="bank-color" style="background:${b.color}"></div><div><div style="font-weight:700">${b.name}</div><div style="font-size:10px;opacity:.6">${b.desc}</div></div>` + (i === kitBankIdx ? '<div class="bank-check"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><polyline points="20,6 9,17 4,12"/></svg></div>' : '');
-    btn.onclick = () => { loadKitBank(i); q('#kit-bank-picker').classList.add('hidden'); };
-    list.appendChild(btn);
-  });
-}
-
-function openPicker(type) {
-  const picker = q(type === 'pad' ? '#pad-bank-picker' : '#kit-bank-picker');
-  const rect = q(type === 'pad' ? '#bank-row-pad' : '#bank-row-kit').getBoundingClientRect();
-  picker.style.top = (rect.bottom + 4) + 'px'; picker.style.left = rect.left + 'px';
-  picker.classList.toggle('hidden');
-}
-
-function panLabel(v) { v = parseInt(v); return v === 0 ? 'Centro' : v < 0 ? `Izq ${Math.abs(v)}` : `Der ${v}`; }
-function panShort(v) { v = parseInt(v); return v === 0 ? 'C' : v < 0 ? `L${Math.abs(v)}` : `R${v}`; }
-
-function syncPanSlider(el) {
-  const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
-  const center = 50;
-  if (pct === center) {
-    el.style.background = `rgba(255,255,255,0.12)`;
-  } else if (pct < center) {
-    el.style.background = `linear-gradient(to right, rgba(255,255,255,0.06) ${pct}%, var(--blue) ${pct}%, var(--blue) ${center}%, rgba(255,255,255,0.06) ${center}%)`;
-  } else {
-    el.style.background = `linear-gradient(to right, rgba(255,255,255,0.06) ${center}%, var(--blue) ${center}%, var(--blue) ${pct}%, rgba(255,255,255,0.06) ${pct}%)`;
-  }
+// Apply a BPM value to the metronome and refresh every BPM UI element that
+// shows it (main slider, big display, live counter). Called from the BPM
+// controls, applyPreset, and applyGiSong — same logic everywhere.
+function applyBpm(v) {
+  if (!metro) return;
+  metro.setBPM(v);
+  const slider = q('#bpm-slider');
+  if (slider) { slider.value = metro.bpm; syncSlider(slider); }
+  const disp = q('#bpm-display');
+  if (disp) disp.textContent = metro.bpm;
+  const live = q('#metro-bpm-live');
+  if (live) live.textContent = metro.bpm + ' BPM';
 }
 
 function triggerMasterPlayPause() {
-  const isTrackPlaying = typeof currentTrackAudio !== 'undefined' && currentTrackAudio && !currentTrackAudio.paused;
-  const isTrackLoaded = typeof currentTrackAudio !== 'undefined' && currentTrackAudio && currentTrackAudio.src;
-
-  // We are actively playing a session if:
-  // - A track is loaded and it is currently playing
-  // - OR, no track is loaded and the metronome is running
-  const isCurrentlyActive = isTrackLoaded ? isTrackPlaying : metroRunning;
+  // A session is "currently active" if the loaded track is playing, or — if
+  // no track is loaded — the metronome is running.
+  const isCurrentlyActive = isTrackLoaded() ? isTrackPlaying() : metroRunning;
 
   if (isCurrentlyActive) {
-     // STOP MASTER
-     triggerMasterStop();
+    triggerMasterStop();
   } else {
-     // START MASTER
-     // 1. Play the pad if not already active (if it crossfaded, it is already active!)
-     if (preparedPadKey && !activeKey) {
-       onKeyClick(preparedPadKey);
-     }
-     
-     // 2. Play the track or the metronome
-     if (isTrackLoaded) {
-       if (!isTrackPlaying) {
-         const btn = q('#tp-play-btn');
-         if (btn) btn.click();
-       }
-     } else {
-       if (!metroRunning) {
-         toggleMetro();
-       }
-     }
+    // 1. Play the pad if not already active (if it crossfaded, it's already active!)
+    if (preparedPadKey && !activeKey) onKeyClick(preparedPadKey);
+
+    // 2. Play the track or the metronome
+    if (isTrackLoaded()) {
+      if (!isTrackPlaying()) clickPlayPause();
+    } else if (!metroRunning) {
+      toggleMetro();
+    }
   }
 }
 
 function triggerMasterStop() {
-  const isTrackPlaying = typeof currentTrackAudio !== 'undefined' && currentTrackAudio && !currentTrackAudio.paused;
   if (activeKey) onKeyClick(activeKey);
   if (metroRunning) toggleMetro();
-  if (isTrackPlaying) {
-     const btn = q('#tp-play-btn');
-     if (btn) btn.click();
-  }
+  if (isTrackPlaying()) clickPlayPause();
 }
 
 function onKey(e) {
-  if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return;
+  // Don't capture keypresses meant for any text editor — INPUT, TEXTAREA,
+  // SELECT, or contentEditable. Previously only INPUT was filtered, so
+  // typing 'R' in the lyrics textarea would trigger the drum pad.
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
+  // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
+  if (document.getElementById('gi-lyrics-modal')) return;
 
   const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
   
   if (isMidiLearnMode && midiLearnTarget) {
     e.preventDefault();
     clearMappingForTarget(midiLearnTarget, true);
-    customMidiMap[`kbd_${k}`] = midiLearnTarget;
-    if (window.electronAPI && window.electronAPI.saveMidiMap) window.electronAPI.saveMidiMap(customMidiMap);
+    addMapping(`kbd_${k}`, midiLearnTarget);
     const kName = k.replace('Key', '').replace('Digit', '');
     q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} a la tecla ${kName}. Selecciona otro o sal.`;
     midiLearnTarget = null;
@@ -1673,7 +1159,7 @@ function onKey(e) {
   }
 
   // Check custom keyboard mapping
-  const mapping = customMidiMap[`kbd_${k}`];
+  const mapping = getMapping(`kbd_${k}`);
   if (mapping) {
     e.preventDefault();
     if (mapping.action === 'pad') {
@@ -1738,1043 +1224,164 @@ function onKey(e) {
   }
 }
 
-function loadPresets() {
-  if (window.electronAPI) window.electronAPI.loadPresets().then(p => { presets = p || []; renderPresets(); });
-}
+// doSavePreset was only called from a `#btn-add-preset` button that doesn't
+// exist in the HTML — removed as dead code. If a "Save preset" button is
+// added back later, use `addPreset({...})` directly.
 
-function renderPresets() {
-  const list = q('#setlist-list'); list.innerHTML = '';
-  if (!presets.length) { list.innerHTML = '<div class="setlist-empty">No hay sets guardados</div>'; return; }
-  presets.forEach(p => {
-    const el = document.createElement('div'); el.className = 'preset-item';
-    el.innerHTML = `<div class="preset-info" style="flex: 1;"><div class="preset-item-name">${p.name}</div><div class="preset-item-meta">${p.key || '—'} · ${p.bpm} BPM</div></div>
-    <div class="preset-actions" style="display: flex; gap: 6px; align-items: center;">
-      <button class="pi-play" style="padding: 6px;"><svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><polygon points="5,3 19,12 5,21"/></svg></button>
-      <button class="pi-delete" title="Eliminar" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-muted)'" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:6px; display:flex; align-items:center; transition:color 0.2s;"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
-    </div>`;
-    
-    el.querySelector('.preset-info').onclick = () => applyPreset(p);
-    el.querySelector('.pi-play').onclick = (e) => { e.stopPropagation(); applyPreset(p); };
-    el.querySelector('.pi-delete').onclick = async (e) => {
-      e.stopPropagation();
-      if (confirm(`¿Estás seguro de que deseas eliminar el preset "${p.name}"?`)) {
-        presets = presets.filter(item => item.id !== p.id);
-        renderPresets();
-        if (window.electronAPI && window.electronAPI.deletePreset) {
-          await window.electronAPI.deletePreset(p.id);
-        }
-      }
-    };
-    list.appendChild(el);
-  });
-}
-
-function doSavePreset(name) {
-  if (!name) return;
-  const p = { id: Date.now().toString(36), name, key: activeKey, bpm: metro.bpm, padBankIdx, kitBankIdx };
-  presets.push(p); renderPresets();
-  if (window.electronAPI) window.electronAPI.savePreset(p);
-}
-
+// Apply a saved snapshot to the live engine + UI. Lives here (not in
+// presets.js) because it touches engine/metro/UI globals.
 function applyPreset(p) {
-  loadPadBank(p.padBankIdx); loadKitBank(p.kitBankIdx);
+  loadPadBank(p.padBankIdx);
+  loadKitBank(p.kitBankIdx);
   if (p.key) onKeyClick(p.key);
-  const updateBPM = v => {
-    metro.setBPM(v);
-    q('#bpm-slider').value = metro.bpm;
-    q('#bpm-display').textContent = metro.bpm;
-    q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
-    syncSlider(q('#bpm-slider'));
-  };
-  updateBPM(p.bpm);
+  applyBpm(p.bpm);
 }
-
-function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
-  q('#dialog-title').textContent = title;
-  q('#dialog-overlay').classList.remove('hidden');
-  q('#dialog-name').value = '';
-  q('#dialog-name').placeholder = placeholder;
-  setTimeout(() => q('#dialog-name').focus(), 50);
-  if (onConfirm) {
-    q('#dialog-ok').onclick = () => {
-      onConfirm(q('#dialog-name').value.trim());
-      hideDialog();
-    };
-  }
-}
-function hideDialog() { q('#dialog-overlay').classList.add('hidden'); }
 
 /* ── GI-SETLIST LOGIC ── */
-function updateFilterCounts() {
-  const total = giSetlistSongs.length;
-  const alabanzas = giSetlistSongs.filter(s => {
-    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
-    return genre.includes('alabanza');
-  }).length;
-  const adoracion = giSetlistSongs.filter(s => {
-    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
-    return genre.includes('adoracion');
-  }).length;
 
-  const btnAll = q('#btn-filter-all');
-  if (btnAll) btnAll.textContent = `Todas (${total})`;
-  const btnAla = q('#btn-filter-alabanza');
-  if (btnAla) btnAla.textContent = `Alabanza (${alabanzas})`;
-  const btnAdo = q('#btn-filter-adoracion');
-  if (btnAdo) btnAdo.textContent = `Adoración (${adoracion})`;
-}
+// updateFilterCounts -> src/js/ui/genreFilter.js (passing the current songs list)
+const updateFilterCounts = () => updateFilterCountsModule(giSetlistSongs);
 
 async function loadGiSetlistFromFile() {
-  try {
-    if (window.electronAPI && window.electronAPI.loadGiSetlist) {
-      const json = await window.electronAPI.loadGiSetlist();
-      if (json && json.data && json.data.songs) {
-        giSetlistSongs = json.data.songs.map((s, idx) => {
-          if (!s.id) s.id = 'song_' + idx + '_' + Date.now();
-          return s;
-        });
-        updateFilterCounts();
-        renderGiSetlist();
-        return;
+  const songs = await loadGiSetlistFromFileModule();
+  if (!songs) return;
+  giSetlistSongs = songs;
+  updateFilterCounts();
+  renderGiList();
+}
+
+// Lyrics formatting (formatLyrics, highlightSyntax) -> src/js/ui/lyricsFormat.js
+// Textarea helpers (wrapTextareaSelection, insertTextAtCursor) -> src/js/utils/text.js
+
+
+// Library list + service list render/delegation now live in their own
+// modules. We keep a local alias for renderServiceList because it's still
+// referenced by handlers in app.js (loadGiSetlist sync, track-player audio
+// path assignment, etc.) and by data/service.js via the initService render
+// callback.
+const renderServiceList = renderServiceListModule;
+
+
+// Targeted highlight update: toggles the `.active-song` class on at most
+// two cards per list — orders of magnitude cheaper than a full re-render of
+// 81 library cards when the user just switches songs in live.
+function refreshActiveSongHighlights() {
+  const giContainer = q('#gi-songs-container');
+  if (giContainer) {
+    giContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
+    if (activeGiSongId != null) {
+      const match = getGiCardBySongId(activeGiSongId);
+      if (match) match.classList.add('active-song');
+    }
+  }
+
+  const svcContainer = q('#service-songs-container');
+  if (svcContainer) {
+    svcContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
+    const idx = getActiveServiceIndex();
+    if (idx >= 0) {
+      const songs = getServiceSongs();
+      const target = songs[idx];
+      if (target && target.serviceId != null) {
+        const sel = `.gi-song-item[data-service-id="${CSS.escape(String(target.serviceId))}"]`;
+        const match = svcContainer.querySelector(sel);
+        if (match) match.classList.add('active-song');
       }
     }
-    
-    // Fallback if not using Electron
-    const res = await fetch('../assets/setlists/canciones_app.json');
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data && json.data.songs) {
-        giSetlistSongs = json.data.songs.map((s, idx) => {
-          if (!s.id) s.id = 'song_fb_' + idx + '_' + Date.now();
-          return s;
-        });
-        updateFilterCounts();
-        renderGiSetlist();
-      }
-    }
-  } catch (e) {
-    console.log('GI-Setlist local no encontrado, esperando importación manual.');
   }
 }
 
-function formatLyrics(lyrics) {
-  if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
-  
-  const cleanLyrics = lyrics.replace(/\r/g, '');
-  const lines = cleanLyrics.split('\n');
-  
-  let html = '';
-  
-  const chordRegex = /^[A-G][b#]?(?:maj|min|m|maj7|min7|m7|dim|aug|sus\d*|add\d*|no\d*|2|4|5|6|7|9|11|13)*(?:\/[A-G][b#]?)?$/i;
-  
-  function isChordLine(line) {
-    const clean = line.replace(/\[|\]/g, '').trim();
-    if (clean.length === 0) return false;
-    
-    const tokens = clean.split(/\s+/);
-    let chordCount = 0;
-    let wordCount = 0;
-    
-    for (const token of tokens) {
-      if (/^x\d+$/i.test(token)) continue; 
-      
-      const cleanToken = token.replace(/[()]/g, '');
-      if (chordRegex.test(cleanToken)) {
-        chordCount++;
-      } else {
-        wordCount++;
-      }
-    }
-    
-    return chordCount > 0 && wordCount === 0;
-  }
-  
-  for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
-    const trimmed = rawLine.trim();
-    
-    if (trimmed.length === 0) {
-      html += '<div class="lyrics-spacer" style="height:10px;"></div>';
-      continue;
-    }
-    
-    const isBracketedHeader = trimmed.startsWith('[') && trimmed.endsWith(']') && !isChordLine(trimmed);
-    const sectionKeywords = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO'];
-    const isKeywordHeader = sectionKeywords.some(keyword => {
-      return trimmed.toUpperCase().startsWith(keyword);
-    }) && trimmed.split(/\s+/).length <= 3;
-    
-    if (isBracketedHeader || isKeywordHeader) {
-      const headerText = trimmed.replace(/\[|\]/g, '');
-      html += `<div class="section-header-line">${headerText}</div>`;
-      continue;
-    }
-    
-    if (isChordLine(rawLine)) {
-      let formattedChords = rawLine.replace(/\[|\]/g, '');
-      html += `<div class="chord-line">${formattedChords}</div>`;
-    } else {
-      const hasChords = /\[([^\]<>]+)\]/.test(rawLine);
-      let formattedLyrics = rawLine.replace(/\[([^\]<>]+)\]/g, (match, chord) => {
-        return `<span class="inline-chord">${chord}</span>`;
-      });
-      html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${formattedLyrics}</div>`;
-    }
-  }
-  
-  return html;
-}
+// Toggle a song's lyrics accordion open/closed WITHOUT a full re-render.
+// Closes any other accordion (in either container) first to keep state
+// consistent with the global "only one accordion open at a time" rule.
+function toggleLyricsAccordion(song, isService) {
+  const id = isService ? song.serviceId : song.id;
+  const wasOpen = isService
+    ? (openAccordionServiceId === id)
+    : (openAccordionSongId === id);
 
-function highlightSyntax(text) {
-  if (!text) return '';
-  
-  let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  
-  const sectionKeywords = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO', 'VERSE', 'CHORUS', 'BRIDGE', 'PRE-CHORUS'];
-  
-  html = html.replace(/(\[[^\]\n]+\])/g, (match) => {
-    const clean = match.replace(/\[|\]/g, '').toUpperCase().trim();
-    const isHeader = sectionKeywords.some(kw => clean.startsWith(kw));
-    if (isHeader) {
-      return `<span style="color:#60a5fa; font-weight:800; font-family:'Inter', system-ui, sans-serif;">${match}</span>`;
-    }
-    return `<span style="color:#fbae00; font-weight:800; font-family:'Consolas', 'Monaco', monospace; font-size: 13px;">${match}</span>`;
-  });
-  
-  return html + (html.endsWith('\n') ? ' ' : '');
-}
+  // Close any currently-open accordion across both lists.
+  qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
+  qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
 
-function wrapTextareaSelection(textarea, before, after) {
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const text = textarea.value;
-  const selected = text.substring(start, end);
-  
-  let replacement;
-  if (before === '[' && after === ']') {
-    // Intelligent chord wrapping: wrap each word individually, preserving spacing,
-    // and treating unified slash chords (e.g. F#/E) as a single chord.
-    replacement = selected.replace(/[^\s\[\]]+/g, match => '[' + match + ']');
-  } else {
-    replacement = before + selected + after;
-  }
-  
-  const savedScrollTop = textarea.scrollTop;
-  const savedScrollLeft = textarea.scrollLeft;
-  
-  textarea.value = text.substring(0, start) + replacement + text.substring(end);
-  
-  textarea.focus();
-  if (before === '[' && after === ']') {
-    // Select the entire newly wrapped string
-    textarea.selectionStart = start;
-    textarea.selectionEnd = start + replacement.length;
-  } else {
-    textarea.selectionStart = start + before.length;
-    textarea.selectionEnd = start + before.length + selected.length;
-  }
-  
-  textarea.scrollTop = savedScrollTop;
-  textarea.scrollLeft = savedScrollLeft;
-  
-  textarea.dispatchEvent(new Event('input'));
-}
-
-function insertTextAtCursor(textarea, textToInsert) {
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const text = textarea.value;
-  
-  let prefix = '';
-  if (start > 0 && text[start - 1] !== '\n') {
-    prefix = '\n';
-  }
-  
-  const replacement = prefix + textToInsert + '\n';
-  
-  const savedScrollTop = textarea.scrollTop;
-  const savedScrollLeft = textarea.scrollLeft;
-  
-  textarea.value = text.substring(0, start) + replacement + text.substring(end);
-  
-  textarea.focus();
-  const newCursorPos = start + replacement.length;
-  textarea.selectionStart = newCursorPos;
-  textarea.selectionEnd = newCursorPos;
-  
-  textarea.scrollTop = savedScrollTop;
-  textarea.scrollLeft = savedScrollLeft;
-  
-  textarea.dispatchEvent(new Event('input'));
-}
-
-function openLyricsEditorModal(song, onSaveCallback) {
-  const overlay = document.createElement('div');
-  overlay.id = 'gi-lyrics-modal';
-  overlay.className = 'lyrics-modal-overlay';
-  
-  const content = document.createElement('div');
-  content.className = 'lyrics-modal-panel';
-  
-  content.innerHTML = `
-    <div class="lyrics-modal-header">
-      <div>
-        <h3 class="lyrics-modal-title">Editar Letra y Acordes</h3>
-        <p class="lyrics-modal-subtitle">${song.title} — ${song.artist || 'Sin artista'}</p>
-      </div>
-      <button class="modal-close-btn lyrics-modal-close">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-    </div>
-    
-    <div style="flex:1; min-height:0; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
-      <div class="lyrics-editor-toolbar">
-        <select class="format-select lyrics-section-select">
-          <option value="normal" style="background:#121212; color:#888;">+ SECCIÓN</option>
-          <option value="intro" style="background:#121212; color:#fff;">Intro</option>
-          <option value="verso" style="background:#121212; color:#fff;">Verso</option>
-          <option value="pre-coro" style="background:#121212; color:#fff;">Pre-Coro</option>
-          <option value="coro" style="background:#121212; color:#fff;">Coro</option>
-          <option value="puente" style="background:#121212; color:#fff;">Puente</option>
-          <option value="instrumental" style="background:#121212; color:#fff;">Instrumental</option>
-          <option value="solo" style="background:#121212; color:#fff;">Solo</option>
-          <option value="final" style="background:#121212; color:#fff;">Final</option>
-        </select>
-        <div class="toolbar-sep"></div>
-        <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Envolver selección en [ ]">[ ]</button>
-        <button type="button" class="format-tool-btn" data-action="clear" title="Limpiar formato de selección">Tx</button>
-        <div style="margin-left:auto;">
-          <button class="btn-preview-toggle lyrics-preview-btn">Vista Previa</button>
-        </div>
-      </div>
-      
-      <div class="editor-workspace" style="flex:1; position:relative; min-height:0;">
-        <div class="editor-container">
-          <div class="editor-highlight"></div>
-          <textarea class="editor-textarea" placeholder="[Intro]\n[C#m] [B] [A]\n\n[Verso 1]\n[C#m]              [B]\nMi Dios todo lo puede hacer..." spellcheck="false" style="tab-size:4; overflow-y:auto;"></textarea>
-        </div>
-        <div class="modal-preview-panel lyrics-preview-panel" style="display:none;">
-          <div class="lyrics-text-content" style="font-size:12px;"></div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="lyrics-modal-footer">
-      <button class="modal-btn cancel-btn lyrics-modal-cancel">Cancelar</button>
-      <button class="modal-btn save-btn lyrics-modal-save">Guardar Cambios</button>
-    </div>
-  `;
-  
-  overlay.appendChild(content);
-  document.body.appendChild(overlay);
-  
-  const textarea = overlay.querySelector('.editor-textarea');
-  const highlight = overlay.querySelector('.editor-highlight');
-  
-  // Set value after attaching to avoid cursor reset issues
-  textarea.value = song.lyrics || '';
-  
-  setTimeout(() => {
-    overlay.style.opacity = '1';
-    content.style.transform = 'translateX(0)';
-  }, 10);
-  
-  const closeModal = () => {
-    overlay.style.opacity = '0';
-    content.style.transform = 'translateX(100%)';
-    setTimeout(() => overlay.remove(), 300);
-  };
-  
-  overlay.querySelector('.modal-close-btn').onclick = closeModal;
-  overlay.querySelector('.cancel-btn').onclick = closeModal;
-  
-  const previewPanel = overlay.querySelector('.modal-preview-panel');
-  const previewBtn = overlay.querySelector('.btn-preview-toggle');
-  
-  highlight.innerHTML = highlightSyntax(textarea.value);
-  
-  textarea.oninput = () => {
-    highlight.innerHTML = highlightSyntax(textarea.value);
-    highlight.scrollTop = textarea.scrollTop;
-    highlight.scrollLeft = textarea.scrollLeft;
-  };
-  textarea.onscroll = () => {
-    highlight.scrollTop = textarea.scrollTop;
-    highlight.scrollLeft = textarea.scrollLeft;
-  };
-  
-  overlay.querySelectorAll('.format-tool-btn').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      const action = btn.getAttribute('data-action');
-      if (action === 'chord') {
-        wrapTextareaSelection(textarea, '[', ']');
-      } else if (action === 'clear') {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        const selected = text.substring(start, end);
-        const cleaned = selected.replace(/[\*_\[\]]/g, '');
-        
-        const savedScrollTop = textarea.scrollTop;
-        textarea.value = text.substring(0, start) + cleaned + text.substring(end);
-        textarea.focus();
-        textarea.selectionStart = start;
-        textarea.selectionEnd = start + cleaned.length;
-        textarea.scrollTop = savedScrollTop;
-        textarea.dispatchEvent(new Event('input'));
-      }
-    };
-  });
-  
-  const formatSelect = overlay.querySelector('.format-select');
-  formatSelect.onchange = (e) => {
-    const val = formatSelect.value;
-    if (val === 'intro') {
-      insertTextAtCursor(textarea, '[INTRO]');
-    } else if (val === 'verso') {
-      insertTextAtCursor(textarea, '[VERSO 1]');
-    } else if (val === 'pre-coro') {
-      insertTextAtCursor(textarea, '[PRE-CORO]');
-    } else if (val === 'coro') {
-      insertTextAtCursor(textarea, '[CORO]');
-    } else if (val === 'puente') {
-      insertTextAtCursor(textarea, '[PUENTE]');
-    } else if (val === 'instrumental') {
-      insertTextAtCursor(textarea, '[INSTRUMENTAL]');
-    } else if (val === 'solo') {
-      insertTextAtCursor(textarea, '[SOLO]');
-    } else if (val === 'final') {
-      insertTextAtCursor(textarea, '[FINAL]');
-    }
-    formatSelect.value = 'normal';
-  };
-  
-  let isPreview = false;
-  previewBtn.onclick = () => {
-    isPreview = !isPreview;
-    if (isPreview) {
-      previewBtn.textContent = 'Editar Letra';
-      previewBtn.style.color = 'var(--blue)';
-      previewBtn.style.borderColor = 'var(--blue)';
-      textarea.parentNode.style.display = 'none';
-      previewPanel.style.display = 'block';
-      previewPanel.querySelector('.lyrics-text-content').innerHTML = formatLyrics(textarea.value);
-    } else {
-      previewBtn.textContent = 'Vista Previa';
-      previewBtn.style.color = '';
-      previewBtn.style.borderColor = '';
-      textarea.parentNode.style.display = 'block';
-      previewPanel.style.display = 'none';
-      highlight.innerHTML = highlightSyntax(textarea.value);
-      setTimeout(() => {
-        highlight.scrollTop = textarea.scrollTop;
-      }, 10);
-    }
-  };
-  
-  overlay.querySelector('.save-btn').onclick = () => {
-    onSaveCallback(textarea.value);
-    closeModal();
-  };
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeModal();
-  };
-}
-
-function renderGiSetlist(filter = '', editSongId = null) {
-  const container = q('#gi-songs-container');
-  container.innerHTML = '';
-  
-  if (!giSetlistSongs.length) {
-    container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el botón de importar arriba.</div>';
+  if (wasOpen) {
+    // It was open → user clicked again to close it. State cleared.
+    openAccordionSongId = null;
+    openAccordionServiceId = null;
     return;
   }
 
-  const term = filter.toLowerCase();
-  const filtered = giSetlistSongs.filter(s => {
-    const matchText = s.title.toLowerCase().includes(term) || 
-                      (s.artist && s.artist.toLowerCase().includes(term));
-    if (!matchText) return false;
-    if (currentGiGenre === 'all') return true;
-    const genre = s.genre ? s.genre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
-    return genre.includes(currentGiGenre);
-  });
+  // Set the new active accordion + close the other container's pointer.
+  if (isService) { openAccordionServiceId = id; openAccordionSongId = null; }
+  else           { openAccordionSongId = id; openAccordionServiceId = null; }
 
-  filtered.sort((a, b) => {
-    if (a.id === editSongId) return -1;
-    if (b.id === editSongId) return 1;
-    return a.title.localeCompare(b.title);
-  });
-
-  if (!filtered.length) {
-    container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-
-  filtered.forEach((song, idx) => {
-    const el = document.createElement('div');
-    el.className = 'gi-song-item';
-    const isActive = song.id && activeGiSongId && (song.id === activeGiSongId);
-    const isLyricsOpen = song.id && (song.id === openAccordionSongId);
-    const showChords = !!song.showChords;
-
-    if (isActive) {
-      el.style.borderColor = 'var(--blue)';
-      el.style.background = 'rgba(0, 170, 255, 0.05)';
-      el.style.boxShadow = '0 0 10px rgba(0, 170, 255, 0.15)';
-    }
-
-    const lyricsBtnStyle = song.lyrics 
-      ? (isLyricsOpen 
-         ? 'color:#fbae00; border-color:#fbae00; background:rgba(251,174,0,0.06);' 
-         : 'color:#fbae00; border-color:#fbae00;') 
-      : 'opacity:0.4; cursor:not-allowed;';
-
-    el.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-        <div style="display: flex; gap: 12px; flex: 1; min-width: 0;">
-          <div class="gi-row-num" style="font-size: 14px; font-weight: 800; color: ${isActive ? 'var(--blue)' : 'var(--text-muted)'}; width: 20px; text-align: center; margin-top: 2px; display: flex; align-items: center; justify-content: center;">
-            ${isActive ? `
-              <svg viewBox="0 0 24 24" fill="var(--blue)" width="12" height="12" style="filter: drop-shadow(0 0 3px var(--blue)); margin-right: 1px;"><polygon points="5,3 19,12 5,21"/></svg>
-            ` : idx + 1}
-          </div>
-          <div class="gi-song-main" style="flex: 1; min-width: 0;">
-            <div class="gi-song-title" style="white-space: normal; line-height: 1.2; margin-bottom: 3px; ${isActive ? 'color: var(--blue); font-weight: 800;' : ''}">${song.title}</div>
-            <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
-          </div>
-        </div>
-        <div class="gi-song-meta" style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-shrink: 0;">
-          ${song.bpm ? `<span class="gi-badge bpm">${song.bpm}</span>` : ''}
-          ${song.key  ? `<span class="gi-badge key">${song.key}</span>` : ''}
-          ${song.genre ? `<span class="gi-badge" style="display:none;">${song.genre}</span>` : ''}
-        </div>
-      </div>
-      <div class="gi-song-actions" style="justify-content: flex-end; margin-top: 8px;">
-        <button class="action-btn btn-lyrics ${isLyricsOpen ? 'active' : ''}" title="Ver letra y acordes" style="${lyricsBtnStyle}" ${song.lyrics ? '' : 'disabled'}>
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </button>
-        <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color:var(--blue); border-color:var(--blue);' : ''}">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
-        </button>
-        <button class="action-btn btn-orig" title="Canción Original" style="${song.audio && song.audio.original ? 'color:var(--blue); border-color:var(--blue);' : ''}">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-        </button>
-        <button class="action-btn btn-add" title="Añadir al servicio">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <button class="action-btn btn-edit" title="Editar canción">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="action-btn btn-remove-lib" title="Eliminar de la librería" style="color: #ff4747;">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      
-      <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
-        <div class="lyrics-accordion-header">
-          <button class="lyrics-edit-btn" title="Editar letra y acordes">
-            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </button>
-          <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
-            ${showChords ? 'Con acordes' : 'Solo letra'}
-          </button>
-        </div>
-        <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
-          ${formatLyrics(song.lyrics)}
-        </div>
-      </div>
-    `;
-
-    el.onclick = () => applyGiSong(song);
-    el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
-    el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
-
-    const btnAdd = el.querySelector('.btn-add');
-    btnAdd.onclick = (e) => {
-      e.stopPropagation();
-      addToService(song);
-      
-      // Visual feedback
-      btnAdd.style.color = '#4ade80';
-      
-      // Floating notification popup
-      const popup = document.createElement('div');
-      popup.textContent = '¡Añadida al servicio!';
-      popup.style.cssText = 'position: absolute; right: 10px; bottom: 45px; background: var(--blue); color: #000; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; pointer-events: none; z-index: 100; box-shadow: 0 4px 12px rgba(0,170,255,0.3); opacity: 1; transition: opacity 0.4s, transform 0.4s; transform: translateY(0);';
-      
-      // Relative parent is the song card 'el'
-      el.style.position = 'relative';
-      el.appendChild(popup);
-      
-      // Animate out
-      setTimeout(() => {
-        popup.style.opacity = '0';
-        popup.style.transform = 'translateY(-10px)';
-      }, 800);
-      
-      setTimeout(() => {
-        popup.remove();
-        btnAdd.style.color = '';
-      }, 1200);
-    };
-
-    el.querySelector('.btn-remove-lib').onclick = (e) => {
-      e.stopPropagation();
-      if (confirm('¿Estás seguro de eliminar esta canción de la librería?')) {
-        giSetlistSongs = giSetlistSongs.filter(s => s.id !== song.id);
-        if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-        updateFilterCounts();
-        renderGiSetlist(q('#gi-search').value);
-      }
-    };
-
-    const triggerEdit = () => {
-      el.innerHTML = `
-        <div style="grid-column:1/-1; display:flex; flex-direction:column; gap:8px; padding:4px 0;" onclick="event.stopPropagation()">
-          <input type="text" class="edit-title" value="${song.title === 'Nueva Canción' ? '' : song.title}" placeholder="Título (Requerido)" style="width:100%;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
-          <input type="text" class="edit-artist" value="${song.artist||''}" placeholder="Artista" style="width:100%;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;">
-          <div style="display:flex;gap:6px;">
-            <input type="text" class="edit-bpm" value="${song.bpm||''}" placeholder="BPM" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;text-align:center;outline:none;width:0;">
-            <select class="edit-key" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;cursor:pointer;">
-              <option value="" ${!song.key ? 'selected' : ''}>-- Tono --</option>
-              <option value="C" ${song.key === 'C' ? 'selected' : ''}>C (Do)</option>
-              <option value="C#" ${song.key === 'C#' ? 'selected' : ''}>C# (Do#)</option>
-              <option value="Db" ${song.key === 'Db' ? 'selected' : ''}>Db (Reb)</option>
-              <option value="D" ${song.key === 'D' ? 'selected' : ''}>D (Re)</option>
-              <option value="D#" ${song.key === 'D#' ? 'selected' : ''}>D# (Re#)</option>
-              <option value="Eb" ${song.key === 'Eb' ? 'selected' : ''}>Eb (Mib)</option>
-              <option value="E" ${song.key === 'E' ? 'selected' : ''}>E (Mi)</option>
-              <option value="F" ${song.key === 'F' ? 'selected' : ''}>F (Fa)</option>
-              <option value="F#" ${song.key === 'F#' ? 'selected' : ''}>F# (Fa#)</option>
-              <option value="Gb" ${song.key === 'Gb' ? 'selected' : ''}>Gb (Solb)</option>
-              <option value="G" ${song.key === 'G' ? 'selected' : ''}>G (Sol)</option>
-              <option value="G#" ${song.key === 'G#' ? 'selected' : ''}>G# (Sol#)</option>
-              <option value="Ab" ${song.key === 'Ab' ? 'selected' : ''}>Ab (Lab)</option>
-              <option value="A" ${song.key === 'A' ? 'selected' : ''}>A (La)</option>
-              <option value="A#" ${song.key === 'A#' ? 'selected' : ''}>A# (La#)</option>
-              <option value="Bb" ${song.key === 'Bb' ? 'selected' : ''}>Bb (Sib)</option>
-              <option value="B" ${song.key === 'B' ? 'selected' : ''}>B (Si)</option>
-            </select>
-            <select class="edit-genre" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;cursor:pointer;">
-              <option value="alabanza" ${song.genre === 'alabanza' ? 'selected' : ''}>Alabanza</option>
-              <option value="adoracion" ${song.genre === 'adoracion' ? 'selected' : ''}>Adoración</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:4px;">
-            <button class="gi-edit-btn save" style="flex:1;padding:6px;background:var(--blue);color:#000;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;">Guardar</button>
-            <button class="gi-edit-btn cancel" style="flex:1;padding:6px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;">Cancelar</button>
-          </div>
-        </div>
-      `;
-      el.querySelector('.cancel').onclick = (ev) => {
-        ev.stopPropagation();
-        if (song.title === 'Nueva Canción' && !song.artist && !song.bpm && !song.key) {
-          giSetlistSongs = giSetlistSongs.filter(s => s.id !== song.id);
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          updateFilterCounts();
-        }
-        renderGiSetlist(q('#gi-search').value);
-      };
-      el.querySelector('.save').onclick = (ev) => {
-        ev.stopPropagation();
-        const valTitle = el.querySelector('.edit-title').value.trim();
-        song.title = valTitle || 'Nueva Canción';
-        song.artist = el.querySelector('.edit-artist').value.trim();
-        song.bpm = el.querySelector('.edit-bpm').value.trim();
-        song.key = el.querySelector('.edit-key').value;
-        song.genre = el.querySelector('.edit-genre').value;
-        if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-        updateFilterCounts();
-        renderGiSetlist(q('#gi-search').value);
-      };
-    };
-
-    el.querySelector('.btn-edit').onclick = (e) => {
-      e.stopPropagation();
-      triggerEdit();
-    };
-
-    // Lyrics accordion trigger
-    const btnLyrics = el.querySelector('.btn-lyrics');
-    if (btnLyrics) {
-      btnLyrics.onclick = (e) => {
-        e.stopPropagation();
-        if (openAccordionSongId === song.id) {
-          openAccordionSongId = null;
-        } else {
-          openAccordionSongId = song.id;
-          openAccordionServiceId = null;
-        }
-        renderGiSetlist(q('#gi-search').value);
-        renderServiceList();
-      };
-    }
-
-    // Lyrics editor modal trigger
-    const btnEditLyrics = el.querySelector('.lyrics-edit-btn');
-    if (btnEditLyrics) {
-      btnEditLyrics.onclick = (e) => {
-        e.stopPropagation();
-        openLyricsEditorModal(song, (newLyrics) => {
-          song.lyrics = newLyrics;
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          renderGiSetlist(q('#gi-search').value);
-        });
-      };
-    }
-
-    // Chord toggle inside the accordion
-    const btnChordToggle = el.querySelector('.chord-toggle-btn');
-    if (btnChordToggle) {
-      btnChordToggle.onclick = (e) => {
-        e.stopPropagation();
-        song.showChords = !song.showChords;
-        renderGiSetlist(q('#gi-search').value);
-      };
-    }
-
-    if (editSongId === song.id) {
-      triggerEdit();
-    }
-
-    fragment.appendChild(el);
-  });
-
-  container.appendChild(fragment);
-}
-
-/* ── SERVICE SETLIST LOGIC ── */
-function loadServiceSongs() {
-  const saved = localStorage.getItem('serviceSongs');
-  if (saved) {
-    try {
-      serviceSongs = JSON.parse(saved);
-      renderServiceList();
-    } catch(e) { serviceSongs = []; }
+  // Apply the visual change only to the affected card.
+  const containerSel = isService ? '#service-songs-container' : '#gi-songs-container';
+  const attr = isService ? 'data-service-id' : 'data-song-id';
+  const card = q(`${containerSel} .gi-song-item[${attr}="${CSS.escape(String(id))}"]`);
+  if (card) {
+    const accordion = card.querySelector('.gi-lyrics-accordion');
+    const btn = card.querySelector('.btn-lyrics');
+    if (accordion) accordion.classList.add('open');
+    if (btn) btn.classList.add('active');
   }
 }
 
-function saveServiceSongs() {
-  localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
-}
-
-function addToService(song) {
-  // Add a unique ID for drag and drop to work correctly even with duplicate songs
-  const songToAdd = { ...song, serviceId: Date.now() + Math.random() };
-  serviceSongs.push(songToAdd);
-  saveServiceSongs();
-  renderServiceList();
-  
-  // Optional: Visual feedback or switch to service tab
-  // openServiceTab();
-}
-
-function removeFromService(serviceId) {
-  serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
-  saveServiceSongs();
-  renderServiceList();
-}
-
-function clearServiceList() {
-  if (confirm('¿Vaciar toda la lista de servicio?')) {
-    serviceSongs = [];
-    saveServiceSongs();
-    renderServiceList();
+// Apply the chord-visibility state to a single song card (whichever
+// container it lives in). Only touches 2 DOM elements per card.
+function paintChordVisibility(card, showChords) {
+  if (!card) return;
+  const textContent = card.querySelector('.lyrics-text-content');
+  const toggleBtn = card.querySelector('.chord-toggle-btn');
+  if (textContent) textContent.classList.toggle('hide-chords', !showChords);
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', showChords);
+    toggleBtn.textContent = showChords ? 'Con acordes' : 'Solo letra';
+    toggleBtn.title = showChords ? 'Ocultar acordes' : 'Mostrar acordes';
   }
 }
 
-function serviceNextSong() {
-  if (serviceSongs.length === 0) return;
-  activeServiceIndex++;
-  if (activeServiceIndex >= serviceSongs.length) activeServiceIndex = 0;
-  const song = serviceSongs[activeServiceIndex];
-  applyGiSong(song);
-}
+// Flip a song's `showChords` flag and update the visible cards in place —
+// no full re-render. When `syncToLibrary` is true, mirrors the change onto
+// the matching library song so both lists stay aligned.
+function toggleChordVisibility(song, isService, syncToLibrary = false) {
+  song.showChords = !song.showChords;
 
-function servicePrevSong() {
-  if (serviceSongs.length === 0) return;
-  activeServiceIndex--;
-  if (activeServiceIndex < 0) activeServiceIndex = serviceSongs.length - 1;
-  const song = serviceSongs[activeServiceIndex];
-  applyGiSong(song);
-}
+  // Update the originating card (service or library, depending on context).
+  const ownContainerSel = isService ? '#service-songs-container' : '#gi-songs-container';
+  const ownAttr = isService ? 'data-service-id' : 'data-song-id';
+  const ownId = isService ? song.serviceId : song.id;
+  paintChordVisibility(
+    q(`${ownContainerSel} .gi-song-item[${ownAttr}="${CSS.escape(String(ownId))}"]`),
+    song.showChords
+  );
 
-function renderServiceList() {
-  const container = q('#service-songs-container');
-  const emptyMsg = q('#service-empty-msg');
-  if (!container) return;
-  
-  container.innerHTML = '';
-  
-  if (serviceSongs.length === 0) {
-    emptyMsg.classList.remove('hidden');
-    return;
+  // If service-side, also mirror state + UI onto the matching library song.
+  if (syncToLibrary && isService) {
+    const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+    if (giSong) {
+      giSong.showChords = song.showChords;
+      paintChordVisibility(getGiCardBySongId(giSong.id), giSong.showChords);
+    }
   }
-  
-  emptyMsg.classList.add('hidden');
-  
-  const fragment = document.createDocumentFragment();
-  
-  serviceSongs.forEach((song, index) => {
-    const el = document.createElement('div');
-    el.className = 'gi-song-item';
-    const isActive = (index === activeServiceIndex);
-    const isLyricsOpen = song.serviceId && (song.serviceId === openAccordionServiceId);
-    const showChords = !!song.showChords;
-    
-    if (isActive) {
-      el.style.borderColor = 'var(--blue)';
-      el.style.background = 'rgba(0, 170, 255, 0.05)';
-      el.style.boxShadow = '0 0 10px rgba(0, 170, 255, 0.15)';
-    }
-    el.draggable = true;
-    el.dataset.index = index;
-
-    const lyricsBtnStyle = song.lyrics 
-      ? (isLyricsOpen 
-         ? 'color:#fbae00; border-color:#fbae00; background:rgba(251,174,0,0.06);' 
-         : 'color:#fbae00; border-color:#fbae00;') 
-      : 'opacity:0.4; cursor:not-allowed;';
-    
-    el.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-        <div style="display: flex; gap: 12px; flex: 1; min-width: 0;">
-          <div class="gi-row-num" style="font-size: 14px; font-weight: 800; color: ${isActive ? 'var(--blue)' : 'var(--text-muted)'}; width: 20px; text-align: center; margin-top: 2px; display: flex; align-items: center; justify-content: center;">
-            ${isActive ? `
-              <svg viewBox="0 0 24 24" fill="var(--blue)" width="12" height="12" style="filter: drop-shadow(0 0 3px var(--blue)); margin-right: 1px;"><polygon points="5,3 19,12 5,21"/></svg>
-            ` : index + 1}
-          </div>
-          <div class="gi-song-main" style="flex: 1; min-width: 0;">
-            <div class="gi-song-title" style="white-space: normal; line-height: 1.2; margin-bottom: 3px; ${isActive ? 'color: var(--blue); font-weight: 800;' : ''}">${song.title}</div>
-            <div class="gi-song-artist">${song.artist || 'Sin artista'}</div>
-          </div>
-        </div>
-        <div class="gi-song-meta" style="display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-shrink: 0;">
-          ${song.bpm ? `<span class="gi-badge bpm">${song.bpm}</span>` : ''}
-          ${song.key  ? `<span class="gi-badge key">${song.key}</span>` : ''}
-          ${song.genre ? `<span class="gi-badge" style="display:none;">${song.genre}</span>` : ''}
-        </div>
-      </div>
-      <div class="gi-song-actions" style="justify-content: flex-end; margin-top: 8px;">
-        <button class="action-btn btn-lyrics ${isLyricsOpen ? 'active' : ''}" title="Ver letra y acordes" style="${lyricsBtnStyle}" ${song.lyrics ? '' : 'disabled'}>
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        </button>
-        <button class="action-btn btn-seq" title="Secuencia Split-Track" style="${song.audio && song.audio.sequence ? 'color:var(--blue); border-color:var(--blue);' : ''}">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
-        </button>
-        <button class="action-btn btn-orig" title="Canción Original" style="${song.audio && song.audio.original ? 'color:var(--blue); border-color:var(--blue);' : ''}">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-        </button>
-        <button class="action-btn btn-edit" title="Editar canción">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button class="action-btn btn-remove" title="Quitar de la lista" style="color: #ff4747;">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      
-      <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
-        <div class="lyrics-accordion-header">
-          <button class="lyrics-edit-btn" title="Editar letra y acordes">
-            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          </button>
-          <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
-            ${showChords ? 'Con acordes' : 'Solo letra'}
-          </button>
-        </div>
-        <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
-          ${formatLyrics(song.lyrics)}
-        </div>
-      </div>
-    `;
-    
-    el.onclick = () => applyGiSong(song);
-    el.querySelector('.btn-seq').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'sequence'); };
-    el.querySelector('.btn-orig').onclick = (e) => { e.stopPropagation(); loadAndPlayTrack(song, 'original'); };
-    el.querySelector('.btn-remove').onclick = (e) => {
-      e.stopPropagation();
-      removeFromService(song.serviceId);
-    };
-
-    // Lyrics accordion trigger
-    const btnLyrics = el.querySelector('.btn-lyrics');
-    if (btnLyrics) {
-      btnLyrics.onclick = (e) => {
-        e.stopPropagation();
-        if (openAccordionServiceId === song.serviceId) {
-          openAccordionServiceId = null;
-        } else {
-          openAccordionServiceId = song.serviceId;
-          openAccordionSongId = null;
-        }
-        renderGiSetlist(q('#gi-search').value);
-        renderServiceList();
-      };
-    }
-
-    // Lyrics editor modal trigger
-    const btnEditLyrics = el.querySelector('.lyrics-edit-btn');
-    if (btnEditLyrics) {
-      btnEditLyrics.onclick = (e) => {
-        e.stopPropagation();
-        openLyricsEditorModal(song, (newLyrics) => {
-          song.lyrics = newLyrics;
-          
-          // Sincronizar con librería principal
-          const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-          if (giSong) {
-            giSong.lyrics = song.lyrics;
-            if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          }
-          
-          saveServiceSongs();
-          renderGiSetlist(q('#gi-search').value);
-          renderServiceList();
-        });
-      };
-    }
-
-    // Chord toggle inside the accordion
-    const btnChordToggle = el.querySelector('.chord-toggle-btn');
-    if (btnChordToggle) {
-      btnChordToggle.onclick = (e) => {
-        e.stopPropagation();
-        song.showChords = !song.showChords;
-        // Sincronizar con librería principal
-        const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-        if (giSong) giSong.showChords = song.showChords;
-        renderGiSetlist(q('#gi-search').value);
-        renderServiceList();
-      };
-    }
-
-    el.querySelector('.btn-edit').onclick = (e) => {
-      e.stopPropagation();
-      el.innerHTML = `
-        <div style="grid-column:1/-1; display:flex; flex-direction:column; gap:8px; padding:4px 0;" onclick="event.stopPropagation()">
-          <input type="text" class="edit-title" value="${song.title}" placeholder="Título" style="width:100%;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:13px;font-weight:700;outline:none;box-sizing:border-box;">
-          <input type="text" class="edit-artist" value="${song.artist||''}" placeholder="Artista" style="width:100%;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;">
-          <div style="display:flex;gap:6px;">
-            <input type="text" class="edit-bpm" value="${song.bpm||''}" placeholder="BPM" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;text-align:center;outline:none;width:0;">
-            <select class="edit-key" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;cursor:pointer;">
-              <option value="" ${!song.key ? 'selected' : ''}>-- Tono --</option>
-              <option value="C" ${song.key === 'C' ? 'selected' : ''}>C (Do)</option>
-              <option value="C#" ${song.key === 'C#' ? 'selected' : ''}>C# (Do#)</option>
-              <option value="Db" ${song.key === 'Db' ? 'selected' : ''}>Db (Reb)</option>
-              <option value="D" ${song.key === 'D' ? 'selected' : ''}>D (Re)</option>
-              <option value="D#" ${song.key === 'D#' ? 'selected' : ''}>D# (Re#)</option>
-              <option value="Eb" ${song.key === 'Eb' ? 'selected' : ''}>Eb (Mib)</option>
-              <option value="E" ${song.key === 'E' ? 'selected' : ''}>E (Mi)</option>
-              <option value="F" ${song.key === 'F' ? 'selected' : ''}>F (Fa)</option>
-              <option value="F#" ${song.key === 'F#' ? 'selected' : ''}>F# (Fa#)</option>
-              <option value="Gb" ${song.key === 'Gb' ? 'selected' : ''}>Gb (Solb)</option>
-              <option value="G" ${song.key === 'G' ? 'selected' : ''}>G (Sol)</option>
-              <option value="G#" ${song.key === 'G#' ? 'selected' : ''}>G# (Sol#)</option>
-              <option value="Ab" ${song.key === 'Ab' ? 'selected' : ''}>Ab (Lab)</option>
-              <option value="A" ${song.key === 'A' ? 'selected' : ''}>A (La)</option>
-              <option value="A#" ${song.key === 'A#' ? 'selected' : ''}>A# (La#)</option>
-              <option value="Bb" ${song.key === 'Bb' ? 'selected' : ''}>Bb (Sib)</option>
-              <option value="B" ${song.key === 'B' ? 'selected' : ''}>B (Si)</option>
-            </select>
-            <select class="edit-genre" style="flex:1;padding:6px;background:var(--bg-hover);border:1px solid var(--border);border-radius:4px;color:#fff;font-size:11px;outline:none;box-sizing:border-box;cursor:pointer;">
-              <option value="alabanza" ${song.genre === 'alabanza' ? 'selected' : ''}>Alabanza</option>
-              <option value="adoracion" ${song.genre === 'adoracion' ? 'selected' : ''}>Adoración</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:4px;">
-            <button class="gi-edit-btn save" style="flex:1;padding:6px;background:var(--blue);color:#000;border:none;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;">Guardar</button>
-            <button class="gi-edit-btn cancel" style="flex:1;padding:6px;background:transparent;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;font-size:11px;cursor:pointer;">Cancelar</button>
-          </div>
-        </div>
-      `;
-      el.querySelector('.cancel').onclick = (ev) => { ev.stopPropagation(); renderServiceList(); };
-      el.querySelector('.save').onclick = (ev) => {
-        ev.stopPropagation();
-        song.title = el.querySelector('.edit-title').value;
-        song.artist = el.querySelector('.edit-artist').value;
-        song.bpm = el.querySelector('.edit-bpm').value;
-        song.key = el.querySelector('.edit-key').value;
-        song.genre = el.querySelector('.edit-genre').value;
-        
-        // Sincronizar con librería principal
-        const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-        if (giSong) {
-          giSong.title = song.title; giSong.artist = song.artist;
-          giSong.bpm = song.bpm; giSong.key = song.key; giSong.genre = song.genre;
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-        }
-        
-        saveServiceSongs();
-        renderServiceList();
-      };
-    };
-    
-    // Drag and Drop events
-    el.ondragstart = (e) => {
-      el.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', index);
-    };
-    
-    el.ondragend = () => el.classList.remove('dragging');
-    
-    el.ondragover = (e) => {
-      e.preventDefault();
-      el.classList.add('drag-over');
-    };
-    
-    el.ondragleave = () => el.classList.remove('drag-over');
-    
-    el.ondrop = (e) => {
-      e.preventDefault();
-      el.classList.remove('drag-over');
-      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-      const toIndex = index;
-      
-      if (fromIndex !== toIndex) {
-        const movedItem = serviceSongs.splice(fromIndex, 1)[0];
-        serviceSongs.splice(toIndex, 0, movedItem);
-        saveServiceSongs();
-        renderServiceList();
-      }
-    };
-    
-    fragment.appendChild(el);
-  });
-  
-  container.appendChild(fragment);
 }
-
 
 function applyGiSong(song) {
   // Sync activeGiSongId
   activeGiSongId = song.id;
 
-  // Sync activeServiceIndex
-  const foundIdx = serviceSongs.findIndex(s => s.title === song.title && s.artist === song.artist);
-  activeServiceIndex = foundIdx;
-  renderServiceList();
-  
-  // Re-render Gi list to show play indicator in Library
-  const searchInput = q('#gi-search');
-  renderGiSetlist(searchInput ? searchInput.value : '');
+  // Sync active service-list pointer by matching title+artist.
+  syncActiveByTitleArtist(song);
+
+  // Surgical highlight update — replaces what used to be two full re-renders
+  // (~81 + N cards rebuilt on every song click). The audio change below now
+  // happens with zero contention from DOM work.
+  refreshActiveSongHighlights();
 
   // Update BPM
   if (song.bpm) {
     const v = parseInt(song.bpm);
-    if (!isNaN(v)) {
-      metro.setBPM(v);
-      q('#bpm-slider').value = metro.bpm;
-      q('#bpm-display').textContent = metro.bpm;
-      const liveBpm = q('#metro-bpm-live');
-      if(liveBpm) liveBpm.textContent = metro.bpm + ' BPM';
-      syncSlider(q('#bpm-slider'));
-    }
+    if (!isNaN(v)) applyBpm(v);
   }
   
   // Update Key
@@ -2826,230 +1433,9 @@ function applyGiSong(song) {
     } else if (song.audio.original) {
       loadAndPlayTrack(song, 'original');
     }
-  } else {
-    // Clear track player if no audio is available for the new song
-    if (currentTrackAudio) {
-      cleanupTrackAudio();
-      q('#tp-title').textContent = "Sin pista seleccionada";
-      q('#tp-time-current').textContent = "0:00";
-      q('#tp-time-total').textContent = "0:00";
-      q('#tp-progress').value = 0;
-      q('#tp-play-btn').innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>';
-    }
+  } else if (isTrackLoaded()) {
+    // No audio for the new song — release the previous track and reset the UI.
+    clearTrackUI();
   }
 }
 
-/* ── TRACK PLAYER LOGIC ── */
-let currentTrackAudio = null;
-let currentTrackType = null;
-let currentTrackSong = null;
-
-// Safe audio release and hardware decoder garbage collection
-function cleanupTrackAudio() {
-  if (currentTrackAudio) {
-    try {
-      currentTrackAudio.pause();
-      currentTrackAudio.src = '';
-      currentTrackAudio.load(); // Force immediate release of OS audio resources
-      currentTrackAudio.onerror = null;
-      currentTrackAudio.ontimeupdate = null;
-      currentTrackAudio.onended = null;
-    } catch (e) {
-      console.warn("Error cleaning up audio element:", e);
-    }
-    currentTrackAudio = null;
-  }
-}
-
-window.loadAndPlayTrack = function(song, type) {
-  cleanupTrackAudio();
-  currentTrackSong = song;
-  const path = (song.audio && song.audio[type]) ? song.audio[type] : null;
-
-  if (!path) {
-    if (window.electronAPI && window.electronAPI.openAudioFile) {
-      window.electronAPI.openAudioFile().then(async (file) => {
-        if (file && file.path) {
-          const newPath = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type });
-          
-          if (!song.audio) song.audio = {};
-          song.audio[type] = newPath;
-          
-          const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
-          if (giSong) {
-            if (!giSong.audio) giSong.audio = {};
-            giSong.audio[type] = newPath;
-          }
-          
-          if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
-          saveServiceSongs();
-          
-          // Refrescar vistas para colorear el botón
-          if (q('#gi-search')) renderGiSetlist(q('#gi-search').value);
-          renderServiceList();
-          
-          startTrackPlayback(newPath, song.title, type);
-        }
-      });
-    } else {
-      const input = q('#tp-file-input');
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          startTrackPlayback(URL.createObjectURL(file), song.title, type);
-        }
-        input.value = '';
-      };
-      input.click();
-    }
-  } else {
-    startTrackPlayback(path, song.title, type);
-  }
-};
-
-async function startTrackPlayback(url, title, type) {
-  let safeUrl = url;
-  if (safeUrl && typeof safeUrl === 'string') {
-    // FIX for old corrupted paths in JSON
-    safeUrl = safeUrl.replace('../assets/', 'assets/');
-  }
-
-  if ((safeUrl && !safeUrl.startsWith('blob:') && !safeUrl.startsWith('http') && !safeUrl.startsWith('file:')) || (safeUrl && safeUrl.includes('/livepads/'))) {
-    if (window.electronAPI && window.electronAPI.getAbsolutePath) {
-      try {
-        const absPath = await window.electronAPI.getAbsolutePath(safeUrl);
-        // Construir URL absoluta con protocolo file:/// y codificando espacios/símbolos
-        let fileUrl = 'file:///' + absPath.replace(/\\/g, '/');
-        safeUrl = encodeURI(fileUrl).replace(/#/g, '%23').replace(/\?/g, '%3F');
-      } catch (e) {
-        console.error("Error al obtener ruta absoluta", e);
-      }
-    } else {
-      safeUrl = encodeURI(url).replace(/#/g, '%23').replace(/\?/g, '%3F');
-      if (!safeUrl.startsWith('./') && !safeUrl.startsWith('/')) safeUrl = './' + safeUrl;
-    }
-  }
-  
-  currentTrackAudio = new Audio(safeUrl);
-  currentTrackType = type;
-  
-  currentTrackAudio.onerror = (e) => {
-    console.error("Error cargando el audio:", safeUrl, e);
-    q('#tp-title').textContent = "Error al cargar audio";
-  };
-  
-  q('#tp-title').textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
-  
-  const playBtn = q('#tp-play-btn');
-  const stopBtn = q('#tp-stop-btn');
-  const playIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>';
-  const pauseIcon = '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
-  
-  const updatePlayBtn = () => {
-    playBtn.innerHTML = currentTrackAudio.paused ? playIcon : pauseIcon;
-    if(currentTrackAudio.paused) {
-       playBtn.style.transform = 'scale(1)';
-    } else {
-       playBtn.style.transform = 'scale(0.96)';
-    }
-  };
-  
-  playBtn.onclick = () => {
-    if (currentTrackAudio.paused) currentTrackAudio.play();
-    else currentTrackAudio.pause();
-    updatePlayBtn();
-  };
-
-  stopBtn.onclick = () => {
-    currentTrackAudio.pause();
-    currentTrackAudio.currentTime = 0;
-    updatePlayBtn();
-    q('#tp-progress').value = 0;
-    q('#tp-time-current').textContent = "0:00";
-  };
-  
-  const loopBtn = q('#tp-loop-btn');
-  if (!loopBtn.dataset.active) loopBtn.dataset.active = 'false';
-  currentTrackAudio.loop = loopBtn.dataset.active === 'true';
-  loopBtn.style.color = currentTrackAudio.loop ? 'var(--blue)' : 'var(--text-muted)';
-  loopBtn.style.borderColor = currentTrackAudio.loop ? 'var(--blue)' : 'var(--border)';
-
-  loopBtn.onclick = () => {
-    currentTrackAudio.loop = !currentTrackAudio.loop;
-    loopBtn.dataset.active = currentTrackAudio.loop ? 'true' : 'false';
-    loopBtn.style.color = currentTrackAudio.loop ? 'var(--blue)' : 'var(--text-muted)';
-    loopBtn.style.borderColor = currentTrackAudio.loop ? 'var(--blue)' : 'var(--border)';
-  };
-  
-  const formatTime = (s) => {
-    if (isNaN(s)) return "0:00";
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  currentTrackAudio.ontimeupdate = () => {
-    q('#tp-time-current').textContent = formatTime(currentTrackAudio.currentTime);
-    if (currentTrackAudio.duration) {
-      q('#tp-time-total').textContent = formatTime(currentTrackAudio.duration);
-      q('#tp-progress').value = (currentTrackAudio.currentTime / currentTrackAudio.duration) * 100;
-      syncSlider(q('#tp-progress'));
-    }
-  };
-  
-  // Set initial value
-  const tpVolSlider = q('#tp-vol');
-  if (tpVolSlider) {
-    currentTrackAudio.volume = tpVolSlider.value / 100;
-  }
-  
-  q('#tp-close-btn').onclick = () => {
-    cleanupTrackAudio();
-    q('#tp-title').textContent = "Ninguna pista cargada";
-    q('#tp-time-current').textContent = "0:00";
-    q('#tp-time-total').textContent = "0:00";
-    q('#tp-progress').value = 0;
-    syncSlider(q('#tp-progress'));
-    playBtn.innerHTML = playIcon;
-  };
-  
-  currentTrackAudio.onended = () => {
-    updatePlayBtn();
-    q('#tp-progress').value = 0;
-    syncSlider(q('#tp-progress'));
-    q('#tp-time-current').textContent = "0:00";
-  };
-  
-  // Metronome and pad are managed by the main player play master flow, so they are not stopped here
-  
-  updatePlayBtn();
-}
-
-function saveCustomKitsToStorage() {
-  const customKits = KIT_BANKS.filter(k => k.isCustom).map(k => {
-    const getSample = (padId) => {
-      const p = k.pads.find(pad => pad.id === padId);
-      return p ? p.sample : null;
-    };
-    const getLabel = (padId) => {
-      const p = k.pads.find(pad => pad.id === padId);
-      return p ? p.label : '';
-    };
-    return {
-      id: k.id,
-      kitName: k.name,
-      lbl_c_kick: getLabel('c_kick'), c_kick: getSample('c_kick'),
-      lbl_c_snare: getLabel('c_snare'), c_snare: getSample('c_snare'),
-      lbl_c_hhc: getLabel('c_hhc'), c_hhc: getSample('c_hhc'),
-      lbl_c_clap: getLabel('c_clap'), c_clap: getSample('c_clap'),
-      lbl_c_perc1: getLabel('c_perc1'), c_perc1: getSample('c_perc1'),
-      lbl_c_perc2: getLabel('c_perc2'), c_perc2: getSample('c_perc2'),
-      lbl_c_crash: getLabel('c_crash'), c_crash: getSample('c_crash'),
-      lbl_c_ride: getLabel('c_ride'), c_ride: getSample('c_ride'),
-    };
-  });
-  
-  if (window.electronAPI && window.electronAPI.saveUserDrums) {
-    window.electronAPI.saveUserDrums({ kits: customKits });
-  }
-}

@@ -1,8 +1,15 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { MongoClient } = require('mongodb');
 const dns = require('dns');
+
+// Register the livepads:// scheme as privileged BEFORE app is ready.
+// This lets the renderer fetch userData assets safely with webSecurity enabled.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'livepads', privileges: { secure: true, standard: true, supportFetchAPI: true, stream: true, corsEnabled: true } }
+]);
 
 // Bypasses Cloudflare WARP & local proxy DNS SRV query blocks on Windows
 try {
@@ -15,10 +22,18 @@ let mainWindow;
 
 /* ── Portable Defaults Sync & Path-Rewriting Architecture ── */
 
+// Resolve the bundled defaults folder. In dev it sits next to main.js; when
+// packaged (asar enabled) it lives outside the archive under resourcesPath.
+function getDefaultsPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'defaults')
+    : path.join(__dirname, 'defaults');
+}
+
 // Copy everything from packaged defaults folder to userData on first boot
 function initializeUserData() {
   const userDataPath = app.getPath('userData');
-  const defaultsPath = path.join(__dirname, 'defaults');
+  const defaultsPath = getDefaultsPath();
   
   if (fs.existsSync(defaultsPath)) {
     const copyRecursive = (src, dest) => {
@@ -36,12 +51,15 @@ function initializeUserData() {
     copyRecursive(defaultsPath, userDataPath);
   }
   
-  // Auto-initialize config.json for secure credentials customization
+  // Auto-initialize an empty config.json template. The user must fill in
+  // mongoUri locally — credentials are NEVER baked into the source tree.
   const configPath = path.join(userDataPath, 'config.json');
   if (!fs.existsSync(configPath)) {
-    const defaultUri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
     try {
-      fs.writeFileSync(configPath, JSON.stringify({ mongoUri: defaultUri }, null, 2), 'utf-8');
+      fs.writeFileSync(configPath, JSON.stringify({
+        mongoUri: "",
+        _note: "Pega aqui tu URI de MongoDB Atlas. Este archivo es local y NO se sube al repo."
+      }, null, 2), 'utf-8');
     } catch (e) {
       console.error("Failed to auto-create config.json:", e.message);
     }
@@ -102,34 +120,38 @@ function copyToBoth(sourcePath, relativeSubPath) {
   }
 }
 
-// Rewrite absolute file:/// paths dynamically on loading to make them cross-platform/user-portable
+// Rewrite persisted asset paths into the privileged livepads:// scheme so the
+// renderer can fetch them with webSecurity enabled. The protocol handler maps
+// livepads://app/<relative> -> <userData>/<relative> at request time, so URLs
+// stay portable across machines.
 function rewritePaths(obj) {
   if (!obj) return obj;
-  const userDataPath = app.getPath('userData').replace(/\\/g, '/');
-  
+
+  const toLivepadsUrl = (relPath) => {
+    const cleaned = relPath.replace(/^\/+/, '');
+    const encoded = cleaned.split('/').map(seg => encodeURIComponent(decodeURIComponent(seg))).join('/');
+    return `livepads://app/${encoded}`;
+  };
+
   const processValue = (val) => {
     if (typeof val !== 'string') return val;
 
-    // New sentinel format: rewrite to current userData
+    if (val.startsWith('livepads://')) return val;
+
+    // Sentinel form 'file:///livepads/<rel>' -> livepads://app/<rel>
     if (val.includes('/livepads/')) {
       const parts = val.split('/livepads/');
-      if (parts.length > 1) {
-        return `file:///${userDataPath}/${parts[1]}`;
-      }
+      if (parts.length > 1) return toLivepadsUrl(parts[1]);
     }
 
-    // Legacy migration: absolute file:/// paths referencing known subfolders.
-    // Detects the subfolder name and re-roots it under current userData,
-    // so existing data survives across machines after building the .exe.
+    // Legacy migration: absolute file:/// paths referencing known userData
+    // subfolders. Detect the subfolder and rebase as a livepads:// URL.
     if (val.startsWith('file:///')) {
       const normalizedVal = val.replace(/\\/g, '/');
       const knownSubs = ['UserDrums/', 'Sequences/', 'Original%20Tracks/', 'Original Tracks/'];
       for (const sub of knownSubs) {
         const idx = normalizedVal.indexOf('/' + sub);
-        if (idx !== -1) {
-          const relPart = normalizedVal.slice(idx + 1); // e.g. "UserDrums/file.mp3"
-          return `file:///${userDataPath}/${relPart}`;
-        }
+        if (idx !== -1) return toLivepadsUrl(normalizedVal.slice(idx + 1));
       }
     }
 
@@ -166,7 +188,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false
+      // userData assets (audio samples, sequences) are served via the
+      // privileged livepads:// protocol — see registerLivepadsProtocol().
+      webSecurity: true
     },
   });
   mainWindow.loadFile('src/index.html');
@@ -189,6 +213,26 @@ function createWindow() {
 
 /* ── IPC Handlers ──────────────────────────────────── */
 
+// Reject anything that could escape userData (path separators, traversal,
+// null bytes, control chars). Returns a safe filename-only string.
+function safeId(id) {
+  if (typeof id !== 'string' || id.length === 0 || id.length > 200) return null;
+  if (/[\/\\\0\x00-\x1f]/.test(id) || id === '.' || id === '..') return null;
+  return id;
+}
+
+// Cap any single audio-file read to avoid loading multi-GB files into memory.
+const MAX_AUDIO_BYTES = 500 * 1024 * 1024; // 500 MB
+
+function readAudioFileSafe(filePath) {
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) throw new Error('Not a file: ' + filePath);
+  if (stat.size > MAX_AUDIO_BYTES) {
+    throw new Error(`Audio file too large (${Math.round(stat.size / 1024 / 1024)} MB, max ${MAX_AUDIO_BYTES / 1024 / 1024} MB).`);
+  }
+  return fs.readFileSync(filePath);
+}
+
 ipcMain.handle('open-audio-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
@@ -196,8 +240,13 @@ ipcMain.handle('open-audio-file', async () => {
   });
   if (result.canceled) return null;
   const filePath = result.filePaths[0];
-  const buffer = fs.readFileSync(filePath);
-  return { name: path.basename(filePath), buffer: buffer.buffer, path: filePath };
+  try {
+    const buffer = readAudioFileSafe(filePath);
+    return { name: path.basename(filePath), buffer: buffer.buffer, path: filePath };
+  } catch (e) {
+    dialog.showErrorBox('No se pudo abrir el archivo', e.message);
+    return null;
+  }
 });
 
 ipcMain.handle('open-audio-files', async () => {
@@ -206,16 +255,22 @@ ipcMain.handle('open-audio-files', async () => {
     filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'aac'] }],
   });
   if (result.canceled) return null;
-  return result.filePaths.map(fp => ({
-    name: path.basename(fp),
-    buffer: fs.readFileSync(fp).buffer,
-    path: fp,
-  }));
+  const out = [];
+  for (const fp of result.filePaths) {
+    try {
+      out.push({ name: path.basename(fp), buffer: readAudioFileSafe(fp).buffer, path: fp });
+    } catch (e) {
+      console.warn('Skipping file:', fp, e.message);
+    }
+  }
+  return out;
 });
 
 ipcMain.handle('save-preset', async (_e, data) => {
-  saveToBoth(path.join('presets', `${data.id}.json`), JSON.stringify(data, null, 2));
-  return path.join(app.getPath('userData'), 'presets', `${data.id}.json`);
+  const id = safeId(data && data.id);
+  if (!id) throw new Error('Preset id no válido');
+  saveToBoth(path.join('presets', `${id}.json`), JSON.stringify(data, null, 2));
+  return path.join(app.getPath('userData'), 'presets', `${id}.json`);
 });
 
 ipcMain.handle('load-presets', async () => {
@@ -228,7 +283,9 @@ ipcMain.handle('load-presets', async () => {
 });
 
 ipcMain.handle('delete-preset', async (_e, id) => {
-  deleteFromBoth(path.join('presets', `${id}.json`));
+  const safe = safeId(id);
+  if (!safe) throw new Error('Preset id no válido');
+  deleteFromBoth(path.join('presets', `${safe}.json`));
 });
 
 ipcMain.handle('window-action', (_e, action) => {
@@ -239,15 +296,24 @@ ipcMain.handle('window-action', (_e, action) => {
   else if (action === 'fullscreen') mainWindow.setFullScreen(!mainWindow.isFullScreen());
 });
 
-ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type }) => {
+// Builds a portable livepads:// URL from a path relative to userData.
+function toLivepadsUrl(relPath) {
+  const cleaned = relPath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const encoded = cleaned.split('/').map(encodeURIComponent).join('/');
+  return `livepads://app/${encoded}`;
+}
+
+ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
+  if (typeof sourcePath !== 'string' || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    throw new Error('sourcePath inválido');
+  }
   const folder = type === 'sequence' ? 'Sequences' : 'Original Tracks';
   const fileName = path.basename(sourcePath);
   const relPath = path.join(folder, fileName);
-  
+
   copyToBoth(sourcePath, relPath);
 
-  // Use sentinel format so rewritePaths() can relocate on any machine
-  return `file:///livepads/${relPath.replace(/\\/g, '/')}`;
+  return toLivepadsUrl(relPath);
 });
 
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {
@@ -266,21 +332,22 @@ ipcMain.handle('load-gi-setlist', async () => {
 });
 
 ipcMain.handle('sync-mongo-setlist', async () => {
-  let uri = 'mongodb+srv://kronnicxz_db_user:YHCzmMtoTqWcXJw6@cluster0.a2nvpzm.mongodb.net/gi-setlist?retryWrites=true&w=majority';
   const configPath = path.join(app.getPath('userData'), 'config.json');
-  
+  let uri = '';
+
   try {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config.mongoUri) {
-        uri = config.mongoUri;
-      }
-    } else {
-      // Auto-create config.json with default so they can customize it easily in userData directory
-      fs.writeFileSync(configPath, JSON.stringify({ mongoUri: uri }, null, 2), 'utf-8');
+      if (config && typeof config.mongoUri === 'string') uri = config.mongoUri.trim();
     }
   } catch (e) {
-    console.warn("Could not read config.json, using default:", e.message);
+    console.warn("Could not read config.json:", e.message);
+  }
+
+  if (!uri) {
+    const msg = `MongoDB URI no configurada. Edita ${configPath} y pega tu cadena de conexion en "mongoUri".`;
+    console.warn(msg);
+    throw new Error(msg);
   }
 
   try {
@@ -304,15 +371,26 @@ ipcMain.handle('sync-mongo-setlist', async () => {
 });
 
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
+  if (typeof relativePath !== 'string') return '';
+
+  // livepads://app/<rel> -> userData/<rel>
+  if (relativePath.startsWith('livepads://')) {
+    const rest = relativePath.slice('livepads://'.length).replace(/^app\//, '');
+    return path.join(app.getPath('userData'), decodeURIComponent(rest));
+  }
   if (relativePath.includes('/livepads/')) {
     const parts = relativePath.split('/livepads/');
-    return path.join(app.getPath('userData'), parts[1]);
+    return path.join(app.getPath('userData'), decodeURIComponent(parts[1]));
   }
   return path.join(__dirname, 'src', relativePath);
 });
 
 // Custom Drums
-ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId }) => {
+ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId } = {}) => {
+  if (typeof sourcePath !== 'string' || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    throw new Error('sourcePath inválido');
+  }
+  if (typeof padName !== 'string' || padName.length === 0) throw new Error('padName inválido');
   // Include kitId in prefix so each kit's files are isolated — prevents cross-kit deletion
   const safeKitId = (kitId || 'kit').replace(/[^a-z0-9]/gi, '_');
   const safePadName = padName.replace(/[^a-z0-9]/gi, '_');
@@ -340,8 +418,7 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId }) 
   
   copyToBoth(sourcePath, relPath);
 
-  // Use sentinel format so rewritePaths() can relocate on any machine
-  return `file:///livepads/${relPath.replace(/\\/g, '/')}`;
+  return toLivepadsUrl(relPath);
 });
 
 ipcMain.handle('save-user-drums', async (_e, kitMap) => {
@@ -372,10 +449,74 @@ ipcMain.handle('load-midi-map', async () => {
   return null;
 });
 
+// ── Chord/Lyrics URL importer ────────────────────────────────
+// Whitelist of public chord sites we trust to fetch from. Renderer cannot
+// reach arbitrary URLs directly (webSecurity:true); this handler does the
+// fetch in main with strict timeout + domain validation, then returns the
+// raw HTML for the renderer to parse.
+const CHORD_SOURCE_WHITELIST = new Set([
+  'acordes.lacuerda.net',
+  'lacuerda.net',
+  'www.lacuerda.net'
+]);
+
+ipcMain.handle('fetch-chord-url', async (_e, url) => {
+  if (typeof url !== 'string' || !url.trim()) throw new Error('URL vacía');
+  let parsed;
+  try { parsed = new URL(url.trim()); }
+  catch { throw new Error('URL inválida'); }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Sólo http/https');
+  }
+  if (!CHORD_SOURCE_WHITELIST.has(parsed.hostname)) {
+    throw new Error(`Dominio no soportado: ${parsed.hostname}\nActualmente: ${[...CHORD_SOURCE_WHITELIST].join(', ')}`);
+  }
+
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), 10000);
+  try {
+    const resp = await fetch(parsed.toString(), {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'LivePads/1.0 (offline-music-app)' }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const ct = resp.headers.get('content-type') || '';
+    if (!/text\/html|application\/xhtml/i.test(ct)) {
+      throw new Error('La página no es HTML: ' + ct);
+    }
+    return await resp.text();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('Timeout (>10s)');
+    throw e;
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 /* ── App lifecycle ─────────────────────────────────── */
 
 initializeUserData(); // Run copy of defaults to userData on boot
 
-app.whenReady().then(createWindow);
+// Resolve a livepads://app/<rel> URL to an absolute file path under userData.
+function resolveLivepadsUrl(reqUrl) {
+  const after = reqUrl.slice('livepads://'.length); // e.g. 'app/UserDrums/foo.mp3'
+  const withoutHost = after.replace(/^app\/?/, '');
+  const decoded = decodeURIComponent(withoutHost);
+  return path.join(app.getPath('userData'), decoded);
+}
+
+app.whenReady().then(() => {
+  protocol.handle('livepads', async (request) => {
+    try {
+      const filePath = resolveLivepadsUrl(request.url);
+      return await net.fetch(pathToFileURL(filePath).toString());
+    } catch (e) {
+      console.warn('livepads:// fetch failed for', request.url, e.message);
+      return new Response('Not Found', { status: 404 });
+    }
+  });
+  createWindow();
+});
 app.on('window-all-closed', () => app.quit());
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
