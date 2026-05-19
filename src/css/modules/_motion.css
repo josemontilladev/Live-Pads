@@ -1,0 +1,169 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Motion + tactile polish (Fase 32)
+   ─────────────────────────────────────────────────────────────────────
+   Premium feel comes from how things RESPOND to touch, not from how
+   pretty they sit still. This layer adds:
+
+     1. A consistent press-down feedback (scale 0.96) for clickable
+        chrome — feels like the button "gives" under the pointer.
+     2. Apple-style spring easing on releases — settles back with a
+        subtle overshoot suggestion instead of robotic linear decay.
+     3. Theme-aware :focus-visible rings (offset + glow). Critical for
+        keyboard accessibility and looks intentional in the dark UI.
+     4. Inner-shadow depth cue on drum/key hover — makes the pads feel
+        like physical surfaces lit from above.
+
+   The shared timing tokens live as CSS vars on :root so we can retune
+   the global feel in one place without hunting through modules.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Material 3 standard easing for press-down — fast, decisive. */
+  --ease-press:   cubic-bezier(0.4, 0, 0.2, 1);
+  /* Apple-style spring for release — overshoot-suggesting, "alive". */
+  --ease-spring:  cubic-bezier(0.32, 0.72, 0, 1);
+  /* Standard release curve (no overshoot) for non-tactile transitions. */
+  --ease-release: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --press-scale: 0.96;
+}
+
+/* ── Press-down feedback ──────────────────────────────────────────────
+   Applies to all touchable chrome. Excludes:
+     - .key-btn / .drum-btn — already have their own .active / .hit
+       press states tuned for live performance feedback.
+     - input/select — browsers handle these.
+     - .gi-song-item — full-row press isn't useful; clicks dispatch via
+       delegation, the body of the card isn't itself "pressed".
+   The 60ms press is intentionally faster than the release for a snappy
+   "clicked!" sensation; release is ~180ms spring for the "settle". */
+
+.icon-btn,
+.action-btn,
+.menu-item,
+.gi-edit-btn,
+.s-toggle,
+.stab,
+.kit-action-btn,
+.metro-mult-btn,
+.metro-adj,
+.tap-btn,
+.import-url-btn,
+.btn-preview-toggle,
+.lyrics-modal-close,
+.lyrics-edit-btn,
+.chord-toggle-btn,
+.format-tool-btn,
+.transpose-btn,
+.sidebar-close-btn,
+.d-ok,
+.d-cancel,
+.dialog-actions button {
+  transition:
+    transform 180ms var(--ease-spring),
+    background 150ms var(--ease-press),
+    border-color 150ms var(--ease-press),
+    color 150ms var(--ease-press),
+    box-shadow 150ms var(--ease-press);
+}
+.icon-btn:active,
+.action-btn:active,
+.menu-item:active,
+.gi-edit-btn:active,
+.s-toggle:active,
+.stab:active,
+.kit-action-btn:active,
+.metro-mult-btn:active,
+.metro-adj:active,
+.import-url-btn:active,
+.btn-preview-toggle:active,
+.lyrics-modal-close:active,
+.lyrics-edit-btn:active,
+.chord-toggle-btn:active,
+.format-tool-btn:active,
+.transpose-btn:active,
+.sidebar-close-btn:active,
+.d-ok:active,
+.d-cancel:active,
+.dialog-actions button:active {
+  transform: scale(var(--press-scale));
+  transition-duration: 60ms;
+}
+
+/* ── Focus-visible rings (keyboard navigation) ────────────────────────
+   :focus-visible only matches keyboard focus, not mouse click — so the
+   ring shows up when you tab/arrow into a control but stays invisible
+   for pointer users. Ring is theme-aware (uses --accent + --glow). */
+
+.icon-btn:focus-visible,
+.action-btn:focus-visible,
+.menu-item:focus-visible,
+.gi-edit-btn:focus-visible,
+.s-toggle:focus-visible,
+.stab:focus-visible,
+.metro-mult-btn:focus-visible,
+.metro-adj:focus-visible,
+.tap-btn:focus-visible,
+.kit-action-btn:focus-visible,
+.import-url-btn:focus-visible,
+.btn-preview-toggle:focus-visible,
+.gi-edit-input:focus-visible,
+.metro-dropdown:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent),
+    0 0 16px var(--glow);
+}
+
+/* Window-management buttons (min/max/close) keep flat focus — they sit
+   on the topbar chrome and a glow there would look out of place. */
+.wm-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ── Tactile depth on the pads ────────────────────────────────────────
+   The drum + key pads are the most-touched controls. A subtle inset
+   shadow on hover adds a "lit from above" 3D suggestion — feels like
+   real hardware. Effect is GPU-cheap (single inset box-shadow) and
+   stays out of the way on active/hit states.
+   We layer onto the existing :hover declarations in _layout.css. */
+
+.key-btn:hover:not(.active):not(.prepared) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -10px 24px -8px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.drum-btn:hover:not(.hit):not(:active) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -8px 20px -6px rgba(0, 0, 0, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────
+   Respect users who've enabled the OS-level "reduce motion" setting.
+   Disable scale/transform animations but keep colour transitions for
+   normal feedback. */
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn, .action-btn, .menu-item, .gi-edit-btn, .s-toggle,
+  .stab, .kit-action-btn, .metro-mult-btn, .metro-adj,
+  .tap-btn, .import-url-btn, .btn-preview-toggle, .lyrics-modal-close,
+  .lyrics-edit-btn, .chord-toggle-btn, .format-tool-btn, .transpose-btn,
+  .d-ok, .d-cancel, .dialog-actions button {
+    transition-duration: 0ms;
+  }
+  .icon-btn:active, .action-btn:active, .menu-item:active,
+  .gi-edit-btn:active, .s-toggle:active, .stab:active,
+  .kit-action-btn:active, .metro-mult-btn:active, .metro-adj:active,
+  .import-url-btn:active, .btn-preview-toggle:active,
+  .lyrics-modal-close:active, .lyrics-edit-btn:active,
+  .chord-toggle-btn:active, .format-tool-btn:active,
+  .transpose-btn:active, .d-ok:active, .d-cancel:active,
+  .dialog-actions button:active {
+    transform: none;
+  }
+}

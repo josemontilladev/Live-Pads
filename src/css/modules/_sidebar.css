@@ -21,8 +21,35 @@
   border-left: 1px solid var(--border-strong);
   display: flex; flex-direction: column;
   box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+  position: relative; /* anchor for .sidebar-close-btn */
 }
-.sidebar-tabs { display: flex; padding: 14px 14px 0; gap: 6px; }
+
+/* X-button anchored to the top-right of the sidebar. The tabs row keeps
+   its own horizontal padding so the close button overlaps it visually
+   without disturbing the tab layout. */
+.sidebar-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.sidebar-close-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--glow);
+}
+
+.sidebar-tabs { display: flex; padding: 14px 44px 0 14px; gap: 6px; }
 .stab {
   flex: 1; padding: 11px; background: transparent; border: none; color: var(--text-muted);
   font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;

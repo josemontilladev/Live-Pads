@@ -7,6 +7,7 @@
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
+import { getOpenAccordionServiceId } from '../state/store.js';
 
 let deps = null;
 
@@ -45,7 +46,7 @@ function buildCard(song, index, activeIdx) {
   el.draggable = true;
 
   const isActive = index === activeIdx;
-  const isLyricsOpen = song.serviceId && (song.serviceId === deps.getOpenAccordionId());
+  const isLyricsOpen = song.serviceId && (song.serviceId === getOpenAccordionServiceId());
   if (isActive) el.classList.add('active-song');
 
   el.innerHTML = songCardInnerHTML(song, {
@@ -64,7 +65,7 @@ export function repaintServiceCard(card, song) {
   if (!card) return;
   const idx = Array.prototype.indexOf.call(card.parentNode.children, card);
   const isActive = idx === deps.getActiveIndex();
-  const isLyricsOpen = song.serviceId && (song.serviceId === deps.getOpenAccordionId());
+  const isLyricsOpen = song.serviceId && (song.serviceId === getOpenAccordionServiceId());
   card.classList.toggle('active-song', !!isActive);
   card.innerHTML = songCardInnerHTML(song, {
     rowNumber: idx + 1,

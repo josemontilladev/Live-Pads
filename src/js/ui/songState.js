@@ -13,12 +13,12 @@
 import { q, qa } from '../utils/dom.js';
 import { getGiCardBySongId } from './giList.js';
 import { getActiveServiceIndex, getServiceSongs } from '../data/service.js';
-
-let deps = null;
-
-export function initSongState(_deps) {
-  deps = _deps;
-}
+import {
+  getSongs as getGiSongsFromStore,
+  getActiveSongId,
+  getOpenAccordionSongId, setOpenAccordionSongId,
+  getOpenAccordionServiceId, setOpenAccordionServiceId,
+} from '../state/store.js';
 
 // Targeted highlight update: toggles `.active-song` on at most two cards
 // (one in each list) — orders of magnitude cheaper than a full re-render
@@ -27,7 +27,7 @@ export function refreshActiveSongHighlights() {
   const giContainer = q('#gi-songs-container');
   if (giContainer) {
     giContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
-    const activeId = deps.getActiveGiSongId();
+    const activeId = getActiveSongId();
     if (activeId != null) {
       const match = getGiCardBySongId(activeId);
       if (match) match.classList.add('active-song');
@@ -56,24 +56,24 @@ export function refreshActiveSongHighlights() {
 export function toggleLyricsAccordion(song, isService) {
   const id = isService ? song.serviceId : song.id;
   const wasOpen = isService
-    ? (deps.getOpenAccordionServiceId() === id)
-    : (deps.getOpenAccordionSongId() === id);
+    ? (getOpenAccordionServiceId() === id)
+    : (getOpenAccordionSongId() === id);
 
   qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
   qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
 
   if (wasOpen) {
-    deps.setOpenAccordionSongId(null);
-    deps.setOpenAccordionServiceId(null);
+    setOpenAccordionSongId(null);
+    setOpenAccordionServiceId(null);
     return;
   }
 
   if (isService) {
-    deps.setOpenAccordionServiceId(id);
-    deps.setOpenAccordionSongId(null);
+    setOpenAccordionServiceId(id);
+    setOpenAccordionSongId(null);
   } else {
-    deps.setOpenAccordionSongId(id);
-    deps.setOpenAccordionServiceId(null);
+    setOpenAccordionSongId(id);
+    setOpenAccordionServiceId(null);
   }
 
   const containerSel = isService ? '#service-songs-container' : '#gi-songs-container';
@@ -116,7 +116,7 @@ export function toggleChordVisibility(song, isService, syncToLibrary = false) {
   );
 
   if (syncToLibrary && isService) {
-    const giSong = deps.getGiSongs().find(s => s.title === song.title && s.artist === song.artist);
+    const giSong = getGiSongsFromStore().find(s => s.title === song.title && s.artist === song.artist);
     if (giSong) {
       giSong.showChords = song.showChords;
       paintChordVisibility(getGiCardBySongId(giSong.id), giSong.showChords);

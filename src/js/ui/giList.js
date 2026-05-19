@@ -6,6 +6,12 @@
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
+import {
+  getSongs, setSongs,
+  getCurrentGenre,
+  getActiveSongId,
+  getOpenAccordionSongId,
+} from '../state/store.js';
 
 let deps = null;
 let renderToken = 0;
@@ -23,14 +29,14 @@ export function renderGiList(filter = '', editSongId = null) {
   if (!container) return;
   container.innerHTML = '';
 
-  const songs = deps.getSongs();
+  const songs = getSongs();
   if (!songs.length) {
     container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el botón de importar arriba.</div>';
     return;
   }
 
   const term = filter.toLowerCase();
-  const currentGenre = deps.getCurrentGenre();
+  const currentGenre = getCurrentGenre();
   const filtered = songs.filter(s => {
     const matchText = s.title.toLowerCase().includes(term) ||
                       (s.artist && s.artist.toLowerCase().includes(term));
@@ -89,8 +95,8 @@ function buildCard(song, idx, editSongId) {
   const el = document.createElement('div');
   el.className = 'gi-song-item';
   if (song.id != null) el.dataset.songId = String(song.id);
-  const activeId = deps.getActiveSongId();
-  const openAccId = deps.getOpenAccordionId();
+  const activeId = getActiveSongId();
+  const openAccId = getOpenAccordionSongId();
   const isActive = song.id && activeId && (song.id === activeId);
   const isLyricsOpen = song.id && (song.id === openAccId);
 
@@ -118,8 +124,8 @@ function buildCard(song, idx, editSongId) {
 export function repaintGiCard(card, song) {
   if (!card) return;
   const idx = Array.prototype.indexOf.call(card.parentNode.children, card);
-  const activeId = deps.getActiveSongId();
-  const openAccId = deps.getOpenAccordionId();
+  const activeId = getActiveSongId();
+  const openAccId = getOpenAccordionSongId();
   const isActive = song.id && activeId && (song.id === activeId);
   const isLyricsOpen = song.id && (song.id === openAccId);
   card.classList.toggle('active-song', !!isActive);
@@ -161,7 +167,7 @@ function ensureEmptyState() {
 }
 
 function findSong(songId) {
-  return deps.getSongs().find(s => String(s.id) === songId);
+  return getSongs().find(s => String(s.id) === songId);
 }
 
 // ── Delegation ────────────────────────────────────────────────────────
@@ -213,7 +219,7 @@ function initDelegation() {
         deps.persist();
         deps.updateFilterCounts();
         const sortChanged = oldTitle !== song.title;
-        const filterChanged = deps.getCurrentGenre() !== 'all' && oldGenre !== song.genre;
+        const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
         if (sortChanged || filterChanged) {
           const searchInput = q('#gi-search');
           renderGiList(searchInput ? searchInput.value : '');
@@ -224,7 +230,7 @@ function initDelegation() {
       }
       case 'edit-cancel':
         if (song.title === 'Nueva Canción' && !song.artist && !song.bpm && !song.key) {
-          deps.setSongs(deps.getSongs().filter(s => s.id !== song.id));
+          setSongs(getSongs().filter(s => s.id !== song.id));
           deps.persist();
           deps.updateFilterCounts();
           card.remove();
@@ -236,7 +242,7 @@ function initDelegation() {
         return;
       case 'remove':
         if (confirm('¿Estás seguro de eliminar esta canción de la librería?')) {
-          deps.setSongs(deps.getSongs().filter(s => s.id !== song.id));
+          setSongs(getSongs().filter(s => s.id !== song.id));
           deps.persist();
           deps.updateFilterCounts();
           card.remove();

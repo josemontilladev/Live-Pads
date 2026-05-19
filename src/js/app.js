@@ -1,17 +1,16 @@
 import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
-import { q, qa, esc, debounce } from './utils/dom.js';
-import { panShort } from './utils/format.js';
-import { songEditFormHTML } from './ui/songEditForm.js';
-import { songCardInnerHTML } from './ui/songCard.js';
+import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
-import { showDialog, hideDialog } from './ui/dialog.js';
+import { hideDialog } from './ui/dialog.js';
+import { bindKitControls } from './ui/kitControls.js';
+import { bindMixerControls } from './ui/mixerControls.js';
+import { bindMetronomeControls } from './ui/metronomeControls.js';
 import { applyTheme, buildThemesList, getCurrentTheme } from './ui/themes.js';
 import {
   initService, getServiceSongs, getActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
-  clearServiceList, serviceNextSong, servicePrevSong,
   reorderService, syncActiveByTitleArtist
 } from './data/service.js';
 import {
@@ -24,18 +23,19 @@ import {
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor
 } from './midi/midiMap.js';
-import {
-  hydrateCustomKitsInto, saveCustomKitsToStorage, createEmptyCustomKit
-} from './data/customKits.js';
+import { bindMidiHandlers } from './midi/midiBindings.js';
+import { hydrateCustomKitsInto } from './data/customKits.js';
 import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
 import { bindMongoSync } from './data/mongoSync.js';
+import { bindSetlistTabs } from './ui/setlistTabs.js';
+import { bindGiToolbar } from './ui/giToolbar.js';
 import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter.js';
 import { openSidebarTab, closeAllOverlays } from './ui/overlays.js';
 import { initDrumGrid, buildDrumGrid, hitDrum } from './ui/drumGrid.js';
 import { initMetroBeatDots, buildMetroBeatDots, onMetroBeat } from './ui/metroBeatDots.js';
 import { initDrumVolumes, buildDrumVolumes } from './ui/drumVolumes.js';
 import { KEYS_FLAT, KEYS_SHARP, KEY_MAP_PADS, KEY_MAP_DRUMS } from './data/musicConstants.js';
-import { syncSlider, syncPanSlider, bindToggle } from './utils/sliders.js';
+import { syncSlider } from './utils/sliders.js';
 import {
   initGiList, renderGiList,
   repaintGiCard, getGiCardBySongId
@@ -44,25 +44,31 @@ import {
   initServiceList, renderServiceList as renderServiceListModule
 } from './ui/serviceListView.js';
 import {
-  initSongState,
   refreshActiveSongHighlights,
   toggleLyricsAccordion,
   toggleChordVisibility,
 } from './ui/songState.js';
+import {
+  getSongs, setSongs,
+  setActiveSongId,
+  getPadBankIdx, setPadBankIdx,
+  getKitBankIdx, setKitBankIdx,
+  getActiveKey, setActiveKey,
+  getPreparedPadKey, setPreparedPadKey,
+  getUseFlats, setUseFlats,
+  getMetroRunning, setMetroRunning,
+  getIsEditKitMode,
+  getIsMidiLearnMode, setIsMidiLearnMode,
+  getMidiLearnTarget, setMidiLearnTarget,
+} from './state/store.js';
 
+// engine + metro are instance refs created at boot. Stay as module-scope
+// `let`s because they're imported by callsites within this file only; the
+// extracted modules receive them via getEngine()/getMetro() deps when they
+// need them. We could move them to the store too, but they have no
+// "reset" semantics — they're created once and live forever — so keeping
+// them here makes the boot sequence easier to follow.
 let engine, metro;
-let activeKey = null;
-let useFlats = false;
-let padBankIdx = 0, kitBankIdx = 0;
-let metroRunning = false;
-let giSetlistSongs = [];
-let currentGiGenre = 'all';
-let activeGiSongId = null;
-let openAccordionSongId = null;
-let openAccordionServiceId = null;
-let isEditKitMode  = false;
-let isMidiLearnMode = false;
-let midiLearnTarget = null;
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -97,21 +103,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   applyTheme(getCurrentTheme());
   initService({ render: renderServiceList, applyGiSong });
-  initSongState({
-    getActiveGiSongId: () => activeGiSongId,
-    getOpenAccordionSongId: () => openAccordionSongId,
-    setOpenAccordionSongId: (v) => { openAccordionSongId = v; },
-    getOpenAccordionServiceId: () => openAccordionServiceId,
-    setOpenAccordionServiceId: (v) => { openAccordionServiceId = v; },
-    getGiSongs: () => giSetlistSongs,
-  });
+  // Note: GI library state (songs, genre, active id, accordion ids) lives
+  // in src/js/state/store.js. The modules below read/write it directly —
+  // we only inject side-effectful callbacks they can't supply themselves.
   initGiList({
-    getSongs: () => giSetlistSongs,
-    setSongs: (s) => { giSetlistSongs = s; },
-    getCurrentGenre: () => currentGiGenre,
-    getActiveSongId: () => activeGiSongId,
-    getOpenAccordionId: () => openAccordionSongId,
-    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs); },
+    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs()); },
     onApplySong: applyGiSong,
     loadAndPlayTrack,
     addToService,
@@ -123,7 +119,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initServiceList({
     getSongs: getServiceSongs,
     getActiveIndex: getActiveServiceIndex,
-    getOpenAccordionId: () => openAccordionServiceId,
     persistServiceSongs: saveServiceSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
@@ -133,30 +128,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     toggleLyricsAccordion,
     toggleChordVisibility,
     syncLyricsToLibrary: (song) => {
-      const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (!giSong) return;
       giSong.lyrics = song.lyrics;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
       const giCard = getGiCardBySongId(giSong.id);
       if (giCard) repaintGiCard(giCard, giSong);
     },
     syncMetaToLibrary: (oldKey, song) => {
-      const giSong = giSetlistSongs.find(s => (s.title + '\x00' + s.artist) === oldKey);
+      const giSong = getSongs().find(s => (s.title + '\x00' + s.artist) === oldKey);
       if (!giSong) return;
       giSong.title = song.title;
       giSong.artist = song.artist;
       giSong.bpm = song.bpm;
       giSong.key = song.key;
       giSong.genre = song.genre;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
       // Title/artist may have moved the library card in sort order → full re-render.
       renderGiList(q('#gi-search').value);
     },
   });
   initDrumGrid({
     getEngine: () => engine,
-    getKitBankIdx: () => kitBankIdx,
-    isEditKit: () => isEditKitMode,
+    getKitBankIdx: () => getKitBankIdx(),
+    isEditKit: () => getIsEditKitMode(),
     onAfterBuild: () => { if (typeof updateKeyHints === 'function') updateKeyHints(); }
   });
   initDrumVolumes({ getEngine: () => engine, syncSlider });
@@ -166,12 +161,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncSlider,
     onAudioPathAssigned: (song, type, newPath) => {
       // Sync the new file path back into the library + persist + refresh views.
-      const giSong = giSetlistSongs.find(s => s.title === song.title && s.artist === song.artist);
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (giSong) {
         if (!giSong.audio) giSong.audio = {};
         giSong.audio[type] = newPath;
       }
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs);
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
       saveServiceSongs();
       const searchInput = q('#gi-search');
       if (searchInput) renderGiList(searchInput.value);
@@ -260,34 +255,34 @@ function buildBankSelects() {
   const kitSel = q('#kit-bank-select');
   if (padSel) {
     padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
-    padSel.value = padBankIdx;
+    padSel.value = getPadBankIdx();
     padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
   }
   if (kitSel) {
     kitSel.innerHTML = KIT_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
-    kitSel.value = kitBankIdx;
+    kitSel.value = getKitBankIdx();
     kitSel.onchange = (e) => loadKitBank(parseInt(e.target.value));
   }
 }
 
 /* ── PAD BANK ── */
 function loadPadBank(idx) {
-  padBankIdx = ((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length;
-  const bank = PAD_BANKS[padBankIdx];
+  setPadBankIdx(((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length);
+  const bank = PAD_BANKS[getPadBankIdx()];
   const padSel = q('#pad-bank-select');
-  if (padSel) padSel.value = padBankIdx;
+  if (padSel) padSel.value = getPadBankIdx();
   engine.setPadBank(bank);
-  if (activeKey) engine.playPad(activeKey);
+  if (getActiveKey()) engine.playPad(getActiveKey());
   
   // Save last selected Pad Bank persistently
-  localStorage.setItem('lastPadBankIdx', padBankIdx);
+  localStorage.setItem('lastPadBankIdx', getPadBankIdx());
 }
 
 function loadKitBank(idx) {
-  kitBankIdx = ((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length;
-  const kit = KIT_BANKS[kitBankIdx];
+  setKitBankIdx(((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length);
+  const kit = KIT_BANKS[getKitBankIdx()];
   const kitSel = q('#kit-bank-select');
-  if (kitSel) kitSel.value = kitBankIdx;
+  if (kitSel) kitSel.value = getKitBankIdx();
   
   // Show/hide the trash button + toggle edit pencil availability based on
   // whether the active kit is user-custom. Class-based so it stays themable.
@@ -310,16 +305,16 @@ function loadKitBank(idx) {
   });
   
   // Save last selected Kit Bank persistently
-  localStorage.setItem('lastKitBankIdx', kitBankIdx);
+  localStorage.setItem('lastKitBankIdx', getKitBankIdx());
 }
 
 /* ── KEY GRID ── */
 function buildKeyGrid() {
-  const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+  const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
   const grid = q('#key-grid'); grid.innerHTML = '';
   keys.forEach((key, keyIdx) => {
     const btn = document.createElement('button');
-    btn.className = 'key-btn' + (key === activeKey ? ' active' : '');
+    btn.className = 'key-btn' + (key === getActiveKey() ? ' active' : '');
     btn.dataset.key = key;
     btn.innerHTML = `<span>${key}</span><span class="kbd-hint">${KEY_MAP_PADS[keyIdx]}</span>`;
     btn.onclick = () => onKeyClick(key);
@@ -333,7 +328,7 @@ function updateKeyHints() {
 
   qa('.key-btn').forEach(btn => {
     const key = btn.dataset.key;
-    const padIdx = (useFlats ? KEYS_FLAT : KEYS_SHARP).indexOf(key);
+    const padIdx = (getUseFlats() ? KEYS_FLAT : KEYS_SHARP).indexOf(key);
     let hint = KEY_MAP_PADS[padIdx] || '';
     const found = findKeyboardMappingFor('pad', key);
     if (found) hint = cleanHint(found.key);
@@ -353,27 +348,26 @@ function updateKeyHints() {
 // clearMappingForTarget now lives in midi/midiMap.js (imported above).
 
 function onKeyClick(key) {
-  if (activeKey === key) { 
+  if (getActiveKey() === key) {
     engine.stopPad(5.0); // Smooth 5-second fade out on stop
-    activeKey = null; 
-    preparedPadKey = key; // Keep it prepared
+    setActiveKey(null); 
+    setPreparedPadKey(key); // Keep it prepared
     qa('.key-btn').forEach(b => {
       b.classList.remove('active');
       if(b.dataset.key === key) b.classList.add('prepared');
     });
   }
   else { 
-    engine.playPad(key, PAD_BANKS[padBankIdx].synth); 
-    activeKey = key; 
-    preparedPadKey = null;
+    engine.playPad(key, PAD_BANKS[getPadBankIdx()].synth); 
+    setActiveKey(key); 
+    setPreparedPadKey(null);
     qa('.key-btn').forEach(b => {
       b.classList.remove('prepared');
-      b.classList.toggle('active', b.dataset.key === activeKey);
+      b.classList.toggle('active', b.dataset.key === getActiveKey());
     });
   }
 }
 
-let preparedPadKey = null;
 
 // Drum grid (buildDrumGrid, hitDrum, assignSampleToPad) -> src/js/ui/drumGrid.js
 
@@ -386,106 +380,21 @@ let preparedPadKey = null;
 
 function bindAll() {
   bindTrackPlayerControls();
-  bindKitButtons();
+  bindKitControls({ buildBankSelects, loadKitBank });
   bindWindowControls();
   bindSidebarAndTabs();
   bindHamburgerMenu();
-  bindMixerControls();
-  bindMetronomeControls();
+  bindMixerControls({ getEngine: () => engine });
+  bindMetronomeControls({
+    getEngine: () => engine,
+    getMetro: () => metro,
+    toggleMetro,
+    applyBpm,
+    buildKeyGrid,
+  });
   bindRestOfApp();
 }
 
-function bindKitButtons() {
-  const btnCreateKit = q('#btn-create-kit');
-  if (btnCreateKit) {
-    btnCreateKit.onclick = () => {
-      // Exit edit mode first so contentEditable pads don't steal focus from the dialog
-      if (isEditKitMode) {
-        const btnEditKit = q('#btn-edit-kit');
-        if (btnEditKit) btnEditKit.click();
-      }
-      showDialog('Nuevo kit de batería', 'Ej. Worship Acoustic', (name) => {
-        if (!name || !name.trim()) return;
-        KIT_BANKS.unshift(createEmptyCustomKit(name.trim()));
-        saveCustomKitsToStorage();
-        buildBankSelects();
-        loadKitBank(0);
-      });
-    };
-  }
-
-  const btnDeleteKit = q('#btn-delete-kit');
-  if (btnDeleteKit) {
-    btnDeleteKit.onclick = () => {
-      const currentKit = KIT_BANKS[kitBankIdx];
-      if (!currentKit || !currentKit.isCustom) return;
-      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el kit "${currentKit.name}"?`)) {
-        KIT_BANKS.splice(kitBankIdx, 1);
-        saveCustomKitsToStorage();
-        buildBankSelects();
-        loadKitBank(0);
-      }
-    };
-  }
-
-  const btnEditKit = q('#btn-edit-kit');
-  if (btnEditKit) {
-    btnEditKit.onclick = () => {
-      const currentKit = KIT_BANKS[kitBankIdx];
-      if (!currentKit || !currentKit.isCustom) {
-        alert('Selecciona un kit personalizado primero.');
-        return;
-      }
-      
-      isEditKitMode = !isEditKitMode;
-      btnEditKit.style.color = isEditKitMode ? 'var(--blue)' : 'var(--text-muted)';
-      btnEditKit.style.borderColor = isEditKitMode ? 'var(--blue)' : 'transparent';
-      if (isEditKitMode) {
-        btnEditKit.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-      } else {
-        btnEditKit.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="18" height="18"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
-      }
-      
-      const kitSelect = q('#kit-bank-select');
-      const selectWrapper = kitSelect.parentElement;
-
-      if (isEditKitMode) {
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'edit-kit-name-input';
-        input.className = 'metro-dropdown';
-        input.style.width = '100%';
-        input.style.border = '1px solid var(--blue)';
-        input.value = currentKit.name;
-        kitSelect.style.display = 'none';
-        selectWrapper.insertBefore(input, kitSelect);
-        input.focus();
-      } else {
-        const input = q('#edit-kit-name-input');
-        if (input) {
-           const newName = input.value.trim() || 'Custom Kit';
-           currentKit.name = newName;
-           saveCustomKitsToStorage();
-           input.remove();
-        }
-        kitSelect.style.display = 'block';
-        buildBankSelects();
-        kitSelect.value = kitBankIdx;
-      }
-
-      qa('.drum-btn').forEach(b => {
-        const lbl = b.querySelector('.drum-label');
-        if (isEditKitMode) {
-           b.classList.add('edit-pulse');
-           if(lbl) lbl.contentEditable = true;
-        } else {
-           b.classList.remove('edit-pulse');
-           if(lbl) lbl.contentEditable = false;
-        }
-      });
-    };
-  }
-}
 
 function bindWindowControls() {
   const api = window.electronAPI;
@@ -502,6 +411,8 @@ function bindWindowControls() {
 function bindSidebarAndTabs() {
   q('#btn-settings-toggle').onclick = () => q('#sidebar').classList.toggle('open');
   q('#sidebar-overlay').onclick = () => q('#sidebar').classList.remove('open');
+  const btnClose = q('#btn-sidebar-close');
+  if (btnClose) btnClose.onclick = () => q('#sidebar').classList.remove('open');
 
   qa('.stab').forEach(btn => {
     btn.onclick = () => {
@@ -533,497 +444,37 @@ function bindHamburgerMenu() {
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
       closeMenu();
-      isMidiLearnMode = true;
-      midiLearnTarget = null;
+      setIsMidiLearnMode(true);
+      setMidiLearnTarget(null);
       q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: Haz clic en un botón de la app. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
     };
   }
 }
 
-function bindMixerControls() {
-  // Pad volume (stage + sidebar mirror)
-  const pvolStage = q('#pad-vol-stage'), pvolValStage = q('#pad-vol-val-stage');
-  const pvol = q('#pad-vol'), pvolVal = q('#pad-vol-val');
-  const updatePadVol = val => {
-    engine.setPadVolume(val / 100);
-    if (pvol) { pvol.value = val; pvolVal.textContent = val + '%'; syncSlider(pvol); }
-    if (pvolStage) { pvolStage.value = val; pvolValStage.textContent = val + '%'; syncSlider(pvolStage); }
-  };
-  if (pvolStage) pvolStage.oninput = () => updatePadVol(pvolStage.value);
-  if (pvol) pvol.oninput = () => updatePadVol(pvol.value);
-  if (pvol) syncSlider(pvol);
-  if (pvolStage) syncSlider(pvolStage);
-
-  // Pad pan
-  const ppanStage = q('#pad-pan-stage'), ppanValStage = q('#pad-pan-val-stage');
-  const ppan = q('#pad-pan'), ppanVal = q('#pad-pan-val');
-  const updatePadPan = val => {
-    engine.setPadPan(val / 100);
-    if (ppan) { ppan.value = val; ppanVal.textContent = panShort(val); syncPanSlider(ppan); }
-    if (ppanStage) { ppanStage.value = val; ppanValStage.textContent = panShort(val); syncPanSlider(ppanStage); }
-  };
-  if (ppanStage) ppanStage.oninput = () => updatePadPan(ppanStage.value);
-  if (ppan) ppan.oninput = () => updatePadPan(ppan.value);
-  if (ppanStage) updatePadPan(ppanStage.value);
-
-  // Drum master volume (drumGain node — all pads together)
-  const drumMasterVolStage    = q('#drum-master-vol-stage');
-  const drumMasterVolValStage = q('#drum-master-vol-val-stage');
-  const drumMasterVol         = q('#drum-master-vol');
-  const drumMasterVolVal      = q('#drum-master-vol-val');
-  const updateDrumMasterVol = val => {
-    engine.setDrumVolume(val / 100);
-    if (drumMasterVolStage) { drumMasterVolStage.value = val; drumMasterVolValStage.textContent = val + '%'; syncSlider(drumMasterVolStage); }
-    if (drumMasterVol)      { drumMasterVol.value = val;      drumMasterVolVal.textContent      = val + '%'; syncSlider(drumMasterVol); }
-  };
-  if (drumMasterVolStage) drumMasterVolStage.oninput = () => updateDrumMasterVol(drumMasterVolStage.value);
-  if (drumMasterVol)      drumMasterVol.oninput      = () => updateDrumMasterVol(drumMasterVol.value);
-  updateDrumMasterVol(80); // matches engine default
-
-  // Drum pan
-  const drumPanStage = q('#drum-pan-stage'), drumPanVal = q('#drum-pan-val-stage');
-  const updateDrumPan = () => {
-    engine.setDrumPan(drumPanStage.value / 100);
-    drumPanVal.textContent = panShort(drumPanStage.value);
-    syncPanSlider(drumPanStage);
-  };
-  drumPanStage.oninput = updateDrumPan;
-  updateDrumPan();
-
-  // LPF on the pad bus
-  const lpfStage = q('#pad-lpf-stage'), lpfToggleStage = q('#lpf-toggle-stage');
-  const lpf = q('#pad-lpf'), lpfToggle = q('#lpf-toggle');
-  const updateLPF = (val, on) => {
-    engine.setLPF(parseInt(val), on);
-    if (lpf) {
-      lpf.value = val;
-      lpfToggle.className = 'toggle-sw ' + (on ? 'on' : '');
-      syncSlider(lpf);
-    }
-    if (lpfStage) {
-      lpfStage.value = val;
-      lpfToggleStage.className = 'toggle-sw ' + (on ? 'on' : '');
-      syncSlider(lpfStage);
-    }
-  };
-  if (lpfStage) {
-    lpfStage.oninput = () => updateLPF(lpfStage.value, lpfToggleStage.classList.contains('on'));
-    bindToggle(lpfToggleStage, on => updateLPF(lpfStage.value, on));
-  }
-  if (lpf) {
-    lpf.oninput = () => updateLPF(lpf.value, lpfToggle.classList.contains('on'));
-    bindToggle(lpfToggle, on => updateLPF(lpf.value, on));
-    syncSlider(lpf);
-  }
-  if (lpfStage) syncSlider(lpfStage);
-
-  // Master volume (final stage)
-  const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
-  mvol.oninput = () => {
-    engine.setMasterVolume(mvol.value / 100);
-    mvolVal.textContent = mvol.value + '%';
-    syncSlider(mvol);
-  };
-  syncSlider(mvol);
-}
-
-function bindMetronomeControls() {
-  // Start/Stop
-  q('#btn-metro-main').onclick = toggleMetro;
-
-  // BPM controls — all delegate to the module-level applyBpm() helper.
-  const bpmSlider = q('#bpm-slider'), bpmDisp = q('#bpm-display');
-  bpmSlider.oninput = () => applyBpm(parseInt(bpmSlider.value));
-  q('#bpm-minus').onclick = () => applyBpm(metro.bpm - 1);
-  q('#bpm-plus').onclick  = () => applyBpm(metro.bpm + 1);
-  q('#tap-tempo').onclick = () => applyBpm(metro.tap());
-  syncSlider(bpmSlider);
-  q('#metro-bpm-live').textContent = metro.bpm + ' BPM';
-
-  // Click-to-edit inline BPM
-  bpmDisp.style.cursor = 'pointer';
-  bpmDisp.title = 'Hacer clic para editar BPM';
-  bpmDisp.onclick = () => {
-    if (q('#bpm-inline-input')) return; // already editing
-
-    const currentBpm = metro.bpm;
-    const input = document.createElement('input');
-    input.id = 'bpm-inline-input';
-    input.type = 'text';
-    input.value = currentBpm;
-
-    input.onkeydown = (e) => {
-      // Allow control keys (Backspace, Delete, arrows, Enter, Tab, Escape).
-      if (e.key.length === 1 && (e.key < '0' || e.key > '9')) e.preventDefault();
-    };
-
-    bpmDisp.innerHTML = '';
-    bpmDisp.appendChild(input);
-    input.focus();
-    input.select();
-
-    const commitChange = () => {
-      let val = parseInt(input.value);
-      if (isNaN(val) || val < 30) val = 30;
-      if (val > 300) val = 300;
-      applyBpm(val);
-    };
-
-    input.onblur = () => {
-      commitChange();
-    };
-
-    input.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        commitChange();
-      } else if (e.key === 'Escape') {
-        bpmDisp.textContent = currentBpm;
-      }
-    };
-  };
-
-  // Time signatures (ahora es un select dropdown)
-  const sigSelect = q('#metro-sig-select');
-  if (sigSelect) {
-    sigSelect.value = '4'; // 4/4 por defecto
-    sigSelect.onchange = (e) => {
-      const n = parseInt(e.target.value);
-      metro.setBeats(n);
-      buildMetroBeatDots(n);
-    };
-  }
-  metro.setBeats(4);
-  buildMetroBeatDots(4);
-
-  // Multiplier
-  q('#btn-mult-1').onclick = () => {
-    metro.multiplier = 1;
-    q('#btn-mult-1').classList.add('active');
-    q('#btn-mult-2').classList.remove('active');
-    if (metro.running) { metro.stop(); metro.start(); }
-  };
-  q('#btn-mult-2').onclick = () => {
-    metro.multiplier = 2;
-    q('#btn-mult-2').classList.add('active');
-    q('#btn-mult-1').classList.remove('active');
-    if (metro.running) { metro.stop(); metro.start(); }
-  };
-
-  // Accent toggle — acentúa el primer tiempo del compás (Removed, now click dots)
-
-
-  // Click sound — Select dropdown
-  metro.sound = 'cowbell';   // default
-  const soundSelect = q('#metro-sound-select');
-  if (soundSelect) {
-    soundSelect.value = 'cowbell';
-    soundSelect.onchange = (e) => {
-      const newSound = e.target.value;
-      // Decode the new sound's mp3 pair on demand (idempotent + deduped).
-      // Fire-and-forget — by the time the next beat schedules, buffers are ready.
-      engine.ensureClickSound(newSound);
-      metro.sound = newSound;
-    };
-  }
-
-  // Metro volume + pan
-  const metroVolSlider = q('#metro-vol-slider'), metroVolVal = q('#metro-vol-val');
-  metroVolSlider.oninput = () => {
-    metro.volume = metroVolSlider.value / 100;
-    metroVolVal.textContent = metroVolSlider.value + '%';
-    syncSlider(metroVolSlider);
-  };
-  syncSlider(metroVolSlider);
-
-  const metroPanSlider = q('#metro-pan-slider'), metroPanVal = q('#metro-pan-val');
-  const updateMetroPan = () => {
-    metro.pan = metroPanSlider.value / 100;
-    metroPanVal.textContent = panShort(metroPanSlider.value);
-    syncPanSlider(metroPanSlider);
-  };
-  metroPanSlider.oninput = updateMetroPan;
-  updateMetroPan();
-
-  // Notation — Select dropdown
-  const notSelect = q('#metro-notation-select');
-  if (notSelect) {
-    notSelect.addEventListener('change', (e) => {
-      useFlats = e.target.value === 'flats';
-      buildKeyGrid();
-    });
-  }
-}
 
 function bindRestOfApp() {
-  // GI-Setlist tab toggle. The header-button visibility (Import / Sync /
-  // AddPreset) per active tab is driven by a `data-active-tab` attribute
-  // on #panel-setlist, so the CSS owns the show/hide rules — much cleaner
-  // than 9 imperative `style.display = ...` assignments.
-  const panelSetlist = q('#panel-setlist');
-  qa('.s-toggle').forEach(btn => {
-    btn.onclick = () => {
-      qa('.s-toggle').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      q('#setlist-list').classList.add('hidden');
-      q('#gi-setlist-list').classList.add('hidden');
-      q('#service-setlist-list').classList.add('hidden');
-      q('#' + btn.dataset.target).classList.remove('hidden');
-      if (panelSetlist) panelSetlist.dataset.activeTab = btn.dataset.target;
-    };
-  });
-
-  // Initial sync of setlist header buttons
-  const activeToggle = q('.s-toggle.active');
-  if (activeToggle) activeToggle.click();
-
-  // Clear service list
-  const btnClear = q('#btn-clear-service');
-  if (btnClear) btnClear.onclick = clearServiceList;
-
-  const btnPrev = q('#btn-service-prev');
-  if (btnPrev) btnPrev.onclick = servicePrevSong;
-  const btnNext = q('#btn-service-next');
-  if (btnNext) btnNext.onclick = serviceNextSong;
-
+  bindSetlistTabs();
   bindMongoSync({
-    getSongs: () => giSetlistSongs,
-    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(giSetlistSongs); },
+    getSongs: () => getSongs(),
+    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs()); },
     rerender: renderGiList,
     updateFilterCounts,
     getSearchFilter: () => q('#gi-search')?.value || '',
   });
-
-  q('#btn-import-gi').onclick = () => q('#gi-file-input').click();
-  q('#gi-file-input').onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const json = JSON.parse(ev.target.result);
-        if (json.data && json.data.songs) {
-          giSetlistSongs = json.data.songs.map((s, idx) => {
-            if (!s.id) s.id = 'song_imp_' + idx + '_' + Date.now();
-            return s;
-          });
-          if (window.electronAPI && window.electronAPI.saveGiSetlist) {
-            window.electronAPI.saveGiSetlist(giSetlistSongs);
-          }
-          updateFilterCounts();
-          renderGiList();
-          // Switch to GI tab automatically
-          q('.s-toggle[data-target="gi-setlist-list"]').click();
-        } else {
-          alert('El archivo no parece ser un export de GI-Setlist válido.');
-        }
-      } catch (err) {
-        alert('Error al leer el archivo JSON.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  q('#gi-search').oninput = debounce((e) => renderGiList(e.target.value), 180);
-  
-  const btnAddGiSong = q('#btn-add-gi-song');
-  if (btnAddGiSong) {
-    btnAddGiSong.onclick = () => {
-      const newSong = {
-        id: 'song_' + Date.now(),
-        title: 'Nueva Canción',
-        artist: '',
-        bpm: '',
-        key: '',
-        genre: 'adoracion',
-        audio: {
-          sequence: null,
-          original: null
-        }
-      };
-      giSetlistSongs.push(newSong);
-      if (window.electronAPI && window.electronAPI.saveGiSetlist) {
-        window.electronAPI.saveGiSetlist(giSetlistSongs);
-      }
-      updateFilterCounts();
-      renderGiList(q('#gi-search').value, newSong.id);
-    };
-  }
-  
-  // Genre filter dropdown — replaces the inline chips with a popover menu
-  // anchored to the filter icon next to the search input. Keeps the search
-  // row compact so the first song card sits closer to the header.
-  const filterToggle = q('#btn-gi-filter-toggle');
-  const filterMenu = q('#gi-filter-menu');
-  const filterDot = q('#gi-filter-dot');
-
-  const refreshFilterActiveStates = () => {
-    qa('.gi-filter-option').forEach(opt => {
-      opt.classList.toggle('active', opt.dataset.genre === currentGiGenre);
-    });
-    const customFilter = currentGiGenre !== 'all';
-    if (filterToggle) filterToggle.classList.toggle('active', customFilter);
-    if (filterDot) filterDot.hidden = !customFilter;
-  };
-  refreshFilterActiveStates();
-
-  const closeFilterMenu = () => {
-    if (!filterMenu) return;
-    filterMenu.classList.add('hidden');
-    if (filterToggle) filterToggle.setAttribute('aria-expanded', 'false');
-  };
-
-  if (filterToggle && filterMenu) {
-    filterToggle.onclick = (e) => {
-      e.stopPropagation();
-      const willOpen = filterMenu.classList.contains('hidden');
-      filterMenu.classList.toggle('hidden');
-      filterToggle.setAttribute('aria-expanded', String(willOpen));
-    };
-    // Click anywhere outside closes the menu.
-    document.addEventListener('click', (e) => {
-      if (filterMenu.classList.contains('hidden')) return;
-      if (filterMenu.contains(e.target) || filterToggle.contains(e.target)) return;
-      closeFilterMenu();
-    });
-  }
-
-  qa('.gi-filter-option').forEach(opt => {
-    opt.onclick = (e) => {
-      e.stopPropagation();
-      currentGiGenre = opt.dataset.genre;
-      refreshFilterActiveStates();
-      closeFilterMenu();
-      renderGiList(q('#gi-search').value);
-    };
+  bindGiToolbar({ updateFilterCounts });
+  bindMidiHandlers({
+    getEngine: () => engine,
+    onKeyClick,
+    toggleMetro,
+    triggerMasterPlayPause,
+    triggerMasterStop,
   });
-
-  bindMidiHandlers();
   bindGlobalHandlers();
 }
 
 // MIDI listener (incoming notes/CC → mapped action) + the document-level
 // click capture that runs while Learn mode is active.
-function bindMidiHandlers() {
-  engine.initMIDI(msg => {
-    const [cmd, data1, data2] = msg.data;
-    const isNoteOn = cmd >= 144 && cmd <= 159;
-    const isCC = cmd >= 176 && cmd <= 191;
-
-    if (!isNoteOn && !isCC) return;
-    const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
-
-    if (isMidiLearnMode && midiLearnTarget) {
-      if (data2 > 0) {
-        clearMappingForTarget(midiLearnTarget, false);
-        addMapping(mapKey, midiLearnTarget);
-        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
-        midiLearnTarget = null;
-      }
-      return;
-    }
-
-    const mapping = getMapping(mapKey, data1);
-    if (mapping) {
-      if (mapping.action === 'slider') {
-        const sliderEl = q('#' + mapping.id);
-        if (sliderEl) {
-          const min = parseFloat(sliderEl.min) || 0;
-          const max = parseFloat(sliderEl.max) || 100;
-          sliderEl.value = min + ((data2 / 127) * (max - min));
-          sliderEl.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        return;
-      }
-
-      if (data2 > 0) {
-        if (mapping.action === 'pad') {
-          onKeyClick(mapping.id);
-        } else if (mapping.action === 'drum') {
-          const kit = KIT_BANKS[kitBankIdx];
-          if (!kit) return;
-          const pad = kit.pads.find(p => p.type === mapping.id);
-          if (pad) {
-            const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
-            if (btn) btn.classList.add('hit');
-            setTimeout(() => { if(btn) btn.classList.remove('hit'); }, 120);
-            if (!engine.playCustomDrum(pad.id, pad.id)) engine.playDrum(pad.type, pad.id);
-          }
-        } else if (mapping.action === 'metro') {
-          toggleMetro();
-        } else if (mapping.action === 'play_seq') {
-          triggerMasterPlayPause();
-        } else if (mapping.action === 'stop_seq') {
-          triggerMasterStop();
-        } else if (mapping.action === 'loop_seq') {
-          const btn = q('#tp-loop-btn'); if (btn) btn.click();
-        } else if (mapping.action === 'prev_song') {
-          servicePrevSong();
-        } else if (mapping.action === 'next_song') {
-          serviceNextSong();
-        }
-      }
-      return;
-    }
-
-    // Hardcoded fallback map
-    if (isNoteOn && data2 > 0) {
-      if (data1 >= 60 && data1 <= 71) {
-        const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
-        onKeyClick(keys[data1 - 60]);
-      } else {
-        const kit = KIT_BANKS[kitBankIdx];
-        if (!kit) return;
-        const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
-        const mappedType = typeMap[data1];
-        if (mappedType) {
-          const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
-          if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
-        }
-      }
-    }
-  });
-
-  // Midi Learn Intercept
-  document.addEventListener('click', (e) => {
-    if (!isMidiLearnMode) return;
-    
-    if (e.target.closest('#midi-learn-overlay')) {
-       isMidiLearnMode = false;
-       q('#midi-learn-overlay').style.display = 'none';
-       midiLearnTarget = null;
-       e.stopPropagation(); e.preventDefault();
-       return;
-    }
-
-    const keyBtn = e.target.closest('.key-btn');
-    const drumBtn = e.target.closest('.drum-btn');
-    const metroBtn = e.target.closest('#btn-metro-main');
-    const playSeqBtn = e.target.closest('#tp-play-btn');
-    const stopSeqBtn = e.target.closest('#tp-stop-btn');
-    const loopBtn = e.target.closest('#tp-loop-btn');
-    const prevBtn = e.target.closest('#btn-service-prev');
-    const nextBtn = e.target.closest('#btn-service-next');
-    const slider = e.target.closest('input[type="range"]');
-
-    let target = null;
-    if (keyBtn) target = { action: 'pad', id: keyBtn.dataset.key };
-    else if (drumBtn) target = { action: 'drum', id: drumBtn.dataset.type };
-    else if (metroBtn) target = { action: 'metro' };
-    else if (playSeqBtn) target = { action: 'play_seq' };
-    else if (stopSeqBtn) target = { action: 'stop_seq' };
-    else if (loopBtn) target = { action: 'loop_seq' };
-    else if (prevBtn) target = { action: 'prev_song' };
-    else if (nextBtn) target = { action: 'next_song' };
-    else if (slider && slider.id) target = { action: 'slider', id: slider.id };
-    else return; // unmappable
-
-    e.stopPropagation();
-    e.preventDefault();
-    midiLearnTarget = target;
-    q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
-  }, true);
-}
 
 // Document-level handlers that don't fit anywhere else: dialog cancel,
 // keyboard shortcuts, and click-outside-to-close for the bank pickers.
@@ -1037,13 +488,13 @@ function bindGlobalHandlers() {
 }
 
 function toggleMetro() {
-  metroRunning = metro.toggle();
+  setMetroRunning(metro.toggle());
   const btn = q('#btn-metro-main');
-  btn.innerHTML = metroRunning
+  btn.innerHTML = getMetroRunning()
     ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
     : '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>';
-  btn.classList.toggle('running', metroRunning);
-  if (!metroRunning) {
+  btn.classList.toggle('running', getMetroRunning());
+  if (!getMetroRunning()) {
     qa('.beat-dot').forEach(d => d.classList.remove('on'));
   }
 }
@@ -1069,26 +520,26 @@ function applyBpm(v) {
 function triggerMasterPlayPause() {
   // A session is "currently active" if the loaded track is playing, or — if
   // no track is loaded — the metronome is running.
-  const isCurrentlyActive = isTrackLoaded() ? isTrackPlaying() : metroRunning;
+  const isCurrentlyActive = isTrackLoaded() ? isTrackPlaying() : getMetroRunning();
 
   if (isCurrentlyActive) {
     triggerMasterStop();
   } else {
     // 1. Play the pad if not already active (if it crossfaded, it's already active!)
-    if (preparedPadKey && !activeKey) onKeyClick(preparedPadKey);
+    if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
 
     // 2. Play the track or the metronome
     if (isTrackLoaded()) {
       if (!isTrackPlaying()) clickPlayPause();
-    } else if (!metroRunning) {
+    } else if (!getMetroRunning()) {
       toggleMetro();
     }
   }
 }
 
 function triggerMasterStop() {
-  if (activeKey) onKeyClick(activeKey);
-  if (metroRunning) toggleMetro();
+  if (getActiveKey()) onKeyClick(getActiveKey());
+  if (getMetroRunning()) toggleMetro();
   if (isTrackPlaying()) clickPlayPause();
 }
 
@@ -1103,13 +554,13 @@ function onKey(e) {
 
   const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
   
-  if (isMidiLearnMode && midiLearnTarget) {
+  if (getIsMidiLearnMode() && getMidiLearnTarget()) {
     e.preventDefault();
-    clearMappingForTarget(midiLearnTarget, true);
-    addMapping(`kbd_${k}`, midiLearnTarget);
+    clearMappingForTarget(getMidiLearnTarget(), true);
+    addMapping(`kbd_${k}`, getMidiLearnTarget());
     const kName = k.replace('Key', '').replace('Digit', '');
-    q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${midiLearnTarget.action.toUpperCase()} a la tecla ${kName}. Selecciona otro o sal.`;
-    midiLearnTarget = null;
+    q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${getMidiLearnTarget().action.toUpperCase()} a la tecla ${kName}. Selecciona otro o sal.`;
+    setMidiLearnTarget(null);
     updateKeyHints();
     return;
   }
@@ -1121,7 +572,7 @@ function onKey(e) {
     if (mapping.action === 'pad') {
       onKeyClick(mapping.id);
     } else if (mapping.action === 'drum') {
-      const kit = KIT_BANKS[kitBankIdx];
+      const kit = KIT_BANKS[getKitBankIdx()];
       if (!kit) return;
       const pad = kit.pads.find(p => p.type === mapping.id);
       if (pad) {
@@ -1167,14 +618,14 @@ function onKey(e) {
     }
   }
 
-  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); activeKey = null; preparedPadKey = null; buildKeyGrid(); }
+  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); setActiveKey(null); setPreparedPadKey(null); buildKeyGrid(); }
 
   const padIdx = KEY_MAP_PADS.indexOf(kUpper);
-  if (padIdx !== -1) { const keys = useFlats ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
+  if (padIdx !== -1) { const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
 
   const drumIdx = KEY_MAP_DRUMS.indexOf(kUpper);
   if (drumIdx !== -1) {
-    const kit = KIT_BANKS[kitBankIdx];
+    const kit = KIT_BANKS[getKitBankIdx()];
     const pad = kit.pads[drumIdx];
     if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
   }
@@ -1196,12 +647,12 @@ function applyPreset(p) {
 /* ── GI-SETLIST LOGIC ── */
 
 // updateFilterCounts -> src/js/ui/genreFilter.js (passing the current songs list)
-const updateFilterCounts = () => updateFilterCountsModule(giSetlistSongs);
+const updateFilterCounts = () => updateFilterCountsModule(getSongs());
 
 async function loadGiSetlistFromFile() {
   const songs = await loadGiSetlistFromFileModule();
   if (!songs) return;
-  giSetlistSongs = songs;
+  setSongs(songs);
   updateFilterCounts();
   renderGiList();
 }
@@ -1220,8 +671,8 @@ const renderServiceList = renderServiceListModule;
 
 
 function applyGiSong(song) {
-  // Sync activeGiSongId
-  activeGiSongId = song.id;
+  // Sync active library song id in the store.
+  setActiveSongId(song.id);
 
   // Sync active service-list pointer by matching title+artist.
   syncActiveByTitleArtist(song);
@@ -1249,28 +700,28 @@ function applyGiSong(song) {
     // Check if flat or sharp — update the select dropdown
     const notSel = q('#metro-notation-select');
     if (key.includes('b')) {
-      useFlats = true;
+      setUseFlats(true);
       if (notSel) notSel.value = 'flats';
     } else {
-      useFlats = false;
+      setUseFlats(false);
       if (notSel) notSel.value = 'sharps';
     }
     buildKeyGrid();
     
     // Stop metronome if it is running
-    if (metroRunning) {
+    if (getMetroRunning()) {
       toggleMetro();
     }
     
     // Smooth transition or prepare the new key
-    const keys = useFlats ? KEYS_FLAT : KEYS_SHARP;
+    const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
     if (keys.includes(key)) {
-      if (activeKey) {
+      if (getActiveKey()) {
         // If a pad is playing, smoothly crossfade to the new key
         onKeyClick(key);
       } else {
         // If no pad is playing, just prepare the key for master trigger
-        preparedPadKey = key;
+        setPreparedPadKey(key);
         qa('.key-btn').forEach(b => {
           b.classList.remove('active', 'prepared');
           if (b.dataset.key === key) b.classList.add('prepared');
