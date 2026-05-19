@@ -133,34 +133,9 @@
   border-bottom: 1px solid var(--border);
   padding-bottom: 14px;
 }
-.about-shortcuts { text-align: left; font-size: 11px; }
-.about-shortcuts-title { color: #fff; }
-.about-shortcuts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-  color: var(--text-muted);
-}
-.about-shortcut-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  padding-bottom: 6px;
-}
-.about-shortcut-row--last { border-bottom: none; }
-
-/* Reusable monospaced keyboard chip — used in About + anywhere else
-   we want to render a typed key inline. */
-.kbd-chip {
-  background: var(--bg-surface);
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  color: #fff;
-}
+/* The About panel used to embed a mini-shortcuts list (.about-shortcuts*
+   + .kbd-chip). Removed once the dedicated "Atajos" sidebar tab landed —
+   keeping two surfaces in sync was busywork. */
 
 /* Kit action buttons (create / edit / delete) next to the kit dropdown. */
 .kit-action-btn {

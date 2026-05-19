@@ -15,11 +15,15 @@ const ICONS = {
 };
 
 export function showToast(message, type = 'info') {
+  // Toast container is anchored ABOVE the track-player bar (height 76px)
+  // so toasts never sit on top of the transport controls. Layout + style
+  // live in _modals.css (.toast-container, .toast, .toast--success, etc.)
+  // — this module only inserts/animates the DOM.
   let container = q('#toast-container');
   if (!container) {
     container = document.createElement('div');
     container.id = 'toast-container';
-    container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; pointer-events: none;';
+    container.className = 'toast-container';
     document.body.appendChild(container);
   }
 
@@ -27,18 +31,19 @@ export function showToast(message, type = 'info') {
   const icon = ICONS[type] || ICONS.info;
 
   const toast = document.createElement('div');
-  toast.style.cssText = `background: ${style.bg}; color: ${style.color}; border: ${style.border}; backdrop-filter: blur(8px); padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; box-shadow: 0 10px 25px rgba(0,0,0,0.3); opacity: 0; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px;`;
+  toast.className = `toast toast--${type}`;
+  // Per-type colour still set inline since it's a small finite set and
+  // keeps the global stylesheet from having to know every variant.
+  toast.style.background = style.bg;
+  toast.style.color = style.color;
+  toast.style.border = style.border;
   toast.innerHTML = `${icon}<span>${esc(message)}</span>`;
   container.appendChild(toast);
 
-  requestAnimationFrame(() => {
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-  });
+  requestAnimationFrame(() => toast.classList.add('toast--in'));
 
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(-20px)';
+    toast.classList.add('toast--out');
     setTimeout(() => toast.remove(), 300);
   }, 4000);
 }

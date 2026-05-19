@@ -13,6 +13,7 @@
 import { q, qa } from '../utils/dom.js';
 import { getGiCardBySongId } from './giList.js';
 import { getActiveServiceIndex, getServiceSongs } from '../data/service.js';
+import { refreshServiceMeta } from './serviceListView.js';
 import {
   getSongs as getGiSongsFromStore,
   getActiveSongId,
@@ -21,9 +22,12 @@ import {
 } from '../state/store.js';
 
 // Targeted highlight update: toggles `.active-song` on at most two cards
-// (one in each list) — orders of magnitude cheaper than a full re-render
-// of an 80-card library when the user just switches songs in live.
+// (one in each list) AND refreshes the "now playing" banner above the
+// setlist — orders of magnitude cheaper than a full re-render of an
+// 80-card library when the user just switches songs in live.
 export function refreshActiveSongHighlights() {
+  let nowPlayingSong = null;
+
   const giContainer = q('#gi-songs-container');
   if (giContainer) {
     giContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
@@ -31,6 +35,9 @@ export function refreshActiveSongHighlights() {
     if (activeId != null) {
       const match = getGiCardBySongId(activeId);
       if (match) match.classList.add('active-song');
+      // Source the banner data from the library copy so we always show
+      // the canonical title (service entries are clones, may have stale).
+      nowPlayingSong = getGiSongsFromStore().find(s => s.id === activeId) || null;
     }
   }
 
@@ -38,16 +45,55 @@ export function refreshActiveSongHighlights() {
   if (svcContainer) {
     svcContainer.querySelectorAll('.gi-song-item.active-song').forEach(el => el.classList.remove('active-song'));
     const idx = getActiveServiceIndex();
+    // Played-song fade: cards BEFORE the active one are dimmed so the user
+    // sees set progress at a glance. .played is removed from cards after
+    // the active index so going back to an earlier song "un-plays" it.
+    svcContainer.querySelectorAll('.gi-song-item').forEach((card, i) => {
+      card.classList.toggle('played', idx >= 0 && i < idx);
+    });
     if (idx >= 0) {
       const songs = getServiceSongs();
       const target = songs[idx];
       if (target && target.serviceId != null) {
         const sel = `.gi-song-item[data-service-id="${CSS.escape(String(target.serviceId))}"]`;
         const match = svcContainer.querySelector(sel);
-        if (match) match.classList.add('active-song');
+        if (match) {
+          match.classList.add('active-song');
+          // Smooth-scroll the active card into view ONLY if the service
+          // panel is the one currently visible (don't yank scroll while
+          // user is browsing Librería/Presets). nearest+block:center keeps
+          // the next song below it in eyeshot too.
+          if (svcContainer.offsetParent !== null) {
+            match.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+        // Service-side fallback when the song isn't in the library (rare —
+        // e.g. service entries that were never imported into the GI list).
+        if (!nowPlayingSong) nowPlayingSong = target;
       }
     }
   }
+
+  paintNowPlayingBanner(nowPlayingSong);
+  // Position indicator ("3 / 8") lives in the service meta — refresh on
+  // every active change since surgical updates skip the full render.
+  refreshServiceMeta();
+}
+
+// Show / hide / populate the "now playing" strip above the setlist tabs.
+// Hidden entirely when no song is active.
+function paintNowPlayingBanner(song) {
+  const banner = q('#now-playing-banner');
+  if (!banner) return;
+  if (!song) {
+    banner.classList.add('hidden');
+    return;
+  }
+  const titleEl  = q('#np-title');
+  const artistEl = q('#np-artist');
+  if (titleEl)  titleEl.textContent  = song.title || 'Sin título';
+  if (artistEl) artistEl.textContent = song.artist || '';
+  banner.classList.remove('hidden');
 }
 
 // Toggle a song's lyrics accordion open/closed WITHOUT a full re-render.

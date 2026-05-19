@@ -23,6 +23,7 @@ export function updateFilterCounts(songs) {
   const total     = songs.length;
   const alabanzas = countByGenre(songs, 'alabanza');
   const adoracion = countByGenre(songs, 'adoracion');
+  const favorites = songs.reduce((n, s) => n + (s.favorite ? 1 : 0), 0);
 
   const cAll = q('#gi-filter-count-all');
   if (cAll) cAll.textContent = String(total);
@@ -30,4 +31,6 @@ export function updateFilterCounts(songs) {
   if (cAla) cAla.textContent = String(alabanzas);
   const cAdo = q('#gi-filter-count-adoracion');
   if (cAdo) cAdo.textContent = String(adoracion);
+  const cFav = q('#gi-filter-count-favoritos');
+  if (cFav) cFav.textContent = String(favorites);
 }

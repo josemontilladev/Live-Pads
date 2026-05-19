@@ -63,7 +63,19 @@
 }
 .metro-main-btn:hover { filter: brightness(1.1); }
 .metro-main-btn:active { transform: scale(0.97); }
-.metro-main-btn.running { background: #ff4747; color: #fff; }
+.metro-main-btn.running {
+  background: #ff4747;
+  color: #fff;
+  /* Soft heartbeat while the metronome is running — pulses the glow,
+     not the size, so the button stays clickable without jittering its
+     target. Fixed 1.2s cadence reads as "alive" without competing with
+     the actual click track. */
+  animation: metro-running-pulse 1.2s ease-in-out infinite;
+}
+@keyframes metro-running-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 71, 0.45); }
+  50%      { box-shadow: 0 0 0 8px rgba(255, 71, 71, 0); }
+}
 
 /* Metro cards */
 .metro-card {
@@ -485,10 +497,23 @@ input.pan-slider {
     linear-gradient(120deg, var(--glow), transparent 70%),
     var(--bg-card);
   box-shadow: 0 0 14px var(--glow);
+  position: relative;
+}
+/* Left-edge accent bar — readable from across the room. The bar uses the
+   theme accent so it tints with the active palette. */
+.gi-song-item.active-song::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 4px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px var(--glow);
 }
 .gi-song-item.active-song .gi-song-title {
   color: var(--accent);
   font-weight: 800;
+  font-size: 15px;
 }
 .gi-song-item.active-song .gi-row-num {
   color: var(--accent) !important;
@@ -498,7 +523,26 @@ input.pan-slider {
 .gi-row-num-play { display: none; }
 .gi-song-item.active-song .gi-row-num-text { display: none; }
 .gi-song-item.active-song .gi-row-num-play { display: inline-block; }
-.drag-over { box-shadow: 0 -2px 0 var(--blue); }
+/* Drag-and-drop drop indicator (Service list). Renders a glowing
+   horizontal bar at the TOP of the card the dragged item would land
+   above — clearer signal than a subtle border-top. The dragged item
+   itself fades via .dragging defined above. */
+.gi-song-item.drag-over::after {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px; top: -3px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+  pointer-events: none;
+  /* Animate the bar growing in from 0 width so the cue feels precise. */
+  animation: drop-bar-in 0.14s ease-out;
+}
+@keyframes drop-bar-in {
+  from { transform: scaleX(0.6); opacity: 0; }
+  to   { transform: scaleX(1);   opacity: 1; }
+}
 
 /* ── Song Card layout (replaces inline styles in songCard.js) ── */
 .gi-song-row {
@@ -597,11 +641,24 @@ input.pan-slider {
   margin-bottom: 12px;
   padding: 0 4px;
 }
+.service-actions-text {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 .service-actions-label {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 700;
 }
+.service-actions-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+}
+.service-actions-meta:empty { display: none; }
 .service-actions-nav {
   display: flex;
   gap: 8px;
@@ -618,10 +675,14 @@ input.pan-slider {
 }
 .svg-nudge-up   { margin-top: -1px; }
 .svg-nudge-down { margin-top: 1px; }
+/* Service-list "vaciar" trash icon — destructive accent on hover. */
 .btn-clear-service {
-  font-size: 10px;
   color: #ff4747;
   margin-left: 8px;
+}
+.btn-clear-service:hover {
+  background: rgba(255, 71, 71, 0.12);
+  color: #ff4747;
 }
 
 /* Reusable empty-state box (dashed border + muted text) */
@@ -678,3 +739,247 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-edit-btn.save   { background: var(--blue); color: #000; border-color: var(--blue); font-weight: 700; }
 .gi-edit-btn.save:hover   { filter: brightness(1.08); }
 .gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); }
+
+/* ── "Now playing" banner ────────────────────────────────────────────
+   Anchored between the setlist header and the tab toggle, this strip
+   surfaces the currently-loaded song at a glance so the worship leader
+   can see "what's on" without scanning 80 cards. Hidden via .hidden
+   while no song is active (refreshActiveSongHighlights toggles it). */
+#now-playing-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background:
+    linear-gradient(95deg, var(--glow) 0%, transparent 60%),
+    var(--bg-card);
+  box-shadow: 0 0 14px var(--glow);
+  overflow: hidden;
+  position: relative;
+  /* Acts as a button now: clicking jumps to the active card in the library. */
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  transition: transform 0.18s var(--ease-spring, ease), filter 0.18s ease;
+}
+#now-playing-banner:hover { filter: brightness(1.08); }
+#now-playing-banner:active { transform: scale(0.985); }
+#now-playing-banner.hidden { display: none; }
+#now-playing-banner .np-jump {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0.7;
+}
+#now-playing-banner:hover .np-jump { opacity: 1; }
+
+/* Brief flash applied to the active card after clicking the banner — pulses
+   the existing accent glow once so the eye lands on it instantly. */
+.gi-song-item.flash-locate {
+  animation: card-flash 0.9s ease-out;
+}
+@keyframes card-flash {
+  0%   { box-shadow: 0 0 14px var(--glow); }
+  35%  { box-shadow: 0 0 36px var(--accent), 0 0 0 2px var(--accent); }
+  100% { box-shadow: 0 0 14px var(--glow); }
+}
+
+#now-playing-banner .np-icon {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+#now-playing-banner .np-text {
+  display: flex; flex-direction: column;
+  min-width: 0; /* allow truncation */
+  flex: 1;
+}
+#now-playing-banner .np-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.85;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+#now-playing-banner .np-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist:empty { display: none; }
+
+/* Loading state for action icon buttons (import JSON / future loaders).
+   Mirrors the pulse used by the MongoDB sync button so the visual
+   vocabulary stays consistent: dim + slow pulse + theme-accent tint. */
+.icon-btn.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
+  animation: pulse 1.1s infinite;
+  color: var(--accent);
+}
+
+/* Favorite star action button. Outlined by default (text-muted), filled
+   in accent colour when marked. Sits at the start of the action row so
+   it reads as an identity-property rather than another action. */
+.action-btn.btn-favorite { color: var(--text-muted); }
+.action-btn.btn-favorite.is-fav {
+  color: var(--accent);
+  filter: drop-shadow(0 0 4px var(--glow));
+}
+.action-btn.btn-favorite:hover { color: var(--accent); }
+
+/* Filter-menu "Favoritos" row — star icon already inline in HTML; this
+   just tints the row accent when it's the active filter. */
+.gi-filter-option--fav.active .gi-filter-option-label { color: var(--accent); }
+
+/* "Próxima" cue — the service card that's been staged by Tab. Distinct
+   from .active-song (which is "currently playing"). Dashed accent border
+   reads as "ready/waiting" without competing with the active-song bar. */
+.gi-song-item.queued-next {
+  border-color: var(--accent);
+  border-style: dashed;
+  box-shadow: 0 0 10px var(--glow);
+  position: relative;
+}
+.gi-song-item.queued-next::before {
+  content: 'PRÓXIMA';
+  position: absolute;
+  top: 4px; right: 8px;
+  background: var(--accent);
+  color: #000;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  box-shadow: 0 0 8px var(--glow);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Empty-state card for the Library tab — illustrated + CTA buttons.
+   Shown when getSongs().length === 0. The three CTAs proxy through to
+   the existing header buttons (sync / import / new). */
+.setlist-empty--cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+}
+.setlist-empty--cta .empty-icon {
+  color: var(--accent);
+  opacity: 0.55;
+  filter: drop-shadow(0 0 12px var(--glow));
+}
+.setlist-empty--cta h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+.setlist-empty--cta p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+.empty-cta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+.empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.empty-cta:hover { border-color: var(--accent); color: var(--accent); }
+.empty-cta--primary {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+.empty-cta--primary:hover { filter: brightness(1.08); color: #000; }
+
+/* Service-list "played" indicator — cards before the active index get
+   dimmed so the worship leader sees set progress. Toggle managed by
+   refreshActiveSongHighlights(). Returning to an earlier card un-plays
+   it (idx logic in songState.js). */
+#service-songs-container .gi-song-item.played {
+  opacity: 0.45;
+  filter: saturate(0.6);
+}
+#service-songs-container .gi-song-item.played:hover {
+  opacity: 0.9;
+  filter: none;
+}
+
+/* Drag-handle hint — songs are draggable but the affordance wasn't
+   obvious. On hover the row-number area swaps cursor to "grab" and we
+   show a faint 6-dot grip icon on the very left edge, so dragging
+   becomes discoverable without adding a permanent UI element.
+   Action buttons keep their normal pointer (so clicks aren't ambiguous). */
+.gi-song-item[draggable="true"]:hover .gi-song-row { cursor: grab; }
+.gi-song-item[draggable="true"]:active .gi-song-row { cursor: grabbing; }
+.gi-song-item[draggable="true"]::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 50%;
+  transform: translateY(-50%);
+  width: 4px; height: 18px;
+  background-image:
+    radial-gradient(circle, currentColor 1px, transparent 1.4px);
+  background-size: 4px 4px;
+  background-repeat: repeat-y;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.gi-song-item[draggable="true"]:hover::after { opacity: 0.55; }
+.gi-song-item.dragging::after,
+.gi-song-item.active-song::after,
+.gi-song-item.queued-next::after { opacity: 0 !important; }

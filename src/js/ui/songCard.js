@@ -28,6 +28,8 @@ const ICON_EDIT   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width
 const ICON_CLOSE  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 const ICON_PLAY   = '<svg viewBox="0 0 24 24" fill="var(--blue)" width="12" height="12" style="filter:drop-shadow(0 0 3px var(--blue));margin-right:1px;"><polygon points="5,3 19,12 5,21"/></svg>';
 const ICON_PENCIL = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const ICON_STAR_OUTLINE = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
 const ADD_BTN_HTML = `<button class="action-btn btn-add" data-action="add" title="Añadir al servicio">${ICON_ADD}</button>`;
 
@@ -70,6 +72,7 @@ export function songCardInnerHTML(song, opts) {
       </div>
     </div>
     <div class="gi-song-actions">
+      <button class="action-btn btn-favorite ${song.favorite ? 'is-fav' : ''}" data-action="toggle-favorite" title="${song.favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}" aria-pressed="${song.favorite ? 'true' : 'false'}">${song.favorite ? ICON_STAR_FILLED : ICON_STAR_OUTLINE}</button>
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="Ver letra y acordes" ${disabledAttr}>${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>

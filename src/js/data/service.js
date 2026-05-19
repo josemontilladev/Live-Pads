@@ -5,6 +5,8 @@
 // The render and applyGiSong functions live in app.js (heavy DOM logic),
 // so they are injected once at boot via initService(deps).
 
+import { confirmDialog } from '../ui/dialog.js';
+
 let serviceSongs = [];
 let activeServiceIndex = -1;
 
@@ -54,17 +56,31 @@ export function removeFromService(serviceId) {
 }
 
 export function clearServiceList() {
-  if (confirm('¿Vaciar toda la lista de servicio?')) {
-    serviceSongs = [];
-    saveServiceSongs();
-    triggerRender();
-  }
+  if (serviceSongs.length === 0) return;
+  confirmDialog({
+    title: 'Vaciar servicio',
+    message: `¿Quitar las ${serviceSongs.length} canciones del set de hoy? La librería no se ve afectada.`,
+    confirmLabel: 'Vaciar',
+    danger: true,
+    onConfirm: () => {
+      serviceSongs = [];
+      saveServiceSongs();
+      triggerRender();
+    }
+  });
 }
 
 export function serviceNextSong() {
   if (serviceSongs.length === 0) return;
   activeServiceIndex = (activeServiceIndex + 1) % serviceSongs.length;
   triggerApply(serviceSongs[activeServiceIndex]);
+}
+
+/** Read-only peek at the song that comes after the active one (no mutation). */
+export function peekNextServiceSong() {
+  if (serviceSongs.length === 0) return null;
+  const nextIdx = (activeServiceIndex + 1) % serviceSongs.length;
+  return serviceSongs[nextIdx];
 }
 
 export function servicePrevSong() {

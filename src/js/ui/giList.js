@@ -6,6 +6,7 @@
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
+import { confirmDialog } from './dialog.js';
 import {
   getSongs, setSongs,
   getCurrentGenre,
@@ -31,26 +32,75 @@ export function renderGiList(filter = '', editSongId = null) {
 
   const songs = getSongs();
   if (!songs.length) {
-    container.innerHTML = '<div class="setlist-empty">No hay canciones importadas. Usa el botón de importar arriba.</div>';
+    container.innerHTML = `
+      <div class="setlist-empty setlist-empty--cta">
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="42" height="42"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <h4>Tu librería está vacía</h4>
+        <p>Trae tus canciones desde MongoDB, importa un .json o crea una manualmente.</p>
+        <div class="empty-cta-row">
+          <button type="button" class="empty-cta" data-empty-action="sync">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            Sincronizar
+          </button>
+          <button type="button" class="empty-cta" data-empty-action="import">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Importar .json
+          </button>
+          <button type="button" class="empty-cta empty-cta--primary" data-empty-action="new">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nueva canción
+          </button>
+        </div>
+      </div>`;
+    // Wire the 3 CTAs through to the existing buttons in the header so we
+    // don't duplicate logic. They live as buttons, not real-action handlers.
+    container.querySelector('[data-empty-action="sync"]').onclick   = () => q('#btn-sync-gi')?.click();
+    container.querySelector('[data-empty-action="import"]').onclick = () => q('#btn-import-gi')?.click();
+    container.querySelector('[data-empty-action="new"]').onclick    = () => q('#btn-add-gi-song')?.click();
     return;
   }
 
-  const term = filter.toLowerCase();
+  // Search supports two modes:
+  //   - free text: matches title / artist (case-insensitive substring)
+  //   - "tono:X" or "key:X" prefix: filters by song.key starting with X
+  //     (e.g. "tono:g" matches G, Gm, G#, Gb \u2014 useful for finding songs
+  //     compatible with the current key on the fly)
+  const lower = filter.trim().toLowerCase();
+  const keyPrefix = (lower.startsWith('tono:') || lower.startsWith('key:'))
+    ? lower.replace(/^(tono|key):\s*/, '').trim()
+    : null;
+  const textTerm = keyPrefix === null ? lower : '';
+
   const currentGenre = getCurrentGenre();
   const filtered = songs.filter(s => {
-    const matchText = s.title.toLowerCase().includes(term) ||
-                      (s.artist && s.artist.toLowerCase().includes(term));
-    if (!matchText) return false;
+    if (keyPrefix !== null) {
+      // Empty key prefix \u2192 show all songs that HAVE a key set.
+      if (!s.key) return false;
+      if (!s.key.toLowerCase().startsWith(keyPrefix)) return false;
+    } else {
+      const matchText = s.title.toLowerCase().includes(textTerm) ||
+                        (s.artist && s.artist.toLowerCase().includes(textTerm));
+      if (!matchText) return false;
+    }
     if (currentGenre === 'all') return true;
+    if (currentGenre === 'favoritos') return !!s.favorite;
     const genre = s.genre ? s.genre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
     return genre.includes(currentGenre);
   });
 
-  filtered.sort((a, b) => {
-    if (a.id === editSongId) return -1;
-    if (b.id === editSongId) return 1;
-    return a.title.localeCompare(b.title);
-  });
+  // Library now renders in the songs[] array order so drag-and-drop reorder
+  // sticks. The only forced override is editSongId — when the user just
+  // added a new song, we pin it to the top so the inline edit form is
+  // visible without scrolling.
+  if (editSongId) {
+    filtered.sort((a, b) => {
+      if (a.id === editSongId) return -1;
+      if (b.id === editSongId) return 1;
+      return 0;
+    });
+  }
 
   if (!filtered.length) {
     container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
@@ -95,6 +145,9 @@ function buildCard(song, idx, editSongId) {
   const el = document.createElement('div');
   el.className = 'gi-song-item';
   if (song.id != null) el.dataset.songId = String(song.id);
+  el.dataset.libIndex = String(idx);
+  // Editing → no drag (the textarea/inputs need to keep focus + cursor).
+  el.draggable = editSongId !== song.id;
   const activeId = getActiveSongId();
   const openAccId = getOpenAccordionSongId();
   const isActive = song.id && activeId && (song.id === activeId);
@@ -192,6 +245,20 @@ function initDelegation() {
       case 'play-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
       case 'play-orig': deps.loadAndPlayTrack(song, 'original'); return;
       case 'add':       handleAddToService(song, card, actionEl); return;
+      case 'toggle-favorite':
+        song.favorite = !song.favorite;
+        deps.persist();
+        deps.updateFilterCounts();
+        // If user is currently filtering by favorites and just un-favorited,
+        // the card no longer matches the filter → drop it from the DOM.
+        if (getCurrentGenre() === 'favoritos' && !song.favorite) {
+          card.remove();
+          renumberGiCards();
+          ensureEmptyState();
+        } else {
+          repaintGiCard(card, song);
+        }
+        return;
       case 'toggle-lyrics': deps.toggleLyricsAccordion(song, false); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, false); return;
       case 'edit-lyrics':
@@ -241,14 +308,20 @@ function initDelegation() {
         }
         return;
       case 'remove':
-        if (confirm('¿Estás seguro de eliminar esta canción de la librería?')) {
-          setSongs(getSongs().filter(s => s.id !== song.id));
-          deps.persist();
-          deps.updateFilterCounts();
-          card.remove();
-          renumberGiCards();
-          ensureEmptyState();
-        }
+        confirmDialog({
+          title: 'Eliminar canción',
+          message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
+          confirmLabel: 'Eliminar',
+          danger: true,
+          onConfirm: () => {
+            setSongs(getSongs().filter(s => s.id !== song.id));
+            deps.persist();
+            deps.updateFilterCounts();
+            card.remove();
+            renumberGiCards();
+            ensureEmptyState();
+          }
+        });
         return;
       case 'edit-form-shell':
         // Wrapper exists only to swallow row-body clicks while editing.
@@ -257,6 +330,51 @@ function initDelegation() {
 
     // No action button matched — clicked on row body (title/artist/badges)
     deps.onApplySong(song);
+  });
+
+  // Drag-and-drop reorder. Same delegation pattern as the service list:
+  // dragstart fades the dragged row, dragover highlights the drop target,
+  // drop swaps positions in the songs[] array via setSongs() then refresh.
+  // We disable native-drag while editing (handled in buildCard via
+  // `draggable = false` on the editing card) so input cursors aren't
+  // hijacked by drag.
+  container.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (!card || !container.contains(card)) return;
+    card.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', card.dataset.libIndex || '');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  container.addEventListener('dragend', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (card) card.classList.remove('dragging');
+  });
+  container.addEventListener('dragover', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (!card || !container.contains(card)) return;
+    e.preventDefault();
+    card.classList.add('drag-over');
+  });
+  container.addEventListener('dragleave', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (card) card.classList.remove('drag-over');
+  });
+  container.addEventListener('drop', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (!card || !container.contains(card)) return;
+    e.preventDefault();
+    card.classList.remove('drag-over');
+    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+    const toIndex   = parseInt(card.dataset.libIndex, 10);
+    if (fromIndex === toIndex || !Number.isFinite(fromIndex) || !Number.isFinite(toIndex)) return;
+    // Mutate in place to preserve the array reference (other modules
+    // hold the same one via getSongs()).
+    const arr = getSongs();
+    const [moved] = arr.splice(fromIndex, 1);
+    arr.splice(toIndex, 0, moved);
+    deps.persist();
+    const searchInput = q('#gi-search');
+    renderGiList(searchInput ? searchInput.value : '');
   });
 }
 

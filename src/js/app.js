@@ -4,6 +4,8 @@ import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { hideDialog } from './ui/dialog.js';
+import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
+import { openPreflight } from './ui/preflight.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
 import { bindMetronomeControls } from './ui/metronomeControls.js';
@@ -11,7 +13,8 @@ import { applyTheme, buildThemesList, getCurrentTheme } from './ui/themes.js';
 import {
   initService, getServiceSongs, getActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
-  reorderService, syncActiveByTitleArtist
+  reorderService, syncActiveByTitleArtist, peekNextServiceSong,
+  serviceNextSong, servicePrevSong
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
@@ -50,6 +53,7 @@ import {
 } from './ui/songState.js';
 import {
   getSongs, setSongs,
+  getActiveSongId as getActiveSongIdFromStore,
   setActiveSongId,
   getPadBankIdx, setPadBankIdx,
   getKitBankIdx, setKitBankIdx,
@@ -135,6 +139,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const giCard = getGiCardBySongId(giSong.id);
       if (giCard) repaintGiCard(giCard, giSong);
     },
+    syncFavoriteToLibrary: (song) => {
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
+      if (!giSong) return;
+      giSong.favorite = !!song.favorite;
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      updateFilterCounts();
+      const giCard = getGiCardBySongId(giSong.id);
+      if (giCard) repaintGiCard(giCard, giSong);
+    },
     syncMetaToLibrary: (oldKey, song) => {
       const giSong = getSongs().find(s => (s.title + '\x00' + s.artist) === oldKey);
       if (!giSong) return;
@@ -195,6 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildKeyGrid();
   buildMetroBeatDots(4);
   buildThemesList();
+  ensureShortcutsRendered();
   loadServiceSongs();
   bindAll();
   initPresets({ onApply: applyPreset });
@@ -347,19 +361,34 @@ function updateKeyHints() {
 
 // clearMappingForTarget now lives in midi/midiMap.js (imported above).
 
+// Stop fade is 5 s; while it's running the pad button shows a draining
+// progress bar via .fading-out — visual cue so the user knows audio is
+// still tailing out and can predict when the tail ends.
+const PAD_STOP_FADE_S = 5.0;
+
 function onKeyClick(key) {
+  // Any prior fade visualisation on any key is no longer relevant the
+  // moment another pad event happens. Clear before we set new state.
+  qa('.key-btn.fading-out').forEach(b => b.classList.remove('fading-out'));
+
   if (getActiveKey() === key) {
-    engine.stopPad(5.0); // Smooth 5-second fade out on stop
-    setActiveKey(null); 
+    engine.stopPad(PAD_STOP_FADE_S);
+    setActiveKey(null);
     setPreparedPadKey(key); // Keep it prepared
     qa('.key-btn').forEach(b => {
       b.classList.remove('active');
-      if(b.dataset.key === key) b.classList.add('prepared');
+      if (b.dataset.key === key) {
+        b.classList.add('prepared');
+        b.classList.add('fading-out');
+        // Auto-clear once the fade completes. Re-check in case the
+        // user has triggered another key in the meantime — the class
+        // may have been removed already.
+        setTimeout(() => b.classList.remove('fading-out'), PAD_STOP_FADE_S * 1000);
+      }
     });
-  }
-  else { 
-    engine.playPad(key, PAD_BANKS[getPadBankIdx()].synth); 
-    setActiveKey(key); 
+  } else {
+    engine.playPad(key, PAD_BANKS[getPadBankIdx()].synth);
+    setActiveKey(key);
     setPreparedPadKey(null);
     qa('.key-btn').forEach(b => {
       b.classList.remove('prepared');
@@ -440,6 +469,14 @@ function bindHamburgerMenu() {
   };
   q('#menu-about').onclick = () => { closeMenu(); openSidebarTab('about'); };
 
+  const btnPreflight = q('#menu-preflight');
+  if (btnPreflight) {
+    btnPreflight.onclick = () => {
+      closeMenu();
+      openPreflight({ getEngine: () => engine });
+    };
+  }
+
   const btnMidiLearn = q('#menu-midi-learn');
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
@@ -481,10 +518,35 @@ function bindRestOfApp() {
 function bindGlobalHandlers() {
   q('#dialog-cancel').onclick = hideDialog;
   document.addEventListener('keydown', onKey);
+
+  const btnHelp = q('#btn-help');
+  if (btnHelp) {
+    btnHelp.onclick = () => isCheatSheetOpen() ? closeCheatSheet() : openCheatSheet();
+  }
   document.addEventListener('click', () => {
     q('#pad-bank-picker').classList.add('hidden');
     q('#kit-bank-picker').classList.add('hidden');
   });
+
+  // Now-playing banner: jump to the active library card on click. Switches
+  // to the Librería tab (in case the user is on Servicio/Presets), scrolls
+  // the card into view, and pulses a flash so the eye lands on it instantly.
+  const npBanner = q('#now-playing-banner');
+  if (npBanner) {
+    npBanner.onclick = () => {
+      const activeId = getActiveSongIdFromStore();
+      if (activeId == null) return;
+      const libTab = q('.s-toggle[data-target="gi-setlist-list"]');
+      if (libTab && !libTab.classList.contains('active')) libTab.click();
+      const card = getGiCardBySongId(activeId);
+      if (!card) return;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.remove('flash-locate');
+      // Restart the animation by yielding a frame before re-adding the class.
+      requestAnimationFrame(() => card.classList.add('flash-locate'));
+      setTimeout(() => card.classList.remove('flash-locate'), 950);
+    };
+  }
 }
 
 function toggleMetro() {
@@ -515,6 +577,46 @@ function applyBpm(v) {
   if (disp) disp.textContent = metro.bpm;
   const live = q('#metro-bpm-live');
   if (live) live.textContent = metro.bpm + ' BPM';
+}
+
+// Stage the next service song's key as the prepared pad. Normalises the
+// raw key string (handles Spanish names + flat/sharp notation) the same
+// way applyGiSong() does, then sets prepared visual on the matching pad
+// button. Space press will then start playback on that key.
+// Also marks the corresponding service card as `.queued-next` so the user
+// sees WHICH card they've staged, not just an abstract "prepared" pad.
+function prepareNextSongKey(song) {
+  if (!song) return;
+
+  // Clear any prior queued marker — only one card can be "next up".
+  qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
+
+  if (song.serviceId != null) {
+    const svcCard = q(`#service-songs-container .gi-song-item[data-service-id="${CSS.escape(String(song.serviceId))}"]`);
+    if (svcCard) svcCard.classList.add('queued-next');
+  }
+
+  if (!song.key) return;
+  let key = song.key.replace('m', '').trim();
+  const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
+  for (const es in esToEn) {
+    if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
+  }
+  const useFlatsLocal = key.includes('b');
+  if (useFlatsLocal !== getUseFlats()) {
+    setUseFlats(useFlatsLocal);
+    const notSel = q('#metro-notation-select');
+    if (notSel) notSel.value = useFlatsLocal ? 'flats' : 'sharps';
+    buildKeyGrid();
+  }
+  const keys = useFlatsLocal ? KEYS_FLAT : KEYS_SHARP;
+  if (!keys.includes(key)) return;
+
+  setPreparedPadKey(key);
+  qa('.key-btn').forEach(b => {
+    b.classList.remove('prepared');
+    if (b.dataset.key === key) b.classList.add('prepared');
+  });
 }
 
 function triggerMasterPlayPause() {
@@ -551,6 +653,21 @@ function onKey(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
   // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
   if (document.getElementById('gi-lyrics-modal')) return;
+
+  // '?' (Shift+/) opens the cheat sheet — checked BEFORE the kbd_${code}
+  // map lookup so the user can't accidentally remap it. Toggles open/close.
+  if (e.key === '?' || (e.shiftKey && e.code === 'Slash')) {
+    e.preventDefault();
+    if (isCheatSheetOpen()) closeCheatSheet();
+    else openCheatSheet();
+    return;
+  }
+  // Cheat sheet visible — only Escape escapes; everything else is locked
+  // so pads/drums don't fire while the help is being read.
+  if (isCheatSheetOpen()) {
+    if (e.code === 'Escape') { closeCheatSheet(); e.preventDefault(); }
+    return;
+  }
 
   const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
   
@@ -599,11 +716,25 @@ function onKey(e) {
 
   // Fallbacks
   const kUpper = e.key.toUpperCase();
-  if (e.code === 'Space') { 
-    e.preventDefault(); 
+  if (e.code === 'Space') {
+    e.preventDefault();
     triggerMasterPlayPause();
   }
-  
+
+  // Tab — "prepare next song" workflow. Reads (without advancing) the
+  // service list's next song and stages its key as the prepared pad,
+  // so the next Space press will trigger a smooth crossfade into it.
+  // Useful in live: stage the next song silently between segments,
+  // confirm with Space when ready.
+  if (e.code === 'Tab') {
+    const next = peekNextServiceSong();
+    if (next) {
+      e.preventDefault();
+      prepareNextSongKey(next);
+      return;
+    }
+  }
+
   // Arrow key navigation for Service List
   if (document.activeElement && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
     if (e.code === 'ArrowDown' || e.code === 'ArrowRight') {
@@ -676,6 +807,10 @@ function applyGiSong(song) {
 
   // Sync active service-list pointer by matching title+artist.
   syncActiveByTitleArtist(song);
+
+  // Any previously-queued "next up" marker is now stale — the song is
+  // actually playing (or about to). Clear it from whatever card had it.
+  qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
 
   // Surgical highlight update — replaces what used to be two full re-renders
   // (~81 + N cards rebuilt on every song click). The audio change below now

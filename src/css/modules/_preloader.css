@@ -44,22 +44,35 @@
   animation: preloaderSlide 1.2s infinite ease-in-out;
 }
 
-/* MIDI Learn overlay — floating chip at the bottom of the screen when
-   Learn mode is active. Centered with translateX(-50%). */
+/* MIDI Learn overlay — slim chip pinned at the TOP of the window. Slimmer
+   + less obtrusive than the previous bottom-30px version, which clashed
+   with the track-player bar and the toast stack. Pulses softly with the
+   theme accent so it's noticeable without dominating the screen. */
 #midi-learn-overlay {
   position: fixed;
-  bottom: 30px;
+  top: 56px; /* below the topbar so it doesn't cover the title chrome */
   left: 50%;
   transform: translateX(-50%);
-  background: var(--blue);
+  background: var(--accent);
   color: #000;
-  padding: 12px 24px;
-  border-radius: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
   z-index: 10000;
   display: none;
-  font-weight: bold;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 18px var(--glow), 0 0 0 1px rgba(0, 0, 0, 0.2);
   cursor: pointer;
+  max-width: 90vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: midi-learn-pulse 1.6s ease-in-out infinite;
+}
+@keyframes midi-learn-pulse {
+  0%, 100% { box-shadow: 0 4px 18px var(--glow), 0 0 0 1px rgba(0, 0, 0, 0.2); }
+  50%      { box-shadow: 0 4px 26px var(--accent), 0 0 0 1px rgba(0, 0, 0, 0.2); }
 }
 
 /* @keyframes pulse stays on transform+opacity — both composite-only,

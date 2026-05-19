@@ -4,6 +4,7 @@
 // callback injected at boot.
 
 import { q, esc } from '../utils/dom.js';
+import { confirmDialog } from '../ui/dialog.js';
 
 let presets = [];
 let onApplyCb = null;
@@ -70,9 +71,13 @@ export function renderPresets() {
     el.querySelector('.pi-play').onclick = (e) => { e.stopPropagation(); applyHandler(); };
     el.querySelector('.pi-delete').onclick = (e) => {
       e.stopPropagation();
-      if (confirm(`¿Estás seguro de que deseas eliminar el preset "${p.name}"?`)) {
-        deletePresetById(p.id);
-      }
+      confirmDialog({
+        title: 'Eliminar preset',
+        message: `¿Eliminar el preset "${p.name}"?`,
+        confirmLabel: 'Eliminar',
+        danger: true,
+        onConfirm: () => deletePresetById(p.id)
+      });
     };
     fragment.appendChild(el);
   });
