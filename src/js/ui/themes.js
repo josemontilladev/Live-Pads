@@ -51,6 +51,9 @@ export function applyTheme(id) {
   paintTheme(id);
   try { localStorage.setItem(STORAGE_KEY, id); } catch { /* ignore */ }
   buildThemesList();
+  // Notify any view that needs to repaint with the new tokens — the
+  // Stems waveforms use the accent at draw time so they must re-render.
+  document.dispatchEvent(new CustomEvent('livepads:theme-change', { detail: { id } }));
 }
 
 export function buildThemesList() {

@@ -1,31 +1,86 @@
-// Stem Editor workspace — Phase 1+2.
-// Mounts the editor UI, wires drag-drop / file picker imports, renders
-// track strips (name, vol, pan, mute, solo, remove), transport, master
-// volume, and project header with rename + new. Auto-saves current state
-// to userData/StemProjects/current/ via IPC so the user doesn't lose mixes
-// across restarts.
+// Stem Editor workspace — full DAW-style layout (sidebar mixer + scrolling
+// timeline with waveforms + ruler with bars/beats). Drives the engine for
+// playback and orchestrates click-track / guide-track generation from
+// project metadata (BPM, time signature, markers).
 
+// ── engine: full module, includes reorderTracks now ─────────────
 import * as engine from './engine.js';
 import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
+import { computePeaks, drawWaveform } from './waveform.js';
+import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
+import { buildGuideTrack } from './guideBuilder.js';
+import { SECTION_CUES, findCueById } from './sectionCatalog.js';
+import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
+import { detectBPM } from './bpmDetector.js';
 
-const SVG_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><polygon points="5,3 19,12 5,21"/></svg>`;
-const SVG_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>`;
+// ── Constants ──────────────────────────────────────────────────────
+let PX_PER_SEC        = 40;     // horizontal scale of the timeline (zoomable)
+const PX_PER_SEC_MIN  = 10;
+const PX_PER_SEC_MAX  = 200;
+let ROW_HEIGHT        = 78;     // px per track row (strip + lane same height; user-adjustable)
+const ROW_HEIGHT_MIN  = 56;
+const ROW_HEIGHT_MAX  = 160;
+const RULER_HEIGHT    = 40;
+const STRIP_WIDTH     = 220;    // sticky-left mixer strip width
+const MIN_TIMELINE_PX = 2000;   // empty-project canvas width
+const SAVE_DEBOUNCE_MS = 800;
+
+const SVG_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><polygon points="5,3 19,12 5,21"/></svg>`;
+const SVG_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>`;
+const SVG_PLUS = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 const SVG_TRASH = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
-const SVG_NEW = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="10" y1="15" x2="14" y2="15"/></svg>`;
+const SVG_FLAG = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>`;
 
+// ── Module state ───────────────────────────────────────────────────
 let mounted = false;
 let nextTrackId = 1;
-const trackEls = new Map(); // id → row element
 let projectName = 'Mi proyecto';
+let bpm = 120;
+let beatsPerBar = 4;
+let beatValue = 4;
+let markers = [];        // array of { id, label, atSec, url }
+let nextMarkerId = 1;
+const trackRows = new Map();   // trackId → { strip, lane, canvas }
+const peaksCache = new Map();  // trackId → Float32Array peaks
+
 let saveTimer = null;
-const SAVE_DEBOUNCE_MS = 800;
+let pillTimer = null;
 
 function formatTime(sec) {
   if (!isFinite(sec)) return '0:00';
-  const s = Math.max(0, Math.floor(sec));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const s = Math.max(0, sec);
+  const mm = Math.floor(s / 60);
+  const ss = Math.floor(s % 60);
+  return `${mm}:${String(ss).padStart(2, '0')}`;
 }
+function formatTimecode(sec) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const mm = Math.floor(sec / 60);
+  const ss = Math.floor(sec % 60);
+  const ms = Math.floor((sec - Math.floor(sec)) * 1000);
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+}
+
+// Public toggle used by the global keydown router (app.js) so Space in
+// the Stems workspace controls stems playback instead of the Pads master.
+// Behaviour: if playing → pause (keep position); if paused/stopped → play.
+export function toggleStemsPlay() {
+  if (!mounted) return;
+  if (engine.isCurrentlyPlaying()) engine.pause();
+  else engine.play();
+}
+
+// Public: drop a marker at the current playhead using whatever section is
+// selected in the dropdown. Bound to the `M` key from the global handler.
+export function addStemsMarker() {
+  if (!mounted) return;
+  onAddMarker();
+}
+
+// Public hooks for the global keymap to invoke undo/redo from app.js.
+export function stemsUndo() { if (mounted) historyUndo(); }
+export function stemsRedo() { if (mounted) historyRedo(); }
 
 export async function mount() {
   if (mounted) return;
@@ -38,72 +93,27 @@ export async function mount() {
 
   const root = document.getElementById('workspace-stems');
   if (!root) return;
+  root.innerHTML = SHELL_HTML;
+  wireTopbarEvents(root);
+  wireArrangeEvents(root);
+  wireSeekClicks(root);
+  wireRowReorder(root);
+  refreshSectionDropdown();
+  refreshClickSoundDropdown();
+  refreshTimelineWidth();
 
-  root.innerHTML = `
-    <div class="stems-shell">
-      <header class="stems-header">
-        <div class="stems-titlebar">
-          <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false">
-          <span class="stems-sub">Carga tus stems, ajusta volumen y paneo, exporta una mezcla a MP3.</span>
-        </div>
-        <div class="stems-header-actions">
-          <button class="stems-btn" id="stems-new" title="Vaciar el proyecto actual">${SVG_NEW} Nuevo</button>
-          <button class="stems-btn" id="stems-export" disabled title="Exportar la mezcla a MP3">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar MP3
-          </button>
-          <button class="stems-btn stems-btn--primary" id="stems-import">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Importar stems
-          </button>
-          <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
-        </div>
-      </header>
+  // Repaint waveforms whenever the global theme changes so the accent
+  // colour stays in sync with whatever the user picked in Ajustes.
+  document.addEventListener('livepads:theme-change', () => redrawAllWaveforms());
 
-      <section class="stems-tracks" id="stems-tracks">
-        <div class="stems-empty" id="stems-empty">
-          <div class="stems-empty-icon">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="48" height="48"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          </div>
-          <h3>Arrastra tus stems aquí</h3>
-          <p>O usa <strong>Importar stems</strong> arriba. Soporta WAV, MP3, OGG, AAC.</p>
-        </div>
-      </section>
+  // Master VU meter — animate while the engine is playing. Cheap RAF
+  // loop that reads peak from the analyser; idle when stopped so we
+  // don't burn frames on silence.
+  startMasterMeter();
 
-      <footer class="stems-transport">
-        <div class="stems-transport-left">
-          <button class="stems-play" id="stems-play" disabled>${SVG_PLAY}</button>
-          <div class="stems-time">
-            <span id="stems-current">0:00</span>
-            <span class="stems-sep">/</span>
-            <span id="stems-total">0:00</span>
-          </div>
-        </div>
-        <div class="stems-transport-right">
-          <label class="stems-master">
-            <span>Master</span>
-            <input type="range" min="0" max="100" value="85" id="stems-master-vol" class="stems-range">
-          </label>
-          <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
-        </div>
-      </footer>
-
-      <div class="stems-export-overlay" id="stems-export-overlay" hidden>
-        <div class="stems-export-panel">
-          <h3 id="stems-export-title">Renderizando mezcla…</h3>
-          <p id="stems-export-stage" class="stems-export-stage">Preparando audio</p>
-          <div class="stems-export-bar"><div class="stems-export-fill" id="stems-export-fill"></div></div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  wireEvents(root);
-
-  // Restore the auto-saved project (if any) — silently.
   try {
     const restored = await projectStore.loadCurrent();
-    if (restored && restored.tracks && restored.tracks.length) {
+    if (restored && (restored.tracks?.length || restored.markers?.length)) {
       await rehydrate(restored);
     }
   } catch (e) {
@@ -111,31 +121,519 @@ export async function mount() {
   }
 }
 
-function wireEvents(root) {
+// ── HTML shell ─────────────────────────────────────────────────────
+const SHELL_HTML = `
+  <div class="stems-shell">
+
+    <header class="stems-topbar">
+      <div class="stems-tb-left">
+        <span class="stems-brand">LIVEPADS <span>STEMS</span></span>
+        <div class="stems-field stems-field--bpm">
+          <label>BPM</label>
+          <input type="number" id="stems-bpm" min="20" max="300" value="120">
+          <button class="stems-bpm-detect" id="stems-bpm-detect" title="Detectar BPM de la primera pista importada">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+            Detectar
+          </button>
+        </div>
+        <div class="stems-field stems-field--select">
+          <label>COMPÁS</label>
+          <select id="stems-sig">
+            <option value="2/4">2/4</option>
+            <option value="3/4">3/4</option>
+            <option value="4/4" selected>4/4</option>
+            <option value="5/4">5/4</option>
+            <option value="6/4">6/4</option>
+            <option value="6/8">6/8</option>
+            <option value="7/8">7/8</option>
+            <option value="9/8">9/8</option>
+            <option value="12/8">12/8</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stems-tb-mid">
+        <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
+        <button class="stems-tb-btn" id="stems-pause" title="Pausa (mantiene la posición)" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+        </button>
+        <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Reanudar" disabled>${SVG_PLAY}</button>
+      </div>
+
+      <div class="stems-tb-right">
+        <div class="stems-zoom-group" title="Zoom del timeline (Ctrl+rueda)">
+          <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
+          <span class="stems-zoom-readout" id="stems-zoom-readout">100%</span>
+          <button class="stems-zoom-btn" id="stems-zoom-in" aria-label="Aumentar zoom">+</button>
+        </div>
+        <div class="stems-zoom-group" title="Altura de las pistas">
+          <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
+          <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
+        </div>
+        <label class="stems-snap-toggle" title="Marcadores se ajustan al beat más cercano">
+          <input type="checkbox" id="stems-snap" checked>
+          <span>SNAP</span>
+        </label>
+        <div class="stems-readout">
+          <span class="label">TIMECODE</span>
+          <span class="value mono" id="stems-timecode">00:00.000</span>
+        </div>
+        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
+      </div>
+    </header>
+
+    <header class="stems-actions stems-actions--row1">
+      <div class="stems-actions-primary">
+        <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
+        <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar MP3
+        </button>
+        <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
+      </div>
+
+      <div class="stems-actions-mid">
+        <span class="stems-project-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </span>
+        <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto">
+      </div>
+
+      <div class="stems-proj-menu">
+        <button class="stems-btn stems-btn--subtle" id="stems-proj-toggle" title="Proyecto…">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Proyecto ▾
+        </button>
+        <div class="stems-proj-dropdown" id="stems-proj-dropdown" hidden>
+          <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
+          <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
+          <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
+        </div>
+      </div>
+    </header>
+
+    <header class="stems-actions stems-actions--row2">
+      <div class="stems-tools-group">
+        <span class="stems-tools-label">PISTAS</span>
+        <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
+        <button class="stems-btn stems-btn--subtle" id="stems-add-click" title="Genera un click track al BPM actual">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
+          Generar Click
+        </button>
+        <button class="stems-btn stems-btn--subtle" id="stems-rebuild-guide" title="Regenera la pista de guía con los marcadores actuales">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+          Generar Guía
+        </button>
+      </div>
+      <div class="stems-tools-group">
+        <span class="stems-tools-label">MARCADORES</span>
+        <select id="stems-section-select" class="stems-mini-select" aria-label="Sección"></select>
+        <button class="stems-btn stems-btn--accent" id="stems-add-marker" title="Añadir marcador en el tiempo actual">
+          ${SVG_FLAG} Añadir marcador
+        </button>
+        <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Loop entre los dos marcadores marcados">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Loop
+        </button>
+      </div>
+    </header>
+
+    <main class="stems-arrange" id="stems-arrange">
+      <div class="stems-arrange-inner" id="stems-arrange-inner">
+        <header class="stems-head-row">
+          <div class="stems-head-spacer">
+            <span class="stems-head-spacer-label">TRACKS</span>
+            <span class="stems-head-spacer-count" id="stems-mixer-count">0 pistas</span>
+          </div>
+          <div class="stems-head-tl">
+            <div class="stems-ruler" id="stems-ruler"></div>
+            <div class="stems-marker-layer" id="stems-marker-layer"></div>
+          </div>
+        </header>
+
+        <div class="stems-rows" id="stems-rows">
+          <div class="stems-empty" id="stems-empty">
+            <div class="stems-empty-icon">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="56" height="56"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <h3>Sin pistas aún</h3>
+            <p>Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
+          </div>
+        </div>
+
+        <div class="stems-playhead" id="stems-playhead"></div>
+      </div>
+    </main>
+
+    <section class="stems-console" id="stems-console">
+      <header class="stems-console-header">
+        <span class="stems-console-title">CONSOLA</span>
+        <span class="stems-console-count" id="stems-console-count">0 pistas</span>
+      </header>
+      <div class="stems-console-strips" id="stems-console-strips"></div>
+    </section>
+
+    <footer class="stems-footer">
+      <label class="stems-master">
+        <span>MASTER</span>
+        <div class="stems-master-meter" aria-hidden="true">
+          <div class="stems-master-meter-fill" id="stems-master-meter"></div>
+        </div>
+        <input type="range" min="0" max="100" value="85" id="stems-master-vol" class="stems-range">
+      </label>
+      <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
+    </footer>
+
+    <div class="stems-export-overlay" id="stems-export-overlay" hidden>
+      <div class="stems-export-panel">
+        <h3 id="stems-export-title">Renderizando mezcla…</h3>
+        <p id="stems-export-stage" class="stems-export-stage">Preparando audio</p>
+        <div class="stems-export-bar"><div class="stems-export-fill" id="stems-export-fill"></div></div>
+      </div>
+    </div>
+  </div>
+`;
+
+// HTML5 drag-and-drop reordering between .stems-row elements. The strip
+// element on the left of each row is the drag handle (draggable=true).
+// On drop we rebuild trackRows order in the DOM + tell the engine so the
+// audio routing/console mirror stays in lockstep.
+function wireRowReorder(root) {
+  const list = root.querySelector('#stems-rows');
+  if (!list) return;
+  let draggingRow = null;
+
+  list.addEventListener('dragstart', (e) => {
+    const strip = e.target.closest('[data-drag-row]');
+    if (!strip) return;
+    draggingRow = strip.closest('.stems-row');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggingRow.dataset.trackId);
+    requestAnimationFrame(() => draggingRow.classList.add('is-dragging'));
+  });
+  list.addEventListener('dragend', () => {
+    if (draggingRow) draggingRow.classList.remove('is-dragging');
+    draggingRow = null;
+    qa('.stems-row.is-drop-target', list).forEach(r => r.classList.remove('is-drop-target'));
+  });
+  list.addEventListener('dragover', (e) => {
+    if (!draggingRow) return;
+    e.preventDefault();
+    const over = e.target.closest('.stems-row');
+    if (!over || over === draggingRow) return;
+    const rect = over.getBoundingClientRect();
+    const before = (e.clientY - rect.top) < rect.height / 2;
+    qa('.stems-row.is-drop-target', list).forEach(r => r.classList.remove('is-drop-target'));
+    over.classList.add('is-drop-target');
+    if (before) over.parentNode.insertBefore(draggingRow, over);
+    else over.parentNode.insertBefore(draggingRow, over.nextSibling);
+  });
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    qa('.stems-row.is-drop-target', list).forEach(r => r.classList.remove('is-drop-target'));
+    // Persist new order to the engine + console mirror.
+    const newOrder = Array.from(list.querySelectorAll('.stems-row')).map(r => r.dataset.trackId);
+    engine.reorderTracks(newOrder);
+    // Also reorder the console strips so the bottom mixer matches.
+    const console = document.getElementById('stems-console-strips');
+    if (console) {
+      for (const id of newOrder) {
+        const c = console.querySelector(`.stems-console-strip[data-track-id="${id}"]`);
+        if (c) console.appendChild(c);
+      }
+    }
+    scheduleSave();
+  });
+}
+
+// Helper: querySelectorAll relative to a root.
+function qa(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+
+// Master VU meter — animates from the engine's master AnalyserNode.
+let meterRAF = null;
+let meterLastDecay = 0;
+let meterPeakSmoothed = 0;
+function startMasterMeter() {
+  const el = document.getElementById('stems-master-meter');
+  if (!el) return;
+  const tick = (now) => {
+    meterRAF = requestAnimationFrame(tick);
+    if (!engine.isCurrentlyPlaying()) {
+      // Decay smoothly to 0 even when stopped.
+      if (meterPeakSmoothed > 0.001) {
+        meterPeakSmoothed *= 0.9;
+        el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
+      } else if (el.style.height !== '0%') {
+        el.style.height = '0%';
+      }
+      return;
+    }
+    const { peak } = engine.getMasterLevel();
+    // Attack fast, release slow — same envelope a real VU has.
+    if (peak > meterPeakSmoothed) meterPeakSmoothed = peak;
+    else meterPeakSmoothed = meterPeakSmoothed * 0.85 + peak * 0.15;
+    el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
+  };
+  meterRAF = requestAnimationFrame(tick);
+}
+
+// Click on any timeline area (ruler, marker layer, or a lane) jumps the
+// transport to that time. The sticky-left strip column is excluded — the
+// closest() check below scopes it to lanes / head-tl only.
+function wireSeekClicks(root) {
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.stems-row-strip')) return;
+    if (e.target.closest('.stems-row-remove')) return; // remove button bubbles
+    if (e.target.closest('.stems-marker-remove')) return;
+    if (e.target.closest('input, select, button')) return;
+    const lane = e.target.closest('.stems-row-lane') ||
+                 e.target.closest('.stems-head-tl');
+    if (!lane) return;
+    const rect = lane.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < 0) return;
+    engine.seek(x / PX_PER_SEC);
+  });
+}
+
+// Continuously keep the playhead at ~30% of the visible lane while
+// playing. Implemented as a per-frame "anchor" instead of trigger zones
+// so the timeline always scrolls along with the audio, never falling
+// behind. We only write scrollLeft when it actually needs to change
+// (>= 1 px difference) to avoid layout thrash.
+//
+// When the project length is shorter than the viewport, target stays at
+// 0 and no scrolling happens — which is correct behaviour.
+function autoFollowPlayhead(sec) {
+  if (!engine.isCurrentlyPlaying()) return;
+  const arrange = document.getElementById('stems-arrange');
+  if (!arrange) return;
+  const headX = STRIP_WIDTH + sec * PX_PER_SEC;
+  const viewW = arrange.clientWidth;
+  const laneW = viewW - STRIP_WIDTH;
+  if (laneW <= 0) return;
+
+  // Anchor: playhead should sit at lane-relative 30 %.
+  const anchor = STRIP_WIDTH + laneW * 0.3;
+  // The scroll position that puts the playhead at the anchor:
+  //   headX - scrollLeft == anchor  →  scrollLeft = headX - anchor
+  const target = headX - anchor;
+
+  // Only start following once the playhead has actually moved past the
+  // anchor — the first 30 % of the timeline shows naturally without
+  // scrolling, then we begin following.
+  if (target <= 0) {
+    if (arrange.scrollLeft > 1) arrange.scrollLeft = 0;
+    return;
+  }
+  if (Math.abs(arrange.scrollLeft - target) > 1) {
+    arrange.scrollLeft = target;
+  }
+}
+
+// ── Wiring: top bar ────────────────────────────────────────────────
+function wireTopbarEvents(root) {
+  const bpmInput = root.querySelector('#stems-bpm');
+  const sigInput = root.querySelector('#stems-sig');
+  // Capture pre-edit BPM so the history entry can revert to it on undo.
+  let bpmBefore = bpm;
+  bpmInput.addEventListener('focus', () => { bpmBefore = bpm; });
+  bpmInput.addEventListener('input', () => {
+    const v = parseInt(bpmInput.value, 10);
+    if (isFinite(v) && v >= 20 && v <= 300) {
+      bpm = v;
+      drawRuler();
+      scheduleSave();
+    }
+  });
+  bpmInput.addEventListener('change', () => {
+    if (bpm === bpmBefore) return;
+    const oldBpm = bpmBefore, newBpm = bpm;
+    pushHistory('Cambiar BPM',
+      () => { bpm = oldBpm; bpmInput.value = oldBpm; drawRuler(); scheduleSave(); },
+      () => { bpm = newBpm; bpmInput.value = newBpm; drawRuler(); scheduleSave(); }
+    );
+    bpmBefore = bpm;
+  });
+
+  let sigBefore = `${beatsPerBar}/${beatValue}`;
+  sigInput.addEventListener('focus', () => { sigBefore = `${beatsPerBar}/${beatValue}`; });
+  sigInput.addEventListener('change', () => {
+    const m = sigInput.value.match(/^(\d+)\s*\/\s*(\d+)$/);
+    if (!m) return;
+    const newSig = sigInput.value;
+    if (newSig === sigBefore) return;
+    const oldSig = sigBefore;
+    beatsPerBar = parseInt(m[1], 10);
+    beatValue = parseInt(m[2], 10);
+    drawRuler();
+    scheduleSave();
+    pushHistory('Cambiar compás',
+      () => {
+        const om = oldSig.match(/^(\d+)\s*\/\s*(\d+)$/);
+        beatsPerBar = parseInt(om[1], 10); beatValue = parseInt(om[2], 10);
+        sigInput.value = oldSig; drawRuler(); scheduleSave();
+      },
+      () => {
+        beatsPerBar = parseInt(m[1], 10); beatValue = parseInt(m[2], 10);
+        sigInput.value = newSig; drawRuler(); scheduleSave();
+      }
+    );
+    sigBefore = newSig;
+  });
+
+  root.querySelector('#stems-play').onclick = () => engine.play();
+  root.querySelector('#stems-pause').onclick = () => engine.pause();
+  root.querySelector('#stems-stop').onclick = () => engine.stop();
+  root.querySelector('#stems-bpm-detect').onclick = onDetectBpm;
+
+  root.querySelector('#stems-zoom-in').onclick  = () => setZoom(PX_PER_SEC * 1.5);
+  root.querySelector('#stems-zoom-out').onclick = () => setZoom(PX_PER_SEC / 1.5);
+  root.querySelector('#stems-row-taller').onclick   = () => setRowHeight(ROW_HEIGHT + 14);
+  root.querySelector('#stems-row-shorter').onclick  = () => setRowHeight(ROW_HEIGHT - 14);
+  root.querySelector('#stems-snap').onchange = (e) => { snapToBeat = e.target.checked; scheduleSave(); };
+
+  // Ctrl+wheel zooms in/out, anchoring on the cursor X for natural feel.
+  const arrange = root.querySelector('#stems-arrange');
+  arrange.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const rect = arrange.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left + arrange.scrollLeft;
+    const secAtCursor = (cursorX - STRIP_WIDTH) / PX_PER_SEC;
+    setZoom(PX_PER_SEC * dir);
+    // Keep the same audio time under the cursor after the zoom.
+    arrange.scrollLeft = secAtCursor * PX_PER_SEC + STRIP_WIDTH - (e.clientX - rect.left);
+  }, { passive: false });
+}
+
+// Auto-detect BPM from the first imported (non-click, non-guide) track.
+// Cheap autocorrelation under the hood — see bpmDetector.js. The user
+// confirms the detected value before we overwrite the current BPM,
+// since the algorithm can land on the wrong octave for sparse material.
+function onDetectBpm() {
+  const stemTrack = engine.getTracks().find(t => t.kind === 'stem');
+  if (!stemTrack) {
+    alert('Importa primero un stem para detectar el BPM.');
+    return;
+  }
+  const btn = document.getElementById('stems-bpm-detect');
+  if (btn) { btn.disabled = true; btn.textContent = 'Analizando…'; }
+  // Defer to next frame so the UI updates before we crunch numbers.
+  requestAnimationFrame(() => {
+    try {
+      const buf = engine.getTrackBuffer(stemTrack.id);
+      const detected = detectBPM(buf);
+      if (!detected) {
+        alert('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).');
+        return;
+      }
+      const oldBpm = bpm;
+      if (detected === bpm) {
+        alert(`La pista coincide con el BPM actual (${detected}).`);
+        return;
+      }
+      if (!confirm(`BPM detectado: ${detected}. ¿Aplicarlo? (actual: ${bpm})`)) return;
+      bpm = detected;
+      const input = document.getElementById('stems-bpm');
+      if (input) input.value = detected;
+      drawRuler();
+      pushHistory('Detectar BPM',
+        () => { bpm = oldBpm; if (input) input.value = oldBpm; drawRuler(); scheduleSave(); },
+        () => { bpm = detected; if (input) input.value = detected; drawRuler(); scheduleSave(); }
+      );
+      scheduleSave();
+    } catch (e) {
+      console.error('BPM detection failed:', e);
+      alert('Error detectando BPM: ' + (e.message || e));
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg> Detectar`;
+      }
+    }
+  });
+}
+
+function setZoom(next) {
+  PX_PER_SEC = Math.max(PX_PER_SEC_MIN, Math.min(PX_PER_SEC_MAX, next));
+  const readout = document.getElementById('stems-zoom-readout');
+  if (readout) readout.textContent = `${Math.round((PX_PER_SEC / 40) * 100)}%`;
+  refreshTimelineWidth();
+  scheduleSave();
+}
+
+function setRowHeight(next) {
+  ROW_HEIGHT = Math.max(ROW_HEIGHT_MIN, Math.min(ROW_HEIGHT_MAX, next));
+  // Update CSS variable so every row + its canvas pick up the new height.
+  document.documentElement.style.setProperty('--stems-row-height', `${ROW_HEIGHT}px`);
+  redrawAllWaveforms();
+  scheduleSave();
+}
+
+// ── Wiring: arrange + actions ──────────────────────────────────────
+function wireArrangeEvents(root) {
   const fileInput = root.querySelector('#stems-file-input');
   root.querySelector('#stems-import').onclick = () => fileInput.click();
+  // Same trigger from the inline "Importar stems" link inside the empty state
+  // (uses event delegation since the empty state is recreated on resetProject).
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('#stems-empty-import')) fileInput.click();
+  });
   fileInput.onchange = (e) => importFiles(e.target.files);
 
-  root.querySelector('#stems-play').onclick = () => {
-    if (engine.isCurrentlyPlaying()) engine.stop();
-    else engine.play();
-  };
-
-  root.querySelector('#stems-master-vol').oninput = (e) => {
-    engine.setMasterVolume(parseInt(e.target.value, 10) / 100);
+  const masterEl = root.querySelector('#stems-master-vol');
+  masterEl.oninput = (e) => {
+    const v = parseInt(e.target.value, 10) / 100;
+    engine.setMasterVolume(v);
     scheduleSave();
+    document.dispatchEvent(new CustomEvent('livepads:master-vol-change', {
+      detail: { value: v, source: 'stems' }
+    }));
   };
+  document.addEventListener('livepads:master-vol-change', (e) => {
+    if (e.detail.source === 'stems') return;
+    const pct = Math.round(e.detail.value * 100);
+    masterEl.value = pct;
+    engine.setMasterVolume(e.detail.value);
+  });
 
-  root.querySelector('#stems-new').onclick = async () => {
-    if (engine.getTracks().length === 0) return;
-    if (!confirm('¿Vaciar el proyecto actual? Esta acción no se puede deshacer.')) return;
-    await resetProject();
+  const projToggle = root.querySelector('#stems-proj-toggle');
+  const projDropdown = root.querySelector('#stems-proj-dropdown');
+  projToggle.onclick = (e) => {
+    e.stopPropagation();
+    projDropdown.hidden = !projDropdown.hidden;
   };
+  document.addEventListener('mousedown', (e) => {
+    if (!projDropdown.hidden && !projDropdown.contains(e.target) && e.target !== projToggle) {
+      projDropdown.hidden = true;
+    }
+  });
+  projDropdown.addEventListener('click', async (e) => {
+    const cmd = e.target.dataset.projCmd;
+    if (!cmd) return;
+    projDropdown.hidden = true;
+    if (cmd === 'new') {
+      if (engine.getTracks().length === 0 && markers.length === 0) return;
+      if (!confirm('¿Vaciar el proyecto actual? Esta acción no se puede deshacer.')) return;
+      await resetProject();
+    } else if (cmd === 'save-as') {
+      openSaveAsModal();
+    } else if (cmd === 'open') {
+      openProjectsModal();
+    }
+  });
 
   root.querySelector('#stems-export').onclick = async () => {
     if (engine.getTracks().length === 0) return;
     await runExport();
   };
+
+  root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
+  root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
+  root.querySelector('#stems-rebuild-guide').onclick = () => onRebuildGuide();
+  root.querySelector('#stems-loop-toggle').onclick = () => toggleLoop();
 
   const nameInput = root.querySelector('#stems-project-name');
   nameInput.addEventListener('input', () => {
@@ -146,7 +644,7 @@ function wireEvents(root) {
     if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
   });
 
-  // Drag-and-drop file import — anywhere over the workspace counts.
+  // Drag-and-drop file import — anywhere over the workspace.
   ['dragenter', 'dragover'].forEach(evt => {
     root.addEventListener(evt, (e) => {
       e.preventDefault();
@@ -166,122 +664,434 @@ function wireEvents(root) {
   });
 }
 
+function refreshSectionDropdown() {
+  const sel = document.getElementById('stems-section-select');
+  if (!sel) return;
+  sel.innerHTML = SECTION_CUES.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+}
+function refreshClickSoundDropdown() {
+  const sel = document.getElementById('stems-click-sound');
+  if (!sel) return;
+  sel.innerHTML = getClickSounds().map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+  sel.value = clickSoundId;
+  sel.onchange = (e) => {
+    clickSoundId = e.target.value;
+    scheduleSave();
+  };
+}
+
+// ── Import + track strip rendering ────────────────────────────────
 async function importFiles(fileList) {
   if (!fileList || !fileList.length) return;
-  for (const file of Array.from(fileList)) {
-    if (!file.type.startsWith('audio/') && !/\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(file.name)) continue;
+  const files = Array.from(fileList).filter(f =>
+    f.type.startsWith('audio/') || /\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(f.name)
+  );
+  if (!files.length) return;
+
+  showImportOverlay(files.length);
+  let done = 0;
+  for (const file of files) {
     try {
+      updateImportOverlay(done, files.length, file.name);
       const arrayBuffer = await file.arrayBuffer();
       const id = `t${nextTrackId++}`;
       const name = file.name.replace(/\.[^.]+$/, '');
       await engine.addTrack({ id, name, arrayBuffer });
-      // Persist the raw stem to disk so we can rehydrate next launch.
       const savedPath = await projectStore.saveStem(id, file.name, arrayBuffer);
-      appendTrackStrip(id, savedPath);
+      appendTrackRow(id, savedPath);
     } catch (err) {
       console.error('Failed to import', file.name, err);
       alert(`No se pudo importar "${file.name}": ${err.message || err}`);
     }
+    done++;
+    updateImportOverlay(done, files.length, '');
   }
+  hideImportOverlay();
   refreshTransport();
   scheduleSave();
 }
 
-function appendTrackStrip(id, savedPath) {
-  const all = engine.getTracks();
-  const track = all.find(t => t.id === id);
+// Lightweight overlay that surfaces import progress. Reuses the same
+// export-overlay shell so the styling stays consistent, but lives in
+// its own element so a slow import never blocks an export popup.
+function showImportOverlay(total) {
+  let overlay = document.getElementById('stems-import-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'stems-import-overlay';
+    overlay.className = 'stems-export-overlay';
+    overlay.innerHTML = `
+      <div class="stems-export-panel">
+        <h3 id="stems-import-title">Importando stems…</h3>
+        <p id="stems-import-stage" class="stems-export-stage"></p>
+        <div class="stems-export-bar"><div class="stems-export-fill" id="stems-import-fill"></div></div>
+      </div>
+    `;
+    document.querySelector('.stems-shell').appendChild(overlay);
+  }
+  overlay.hidden = false;
+  updateImportOverlay(0, total, '');
+}
+function updateImportOverlay(done, total, name) {
+  const fill = document.getElementById('stems-import-fill');
+  const stage = document.getElementById('stems-import-stage');
+  const title = document.getElementById('stems-import-title');
+  if (!fill) return;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  fill.style.width = `${pct}%`;
+  if (title) title.textContent = total > 1
+    ? `Importando ${done + (name ? 1 : 0)} de ${total}…`
+    : 'Importando stem…';
+  if (stage) stage.textContent = name || (done === total ? 'Listo' : 'Decodificando audio…');
+}
+function hideImportOverlay() {
+  const overlay = document.getElementById('stems-import-overlay');
+  if (overlay) overlay.hidden = true;
+}
+
+function appendTrackRow(id, savedPath) {
+  const track = engine.getTracks().find(t => t.id === id);
   if (!track) return;
 
   const empty = document.getElementById('stems-empty');
   if (empty) empty.hidden = true;
 
-  const list = document.getElementById('stems-tracks');
+  // A row is the unit: sticky strip on the left + waveform lane on the right.
+  const rows = document.getElementById('stems-rows');
   const row = document.createElement('div');
-  row.className = 'stems-track';
+  row.className = `stems-row stems-row--${track.kind}`;
   row.dataset.trackId = id;
   if (savedPath) row.dataset.path = savedPath;
-  row.innerHTML = buildTrackRowHtml(track);
-  list.appendChild(row);
-  trackEls.set(id, row);
-  wireTrackRow(row, id);
+  row.innerHTML = buildRowHtml(track);
+  rows.appendChild(row);
+
+  const strip = row.querySelector('.stems-row-strip');
+  const lane  = row.querySelector('.stems-row-lane');
+  const canvas = row.querySelector('.stems-row-canvas');
+
+  // Mirror the track as a vertical-fader strip inside the bottom console.
+  const console = appendConsoleStrip(track);
+
+  trackRows.set(id, { row, strip, lane, canvas, console });
+
+  wireStrip(row, id);
+  wireConsoleStrip(console, id);
+  drawTrackWaveform(id);
+  refreshTimelineWidth();
 }
 
-function buildTrackRowHtml(track) {
+function appendConsoleStrip(track) {
+  const host = document.getElementById('stems-console-strips');
+  if (!host) return null;
+  const strip = document.createElement('div');
+  strip.className = `stems-console-strip stems-console-strip--${track.kind}`;
+  strip.dataset.trackId = track.id;
+  strip.innerHTML = buildConsoleStripHtml(track);
+  host.appendChild(strip);
+  return strip;
+}
+
+function buildConsoleStripHtml(track) {
+  const kindLabel = track.kind === 'click' ? 'CLICK'
+                  : track.kind === 'guide' ? 'GUÍA'
+                  : 'AUDIO';
+  const volPct = Math.round(track.volume * 100);
   return `
-    <div class="stems-track-info">
-      <input class="stems-track-name" value="${escapeAttr(track.name)}" spellcheck="false">
-      <span class="stems-track-dur">${formatTime(track.durationSec)}</span>
+    <header class="stems-console-strip-head">
+      <span class="stems-console-strip-kind">${kindLabel}</span>
+      <span class="stems-console-strip-name" title="${escapeAttr(track.name)}">${escapeHtml(track.name)}</span>
+    </header>
+    <div class="stems-console-pan-row">
+      <span class="stems-console-pan-letter">L</span>
+      <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}"
+             class="stems-pan-slider stems-console-pan" data-action="pan" aria-label="Pan">
+      <span class="stems-console-pan-letter">R</span>
     </div>
-    <div class="stems-track-controls">
-      <div class="stems-mute-solo">
-        <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
-        <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
+    <div class="stems-console-ms-row">
+      <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
+      <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
+    </div>
+    <div class="stems-console-fader-wrap">
+      <div class="stems-console-fader-meter" aria-hidden="true"></div>
+      <input type="range" min="0" max="100" value="${volPct}"
+             class="stems-console-fader" data-action="vol" aria-label="Volumen">
+    </div>
+    <span class="stems-console-strip-readout">${volPct}</span>
+  `;
+}
+
+// Console strip mirrors the row strip — changes here propagate back so
+// both UIs stay in lockstep.
+function wireConsoleStrip(strip, id) {
+  if (!strip) return;
+  const volInput = strip.querySelector('[data-action="vol"]');
+  const panInput = strip.querySelector('[data-action="pan"]');
+  paintPanFill(panInput);
+
+  volInput.oninput = (e) => {
+    const v = parseInt(e.target.value, 10);
+    engine.setTrackVolume(id, v / 100);
+    const out = strip.querySelector('.stems-console-strip-readout');
+    if (out) out.textContent = v;
+    syncRowStripVol(id, v);
+    scheduleSave();
+  };
+  panInput.oninput = (e) => {
+    const v = parseInt(e.target.value, 10);
+    engine.setTrackPan(id, v / 100);
+    paintPanFill(e.target);
+    syncRowStripPan(id, v);
+    scheduleSave();
+  };
+
+  const muteBtn = strip.querySelector('[data-action="mute"]');
+  muteBtn.onclick = () => {
+    const next = !muteBtn.classList.contains('is-on');
+    engine.setTrackMuted(id, next);
+    muteBtn.classList.toggle('is-on', next);
+    syncRowStripMute(id, next);
+    reflectSoloHighlights();
+    scheduleSave();
+  };
+
+  const soloBtn = strip.querySelector('[data-action="solo"]');
+  soloBtn.onclick = () => {
+    const next = !soloBtn.classList.contains('is-on');
+    engine.setTrackSoloed(id, next);
+    soloBtn.classList.toggle('is-on', next);
+    syncRowStripSolo(id, next);
+    reflectSoloHighlights();
+    scheduleSave();
+  };
+}
+
+// ── Two-way sync helpers (row strip ↔ console strip) ──────────────
+// Each pair updates the other UI's element without re-triggering its
+// input handler, so we don't fire scheduleSave / engine setter twice.
+
+function syncConsoleStripVol(id, v) {
+  const c = trackRows.get(id)?.console; if (!c) return;
+  const slider = c.querySelector('[data-action="vol"]');
+  if (slider) slider.value = v;
+  const out = c.querySelector('.stems-console-strip-readout');
+  if (out) out.textContent = v;
+}
+function syncConsoleStripPan(id, v) {
+  const c = trackRows.get(id)?.console; if (!c) return;
+  const slider = c.querySelector('[data-action="pan"]');
+  if (slider) { slider.value = v; paintPanFill(slider); }
+}
+function syncConsoleStripMute(id, on) {
+  const c = trackRows.get(id)?.console; if (!c) return;
+  c.querySelector('[data-action="mute"]')?.classList.toggle('is-on', on);
+}
+function syncConsoleStripSolo(id, on) {
+  const c = trackRows.get(id)?.console; if (!c) return;
+  c.querySelector('[data-action="solo"]')?.classList.toggle('is-on', on);
+}
+function syncConsoleStripName(id, name) {
+  const c = trackRows.get(id)?.console; if (!c) return;
+  const el = c.querySelector('.stems-console-strip-name');
+  if (el) { el.textContent = name; el.title = name; }
+}
+
+function syncRowStripVol(id, v) {
+  const r = trackRows.get(id)?.row; if (!r) return;
+  const slider = r.querySelector('[data-action="vol"]');
+  if (slider) { slider.value = v; paintVolFill(slider); }
+  const out = r.querySelector('.stems-vol-readout');
+  if (out) out.textContent = v;
+}
+function syncRowStripPan(id, v) {
+  const r = trackRows.get(id)?.row; if (!r) return;
+  const slider = r.querySelector('[data-action="pan"]');
+  if (slider) { slider.value = v; paintPanFill(slider); }
+}
+function syncRowStripMute(id, on) {
+  const r = trackRows.get(id)?.row; if (!r) return;
+  r.querySelector('[data-action="mute"]')?.classList.toggle('is-on', on);
+}
+function syncRowStripSolo(id, on) {
+  const r = trackRows.get(id)?.row; if (!r) return;
+  r.querySelector('[data-action="solo"]')?.classList.toggle('is-on', on);
+}
+
+function buildRowHtml(track) {
+  const kindLabel = track.kind === 'click' ? 'CLICK'
+                  : track.kind === 'guide' ? 'GUÍA'
+                  : 'AUDIO';
+  return `
+    <aside class="stems-row-strip" draggable="true" data-drag-row>
+      <div class="stems-row-head">
+        <span class="stems-row-grip" title="Arrastra para reordenar" aria-hidden="true">⋮⋮</span>
+        <div class="stems-ms-pair">
+          <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
+          <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
+        </div>
+        <div class="stems-row-meta">
+          <span class="stems-row-kind">${kindLabel}</span>
+          <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
+        </div>
+        <input type="color" class="stems-row-color" data-action="color" value="${track.color || '#FBAE00'}" title="Color de la pista">
+        <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="stems-row-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
       </div>
-      <div class="stems-knob-group">
-        <span class="stems-knob-label">Pan</span>
-        <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}" class="stems-range stems-track-pan" data-action="pan">
-        <span class="stems-pan-readout">${panLabel(track.pan)}</span>
+      <div class="stems-row-controls">
+        <div class="stems-vol-group">
+          <span class="stems-vol-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </span>
+          <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}"
+                 class="stems-vol-slider" data-action="vol" aria-label="Volumen">
+          <span class="stems-vol-readout">${Math.round(track.volume * 100)}</span>
+        </div>
+        <div class="stems-pan-group">
+          <span class="stems-pan-letter">L</span>
+          <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}"
+                 class="stems-pan-slider" data-action="pan" aria-label="Pan">
+          <span class="stems-pan-letter">R</span>
+        </div>
       </div>
-      <div class="stems-knob-group">
-        <span class="stems-knob-label">Vol</span>
-        <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}" class="stems-range stems-track-vol" data-action="vol">
-      </div>
-      <button class="stems-track-remove" title="Eliminar" data-action="remove">${SVG_TRASH}</button>
+    </aside>
+    <div class="stems-row-lane">
+      <canvas class="stems-row-canvas"></canvas>
     </div>
   `;
 }
 
-function wireTrackRow(row, id) {
-  const nameInput = row.querySelector('.stems-track-name');
+function buildStripHtml(track) {
+  const kindLabel = track.kind === 'click' ? 'CLICK'
+                  : track.kind === 'guide' ? 'GUÍA'
+                  : 'AUDIO';
+  return `
+    <header class="stems-strip-head">
+      <span class="stems-strip-kind">${kindLabel}</span>
+      <input class="stems-strip-name" value="${escapeAttr(track.name)}" spellcheck="false">
+      <button class="stems-strip-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
+    </header>
+
+    <div class="stems-strip-pan">
+      <span class="stems-strip-pan-readout">${panLabel(track.pan)}</span>
+      <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}" class="stems-range stems-pan" data-action="pan" aria-label="Pan">
+    </div>
+
+    <div class="stems-strip-fader">
+      <div class="stems-strip-fader-meter" aria-hidden="true"></div>
+      <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}"
+             class="stems-fader" data-action="vol" aria-label="Volumen" orient="vertical">
+      <span class="stems-strip-vol-readout">${Math.round(track.volume * 100)}</span>
+    </div>
+
+    <footer class="stems-strip-foot">
+      <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar (M)">M</button>
+      <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo (S)">S</button>
+    </footer>
+  `;
+}
+
+function wireStrip(root, id) {
+  const nameInput = root.querySelector('.stems-row-name');
   nameInput.addEventListener('input', () => {
     engine.renameTrack(id, nameInput.value);
+    syncConsoleStripName(id, nameInput.value);
     scheduleSave();
   });
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
   });
 
-  row.querySelector('[data-action="vol"]').oninput = (e) => {
-    engine.setTrackVolume(id, parseInt(e.target.value, 10) / 100);
+  const volInput = root.querySelector('[data-action="vol"]');
+  const panInput = root.querySelector('[data-action="pan"]');
+  // Paint the initial fill so the slider shows the gold-filled portion
+  // immediately even before the user touches it.
+  paintVolFill(volInput);
+  paintPanFill(panInput);
+
+  volInput.oninput = (e) => {
+    const v = parseInt(e.target.value, 10);
+    engine.setTrackVolume(id, v / 100);
+    paintVolFill(e.target);
+    const out = root.querySelector('.stems-vol-readout');
+    if (out) out.textContent = v;
+    syncConsoleStripVol(id, v);
     scheduleSave();
   };
-  row.querySelector('[data-action="pan"]').oninput = (e) => {
-    const pan = parseInt(e.target.value, 10) / 100;
-    engine.setTrackPan(id, pan);
-    row.querySelector('.stems-pan-readout').textContent = panLabel(pan);
+  panInput.oninput = (e) => {
+    const v = parseInt(e.target.value, 10);
+    engine.setTrackPan(id, v / 100);
+    paintPanFill(e.target);
+    syncConsoleStripPan(id, v);
     scheduleSave();
   };
 
-  const muteBtn = row.querySelector('[data-action="mute"]');
+  const muteBtn = root.querySelector('[data-action="mute"]');
   muteBtn.onclick = () => {
     const next = !muteBtn.classList.contains('is-on');
     engine.setTrackMuted(id, next);
     muteBtn.classList.toggle('is-on', next);
+    syncConsoleStripMute(id, next);
     reflectSoloHighlights();
     scheduleSave();
   };
 
-  const soloBtn = row.querySelector('[data-action="solo"]');
+  const soloBtn = root.querySelector('[data-action="solo"]');
   soloBtn.onclick = () => {
     const next = !soloBtn.classList.contains('is-on');
     engine.setTrackSoloed(id, next);
     soloBtn.classList.toggle('is-on', next);
+    syncConsoleStripSolo(id, next);
     reflectSoloHighlights();
     scheduleSave();
   };
 
-  row.querySelector('[data-action="remove"]').onclick = async () => {
+  root.querySelector('[data-action="remove"]').onclick = async () => {
     if (!confirm('¿Eliminar esta pista del proyecto?')) return;
-    engine.removeTrack(id);
-    await projectStore.removeStem(row.dataset.path);
-    row.remove();
-    trackEls.delete(id);
-    const empty = document.getElementById('stems-empty');
-    if (trackEls.size === 0 && empty) empty.hidden = false;
-    refreshTransport();
-    reflectSoloHighlights();
-    scheduleSave();
+    await removeTrackById(id);
   };
+
+  const colorInput = root.querySelector('[data-action="color"]');
+  if (colorInput) {
+    colorInput.oninput = (e) => {
+      engine.setTrackColor(id, e.target.value);
+      drawTrackWaveform(id);
+      scheduleSave();
+    };
+  }
+
+  const exportBtn = root.querySelector('[data-action="export"]');
+  if (exportBtn) {
+    exportBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const t = engine.getTracks().find(tr => tr.id === id);
+      if (!t) return;
+      await runExport({
+        onlyTrackIds: [id],
+        suggestedName: `${projectName} - ${t.name}`
+      });
+    };
+  }
+}
+
+async function removeTrackById(id) {
+  const row = trackRows.get(id);
+  engine.removeTrack(id);
+  if (row) {
+    await projectStore.removeStem(row.row.dataset.path);
+    row.row.remove();
+    if (row.console) row.console.remove();
+  }
+  trackRows.delete(id);
+  peaksCache.delete(id);
+  if (trackRows.size === 0) {
+    const empty = document.getElementById('stems-empty');
+    if (empty) empty.hidden = false;
+  }
+  refreshTransport();
+  refreshTimelineWidth();
+  reflectSoloHighlights();
+  scheduleSave();
 }
 
 function panLabel(pan) {
@@ -290,54 +1100,578 @@ function panLabel(pan) {
   return `R${Math.round(pan * 100)}`;
 }
 
-// When any track is soloed, dim the non-soloed/non-muted-but-silenced rows
-// so the user has a visual cue why some tracks went quiet.
+// Live-update the gold-fill ratio on a horizontal/vertical volume range
+// input. The CSS variable --fill is read by the slider's track gradient.
+function paintVolFill(input) {
+  const v = parseInt(input.value, 10);
+  input.style.setProperty('--fill', `${v}%`);
+}
+// Bipolar (-100..+100) pan slider: gold segment between center (50%) and
+// the thumb. CSS reads --fill-start / --fill-end.
+function paintPanFill(input) {
+  const v = parseInt(input.value, 10);
+  const half = v / 2;
+  const start = Math.min(50, 50 + half);
+  const end   = Math.max(50, 50 + half);
+  input.style.setProperty('--fill-start', `${start}%`);
+  input.style.setProperty('--fill-end',   `${end}%`);
+}
+
 function reflectSoloHighlights() {
   const anySoloed = engine.getTracks().some(t => t.soloed);
-  for (const [id, row] of trackEls.entries()) {
+  for (const [id, entry] of trackRows.entries()) {
     const t = engine.getTracks().find(tr => tr.id === id);
     if (!t) continue;
-    row.classList.toggle('is-silenced', t.muted || (anySoloed && !t.soloed));
+    const silent = t.muted || (anySoloed && !t.soloed);
+    entry.row.classList.toggle('is-silenced', silent);
   }
 }
 
-function refreshTransport() {
-  const totalSec = engine.getDurationSec();
-  document.getElementById('stems-total').textContent = formatTime(totalSec);
-  document.getElementById('stems-play').disabled = totalSec === 0;
-  const exportBtn = document.getElementById('stems-export');
-  if (exportBtn) exportBtn.disabled = engine.getTracks().length === 0;
+// ── Timeline + ruler + waveform ───────────────────────────────────
+function projectDurationSec() {
+  return Math.max(engine.getDurationSec(), 60);
+}
+function projectWidthPx() {
+  return Math.max(MIN_TIMELINE_PX, Math.ceil(projectDurationSec() * PX_PER_SEC));
 }
 
-// ── Export to MP3 ─────────────────────────────────────────────────
+function refreshTimelineWidth() {
+  const inner = document.getElementById('stems-arrange-inner');
+  if (!inner) return;
+  const w = projectWidthPx();
+  // The ruler container, every lane, and the marker layer must all share
+  // the same width so columns align vertically. The strip column adds a
+  // fixed STRIP_WIDTH that lives in a sibling sticky element.
+  const tl = inner.querySelector('.stems-head-tl');
+  if (tl) tl.style.width = `${w}px`;
+  for (const entry of trackRows.values()) {
+    entry.lane.style.width = `${w}px`;
+  }
+  drawRuler();
+  redrawAllWaveforms();
+  redrawMarkers();
+}
 
-async function runExport() {
+function drawRuler() {
+  const ruler = document.getElementById('stems-ruler');
+  if (!ruler) return;
+  const w = projectWidthPx();
+  const dur = projectDurationSec();
+  const barSec = (60 / bpm) * beatsPerBar;
+  const beatSec = 60 / bpm;
+  const beatsTotal = Math.ceil(dur / beatSec);
+
+  let html = '';
+  for (let beat = 0; beat <= beatsTotal; beat++) {
+    const tSec = beat * beatSec;
+    const x = tSec * PX_PER_SEC;
+    if (x > w) break;
+    const isBar = beat % beatsPerBar === 0;
+    html += `<div class="stems-tick ${isBar ? 'stems-tick--bar' : ''}" style="left:${x}px"></div>`;
+    if (isBar) {
+      const bar = beat / beatsPerBar + 1;
+      html += `<div class="stems-tick-label" style="left:${x + 4}px">
+        <span class="stems-tick-bar">${bar}.1.00</span>
+        <span class="stems-tick-time">${formatBarTime(tSec)}</span>
+      </div>`;
+    }
+  }
+  // Ruler is position:absolute inset:0 inside .stems-head-tl, so width
+  // is inherited from the parent — no need to set it here.
+  ruler.innerHTML = html;
+}
+function formatBarTime(sec) {
+  const mm = Math.floor(sec / 60);
+  const ss = Math.floor(sec % 60);
+  const ms = Math.floor((sec - Math.floor(sec)) * 1000);
+  return `${mm}:${String(ss).padStart(2, '0')}.${String(Math.floor(ms/10)).padStart(2, '0')}`;
+}
+
+function drawTrackWaveform(id) {
+  const row = trackRows.get(id);
+  if (!row) return;
+  const buffer = engine.getTrackBuffer(id);
+  if (!buffer) return;
+  const audioPx = Math.ceil(buffer.duration * PX_PER_SEC);
+  // Lane spans the full project width so all rows align vertically with
+  // the ruler. The canvas only covers the actual audio duration; any
+  // trailing space stays empty (matching Moises / LibreTracks behaviour).
+  row.lane.style.width = `${projectWidthPx()}px`;
+  row.canvas.style.width = `${audioPx}px`;
+  row.canvas.style.height = `${ROW_HEIGHT - 8}px`;
+  let peaks = peaksCache.get(id);
+  if (!peaks || peaks.length / 2 !== audioPx) {
+    peaks = computePeaks(buffer, audioPx);
+    peaksCache.set(id, peaks);
+  }
+  const t = engine.getTracks().find(tr => tr.id === id);
+  // Per-track override wins over kind defaults; only fall back to the
+  // theme accent when neither has been set.
+  const color = t?.color
+    ? t.color
+    : t?.kind === 'click' ? 'rgba(96, 165, 250, 0.9)'
+    : t?.kind === 'guide' ? 'rgba(74, 222, 128, 0.9)'
+    : currentAccent();
+  drawWaveform(row.canvas, peaks, { color });
+}
+
+// Read the active theme accent at draw time so waveforms inherit the
+// global theme tokens. Returns a CSS colour string (rgb/hex) — drawWaveform
+// passes it straight to canvas fillStyle so any valid format works.
+function currentAccent() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  return v || '#FBAE00';
+}
+
+function redrawAllWaveforms() {
+  for (const id of trackRows.keys()) drawTrackWaveform(id);
+}
+
+// ── Markers ────────────────────────────────────────────────────────
+// Snap-to-beat: when ON (default), marker time is rounded to the nearest
+// beat at the current BPM. Visually cleaner, easier to make rhythmic
+// sections line up. The toggle lives in the topbar.
+let snapToBeat = true;
+let clickSoundId = 'beep';
+// Loop region — ids of the two markers that bound the loop. Null when
+// no loop is set. The actual numeric region is computed on toggle from
+// these markers' atSec values.
+let loopStartMarkerId = null;
+let loopEndMarkerId = null;
+let loopEnabled = false;
+
+function snapTimeIfEnabled(sec) {
+  if (!snapToBeat) return sec;
+  const beatSec = 60 / bpm;
+  return Math.round(sec / beatSec) * beatSec;
+}
+
+function onAddMarker() {
+  const sel = document.getElementById('stems-section-select');
+  if (!sel) return;
+  const cueId = sel.value;
+  const cue = findCueById(cueId);
+  if (!cue) return;
+  const atSec = snapTimeIfEnabled(engine.getCurrentSec());
+  const m = { id: `m${nextMarkerId++}`, cueId, label: cue.label, url: cue.url, atSec };
+  markers.push(m);
+  redrawMarkers();
+  pushHistory('Añadir marcador',
+    () => { markers = markers.filter(x => x.id !== m.id); redrawMarkers(); scheduleSave(); },
+    () => { markers.push(m); redrawMarkers(); scheduleSave(); }
+  );
+  scheduleSave();
+}
+
+function removeMarker(markerId) {
+  const idx = markers.findIndex(m => m.id === markerId);
+  if (idx < 0) return;
+  const removed = markers[idx];
+  markers.splice(idx, 1);
+  redrawMarkers();
+  pushHistory('Eliminar marcador',
+    () => { markers.splice(idx, 0, removed); redrawMarkers(); scheduleSave(); },
+    () => { markers.splice(idx, 1); redrawMarkers(); scheduleSave(); }
+  );
+  scheduleSave();
+}
+
+function renameMarker(markerId, newLabel) {
+  const m = markers.find(x => x.id === markerId);
+  if (!m) return;
+  const oldLabel = m.label;
+  const next = String(newLabel || '').trim() || m.label;
+  if (next === oldLabel) return;
+  m.label = next;
+  redrawMarkers();
+  pushHistory('Renombrar marcador',
+    () => { m.label = oldLabel; redrawMarkers(); scheduleSave(); },
+    () => { m.label = next;     redrawMarkers(); scheduleSave(); }
+  );
+  scheduleSave();
+}
+
+function moveMarkerTo(markerId, atSec) {
+  const m = markers.find(x => x.id === markerId);
+  if (!m) return;
+  const oldSec = m.atSec;
+  const newSec = snapTimeIfEnabled(Math.max(0, atSec));
+  if (Math.abs(newSec - oldSec) < 0.001) return; // unchanged, skip
+  m.atSec = newSec;
+  redrawMarkers();
+  pushHistory('Mover marcador',
+    () => { m.atSec = oldSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); },
+    () => { m.atSec = newSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); }
+  );
+  syncLoopRegion();
+  scheduleSave();
+}
+
+function changeMarkerCue(markerId, cueId) {
+  const cue = findCueById(cueId);
+  const m = markers.find(x => x.id === markerId);
+  if (!cue || !m) return;
+  const prev = { cueId: m.cueId, label: m.label, url: m.url };
+  m.cueId = cue.id;
+  m.label = cue.label;
+  m.url = cue.url;
+  redrawMarkers();
+  pushHistory('Cambiar tipo de marcador',
+    () => { m.cueId = prev.cueId; m.label = prev.label; m.url = prev.url; redrawMarkers(); scheduleSave(); },
+    () => { m.cueId = cue.id; m.label = cue.label; m.url = cue.url; redrawMarkers(); scheduleSave(); }
+  );
+  scheduleSave();
+}
+
+function redrawMarkers() {
+  const layer = document.getElementById('stems-marker-layer');
+  if (!layer) return;
+  // Marker layer inherits width from .stems-head-tl (parent).
+  layer.innerHTML = '';
+  for (const m of markers) {
+    const x = m.atSec * PX_PER_SEC;
+    const el = document.createElement('div');
+    let role = '';
+    if (m.id === loopStartMarkerId) role = ' stems-marker--loop-start';
+    if (m.id === loopEndMarkerId)   role += ' stems-marker--loop-end';
+    el.className = 'stems-marker' + role;
+    el.style.left = `${x}px`;
+    el.dataset.markerId = m.id;
+    el.innerHTML = `
+      <span class="stems-marker-flag" title="Arrastra para mover · click derecho para opciones">${SVG_FLAG}</span>
+      <span class="stems-marker-label">${escapeHtml(m.label)}</span>
+      <button class="stems-marker-remove" title="Quitar">×</button>
+    `;
+    el.querySelector('.stems-marker-remove').onclick = (e) => {
+      e.stopPropagation();
+      removeMarker(m.id);
+    };
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openMarkerMenu(e.clientX, e.clientY, m.id);
+    });
+    enableMarkerDrag(el, m.id);
+    layer.appendChild(el);
+  }
+}
+
+// ── Marker drag-to-reposition ────────────────────────────────────
+function enableMarkerDrag(el, markerId) {
+  const flag = el.querySelector('.stems-marker-flag');
+  flag.style.cursor = 'grab';
+  flag.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    flag.style.cursor = 'grabbing';
+    const headTl = document.getElementById('stems-marker-layer');
+    const tlRect = headTl.getBoundingClientRect();
+    const onMove = (ev) => {
+      const x = ev.clientX - tlRect.left;
+      const sec = Math.max(0, x / PX_PER_SEC);
+      moveMarkerTo(markerId, sec);
+    };
+    const onUp = () => {
+      flag.style.cursor = 'grab';
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+// ── Right-click menu for markers ────────────────────────────────
+function openMarkerMenu(x, y, markerId) {
+  closeMarkerMenu();
+  const m = markers.find(t => t.id === markerId);
+  if (!m) return;
+  const menu = document.createElement('div');
+  menu.className = 'stems-context-menu';
+  menu.id = 'stems-marker-menu';
+  menu.innerHTML = `
+    <button data-cmd="rename">Renombrar</button>
+    <button data-cmd="change">Cambiar tipo…</button>
+    <button data-cmd="loop-start">Marcar como inicio de loop</button>
+    <button data-cmd="loop-end">Marcar como fin de loop</button>
+    <button data-cmd="loop-clear">Quitar de loop</button>
+    <button data-cmd="delete" class="danger">Eliminar marcador</button>
+  `;
+  document.body.appendChild(menu);
+  // Position then clamp inside viewport.
+  menu.style.left = `${x}px`;
+  menu.style.top  = `${y}px`;
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth)  menu.style.left = `${window.innerWidth - r.width - 8}px`;
+    if (r.bottom > window.innerHeight) menu.style.top  = `${window.innerHeight - r.height - 8}px`;
+  });
+  menu.querySelector('[data-cmd="rename"]').onclick = () => {
+    closeMarkerMenu();
+    const next = window.prompt
+      ? null
+      : null; // prompt is disabled in Electron 33 — use inline approach
+    // Inline rename: turn the label into a contenteditable
+    const el = document.querySelector(`.stems-marker[data-marker-id="${markerId}"] .stems-marker-label`);
+    if (!el) return;
+    el.contentEditable = 'true';
+    el.focus();
+    document.getSelection().selectAllChildren(el);
+    const commit = () => {
+      el.contentEditable = 'false';
+      renameMarker(markerId, el.textContent);
+    };
+    el.addEventListener('blur', commit, { once: true });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      if (e.key === 'Escape') { el.textContent = m.label; el.blur(); }
+    });
+  };
+  menu.querySelector('[data-cmd="change"]').onclick = () => {
+    closeMarkerMenu();
+    openChangeCueMenu(x, y, markerId);
+  };
+  menu.querySelector('[data-cmd="loop-start"]').onclick = () => {
+    closeMarkerMenu();
+    loopStartMarkerId = markerId;
+    syncLoopRegion();
+    redrawMarkers();
+    scheduleSave();
+  };
+  menu.querySelector('[data-cmd="loop-end"]').onclick = () => {
+    closeMarkerMenu();
+    loopEndMarkerId = markerId;
+    syncLoopRegion();
+    redrawMarkers();
+    scheduleSave();
+  };
+  menu.querySelector('[data-cmd="loop-clear"]').onclick = () => {
+    closeMarkerMenu();
+    if (loopStartMarkerId === markerId) loopStartMarkerId = null;
+    if (loopEndMarkerId === markerId)   loopEndMarkerId = null;
+    syncLoopRegion();
+    redrawMarkers();
+    scheduleSave();
+  };
+  menu.querySelector('[data-cmd="delete"]').onclick = () => {
+    closeMarkerMenu();
+    if (loopStartMarkerId === markerId) loopStartMarkerId = null;
+    if (loopEndMarkerId === markerId)   loopEndMarkerId = null;
+    removeMarker(markerId);
+    syncLoopRegion();
+  };
+  document.addEventListener('mousedown', closeMarkerMenuOnce, { capture: true });
+  document.addEventListener('keydown', closeMarkerMenuOnEsc, { once: true });
+}
+
+function toggleLoop() {
+  loopEnabled = !loopEnabled;
+  syncLoopRegion();
+  redrawMarkers();
+  const btn = document.getElementById('stems-loop-toggle');
+  if (btn) btn.classList.toggle('is-on', loopEnabled);
+  scheduleSave();
+}
+
+function syncLoopRegion() {
+  if (!loopEnabled || !loopStartMarkerId || !loopEndMarkerId) {
+    engine.clearLoopRegion();
+    return;
+  }
+  const a = markers.find(m => m.id === loopStartMarkerId);
+  const b = markers.find(m => m.id === loopEndMarkerId);
+  if (!a || !b) { engine.clearLoopRegion(); return; }
+  engine.setLoopRegion(a.atSec, b.atSec);
+}
+function closeMarkerMenuOnce(e) {
+  const menu = document.getElementById('stems-marker-menu');
+  if (menu && !menu.contains(e.target)) closeMarkerMenu();
+}
+function closeMarkerMenuOnEsc(e) {
+  if (e.key === 'Escape') closeMarkerMenu();
+}
+function closeMarkerMenu() {
+  document.getElementById('stems-marker-menu')?.remove();
+  document.getElementById('stems-change-cue-menu')?.remove();
+  document.removeEventListener('mousedown', closeMarkerMenuOnce, { capture: true });
+}
+function openChangeCueMenu(x, y, markerId) {
+  const menu = document.createElement('div');
+  menu.className = 'stems-context-menu stems-context-menu--scroll';
+  menu.id = 'stems-change-cue-menu';
+  menu.innerHTML = SECTION_CUES.map(c =>
+    `<button data-cue="${c.id}">${c.label}</button>`
+  ).join('');
+  document.body.appendChild(menu);
+  menu.style.left = `${x}px`;
+  menu.style.top  = `${y}px`;
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth)  menu.style.left = `${window.innerWidth - r.width - 8}px`;
+    if (r.bottom > window.innerHeight) menu.style.top  = `${window.innerHeight - r.height - 8}px`;
+  });
+  menu.querySelectorAll('[data-cue]').forEach(b => {
+    b.onclick = () => {
+      changeMarkerCue(markerId, b.dataset.cue);
+      closeMarkerMenu();
+    };
+  });
+  document.addEventListener('mousedown', closeMarkerMenuOnce, { capture: true });
+}
+
+// ── Click track generator ─────────────────────────────────────────
+async function onAddClickTrack() {
+  const existingClickId = engine.findTrackByKind('click');
+  if (existingClickId) {
+    if (!confirm('Ya existe una pista de click. ¿Regenerarla con el BPM actual?')) return;
+    await regenerateClickTrack(existingClickId);
+    return;
+  }
+  // Electron 33 disables window.prompt(), so we just default the duration:
+  // existing-stem length if any, otherwise 4 min (typical worship song).
+  // The user can regenerate later (it'll use whatever the project length is
+  // by then). Simpler than maintaining a custom inline-prompt dialog.
+  const hasTracks = engine.getTracks().length > 0;
+  const seconds = hasTracks ? projectDurationSec() : 240;
+  await createClickTrack(seconds);
+}
+
+async function createClickTrack(durationSec) {
+  const ctx = engine.getAudioContext();
+  const buffer = generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const wav = audioBufferToWav(buffer);
+  const id = `click-${nextTrackId++}`;
+  await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click' });
+  const savedPath = await projectStore.saveStem(id, `click_${bpm}bpm.wav`, wav);
+  appendTrackRow(id, savedPath);
+  refreshTransport();
+  scheduleSave();
+}
+
+async function regenerateClickTrack(existingId) {
+  const durationSec = projectDurationSec();
+  const ctx = engine.getAudioContext();
+  const buffer = generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const wav = audioBufferToWav(buffer);
+  engine.replaceTrackBuffer(existingId, buffer);
+  // Refresh persisted file too.
+  const entry = trackRows.get(existingId);
+  if (entry) {
+    await projectStore.removeStem(entry.row.dataset.path);
+    const savedPath = await projectStore.saveStem(existingId, `click_${bpm}bpm.wav`, wav);
+    entry.row.dataset.path = savedPath;
+  }
+  peaksCache.delete(existingId);
+  drawTrackWaveform(existingId);
+  scheduleSave();
+}
+
+// ── Guide track build ─────────────────────────────────────────────
+async function onRebuildGuide() {
+  if (markers.length === 0) {
+    alert('Añade al menos un marcador antes de generar la guía.');
+    return;
+  }
+  try {
+    const durationSec = projectDurationSec();
+    const ctx = engine.getAudioContext();
+    const buffer = await buildGuideTrack({ markers, durationSec, sampleRate: ctx.sampleRate });
+    if (!buffer) return;
+    const wav = audioBufferToWav(buffer);
+    const existingId = engine.findTrackByKind('guide');
+    if (existingId) {
+      engine.replaceTrackBuffer(existingId, buffer);
+      const entry = trackRows.get(existingId);
+      if (entry) {
+        await projectStore.removeStem(entry.row.dataset.path);
+        const savedPath = await projectStore.saveStem(existingId, 'guide.wav', wav);
+        entry.row.dataset.path = savedPath;
+      }
+      peaksCache.delete(existingId);
+      drawTrackWaveform(existingId);
+    } else {
+      const id = `guide-${nextTrackId++}`;
+      await engine.addTrack({ id, name: 'Guía', audioBuffer: buffer, kind: 'guide' });
+      const savedPath = await projectStore.saveStem(id, 'guide.wav', wav);
+      appendTrackRow(id, savedPath);
+    }
+    refreshTransport();
+    scheduleSave();
+  } catch (e) {
+    console.error('Guide build failed', e);
+    alert('No se pudo generar la guía: ' + (e.message || e));
+  }
+}
+
+// ── Transport state ───────────────────────────────────────────────
+function refreshTransport() {
+  const hasTracks = engine.getTracks().length > 0;
+  document.getElementById('stems-play').disabled  = !hasTracks;
+  document.getElementById('stems-stop').disabled  = !hasTracks;
+  document.getElementById('stems-pause').disabled = !engine.isCurrentlyPlaying();
+  const exportBtn = document.getElementById('stems-export');
+  if (exportBtn) exportBtn.disabled = !hasTracks;
+  const count = engine.getTracks().length;
+  const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
+  const c1 = document.getElementById('stems-mixer-count');  if (c1) c1.textContent = countText;
+  const c2 = document.getElementById('stems-console-count'); if (c2) c2.textContent = countText;
+}
+
+function applyPlayingState(playing) {
+  const playBtn  = document.getElementById('stems-play');
+  const pauseBtn = document.getElementById('stems-pause');
+  const stopBtn  = document.getElementById('stems-stop');
+  const pill     = document.getElementById('stems-state-pill');
+  const hasTracks = engine.getTracks().length > 0;
+  if (playBtn) {
+    playBtn.classList.toggle('is-playing', playing);
+    // Play stays enabled when paused so the user can resume; only the
+    // empty-project case disables it.
+    playBtn.disabled = !hasTracks;
+  }
+  if (pauseBtn) pauseBtn.disabled = !playing;
+  if (stopBtn)  stopBtn.disabled  = !hasTracks;
+  if (pill) {
+    pill.textContent = playing ? 'REPRODUCIENDO' : 'DETENIDO';
+    pill.dataset.state = playing ? 'play' : 'stop';
+  }
+}
+
+function applyTimeUpdate(sec) {
+  const tc = document.getElementById('stems-timecode');
+  if (tc) tc.textContent = formatTimecode(sec);
+  const head = document.getElementById('stems-playhead');
+  if (head) head.style.transform = `translateX(${STRIP_WIDTH + sec * PX_PER_SEC}px)`;
+  autoFollowPlayhead(sec);
+}
+
+// ── Export ────────────────────────────────────────────────────────
+async function runExport(opts = {}) {
   if (engine.isCurrentlyPlaying()) engine.stop();
-
   const overlay = document.getElementById('stems-export-overlay');
   const fill    = document.getElementById('stems-export-fill');
   const stageEl = document.getElementById('stems-export-stage');
   const titleEl = document.getElementById('stems-export-title');
 
+  const isIndividual = !!opts.onlyTrackIds;
   overlay.hidden = false;
-  titleEl.textContent = 'Renderizando mezcla…';
+  titleEl.textContent = isIndividual ? 'Exportando pista…' : 'Renderizando mezcla…';
   stageEl.textContent = 'Preparando audio';
   fill.style.width = '0%';
 
   try {
     const mp3Bytes = await exportMix((progress, stage) => {
-      // 0-50% render, 50-100% encode — gives a single linear bar.
       const linear = stage === 'render' ? progress * 0.5 : 0.5 + progress * 0.5;
       fill.style.width = `${Math.round(linear * 100)}%`;
       stageEl.textContent = stage === 'render'
-        ? 'Renderizando mezcla con paneos y volúmenes'
+        ? (isIndividual ? 'Renderizando pista individual' : 'Renderizando mezcla con paneos y volúmenes')
         : 'Codificando a MP3';
-    });
+    }, opts);
 
     titleEl.textContent = 'Guardando archivo…';
     stageEl.textContent = 'Elige dónde guardar el .mp3';
     const savedPath = await window.electronAPI.stemsExportMp3({
-      suggestedName: projectName,
+      suggestedName: opts.suggestedName || projectName,
       buffer: mp3Bytes.buffer
     });
 
@@ -346,7 +1680,6 @@ async function runExport() {
       stageEl.textContent = savedPath;
       setTimeout(() => { overlay.hidden = true; }, 1800);
     } else {
-      // User canceled the save dialog — just close the overlay.
       overlay.hidden = true;
     }
   } catch (e) {
@@ -357,45 +1690,48 @@ async function runExport() {
   }
 }
 
-function applyPlayingState(playing) {
-  const btn = document.getElementById('stems-play');
-  if (!btn) return;
-  btn.innerHTML = playing ? SVG_STOP : SVG_PLAY;
-  btn.classList.toggle('is-playing', playing);
-}
-
-function applyTimeUpdate(sec) {
-  const el = document.getElementById('stems-current');
-  if (el) el.textContent = formatTime(sec);
-}
-
-// ── Persistence orchestration ──────────────────────────────────────
-
+// ── Persistence ───────────────────────────────────────────────────
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
+  // Show "Pendiente…" right away so the user knows a save is queued.
+  const pill = document.getElementById('stems-save-pill');
+  if (pill) {
+    pill.hidden = false;
+    pill.dataset.state = 'pending';
+    pill.textContent = 'Pendiente…';
+  }
   saveTimer = setTimeout(doSave, SAVE_DEBOUNCE_MS);
 }
 
 async function doSave() {
   saveTimer = null;
+  const pill = document.getElementById('stems-save-pill');
+  if (pill) { pill.dataset.state = 'saving'; pill.textContent = 'Guardando…'; }
   try {
     const tracks = engine.getTracks().map(t => {
-      const row = trackEls.get(t.id);
+      const entry = trackRows.get(t.id);
       return {
-        id: t.id,
-        name: t.name,
-        volume: t.volume,
-        pan: t.pan,
-        muted: t.muted,
-        soloed: t.soloed,
-        path: row ? row.dataset.path : null
+        id: t.id, kind: t.kind, name: t.name,
+        volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed,
+        color: t.color || null,
+        path: entry ? entry.row.dataset.path : null
       };
     });
     await projectStore.saveCurrent({
       projectName,
+      bpm, beatsPerBar, beatValue,
       masterVolume: engine.getMasterVolume(),
-      nextTrackId,
-      tracks
+      nextTrackId, nextMarkerId,
+      tracks,
+      markers,
+      // View / preferences — persisted so a reopen restores the exact state.
+      pxPerSec: PX_PER_SEC,
+      rowHeight: ROW_HEIGHT,
+      snapToBeat,
+      clickSoundId,
+      loopEnabled,
+      loopStartMarkerId,
+      loopEndMarkerId
     });
     flashSavedPill();
   } catch (e) {
@@ -403,11 +1739,12 @@ async function doSave() {
   }
 }
 
-let pillTimer = null;
 function flashSavedPill() {
   const pill = document.getElementById('stems-save-pill');
   if (!pill) return;
   pill.hidden = false;
+  pill.dataset.state = 'saved';
+  pill.textContent = 'Guardado ✓';
   pill.classList.add('is-on');
   if (pillTimer) clearTimeout(pillTimer);
   pillTimer = setTimeout(() => pill.classList.remove('is-on'), 1500);
@@ -415,58 +1752,219 @@ function flashSavedPill() {
 
 async function rehydrate(state) {
   projectName = state.projectName || 'Mi proyecto';
-  const nameInput = document.getElementById('stems-project-name');
-  if (nameInput) nameInput.value = projectName;
+  document.getElementById('stems-project-name').value = projectName;
+
+  if (typeof state.bpm === 'number') {
+    bpm = state.bpm;
+    document.getElementById('stems-bpm').value = bpm;
+  }
+  if (typeof state.beatsPerBar === 'number') beatsPerBar = state.beatsPerBar;
+  if (typeof state.beatValue === 'number') beatValue = state.beatValue;
+  const sigSel = document.getElementById('stems-sig');
+  if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
 
   if (typeof state.masterVolume === 'number') {
     engine.setMasterVolume(state.masterVolume);
-    const slider = document.getElementById('stems-master-vol');
-    if (slider) slider.value = Math.round(state.masterVolume * 100);
+    document.getElementById('stems-master-vol').value = Math.round(state.masterVolume * 100);
   }
 
-  // Restore each track: fetch the stored file via livepads:// → decode → register.
   for (const t of state.tracks || []) {
     if (!t.path) continue;
     try {
       const arrayBuffer = await projectStore.fetchStem(t.path);
-      await engine.addTrack({ id: t.id, name: t.name, arrayBuffer });
-      // Apply saved knob values now that the buffer is in the engine.
+      await engine.addTrack({ id: t.id, name: t.name, arrayBuffer, kind: t.kind || 'stem' });
       engine.setTrackVolume(t.id, t.volume);
       engine.setTrackPan(t.id, t.pan);
       if (t.muted)  engine.setTrackMuted(t.id, true);
       if (t.soloed) engine.setTrackSoloed(t.id, true);
-      appendTrackStrip(t.id, t.path);
+      if (t.color)  engine.setTrackColor(t.id, t.color);
+      appendTrackRow(t.id, t.path);
     } catch (e) {
       console.warn('Could not restore stem', t.id, e);
     }
   }
 
+  if (state.markers) markers = state.markers;
   if (typeof state.nextTrackId === 'number') nextTrackId = state.nextTrackId;
+  if (typeof state.nextMarkerId === 'number') nextMarkerId = state.nextMarkerId;
+  if (typeof state.pxPerSec === 'number') setZoom(state.pxPerSec);
+  if (typeof state.rowHeight === 'number') setRowHeight(state.rowHeight);
+  if (typeof state.snapToBeat === 'boolean') {
+    snapToBeat = state.snapToBeat;
+    const snap = document.getElementById('stems-snap');
+    if (snap) snap.checked = snapToBeat;
+  }
+  if (typeof state.clickSoundId === 'string') {
+    clickSoundId = state.clickSoundId;
+    const sel = document.getElementById('stems-click-sound');
+    if (sel) sel.value = clickSoundId;
+  }
+  if (state.loopStartMarkerId) loopStartMarkerId = state.loopStartMarkerId;
+  if (state.loopEndMarkerId)   loopEndMarkerId = state.loopEndMarkerId;
+  if (typeof state.loopEnabled === 'boolean') {
+    loopEnabled = state.loopEnabled;
+    const btn = document.getElementById('stems-loop-toggle');
+    if (btn) btn.classList.toggle('is-on', loopEnabled);
+    syncLoopRegion();
+  }
   refreshTransport();
+  refreshTimelineWidth();
   reflectSoloHighlights();
 }
 
+// ── Save As / Open modals ─────────────────────────────────────────
+// Electron 33 disables window.prompt(), so we render small inline modals
+// for project naming and project picking instead of relying on native
+// prompts. Both share the same dim backdrop + escape-to-close behaviour.
+
+function openSaveAsModal() {
+  closeStemsModal();
+  const m = document.createElement('div');
+  m.id = 'stems-modal';
+  m.className = 'stems-modal';
+  m.innerHTML = `
+    <div class="stems-modal-card">
+      <h3>Guardar proyecto como…</h3>
+      <p>Se guardará una copia del proyecto actual con este nombre. Podrás abrirlo después desde "Abrir proyecto".</p>
+      <input id="stems-modal-name" class="stems-modal-input" placeholder="Nombre del proyecto" autofocus>
+      <div class="stems-modal-actions">
+        <button class="stems-btn stems-btn--subtle" data-act="cancel">Cancelar</button>
+        <button class="stems-btn stems-btn--primary" data-act="save">Guardar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(m);
+  const input = m.querySelector('#stems-modal-name');
+  input.value = projectName;
+  requestAnimationFrame(() => { input.focus(); input.select(); });
+  m.querySelector('[data-act="cancel"]').onclick = closeStemsModal;
+  m.querySelector('[data-act="save"]').onclick = async () => {
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      // Flush any pending save first so the snapshot is up-to-date.
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      await doSave();
+      await window.electronAPI.stemsSaveAs({ name });
+      projectName = name;
+      document.getElementById('stems-project-name').value = name;
+      flashSavedPill();
+      closeStemsModal();
+    } catch (e) {
+      alert('Error: ' + (e.message || e));
+    }
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') m.querySelector('[data-act="save"]').click();
+    if (e.key === 'Escape') closeStemsModal();
+  });
+  m.addEventListener('click', (e) => { if (e.target === m) closeStemsModal(); });
+}
+
+async function openProjectsModal() {
+  closeStemsModal();
+  const list = await window.electronAPI.stemsListProjects();
+  const m = document.createElement('div');
+  m.id = 'stems-modal';
+  m.className = 'stems-modal';
+  m.innerHTML = `
+    <div class="stems-modal-card stems-modal-card--wide">
+      <h3>Abrir proyecto</h3>
+      <p>Selecciona un proyecto guardado.</p>
+      <div class="stems-modal-list" id="stems-modal-list">
+        ${list.length === 0
+          ? '<div class="stems-modal-empty">No hay proyectos guardados aún. Usa <strong>Guardar como…</strong> primero.</div>'
+          : list.map(p => `
+            <div class="stems-modal-row" data-slug="${escapeAttr(p.slug)}">
+              <div class="stems-modal-row-info">
+                <span class="stems-modal-row-name">${escapeHtml(p.name)}</span>
+                <span class="stems-modal-row-time">${formatRelTime(p.updatedAt)}</span>
+              </div>
+              <div class="stems-modal-row-actions">
+                <button class="stems-btn stems-btn--subtle" data-act="open">Abrir</button>
+                <button class="stems-btn stems-btn--subtle stems-btn--danger" data-act="delete" title="Eliminar este proyecto">×</button>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+      <div class="stems-modal-actions">
+        <button class="stems-btn stems-btn--subtle" data-act="cancel">Cerrar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(m);
+  m.querySelector('[data-act="cancel"]').onclick = closeStemsModal;
+  m.addEventListener('click', (e) => { if (e.target === m) closeStemsModal(); });
+  document.addEventListener('keydown', escCloseStemsModal, { once: true });
+
+  m.querySelectorAll('.stems-modal-row').forEach(row => {
+    const slug = row.dataset.slug;
+    row.querySelector('[data-act="open"]').onclick = async () => {
+      try {
+        await resetProject();
+        const state = await window.electronAPI.stemsLoadProject(slug);
+        if (state) await rehydrate(state);
+        closeStemsModal();
+      } catch (e) { alert('No se pudo abrir: ' + (e.message || e)); }
+    };
+    row.querySelector('[data-act="delete"]').onclick = async () => {
+      if (!confirm(`¿Eliminar el proyecto "${row.querySelector('.stems-modal-row-name').textContent}"? Esto borra sus stems del disco.`)) return;
+      try {
+        await window.electronAPI.stemsDeleteProject(slug);
+        row.remove();
+      } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+    };
+  });
+}
+function escCloseStemsModal(e) {
+  if (e.key === 'Escape') closeStemsModal();
+}
+function closeStemsModal() {
+  document.getElementById('stems-modal')?.remove();
+}
+function formatRelTime(ms) {
+  if (!ms) return '';
+  const d = Date.now() - ms;
+  const min = Math.floor(d / 60000);
+  if (min < 1) return 'hace unos segundos';
+  if (min < 60) return `hace ${min} min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `hace ${hr} h`;
+  const day = Math.floor(hr / 24);
+  return `hace ${day} día${day === 1 ? '' : 's'}`;
+}
+
 async function resetProject() {
-  // Tear down every active track in the engine + UI, drop saved stems.
   if (engine.isCurrentlyPlaying()) engine.stop();
-  for (const id of Array.from(trackEls.keys())) {
-    const row = trackEls.get(id);
+  for (const id of Array.from(trackRows.keys())) {
+    const entry = trackRows.get(id);
     engine.removeTrack(id);
-    if (row) {
-      await projectStore.removeStem(row.dataset.path);
-      row.remove();
+    if (entry) {
+      await projectStore.removeStem(entry.row.dataset.path);
+      entry.row.remove();
+      if (entry.console) entry.console.remove();
     }
   }
-  trackEls.clear();
+  trackRows.clear();
+  peaksCache.clear();
+  markers = [];
   nextTrackId = 1;
+  nextMarkerId = 1;
   projectName = 'Mi proyecto';
+  bpm = 120; beatsPerBar = 4; beatValue = 4;
   document.getElementById('stems-project-name').value = projectName;
-  const empty = document.getElementById('stems-empty');
-  if (empty) empty.hidden = false;
+  document.getElementById('stems-bpm').value = bpm;
+  document.getElementById('stems-sig').value = '4/4';
+  document.getElementById('stems-empty').hidden = false;
   refreshTransport();
+  refreshTimelineWidth();
+  redrawMarkers();
   await projectStore.clearCurrent();
 }
 
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 function escapeAttr(str) {
   return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }

@@ -20,20 +20,64 @@ let onPlayingChange = null;
 let onTimeUpdate = null;
 let timeUpdateRAF = null;
 
+// Optional loop region — when both endpoints are set, playback bounces
+// back to loopStart whenever the playhead reaches loopEnd.
+let loopStart = null;  // seconds, null = disabled
+let loopEnd   = null;
+let onLoop = null;     // workspace-supplied callback when the loop wraps
+
+// Master analyser exposes a tiny live-level reading so the UI can paint a
+// VU meter without leaking audio internals. Float time-domain data fits
+// every codec we read; we squeeze it into a peak/RMS pair on demand.
+let masterAnalyser = null;
+let analyserBuf = null;
+
 function ensureCtx() {
   if (ctx) return ctx;
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.85;
-  masterGain.connect(ctx.destination);
+  masterAnalyser = ctx.createAnalyser();
+  masterAnalyser.fftSize = 1024;
+  masterAnalyser.smoothingTimeConstant = 0.3;
+  analyserBuf = new Float32Array(masterAnalyser.fftSize);
+  masterGain.connect(masterAnalyser);
+  masterAnalyser.connect(ctx.destination);
   return ctx;
 }
 
-export function init({ onPlayingChange: pc, onTimeUpdate: tu } = {}) {
+// Returns the most recent master level as { peak, rms } in 0..1 range.
+// peak is the absolute max sample in the window; rms is the root-mean-
+// square. Use peak for visual transients, rms for sustained loudness.
+export function getMasterLevel() {
+  if (!masterAnalyser || !analyserBuf) return { peak: 0, rms: 0 };
+  masterAnalyser.getFloatTimeDomainData(analyserBuf);
+  let peak = 0, sumSq = 0;
+  for (let i = 0; i < analyserBuf.length; i++) {
+    const v = analyserBuf[i];
+    const a = v < 0 ? -v : v;
+    if (a > peak) peak = a;
+    sumSq += v * v;
+  }
+  const rms = Math.sqrt(sumSq / analyserBuf.length);
+  return { peak, rms };
+}
+
+export function init({ onPlayingChange: pc, onTimeUpdate: tu, onLoop: ol } = {}) {
   onPlayingChange = pc || null;
   onTimeUpdate = tu || null;
+  onLoop = ol || null;
   ensureCtx();
 }
+
+export function setLoopRegion(startSec, endSec) {
+  if (startSec == null || endSec == null) { loopStart = loopEnd = null; return; }
+  const a = Math.max(0, Math.min(startSec, endSec));
+  const b = Math.max(startSec, endSec);
+  loopStart = a; loopEnd = b;
+}
+export function clearLoopRegion() { loopStart = loopEnd = null; }
+export function getLoopRegion() { return { start: loopStart, end: loopEnd }; }
 
 export function getMasterVolume() { return masterGain ? masterGain.gain.value : 0.85; }
 export function setMasterVolume(v) {
@@ -43,9 +87,15 @@ export function setMasterVolume(v) {
 
 // Decode + register a stem from an ArrayBuffer (FileReader result).
 // Returns the new track id so the UI can wire its strip immediately.
-export async function addTrack({ id, name, arrayBuffer }) {
+// `kind` is metadata: 'stem' (default), 'click', or 'guide'. The engine
+// treats them identically — kind only affects how the UI styles + saves
+// the track. Pass a pre-decoded AudioBuffer instead of arrayBuffer to
+// register synthesised tracks (click, guide) without re-decoding.
+export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind }) {
   ensureCtx();
-  const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0)); // slice → keep ArrayBuffer intact for persistence later
+  const buffer = audioBuffer
+    ? audioBuffer
+    : await ctx.decodeAudioData(arrayBuffer.slice(0));
   const gainNode = ctx.createGain();
   gainNode.gain.value = 0.85;
   const panNode = ctx.createStereoPanner();
@@ -55,6 +105,7 @@ export async function addTrack({ id, name, arrayBuffer }) {
 
   tracks.set(id, {
     id,
+    kind: kind || 'stem',
     name: name || 'Pista',
     buffer,
     gainNode,
@@ -63,9 +114,44 @@ export async function addTrack({ id, name, arrayBuffer }) {
     volume: gainNode.gain.value,
     pan: 0,
     muted: false,
-    soloed: false
+    soloed: false,
+    color: null   // null → use theme accent; else CSS colour string
   });
   return id;
+}
+
+// Replace the AudioBuffer of an existing track in place — used when the
+// click track regenerates after BPM/duration changes, or the guide track
+// is rebuilt after markers shift. Knobs + position in the list are kept.
+export function replaceTrackBuffer(id, audioBuffer) {
+  const t = tracks.get(id);
+  if (!t) return;
+  // If currently playing, stop the source so the next play uses the new buffer.
+  if (t.sourceNode) {
+    try { t.sourceNode.stop(); } catch (e) {}
+    try { t.sourceNode.disconnect(); } catch (e) {}
+    t.sourceNode = null;
+  }
+  t.buffer = audioBuffer;
+}
+
+export function getAudioContext() { ensureCtx(); return ctx; }
+export function getTrackBuffer(id) { return tracks.get(id)?.buffer || null; }
+export function findTrackByKind(kind) {
+  for (const t of tracks.values()) if (t.kind === kind) return t.id;
+  return null;
+}
+
+// Rebuild the Map preserving everything but in the order specified by
+// `idsInOrder`. Tracks not in the list are appended at the end.
+export function reorderTracks(idsInOrder) {
+  const next = new Map();
+  for (const id of idsInOrder) {
+    if (tracks.has(id)) next.set(id, tracks.get(id));
+  }
+  for (const [id, t] of tracks) if (!next.has(id)) next.set(id, t);
+  tracks.clear();
+  for (const [id, t] of next) tracks.set(id, t);
 }
 
 export function removeTrack(id) {
@@ -111,6 +197,12 @@ export function renameTrack(id, name) {
   t.name = String(name || '').trim() || 'Pista';
 }
 
+export function setTrackColor(id, color) {
+  const t = tracks.get(id);
+  if (!t) return;
+  t.color = color || null;
+}
+
 // Mute + solo interact: if ANY track is soloed, only soloed tracks are
 // audible (others are forced silent). Manual mute overrides solo for that
 // track. This matches every DAW's standard solo behaviour.
@@ -130,8 +222,8 @@ function applyEffectiveGain(t, anySoloedPrecomputed) {
 
 export function getTracks() {
   return Array.from(tracks.values()).map(t => ({
-    id: t.id, name: t.name, volume: t.volume, pan: t.pan,
-    muted: t.muted, soloed: t.soloed, durationSec: t.buffer.duration
+    id: t.id, kind: t.kind, name: t.name, volume: t.volume, pan: t.pan,
+    muted: t.muted, soloed: t.soloed, color: t.color, durationSec: t.buffer.duration
   }));
 }
 
@@ -139,8 +231,8 @@ export function getTracks() {
 // when it needs to rebuild the mix graph inside an OfflineAudioContext.
 export function getRawTracks() {
   return Array.from(tracks.values()).map(t => ({
-    id: t.id, name: t.name, buffer: t.buffer,
-    volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed
+    id: t.id, kind: t.kind, name: t.name, buffer: t.buffer,
+    volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed, color: t.color
   }));
 }
 
@@ -184,8 +276,14 @@ export function play() {
   startTimeUpdates();
 }
 
-export function stop() {
-  if (!isPlaying) return;
+// Seek to an arbitrary timeline position. If playback was running it
+// restarts at the new offset; if stopped, the position is queued for the
+// next `play()` call and the UI playhead updates immediately.
+export function seek(sec) {
+  const target = Math.max(0, Math.min(sec, getDurationSec()));
+  const wasPlaying = isPlaying;
+  // Tear down any active sources without resetting pauseOffsetSec (which
+  // `stop()` would).
   for (const t of tracks.values()) {
     if (t.sourceNode) {
       try { t.sourceNode.stop(); } catch (e) {}
@@ -194,9 +292,52 @@ export function stop() {
     }
   }
   isPlaying = false;
-  pauseOffsetSec = 0;
+  stopTimeUpdates();
+  pauseOffsetSec = target;
+  if (wasPlaying) {
+    play();
+  } else {
+    if (onPlayingChange) onPlayingChange(false);
+    if (onTimeUpdate) onTimeUpdate(pauseOffsetSec);
+  }
+}
+
+// Pause: stop active sources but PRESERVE pauseOffsetSec so the next
+// play() resumes from the same spot. Different from stop() which resets
+// the playhead to 0.
+export function pause() {
+  if (!isPlaying) return;
+  const currentSec = getCurrentSec();
+  for (const t of tracks.values()) {
+    if (t.sourceNode) {
+      try { t.sourceNode.stop(); } catch (e) {}
+      try { t.sourceNode.disconnect(); } catch (e) {}
+      t.sourceNode = null;
+    }
+  }
+  isPlaying = false;
+  pauseOffsetSec = currentSec;
   if (onPlayingChange) onPlayingChange(false);
   stopTimeUpdates();
+  if (onTimeUpdate) onTimeUpdate(pauseOffsetSec);
+}
+
+export function stop() {
+  // Always reset, even if currently paused — the user pressed Stop and
+  // expects the playhead to return to 0. Returning early when !isPlaying
+  // (the old behaviour) silently kept the playhead at the pause offset.
+  for (const t of tracks.values()) {
+    if (t.sourceNode) {
+      try { t.sourceNode.stop(); } catch (e) {}
+      try { t.sourceNode.disconnect(); } catch (e) {}
+      t.sourceNode = null;
+    }
+  }
+  const wasPlaying = isPlaying;
+  isPlaying = false;
+  pauseOffsetSec = 0;
+  stopTimeUpdates();
+  if (onPlayingChange && wasPlaying) onPlayingChange(false);
   if (onTimeUpdate) onTimeUpdate(0);
 }
 
@@ -213,7 +354,14 @@ function startTimeUpdates() {
   if (!onTimeUpdate) return;
   const tick = () => {
     if (!isPlaying) return;
-    onTimeUpdate(getCurrentSec());
+    const sec = getCurrentSec();
+    // Loop region check: if playhead crossed loopEnd, restart at loopStart.
+    if (loopStart != null && loopEnd != null && sec >= loopEnd) {
+      seek(loopStart);
+      if (onLoop) onLoop({ from: loopEnd, to: loopStart });
+      return;
+    }
+    onTimeUpdate(sec);
     timeUpdateRAF = requestAnimationFrame(tick);
   };
   timeUpdateRAF = requestAnimationFrame(tick);

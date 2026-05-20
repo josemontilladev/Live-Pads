@@ -32,3 +32,5 @@ config.local.json
 
 # Claude Code session data
 .claude/
+.agents/
+skills-lock.json

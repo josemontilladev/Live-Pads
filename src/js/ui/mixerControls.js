@@ -88,12 +88,25 @@ export function bindMixerControls(deps) {
   }
   if (lpfStage) syncSlider(lpfStage);
 
-  // Master volume (final stage)
+  // Master volume (final stage). Synced cross-workspace via the
+  // `livepads:master-vol-change` event so Stems' master slider mirrors
+  // this one and vice versa.
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
   mvol.oninput = () => {
     engine.setMasterVolume(mvol.value / 100);
     mvolVal.textContent = mvol.value + '%';
     syncSlider(mvol);
+    document.dispatchEvent(new CustomEvent('livepads:master-vol-change', {
+      detail: { value: mvol.value / 100, source: 'pads' }
+    }));
   };
   syncSlider(mvol);
+  document.addEventListener('livepads:master-vol-change', (e) => {
+    if (e.detail.source === 'pads') return; // avoid echo
+    const pct = Math.round(e.detail.value * 100);
+    mvol.value = pct;
+    mvolVal.textContent = pct + '%';
+    engine.setMasterVolume(e.detail.value);
+    syncSlider(mvol);
+  });
 }

@@ -32,5 +32,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsClearCurrent: () => ipcRenderer.invoke('stems-clear-current'),
   stemsSaveFile: (data) => ipcRenderer.invoke('stems-save-file', data),
   stemsRemoveFile: (url) => ipcRenderer.invoke('stems-remove-file', url),
-  stemsExportMp3: (data) => ipcRenderer.invoke('stems-export-mp3', data)
+  stemsExportMp3: (data) => ipcRenderer.invoke('stems-export-mp3', data),
+  stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
+  stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),
+  stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),
+  stemsDeleteProject: (slug) => ipcRenderer.invoke('stems-delete-project', slug)
 });
