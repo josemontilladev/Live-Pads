@@ -38,4 +38,29 @@
     document.querySelectorAll('.feature-card, .persona-card, .shortcut-card, .tour-row, .faq-item')
       .forEach(el => el.classList.add('is-visible'));
   }
+
+  // "Próximamente" modal — intercept any [data-soon] link until the binary
+  // and public repo are ready. Dismiss via × / backdrop / Esc / OK button.
+  const soonModal = document.getElementById('soon-modal');
+  if (soonModal) {
+    const openSoon = () => {
+      soonModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    };
+    const closeSoon = () => {
+      soonModal.hidden = true;
+      document.body.style.overflow = '';
+    };
+    document.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-soon]');
+      if (trigger) { e.preventDefault(); openSoon(); return; }
+      if (!soonModal.hidden && e.target.closest('[data-close]')) {
+        e.preventDefault();
+        closeSoon();
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (!soonModal.hidden && e.key === 'Escape') closeSoon();
+    });
+  }
 })();

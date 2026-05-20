@@ -7,6 +7,7 @@
 let mounted = null;
 let pollTimer = null;
 let lastQrUrl = null; // cache so we only regenerate the SVG when the URL changes
+let serverStartedAt = 0; // ms timestamp — used to show the firewall hint after 8s of zero clients
 
 const SVG_CLOSE = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const SVG_COPY  = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -53,6 +54,14 @@ export function openCompanionPanel() {
         y verán la canción que dispares en la cabina.
       </p>
 
+      <div class="cp-firewall" hidden>
+        <strong>¿No conecta nadie?</strong>
+        Windows puede estar bloqueando el puerto. La primera vez que arrancas el server,
+        Windows muestra un diálogo "¿Permitir el acceso?" — marca <em>Redes privadas</em> y
+        acepta. Si no salió, abre <em>Firewall de Windows → Aplicaciones permitidas</em> y
+        habilita <em>LivePads</em> / <em>Electron</em> en redes privadas.
+      </div>
+
       <label class="cp-autostart">
         <input type="checkbox" id="cp-autostart">
         <span>Iniciar al abrir LivePads</span>
@@ -76,8 +85,10 @@ export function openCompanionPanel() {
       const cur = await window.electronAPI.companionStatus();
       if (cur.running) {
         await window.electronAPI.companionStop();
+        serverStartedAt = 0;
       } else {
         await window.electronAPI.companionStart();
+        serverStartedAt = Date.now();
         // Publish whatever is active now so late joiners aren't blank.
         publishCurrentSong();
       }
@@ -165,6 +176,16 @@ async function refresh() {
       mounted.querySelector('#cp-clients-count').textContent = status.clients;
       toggleBtn.textContent = 'Apagar Companion';
       toggleBtn.classList.add('cp-toggle--off');
+
+      // Firewall hint: surface after 8 s with zero clients connected. The
+      // most common reason is Windows silently dropping the inbound. Once
+      // any client connects, the hint hides itself.
+      const fw = mounted.querySelector('.cp-firewall');
+      if (fw) {
+        const showHint = serverStartedAt > 0 && status.clients === 0
+                         && (Date.now() - serverStartedAt) > 8000;
+        fw.hidden = !showHint;
+      }
 
       // Surface the interface picker when there's more than one IPv4 candidate
       // (very common on machines with VPN active). Auto-detect picks the

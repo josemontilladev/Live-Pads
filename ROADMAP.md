@@ -6,7 +6,100 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
-## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (decimotercera pasada — landing + cross-platform)
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (decimocuarta pasada — Companion móvil + polish)
+
+### Estado al cerrar
+
+- **Última fase completada**: 📱 Fase 36 — Companion móvil (PWA LAN) end-to-end + integraciones + landing refresh
+- **Total módulos JS**: **45** (43 + `companion/server.js` + `src/js/ui/companionPanel.js`)
+- **Cliente PWA nuevo**: `companion/client/` (5 archivos, ~470 líneas) — HTML+CSS+JS plano, sin build
+- **Deps nuevas**: `ws@^8.20.1`, `qrcode@^1.5.4`
+- **Instalador NSIS**: 250 MB (rebuild verificado con Companion incluido)
+- **Landing pública**: https://live-pads.vercel.app/ con sección dedicada del Companion y mockups CSS pixel-perfect
+- **Último commit**: pendiente al cerrar — incluye polish post-shipping (firewall hint, TOC, OG tags, favicon, README)
+
+### Fase 36 (esta sesión) — Companion móvil PWA + polish
+
+**Contexto**: la banda en escena no podía ver letras/acordes sin pedirle a la cabina que les pasase un papel. Ahora la cabina sirve una PWA en LAN, los teléfonos escanean un QR y siguen la canción en tiempo real.
+
+#### Arquitectura
+
+1. **`companion/server.js`** (218 líneas) — HTTP + WebSocket en main process:
+   - Fallback de puerto 3001 → 3010 si está ocupado
+   - **Detección inteligente de IP LAN**: scoring por rango de IP (`192.168` > `172.16-31` > `10.x`) + nombre de interfaz (penaliza `ProtonVPN`, `WireGuard`, `Tailscale`, `Cloudflare WARP`, `tun`, `tap`; bonifica `Wi-Fi`, `Ethernet`)
+   - Override manual vía `setPreferredIp()` cuando la auto-detección falla
+   - Broadcast del state completo a nuevos clientes (late joiners) + diffs en cambios
+2. **`companion/client/`** — PWA estática:
+   - **`index.html`** — top bar con brand + toggle chords + conn pill, song meta (key + live dot + title + artist + BPM), TOC sticky con pills de secciones, lyrics container, FAB de ajustes, bottom-sheet con tamaño de letra/auto-scroll/wake-lock
+   - **`companion.css`** (~370 líneas) — mismo idioma visual que la cabina (secciones `#60a5fa`, acordes `#FBAE00`, letra blanca). Variable `--lyric-scale` para escalar letra/acordes/secciones sin tocar el header
+   - **`companion.js`** (~320 líneas) — WS con reconnect+backoff, parser de acordes idéntico al de la cabina (porteado de `lyricsFormat.js`), TOC builder con IntersectionObserver para highlight del current section, prefs en localStorage, screen wake-lock API
+   - **`manifest.json` + `sw.js`** — PWA installable, service worker stale-while-revalidate (cache `livepads-companion-v2`)
+   - Iconos 192/512 reutilizados del app
+3. **`src/js/ui/companionPanel.js`** (220 líneas) — modal en el menú hamburguesa:
+   - QR generado en main vía `qrcode.toString()` (SVG escalable, 200×200)
+   - URL en monospace selectable + botón copiar con feedback
+   - Contador de clientes refrescado cada 2s
+   - Select de interfaces cuando hay >1 IP candidata (resuelve el caso VPN)
+   - Checkbox "Iniciar al abrir LivePads" persistido en `companion_prefs.json` (userData)
+   - **Hint de firewall**: aparece automáticamente si pasan 8s sin clientes conectados — instruye al usuario a permitir Redes privadas en el dialogo de Windows o desde `Firewall → Aplicaciones permitidas`
+
+#### Integraciones en el resto del app
+
+- **`applyGiSong`** en `app.js:947` publica al companion en cada cambio de canción
+- **Poller de 500ms** en `app.js:961` diffea `isTrackPlaying() || metroRunning` → publica al companion para el indicador "en vivo" (punto verde pulsante sobre el badge de tono)
+- **Autostart**: si `companion_prefs.autostart === true`, `app.whenReady` levanta el server al boot
+- **Spotlight** (`Ctrl+K`): nueva entrada "Companion (móvil)" que abre el panel vía menú
+- **Cheat-sheet**: sección nueva "Companion (móvil)" con dos rows
+- **Pre-vuelo**: nueva fila async — refleja "Activo en {url} — {n} conectado(s)" o "Apagado"
+- **Menú hamburguesa**: botón "Companion (móvil)" entre "Mapeos activos" y "Pantalla completa"
+
+#### Landing pública (docs/)
+
+- **Card "Companion móvil (PWA)"** añadida a la grilla de Features (con link `#companion`)
+- **Sección `#companion`** dedicada después del Tour:
+  - Phone mockup CSS pixel-perfect (notch + screen + live-dot pulsante)
+  - Bullets: misma WiFi sin nube, sin app que instalar, pensado para escenario, en vivo
+  - Chips de meta: LAN only · Sin auth · PWA installable · WebSocket en tiempo real
+  - QR block con caption "1) Activa Companion 2) Escanea con el teléfono" (SVG decorativo)
+- **Tour mockups** (los 4): reemplazados por HTML/CSS pixel-perfect — `mk-setlist`, `mk-editor`, `mk-mappings`, `mk-preflight`. Identidad visual exacta a las capturas reales, nítidos a cualquier resolución
+- **PNGs pequeños eliminados** (4 archivos), `hero.png` se conserva
+- **Nav + footer** con link a `#companion`
+- **OG + Twitter meta tags** para previews al compartir en WhatsApp/Slack/etc., usando `hero.png` como og:image
+- **Favicon** + apple-touch-icon (`assets/logo.png`)
+- **Modal "Próximamente"**: todos los botones de Descargar / Ver en GitHub (5 CTAs en total: nav, hero ×2, download section ×2, footer) ahora abren un modal que explica que el binario y el repo público salen pronto. Trigger por `data-soon`, cierre via × / backdrop / Esc / botón "Entendido". Listo para flippear cuando el repo se haga público — basta con quitar `data-soon` y restaurar los href reales.
+
+#### README
+
+- Nueva sección "Companion móvil (PWA en la misma WiFi)" entre la instalación y los atajos — incluye pasos de uso, tip de firewall, autostart, detección inteligente de IP, controles para los músicos, indicador en vivo
+
+### Cómo retomar mañana
+
+1. `cd c:\Users\josem\OneDrive\Escritorio\Live Pads`
+2. `npm start`
+3. ☰ → Companion (móvil) → Activar → escanea el QR con el teléfono
+4. Verificar live indicator: dispara una canción y mira el punto verde pulsar en el teléfono
+5. Verificar Vercel deploy: https://live-pads.vercel.app/ — debe mostrar la nueva sección Companion y los previews OG al compartir
+
+### Pendientes potenciales (no prioritarios)
+
+- **Cross-platform real builds**: `npm run build:mac` en una Mac física, `npm run build:linux` validado
+- **Code signing**: Windows EV (~$300/año) y Apple Developer ($99/año) si se distribuye fuera del círculo cercano
+- **Asset audit segunda pasada**: click tracks podrían tener oportunidad de compresión adicional
+- **Boot profiling**: medir cold-start real, apuntar a <500ms hasta interactividad
+- **Virtualización del song list** si la librería supera 200 canciones
+- **i18n EN del landing** — solo si surge interés fuera de hispanohablantes
+- **Vídeo demo embebido** en la landing — opcional
+
+### Decisiones que NO se hacen (siguen válidas)
+
+- ❌ Companion con cloud relay (no hay WiFi estable en la iglesia, LAN cumple)
+- ❌ Control remoto desde el teléfono (la cabina es la fuente de verdad — añadir bidireccionalidad complica sin necesidad real)
+- ❌ Transposición local en el companion (si guitarrista ve key distinto al cantante, lía a la banda)
+- ❌ Backwards-compat hacks en el cliente — bumpear `CACHE` en `sw.js` cada vez que cambie el shell
+
+---
+
+## 📍 CHECKPOINT ANTERIOR — Sesión cerrada 2026-05-19 (decimotercera pasada — landing + cross-platform)
 
 ### Estado al cerrar
 
