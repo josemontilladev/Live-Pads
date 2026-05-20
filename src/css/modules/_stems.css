@@ -197,26 +197,27 @@ body[data-workspace="stems"] #body {
   outline: none;
 }
 
-.stems-field--bpm { padding-right: 4px; gap: 4px; }
+.stems-field--bpm { padding-right: 4px; gap: 6px; }
 .stems-bpm-detect {
   appearance: none;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-main);
   letter-spacing: 0.3px;
-  padding: 3px 7px;
-  border-radius: 4px;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s;
 }
 .stems-bpm-detect:hover {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
   border-color: var(--accent);
 }
 .stems-bpm-detect:disabled {
@@ -237,30 +238,47 @@ body[data-workspace="stems"] #body {
 }
 .stems-field--select option { background: var(--bg-card); color: var(--text); }
 
+/* Transport group — Stop + Pause clustered together as secondary, Play
+   floats as the prominent primary action (matches the visual weight of
+   the metronome's Play in Pads). */
+.stems-tb-mid {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 4px 4px 6px;
+  gap: 6px !important;
+}
 .stems-tb-btn {
   appearance: none;
-  width: 36px; height: 36px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text);
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
 }
-.stems-tb-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+.stems-tb-btn:hover { color: var(--text); background: var(--bg-hover); border-color: var(--border); }
 .stems-tb-btn:active { transform: scale(0.94); }
 .stems-tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-tb-btn--play {
   background: var(--accent);
   border-color: var(--accent);
   color: #0a0a14;
-  width: 44px; height: 44px;
+  width: 52px; height: 52px;
   border-radius: 50%;
-  box-shadow: 0 0 14px var(--glow);
+  box-shadow: 0 0 18px var(--glow), 0 4px 12px rgba(0,0,0,0.4);
+  margin-left: 2px;
 }
-.stems-tb-btn--play:hover { background: var(--accent); filter: brightness(1.1); }
+.stems-tb-btn--play:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0a14;
+  filter: brightness(1.1);
+}
+.stems-tb-btn--play svg { width: 22px; height: 22px; }
 .stems-tb-btn--play.is-playing {
   animation: stemsPulse 1.6s ease-in-out infinite;
 }
@@ -385,8 +403,12 @@ body[data-workspace="stems"] #body {
 .stems-actions-primary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
 }
 .stems-actions-mid {
   display: flex;
@@ -395,9 +417,7 @@ body[data-workspace="stems"] #body {
   flex: 1 1 200px;
   min-width: 160px;
   max-width: 360px;
-  padding: 0 10px;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  padding: 0 16px;
 }
 .stems-actions-secondary {
   display: flex;
@@ -469,15 +489,17 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-btn--accent {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent) 55%, color-mix(in srgb, var(--accent), black 35%));
+  background: var(--accent);
   color: #0a0a14;
   border-color: var(--accent);
-  box-shadow:
-    0 0 14px var(--glow),
-    inset 0 1px 0 rgba(255,255,255,0.35);
+  box-shadow: 0 0 14px var(--glow);
   font-weight: 800;
 }
-.stems-btn--accent:hover { filter: brightness(1.08); }
+.stems-btn--accent:hover {
+  background: var(--accent);
+  filter: brightness(1.1);
+  border-color: var(--accent);
+}
 
 .stems-btn--ghost {
   background: transparent;
@@ -682,8 +704,8 @@ body[data-workspace="stems"] #body {
   font-family: ui-monospace, Consolas, monospace;
   pointer-events: none;
 }
-.stems-tick-bar { font-size: 10px; font-weight: 700; color: var(--text); }
-.stems-tick-time { font-size: 9px; color: var(--accent); }
+.stems-tick-bar { font-size: 10.5px; font-weight: 800; color: var(--text); letter-spacing: 0.2px; }
+.stems-tick-time { font-size: 9.5px; font-weight: 600; color: var(--accent); opacity: 0.8; }
 
 /* Markers layer — sits inside the head-tl so it scrolls horizontally
    with the ruler. Each marker's vertical line extends down through the
@@ -817,20 +839,22 @@ body[data-workspace="stems"] #body {
 
 .stems-lane { min-height: var(--stems-row-height, 78px); }
 
-/* Drag handle on strip */
+/* Drag handle on strip — always visible so reordering is discoverable */
 .stems-row-grip {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   cursor: grab;
-  padding: 0 2px;
+  padding: 0 4px;
   user-select: none;
-  opacity: 0.5;
-  transition: opacity 0.15s, color 0.15s;
+  opacity: 0.45;
+  transition: color 0.15s, opacity 0.15s;
+  letter-spacing: -1px;
 }
-.stems-row-strip:hover .stems-row-grip { opacity: 1; color: var(--accent); }
+.stems-row-strip:hover .stems-row-grip { opacity: 0.9; color: var(--accent); }
 .stems-row-grip:active { cursor: grabbing; }
 
-/* Left strip — sticky during horizontal scroll */
+/* Left strip — sticky during horizontal scroll. Fills the row vertically
+   via flex space-between so controls breathe instead of clumping at top. */
 .stems-row-strip {
   width: 220px;
   min-width: 220px;
@@ -841,11 +865,11 @@ body[data-workspace="stems"] #body {
     linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005)),
     var(--bg-card);
   border-right: 1px solid var(--border-strong);
-  padding: 8px 12px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 4px;
+  justify-content: space-evenly;
+  gap: 6px;
   box-shadow: 2px 0 4px rgba(0,0,0,0.25);
 }
 .stems-row--click .stems-row-strip {
@@ -888,16 +912,37 @@ body[data-workspace="stems"] #body {
   box-shadow: 0 0 10px var(--glow);
 }
 
-.stems-row-meta { display: flex; flex-direction: column; min-width: 0; }
+.stems-row-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+/* Kind label as a pill chip, not just an eyebrow — gives it a clear
+   container and makes click/guide tracks recognisable at a glance. */
 .stems-row-kind {
-  font-size: 8.5px;
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.4px;
   color: var(--text-muted);
   text-transform: uppercase;
+  padding: 1px 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
-.stems-row--click .stems-row-kind { color: #60a5fa; }
-.stems-row--guide .stems-row-kind { color: #4ade80; }
+.stems-row--click .stems-row-kind {
+  color: #60a5fa;
+  border-color: rgba(96,165,250,0.4);
+  background: rgba(96,165,250,0.1);
+}
+.stems-row--guide .stems-row-kind {
+  color: #4ade80;
+  border-color: rgba(74,222,128,0.4);
+  background: rgba(74,222,128,0.1);
+}
 .stems-row-name {
   appearance: none;
   background: transparent;
@@ -1341,23 +1386,24 @@ body[data-workspace="stems"] #body {
   transition: height 0.05s linear;
 }
 
-/* Per-track colour swatch — native input[type=color] with a tiny round
-   look that doesn't shout. */
+/* Per-track colour swatch — readable square with thin border. */
 .stems-row-color {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
   background: transparent;
   cursor: pointer;
   padding: 0;
   overflow: hidden;
+  transition: border-color 0.15s, transform 0.1s;
+  flex-shrink: 0;
 }
 .stems-row-color::-webkit-color-swatch-wrapper { padding: 0; }
-.stems-row-color::-webkit-color-swatch { border: none; border-radius: 50%; }
-.stems-row-color:hover { border-color: var(--accent); }
+.stems-row-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+.stems-row-color:hover { border-color: var(--accent); transform: scale(1.1); }
 
 /* Export-this-track button on the strip (next to the trash) */
 .stems-row-export {
@@ -1378,14 +1424,30 @@ body[data-workspace="stems"] #body {
   color: var(--accent);
 }
 
-/* Loop toggle button — lights up when active */
+/* Loop toggle button — explicit OFF vs ON states so the toggle is
+   visible even when inactive (not just "another ghost button"). */
+#stems-loop-toggle {
+  position: relative;
+}
+#stems-loop-toggle::after {
+  content: "OFF";
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  margin-left: 2px;
+  opacity: 0.7;
+}
 #stems-loop-toggle.is-on {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent), white 15%),
-    var(--accent));
+  background: var(--accent);
   color: #0a0a14;
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--glow), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 0 12px var(--glow);
+}
+#stems-loop-toggle.is-on::after {
+  content: "ON";
+  color: #0a0a14;
+  opacity: 1;
 }
 
 /* Loop endpoints in markers — coloured pill so the user can spot them */
