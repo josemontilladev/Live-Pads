@@ -38,6 +38,10 @@
         <span class="topbar-logo-text">Live Pads</span>
         <img src="assets/logo.png" alt="LivePads Logo" class="topbar-logo-img">
       </div>
+      <div class="workspace-switcher" role="tablist" aria-label="Workspace">
+        <button class="ws-tab is-active" data-workspace="pads" role="tab" aria-selected="true">Pads</button>
+        <button class="ws-tab" data-workspace="stems" role="tab" aria-selected="false">Stems</button>
+      </div>
     </div>
 
     <div class="topbar-right">
@@ -456,6 +460,9 @@
       </div>
     </aside>
   </div>
+
+  <!-- ═══ STEMS WORKSPACE (sibling of #body, switched in by topbar tabs) ═══ -->
+  <div id="workspace-stems" class="hidden"></div>
 
   <!-- Overlays -->
   <div id="menu-overlay" class="hidden" onclick="closeMenu()"></div>

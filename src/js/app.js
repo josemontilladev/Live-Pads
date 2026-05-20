@@ -8,6 +8,7 @@ import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRende
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
+import { mount as mountStemsWorkspace } from './stems/workspace.js';
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
@@ -229,6 +230,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPresets({ onApply: applyPreset });
   loadPresetsModule();
   loadGiSetlistFromFile();
+  mountStemsWorkspace();
+  bindWorkspaceSwitcher();
 
   // Defensive: Chromium suspends AudioContexts created before the first user
   // gesture. Resume on the first pointer/key event so the first pad/drum hit
@@ -542,6 +545,34 @@ function bindRestOfApp() {
     triggerMasterStop,
   });
   bindGlobalHandlers();
+}
+
+// Workspace switcher — top-bar tabs that toggle between the Pads view
+// (#body) and the Stems editor (#workspace-stems). Persisted in
+// localStorage so the app reopens to the user's last context.
+const WS_KEY = 'livepads-active-workspace';
+function bindWorkspaceSwitcher() {
+  const tabs = qa('.ws-tab');
+  if (!tabs.length) return;
+  const stored = localStorage.getItem(WS_KEY) || 'pads';
+  applyWorkspace(stored);
+  tabs.forEach(tab => {
+    tab.onclick = () => applyWorkspace(tab.dataset.workspace);
+  });
+}
+function applyWorkspace(name) {
+  const valid = name === 'stems' ? 'stems' : 'pads';
+  const body = q('#body');
+  const stems = q('#workspace-stems');
+  if (body)  body.classList.toggle('hidden', valid !== 'pads');
+  if (stems) stems.classList.toggle('hidden', valid !== 'stems');
+  qa('.ws-tab').forEach(t => {
+    const isActive = t.dataset.workspace === valid;
+    t.classList.toggle('is-active', isActive);
+    t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  document.body.dataset.workspace = valid;
+  try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 }
 
 // MIDI listener (incoming notes/CC → mapped action) + the document-level
