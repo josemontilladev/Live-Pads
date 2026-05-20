@@ -43,6 +43,7 @@
       "main.js",
       "preload.js",
       "src/**/*",
+      "companion/**/*",
       "!src/**/*.map",
       "!**/*.{md,markdown,log,bak,backup,asd}",
       "!**/{.DS_Store,Thumbs.db,.git,.gitignore,.idea,.vscode,.editorconfig}",
