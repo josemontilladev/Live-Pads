@@ -1406,6 +1406,28 @@
   line-height: 1.5;
 }
 
+#companion-overlay .cp-firewall {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.55;
+}
+#companion-overlay .cp-firewall strong {
+  display: block;
+  color: #f59e0b;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+}
+#companion-overlay .cp-firewall em {
+  font-style: normal;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 #companion-overlay .cp-autostart {
   display: flex;
   align-items: center;

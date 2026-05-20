@@ -60,6 +60,38 @@ El instalador termina en `dist/LivePads-Setup-1.0.0.exe` (o `.dmg` / `.AppImage`
 
 ---
 
+## Companion móvil (PWA en la misma WiFi)
+
+Activa el Companion desde **☰ → Companion (móvil)** y la banda en escena
+ve las letras + acordes que disparas en la cabina, directamente en el
+navegador de su teléfono. Cero apps que instalar, cero cuentas, cero internet:
+
+1. En la cabina: ☰ → Companion → **Activar**.
+2. Escanea el QR que sale en el panel con la cámara del teléfono.
+3. El teléfono abre la URL local (`http://<ip-de-la-cabina>:3001`).
+4. Cuando cliques una canción en la cabina, aparece en el teléfono.
+
+Detalles que es bueno saber:
+
+- **Solo LAN.** Cabina + teléfonos deben estar en la misma WiFi (3001/TCP).
+- **PWA installable.** Desde el navegador del teléfono → "Añadir a pantalla
+  de inicio" para que abra como app nativa con icono propio.
+- **Detección inteligente de IP.** Si tienes VPN activa (Cloudflare WARP,
+  Tailscale, ProtonVPN), el server prioriza tu IP de WiFi/Ethernet real.
+  Si la auto-detección falla, el panel ofrece un selector manual.
+- **Firewall.** La primera vez que arrancas el server, Windows muestra
+  "¿Permitir el acceso?" — marca **Redes privadas** y acepta.
+- **Autostart.** Marca "Iniciar al abrir LivePads" en el panel para que el
+  Companion esté listo cada vez que abres el app.
+- **Para los músicos:** toggle "Ocultar acordes" para vocalistas, tamaño
+  de letra ajustable, auto-scroll opcional con velocidad, índice de
+  secciones para saltar entre [VERSO 1], [CORO], [PUENTE], y la pantalla
+  no se apaga durante el servicio (wake-lock).
+- **Indicador "en vivo":** un punto verde pulsa cuando la cabina está
+  reproduciendo audio — la banda sabe que el sistema está activo.
+
+---
+
 ## Atajos de teclado
 
 Pulsa **?** dentro de la app, o abre el sidebar → pestaña "Atajos". Lista

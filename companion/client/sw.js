@@ -3,7 +3,7 @@
 // survives a brief WiFi blip without showing a browser error page.
 // WebSocket traffic isn't intercepted; only static assets are.
 
-const CACHE = 'livepads-companion-v1';
+const CACHE = 'livepads-companion-v2';
 const SHELL = [
   './',
   './index.html',

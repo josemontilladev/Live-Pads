@@ -15,6 +15,7 @@
   const elArtist = document.getElementById('song-artist');
   const elBpm = document.getElementById('song-bpm');
   const elLyrics = document.getElementById('song-lyrics');
+  const elToc = document.getElementById('song-toc');
   const elLiveDot = document.getElementById('live-dot');
   const toggleBtn = document.getElementById('btn-toggle-chords');
   const settingsBtn = document.getElementById('btn-settings');
@@ -204,6 +205,7 @@
       settingsBtn.hidden = true;
       currentSongId = null;
       applyPlaying(false);
+      if (elToc) { elToc.hidden = true; elToc.innerHTML = ''; }
       return;
     }
     if (msg.type !== 'state' || !msg.song) return;
@@ -217,6 +219,7 @@
     elArtist.textContent = s.artist || '';
     elBpm.textContent = s.bpm ? `BPM ${s.bpm}` : '';
     elLyrics.innerHTML = formatLyrics(s.lyrics || '');
+    buildToc();
 
     emptyView.hidden = true;
     songView.hidden = false;
@@ -282,6 +285,7 @@
 
     const lines = lyrics.replace(/\r/g, '').split('\n');
     let html = '';
+    let sectionIdx = 0;
 
     for (const rawLine of lines) {
       const trimmed = rawLine.trim();
@@ -291,7 +295,8 @@
       const isKeywordHeader = SECTION_KEYWORDS.some(k => trimmed.toUpperCase().startsWith(k)) && trimmed.split(/\s+/).length <= 3;
 
       if (isBracketedHeader || isKeywordHeader) {
-        html += `<div class="section-header-line">${esc(trimmed.replace(/\[|\]/g, ''))}</div>`;
+        const id = `sec-${sectionIdx++}`;
+        html += `<div class="section-header-line" id="${id}">${esc(trimmed.replace(/\[|\]/g, ''))}</div>`;
         continue;
       }
 
@@ -305,6 +310,53 @@
       }
     }
     return html;
+  }
+
+  // Build the sticky TOC from the rendered .section-header-line nodes.
+  // Tapping a pill smooth-scrolls to that section. The pill of the section
+  // currently under the viewport top gets highlighted via IntersectionObserver.
+  let tocObserver = null;
+  function buildToc() {
+    if (!elToc) return;
+    const sections = elLyrics.querySelectorAll('.section-header-line');
+    if (sections.length < 2) {
+      // Single-section songs don't need a TOC.
+      elToc.hidden = true;
+      elToc.innerHTML = '';
+      if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
+      return;
+    }
+    elToc.hidden = false;
+    elToc.innerHTML = Array.from(sections).map(s =>
+      `<a class="toc-pill" href="#${s.id}" data-target="${s.id}">${s.textContent}</a>`
+    ).join('');
+
+    elToc.querySelectorAll('.toc-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = document.getElementById(pill.dataset.target);
+        if (!target) return;
+        // Offset so the section header lands below the sticky top bar + TOC.
+        const tocHeight = elToc.getBoundingClientRect().height;
+        const topbarHeight = document.querySelector('.top').getBoundingClientRect().height;
+        const y = target.getBoundingClientRect().top + window.scrollY - (topbarHeight + tocHeight + 8);
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      });
+    });
+
+    if (tocObserver) tocObserver.disconnect();
+    tocObserver = new IntersectionObserver((entries) => {
+      // Pick the section whose top is closest to (but past) the top of the
+      // viewport — that's the "current" one to highlight.
+      entries.forEach(entry => {
+        const id = entry.target.id;
+        const pill = elToc.querySelector(`.toc-pill[data-target="${id}"]`);
+        if (!pill) return;
+        if (entry.isIntersecting) pill.classList.add('is-current');
+        else pill.classList.remove('is-current');
+      });
+    }, { rootMargin: '-90px 0px -60% 0px', threshold: 0 });
+    sections.forEach(s => tocObserver.observe(s));
   }
 
   connect();
