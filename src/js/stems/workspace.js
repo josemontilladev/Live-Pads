@@ -242,8 +242,7 @@ const SHELL_HTML = `
       <div class="stems-arrange-inner" id="stems-arrange-inner">
         <header class="stems-head-row">
           <div class="stems-head-spacer">
-            <span class="stems-head-spacer-label">TRACKS</span>
-            <span class="stems-head-spacer-count" id="stems-mixer-count">0 pistas</span>
+            <span class="stems-head-spacer-label">PISTAS</span>
           </div>
           <div class="stems-head-tl">
             <div class="stems-ruler" id="stems-ruler"></div>
@@ -1613,8 +1612,8 @@ function refreshTransport() {
   if (exportBtn) exportBtn.disabled = !hasTracks;
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
-  const c1 = document.getElementById('stems-mixer-count');  if (c1) c1.textContent = countText;
-  const c2 = document.getElementById('stems-console-count'); if (c2) c2.textContent = countText;
+  const c2 = document.getElementById('stems-console-count');
+  if (c2) c2.textContent = countText;
 }
 
 function applyPlayingState(playing) {
