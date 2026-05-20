@@ -1,19 +1,61 @@
-/* Stem Editor workspace — Phase 1.
-   Reuses LivePads theme tokens (--accent, --bg-card, --glow, ...). The
-   topbar switcher mirrors the visual grammar of the setlist tabs so the
-   two workspaces feel like siblings, not separate apps. */
+/* Stem Editor — Moises-style layout. Sticky-left strip per row + big
+   horizontal waveform. Pads chrome hidden via a body-level attribute so
+   the gear / ? buttons still reach the floating sidebar that lives in
+   #body but the Pads-only elements (stage, track player, etc.) don't
+   bleed into the Stems workspace. */
 
-/* ── Workspace switcher (lives inside .topbar-center) ───────────── */
+body[data-workspace="stems"] #stage,
+body[data-workspace="stems"] #track-player-bar,
+body[data-workspace="stems"] #now-playing-banner,
+body[data-workspace="stems"] #pad-bank-picker,
+body[data-workspace="stems"] #kit-bank-picker,
+body[data-workspace="stems"] #midi-learn-overlay {
+  display: none !important;
+}
+/* #body is a flex item that holds the Pads layout. When all its in-flow
+   children are hidden we want it to collapse so #workspace-stems takes the
+   full vertical space. The #sidebar inside #body is position:fixed so it
+   remains reachable from any workspace. */
+body[data-workspace="stems"] #body {
+  flex: 0 0 0;
+  min-height: 0;
+  height: 0;
+  overflow: visible;
+}
+
+/* ── Workspace switcher with sliding indicator ──────────────────── */
 .workspace-switcher {
+  position: relative;
   display: inline-flex;
   gap: 2px;
   padding: 3px;
   margin-left: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.1)),
+    var(--bg-card);
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.25),
+    inset 0 0 0 1px rgba(255,255,255,0.025);
+}
+.ws-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  background: var(--accent);
+  border-radius: 7px;
+  box-shadow: 0 0 14px var(--glow);
+  transform: translateX(0);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
 }
 .ws-tab {
+  position: relative;
   appearance: none;
   border: none;
   background: transparent;
@@ -24,20 +66,32 @@
   padding: 6px 14px;
   border-radius: 7px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+  transition: color 0.25s ease;
 }
-.ws-tab:hover { color: var(--text); }
+.ws-tab:hover:not(.is-active) { color: var(--text); }
 .ws-tab.is-active {
-  background: var(--accent);
   color: #0a0a14;
-  box-shadow: 0 0 14px var(--glow);
 }
 
-/* ── Stems workspace ────────────────────────────────────────────── */
+/* Smooth crossfade for the workspace content. Outgoing hides instantly
+   (CSS can't animate display), incoming runs the entry animation. */
+#body, #workspace-stems {
+  transition: opacity 0.28s ease;
+}
+.ws-entering {
+  animation: wsFadeIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes wsFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Stems workspace shell ──────────────────────────────────────── */
 #workspace-stems {
   flex: 1;
   display: flex;
-  min-height: 0; /* let inner overflow scroll instead of pushing parent */
+  min-height: 0;
 }
 #workspace-stems.hidden { display: none; }
 
@@ -45,8 +99,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 22px 28px 16px;
-  gap: 16px;
   min-height: 0;
   position: relative;
 }
@@ -55,49 +107,395 @@
   content: "Suelta los archivos para importar";
   position: absolute; inset: 12px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(251, 174, 0, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 2px dashed var(--accent);
   border-radius: 16px;
   font-size: 16px;
   font-weight: 700;
   color: var(--accent);
   pointer-events: none;
-  z-index: 2;
+  z-index: 100;
 }
 
-.stems-header {
+/* ── Top bar (responsive: wraps gracefully on narrow viewports) ──── */
+.stems-topbar {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 16px;
+  background:
+    radial-gradient(800px 80px at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.005));
+  border-bottom: 1px solid var(--border-strong);
+  position: relative;
+}
+.stems-topbar::after {
+  /* Glow line under the topbar, same accent as Live Pads chrome */
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.stems-tb-left, .stems-tb-mid, .stems-tb-right {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.stems-tb-mid { flex-shrink: 0; }
+.stems-tb-right { margin-left: auto; }
+
+.stems-brand {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+}
+.stems-brand span {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  font-size: 11px;
+}
+
+.stems-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+.stems-field label {
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  font-weight: 800;
+}
+.stems-field input {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  width: 46px;
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: center;
+}
+.stems-field input:focus { outline: 1px solid var(--accent); border-radius: 3px; }
+
+.stems-field--bpm { padding-right: 4px; gap: 4px; }
+.stems-bpm-detect {
+  appearance: none;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stems-bpm-detect:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+}
+.stems-bpm-detect:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.stems-field--select select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.stems-field--select select:focus { outline: 1px solid var(--accent); border-radius: 3px; }
+.stems-field--select option { background: var(--bg-card); color: var(--text); }
+
+.stems-tb-btn {
+  appearance: none;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: filter 0.15s, transform 0.1s, border-color 0.15s;
+}
+.stems-tb-btn:hover { filter: brightness(1.2); }
+.stems-tb-btn:active { transform: scale(0.94); }
+.stems-tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stems-tb-btn--play {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0a14;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  box-shadow: 0 0 14px var(--glow);
+}
+.stems-tb-btn--play.is-playing {
+  animation: stemsPulse 1.6s ease-in-out infinite;
+}
+@keyframes stemsPulse {
+  50% { box-shadow: 0 0 30px var(--glow-strong); }
+}
+
+.stems-readout {
+  display: flex;
+  flex-direction: column;
   align-items: flex-end;
-  gap: 16px;
-  padding-bottom: 14px;
+  line-height: 1.05;
+  flex-shrink: 0;
+}
+.stems-readout .label {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: var(--text-muted);
+}
+.stems-readout .value {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace;
+}
+.stems-readout .value.mono { letter-spacing: 0.2px; }
+
+/* Zoom + snap controls in the topbar */
+.stems-zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+.stems-zoom-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  width: 22px; height: 22px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.stems-zoom-btn:hover { background: rgba(255,255,255,0.06); color: var(--accent); }
+.stems-zoom-readout {
+  font-size: 10.5px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  min-width: 38px;
+  text-align: center;
+}
+.stems-snap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.stems-snap-toggle input { accent-color: var(--accent); }
+.stems-snap-toggle:has(input:checked) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+
+.stems-state-pill {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.stems-state-pill[data-state="play"] {
+  background: rgba(74,222,128,0.14);
+  border-color: rgba(74,222,128,0.5);
+  color: #4ade80;
+}
+
+/* ── Single action row — Importar/Exportar (left, prominent) +
+       project name (centered) + secondary actions (right). Wraps on
+       narrow viewports without ever hiding any group. ─────────────── */
+.stems-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 3%, transparent), transparent),
+    rgba(255,255,255,0.012);
+  position: relative;
+}
+.stems-actions::after {
+  /* Subtle bottom highlight to anchor the bar — mirrors the topbar */
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.stems-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stems-actions-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 200px;
+  min-width: 160px;
+  max-width: 360px;
+  padding: 0 10px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.stems-actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.stems-marker-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stems-project-icon {
+  color: var(--accent);
+  opacity: 0.65;
+  display: flex;
+  flex-shrink: 0;
 }
 .stems-project-name {
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text);
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-  padding: 2px 8px;
-  margin: 0 0 4px -8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  padding: 5px 8px;
   border-radius: 6px;
-  width: 320px;
+  flex: 1;
+  min-width: 0;
   transition: background 0.15s, border-color 0.15s;
 }
-.stems-project-name:hover {
-  background: var(--bg-card);
-}
+.stems-project-name:hover { background: var(--bg-card); }
 .stems-project-name:focus {
   outline: none;
   background: var(--bg-card);
   border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
 }
-.stems-sub {
-  font-size: 12px;
+
+/* Row 2 (tools) — always-visible, two clearly-labeled groups */
+.stems-actions--row2 {
+  padding: 6px 16px;
+  gap: 16px;
+  background: rgba(255,255,255,0.018);
+  border-bottom: 1px solid var(--border);
+}
+.stems-tools-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+}
+.stems-tools-label {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
   color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.stems-btn--accent {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent) 55%, color-mix(in srgb, var(--accent), black 35%));
+  color: #0a0a14;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 14px var(--glow),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  font-weight: 800;
+}
+.stems-btn--accent:hover { filter: brightness(1.08); }
+
+.stems-btn--ghost {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.stems-btn--ghost:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  filter: brightness(1.05);
+}
+.stems-btn--ghost:disabled {
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.stems-btn--subtle {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.stems-btn--subtle:hover {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--border-strong);
 }
 
 .stems-btn {
@@ -105,218 +503,1146 @@
   border: 1px solid var(--border-strong);
   background: var(--bg-card);
   color: var(--text);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: filter 0.15s, transform 0.1s;
 }
 .stems-btn:hover { filter: brightness(1.15); }
 .stems-btn:active { transform: scale(0.97); }
+.stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-btn--primary {
   background: var(--accent);
   color: #0a0a14;
   border-color: var(--accent);
-  box-shadow: 0 0 18px var(--glow);
+  box-shadow: 0 0 14px var(--glow);
 }
 
-/* ── Tracks list ───────────────────────────────────────────────── */
-.stems-tracks {
+.stems-mini-select {
+  appearance: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 24px 5px 8px;
+  cursor: pointer;
+  max-width: 160px;
+  flex-shrink: 0;
+  /* Hint Chromium to use dark native popup (otherwise the dropdown opens
+     as a white panel that clashes with the rest of the app). */
+  color-scheme: dark;
+  /* The caret colour stays static (URL-encoded #FBAE00 ≈ default accent)
+     so it works against the theme's bg. Themes that drift far from gold
+     can override by setting a custom --accent-caret if needed. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fbae00' stroke-width='2' opacity='0.7'><path d='M1 1.5l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+.stems-mini-select:focus { outline: 1px solid var(--accent); }
+.stems-mini-select option {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+/* ── Narrow viewport tuning ─────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .stems-readout .value { font-size: 12px; }
+  .stems-readout .label { font-size: 8px; }
+  .stems-project-name { font-size: 13px; }
+}
+@media (max-width: 1024px) {
+  .stems-topbar { padding: 6px 10px; gap: 6px 12px; }
+  .stems-actions { padding: 6px 10px; gap: 8px; }
+  .stems-actions-mid { padding: 0 6px; }
+  .stems-tb-right .stems-readout:not(:last-of-type) { display: none; }
+  .stems-mixer-console { max-height: 260px; }
+  .stems-mixer-strips { height: 230px; }
+  .stems-strip { flex: 0 0 124px; width: 124px; padding: 8px 8px 6px; }
+  .stems-lane { min-height: 70px; }
+  .stems-lane-canvas { height: 58px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ARRANGE — sticky-left strip + horizontal waveform per row (Moises).
+
+   .stems-arrange is the single horizontal/vertical scroll container.
+   Its child rows extend wider than the viewport; each row's strip uses
+   `position: sticky; left: 0` so controls stay visible while waveforms
+   scroll horizontally. The ruler row uses `position: sticky; top: 0`
+   for the same reason vertically.
+   ════════════════════════════════════════════════════════════════════ */
+.stems-arrange {
   flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 2px 8px;
+  overflow: auto;
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0,
+      transparent 39px,
+      rgba(255,255,255,0.025) 39px,
+      rgba(255,255,255,0.025) 40px),
+    var(--bg);
+  position: relative;
   min-height: 0;
 }
-
-.stems-empty {
-  margin: auto;
-  text-align: center;
-  padding: 32px;
-  color: var(--text-muted);
-}
-.stems-empty-icon { color: var(--accent); opacity: 0.7; margin-bottom: 10px; }
-.stems-empty h3 {
-  margin: 0 0 6px;
-  font-size: 16px;
-  color: var(--text);
-  font-weight: 700;
-}
-.stems-empty p { margin: 0; font-size: 13px; }
-.stems-empty strong { color: var(--accent); }
-
-.stems-track {
-  display: grid;
-  grid-template-columns: minmax(200px, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-  padding: 12px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
-}
-.stems-track:hover { border-color: var(--border-strong); }
-.stems-track.is-silenced { opacity: 0.45; }
-
-.stems-track-info {
+.stems-arrange-inner {
   display: flex;
   flex-direction: column;
+  min-width: 100%;
+  position: relative;
+}
+
+/* Ruler row — sticky to the top. Left "spacer" stays sticky to the
+   left as well so it covers the strip column edge. */
+.stems-head-row {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
+.stems-head-spacer {
+  width: 220px;
+  min-width: 220px;
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.005)),
+    var(--bg-card);
+  border-right: 1px solid var(--border-strong);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 2px;
-  min-width: 0;
 }
-.stems-track-name {
-  appearance: none;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text);
-  font-size: 13.5px;
+.stems-head-spacer-label {
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 1.8px;
+  color: var(--accent);
+}
+.stems-head-spacer-count {
+  font-size: 10px;
   font-weight: 600;
-  padding: 3px 6px;
-  margin: 0 0 0 -6px;
-  border-radius: 5px;
-  width: 100%;
-  text-overflow: ellipsis;
-  transition: background 0.15s, border-color 0.15s;
-}
-.stems-track-name:hover  { background: rgba(255, 255, 255, 0.04); }
-.stems-track-name:focus  {
-  outline: none;
-  background: rgba(255, 255, 255, 0.06);
-  border-color: var(--accent);
-}
-.stems-track-dur {
-  font-size: 10.5px;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
-  padding-left: 2px;
+}
+.stems-head-tl {
+  flex: 0 0 auto;
+  position: relative;
+  height: 40px;
 }
 
-.stems-track-controls {
+/* Ruler ticks (rendered by drawRuler) live in .stems-head-tl > .stems-ruler */
+.stems-ruler {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--bg-card), var(--bg));
+}
+.stems-tick {
+  position: absolute;
+  top: 22px;
+  width: 1px;
+  height: 8px;
+  background: rgba(255,255,255,0.18);
+}
+.stems-tick--bar {
+  top: 8px;
+  height: 22px;
+  background: rgba(255,255,255,0.45);
+}
+.stems-tick-label {
+  position: absolute;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  font-family: ui-monospace, Consolas, monospace;
+  pointer-events: none;
+}
+.stems-tick-bar { font-size: 10px; font-weight: 700; color: var(--text); }
+.stems-tick-time { font-size: 9px; color: var(--accent); }
+
+/* Markers layer — sits inside the head-tl so it scrolls horizontally
+   with the ruler. Each marker's vertical line extends down through the
+   row lanes via a pseudo-element. */
+.stems-marker-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stems-marker {
+  position: absolute;
+  top: 0;
+  height: 40px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  transform: translateX(-2px);
+  pointer-events: auto;
 }
-
-/* M/S buttons */
-.stems-mute-solo {
+.stems-marker::before {
+  content: "";
+  position: absolute;
+  top: 40px;
+  left: 0;
+  width: 2px;
+  height: 9999px;
+  background: rgba(74,222,128,0.55);
+  pointer-events: none;
+}
+.stems-marker-flag {
+  background: #4ade80;
+  color: #0a0a14;
+  padding: 2px 4px;
+  border-radius: 3px;
   display: flex;
-  gap: 4px;
 }
-.stems-ms {
+.stems-marker-label {
+  background: rgba(10,10,20,0.85);
+  border: 1px solid rgba(74,222,128,0.55);
+  color: #4ade80;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  margin-left: 2px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.stems-marker-remove {
   appearance: none;
-  width: 26px; height: 26px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 800;
+  width: 18px; height: 18px;
+  background: transparent;
+  border: none;
+  color: rgba(74,222,128,0.7);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-size: 14px;
+  padding: 0;
+  margin-left: 2px;
 }
-.stems-ms:hover { color: var(--text); border-color: var(--border-strong); }
-.stems-ms--mute.is-on {
-  background: #ff5f57;
-  border-color: #ff5f57;
-  color: #0a0a14;
-  box-shadow: 0 0 12px rgba(255, 95, 87, 0.5);
-}
-.stems-ms--solo.is-on {
-  background: #fbae00;
-  border-color: #fbae00;
-  color: #0a0a14;
-  box-shadow: 0 0 12px var(--glow);
-}
+.stems-marker-remove:hover { color: #ff5f57; }
 
-/* Pan + Vol groups share layout */
-.stems-knob-group {
+/* ── Track rows (each = sticky strip + lane) ─────────────────────── */
+.stems-rows {
   display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.stems-empty {
+  /* Flexbox centring works reliably regardless of margin-auto quirks.
+     `width: 100vw` + `position: sticky; left: 0` makes the empty stay
+     glued to the viewport while the timeline can still scroll behind it. */
+  position: sticky;
+  left: 0;
+  width: 100vw;
+  margin-top: 80px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 6px;
 }
-.stems-knob-label {
-  font-size: 9.5px;
+.stems-empty > * { max-width: 480px; }
+.stems-empty-icon { margin-bottom: 6px; }
+.stems-empty h3 { margin: 0; }
+.stems-empty p  { margin: 0; }
+
+/* The "Importar stems" inline link looks like a styled anchor but
+   triggers the file picker so the empty state is a working call-to-action. */
+.stems-empty-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
   font-weight: 800;
-  letter-spacing: 1.4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  cursor: pointer;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.stems-empty-link:hover {
+  color: color-mix(in srgb, var(--accent), white 12%);
+  text-decoration-color: var(--accent);
+}
+.stems-empty-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.stems-empty[hidden] { display: none; }
+.stems-empty-icon { color: var(--accent); opacity: 0.55; margin-bottom: 10px; }
+.stems-empty h3 { margin: 0 0 6px; font-size: 17px; color: var(--text); font-weight: 700; }
+.stems-empty p  { margin: 0; font-size: 13px; }
+.stems-empty strong { color: var(--accent); }
+
+.stems-row {
+  display: flex;
+  min-height: var(--stems-row-height, 78px);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.15s, background 0.15s;
+}
+.stems-row:hover { background: rgba(255,255,255,0.015); }
+.stems-row.is-silenced { opacity: 0.4; }
+.stems-row.is-dragging { opacity: 0.4; background: rgba(255,255,255,0.04); }
+.stems-row.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }
+
+.stems-lane { min-height: var(--stems-row-height, 78px); }
+
+/* Drag handle on strip */
+.stems-row-grip {
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: grab;
+  padding: 0 2px;
+  user-select: none;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+}
+.stems-row-strip:hover .stems-row-grip { opacity: 1; color: var(--accent); }
+.stems-row-grip:active { cursor: grabbing; }
+
+/* Left strip — sticky during horizontal scroll */
+.stems-row-strip {
+  width: 220px;
+  min-width: 220px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005)),
+    var(--bg-card);
+  border-right: 1px solid var(--border-strong);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.25);
+}
+.stems-row--click .stems-row-strip {
+  box-shadow: inset 3px 0 0 #60a5fa, 2px 0 4px rgba(0,0,0,0.25);
+}
+.stems-row--guide .stems-row-strip {
+  box-shadow: inset 3px 0 0 #4ade80, 2px 0 4px rgba(0,0,0,0.25);
+}
+
+.stems-row-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.stems-ms-pair { display: flex; gap: 3px; }
+.stems-ms {
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
+}
+.stems-ms:hover { color: var(--text); filter: brightness(1.15); }
+.stems-ms--mute.is-on {
+  background: linear-gradient(180deg, #ff7a73, #ff5f57);
+  border-color: #ff5f57;
+  color: #0a0a14;
+  box-shadow: 0 0 10px rgba(255,95,87,0.55);
+}
+.stems-ms--solo.is-on {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent));
+  border-color: var(--accent);
+  color: #0a0a14;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.stems-row-meta { display: flex; flex-direction: column; min-width: 0; }
+.stems-row-kind {
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
   color: var(--text-muted);
   text-transform: uppercase;
-  min-width: 22px;
 }
-.stems-pan-readout {
-  font-size: 10px;
-  font-family: ui-monospace, Consolas, monospace;
-  color: var(--text-muted);
-  min-width: 28px;
-  text-align: right;
-}
-.stems-track-pan { width: 100px; }
-
-.stems-track-remove {
+.stems-row--click .stems-row-kind { color: #60a5fa; }
+.stems-row--guide .stems-row-kind { color: #4ade80; }
+.stems-row-name {
   appearance: none;
-  width: 28px; height: 28px;
-  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 1px 4px;
+  margin-left: -4px;
+  border-radius: 4px;
+  transition: background 0.15s, border-color 0.15s;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+}
+.stems-row-name:hover { background: rgba(255,255,255,0.04); }
+.stems-row-name:focus { outline: none; background: rgba(255,255,255,0.06); border-color: var(--accent); }
+
+.stems-row-remove {
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  opacity: 0;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 }
-.stems-track-remove:hover {
-  border-color: rgba(255, 95, 87, 0.5);
-  color: #ff5f57;
-  background: rgba(255, 95, 87, 0.08);
-}
+.stems-row:hover .stems-row-remove { opacity: 1; }
+.stems-row-remove:hover { border-color: rgba(255,95,87,0.5); color: #ff5f57; }
 
-/* ── Range slider (used by master + tracks) ─────────────────────── */
-.stems-range {
+.stems-row-controls { display: flex; flex-direction: column; gap: 4px; }
+.stems-vol-group {
+  display: grid;
+  grid-template-columns: 14px 1fr 26px;
+  align-items: center;
+  gap: 6px;
+}
+.stems-vol-icon { color: var(--accent); opacity: 0.85; display: flex; }
+
+/* Fill-style slider: the portion left of the thumb shows the accent;
+   the portion right is dim. Updated live by JS via --fill (0..100). */
+.stems-vol-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 180px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 2px;
+  width: 100%;
+  height: 6px;
+  background:
+    linear-gradient(90deg,
+      var(--accent) 0%,
+      var(--accent) var(--fill, 85%),
+      rgba(255, 255, 255, 0.12) var(--fill, 85%),
+      rgba(255, 255, 255, 0.12) 100%);
+  border: 1px solid rgba(0,0,0,0.35);
+  border-radius: 3px;
   outline: none;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.45),
+    0 0 6px color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.stems-range::-webkit-slider-thumb {
+.stems-vol-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px; height: 16px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent), white 35%), var(--accent) 60%, color-mix(in srgb, var(--accent), black 35%));
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: 0 0 12px var(--glow), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.stems-vol-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
-  border: 2px solid var(--bg-card);
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: 0 0 12px var(--glow);
+}
+.stems-vol-readout {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: right;
+}
+
+.stems-pan-group {
+  display: grid;
+  grid-template-columns: 12px 1fr 12px;
+  align-items: center;
+  gap: 6px;
+}
+.stems-pan-letter {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  opacity: 0.7;
+  text-align: center;
+}
+/* Bipolar fill: dark base, the segment between the center (50%) and the
+   thumb position lights up gold. JS sets --fill-start / --fill-end. */
+.stems-pan-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  background:
+    linear-gradient(90deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.1) var(--fill-start, 50%),
+      var(--accent) var(--fill-start, 50%),
+      var(--accent) var(--fill-end, 50%),
+      rgba(255, 255, 255, 0.1) var(--fill-end, 50%),
+      rgba(255, 255, 255, 0.1) 100%);
+  border: 1px solid rgba(0,0,0,0.35);
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.4),
+    0 0 6px color-mix(in srgb, var(--accent) 8%, transparent);
+  position: relative;
+}
+.stems-pan-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent), white 35%), var(--accent) 60%, color-mix(in srgb, var(--accent), black 35%));
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.5);
+  box-shadow: 0 0 10px var(--glow), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.stems-pan-slider::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.5);
   box-shadow: 0 0 10px var(--glow);
 }
-.stems-range::-moz-range-thumb {
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: 2px solid var(--bg-card);
-}
-.stems-track-vol { width: 140px; }
 
-/* Saved-state pill — fades in when an auto-save completes */
+/* Lane — the part that fills horizontally with the waveform */
+.stems-row-lane {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
+    var(--bg);
+  transition: background 0.15s;
+}
+.stems-row:hover .stems-row-lane {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent),
+    var(--bg);
+}
+.stems-row-canvas {
+  display: block;
+  height: 100%;
+}
+
+/* Playhead — vertical line crossing all rows. z-index sits BELOW the
+   sticky strip (z 2) so the strip masks it when it's near the project
+   start, and BELOW the ruler row (z 5) so it doesn't poke above. */
+.stems-playhead {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 50%, transparent));
+  box-shadow: 0 0 14px var(--glow), 0 0 4px var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+.stems-playhead::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -5px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--accent);
+  filter: drop-shadow(0 0 6px var(--glow));
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CONSOLA — bottom panel with vertical-fader strips per track. Mirrors
+   the row strips above; either side updates the other via JS sync.
+   ════════════════════════════════════════════════════════════════════ */
+.stems-console {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.15)),
+    var(--bg-card);
+  border-top: 1px solid var(--border-strong);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  position: relative;
+  max-height: 260px;
+}
+.stems-console::before {
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.stems-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.stems-console-title {
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 1.8px;
+  color: var(--accent);
+}
+.stems-console-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+}
+.stems-console-strips {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 220px;
+  scrollbar-width: thin;
+}
+.stems-console-strips::-webkit-scrollbar { height: 8px; }
+.stems-console-strips::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+}
+.stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+
+.stems-console-strip {
+  flex: 0 0 92px;
+  width: 92px;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 6px;
+  padding: 8px 8px 6px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.005) 30%, transparent),
+    var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  position: relative;
+  transition: border-color 0.18s, opacity 0.15s, box-shadow 0.2s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 4px 12px rgba(0,0,0,0.35);
+}
+.stems-console-strip:hover {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 6px 16px rgba(0,0,0,0.4),
+    0 0 18px var(--glow);
+}
+.stems-console-strip--click {
+  border-color: rgba(96,165,250,0.4);
+}
+.stems-console-strip--guide {
+  border-color: rgba(74,222,128,0.4);
+}
+
+.stems-console-strip-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.stems-console-strip-kind {
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+  color: var(--text-muted);
+}
+.stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
+.stems-console-strip--guide .stems-console-strip-kind { color: #4ade80; }
+.stems-console-strip-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stems-console-pan-row {
+  display: grid;
+  grid-template-columns: 10px 1fr 10px;
+  align-items: center;
+  gap: 4px;
+}
+.stems-console-pan-letter {
+  font-size: 8.5px;
+  font-weight: 900;
+  color: var(--accent);
+  opacity: 0.7;
+  text-align: center;
+}
+
+.stems-console-ms-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+
+/* Vertical fader column */
+.stems-console-fader-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+}
+.stems-console-fader-meter {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(180deg,
+      transparent 0,
+      transparent 7px,
+      rgba(255,255,255,0.04) 7px,
+      rgba(255,255,255,0.04) 8px);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background-color: rgba(0,0,0,0.4);
+  box-shadow:
+    inset 0 1px 4px rgba(0,0,0,0.55),
+    inset 0 0 0 1px rgba(255,255,255,0.025);
+}
+/* Modern vertical slider (Chromium 121+ deprecated slider-vertical) —
+   use writing-mode + direction:rtl so the bar fills bottom→top, then
+   custom-paint a "wide" thumb that looks like a real fader handle. */
+.stems-console-fader {
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 100%;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+.stems-console-fader::-webkit-slider-runnable-track {
+  width: 4px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.08) 0,
+    rgba(255,255,255,0.04) 100%);
+  border-radius: 2px;
+}
+.stems-console-fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent), black 35%) 100%);
+  border: 1px solid rgba(0,0,0,0.5);
+  border-radius: 4px;
+  cursor: grab;
+  /* The negative margin centers the thumb on the 4px-wide track */
+  margin-left: -11px;
+  box-shadow:
+    0 0 12px var(--glow),
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -1px 0 rgba(0,0,0,0.35);
+}
+.stems-console-fader::-webkit-slider-thumb:active { cursor: grabbing; }
+
+.stems-console-strip-readout {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: center;
+  background: rgba(0,0,0,0.45);
+  border-radius: 3px;
+  padding: 1px 0;
+}
+
+/* ── Footer (master + saved pill) ───────────────────────────────── */
+.stems-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.025)),
+    var(--bg-card);
+  border-top: 1px solid var(--border-strong);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  position: relative;
+}
+.stems-footer::before {
+  content: "";
+  position: absolute;
+  left: 16px; right: 16px; top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+  opacity: 0.35;
+  pointer-events: none;
+}
+.stems-master {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: var(--text-muted);
+}
+.stems-master .stems-range { width: 200px; }
+
+/* Master VU meter — thin vertical bar to the left of the slider that
+   reflects realtime peak amplitude from the master analyser. */
+.stems-master-meter {
+  position: relative;
+  width: 6px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.stems-master-meter-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: linear-gradient(180deg,
+    #ff5f57 0%,
+    color-mix(in srgb, var(--accent), white 18%) 28%,
+    var(--accent) 70%,
+    color-mix(in srgb, var(--accent), black 25%) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: height 0.05s linear;
+}
+
+/* Per-track colour swatch — native input[type=color] with a tiny round
+   look that doesn't shout. */
+.stems-row-color {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+.stems-row-color::-webkit-color-swatch-wrapper { padding: 0; }
+.stems-row-color::-webkit-color-swatch { border: none; border-radius: 50%; }
+.stems-row-color:hover { border-color: var(--accent); }
+
+/* Export-this-track button on the strip (next to the trash) */
+.stems-row-export {
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.stems-row:hover .stems-row-export { opacity: 1; }
+.stems-row-export:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Loop toggle button — lights up when active */
+#stems-loop-toggle.is-on {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent), white 15%),
+    var(--accent));
+  color: #0a0a14;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+/* Loop endpoints in markers — coloured pill so the user can spot them */
+.stems-marker--loop-start .stems-marker-flag,
+.stems-marker--loop-end   .stems-marker-flag {
+  background: var(--accent);
+  color: #0a0a14;
+}
+.stems-marker--loop-start .stems-marker-label,
+.stems-marker--loop-end   .stems-marker-label {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.stems-marker--loop-start::after,
+.stems-marker--loop-end::after {
+  content: "↻";
+  position: absolute;
+  right: -14px;
+  top: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 900;
+}
+.stems-marker--loop-end::after { content: "⤴"; }
+
 .stems-save-pill {
   font-size: 10.5px;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(74, 222, 128, 0.14);
+  background: rgba(74,222,128,0.14);
   color: #4ade80;
   opacity: 0;
   transition: opacity 0.25s;
 }
 .stems-save-pill.is-on { opacity: 1; }
+.stems-save-pill[data-state="pending"] {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  opacity: 1;
+}
+.stems-save-pill[data-state="saving"] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  opacity: 1;
+}
+.stems-save-pill[data-state="saved"] {
+  background: rgba(74, 222, 128, 0.14);
+  color: #4ade80;
+}
 
-/* ── Export overlay (renders on top of the stems shell only) ─────── */
+/* ── Right-click context menus (markers, etc.) ─────────────────── */
+.stems-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(255,255,255,0.04),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  animation: ctxMenuIn 0.12s ease-out;
+}
+@keyframes ctxMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.stems-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12.5px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.stems-context-menu button:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.stems-context-menu button.danger { color: #ff5f57; }
+.stems-context-menu button.danger:hover {
+  background: rgba(255, 95, 87, 0.14);
+  color: #ff5f57;
+}
+.stems-context-menu--scroll {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* ── Project dropdown (Nuevo / Guardar como / Abrir) ───────────── */
+.stems-proj-menu {
+  position: relative;
+}
+.stems-proj-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 100;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  animation: ctxMenuIn 0.14s ease-out;
+}
+.stems-proj-dropdown[hidden] { display: none; }
+.stems-proj-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.stems-proj-item:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* ── Modal (Save As + Open project) ────────────────────────────── */
+.stems-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  animation: ctxMenuIn 0.18s ease-out;
+}
+.stems-modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 24px 28px;
+  width: 420px;
+  max-width: 92vw;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.55), 0 0 60px var(--glow);
+}
+.stems-modal-card--wide { width: 520px; }
+.stems-modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text);
+}
+.stems-modal-card p {
+  margin: 0 0 18px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.stems-modal-input {
+  width: 100%;
+  appearance: none;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.stems-modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+.stems-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.stems-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding-right: 4px;
+}
+.stems-modal-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.stems-modal-empty strong { color: var(--accent); }
+.stems-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.stems-modal-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+}
+.stems-modal-row-info { display: flex; flex-direction: column; min-width: 0; }
+.stems-modal-row-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stems-modal-row-time {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.stems-modal-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.stems-btn--danger {
+  border-color: rgba(255, 95, 87, 0.4);
+  color: #ff5f57;
+}
+.stems-btn--danger:hover {
+  background: rgba(255, 95, 87, 0.1);
+  border-color: #ff5f57;
+}
+
+/* ── Export overlay ─────────────────────────────────────────────── */
 .stems-export-overlay {
   position: absolute;
   inset: 0;
@@ -327,7 +1653,6 @@
   align-items: center;
   justify-content: center;
   z-index: 50;
-  border-radius: inherit;
 }
 .stems-export-overlay[hidden] { display: none; }
 .stems-export-panel {
@@ -356,7 +1681,7 @@
 .stems-export-bar {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.08);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -366,65 +1691,4 @@
   background: linear-gradient(90deg, var(--accent), var(--accent2, var(--accent)));
   box-shadow: 0 0 14px var(--glow);
   transition: width 0.18s ease;
-}
-
-/* ── Transport bar ─────────────────────────────────────────────── */
-.stems-transport {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.stems-transport-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stems-play {
-  appearance: none;
-  width: 46px; height: 46px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: #0a0a14;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 22px var(--glow);
-  transition: transform 0.15s, filter 0.15s, box-shadow 0.2s;
-}
-.stems-play:hover { filter: brightness(1.1); }
-.stems-play:active { transform: scale(0.93); }
-.stems-play:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-.stems-play.is-playing {
-  box-shadow: 0 0 30px var(--glow-strong);
-  animation: stemsPulse 1.6s ease-in-out infinite;
-}
-@keyframes stemsPulse {
-  50% { box-shadow: 0 0 38px var(--glow-strong); }
-}
-
-.stems-time {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.5px;
-}
-.stems-time .stems-sep { color: var(--text-muted); margin: 0 3px; }
-
-.stems-transport-right { display: flex; align-items: center; gap: 12px; }
-.stems-master {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.2px;
-  color: var(--text-muted);
-  text-transform: uppercase;
 }

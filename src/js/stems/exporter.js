@@ -18,10 +18,25 @@ const MP3_SAMPLE_BLOCK = 1152; // lamejs canonical frame size
  *   progress in [0, 1]. stage is 'render' or 'encode'.
  * @returns {Promise<Uint8Array>} the MP3 file bytes.
  */
-export async function exportMix(onProgress = () => {}) {
-  const tracks = engine.getRawTracks();
+/**
+ * @param {(progress, stage) => void} onProgress
+ * @param {Object} [opts]
+ *   onlyTrackIds — restrict the mix to a subset of tracks (used by
+ *   "Export individual track…"). When omitted, every track is included
+ *   exactly as it sounds in the live mix.
+ */
+export async function exportMix(onProgress = () => {}, opts = {}) {
+  const all = engine.getRawTracks();
+  const tracks = opts.onlyTrackIds && opts.onlyTrackIds.length
+    ? all.filter(t => opts.onlyTrackIds.includes(t.id))
+    : all;
   if (!tracks.length) throw new Error('No hay pistas para exportar');
-  const durationSec = engine.getDurationSec();
+  // For an individual export, the project's overall length is the longest
+  // selected track — not the project max. Otherwise short stems would
+  // be padded with silence to the full song length.
+  const durationSec = opts.onlyTrackIds
+    ? Math.max(...tracks.map(t => t.buffer.duration))
+    : engine.getDurationSec();
   if (durationSec <= 0) throw new Error('La mezcla tiene duración cero');
 
   const sampleRate = 44100;
@@ -37,10 +52,15 @@ export async function exportMix(onProgress = () => {}) {
   offlineMaster.gain.value = engine.getMasterVolume();
   offlineMaster.connect(offline.destination);
 
-  const anySoloed = tracks.some(t => t.soloed);
+  // For individual export, ignore mute/solo so the stem comes out clean
+  // (otherwise a muted single-track export would render silence).
+  const respectMix = !opts.onlyTrackIds;
+  const anySoloed = respectMix && tracks.some(t => t.soloed);
   for (const t of tracks) {
-    const audible = !t.muted && (!anySoloed || t.soloed);
-    if (!audible) continue;
+    if (respectMix) {
+      const audible = !t.muted && (!anySoloed || t.soloed);
+      if (!audible) continue;
+    }
     const src = offline.createBufferSource();
     src.buffer = t.buffer;
     const gain = offline.createGain();

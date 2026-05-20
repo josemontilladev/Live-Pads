@@ -8,7 +8,7 @@ import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRende
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
-import { mount as mountStemsWorkspace } from './stems/workspace.js';
+import { mount as mountStemsWorkspace, toggleStemsPlay, addStemsMarker, stemsUndo, stemsRedo } from './stems/workspace.js';
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
@@ -562,18 +562,49 @@ function bindWorkspaceSwitcher() {
 }
 function applyWorkspace(name) {
   const valid = name === 'stems' ? 'stems' : 'pads';
-  const body = q('#body');
+  // Hiding logic lives in CSS now: `body[data-workspace="stems"]` hides
+  // all Pads-only chrome (#stage, #track-player-bar, #now-playing-banner)
+  // while keeping the fixed #sidebar reachable so the gear / ? buttons
+  // still work from the Stems workspace.
   const stems = q('#workspace-stems');
-  if (body)  body.classList.toggle('hidden', valid !== 'pads');
   if (stems) stems.classList.toggle('hidden', valid !== 'stems');
+
+  // Tab buttons + sliding indicator.
   qa('.ws-tab').forEach(t => {
     const isActive = t.dataset.workspace === valid;
     t.classList.toggle('is-active', isActive);
     t.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
+  moveWorkspaceIndicator();
+
+  // Smooth fade-in for whichever workspace just became visible. The
+  // outgoing one is hidden instantly (display:none won't transition).
+  const showing = valid === 'pads' ? body : stems;
+  if (showing) {
+    showing.classList.remove('ws-entering');
+    void showing.offsetWidth; // restart animation
+    showing.classList.add('ws-entering');
+  }
+
   document.body.dataset.workspace = valid;
   try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 }
+
+function moveWorkspaceIndicator() {
+  const indicator = q('.ws-indicator');
+  const activeTab = q('.ws-tab.is-active');
+  if (!indicator || !activeTab) return;
+  const w = activeTab.offsetWidth;
+  if (w === 0) {
+    // Layout not ready yet — try again next frame.
+    requestAnimationFrame(moveWorkspaceIndicator);
+    return;
+  }
+  indicator.style.width = `${w}px`;
+  indicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+}
+// Resize keeps the indicator anchored under the active tab.
+window.addEventListener('resize', () => moveWorkspaceIndicator());
 
 // MIDI listener (incoming notes/CC → mapped action) + the document-level
 // click capture that runs while Learn mode is active.
@@ -730,6 +761,31 @@ function onKey(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
   // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
   if (document.getElementById('gi-lyrics-modal')) return;
+
+  // Stems workspace owns its own shortcuts. Space toggles play/pause,
+  // M drops a marker, and Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) drive the
+  // undo stack. Nothing else from the Pads keymap should reach the user
+  // when they're working in the Stems editor.
+  if (document.body.dataset.workspace === 'stems') {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      stemsUndo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      stemsRedo();
+      return;
+    }
+    if (e.code === 'Space') {
+      e.preventDefault();
+      toggleStemsPlay();
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      addStemsMarker();
+    }
+    return;
+  }
 
   // '?' (Shift+/) opens the cheat sheet — checked BEFORE the kbd_${code}
   // map lookup so the user can't accidentally remap it. Toggles open/close.

@@ -64,6 +64,19 @@ const SECTIONS = [
       ['Spotlight',       'Busca "Companion" en Ctrl+K'],
     ],
   },
+  {
+    title: 'Stems (workspace de edición)',
+    rows: [
+      ['Espacio',         'Play / Pausa (mantiene la posición)'],
+      ['M',               'Soltar marcador de sección en el tiempo actual'],
+      ['Ctrl+Z',          'Deshacer'],
+      ['Ctrl+Shift+Z / Ctrl+Y', 'Rehacer'],
+      ['Ctrl + rueda',    'Zoom in / out del timeline'],
+      ['Click derecho en marcador', 'Renombrar · cambiar tipo · loop · eliminar'],
+      ['Arrastrar marcador', 'Reposicionar (snap a beat si activo)'],
+      ['Click en timeline',  'Saltar a ese punto'],
+    ],
+  },
 ];
 
 let rendered = false;

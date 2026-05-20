@@ -616,6 +616,97 @@ ipcMain.handle('stems-clear-current', async () => {
   return true;
 });
 
+// ── Named project library (Save As / Open / List / Delete) ──────────
+// Sits alongside StemProjects/current/. Each named project gets its own
+// folder under StemProjects/<safe-name>/ with the same project.json +
+// stems/ structure so loading just swaps which folder feeds the renderer.
+function stemProjectsRoot() {
+  return path.join(app.getPath('userData'), 'StemProjects');
+}
+function safeProjectName(name) {
+  return String(name || '').trim().replace(/[<>:"/\\|?*\x00-\x1f]+/g, '_').slice(0, 64);
+}
+
+ipcMain.handle('stems-list-projects', async () => {
+  const root = stemProjectsRoot();
+  if (!fs.existsSync(root)) return [];
+  const dirs = fs.readdirSync(root, { withFileTypes: true })
+    .filter(d => d.isDirectory() && d.name !== 'current')
+    .map(d => {
+      const projectPath = path.join(root, d.name, 'project.json');
+      let projectName = d.name;
+      let updatedAt = null;
+      try {
+        if (fs.existsSync(projectPath)) {
+          const j = JSON.parse(fs.readFileSync(projectPath, 'utf-8'));
+          if (j.projectName) projectName = j.projectName;
+          updatedAt = fs.statSync(projectPath).mtimeMs;
+        }
+      } catch (e) {}
+      return { slug: d.name, name: projectName, updatedAt };
+    })
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return dirs;
+});
+
+ipcMain.handle('stems-save-as', async (_e, { name } = {}) => {
+  const slug = safeProjectName(name);
+  if (!slug) throw new Error('Nombre vacío o inválido');
+  const root = stemProjectsRoot();
+  const src = path.join(root, 'current');
+  const dst = path.join(root, slug);
+  if (!fs.existsSync(src)) throw new Error('No hay proyecto actual para guardar');
+  if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
+  fs.cpSync(src, dst, { recursive: true });
+  // Rewrite project.json paths from `StemProjects/current/...` →
+  // `StemProjects/<slug>/...` so the renderer picks up the right files on load.
+  const projectFp = path.join(dst, 'project.json');
+  if (fs.existsSync(projectFp)) {
+    let raw = fs.readFileSync(projectFp, 'utf-8');
+    raw = raw.replace(/StemProjects\/current\//g, `StemProjects/${slug}/`);
+    // The name field should reflect what the user picked
+    try {
+      const j = JSON.parse(raw);
+      j.projectName = name;
+      fs.writeFileSync(projectFp, JSON.stringify(j, null, 2), 'utf-8');
+    } catch {
+      fs.writeFileSync(projectFp, raw, 'utf-8');
+    }
+  }
+  return slug;
+});
+
+ipcMain.handle('stems-load-project', async (_e, slug) => {
+  const safe = safeProjectName(slug);
+  if (!safe) throw new Error('Slug inválido');
+  const root = stemProjectsRoot();
+  const src = path.join(root, safe);
+  const dst = path.join(root, 'current');
+  if (!fs.existsSync(src)) throw new Error('Proyecto no encontrado');
+  if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
+  fs.cpSync(src, dst, { recursive: true });
+  // Rewrite paths back to `current/`
+  const projectFp = path.join(dst, 'project.json');
+  if (fs.existsSync(projectFp)) {
+    let raw = fs.readFileSync(projectFp, 'utf-8');
+    raw = raw.replace(new RegExp(`StemProjects/${safe}/`, 'g'), 'StemProjects/current/');
+    fs.writeFileSync(projectFp, raw, 'utf-8');
+  }
+  // Return loaded data so renderer can rehydrate immediately.
+  const fp = path.join(dst, 'project.json');
+  if (!fs.existsSync(fp)) return null;
+  try { return rewritePaths(JSON.parse(fs.readFileSync(fp, 'utf-8'))); }
+  catch (e) { return null; }
+});
+
+ipcMain.handle('stems-delete-project', async (_e, slug) => {
+  const safe = safeProjectName(slug);
+  if (!safe) throw new Error('Slug inválido');
+  const target = path.join(stemProjectsRoot(), safe);
+  if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+  return true;
+});
+
 ipcMain.handle('stems-save-file', async (_e, { id, name, buffer } = {}) => {
   if (!id || !buffer) throw new Error('Falta id o buffer');
   ensureStemsDir();
