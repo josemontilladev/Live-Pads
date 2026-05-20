@@ -575,6 +575,88 @@ ipcMain.handle('companion-set-ip', async (_e, ip) => {
   return companionServer.getStatus();
 });
 
+// ── Stem editor project persistence ───────────────────────────────
+// Each "current" project lives in a single folder so the user only ever
+// loses work if they hit "Nuevo proyecto" deliberately. The renderer
+// references stems via livepads:// URLs so playback works with
+// webSecurity enabled.
+function stemsRoot() {
+  return path.join(app.getPath('userData'), 'StemProjects', 'current');
+}
+function stemsFolder() {
+  return path.join(stemsRoot(), 'stems');
+}
+function ensureStemsDir() {
+  fs.mkdirSync(stemsFolder(), { recursive: true });
+}
+
+ipcMain.handle('stems-save-current', async (_e, state) => {
+  ensureStemsDir();
+  const fp = path.join(stemsRoot(), 'project.json');
+  fs.writeFileSync(fp, JSON.stringify(state, null, 2), 'utf-8');
+  return true;
+});
+
+ipcMain.handle('stems-load-current', async () => {
+  const fp = path.join(stemsRoot(), 'project.json');
+  if (!fs.existsSync(fp)) return null;
+  try {
+    return rewritePaths(JSON.parse(fs.readFileSync(fp, 'utf-8')));
+  } catch (e) {
+    console.warn('Failed to parse stem project.json:', e.message);
+    return null;
+  }
+});
+
+ipcMain.handle('stems-clear-current', async () => {
+  const root = stemsRoot();
+  if (fs.existsSync(root)) {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+  return true;
+});
+
+ipcMain.handle('stems-save-file', async (_e, { id, name, buffer } = {}) => {
+  if (!id || !buffer) throw new Error('Falta id o buffer');
+  ensureStemsDir();
+  // Strip the path-unsafe bits but keep the extension so decoders
+  // pick the right format on rehydrate.
+  const safeName = String(name || 'stem').replace(/[^a-z0-9._-]/gi, '_');
+  const fileName = `${id}_${safeName}`;
+  const relPath = path.join('StemProjects', 'current', 'stems', fileName);
+  const absPath = path.join(app.getPath('userData'), relPath);
+  fs.writeFileSync(absPath, Buffer.from(buffer));
+  return toLivepadsUrl(relPath);
+});
+
+ipcMain.handle('stems-export-mp3', async (_e, { suggestedName, buffer } = {}) => {
+  if (!buffer) throw new Error('Buffer vacío');
+  const cleanName = String(suggestedName || 'mezcla').replace(/[^a-z0-9._ -]/gi, '_');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exportar mezcla a MP3',
+    defaultPath: `${cleanName}.mp3`,
+    filters: [{ name: 'MP3 Audio', extensions: ['mp3'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+  fs.writeFileSync(result.filePath, Buffer.from(buffer));
+  return result.filePath;
+});
+
+ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
+  if (typeof livepadsUrl !== 'string') return false;
+  const rest = livepadsUrl.startsWith('livepads://')
+    ? livepadsUrl.slice('livepads://'.length).replace(/^app\//, '')
+    : livepadsUrl;
+  const decoded = decodeURIComponent(rest);
+  // Only allow deletions under StemProjects/ — defense in depth.
+  if (!decoded.replace(/\\/g, '/').startsWith('StemProjects/')) return false;
+  const abs = path.join(app.getPath('userData'), decoded);
+  if (fs.existsSync(abs)) {
+    try { fs.unlinkSync(abs); } catch (e) { console.warn('Stem rm failed:', e.message); }
+  }
+  return true;
+});
+
 // Generate a QR code (SVG string) for an arbitrary URL. Used by the
 // Companion panel to render the pairing QR — generating in main avoids
 // bundling a browser QR lib and lets us return a crisp scalable SVG.

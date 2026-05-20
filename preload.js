@@ -26,5 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   companionQR: (url) => ipcRenderer.invoke('companion-qr', url),
   companionSetIp: (ip) => ipcRenderer.invoke('companion-set-ip', ip),
   companionGetPrefs: () => ipcRenderer.invoke('companion-get-prefs'),
-  companionSetPrefs: (prefs) => ipcRenderer.invoke('companion-set-prefs', prefs)
+  companionSetPrefs: (prefs) => ipcRenderer.invoke('companion-set-prefs', prefs),
+  stemsSaveCurrent: (state) => ipcRenderer.invoke('stems-save-current', state),
+  stemsLoadCurrent: () => ipcRenderer.invoke('stems-load-current'),
+  stemsClearCurrent: () => ipcRenderer.invoke('stems-clear-current'),
+  stemsSaveFile: (data) => ipcRenderer.invoke('stems-save-file', data),
+  stemsRemoveFile: (url) => ipcRenderer.invoke('stems-remove-file', url),
+  stemsExportMp3: (data) => ipcRenderer.invoke('stems-export-mp3', data)
 });
