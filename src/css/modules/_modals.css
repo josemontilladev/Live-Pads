@@ -1216,3 +1216,232 @@
   font-weight: 700;
   margin-right: 4px;
 }
+
+/* ── Companion (LAN viewer) overlay ──────────────────────────────────
+   Same visual grammar as preflight: backdrop blur, panel scales up, ×
+   to close. Shows server status, URL, client count, and a toggle. */
+#companion-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#companion-overlay.open { opacity: 1; }
+
+#companion-overlay .cp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  width: 460px; max-width: 100%;
+  padding: 20px 22px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 60px var(--glow);
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.25s var(--ease-spring, ease);
+}
+#companion-overlay.open .cp-panel { transform: translateY(0) scale(1); }
+
+#companion-overlay .cp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#companion-overlay .cp-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#companion-overlay .cp-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+#companion-overlay .cp-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#companion-overlay .cp-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#companion-overlay .cp-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+#companion-overlay .cp-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b6b7a;
+  box-shadow: 0 0 0 0 transparent;
+  transition: background 0.2s, box-shadow 0.4s;
+}
+#companion-overlay .cp-status[data-running="true"] .cp-dot {
+  background: #4ade80;
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+}
+#companion-overlay .cp-status[data-running="true"] .cp-status-label { color: #4ade80; }
+#companion-overlay .cp-status[data-running="false"] .cp-status-label { color: var(--text-muted); }
+
+#companion-overlay .cp-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+#companion-overlay .cp-qr-frame {
+  width: 200px;
+  height: 200px;
+  padding: 10px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--border-strong), 0 0 40px var(--glow);
+  display: flex; align-items: center; justify-content: center;
+}
+#companion-overlay .cp-qr-frame svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#companion-overlay .cp-qr-caption {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+#companion-overlay .cp-url-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+#companion-overlay .cp-url {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  user-select: all;
+  word-break: break-all;
+}
+#companion-overlay .cp-copy {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+#companion-overlay .cp-copy:hover { border-color: var(--accent); color: var(--accent); }
+#companion-overlay .cp-copy.is-copied {
+  background: rgba(74, 222, 128, 0.18);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #4ade80;
+}
+
+#companion-overlay .cp-iface-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+#companion-overlay .cp-iface-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+#companion-overlay .cp-iface-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+#companion-overlay .cp-iface-select:focus { outline: none; border-color: var(--accent); }
+
+#companion-overlay .cp-clients {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+#companion-overlay .cp-clients #cp-clients-count {
+  color: var(--text);
+  font-weight: 700;
+}
+
+#companion-overlay .cp-hint {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+#companion-overlay .cp-autostart {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+#companion-overlay .cp-autostart input {
+  accent-color: var(--accent);
+  width: 16px; height: 16px;
+  cursor: pointer;
+}
+
+#companion-overlay .cp-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+#companion-overlay .cp-toggle {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #0a0a14;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+#companion-overlay .cp-toggle:hover { filter: brightness(1.08); }
+#companion-overlay .cp-toggle:active { transform: scale(0.97); }
+#companion-overlay .cp-toggle:disabled { opacity: 0.55; cursor: progress; }
+#companion-overlay .cp-toggle--off {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}

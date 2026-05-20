@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LivePads">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>LivePads Companion</title>
+  <link rel="stylesheet" href="companion.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">LivePads <span class="brand-accent">Companion</span></div>
+    <div class="top-right">
+      <button id="btn-toggle-chords" type="button" class="chord-toggle" aria-pressed="false" hidden>Ocultar acordes</button>
+      <div class="conn" id="conn-pill" data-state="connecting">Conectando…</div>
+    </div>
+  </header>
+
+  <button id="btn-settings" type="button" class="fab" aria-label="Ajustes" hidden>
+    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+
+  <div id="settings-sheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-close="1"></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true">
+      <div class="sheet-grip"></div>
+      <h3 class="sheet-title">Ajustes</h3>
+
+      <div class="sheet-row">
+        <span class="sheet-label">Tamaño de letra</span>
+        <div class="sheet-controls">
+          <button class="size-btn" data-size="-" aria-label="Reducir">A−</button>
+          <span class="size-value" id="size-value">100%</span>
+          <button class="size-btn" data-size="+" aria-label="Aumentar">A+</button>
+        </div>
+      </div>
+
+      <div class="sheet-row">
+        <label class="sheet-label" for="auto-scroll">Auto-scroll</label>
+        <label class="switch">
+          <input type="checkbox" id="auto-scroll">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="sheet-row sheet-row--speed" data-disabled="true">
+        <span class="sheet-label">Velocidad de auto-scroll</span>
+        <input type="range" id="scroll-speed" class="range" min="1" max="10" step="1" value="3">
+      </div>
+
+      <div class="sheet-row">
+        <label class="sheet-label" for="keep-awake">Mantener pantalla encendida</label>
+        <label class="switch">
+          <input type="checkbox" id="keep-awake" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="sheet-done" data-close="1">Listo</button>
+    </div>
+  </div>
+
+  <main class="stage" id="stage">
+    <div class="empty" id="empty-view">
+      <div class="empty-icon">🎶</div>
+      <div class="empty-title">Esperando canción…</div>
+      <div class="empty-sub">Verás la letra y los acordes cuando la cabina active una canción.</div>
+    </div>
+
+    <article class="song" id="song-view" hidden>
+      <div class="song-meta">
+        <div class="song-key" id="song-key">
+          <span class="live-dot" id="live-dot" hidden></span>
+        </div>
+        <div class="song-title" id="song-title"></div>
+        <div class="song-artist" id="song-artist"></div>
+        <div class="song-bpm" id="song-bpm"></div>
+      </div>
+      <div class="song-lyrics" id="song-lyrics"></div>
+    </article>
+  </main>
+
+  <script src="companion.js"></script>
+</body>
+</html>

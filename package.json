@@ -24,7 +24,9 @@
     "mp3-cutter": "^1.0.6"
   },
   "dependencies": {
-    "mongodb": "^7.2.0"
+    "mongodb": "^7.2.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.20.1"
   },
   "build": {
     "appId": "com.livepads.app",
@@ -51,12 +53,20 @@
       {
         "from": "defaults",
         "to": "defaults",
-        "filter": ["**/*", "!**/.gitkeep"]
+        "filter": [
+          "**/*",
+          "!**/.gitkeep"
+        ]
       }
     ],
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "src/assets/icon.png",
       "artifactName": "${productName}-Setup-${version}.${ext}",
@@ -66,7 +76,13 @@
     },
     "mac": {
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "icon": "src/assets/icon.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
@@ -74,7 +90,12 @@
     },
     "linux": {
       "target": [
-        { "target": "AppImage", "arch": ["x64"] }
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "src/assets/icon.png",
       "artifactName": "${productName}-${version}-${arch}.${ext}",

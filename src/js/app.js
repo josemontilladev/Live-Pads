@@ -7,6 +7,7 @@ import { hideDialog } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
+import { openCompanionPanel } from './ui/companionPanel.js';
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
@@ -499,6 +500,14 @@ function bindHamburgerMenu() {
     };
   }
 
+  const btnCompanion = q('#menu-companion');
+  if (btnCompanion) {
+    btnCompanion.onclick = () => {
+      closeMenu();
+      openCompanionPanel();
+    };
+  }
+
   const btnMidiLearn = q('#menu-midi-learn');
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
@@ -933,5 +942,31 @@ function applyGiSong(song) {
     // No audio for the new song — release the previous track and reset the UI.
     clearTrackUI();
   }
+
+  // Mirror to the LAN Companion (no-op if server is off).
+  if (window.electronAPI && window.electronAPI.companionPublishSong) {
+    window.electronAPI.companionPublishSong({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      key: song.key,
+      bpm: song.bpm,
+      lyrics: song.lyrics
+    }).catch(() => {});
+  }
 }
+
+// Cheap poller that mirrors the cabin's playing state to the Companion.
+// Track player + metronome state changes don't fan out through a central
+// event, so a 500 ms diff-publish is the lowest-friction way to keep the
+// LAN viewer's "live" dot in sync. Only emits on actual change.
+let lastCompanionPlaying = null;
+setInterval(() => {
+  if (!window.electronAPI || !window.electronAPI.companionPublishPlaying) return;
+  const playing = isTrackLoaded() ? isTrackPlaying() : getMetroRunning();
+  if (playing !== lastCompanionPlaying) {
+    lastCompanionPlaying = playing;
+    window.electronAPI.companionPublishPlaying(playing).catch(() => {});
+  }
+}, 500);
 

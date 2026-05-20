@@ -134,5 +134,27 @@ function runChecks(ctx) {
     });
   }
 
+  // 7. Companion server (informational — surfaces status synchronously via
+  //    a placeholder row, then fills in the actual value when the async
+  //    IPC resolves).
+  const companionRow = {
+    label: 'Companion (móvil)',
+    detail: 'Comprobando…',
+    ok: true
+  };
+  out.push(companionRow);
+
+  if (window.electronAPI && window.electronAPI.companionStatus) {
+    window.electronAPI.companionStatus().then(status => {
+      const row = document.querySelector('#preflight-overlay .pf-row:last-child');
+      if (!row) return;
+      const detail = status.running
+        ? `Activo en ${status.url} — ${status.clients} conectado(s)`
+        : 'Apagado — actívalo desde el menú si tu banda quiere las letras en el móvil';
+      const detailEl = row.querySelector('.pf-detail');
+      if (detailEl) detailEl.textContent = detail;
+    }).catch(() => {});
+  }
+
   return out;
 }
