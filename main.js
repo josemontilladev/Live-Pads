@@ -4,6 +4,8 @@ const fs = require('fs');
 const { pathToFileURL } = require('url');
 const { MongoClient } = require('mongodb');
 const dns = require('dns');
+const companionServer = require('./companion/server');
+const QRCode = require('qrcode');
 
 // Register the livepads:// scheme as privileged BEFORE app is ready.
 // This lets the renderer fetch userData assets safely with webSecurity enabled.
@@ -508,6 +510,84 @@ ipcMain.handle('fetch-chord-url', async (_e, url) => {
   }
 });
 
+// ── Companion (LAN viewer) ────────────────────────────
+// LAN-only HTTP+WS server (see companion/server.js). Off by default — the
+// renderer toggles it explicitly. The renderer also pushes song state via
+// 'companion-publish-song' whenever the active song changes.
+
+ipcMain.handle('companion-start', async () => {
+  try {
+    return await companionServer.start();
+  } catch (e) {
+    console.error('Companion start failed:', e);
+    throw e;
+  }
+});
+
+ipcMain.handle('companion-stop', async () => {
+  return await companionServer.stop();
+});
+
+ipcMain.handle('companion-status', async () => {
+  return companionServer.getStatus();
+});
+
+ipcMain.handle('companion-publish-song', async (_e, song) => {
+  companionServer.publishSong(song);
+  return true;
+});
+
+ipcMain.handle('companion-publish-playing', async (_e, playing) => {
+  companionServer.publishPlaying(!!playing);
+  return true;
+});
+
+// Companion prefs live in their own file (kept out of config.json so the
+// MongoDB-only template stays clean). Currently a single flag, but easy to
+// extend without touching schema migration logic.
+function companionPrefsPath() {
+  return path.join(app.getPath('userData'), 'companion_prefs.json');
+}
+function readCompanionPrefs() {
+  try {
+    const fp = companionPrefsPath();
+    if (!fs.existsSync(fp)) return {};
+    return JSON.parse(fs.readFileSync(fp, 'utf-8')) || {};
+  } catch (e) { return {}; }
+}
+function writeCompanionPrefs(prefs) {
+  try { fs.writeFileSync(companionPrefsPath(), JSON.stringify(prefs, null, 2), 'utf-8'); }
+  catch (e) { console.warn('Could not save companion prefs:', e.message); }
+}
+
+ipcMain.handle('companion-get-prefs', async () => readCompanionPrefs());
+ipcMain.handle('companion-set-prefs', async (_e, prefs) => {
+  const merged = Object.assign(readCompanionPrefs(), prefs || {});
+  writeCompanionPrefs(merged);
+  return merged;
+});
+
+// User override for the LAN IP — VPN tunnels (Cloudflare WARP, Tailscale,
+// WireGuard) often outrank the real WiFi IP in auto-detection. The panel
+// lets the user pick from the candidate list.
+ipcMain.handle('companion-set-ip', async (_e, ip) => {
+  companionServer.setPreferredIp(ip || null);
+  return companionServer.getStatus();
+});
+
+// Generate a QR code (SVG string) for an arbitrary URL. Used by the
+// Companion panel to render the pairing QR — generating in main avoids
+// bundling a browser QR lib and lets us return a crisp scalable SVG.
+ipcMain.handle('companion-qr', async (_e, url) => {
+  if (typeof url !== 'string' || !url) throw new Error('URL inválida');
+  return await QRCode.toString(url, {
+    type: 'svg',
+    margin: 1,
+    errorCorrectionLevel: 'M',
+    color: { dark: '#0a0a14', light: '#FFFFFF' }
+  });
+});
+
 /* ── App lifecycle ─────────────────────────────────── */
 
 initializeUserData(); // Run copy of defaults to userData on boot
@@ -531,6 +611,17 @@ app.whenReady().then(() => {
     }
   });
   createWindow();
+
+  // Honour the autostart preference — start the LAN viewer transparently so
+  // musicians can scan the QR right after the app opens. Failure is silent;
+  // the user can still toggle from the panel.
+  const prefs = readCompanionPrefs();
+  if (prefs.autostart) {
+    companionServer.start().catch(e => console.warn('Companion autostart failed:', e.message));
+  }
 });
 app.on('window-all-closed', () => app.quit());
+app.on('before-quit', async () => {
+  try { await companionServer.stop(); } catch (e) {}
+});
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

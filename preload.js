@@ -17,5 +17,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadUserDrums: () => ipcRenderer.invoke('load-user-drums'),
   loadMidiMap: () => ipcRenderer.invoke('load-midi-map'),
   saveMidiMap: (data) => ipcRenderer.invoke('save-midi-map', data),
-  fetchChordUrl: (url) => ipcRenderer.invoke('fetch-chord-url', url)
+  fetchChordUrl: (url) => ipcRenderer.invoke('fetch-chord-url', url),
+  companionStart: () => ipcRenderer.invoke('companion-start'),
+  companionStop: () => ipcRenderer.invoke('companion-stop'),
+  companionStatus: () => ipcRenderer.invoke('companion-status'),
+  companionPublishSong: (song) => ipcRenderer.invoke('companion-publish-song', song),
+  companionPublishPlaying: (playing) => ipcRenderer.invoke('companion-publish-playing', playing),
+  companionQR: (url) => ipcRenderer.invoke('companion-qr', url),
+  companionSetIp: (ip) => ipcRenderer.invoke('companion-set-ip', ip),
+  companionGetPrefs: () => ipcRenderer.invoke('companion-get-prefs'),
+  companionSetPrefs: (prefs) => ipcRenderer.invoke('companion-set-prefs', prefs)
 });

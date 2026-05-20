@@ -57,6 +57,13 @@ const SECTIONS = [
       ['Esc',             'Cerrar paneles / overlays'],
     ],
   },
+  {
+    title: 'Companion (móvil)',
+    rows: [
+      ['Menú ☰',          'Abre el panel del Companion (QR + URL)'],
+      ['Spotlight',       'Busca "Companion" en Ctrl+K'],
+    ],
+  },
 ];
 
 let rendered = false;

@@ -29,6 +29,7 @@ const COMMANDS = [
   { id: 'cmd:menu',     label: 'Abrir menú',               hint: '',        selector: '#btn-menu' },
   { id: 'cmd:preflight',label: 'Pre-vuelo del servicio',   hint: '',        selector: '#menu-preflight', viaMenu: true },
   { id: 'cmd:mappings', label: 'Mapeos activos',           hint: '',        selector: '#menu-mappings', viaMenu: true },
+  { id: 'cmd:companion',label: 'Companion (móvil)',        hint: '',        selector: '#menu-companion', viaMenu: true },
   { id: 'cmd:midilearn',label: 'Modo Mapeo MIDI / Teclado', hint: '',       selector: '#menu-midi-learn', viaMenu: true },
   { id: 'cmd:about',    label: 'Acerca de Live Pads',      hint: '',        selector: '#menu-about', viaMenu: true },
 ];

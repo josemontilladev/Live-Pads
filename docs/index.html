@@ -23,6 +23,7 @@
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#tour">Tour</a>
+      <a href="#companion">Companion</a>
       <a href="#para-quien">Para quién</a>
       <a href="#atajos">Atajos</a>
       <a href="#faq">FAQ</a>
@@ -147,6 +148,14 @@
 
       <article class="feature-card">
         <div class="feature-icon">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </div>
+        <h3>Companion móvil (PWA)</h3>
+        <p>La banda en escena ve letras y acordes en su teléfono desde la misma WiFi. Cero apps que instalar — escaneas el QR y listo. <a href="#companion">Más abajo →</a></p>
+      </article>
+
+      <article class="feature-card">
+        <div class="feature-icon">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>
         </div>
         <h3>6 temas premium</h3>
@@ -178,7 +187,27 @@
       <div class="tour-shot">
         <div class="mac-window">
           <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <img src="assets/playing.png" alt="Setlist con banner Sonando y card activa" class="mac-shot">
+          <div class="mk mk-setlist" aria-hidden="true">
+            <div class="mk-st-tabs">
+              <span class="mk-st-tab">Presets</span>
+              <span class="mk-st-tab is-active">Librería</span>
+              <span class="mk-st-tab">Servicio</span>
+            </div>
+            <div class="mk-st-now">
+              <div class="mk-st-now-label">Sonando</div>
+              <div class="mk-st-now-title">Tan Sólo Tú</div>
+              <div class="mk-st-now-meta">Marco Barrientos · BPM 72 · Tono Cm</div>
+            </div>
+            <div class="mk-st-progress">3 / 8 · ~32 min restantes</div>
+            <ul class="mk-st-list">
+              <li class="mk-st-row dimmed"><span class="num">1</span><span class="title">Celebramos</span><span class="key">A</span></li>
+              <li class="mk-st-row dimmed"><span class="num">2</span><span class="title">Bueno Es</span><span class="key">G</span></li>
+              <li class="mk-st-row is-active"><span class="num">3</span><span class="title">Tan Sólo Tú</span><span class="key">Cm</span></li>
+              <li class="mk-st-row queued"><span class="num">4</span><span class="title">Espíritu Santo</span><span class="key">D</span></li>
+              <li class="mk-st-row"><span class="num">5</span><span class="title">Aclamamos Tu Nombre</span><span class="key">F</span></li>
+              <li class="mk-st-row"><span class="num">6</span><span class="title">Eres Mi Refugio</span><span class="key">Em</span></li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -197,7 +226,29 @@
       <div class="tour-shot">
         <div class="mac-window">
           <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <img src="assets/editor_letras.png" alt="Editor de letras con acordes y transposición" class="mac-shot">
+          <div class="mk mk-editor" aria-hidden="true">
+            <div class="mk-ed-toolbar">
+              <span class="mk-ed-title">Editor de letras</span>
+              <div class="mk-ed-tools">
+                <span class="mk-ed-tone">Tono <b>Cm</b></span>
+                <button class="mk-ed-btn">−</button>
+                <button class="mk-ed-btn">+</button>
+                <span class="mk-ed-save">Guardado ✓</span>
+              </div>
+            </div>
+            <div class="mk-ed-body">
+              <div class="mk-ed-section">[VERSO 1]</div>
+              <div class="mk-ed-chord">[Cm]      [Ab]</div>
+              <div class="mk-ed-lyric">Tan sólo tú llenas mi ser</div>
+              <div class="mk-ed-chord">[Eb]      [Bb]</div>
+              <div class="mk-ed-lyric">Eres todo lo que necesito</div>
+              <div class="mk-ed-section">[CORO]</div>
+              <div class="mk-ed-chord">[Ab] [Eb] [Bb] [Cm]</div>
+              <div class="mk-ed-lyric">Yo te alabaré, mi corazón</div>
+              <div class="mk-ed-chord">[Ab] [Eb] [Bb]</div>
+              <div class="mk-ed-lyric">Se rinde a ti…</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -216,7 +267,25 @@
       <div class="tour-shot">
         <div class="mac-window">
           <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <img src="assets/mapeo.png" alt="Vista de mapeos MIDI y teclado activos" class="mac-shot">
+          <div class="mk mk-mappings" aria-hidden="true">
+            <div class="mk-mp-header">
+              <span class="mk-mp-title">Mapeos activos</span>
+              <span class="mk-mp-controller">🟢 Akai MPK Mini</span>
+            </div>
+            <div class="mk-mp-filters">
+              <span class="mk-mp-filter is-active">Todos</span>
+              <span class="mk-mp-filter">Teclado</span>
+              <span class="mk-mp-filter">MIDI</span>
+            </div>
+            <ul class="mk-mp-list">
+              <li class="mk-mp-row"><span class="action">Play / Stop maestro</span><span class="src kbd">TECLADO</span><span class="key">Espacio</span><span class="x">×</span></li>
+              <li class="mk-mp-row"><span class="action">Pánico</span><span class="src kbd">TECLADO</span><span class="key">Esc</span><span class="x">×</span></li>
+              <li class="mk-mp-row"><span class="action">Pad C</span><span class="src midi">MIDI</span><span class="key">Nota 60</span><span class="x">×</span></li>
+              <li class="mk-mp-row"><span class="action">Pad G</span><span class="src midi">MIDI</span><span class="key">Nota 67</span><span class="x">×</span></li>
+              <li class="mk-mp-row"><span class="action">Volumen master</span><span class="src midi">MIDI</span><span class="key">CC 7</span><span class="x">×</span></li>
+              <li class="mk-mp-row"><span class="action">Drum 1 (Kick)</span><span class="src kbd">TECLADO</span><span class="key">Q</span><span class="x">×</span></li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -235,7 +304,119 @@
       <div class="tour-shot">
         <div class="mac-window">
           <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <img src="assets/prevuelo.png" alt="Modal Pre-vuelo con checks de audio, MIDI y servicio" class="mac-shot">
+          <div class="mk mk-preflight" aria-hidden="true">
+            <div class="mk-pf-header">PRE-VUELO</div>
+            <p class="mk-pf-sub">Antes de empezar el servicio:</p>
+            <ul class="mk-pf-list">
+              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Salida de audio</b><span>AudioContext activo</span></div></li>
+              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Banco de pads cargado</b><span>Actual: Foundations</span></div></li>
+              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Kit de batería cargado</b><span>Actual: Modern (8 pads)</span></div></li>
+              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>MIDI mapeado</b><span>12 controles asignados</span></div></li>
+              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Lista de servicio</b><span>8 canciones cargadas</span></div></li>
+              <li class="mk-pf-row warn"><span class="ic">⚠</span><div><b>Metadata completa</b><span>Faltan datos en 1: Espíritu Santo</span></div></li>
+            </ul>
+            <div class="mk-pf-summary warn">1 cosa por revisar antes de comenzar.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ COMPANION MÓVIL ═══ -->
+<section id="companion" class="section section-companion">
+  <div class="container">
+    <h2 class="section-title">
+      <span class="section-eyebrow">Companion móvil</span>
+      Letras + acordes en el teléfono de tu banda
+    </h2>
+
+    <div class="companion-split">
+      <div class="companion-copy">
+        <p class="companion-lede">
+          Activa el Companion desde el menú, escanea el QR con la cámara
+          del teléfono, y la banda en escena ve la canción que disparas
+          en la cabina — con secciones, acordes alineados, y un toggle
+          para ver sólo letra.
+        </p>
+
+        <ul class="companion-bullets">
+          <li>
+            <strong>Misma WiFi, sin nube.</strong>
+            La cabina abre un servidor local en el puerto 3001. Funciona sin internet —
+            ideal si tu local no tiene WiFi estable para datos.
+          </li>
+          <li>
+            <strong>Sin app que instalar.</strong>
+            Es una PWA: abre la URL en cualquier navegador del teléfono.
+            "Añadir a la pantalla de inicio" la deja como app nativa.
+          </li>
+          <li>
+            <strong>Pensado para el escenario.</strong>
+            Tamaño de letra ajustable, auto-scroll opcional, pantalla
+            siempre encendida (wake-lock), toggle "Ocultar acordes" para vocalistas.
+          </li>
+          <li>
+            <strong>En vivo.</strong>
+            Un punto verde pulsa cuando la cabina está reproduciendo audio.
+            La banda sabe que el sistema está activo sin tener que mirar atrás.
+          </li>
+        </ul>
+
+        <div class="companion-meta">
+          <span class="companion-chip">LAN only</span>
+          <span class="companion-chip">Sin auth</span>
+          <span class="companion-chip">PWA installable</span>
+          <span class="companion-chip">WebSocket en tiempo real</span>
+        </div>
+      </div>
+
+      <div class="companion-visual">
+        <div class="phone-frame" aria-hidden="true">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="ph-top">
+              <span class="ph-brand">LivePads <b>Companion</b></span>
+              <div class="ph-right">
+                <span class="ph-chord-toggle">Ocultar acordes</span>
+                <span class="ph-conn">Conectado</span>
+              </div>
+            </div>
+            <div class="ph-meta">
+              <div class="ph-meta-key">A<span class="ph-live"></span></div>
+              <div class="ph-meta-text">
+                <div class="ph-meta-title">Celebramos</div>
+                <div class="ph-meta-artist">Marco Barrientos</div>
+                <div class="ph-meta-bpm">BPM 137</div>
+              </div>
+            </div>
+            <div class="ph-lyrics">
+              <div class="ph-section">VERSO 1</div>
+              <div class="ph-chord">A</div>
+              <div class="ph-lyric">Damos gloria al Padre</div>
+              <div class="ph-chord">D</div>
+              <div class="ph-lyric">Cantamos gloria al Hijo</div>
+              <div class="ph-chord">F#m  A/C#  D</div>
+              <div class="ph-lyric">Gloria al Santo Espíritu de Dios</div>
+              <div class="ph-section">CORO</div>
+              <div class="ph-chord">A</div>
+              <div class="ph-lyric">Cantamos Santo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="companion-qr-hint">
+          <div class="qr-block">
+            <div class="qr-frame">
+              <svg viewBox="0 0 33 33" xmlns="http://www.w3.org/2000/svg">
+                <path stroke="none" fill="#0a0a14" d="M0 0h7v7H0zM8 0h1v1H8zM10 0h2v1h-2zM14 0h2v1h-2zM18 0h1v1h-1zM20 0h2v1h-2zM26 0h7v7h-7zM0 1h1v1H0zM6 1h1v1H6zM10 1h1v1h-1zM13 1h2v1h-2zM16 1h1v1h-1zM19 1h2v1h-2zM23 1h1v1h-1zM26 1h1v1h-1zM32 1h1v1h-1zM0 2h1v1H0zM2 2h3v1H2zM6 2h1v1H6zM8 2h2v1H8zM11 2h1v1h-1zM13 2h1v1h-1zM15 2h2v1h-2zM18 2h2v1h-2zM21 2h2v1h-2zM26 2h1v1h-1zM28 2h3v1h-3zM32 2h1v1h-1zM0 3h1v1H0zM2 3h3v1H2zM6 3h1v1H6zM8 3h1v1H8zM10 3h3v1h-3zM15 3h1v1h-1zM18 3h2v1h-2zM21 3h1v1h-1zM23 3h2v1h-2zM26 3h1v1h-1zM28 3h3v1h-3zM32 3h1v1h-1zM0 4h1v1H0zM2 4h3v1H2zM6 4h1v1H6zM9 4h2v1H9zM12 4h2v1h-2zM15 4h2v1h-2zM18 4h1v1h-1zM20 4h3v1h-3zM26 4h1v1h-1zM28 4h3v1h-3zM32 4h1v1h-1zM0 5h1v1H0zM6 5h1v1H6zM10 5h3v1h-3zM14 5h2v1h-2zM18 5h1v1h-1zM21 5h3v1h-3zM26 5h1v1h-1zM32 5h1v1h-1zM0 6h7v1H0zM8 6h1v1H8zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h7v1h-7zM8 7h2v1H8zM11 7h1v1h-1zM14 7h2v1h-2zM17 7h2v1h-2zM21 7h2v1h-2zM24 7h1v1h-1zM0 8h2v1H0zM3 8h1v1H3zM5 8h2v1H5zM8 8h1v1H8zM10 8h4v1h-4zM15 8h3v1h-3zM19 8h2v1h-2zM22 8h1v1h-1zM24 8h2v1h-2zM27 8h4v1h-4zM32 8h1v1h-1zM0 9h2v1H0zM4 9h1v1H4zM6 9h3v1H6zM10 9h1v1h-1zM12 9h2v1h-2zM15 9h1v1h-1zM18 9h1v1h-1zM21 9h2v1h-2zM25 9h1v1h-1zM27 9h2v1h-2zM31 9h2v1h-2zM2 10h2v1H2zM5 10h2v1H5zM8 10h1v1H8zM10 10h2v1h-2zM13 10h1v1h-1zM17 10h2v1h-2zM21 10h1v1h-1zM23 10h2v1h-2zM27 10h2v1h-2zM31 10h1v1h-1zM0 11h2v1H0zM5 11h2v1H5zM8 11h2v1H8zM12 11h2v1h-2zM15 11h1v1h-1zM17 11h1v1h-1zM19 11h1v1h-1zM22 11h1v1h-1zM26 11h2v1h-2zM30 11h1v1h-1zM32 11h1v1h-1zM0 12h1v1H0zM4 12h3v1H4zM8 12h2v1H8zM11 12h1v1h-1zM16 12h1v1h-1zM19 12h2v1h-2zM22 12h1v1h-1zM25 12h1v1h-1zM28 12h2v1h-2zM2 13h2v1H2zM7 13h2v1H7zM10 13h1v1h-1zM13 13h4v1h-4zM18 13h2v1h-2zM23 13h2v1h-2zM26 13h1v1h-1zM30 13h1v1h-1zM0 14h2v1H0zM3 14h2v1H3zM6 14h1v1H6zM8 14h2v1H8zM12 14h3v1h-3zM17 14h2v1h-2zM21 14h1v1h-1zM24 14h2v1h-2zM27 14h2v1h-2zM30 14h2v1h-2zM3 15h1v1H3zM6 15h2v1H6zM10 15h1v1h-1zM13 15h2v1h-2zM16 15h2v1h-2zM20 15h2v1h-2zM23 15h1v1h-1zM26 15h2v1h-2zM29 15h1v1h-1zM31 15h2v1h-2zM3 16h2v1H3zM6 16h2v1H6zM9 16h1v1H9zM12 16h3v1h-3zM16 16h1v1h-1zM18 16h2v1h-2zM22 16h1v1h-1zM25 16h2v1h-2zM30 16h1v1h-1zM32 16h1v1h-1zM2 17h1v1H2zM4 17h2v1H4zM7 17h2v1H7zM12 17h1v1h-1zM14 17h2v1h-2zM17 17h1v1h-1zM21 17h2v1h-2zM26 17h2v1h-2zM31 17h1v1h-1zM2 18h2v1H2zM7 18h2v1H7zM11 18h1v1h-1zM15 18h2v1h-2zM20 18h2v1h-2zM23 18h2v1h-2zM27 18h1v1h-1zM29 18h2v1h-2zM0 19h2v1H0zM3 19h1v1H3zM6 19h3v1H6zM10 19h2v1h-2zM13 19h2v1h-2zM18 19h2v1h-2zM22 19h2v1h-2zM26 19h2v1h-2zM30 19h2v1h-2zM2 20h2v1H2zM6 20h1v1H6zM9 20h2v1H9zM12 20h1v1h-1zM14 20h2v1h-2zM17 20h2v1h-2zM20 20h2v1h-2zM23 20h1v1h-1zM25 20h2v1h-2zM28 20h2v1h-2zM31 20h2v1h-2zM0 21h2v1H0zM3 21h2v1H3zM6 21h2v1H6zM10 21h1v1h-1zM13 21h1v1h-1zM16 21h2v1h-2zM19 21h2v1h-2zM23 21h2v1h-2zM26 21h3v1h-3zM30 21h2v1h-2zM2 22h2v1H2zM5 22h2v1H5zM9 22h2v1H9zM12 22h1v1h-1zM14 22h2v1h-2zM17 22h2v1h-2zM21 22h2v1h-2zM24 22h2v1h-2zM27 22h2v1h-2zM30 22h2v1h-2zM8 23h2v1H8zM12 23h2v1h-2zM15 23h1v1h-1zM18 23h2v1h-2zM23 23h1v1h-1zM26 23h1v1h-1zM28 23h1v1h-1zM30 23h2v1h-2zM0 24h7v1H0zM10 24h1v1h-1zM12 24h2v1h-2zM15 24h2v1h-2zM21 24h2v1h-2zM24 24h2v1h-2zM26 24h1v1h-1zM28 24h1v1h-1zM30 24h1v1h-1zM32 24h1v1h-1zM0 25h1v1H0zM6 25h1v1H6zM8 25h2v1H8zM12 25h1v1h-1zM14 25h2v1h-2zM18 25h1v1h-1zM21 25h2v1h-2zM24 25h1v1h-1zM28 25h3v1h-3zM32 25h1v1h-1zM0 26h1v1H0zM2 26h3v1H2zM6 26h1v1H6zM8 26h3v1H8zM13 26h1v1h-1zM16 26h2v1h-2zM19 26h1v1h-1zM21 26h2v1h-2zM24 26h7v1h-7zM32 26h1v1h-1zM0 27h1v1H0zM2 27h3v1H2zM6 27h1v1H6zM8 27h2v1H8zM11 27h2v1h-2zM15 27h1v1h-1zM17 27h2v1h-2zM20 27h2v1h-2zM23 27h1v1h-1zM26 27h2v1h-2zM30 27h1v1h-1zM0 28h1v1H0zM2 28h3v1H2zM6 28h1v1H6zM9 28h2v1H9zM12 28h1v1h-1zM14 28h3v1h-3zM18 28h2v1h-2zM22 28h1v1h-1zM24 28h2v1h-2zM27 28h2v1h-2zM31 28h2v1h-2zM0 29h1v1H0zM6 29h1v1H6zM8 29h2v1H8zM11 29h1v1h-1zM14 29h1v1h-1zM16 29h1v1h-1zM19 29h2v1h-2zM23 29h2v1h-2zM28 29h1v1h-1zM30 29h1v1h-1zM0 30h7v1H0zM9 30h2v1H9zM12 30h2v1h-2zM15 30h1v1h-1zM17 30h2v1h-2zM20 30h2v1h-2zM23 30h1v1h-1zM25 30h2v1h-2zM28 30h3v1h-3zM32 30h1v1h-1z"/>
+              </svg>
+            </div>
+            <div class="qr-caption">
+              <span class="qr-step">1</span> Activa Companion en la cabina<br>
+              <span class="qr-step">2</span> Escanea con la cámara del teléfono
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -434,6 +615,7 @@
       <div class="footer-links">
         <a href="#features">Features</a>
         <a href="#tour">Tour</a>
+        <a href="#companion">Companion</a>
         <a href="#atajos">Atajos</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/josemontilladev/Live-Pads" target="_blank" rel="noopener">GitHub</a>
