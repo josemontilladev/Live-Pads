@@ -162,21 +162,27 @@ body[data-workspace="stems"] #body {
   font-size: 11px;
 }
 
+/* Field wrapper aligns with Pads dropdown dimensions (radius var(--r-md),
+   bg-card surface, border that lifts on hover/focus). */
 .stems-field {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px 3px 10px;
+  gap: 8px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   background: var(--bg-card);
   flex-shrink: 0;
+  transition: border-color 0.2s;
 }
+.stems-field:hover { border-color: var(--accent); }
+.stems-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
 .stems-field label {
-  font-size: 9px;
-  letter-spacing: 1.2px;
+  font-size: 10px;
+  letter-spacing: 1.1px;
   color: var(--text-muted);
-  font-weight: 800;
+  font-weight: 700;
+  font-family: var(--font-main);
 }
 .stems-field input {
   appearance: none;
@@ -186,10 +192,10 @@ body[data-workspace="stems"] #body {
   font-size: 12px;
   font-weight: 700;
   width: 46px;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-main);
   text-align: center;
+  outline: none;
 }
-.stems-field input:focus { outline: 1px solid var(--accent); border-radius: 3px; }
 
 .stems-field--bpm { padding-right: 4px; gap: 4px; }
 .stems-bpm-detect {
@@ -224,36 +230,37 @@ body[data-workspace="stems"] #body {
   color: var(--text);
   font-size: 12px;
   font-weight: 700;
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-main);
   cursor: pointer;
   padding: 0 4px;
+  outline: none;
 }
-.stems-field--select select:focus { outline: 1px solid var(--accent); border-radius: 3px; }
 .stems-field--select option { background: var(--bg-card); color: var(--text); }
 
 .stems-tb-btn {
   appearance: none;
-  width: 32px; height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border-strong);
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: filter 0.15s, transform 0.1s, border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
-.stems-tb-btn:hover { filter: brightness(1.2); }
+.stems-tb-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
 .stems-tb-btn:active { transform: scale(0.94); }
 .stems-tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-tb-btn--play {
   background: var(--accent);
   border-color: var(--accent);
   color: #0a0a14;
-  width: 38px; height: 38px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   box-shadow: 0 0 14px var(--glow);
 }
+.stems-tb-btn--play:hover { background: var(--accent); filter: brightness(1.1); }
 .stems-tb-btn--play.is-playing {
   animation: stemsPulse 1.6s ease-in-out infinite;
 }
@@ -500,21 +507,24 @@ body[data-workspace="stems"] #body {
 
 .stems-btn {
   appearance: none;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 11.5px;
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  font-size: 11px;
   font-weight: 700;
+  font-family: var(--font-main);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: filter 0.15s, transform 0.1s;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
+.stems-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+.stems-btn:active { transform: scale(0.97); }
 .stems-btn:hover { filter: brightness(1.15); }
 .stems-btn:active { transform: scale(0.97); }
 .stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -525,34 +535,33 @@ body[data-workspace="stems"] #body {
   box-shadow: 0 0 14px var(--glow);
 }
 
+/* Mini-select matches Pads' .metro-dropdown — same paddings, font,
+   radius and grey SVG caret so dropdowns feel native across both
+   workspaces. */
 .stems-mini-select {
   appearance: none;
-  background: var(--bg);
+  -webkit-appearance: none;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md);
   color: var(--text);
-  font-size: 11.5px;
+  font-family: var(--font-main);
+  font-size: 11px;
   font-weight: 600;
-  padding: 5px 24px 5px 8px;
+  padding: 6px 24px 6px 10px;
   cursor: pointer;
+  outline: none;
   max-width: 160px;
   flex-shrink: 0;
-  /* Hint Chromium to use dark native popup (otherwise the dropdown opens
-     as a white panel that clashes with the rest of the app). */
   color-scheme: dark;
-  /* The caret colour stays static (URL-encoded #FBAE00 ≈ default accent)
-     so it works against the theme's bg. Themes that drift far from gold
-     can override by setting a custom --accent-caret if needed. */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23fbae00' stroke-width='2' opacity='0.7'><path d='M1 1.5l5 5 5-5'/></svg>");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
-  background-size: 10px;
+  transition: border-color 0.2s, background 0.2s;
 }
-.stems-mini-select:focus { outline: 1px solid var(--accent); }
-.stems-mini-select option {
-  background: var(--bg-card);
-  color: var(--text);
-}
+.stems-mini-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
+.stems-mini-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.stems-mini-select option { background: var(--bg-card); color: var(--text); }
 
 /* ── Narrow viewport tuning ─────────────────────────────────────── */
 @media (max-width: 1200px) {
@@ -932,42 +941,52 @@ body[data-workspace="stems"] #body {
 }
 .stems-vol-icon { color: var(--accent); opacity: 0.85; display: flex; }
 
-/* Fill-style slider: the portion left of the thumb shows the accent;
-   the portion right is dim. Updated live by JS via --fill (0..100). */
-.stems-vol-slider {
+/* Stems sliders match the Pads design system: white circular thumb,
+   thin track tinted with the theme accent on the filled portion. JS
+   updates --fill (0..100%) for the dynamic gradient. */
+.stems-range,
+.stems-vol-slider,
+.stems-pan-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 6px;
-  background:
-    linear-gradient(90deg,
-      var(--accent) 0%,
-      var(--accent) var(--fill, 85%),
-      rgba(255, 255, 255, 0.12) var(--fill, 85%),
-      rgba(255, 255, 255, 0.12) 100%);
-  border: 1px solid rgba(0,0,0,0.35);
+  height: 4px;
+  background: var(--border-strong);
   border-radius: 3px;
   outline: none;
-  box-shadow:
-    inset 0 1px 2px rgba(0,0,0,0.45),
-    0 0 6px color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.stems-vol-slider::-webkit-slider-thumb {
+.stems-range::-webkit-slider-thumb,
+.stems-vol-slider::-webkit-slider-thumb,
+.stems-pan-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px; height: 14px;
+  width: 16px; height: 16px;
+  background: #fff;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent), white 35%), var(--accent) 60%, color-mix(in srgb, var(--accent), black 35%));
   cursor: pointer;
-  border: 1px solid rgba(0,0,0,0.5);
-  box-shadow: 0 0 12px var(--glow), inset 0 1px 0 rgba(255,255,255,0.4);
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  transition: transform 0.1s;
 }
-.stems-vol-slider::-moz-range-thumb {
-  width: 14px; height: 14px;
+.stems-range::-webkit-slider-thumb:hover,
+.stems-vol-slider::-webkit-slider-thumb:hover,
+.stems-pan-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+.stems-range::-moz-range-thumb,
+.stems-vol-slider::-moz-range-thumb,
+.stems-pan-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: #fff;
   border-radius: 50%;
-  background: var(--accent);
   cursor: pointer;
-  border: 1px solid rgba(0,0,0,0.5);
-  box-shadow: 0 0 12px var(--glow);
+  border: none;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Filled-track variant for the volume slider — gold up to the thumb */
+.stems-vol-slider {
+  background: linear-gradient(to right,
+    var(--accent) 0%,
+    var(--accent) var(--fill, 85%),
+    var(--border-strong) var(--fill, 85%),
+    var(--border-strong) 100%);
 }
 .stems-vol-readout {
   font-size: 10px;
@@ -991,45 +1010,16 @@ body[data-workspace="stems"] #body {
   opacity: 0.7;
   text-align: center;
 }
-/* Bipolar fill: dark base, the segment between the center (50%) and the
-   thumb position lights up gold. JS sets --fill-start / --fill-end. */
+/* Bipolar fill: the segment between the center (50 %) and the thumb
+   lights up gold. JS sets --fill-start / --fill-end. */
 .stems-pan-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  outline: none;
-  background:
-    linear-gradient(90deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.1) var(--fill-start, 50%),
-      var(--accent) var(--fill-start, 50%),
-      var(--accent) var(--fill-end, 50%),
-      rgba(255, 255, 255, 0.1) var(--fill-end, 50%),
-      rgba(255, 255, 255, 0.1) 100%);
-  border: 1px solid rgba(0,0,0,0.35);
-  box-shadow:
-    inset 0 1px 2px rgba(0,0,0,0.4),
-    0 0 6px color-mix(in srgb, var(--accent) 8%, transparent);
-  position: relative;
-}
-.stems-pan-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--accent), white 35%), var(--accent) 60%, color-mix(in srgb, var(--accent), black 35%));
-  cursor: pointer;
-  border: 1px solid rgba(0,0,0,0.5);
-  box-shadow: 0 0 10px var(--glow), inset 0 1px 0 rgba(255,255,255,0.4);
-}
-.stems-pan-slider::-moz-range-thumb {
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  border: 1px solid rgba(0,0,0,0.5);
-  box-shadow: 0 0 10px var(--glow);
+  background: linear-gradient(to right,
+    var(--border-strong) 0%,
+    var(--border-strong) var(--fill-start, 50%),
+    var(--accent) var(--fill-start, 50%),
+    var(--accent) var(--fill-end, 50%),
+    var(--border-strong) var(--fill-end, 50%),
+    var(--border-strong) 100%);
 }
 
 /* Lane — the part that fills horizontally with the waveform */
