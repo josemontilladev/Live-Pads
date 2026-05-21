@@ -8,7 +8,8 @@ import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRende
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
-import { mount as mountStemsWorkspace, toggleStemsPlay, addStemsMarker, stemsUndo, stemsRedo } from './stems/workspace.js';
+import { mount as mountStemsWorkspace, toggleStemsPlay, addStemsMarker, stemsUndo, stemsRedo, showStemsTour } from './stems/workspace.js';
+import { maybeStartTour as maybeStartStemsTour } from './stems/tour.js';
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
@@ -588,7 +589,14 @@ function applyWorkspace(name) {
 
   document.body.dataset.workspace = valid;
   try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
+
+  // First-run tutorial fires the very first time the user enters Stems.
+  // After that it can be triggered manually from the menu / spotlight.
+  if (valid === 'stems') maybeStartStemsTour();
 }
+
+// Public so a menu item or spotlight command can re-launch the tour.
+window.__stemsShowTour = showStemsTour;
 
 function moveWorkspaceIndicator() {
   const indicator = q('.ws-indicator');

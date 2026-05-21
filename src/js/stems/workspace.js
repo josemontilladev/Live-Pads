@@ -13,6 +13,7 @@ import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
 import { detectBPM } from './bpmDetector.js';
+import { maybeStartTour, startTour } from './tour.js';
 
 // ── Constants ──────────────────────────────────────────────────────
 let PX_PER_SEC        = 40;     // horizontal scale of the timeline (zoomable)
@@ -81,6 +82,9 @@ export function addStemsMarker() {
 // Public hooks for the global keymap to invoke undo/redo from app.js.
 export function stemsUndo() { if (mounted) historyUndo(); }
 export function stemsRedo() { if (mounted) historyRedo(); }
+
+// Public entry point to trigger the tour manually (from menu / cheat-sheet).
+export function showStemsTour() { startTour(); }
 
 export async function mount() {
   if (mounted) return;
@@ -240,6 +244,7 @@ const SHELL_HTML = `
 
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
+        <div class="stems-loop-overlay" id="stems-loop-overlay" hidden></div>
         <header class="stems-head-row">
           <div class="stems-head-spacer">
             <span class="stems-head-spacer-label">PISTAS</span>
@@ -1003,10 +1008,16 @@ function wireStrip(root, id) {
 
   const volInput = root.querySelector('[data-action="vol"]');
   const panInput = root.querySelector('[data-action="pan"]');
-  // Paint the initial fill so the slider shows the gold-filled portion
-  // immediately even before the user touches it.
   paintVolFill(volInput);
   paintPanFill(panInput);
+
+  // Track the value at the moment the user grabs the slider so the
+  // resulting `change` event can push a single undo entry covering the
+  // whole drag (not one per tick).
+  let volBefore = parseInt(volInput.value, 10);
+  let panBefore = parseInt(panInput.value, 10);
+  volInput.addEventListener('pointerdown', () => { volBefore = parseInt(volInput.value, 10); });
+  panInput.addEventListener('pointerdown', () => { panBefore = parseInt(panInput.value, 10); });
 
   volInput.oninput = (e) => {
     const v = parseInt(e.target.value, 10);
@@ -1017,6 +1028,17 @@ function wireStrip(root, id) {
     syncConsoleStripVol(id, v);
     scheduleSave();
   };
+  volInput.addEventListener('change', () => {
+    const after = parseInt(volInput.value, 10);
+    if (after === volBefore) return;
+    const oldV = volBefore, newV = after;
+    pushHistory('Volumen',
+      () => { engine.setTrackVolume(id, oldV / 100); volInput.value = oldV; paintVolFill(volInput); syncConsoleStripVol(id, oldV); const o = root.querySelector('.stems-vol-readout'); if (o) o.textContent = oldV; scheduleSave(); },
+      () => { engine.setTrackVolume(id, newV / 100); volInput.value = newV; paintVolFill(volInput); syncConsoleStripVol(id, newV); const o = root.querySelector('.stems-vol-readout'); if (o) o.textContent = newV; scheduleSave(); }
+    );
+    volBefore = after;
+  });
+
   panInput.oninput = (e) => {
     const v = parseInt(e.target.value, 10);
     engine.setTrackPan(id, v / 100);
@@ -1024,24 +1046,44 @@ function wireStrip(root, id) {
     syncConsoleStripPan(id, v);
     scheduleSave();
   };
+  panInput.addEventListener('change', () => {
+    const after = parseInt(panInput.value, 10);
+    if (after === panBefore) return;
+    const oldV = panBefore, newV = after;
+    pushHistory('Paneo',
+      () => { engine.setTrackPan(id, oldV / 100); panInput.value = oldV; paintPanFill(panInput); syncConsoleStripPan(id, oldV); scheduleSave(); },
+      () => { engine.setTrackPan(id, newV / 100); panInput.value = newV; paintPanFill(panInput); syncConsoleStripPan(id, newV); scheduleSave(); }
+    );
+    panBefore = after;
+  });
 
   const muteBtn = root.querySelector('[data-action="mute"]');
   muteBtn.onclick = () => {
-    const next = !muteBtn.classList.contains('is-on');
+    const prev = muteBtn.classList.contains('is-on');
+    const next = !prev;
     engine.setTrackMuted(id, next);
     muteBtn.classList.toggle('is-on', next);
     syncConsoleStripMute(id, next);
     reflectSoloHighlights();
+    pushHistory(next ? 'Mute' : 'Quitar mute',
+      () => { engine.setTrackMuted(id, prev); muteBtn.classList.toggle('is-on', prev); syncConsoleStripMute(id, prev); reflectSoloHighlights(); scheduleSave(); },
+      () => { engine.setTrackMuted(id, next); muteBtn.classList.toggle('is-on', next); syncConsoleStripMute(id, next); reflectSoloHighlights(); scheduleSave(); }
+    );
     scheduleSave();
   };
 
   const soloBtn = root.querySelector('[data-action="solo"]');
   soloBtn.onclick = () => {
-    const next = !soloBtn.classList.contains('is-on');
+    const prev = soloBtn.classList.contains('is-on');
+    const next = !prev;
     engine.setTrackSoloed(id, next);
     soloBtn.classList.toggle('is-on', next);
     syncConsoleStripSolo(id, next);
     reflectSoloHighlights();
+    pushHistory(next ? 'Solo' : 'Quitar solo',
+      () => { engine.setTrackSoloed(id, prev); soloBtn.classList.toggle('is-on', prev); syncConsoleStripSolo(id, prev); reflectSoloHighlights(); scheduleSave(); },
+      () => { engine.setTrackSoloed(id, next); soloBtn.classList.toggle('is-on', next); syncConsoleStripSolo(id, next); reflectSoloHighlights(); scheduleSave(); }
+    );
     scheduleSave();
   };
 
@@ -1052,11 +1094,22 @@ function wireStrip(root, id) {
 
   const colorInput = root.querySelector('[data-action="color"]');
   if (colorInput) {
+    let colorBefore = colorInput.value;
+    colorInput.addEventListener('focus', () => { colorBefore = colorInput.value; });
     colorInput.oninput = (e) => {
       engine.setTrackColor(id, e.target.value);
       drawTrackWaveform(id);
       scheduleSave();
     };
+    colorInput.addEventListener('change', () => {
+      const oldC = colorBefore, newC = colorInput.value;
+      if (oldC === newC) return;
+      pushHistory('Cambiar color',
+        () => { engine.setTrackColor(id, oldC); colorInput.value = oldC; drawTrackWaveform(id); scheduleSave(); },
+        () => { engine.setTrackColor(id, newC); colorInput.value = newC; drawTrackWaveform(id); scheduleSave(); }
+      );
+      colorBefore = newC;
+    });
   }
 
   const exportBtn = root.querySelector('[data-action="export"]');
@@ -1149,6 +1202,7 @@ function refreshTimelineWidth() {
   drawRuler();
   redrawAllWaveforms();
   redrawMarkers();
+  syncLoopRegion();
 }
 
 function drawRuler() {
@@ -1473,14 +1527,24 @@ function toggleLoop() {
 }
 
 function syncLoopRegion() {
+  const overlay = document.getElementById('stems-loop-overlay');
   if (!loopEnabled || !loopStartMarkerId || !loopEndMarkerId) {
     engine.clearLoopRegion();
+    if (overlay) overlay.hidden = true;
     return;
   }
   const a = markers.find(m => m.id === loopStartMarkerId);
   const b = markers.find(m => m.id === loopEndMarkerId);
-  if (!a || !b) { engine.clearLoopRegion(); return; }
-  engine.setLoopRegion(a.atSec, b.atSec);
+  if (!a || !b) { engine.clearLoopRegion(); if (overlay) overlay.hidden = true; return; }
+  const start = Math.min(a.atSec, b.atSec);
+  const end   = Math.max(a.atSec, b.atSec);
+  engine.setLoopRegion(start, end);
+  // Position overlay over the timeline area (after the sticky strip column).
+  if (overlay) {
+    overlay.hidden = false;
+    overlay.style.left  = `${STRIP_WIDTH + start * PX_PER_SEC}px`;
+    overlay.style.width = `${(end - start) * PX_PER_SEC}px`;
+  }
 }
 function closeMarkerMenuOnce(e) {
   const menu = document.getElementById('stems-marker-menu');
