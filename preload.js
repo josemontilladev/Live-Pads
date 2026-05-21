@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsSeparate: (data) => ipcRenderer.invoke('stems-separate', data),
   stemsSeparateCancel: () => ipcRenderer.invoke('stems-separate-cancel'),
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info)),
+  onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),
+  onUpdateError: (cb) => ipcRenderer.on('update-error', (_e, e) => cb(e)),
   installUpdate: () => ipcRenderer.invoke('update-install'),
   getAppVersion: () => ipcRenderer.invoke('app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
