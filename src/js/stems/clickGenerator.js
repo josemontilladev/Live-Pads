@@ -57,7 +57,7 @@ async function decodeSample(ctx, path) {
  *   ctx — AudioContext to decode samples and inherit sampleRate from.
  *   sound — one of the keys in CLICK_FILE_MAP (default 'cowbell').
  */
-export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell' } = {}) {
+export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell', accentBeatOffset = 0 } = {}) {
   const map = CLICK_FILE_MAP[sound] || CLICK_FILE_MAP.cowbell;
   const audioCtx = ctx || new OfflineAudioContext(2, Math.ceil(durationSec * SAMPLE_RATE), SAMPLE_RATE);
   const sampleRate = audioCtx.sampleRate;
@@ -70,7 +70,7 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
     ]);
   } catch (e) {
     console.warn('Click samples not loaded, using synth fallback:', e.message);
-    return synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx });
+    return synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset });
   }
 
   const channels = Math.max(accentBuf.numberOfChannels, normalBuf.numberOfChannels, 1);
@@ -83,7 +83,7 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
   for (let b = 0; b < beats; b++) {
     const startIdx = Math.floor(b * beatIntervalSec * sampleRate);
     if (startIdx >= length) break;
-    const src = (b % beatsPerBar === 0) ? accentBuf : normalBuf;
+    const src = (((b + accentBeatOffset) % beatsPerBar) === 0) ? accentBuf : normalBuf;
     for (let ch = 0; ch < channels; ch++) {
       const dst = out.getChannelData(ch);
       const srcData = src.getChannelData(Math.min(ch, src.numberOfChannels - 1));
@@ -95,7 +95,7 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
 }
 
 // Synthesized beep fallback (used only if the real samples fail to load).
-function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx }) {
+function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset = 0 }) {
   const length = Math.ceil(durationSec * sampleRate);
   const buffer = (audioCtx || new OfflineAudioContext(1, length, sampleRate)).createBuffer(1, length, sampleRate);
   const data = buffer.getChannelData(0);
@@ -108,7 +108,7 @@ function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx }) {
   for (let b = 0; b < beats; b++) {
     const startIdx = Math.floor(b * beatIntervalSec * sampleRate);
     if (startIdx >= length) break;
-    const isAccent = (b % beatsPerBar) === 0;
+    const isAccent = (((b + accentBeatOffset) % beatsPerBar) === 0);
     const freq = isAccent ? 1500 : 1000;
     const amp = isAccent ? 0.85 : 0.55;
     for (let s = 0; s < clickSamples; s++) {

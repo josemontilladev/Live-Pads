@@ -13,7 +13,7 @@ import { Mp3Encoder } from '../../vendor/lamejs.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
-import { detectTempoMeter } from './bpmDetector.js';
+import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -2030,12 +2030,26 @@ async function onAddClickTrack() {
   await createClickTrack(seconds);
 }
 
+// Smart-align the click to the loaded song: detect where the beat actually
+// falls (handles intros / leading silence) and which beat is the downbeat,
+// so the generated click is phase-locked to the music (like Moises). Returns
+// { offsetSec, accentBeatOffset }; falls back to no shift if no song/onsets.
+function computeClickAlignment() {
+  const stem = engine.getTracks().find(t => t.kind === 'stem');
+  if (!stem) return { offsetSec: 0, accentBeatOffset: 0 };
+  const buf = engine.getTrackBuffer(stem.id);
+  if (!buf) return { offsetSec: 0, accentBeatOffset: 0 };
+  const a = detectBeatAlignment(buf, bpm, beatsPerBar);
+  return a || { offsetSec: 0, accentBeatOffset: 0 };
+}
+
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const { offsetSec, accentBeatOffset } = computeClickAlignment();
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
-  await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click' });
+  await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
   const savedPath = await projectStore.saveStem(id, `click_${bpm}bpm.wav`, wav);
   appendTrackRow(id, savedPath);
   refreshTransport();
@@ -2045,9 +2059,11 @@ async function createClickTrack(durationSec) {
 async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const { offsetSec, accentBeatOffset } = computeClickAlignment();
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);
+  engine.setTrackOffset(existingId, offsetSec);
   // Refresh persisted file too.
   const entry = trackRows.get(existingId);
   if (entry) {
