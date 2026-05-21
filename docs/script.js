@@ -39,6 +39,34 @@
       .forEach(el => el.classList.add('is-visible'));
   }
 
+  // Live release wiring — read the latest published GitHub release and:
+  //   • update every [data-app-version] label to the real version,
+  //   • point [data-download] links at the actual .exe and drop their
+  //     "Próximamente" interception so they download directly,
+  //   • point [data-github] links at the repo.
+  // Fails silently (offline / API limit) → links keep the "soon" fallback.
+  const REPO = 'josemontilladev/Live-Pads';
+  document.querySelectorAll('[data-github]').forEach(a => {
+    a.href = `https://github.com/${REPO}`;
+    a.target = '_blank'; a.rel = 'noopener';
+    a.removeAttribute('data-soon');
+  });
+  fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+    .then(r => (r.ok ? r.json() : null))
+    .then(rel => {
+      if (!rel) return;
+      const ver = (rel.tag_name || '').replace(/^v/, '');
+      if (ver) document.querySelectorAll('[data-app-version]').forEach(el => { el.textContent = `v${ver}`; });
+      const exe = (rel.assets || []).find(a => /\.exe$/i.test(a.name));
+      if (exe) {
+        document.querySelectorAll('[data-download]').forEach(a => {
+          a.href = exe.browser_download_url;
+          a.removeAttribute('data-soon'); // let it download instead of opening the modal
+        });
+      }
+    })
+    .catch(() => {});
+
   // "Próximamente" modal — intercept any [data-soon] link until the binary
   // and public repo are ready. Dismiss via × / backdrop / Esc / OK button.
   const soonModal = document.getElementById('soon-modal');
