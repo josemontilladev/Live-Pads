@@ -10,6 +10,8 @@
   gap: 20px;
   z-index: 1000;
   height: 76px;
+  /* Breathing room so the bar doesn't sit flush against the window edge. */
+  margin-bottom: 12px;
 }
 .tp-transport { display: flex; gap: 10px; }
 .tp-play, .tp-stop, .tp-loop {
