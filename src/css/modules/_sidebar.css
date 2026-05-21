@@ -124,6 +124,29 @@
   margin-bottom: 18px;
   letter-spacing: 0.5px;
 }
+.about-update {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.about-update .sb-btn {
+  appearance: none;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.about-update .sb-btn:hover:not(:disabled) { border-color: var(--accent); }
+.about-update .sb-btn:disabled { opacity: 0.5; cursor: default; }
+.about-update-status { font-size: 11px; color: var(--text-muted); min-height: 14px; }
+.about-update-status.is-error { color: #ff8a84; }
 .about-blurb {
   font-size: 12px;
   color: var(--text-muted);

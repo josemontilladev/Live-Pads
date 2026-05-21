@@ -1350,6 +1350,11 @@ function openSeparateMenu(anchor, id) {
 
 // ── Local AI stem separation (voz / instrumental) ────────────────
 let separating = false;
+// Bounded cache of the LAST separation result, keyed by source track + mode +
+// buffer length. Lets an immediate re-separation (e.g. after undo) reuse the
+// result instead of re-running the heavy model. Kept to a single entry to
+// cap memory (stem buffers are large).
+let lastSeparation = null;
 async function onSeparateTrack(id, mode = '2stem') {
   if (separating) return;
   if (!window.electronAPI?.stemsSeparate) {
@@ -1360,8 +1365,28 @@ async function onSeparateTrack(id, mode = '2stem') {
   const buffer = engine.getTrackBuffer(id);
   if (!track || !buffer) return;
 
+  const cacheKey = `${id}:${mode}:${buffer.length}`;
+  const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
+
   separating = true;
   const toast = showSepToast(track.name);
+
+  // Cache hit → build the tracks from the stored result, no model run.
+  if (lastSeparation && lastSeparation.key === cacheKey) {
+    try {
+      toast.update(1, 'Usando resultado en caché…');
+      for (const stem of lastSeparation.stems) {
+        await addSeparatedTrack(`${baseName} — ${stem.name}`, stem.channels, lastSeparation.sampleRate, stem.kind);
+      }
+      toast.done(`✓ ${baseName}: ${lastSeparation.stems.length} pistas (caché)`);
+    } catch (err) {
+      console.error('Cache rehydrate failed:', err);
+      toast.error(err.message || String(err));
+    } finally {
+      separating = false;
+    }
+    return;
+  }
 
   const unsubscribe = window.electronAPI.onStemsSeparateProgress(({ fraction, stage }) => {
     toast.update(fraction, stage);
@@ -1380,8 +1405,10 @@ async function onSeparateTrack(id, mode = '2stem') {
 
     if (result && result.cancelled) { toast.cancelled(); return; }
 
+    // Cache the result (single entry) for an instant re-run.
+    lastSeparation = { key: cacheKey, sampleRate: result.sampleRate, stems: result.stems };
+
     toast.update(1, 'Creando pistas…');
-    const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
     for (const stem of result.stems) {
       await addSeparatedTrack(`${baseName} — ${stem.name}`, stem.channels, result.sampleRate, stem.kind);
     }
