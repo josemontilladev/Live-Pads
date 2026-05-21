@@ -639,13 +639,7 @@ body[data-workspace="stems"] #body {
 .stems-arrange {
   flex: 1;
   overflow: auto;
-  background:
-    repeating-linear-gradient(90deg,
-      transparent 0,
-      transparent 39px,
-      rgba(255,255,255,0.025) 39px,
-      rgba(255,255,255,0.025) 40px),
-    var(--bg);
+  background: var(--bg);
   position: relative;
   min-height: 0;
   /* Flex item must allow shrinking below content width, otherwise it grows
@@ -798,6 +792,14 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+/* Beat/bar guide-line metrics — set by drawGrid() from BPM + zoom. */
+:root {
+  --stems-beatpx: 100000px;
+  --stems-barpx: 100000px;
+  --stems-barline: rgba(255, 255, 255, 0.30);
+  --stems-beatline: rgba(255, 255, 255, 0.10);
 }
 .stems-empty {
   /* Flexbox centring works reliably regardless of margin-auto quirks.
@@ -1106,6 +1108,19 @@ body[data-workspace="stems"] #body {
     linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
     var(--bg);
   transition: background 0.15s;
+}
+
+/* Beat/bar guide lines drawn OVER the waveform (so they're visible through
+   the spectrum), but inside the lane so they never overlap the sticky strip.
+   Sized to the current BPM/zoom via the --stems-*px vars set by drawGrid(). */
+.stems-row-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    repeating-linear-gradient(90deg, var(--stems-barline) 0, var(--stems-barline) 1px, transparent 1px, transparent var(--stems-barpx)),
+    repeating-linear-gradient(90deg, var(--stems-beatline) 0, var(--stems-beatline) 1px, transparent 1px, transparent var(--stems-beatpx));
 }
 .stems-row:hover .stems-row-lane {
   background:
