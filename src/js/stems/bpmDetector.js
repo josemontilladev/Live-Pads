@@ -74,14 +74,16 @@ function makeFFT(n) {
   };
 }
 
-function analyze(audioBuffer) {
+// Spectral-flux onset envelope: downmix + downsample, STFT magnitude, sum of
+// positive bin-to-bin changes per frame, mean-subtracted. Shared by tempo
+// detection and beat-alignment.
+function computeOnsetEnvelope(audioBuffer) {
   if (!audioBuffer || audioBuffer.length === 0) return null;
   const srIn = audioBuffer.sampleRate;
   const ch = audioBuffer.numberOfChannels;
   const left = audioBuffer.getChannelData(0);
   const right = ch > 1 ? audioBuffer.getChannelData(1) : null;
 
-  // 1. downmix + downsample (linear) to ~TARGET_SR
   const ratio = srIn / TARGET_SR;
   const sr = ratio > 1 ? TARGET_SR : srIn;
   const outLen = ratio > 1 ? Math.floor(left.length / ratio) : left.length;
@@ -106,7 +108,6 @@ function analyze(audioBuffer) {
   const nBins = FFT_SIZE / 2;
   let prev = new Float32Array(nBins), cur = new Float32Array(nBins);
 
-  // 2-3. spectral flux onset envelope
   const onset = new Float32Array(nFrames);
   for (let f = 0; f < nFrames; f++) {
     const base = f * HOP;
@@ -125,8 +126,51 @@ function analyze(audioBuffer) {
   mean /= nFrames;
   for (let i = 0; i < nFrames; i++) onset[i] = Math.max(0, onset[i] - mean);
 
+  return { onset, nFrames, envRate: sr / HOP };
+}
+
+// Estimate the time (seconds) of the first beat and which beat in the bar is
+// the downbeat, given a known BPM — so a generated click can be phase-locked
+// to where the music actually plays (handles songs that start after silence).
+// Returns { offsetSec, accentBeatOffset } or null.
+export function detectBeatAlignment(audioBuffer, bpm, beatsPerBar = 4) {
+  const env = computeOnsetEnvelope(audioBuffer);
+  if (!env || !bpm) return null;
+  const { onset, nFrames, envRate } = env;
+  const P = (60 / bpm) * envRate; // beat period in frames
+  if (!isFinite(P) || P < 2) return null;
+
+  // Beat phase: sweep p in [0, P) and sum onset energy at p, p+P, p+2P, …
+  const steps = Math.max(16, Math.round(P));
+  let bestPhase = 0, bestScore = -1;
+  for (let i = 0; i < steps; i++) {
+    const p = (i / steps) * P;
+    let score = 0;
+    for (let f = p; f < nFrames; f += P) score += onset[Math.round(f)] || 0;
+    if (score > bestScore) { bestScore = score; bestPhase = p; }
+  }
+
+  // Downbeat: of the beatsPerBar beat positions, the one whose onsets are
+  // strongest (summed every bar) is beat 1.
+  let bestDb = 0, bestDbScore = -1;
+  for (let d = 0; d < beatsPerBar; d++) {
+    let score = 0;
+    for (let f = bestPhase + d * P; f < nFrames; f += beatsPerBar * P) score += onset[Math.round(f)] || 0;
+    if (score > bestDbScore) { bestDbScore = score; bestDb = d; }
+  }
+
+  return {
+    offsetSec: bestPhase / envRate,
+    accentBeatOffset: (beatsPerBar - bestDb) % beatsPerBar,
+  };
+}
+
+function analyze(audioBuffer) {
+  const env = computeOnsetEnvelope(audioBuffer);
+  if (!env) return null;
+  const { onset, nFrames, envRate } = env;
+
   // 4. autocorrelation + comb + tempo preference
-  const envRate = sr / HOP;
   const minLag = Math.max(2, Math.floor((60 / MAX_BPM) * envRate));
   const maxLag = Math.min(nFrames - 1, Math.ceil((60 / MIN_BPM) * envRate));
   const ac = new Float32Array(maxLag + 1);
