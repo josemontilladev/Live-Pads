@@ -6,11 +6,13 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
+const REL = 'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models';
 const MODELS = [
-  {
-    name: 'UVR-MDX-NET-Inst_HQ_3.onnx',
-    url: 'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-MDX-NET-Inst_HQ_3.onnx',
-  },
+  { name: 'UVR-MDX-NET-Inst_HQ_3.onnx', url: `${REL}/UVR-MDX-NET-Inst_HQ_3.onnx` }, // 2-stem voz/inst
+  { name: 'kuielab_a_vocals.onnx',      url: `${REL}/kuielab_a_vocals.onnx` },       // 4-stem set
+  { name: 'kuielab_a_drums.onnx',       url: `${REL}/kuielab_a_drums.onnx` },
+  { name: 'kuielab_a_bass.onnx',        url: `${REL}/kuielab_a_bass.onnx` },
+  { name: 'kuielab_a_other.onnx',       url: `${REL}/kuielab_a_other.onnx` },
 ];
 
 const dir = path.join(root, 'models');
