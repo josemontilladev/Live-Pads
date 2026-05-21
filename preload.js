@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),
   stemsDeleteProject: (slug) => ipcRenderer.invoke('stems-delete-project', slug),
   stemsSeparate: (data) => ipcRenderer.invoke('stems-separate', data),
+  stemsSeparateCancel: () => ipcRenderer.invoke('stems-separate-cancel'),
   onStemsSeparateProgress: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('stems-separate-progress', handler);

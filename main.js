@@ -758,16 +758,27 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
   const send = (fraction, stage) => {
     try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage }); } catch (_) {}
   };
-  const result = await separate({
-    channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
-    sampleRate: sampleRate || 44100,
-    mode: mode === '4stem' ? '4stem' : '2stem',
-    modelsDir,
-    ep: ep || undefined,  // undefined → auto (DML then CPU)
-    onProgress: send,
-  });
-  return { sampleRate: result.sampleRate, ep: result.ep, stems: result.stems };
+  separationCancel = false;
+  try {
+    const result = await separate({
+      channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
+      sampleRate: sampleRate || 44100,
+      mode: mode === '4stem' ? '4stem' : '2stem',
+      modelsDir,
+      ep: ep || undefined,  // undefined → auto (DML then CPU)
+      onProgress: send,
+      shouldCancel: () => separationCancel,
+    });
+    return { sampleRate: result.sampleRate, ep: result.ep, stems: result.stems };
+  } catch (err) {
+    if (err && err.cancelled) return { cancelled: true };
+    throw err;
+  }
 });
+
+// Cooperative cancel — checked between inference windows/models.
+let separationCancel = false;
+ipcMain.handle('stems-separate-cancel', () => { separationCancel = true; return true; });
 
 ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
   if (typeof livepadsUrl !== 'string') return false;

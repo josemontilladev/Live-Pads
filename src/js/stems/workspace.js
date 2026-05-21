@@ -1232,9 +1232,12 @@ function openSeparateMenu(anchor, id) {
   const menu = document.createElement('div');
   menu.className = 'stems-context-menu';
   menu.id = 'stems-sep-menu';
+  const forceCpu = localStorage.getItem('livepads-stems-force-cpu') === '1';
   menu.innerHTML = `
     <button data-mode="2stem">Voz / Instrumental <span class="stems-ctx-hint">rápido</span></button>
     <button data-mode="4stem">Voz · Batería · Bajo · Otros <span class="stems-ctx-hint">lento</span></button>
+    <div class="stems-ctx-sep"></div>
+    <button data-toggle="cpu" class="stems-ctx-toggle">${forceCpu ? '☑' : '☐'} Forzar CPU (sin GPU)</button>
   `;
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
@@ -1248,6 +1251,13 @@ function openSeparateMenu(anchor, id) {
   menu.querySelectorAll('[data-mode]').forEach(b => {
     b.onclick = () => { const mode = b.dataset.mode; menu.remove(); onSeparateTrack(id, mode); };
   });
+  const cpuToggle = menu.querySelector('[data-toggle="cpu"]');
+  if (cpuToggle) cpuToggle.onclick = (ev) => {
+    ev.stopPropagation();
+    const next = localStorage.getItem('livepads-stems-force-cpu') === '1' ? '0' : '1';
+    localStorage.setItem('livepads-stems-force-cpu', next);
+    cpuToggle.textContent = `${next === '1' ? '☑' : '☐'} Forzar CPU (sin GPU)`;
+  };
   const close = (ev) => {
     if (menu.contains(ev.target)) return;
     menu.remove();
@@ -1278,11 +1288,15 @@ async function onSeparateTrack(id, mode = '2stem') {
   try {
     const ch0 = buffer.getChannelData(0).slice();
     const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1).slice() : ch0;
+    const forceCpu = localStorage.getItem('livepads-stems-force-cpu') === '1';
     const result = await window.electronAPI.stemsSeparate({
       channels: [ch0, ch1],
       sampleRate: buffer.sampleRate,
       mode,
+      ep: forceCpu ? 'cpu' : undefined,
     });
+
+    if (result && result.cancelled) { toast.cancelled(); return; }
 
     toast.update(1, 'Creando pistas…');
     const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
@@ -1313,6 +1327,7 @@ function showSepToast(trackName) {
         <span class="stems-sep-toast-name">${escapeHtml(trackName)}</span>
       </div>
       <span class="stems-sep-toast-pct">0%</span>
+      <button class="stems-sep-toast-cancel" title="Cancelar separación" aria-label="Cancelar">✕</button>
     </div>
     <div class="stems-sep-toast-stage">Preparando audio</div>
     <div class="stems-sep-toast-bar"><div class="stems-sep-toast-fill"></div></div>
@@ -1321,6 +1336,12 @@ function showSepToast(trackName) {
   const fill  = el.querySelector('.stems-sep-toast-fill');
   const pct   = el.querySelector('.stems-sep-toast-pct');
   const stage = el.querySelector('.stems-sep-toast-stage');
+  const cancelBtn = el.querySelector('.stems-sep-toast-cancel');
+  cancelBtn.onclick = () => {
+    cancelBtn.disabled = true;
+    stage.textContent = 'Cancelando…';
+    try { window.electronAPI.stemsSeparateCancel(); } catch (_) {}
+  };
   requestAnimationFrame(() => el.classList.add('is-in'));
   const remove = (delay) => setTimeout(() => {
     el.classList.remove('is-in');
@@ -1335,7 +1356,8 @@ function showSepToast(trackName) {
     },
     done(msg) {
       el.classList.add('is-done');
-      el.querySelector('.stems-sep-toast-spin').remove();
+      el.querySelector('.stems-sep-toast-spin')?.remove();
+      cancelBtn.remove();
       stage.textContent = msg;
       fill.style.width = '100%';
       pct.textContent = '✓';
@@ -1343,8 +1365,16 @@ function showSepToast(trackName) {
     },
     error(msg) {
       el.classList.add('is-error');
+      el.querySelector('.stems-sep-toast-spin')?.remove();
+      cancelBtn.remove();
       stage.textContent = msg;
       remove(4500);
+    },
+    cancelled() {
+      el.querySelector('.stems-sep-toast-spin')?.remove();
+      cancelBtn.remove();
+      stage.textContent = 'Separación cancelada';
+      remove(1800);
     },
   };
 }
