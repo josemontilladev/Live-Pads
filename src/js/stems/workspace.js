@@ -19,8 +19,8 @@ import { maybeStartTour, startTour } from './tour.js';
 let PX_PER_SEC        = 40;     // horizontal scale of the timeline (zoomable)
 const PX_PER_SEC_MIN  = 10;
 const PX_PER_SEC_MAX  = 200;
-let ROW_HEIGHT        = 78;     // px per track row (strip + lane same height; user-adjustable)
-const ROW_HEIGHT_MIN  = 56;
+let ROW_HEIGHT        = 64;     // px per track row (strip + lane same height; user-adjustable)
+const ROW_HEIGHT_MIN  = 48;
 const ROW_HEIGHT_MAX  = 160;
 const RULER_HEIGHT    = 40;
 const STRIP_WIDTH     = 220;    // sticky-left mixer strip width
@@ -30,8 +30,31 @@ const SAVE_DEBOUNCE_MS = 800;
 const SVG_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><polygon points="5,3 19,12 5,21"/></svg>`;
 const SVG_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>`;
 const SVG_PLUS = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
-const SVG_TRASH = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>`;
+// Full trash-can icon: top rail + handle on the lid + body + two vertical
+// drain lines. Reads as "papelera" at small sizes — the lid-less variant
+// looked like a half-formed pail.
+const SVG_TRASH = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 const SVG_FLAG = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>`;
+
+// Rotation palette: every newly-imported stem gets a different colour
+// from this list. The user can still override per-track via the color
+// picker; this just stops every stem from defaulting to the theme accent.
+const STEM_PALETTE = [
+  '#FBAE00', // theme gold
+  '#a855f7', // purple
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#ec4899', // pink
+  '#84cc16', // lime
+  '#f43f5e', // rose
+  '#3b82f6'  // blue
+];
+let nextStemColorIdx = 0;
+function nextStemColor() {
+  const c = STEM_PALETTE[nextStemColorIdx % STEM_PALETTE.length];
+  nextStemColorIdx++;
+  return c;
+}
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
@@ -129,6 +152,7 @@ export async function mount() {
 const SHELL_HTML = `
   <div class="stems-shell">
 
+   <div class="stems-deck">
     <header class="stems-topbar">
       <div class="stems-tb-left">
         <span class="stems-brand">LIVEPADS <span>STEMS</span></span>
@@ -241,6 +265,7 @@ const SHELL_HTML = `
         </button>
       </div>
     </header>
+   </div>
 
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
@@ -271,22 +296,24 @@ const SHELL_HTML = `
 
     <section class="stems-console" id="stems-console">
       <header class="stems-console-header">
-        <span class="stems-console-title">CONSOLA</span>
-        <span class="stems-console-count" id="stems-console-count">0 pistas</span>
+        <div class="stems-console-header-left">
+          <span class="stems-console-title">CONSOLA</span>
+          <span class="stems-console-count" id="stems-console-count">0 pistas</span>
+        </div>
+        <div class="stems-console-header-right">
+          <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
+          <label class="stems-master">
+            <span>MASTER</span>
+            <div class="stems-master-meter" aria-hidden="true">
+              <div class="stems-master-meter-fill" id="stems-master-meter"></div>
+            </div>
+            <input type="range" min="0" max="100" value="85" id="stems-master-vol" class="stems-range stems-range--fill">
+            <span class="stems-master-readout" id="stems-master-readout">85%</span>
+          </label>
+        </div>
       </header>
       <div class="stems-console-strips" id="stems-console-strips"></div>
     </section>
-
-    <footer class="stems-footer">
-      <label class="stems-master">
-        <span>MASTER</span>
-        <div class="stems-master-meter" aria-hidden="true">
-          <div class="stems-master-meter-fill" id="stems-master-meter"></div>
-        </div>
-        <input type="range" min="0" max="100" value="85" id="stems-master-vol" class="stems-range">
-      </label>
-      <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
-    </footer>
 
     <div class="stems-export-overlay" id="stems-export-overlay" hidden>
       <div class="stems-export-panel">
@@ -401,39 +428,41 @@ function wireSeekClicks(root) {
 }
 
 // Continuously keep the playhead at ~30% of the visible lane while
-// playing. Implemented as a per-frame "anchor" instead of trigger zones
-// so the timeline always scrolls along with the audio, never falling
-// behind. We only write scrollLeft when it actually needs to change
-// (>= 1 px difference) to avoid layout thrash.
-//
-// When the project length is shorter than the viewport, target stays at
-// 0 and no scrolling happens — which is correct behaviour.
+// playing. When the user grabs the scrollbar / wheel-scrolls manually,
+// we pause auto-follow so they can inspect the timeline freely. Auto-
+// follow resumes the next time they hit Play (or when the playhead
+// catches back up to the viewport on its own).
+let autoFollowLastScroll = 0;
+let userPaused = false;
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
   const arrange = document.getElementById('stems-arrange');
   if (!arrange) return;
+
+  // Detect manual scroll: if scrollLeft has drifted from the value
+  // we last wrote, the user moved it themselves.
+  if (Math.abs(arrange.scrollLeft - autoFollowLastScroll) > 2) userPaused = true;
+  if (userPaused) return;
+
   const headX = STRIP_WIDTH + sec * PX_PER_SEC;
   const viewW = arrange.clientWidth;
   const laneW = viewW - STRIP_WIDTH;
   if (laneW <= 0) return;
-
-  // Anchor: playhead should sit at lane-relative 30 %.
   const anchor = STRIP_WIDTH + laneW * 0.3;
-  // The scroll position that puts the playhead at the anchor:
-  //   headX - scrollLeft == anchor  →  scrollLeft = headX - anchor
   const target = headX - anchor;
-
-  // Only start following once the playhead has actually moved past the
-  // anchor — the first 30 % of the timeline shows naturally without
-  // scrolling, then we begin following.
   if (target <= 0) {
-    if (arrange.scrollLeft > 1) arrange.scrollLeft = 0;
+    if (arrange.scrollLeft > 1) { arrange.scrollLeft = 0; autoFollowLastScroll = 0; }
     return;
   }
   if (Math.abs(arrange.scrollLeft - target) > 1) {
     arrange.scrollLeft = target;
+    autoFollowLastScroll = target;
   }
 }
+
+// Resume auto-follow whenever play/stop/seek explicitly changes the
+// transport — the user is no longer "inspecting offline" at that point.
+export function resumeAutoFollow() { userPaused = false; }
 
 // ── Wiring: top bar ────────────────────────────────────────────────
 function wireTopbarEvents(root) {
@@ -486,9 +515,9 @@ function wireTopbarEvents(root) {
     sigBefore = newSig;
   });
 
-  root.querySelector('#stems-play').onclick = () => engine.play();
+  root.querySelector('#stems-play').onclick = () => { resumeAutoFollow(); engine.play(); };
   root.querySelector('#stems-pause').onclick = () => engine.pause();
-  root.querySelector('#stems-stop').onclick = () => engine.stop();
+  root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
   root.querySelector('#stems-bpm-detect').onclick = onDetectBpm;
 
   root.querySelector('#stems-zoom-in').onclick  = () => setZoom(PX_PER_SEC * 1.5);
@@ -588,9 +617,17 @@ function wireArrangeEvents(root) {
   fileInput.onchange = (e) => importFiles(e.target.files);
 
   const masterEl = root.querySelector('#stems-master-vol');
+  const masterReadout = root.querySelector('#stems-master-readout');
+  const paintMaster = (pct) => {
+    masterEl.style.setProperty('--fill', `${pct}%`);
+    if (masterReadout) masterReadout.textContent = `${pct}%`;
+  };
+  paintMaster(parseInt(masterEl.value, 10));
   masterEl.oninput = (e) => {
-    const v = parseInt(e.target.value, 10) / 100;
+    const pct = parseInt(e.target.value, 10);
+    const v = pct / 100;
     engine.setMasterVolume(v);
+    paintMaster(pct);
     scheduleSave();
     document.dispatchEvent(new CustomEvent('livepads:master-vol-change', {
       detail: { value: v, source: 'stems' }
@@ -601,6 +638,7 @@ function wireArrangeEvents(root) {
     const pct = Math.round(e.detail.value * 100);
     masterEl.value = pct;
     engine.setMasterVolume(e.detail.value);
+    paintMaster(pct);
   });
 
   const projToggle = root.querySelector('#stems-proj-toggle');
@@ -648,21 +686,26 @@ function wireArrangeEvents(root) {
     if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
   });
 
-  // Drag-and-drop file import — anywhere over the workspace.
+  // Drag-and-drop file import — ONLY reacts to real files dragged from
+  // the OS. Internal track-reorder drags carry no 'Files' type, so the
+  // import dropzone overlay no longer lights up the whole workspace when
+  // you reorder a row.
+  const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
   ['dragenter', 'dragover'].forEach(evt => {
     root.addEventListener(evt, (e) => {
+      if (!isFileDrag(e)) return;
       e.preventDefault();
       root.classList.add('is-dragover');
     });
   });
   ['dragleave', 'drop'].forEach(evt => {
     root.addEventListener(evt, (e) => {
-      e.preventDefault();
       if (evt === 'dragleave' && e.target !== root) return;
       root.classList.remove('is-dragover');
     });
   });
   root.addEventListener('drop', (e) => {
+    if (!isFileDrag(e)) return;
     e.preventDefault();
     importFiles(e.dataTransfer.files);
   });
@@ -693,14 +736,20 @@ async function importFiles(fileList) {
   if (!files.length) return;
 
   showImportOverlay(files.length);
+  // Yield two frames so the overlay actually paints before we hit the
+  // synchronous-heavy decode work (decodeAudioData can briefly block).
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
   let done = 0;
   for (const file of files) {
     try {
       updateImportOverlay(done, files.length, file.name);
+      await new Promise(r => requestAnimationFrame(r)); // let the name paint
       const arrayBuffer = await file.arrayBuffer();
       const id = `t${nextTrackId++}`;
       const name = file.name.replace(/\.[^.]+$/, '');
       await engine.addTrack({ id, name, arrayBuffer });
+      engine.setTrackColor(id, nextStemColor());
       const savedPath = await projectStore.saveStem(id, file.name, arrayBuffer);
       appendTrackRow(id, savedPath);
     } catch (err) {
@@ -710,6 +759,9 @@ async function importFiles(fileList) {
     done++;
     updateImportOverlay(done, files.length, '');
   }
+  // Keep the "Listo" state on screen briefly so a fast import still
+  // registers visually instead of just flashing.
+  await new Promise(r => setTimeout(r, 350));
   hideImportOverlay();
   refreshTransport();
   scheduleSave();
@@ -726,12 +778,15 @@ function showImportOverlay(total) {
     overlay.className = 'stems-export-overlay';
     overlay.innerHTML = `
       <div class="stems-export-panel">
+        <div class="stems-spinner" aria-hidden="true"></div>
         <h3 id="stems-import-title">Importando stems…</h3>
         <p id="stems-import-stage" class="stems-export-stage"></p>
         <div class="stems-export-bar"><div class="stems-export-fill" id="stems-import-fill"></div></div>
       </div>
     `;
-    document.querySelector('.stems-shell').appendChild(overlay);
+    // Append to body (not .stems-shell) so position:fixed always centres
+    // on the viewport, regardless of any transform on workspace ancestors.
+    document.body.appendChild(overlay);
   }
   overlay.hidden = false;
   updateImportOverlay(0, total, '');
@@ -806,45 +861,128 @@ function buildConsoleStripHtml(track) {
       <span class="stems-console-strip-name" title="${escapeAttr(track.name)}">${escapeHtml(track.name)}</span>
     </header>
     <div class="stems-console-pan-row">
-      <span class="stems-console-pan-letter">L</span>
+      <span class="stems-console-pan-label">PAN</span>
       <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}"
              class="stems-pan-slider stems-console-pan" data-action="pan" aria-label="Pan">
-      <span class="stems-console-pan-letter">R</span>
+      <span class="stems-console-pan-readout">${panLabel(track.pan)}</span>
     </div>
     <div class="stems-console-ms-row">
       <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
       <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
     </div>
-    <div class="stems-console-fader-wrap">
-      <div class="stems-console-fader-meter" aria-hidden="true"></div>
-      <input type="range" min="0" max="100" value="${volPct}"
-             class="stems-console-fader" data-action="vol" aria-label="Volumen">
+    <div class="stems-cfader" data-action="vol" role="slider"
+         aria-label="Volumen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${volPct}"
+         tabindex="0" data-value="${volPct}">
+      <div class="stems-cfader-track" aria-hidden="true"></div>
+      <div class="stems-cfader-fill" aria-hidden="true"></div>
+      <div class="stems-cfader-handle" aria-hidden="true"></div>
     </div>
     <span class="stems-console-strip-readout">${volPct}</span>
   `;
+}
+
+// Custom vertical fader — pointer-driven, so it works reliably across
+// Chromium versions (native vertical <input type=range> rendering is
+// inconsistent and was ignoring drags). value is 0..100.
+const FADER_PAD = 8;     // top/bottom inset matching CSS
+const FADER_HANDLE = 18; // handle height
+
+function paintFader(faderEl, v) {
+  const h = faderEl.clientHeight;
+  if (h === 0) return;
+  const travel = h - FADER_PAD * 2 - FADER_HANDLE;
+  const handle = faderEl.querySelector('.stems-cfader-handle');
+  const fill = faderEl.querySelector('.stems-cfader-fill');
+  const handleBottom = FADER_PAD + (v / 100) * travel;
+  if (handle) handle.style.bottom = `${handleBottom}px`;
+  if (fill) fill.style.height = `${(handleBottom - FADER_PAD) + FADER_HANDLE / 2}px`;
+  faderEl.dataset.value = v;
+  faderEl.setAttribute('aria-valuenow', v);
+}
+
+function faderValueFromPointer(faderEl, clientY) {
+  const rect = faderEl.getBoundingClientRect();
+  const h = rect.height;
+  const travel = h - FADER_PAD * 2 - FADER_HANDLE;
+  const y = clientY - rect.top;
+  let pos = (y - FADER_PAD - FADER_HANDLE / 2) / travel; // 0 top → 1 bottom
+  pos = Math.max(0, Math.min(1, pos));
+  return Math.round((1 - pos) * 100); // top = 100
+}
+
+// Wires the pointer interaction. onInput fires live during drag, onCommit
+// once at release (for history). Returns a paint(v) callback.
+function wireVerticalFader(faderEl, { onInput, onCommit }) {
+  let dragging = false;
+  let startValue = parseInt(faderEl.dataset.value, 10);
+
+  const apply = (v) => { paintFader(faderEl, v); onInput?.(v); };
+
+  faderEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startValue = parseInt(faderEl.dataset.value, 10);
+    faderEl.setPointerCapture(e.pointerId);
+    apply(faderValueFromPointer(faderEl, e.clientY));
+  });
+  faderEl.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    apply(faderValueFromPointer(faderEl, e.clientY));
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    const finalV = parseInt(faderEl.dataset.value, 10);
+    if (finalV !== startValue) onCommit?.(startValue, finalV);
+  };
+  faderEl.addEventListener('pointerup', end);
+  faderEl.addEventListener('pointercancel', end);
+  // Keyboard: arrows nudge ±1, PageUp/Down ±10.
+  faderEl.addEventListener('keydown', (e) => {
+    let v = parseInt(faderEl.dataset.value, 10);
+    const before = v;
+    if (e.key === 'ArrowUp')        v = Math.min(100, v + 1);
+    else if (e.key === 'ArrowDown') v = Math.max(0, v - 1);
+    else if (e.key === 'PageUp')    v = Math.min(100, v + 10);
+    else if (e.key === 'PageDown')  v = Math.max(0, v - 10);
+    else return;
+    e.preventDefault();
+    apply(v);
+    if (v !== before) onCommit?.(before, v);
+  });
 }
 
 // Console strip mirrors the row strip — changes here propagate back so
 // both UIs stay in lockstep.
 function wireConsoleStrip(strip, id) {
   if (!strip) return;
-  const volInput = strip.querySelector('[data-action="vol"]');
+  const faderEl = strip.querySelector('.stems-cfader');
   const panInput = strip.querySelector('[data-action="pan"]');
   paintPanFill(panInput);
 
-  volInput.oninput = (e) => {
-    const v = parseInt(e.target.value, 10);
-    engine.setTrackVolume(id, v / 100);
-    const out = strip.querySelector('.stems-console-strip-readout');
-    if (out) out.textContent = v;
-    syncRowStripVol(id, v);
-    scheduleSave();
-  };
+  // Paint the fader once layout settles (clientHeight needs a frame).
+  requestAnimationFrame(() => paintFader(faderEl, parseInt(faderEl.dataset.value, 10)));
+
+  wireVerticalFader(faderEl, {
+    onInput: (v) => {
+      engine.setTrackVolume(id, v / 100);
+      const out = strip.querySelector('.stems-console-strip-readout');
+      if (out) out.textContent = v;
+      scheduleSave();
+    },
+    onCommit: (oldV, newV) => {
+      pushHistory('Volumen',
+        () => { engine.setTrackVolume(id, oldV / 100); syncConsoleStripVol(id, oldV); scheduleSave(); },
+        () => { engine.setTrackVolume(id, newV / 100); syncConsoleStripVol(id, newV); scheduleSave(); }
+      );
+    }
+  });
   panInput.oninput = (e) => {
     const v = parseInt(e.target.value, 10);
     engine.setTrackPan(id, v / 100);
     paintPanFill(e.target);
-    syncRowStripPan(id, v);
+    const r = strip.querySelector('.stems-console-pan-readout');
+    if (r) r.textContent = panLabel(v / 100);
     scheduleSave();
   };
 
@@ -875,8 +1013,8 @@ function wireConsoleStrip(strip, id) {
 
 function syncConsoleStripVol(id, v) {
   const c = trackRows.get(id)?.console; if (!c) return;
-  const slider = c.querySelector('[data-action="vol"]');
-  if (slider) slider.value = v;
+  const fader = c.querySelector('.stems-cfader');
+  if (fader) paintFader(fader, v);
   const out = c.querySelector('.stems-console-strip-readout');
   if (out) out.textContent = v;
 }
@@ -884,6 +1022,8 @@ function syncConsoleStripPan(id, v) {
   const c = trackRows.get(id)?.console; if (!c) return;
   const slider = c.querySelector('[data-action="pan"]');
   if (slider) { slider.value = v; paintPanFill(slider); }
+  const r = c.querySelector('.stems-console-pan-readout');
+  if (r) r.textContent = panLabel(v / 100);
 }
 function syncConsoleStripMute(id, on) {
   const c = trackRows.get(id)?.console; if (!c) return;
@@ -899,65 +1039,33 @@ function syncConsoleStripName(id, name) {
   if (el) { el.textContent = name; el.title = name; }
 }
 
-function syncRowStripVol(id, v) {
-  const r = trackRows.get(id)?.row; if (!r) return;
-  const slider = r.querySelector('[data-action="vol"]');
-  if (slider) { slider.value = v; paintVolFill(slider); }
-  const out = r.querySelector('.stems-vol-readout');
-  if (out) out.textContent = v;
-}
-function syncRowStripPan(id, v) {
-  const r = trackRows.get(id)?.row; if (!r) return;
-  const slider = r.querySelector('[data-action="pan"]');
-  if (slider) { slider.value = v; paintPanFill(slider); }
-}
-function syncRowStripMute(id, on) {
-  const r = trackRows.get(id)?.row; if (!r) return;
-  r.querySelector('[data-action="mute"]')?.classList.toggle('is-on', on);
-}
-function syncRowStripSolo(id, on) {
-  const r = trackRows.get(id)?.row; if (!r) return;
-  r.querySelector('[data-action="solo"]')?.classList.toggle('is-on', on);
-}
+// Row-strip sync helpers are now no-ops because the strip no longer
+// has vol / pan / mute / solo controls (they live solely in the
+// console). Kept as empty exports so callers don't have to be edited.
+function syncRowStripVol()  {}
+function syncRowStripPan()  {}
+function syncRowStripMute() {}
+function syncRowStripSolo() {}
 
 function buildRowHtml(track) {
   const kindLabel = track.kind === 'click' ? 'CLICK'
                   : track.kind === 'guide' ? 'GUÍA'
                   : 'AUDIO';
+  // Slim strip: identification + reorder + per-track destructive actions.
+  // The mixer console below owns vol / pan / mute / solo so we don't
+  // duplicate the same four controls on every row.
   return `
     <aside class="stems-row-strip" draggable="true" data-drag-row>
-      <div class="stems-row-head">
-        <span class="stems-row-grip" title="Arrastra para reordenar" aria-hidden="true">⋮⋮</span>
-        <div class="stems-ms-pair">
-          <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
-          <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
-        </div>
-        <div class="stems-row-meta">
-          <span class="stems-row-kind">${kindLabel}</span>
-          <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
-        </div>
-        <input type="color" class="stems-row-color" data-action="color" value="${track.color || '#FBAE00'}" title="Color de la pista">
-        <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </button>
-        <button class="stems-row-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
+      <span class="stems-row-grip" title="Arrastra para reordenar" aria-hidden="true">⋮⋮</span>
+      <input type="color" class="stems-row-color" data-action="color" value="${track.color || '#FBAE00'}" title="Color de la pista">
+      <div class="stems-row-meta">
+        <span class="stems-row-kind">${kindLabel}</span>
+        <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
       </div>
-      <div class="stems-row-controls">
-        <div class="stems-vol-group">
-          <span class="stems-vol-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" width="12" height="12"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          </span>
-          <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}"
-                 class="stems-vol-slider" data-action="vol" aria-label="Volumen">
-          <span class="stems-vol-readout">${Math.round(track.volume * 100)}</span>
-        </div>
-        <div class="stems-pan-group">
-          <span class="stems-pan-letter">L</span>
-          <input type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}"
-                 class="stems-pan-slider" data-action="pan" aria-label="Pan">
-          <span class="stems-pan-letter">R</span>
-        </div>
-      </div>
+      <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <button class="stems-row-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
     </aside>
     <div class="stems-row-lane">
       <canvas class="stems-row-canvas"></canvas>
@@ -995,6 +1103,8 @@ function buildStripHtml(track) {
   `;
 }
 
+// Strip is now ID-only (name, color, export, remove). All mixing
+// controls live in the console below — see wireConsoleStrip.
 function wireStrip(root, id) {
   const nameInput = root.querySelector('.stems-row-name');
   nameInput.addEventListener('input', () => {
@@ -1005,87 +1115,6 @@ function wireStrip(root, id) {
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); nameInput.blur(); }
   });
-
-  const volInput = root.querySelector('[data-action="vol"]');
-  const panInput = root.querySelector('[data-action="pan"]');
-  paintVolFill(volInput);
-  paintPanFill(panInput);
-
-  // Track the value at the moment the user grabs the slider so the
-  // resulting `change` event can push a single undo entry covering the
-  // whole drag (not one per tick).
-  let volBefore = parseInt(volInput.value, 10);
-  let panBefore = parseInt(panInput.value, 10);
-  volInput.addEventListener('pointerdown', () => { volBefore = parseInt(volInput.value, 10); });
-  panInput.addEventListener('pointerdown', () => { panBefore = parseInt(panInput.value, 10); });
-
-  volInput.oninput = (e) => {
-    const v = parseInt(e.target.value, 10);
-    engine.setTrackVolume(id, v / 100);
-    paintVolFill(e.target);
-    const out = root.querySelector('.stems-vol-readout');
-    if (out) out.textContent = v;
-    syncConsoleStripVol(id, v);
-    scheduleSave();
-  };
-  volInput.addEventListener('change', () => {
-    const after = parseInt(volInput.value, 10);
-    if (after === volBefore) return;
-    const oldV = volBefore, newV = after;
-    pushHistory('Volumen',
-      () => { engine.setTrackVolume(id, oldV / 100); volInput.value = oldV; paintVolFill(volInput); syncConsoleStripVol(id, oldV); const o = root.querySelector('.stems-vol-readout'); if (o) o.textContent = oldV; scheduleSave(); },
-      () => { engine.setTrackVolume(id, newV / 100); volInput.value = newV; paintVolFill(volInput); syncConsoleStripVol(id, newV); const o = root.querySelector('.stems-vol-readout'); if (o) o.textContent = newV; scheduleSave(); }
-    );
-    volBefore = after;
-  });
-
-  panInput.oninput = (e) => {
-    const v = parseInt(e.target.value, 10);
-    engine.setTrackPan(id, v / 100);
-    paintPanFill(e.target);
-    syncConsoleStripPan(id, v);
-    scheduleSave();
-  };
-  panInput.addEventListener('change', () => {
-    const after = parseInt(panInput.value, 10);
-    if (after === panBefore) return;
-    const oldV = panBefore, newV = after;
-    pushHistory('Paneo',
-      () => { engine.setTrackPan(id, oldV / 100); panInput.value = oldV; paintPanFill(panInput); syncConsoleStripPan(id, oldV); scheduleSave(); },
-      () => { engine.setTrackPan(id, newV / 100); panInput.value = newV; paintPanFill(panInput); syncConsoleStripPan(id, newV); scheduleSave(); }
-    );
-    panBefore = after;
-  });
-
-  const muteBtn = root.querySelector('[data-action="mute"]');
-  muteBtn.onclick = () => {
-    const prev = muteBtn.classList.contains('is-on');
-    const next = !prev;
-    engine.setTrackMuted(id, next);
-    muteBtn.classList.toggle('is-on', next);
-    syncConsoleStripMute(id, next);
-    reflectSoloHighlights();
-    pushHistory(next ? 'Mute' : 'Quitar mute',
-      () => { engine.setTrackMuted(id, prev); muteBtn.classList.toggle('is-on', prev); syncConsoleStripMute(id, prev); reflectSoloHighlights(); scheduleSave(); },
-      () => { engine.setTrackMuted(id, next); muteBtn.classList.toggle('is-on', next); syncConsoleStripMute(id, next); reflectSoloHighlights(); scheduleSave(); }
-    );
-    scheduleSave();
-  };
-
-  const soloBtn = root.querySelector('[data-action="solo"]');
-  soloBtn.onclick = () => {
-    const prev = soloBtn.classList.contains('is-on');
-    const next = !prev;
-    engine.setTrackSoloed(id, next);
-    soloBtn.classList.toggle('is-on', next);
-    syncConsoleStripSolo(id, next);
-    reflectSoloHighlights();
-    pushHistory(next ? 'Solo' : 'Quitar solo',
-      () => { engine.setTrackSoloed(id, prev); soloBtn.classList.toggle('is-on', prev); syncConsoleStripSolo(id, prev); reflectSoloHighlights(); scheduleSave(); },
-      () => { engine.setTrackSoloed(id, next); soloBtn.classList.toggle('is-on', next); syncConsoleStripSolo(id, next); reflectSoloHighlights(); scheduleSave(); }
-    );
-    scheduleSave();
-  };
 
   root.querySelector('[data-action="remove"]').onclick = async () => {
     if (!confirm('¿Eliminar esta pista del proyecto?')) return;
@@ -1158,15 +1187,13 @@ function paintVolFill(input) {
   const v = parseInt(input.value, 10);
   input.style.setProperty('--fill', `${v}%`);
 }
-// Bipolar (-100..+100) pan slider: gold segment between center (50%) and
-// the thumb. CSS reads --fill-start / --fill-end.
+// Pan slider (-100..+100). Matches the Pads slider look: a single gold
+// fill from the left edge up to the thumb position. The L/R readout text
+// communicates the actual pan, the fill is purely the thumb's position.
 function paintPanFill(input) {
-  const v = parseInt(input.value, 10);
-  const half = v / 2;
-  const start = Math.min(50, 50 + half);
-  const end   = Math.max(50, 50 + half);
-  input.style.setProperty('--fill-start', `${start}%`);
-  input.style.setProperty('--fill-end',   `${end}%`);
+  const v = parseInt(input.value, 10);     // -100..100
+  const pct = ((v + 100) / 200) * 100;      // 0..100 thumb position
+  input.style.setProperty('--fill', `${pct}%`);
 }
 
 function reflectSoloHighlights() {
@@ -1285,7 +1312,7 @@ function redrawAllWaveforms() {
 // beat at the current BPM. Visually cleaner, easier to make rhythmic
 // sections line up. The toggle lives in the topbar.
 let snapToBeat = true;
-let clickSoundId = 'beep';
+let clickSoundId = 'cowbell';
 // Loop region — ids of the two markers that bound the loop. Null when
 // no loop is set. The actual numeric region is computed on toggle from
 // these markers' atSec values.
@@ -1314,6 +1341,7 @@ function onAddMarker() {
     () => { markers.push(m); redrawMarkers(); scheduleSave(); }
   );
   scheduleSave();
+  scheduleGuideSync();
 }
 
 function removeMarker(markerId) {
@@ -1327,6 +1355,7 @@ function removeMarker(markerId) {
     () => { markers.splice(idx, 1); redrawMarkers(); scheduleSave(); }
   );
   scheduleSave();
+  scheduleGuideSync();
 }
 
 function renameMarker(markerId, newLabel) {
@@ -1344,7 +1373,9 @@ function renameMarker(markerId, newLabel) {
   scheduleSave();
 }
 
-function moveMarkerTo(markerId, atSec) {
+// record:false during a live drag — the drag handler pushes ONE history
+// entry on pointerup so the whole gesture is a single undo step.
+function moveMarkerTo(markerId, atSec, { record = true } = {}) {
   const m = markers.find(x => x.id === markerId);
   if (!m) return;
   const oldSec = m.atSec;
@@ -1352,12 +1383,27 @@ function moveMarkerTo(markerId, atSec) {
   if (Math.abs(newSec - oldSec) < 0.001) return; // unchanged, skip
   m.atSec = newSec;
   redrawMarkers();
-  pushHistory('Mover marcador',
-    () => { m.atSec = oldSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); },
-    () => { m.atSec = newSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); }
-  );
+  if (record) {
+    pushHistory('Mover marcador',
+      () => { m.atSec = oldSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); },
+      () => { m.atSec = newSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); }
+    );
+  }
   syncLoopRegion();
   scheduleSave();
+  scheduleGuideSync();
+}
+
+// Commit a finished marker drag as a single undo step (oldSec → newSec).
+function commitMarkerMove(markerId, oldSec) {
+  const m = markers.find(x => x.id === markerId);
+  if (!m) return;
+  const newSec = m.atSec;
+  if (Math.abs(newSec - oldSec) < 0.001) return;
+  pushHistory('Mover marcador',
+    () => { m.atSec = oldSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); },
+    () => { m.atSec = newSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); }
+  );
 }
 
 function changeMarkerCue(markerId, cueId) {
@@ -1374,6 +1420,7 @@ function changeMarkerCue(markerId, cueId) {
     () => { m.cueId = cue.id; m.label = cue.label; m.url = cue.url; redrawMarkers(); scheduleSave(); }
   );
   scheduleSave();
+  scheduleGuideSync();
 }
 
 function redrawMarkers() {
@@ -1419,15 +1466,17 @@ function enableMarkerDrag(el, markerId) {
     flag.style.cursor = 'grabbing';
     const headTl = document.getElementById('stems-marker-layer');
     const tlRect = headTl.getBoundingClientRect();
+    const dragStartSec = markers.find(x => x.id === markerId)?.atSec ?? 0;
     const onMove = (ev) => {
       const x = ev.clientX - tlRect.left;
       const sec = Math.max(0, x / PX_PER_SEC);
-      moveMarkerTo(markerId, sec);
+      moveMarkerTo(markerId, sec, { record: false });
     };
     const onUp = () => {
       flag.style.cursor = 'grab';
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      commitMarkerMove(markerId, dragStartSec);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -1601,7 +1650,7 @@ async function onAddClickTrack() {
 
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
-  const buffer = generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
   await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click' });
@@ -1614,7 +1663,7 @@ async function createClickTrack(durationSec) {
 async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
-  const buffer = generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);
   // Refresh persisted file too.
@@ -1630,9 +1679,35 @@ async function regenerateClickTrack(existingId) {
 }
 
 // ── Guide track build ─────────────────────────────────────────────
-async function onRebuildGuide() {
+// When a guide already exists, marker edits (add/move/remove/retype)
+// trigger a debounced rebuild so the guide tracks the markers without the
+// user pressing "Generar Guía" again. Debounced because moveMarkerTo fires
+// on every pointermove during a drag — we only rebuild once the drag settles.
+let guideSyncTimer = null;
+let guideSyncRunning = false;
+let guideSyncDirty = false;
+function scheduleGuideSync() {
+  if (!engine.findTrackByKind('guide')) return; // nothing to keep in sync yet
+  if (guideSyncTimer) clearTimeout(guideSyncTimer);
+  guideSyncTimer = setTimeout(runGuideSync, 350);
+}
+async function runGuideSync() {
+  guideSyncTimer = null;
+  if (markers.length === 0) return;
+  // Don't overlap with an in-flight rebuild; mark dirty and re-run after.
+  if (guideSyncRunning) { guideSyncDirty = true; return; }
+  guideSyncRunning = true;
+  try {
+    await onRebuildGuide({ silent: true });
+  } finally {
+    guideSyncRunning = false;
+    if (guideSyncDirty) { guideSyncDirty = false; scheduleGuideSync(); }
+  }
+}
+
+async function onRebuildGuide({ silent = false } = {}) {
   if (markers.length === 0) {
-    alert('Añade al menos un marcador antes de generar la guía.');
+    if (!silent) alert('Añade al menos un marcador antes de generar la guía.');
     return;
   }
   try {
@@ -1662,7 +1737,7 @@ async function onRebuildGuide() {
     scheduleSave();
   } catch (e) {
     console.error('Guide build failed', e);
-    alert('No se pudo generar la guía: ' + (e.message || e));
+    if (!silent) alert('No se pudo generar la guía: ' + (e.message || e));
   }
 }
 
@@ -1858,7 +1933,8 @@ async function rehydrate(state) {
     if (snap) snap.checked = snapToBeat;
   }
   if (typeof state.clickSoundId === 'string') {
-    clickSoundId = state.clickSoundId;
+    const valid = getClickSounds().some(s => s.id === state.clickSoundId);
+    clickSoundId = valid ? state.clickSoundId : 'cowbell';
     const sel = document.getElementById('stems-click-sound');
     if (sel) sel.value = clickSoundId;
   }
