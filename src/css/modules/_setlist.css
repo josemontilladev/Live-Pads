@@ -430,7 +430,13 @@ input.pan-slider {
 }
 
 /* Song row — Spotify style */
-.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden; }
+.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
+  /* Skip rendering offscreen cards — faster initial paint + smoother scroll
+     with large libraries. `auto 72px` lets the browser remember each card's
+     real height (collapsed ~72px) so the scrollbar doesn't jump. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
 .gi-song-item:hover {
   background: var(--bg-hover);
   border-color: var(--accent);

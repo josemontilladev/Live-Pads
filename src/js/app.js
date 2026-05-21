@@ -8,7 +8,21 @@ import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRende
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
-import { mount as mountStemsWorkspace, toggleStemsPlay, addStemsMarker, stemsUndo, stemsRedo, showStemsTour } from './stems/workspace.js';
+// The Stems workspace pulls in heavy deps (audio engine, exporter, waveform
+// renderer, lamejs, ONNX-backed separation IPC glue…) yet the app boots into
+// Pads. Lazy-load it on first entry to the Stems tab so initial load stays fast.
+let stemsWS = null;
+let stemsMounted = false;
+function ensureStemsWorkspace() {
+  if (stemsWS) return Promise.resolve(stemsWS);
+  return import('./stems/workspace.js').then(m => { stemsWS = m; return m; });
+}
+function ensureStemsMounted() {
+  return ensureStemsWorkspace().then(ws => {
+    if (!stemsMounted) { ws.mount(); stemsMounted = true; }
+    return ws;
+  });
+}
 import { maybeStartTour, startTour } from './stems/tour.js';
 
 // Pads workspace guided tour (mirrors the Stems one). Targets stable static
@@ -261,8 +275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPresets({ onApply: applyPreset });
   loadPresetsModule();
   loadGiSetlistFromFile();
-  mountStemsWorkspace();
-  bindWorkspaceSwitcher();
+  bindWorkspaceSwitcher(); // mounts the Stems workspace lazily on first entry
 
   // Defensive: Chromium suspends AudioContexts created before the first user
   // gesture. Resume on the first pointer/key event so the first pad/drum hit
@@ -648,13 +661,17 @@ function applyWorkspace(name) {
   try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 
   // First-run tutorial fires the very first time the user enters each
-  // workspace. After that it can be re-launched manually.
-  if (valid === 'stems') maybeStartTour();
-  else maybeStartPadsTour();
+  // workspace. After that it can be re-launched manually. Entering Stems
+  // also lazily loads + mounts the heavy Stems workspace.
+  if (valid === 'stems') {
+    ensureStemsMounted().then(() => maybeStartTour());
+  } else {
+    maybeStartPadsTour();
+  }
 }
 
 // Public so a menu item or spotlight command can re-launch the tour.
-window.__stemsShowTour = showStemsTour;
+window.__stemsShowTour = () => ensureStemsMounted().then(ws => ws.showStemsTour());
 
 function moveWorkspaceIndicator() {
   const indicator = q('.ws-indicator');
@@ -833,22 +850,23 @@ function onKey(e) {
   // undo stack. Nothing else from the Pads keymap should reach the user
   // when they're working in the Stems editor.
   if (document.body.dataset.workspace === 'stems') {
+    // stemsWS is always loaded here (entering the Stems tab loads it).
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
       e.preventDefault();
-      stemsUndo();
+      stemsWS?.stemsUndo();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) {
       e.preventDefault();
-      stemsRedo();
+      stemsWS?.stemsRedo();
       return;
     }
     if (e.code === 'Space') {
       e.preventDefault();
-      toggleStemsPlay();
+      stemsWS?.toggleStemsPlay();
     } else if (e.key === 'm' || e.key === 'M') {
       e.preventDefault();
-      addStemsMarker();
+      stemsWS?.addStemsMarker();
     }
     return;
   }
