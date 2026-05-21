@@ -9,7 +9,22 @@ import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
 import { mount as mountStemsWorkspace, toggleStemsPlay, addStemsMarker, stemsUndo, stemsRedo, showStemsTour } from './stems/workspace.js';
-import { maybeStartTour as maybeStartStemsTour } from './stems/tour.js';
+import { maybeStartTour, startTour } from './stems/tour.js';
+
+// Pads workspace guided tour (mirrors the Stems one). Targets stable static
+// elements in the Pads layout. Its own one-time localStorage flag.
+const PADS_TOUR_KEY = 'livepads-pads-tour-seen-v1';
+const PADS_TOUR_STEPS = [
+  { target: '#key-grid',        title: 'Pads de adoración',     body: 'Los 12 tonos. Pulsa uno para lanzar un colchón continuo; al cambiar de tono hace <b>crossfade</b> automático, sin silencios. También responden al teclado/MIDI.' },
+  { target: '#pad-bank-select', title: 'Bancos de sonido',      body: 'Cambia el carácter del pad (cálido, etéreo, etc.). Cada banco tiene los 12 tonos precargados para que el cambio sea instantáneo.' },
+  { target: '#bpm-display',     title: 'Metrónomo',             body: 'Tempo, compás, sonido del click y multiplicador 1x/2x. Timing sample-accurate para que no se desfase nunca.' },
+  { target: '#drum-grid',       title: 'Batería',               body: 'Pads de percusión mapeables a teclado/MIDI. Puedes crear kits propios y asignar tus propios samples.' },
+  { target: '#gi-search',       title: 'Setlist y librería',    body: 'Busca por título, artista, letra, <b>tono:G</b> o <b>tag:navidad</b>. Arma el servicio con arrastrar y soltar, y activa el auto-avance entre canciones.' },
+  { target: '.ws-tab[data-workspace="stems"]', title: 'Editor de Stems', body: 'La pestaña Stems abre el editor con <b>separación por IA</b> (voz/batería/bajo/otros) y click inteligente alineado a la canción.' },
+  { target: '#btn-help',        title: 'Atajos de teclado',     body: 'Pulsa <b>?</b> en cualquier momento para ver todos los atajos. Casi todo se controla sin ratón.' },
+];
+function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); }
+window.__padsShowTour = () => startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
@@ -620,31 +635,22 @@ function applyWorkspace(name) {
   });
   moveWorkspaceIndicator();
 
-  // Smooth fade-in for whichever workspace just became visible. The
-  // outgoing one is hidden instantly (display:none won't transition).
-  //
-  // IMPORTANT: the entry animation leaves a transform on the element, and a
-  // transformed ancestor becomes the containing block for position:fixed
-  // descendants. #sidebar is fixed but lives inside #body — so a lingering
-  // transform on #body (which collapses to height:0 in the Stems workspace)
-  // would trap the sidebar in a 0-height box and make it impossible to open.
-  // We therefore strip the class from both workspaces and remove it again
-  // once the animation ends, so no transform persists.
+  // No entry animation on the workspace swap. It used to add a transform to
+  // the showing element + force a synchronous reflow (void offsetWidth) — on
+  // the large Pads #body (full library DOM) that blocked for a noticeable
+  // beat on weaker laptops, so Stems→Pads felt laggy. A plain display swap is
+  // instant. (It also avoids leaving a transform on #body, which would trap
+  // the position:fixed sidebar in the height:0 Stems layout.)
   if (body) body.classList.remove('ws-entering');
   if (stems) stems.classList.remove('ws-entering');
-  const showing = valid === 'pads' ? body : stems;
-  if (showing) {
-    void showing.offsetWidth; // restart animation
-    showing.classList.add('ws-entering');
-    showing.addEventListener('animationend', () => showing.classList.remove('ws-entering'), { once: true });
-  }
 
   document.body.dataset.workspace = valid;
   try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 
-  // First-run tutorial fires the very first time the user enters Stems.
-  // After that it can be triggered manually from the menu / spotlight.
-  if (valid === 'stems') maybeStartStemsTour();
+  // First-run tutorial fires the very first time the user enters each
+  // workspace. After that it can be re-launched manually.
+  if (valid === 'stems') maybeStartTour();
+  else maybeStartPadsTour();
 }
 
 // Public so a menu item or spotlight command can re-launch the tour.
