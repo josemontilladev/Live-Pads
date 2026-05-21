@@ -548,11 +548,11 @@
 }
 .transpose-counter {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 28px; height: 24px; padding: 0 6px;
+  min-width: 30px; height: 26px; padding: 0 7px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 10px; font-weight: 800;
+  border-radius: 5px;
+  font-size: 12.5px; font-weight: 800;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   user-select: none;
@@ -598,23 +598,30 @@
 }
 
 .section-header-line {
-  color: #60a5fa !important; /* blue neón like the screenshot */
-  font-size: 11px;
-  font-weight: 850;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #7cb3ff !important;
+  font-size: 10.5px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 16px;
-  margin-bottom: 6px;
+  letter-spacing: 1.4px;
+  margin-top: 18px;
+  margin-bottom: 7px;
+  padding-left: 9px;
+  border-left: 3px solid #3f6fb0;
 }
+.section-header-line:first-child { margin-top: 2px; }
 
 .chord-line {
   color: #fbae00; /* beautiful premium gold */
   font-weight: 800;
   font-size: 12.5px;
-  line-height: 1.1;
+  line-height: 1.15;
   margin-top: 8px;
-  letter-spacing: 0.5px;
-  font-family: 'Consolas', 'Monaco', 'Menlo', monospace; 
+  letter-spacing: 0.6px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
   white-space: pre; /* crucial to preserve spaces between chords! */
 }
 
@@ -638,6 +645,8 @@
   font-weight: 800;
   font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
   font-size: 12.5px;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .hide-chords .chord-line {

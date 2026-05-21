@@ -622,11 +622,21 @@ function applyWorkspace(name) {
 
   // Smooth fade-in for whichever workspace just became visible. The
   // outgoing one is hidden instantly (display:none won't transition).
+  //
+  // IMPORTANT: the entry animation leaves a transform on the element, and a
+  // transformed ancestor becomes the containing block for position:fixed
+  // descendants. #sidebar is fixed but lives inside #body — so a lingering
+  // transform on #body (which collapses to height:0 in the Stems workspace)
+  // would trap the sidebar in a 0-height box and make it impossible to open.
+  // We therefore strip the class from both workspaces and remove it again
+  // once the animation ends, so no transform persists.
+  if (body) body.classList.remove('ws-entering');
+  if (stems) stems.classList.remove('ws-entering');
   const showing = valid === 'pads' ? body : stems;
   if (showing) {
-    showing.classList.remove('ws-entering');
     void showing.offsetWidth; // restart animation
     showing.classList.add('ws-entering');
+    showing.addEventListener('animationend', () => showing.classList.remove('ws-entering'), { once: true });
   }
 
   document.body.dataset.workspace = valid;
@@ -1127,7 +1137,7 @@ scheduleCompanionPoll();
 if (window.electronAPI && window.electronAPI.getAppVersion) {
   window.electronAPI.getAppVersion().then(v => {
     const el = document.getElementById('about-version');
-    if (el && v) el.textContent = `Versión ${v} — Edición Profesional`;
+    if (el && v) el.textContent = `Versión ${v} · Edición Profesional`;
   }).catch(() => {});
 
   const checkBtn = document.getElementById('btn-check-updates');
