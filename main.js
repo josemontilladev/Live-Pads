@@ -895,6 +895,29 @@ function checkForUpdates() {
 ipcMain.handle('update-install', () => {
   try { if (_autoUpdater) _autoUpdater.quitAndInstall(); } catch (e) { console.warn('quitAndInstall failed:', e.message); }
 });
+
+ipcMain.handle('app-version', () => app.getVersion());
+
+// Manual "check for updates" from the Info panel. Returns a status the
+// renderer can show. In dev (not packaged) there's nothing to check.
+ipcMain.handle('check-for-updates', async () => {
+  if (!app.isPackaged) return { status: 'dev' };
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return { status: 'error', message: 'updater no disponible' }; }
+  _autoUpdater = autoUpdater;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    const latest = r && r.updateInfo && r.updateInfo.version;
+    if (latest && latest !== app.getVersion()) {
+      return { status: 'available', version: latest };  // download proceeds; 'update-ready' banner fires when done
+    }
+    return { status: 'latest', version: app.getVersion() };
+  } catch (e) {
+    return { status: 'error', message: e && e.message };
+  }
+});
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', async () => {
   try { await companionServer.stop(); } catch (e) {}

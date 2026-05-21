@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsSeparateCancel: () => ipcRenderer.invoke('stems-separate-cancel'),
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info)),
   installUpdate: () => ipcRenderer.invoke('update-install'),
+  getAppVersion: () => ipcRenderer.invoke('app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   onStemsSeparateProgress: (cb) => {
     const handler = (_e, payload) => cb(payload);
     ipcRenderer.on('stems-separate-progress', handler);

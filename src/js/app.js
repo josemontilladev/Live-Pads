@@ -1123,6 +1123,37 @@ scheduleCompanionPoll();
 // Auto-update: when a new version finishes downloading in the background,
 // show a non-intrusive banner offering to restart now (it also installs on
 // the next normal quit).
+// Show the real app version in the Info panel + wire the manual update check.
+if (window.electronAPI && window.electronAPI.getAppVersion) {
+  window.electronAPI.getAppVersion().then(v => {
+    const el = document.getElementById('about-version');
+    if (el && v) el.textContent = `Versión ${v} — Edición Profesional`;
+  }).catch(() => {});
+
+  const checkBtn = document.getElementById('btn-check-updates');
+  const statusEl = document.getElementById('update-status');
+  if (checkBtn) {
+    checkBtn.onclick = async () => {
+      if (!statusEl) return;
+      checkBtn.disabled = true;
+      statusEl.textContent = 'Buscando…';
+      statusEl.className = 'about-update-status';
+      try {
+        const r = await window.electronAPI.checkForUpdates();
+        if (r.status === 'available')      statusEl.textContent = `Descargando v${r.version}…`;
+        else if (r.status === 'latest')    statusEl.textContent = 'Ya tienes la última versión ✓';
+        else if (r.status === 'dev')       statusEl.textContent = 'Solo disponible en la app instalada';
+        else                               { statusEl.textContent = 'No se pudo comprobar'; statusEl.classList.add('is-error'); }
+      } catch (e) {
+        statusEl.textContent = 'No se pudo comprobar';
+        statusEl.classList.add('is-error');
+      } finally {
+        checkBtn.disabled = false;
+      }
+    };
+  }
+}
+
 if (window.electronAPI && window.electronAPI.onUpdateReady) {
   window.electronAPI.onUpdateReady((info) => {
     if (document.getElementById('update-banner')) return;
