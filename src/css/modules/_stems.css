@@ -103,6 +103,7 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   position: relative;
   padding: 14px;
   gap: 14px;
@@ -291,6 +292,22 @@ body[data-workspace="stems"] #body {
   filter: brightness(1.1);
 }
 .stems-tb-btn--play svg { width: 18px; height: 18px; }
+
+/* Transport time readout: position / total duration */
+.stems-tb-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: 6px;
+  padding: 0 4px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stems-tb-time #stems-tb-cur { color: var(--text); }
+.stems-tb-time #stems-tb-total { color: var(--text-muted); }
+.stems-tb-time-sep { color: var(--text-muted); opacity: 0.6; }
 .stems-tb-btn--play.is-playing {
   animation: stemsPulse 1.6s ease-in-out infinite;
 }
@@ -631,6 +648,10 @@ body[data-workspace="stems"] #body {
     var(--bg);
   position: relative;
   min-height: 0;
+  /* Flex item must allow shrinking below content width, otherwise it grows
+     to the full timeline width and overflows the shell instead of scrolling
+     internally — which also makes scrollLeft (and auto-follow) a no-op. */
+  min-width: 0;
 }
 .stems-arrange-inner {
   display: flex;
@@ -1073,12 +1094,14 @@ body[data-workspace="stems"] #body {
 }
 
 /* Lane — the part that fills horizontally with the waveform */
+.stems-row-lane.is-shifting { cursor: grabbing; }
 .stems-row-lane {
   flex: 0 0 auto;
   position: relative;
   display: flex;
   align-items: center;
   padding: 4px 0;
+  cursor: grab;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
     var(--bg);
@@ -1812,6 +1835,62 @@ body[data-workspace="stems"] #body {
   animation: stemsSpin 0.7s linear infinite;
 }
 @keyframes stemsSpin { to { transform: rotate(360deg); } }
+
+/* ── Non-modal separation toast (bottom-right, doesn't block tools) ─ */
+.stems-sep-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 200;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.stems-sep-toast.is-in { opacity: 1; transform: translateY(0); }
+.stems-sep-toast.is-done { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.stems-sep-toast.is-error { border-color: #ff5f57; }
+.stems-sep-toast-head { display: flex; align-items: center; gap: 10px; }
+.stems-sep-toast-spin {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: stemsSpin 0.7s linear infinite;
+}
+.stems-sep-toast-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.stems-sep-toast-text strong { font-size: 12px; font-weight: 800; color: var(--text); letter-spacing: 0.3px; }
+.stems-sep-toast-name {
+  font-size: 10.5px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stems-sep-toast-pct {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace; flex-shrink: 0;
+}
+.stems-sep-toast-stage {
+  margin: 9px 0 8px;
+  font-size: 10.5px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stems-sep-toast.is-error .stems-sep-toast-stage { color: #ff8a84; white-space: normal; }
+.stems-sep-toast-bar {
+  height: 5px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1); overflow: hidden;
+}
+.stems-sep-toast-fill {
+  height: 100%; width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
 
 .stems-export-panel h3 {
   margin: 0 0 10px;

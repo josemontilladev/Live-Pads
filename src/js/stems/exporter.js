@@ -35,7 +35,7 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
   // selected track — not the project max. Otherwise short stems would
   // be padded with silence to the full song length.
   const durationSec = opts.onlyTrackIds
-    ? Math.max(...tracks.map(t => t.buffer.duration))
+    ? Math.max(...tracks.map(t => (t.offsetSec || 0) + t.buffer.duration))
     : engine.getDurationSec();
   if (durationSec <= 0) throw new Error('La mezcla tiene duración cero');
 
@@ -68,7 +68,11 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
     const pan = offline.createStereoPanner();
     pan.pan.value = t.pan;
     src.connect(gain); gain.connect(pan); pan.connect(offlineMaster);
-    src.start(0);
+    // Honour the per-track timeline offset. Individual exports normalise to
+    // the track's own start (offset 0) so the stem isn't padded with silence.
+    const off = opts.onlyTrackIds ? 0 : (t.offsetSec || 0);
+    if (off >= 0) src.start(off);
+    else src.start(0, -off);
   }
 
   const rendered = await offline.startRendering();

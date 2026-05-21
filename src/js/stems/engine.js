@@ -91,7 +91,7 @@ export function setMasterVolume(v) {
 // treats them identically — kind only affects how the UI styles + saves
 // the track. Pass a pre-decoded AudioBuffer instead of arrayBuffer to
 // register synthesised tracks (click, guide) without re-decoding.
-export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind }) {
+export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offsetSec }) {
   ensureCtx();
   const buffer = audioBuffer
     ? audioBuffer
@@ -115,6 +115,7 @@ export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind }) {
     pan: 0,
     muted: false,
     soloed: false,
+    offsetSec: offsetSec || 0,  // timeline shift: where this track begins
     color: null   // null → use theme accent; else CSS colour string
   });
   return id;
@@ -203,6 +204,15 @@ export function setTrackColor(id, color) {
   t.color = color || null;
 }
 
+export function getTrackOffset(id) { return tracks.get(id)?.offsetSec || 0; }
+export function setTrackOffset(id, sec) {
+  const t = tracks.get(id);
+  if (!t) return;
+  t.offsetSec = sec || 0;
+  // Reschedule on the fly so the shift is audible immediately while playing.
+  if (isPlaying) seek(getCurrentSec());
+}
+
 // Mute + solo interact: if ANY track is soloed, only soloed tracks are
 // audible (others are forced silent). Manual mute overrides solo for that
 // track. This matches every DAW's standard solo behaviour.
@@ -223,7 +233,8 @@ function applyEffectiveGain(t, anySoloedPrecomputed) {
 export function getTracks() {
   return Array.from(tracks.values()).map(t => ({
     id: t.id, kind: t.kind, name: t.name, volume: t.volume, pan: t.pan,
-    muted: t.muted, soloed: t.soloed, color: t.color, durationSec: t.buffer.duration
+    muted: t.muted, soloed: t.soloed, color: t.color, offsetSec: t.offsetSec || 0,
+    durationSec: t.buffer.duration
   }));
 }
 
@@ -232,14 +243,18 @@ export function getTracks() {
 export function getRawTracks() {
   return Array.from(tracks.values()).map(t => ({
     id: t.id, kind: t.kind, name: t.name, buffer: t.buffer,
-    volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed, color: t.color
+    volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed, color: t.color,
+    offsetSec: t.offsetSec || 0
   }));
 }
 
-// Longest stem dictates project length (others naturally stop earlier).
+// Longest stem (including its offset) dictates project length.
 export function getDurationSec() {
   let max = 0;
-  for (const t of tracks.values()) if (t.buffer.duration > max) max = t.buffer.duration;
+  for (const t of tracks.values()) {
+    const end = (t.offsetSec || 0) + t.buffer.duration;
+    if (end > max) max = end;
+  }
   return max;
 }
 
@@ -257,10 +272,16 @@ export function play() {
   // 50 ms lookahead so all sources start sample-accurate together.
   const when = ctx.currentTime + 0.05;
   for (const t of tracks.values()) {
+    // Apply the per-track timeline offset: `local` is the position inside
+    // this track's buffer that corresponds to the global playhead.
+    const off = t.offsetSec || 0;
+    const local = pauseOffsetSec - off;
+    if (local >= t.buffer.duration) { t.sourceNode = null; continue; } // already ended here
     const src = ctx.createBufferSource();
     src.buffer = t.buffer;
     src.connect(t.gainNode);
-    src.start(when, pauseOffsetSec);
+    if (local >= 0) src.start(when, local);
+    else src.start(when - local, 0); // -local > 0 → starts in the future
     t.sourceNode = src;
     src.onended = () => {
       // If every track has reached the end (or was stopped), flip the

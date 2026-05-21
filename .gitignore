@@ -34,3 +34,10 @@ config.local.json
 .claude/
 .agents/
 skills-lock.json
+
+# Stem separation: ONNX models (large binaries, fetched via scripts/fetch-models)
+models/*.onnx
+scripts/stem-poc/models/*.onnx
+scripts/stem-poc/node_modules/
+scripts/stem-poc/*.wav
+scripts/stem-poc/*.mp3
