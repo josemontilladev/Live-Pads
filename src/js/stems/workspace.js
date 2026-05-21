@@ -9,6 +9,7 @@ import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
+import { Mp3Encoder } from '../../vendor/lamejs.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
@@ -1218,16 +1219,46 @@ function wireStrip(root, id) {
 
   const separateBtn = root.querySelector('[data-action="separate"]');
   if (separateBtn) {
-    separateBtn.onclick = async (e) => {
+    separateBtn.onclick = (e) => {
       e.stopPropagation();
-      await onSeparateTrack(id);
+      openSeparateMenu(separateBtn, id);
     };
   }
 }
 
+// Small popup to choose separation mode before running.
+function openSeparateMenu(anchor, id) {
+  document.getElementById('stems-sep-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.className = 'stems-context-menu';
+  menu.id = 'stems-sep-menu';
+  menu.innerHTML = `
+    <button data-mode="2stem">Voz / Instrumental <span class="stems-ctx-hint">rápido</span></button>
+    <button data-mode="4stem">Voz · Batería · Bajo · Otros <span class="stems-ctx-hint">lento</span></button>
+  `;
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top  = `${r.bottom + 4}px`;
+  requestAnimationFrame(() => {
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth) menu.style.left = `${window.innerWidth - mr.width - 8}px`;
+    if (mr.bottom > window.innerHeight) menu.style.top = `${r.top - mr.height - 4}px`;
+  });
+  menu.querySelectorAll('[data-mode]').forEach(b => {
+    b.onclick = () => { const mode = b.dataset.mode; menu.remove(); onSeparateTrack(id, mode); };
+  });
+  const close = (ev) => {
+    if (menu.contains(ev.target)) return;
+    menu.remove();
+    document.removeEventListener('mousedown', close, true);
+  };
+  setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+}
+
 // ── Local AI stem separation (voz / instrumental) ────────────────
 let separating = false;
-async function onSeparateTrack(id) {
+async function onSeparateTrack(id, mode = '2stem') {
   if (separating) return;
   if (!window.electronAPI?.stemsSeparate) {
     alert('La separación de stems no está disponible en esta versión.');
@@ -1250,15 +1281,16 @@ async function onSeparateTrack(id) {
     const result = await window.electronAPI.stemsSeparate({
       channels: [ch0, ch1],
       sampleRate: buffer.sampleRate,
-      ep: 'cpu',
+      mode,
     });
 
     toast.update(1, 'Creando pistas…');
     const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
-    await addSeparatedTrack(`${baseName} — Instrumental`, result.instrumental, result.sampleRate, 'instrumental');
-    await addSeparatedTrack(`${baseName} — Voces`, result.vocals, result.sampleRate, 'vocals');
-
-    toast.done(`✓ ${baseName}: 2 pistas añadidas`);
+    for (const stem of result.stems) {
+      await addSeparatedTrack(`${baseName} — ${stem.name}`, stem.channels, result.sampleRate, stem.kind);
+    }
+    const epLabel = result.ep === 'dml' ? ' (GPU)' : '';
+    toast.done(`✓ ${baseName}: ${result.stems.length} pistas${epLabel}`);
   } catch (err) {
     console.error('Separation failed:', err);
     toast.error(err.message || String(err));
@@ -1317,20 +1349,48 @@ function showSepToast(trackName) {
   };
 }
 
-// Build a stereo AudioBuffer from [L,R] Float32 and add it as a new track.
+// Build a stereo AudioBuffer from [L,R] Float32 and add it as a new track,
+// persisting the audio as MP3 (much lighter on disk than WAV).
 async function addSeparatedTrack(name, channels, sampleRate, kind) {
   const ctx = engine.getAudioContext();
   const len = channels[0].length;
   const buffer = ctx.createBuffer(2, len, sampleRate);
   buffer.copyToChannel(Float32Array.from(channels[0]), 0);
   buffer.copyToChannel(Float32Array.from(channels[1] || channels[0]), 1);
-  const wav = audioBufferToWav(buffer);
+  const mp3 = audioBufferToMp3(buffer);
   const tid = `sep-${nextTrackId++}`;
   await engine.addTrack({ id: tid, name, audioBuffer: buffer, kind });
-  const savedPath = await projectStore.saveStem(tid, `${kind}.wav`, wav);
+  const savedPath = await projectStore.saveStem(tid, `${kind}.mp3`, mp3);
   appendTrackRow(tid, savedPath);
   refreshTransport();
   scheduleSave();
+}
+
+// Encode an AudioBuffer to MP3 (192 kbps stereo) via lamejs. Returns an
+// ArrayBuffer for projectStore.saveStem.
+function audioBufferToMp3(buffer) {
+  const sr = buffer.sampleRate, BLOCK = 1152;
+  const left = buffer.getChannelData(0);
+  const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+  const enc = new Mp3Encoder(2, sr, 192);
+  const lp = new Int16Array(BLOCK), rp = new Int16Array(BLOCK);
+  const chunks = [];
+  for (let i = 0; i < left.length; i += BLOCK) {
+    const n = Math.min(BLOCK, left.length - i);
+    for (let s = 0; s < n; s++) {
+      const l = left[i + s], r = right[i + s];
+      lp[s] = Math.max(-32768, Math.min(32767, l < 0 ? l * 32768 : l * 32767));
+      rp[s] = Math.max(-32768, Math.min(32767, r < 0 ? r * 32768 : r * 32767));
+    }
+    const buf = enc.encodeBuffer(lp.subarray(0, n), rp.subarray(0, n));
+    if (buf.length) chunks.push(buf);
+  }
+  const flush = enc.flush();
+  if (flush.length) chunks.push(flush);
+  let total = 0; for (const c of chunks) total += c.length;
+  const out = new Uint8Array(total);
+  let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out.buffer;
 }
 
 async function removeTrackById(id) {

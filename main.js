@@ -733,36 +733,40 @@ ipcMain.handle('stems-export-mp3', async (_e, { suggestedName, buffer } = {}) =>
   return result.filePath;
 });
 
-// Resolve the bundled separation model (extraResources in production).
-function separationModelPath() {
-  const rel = path.join('models', 'UVR-MDX-NET-Inst_HQ_3.onnx');
-  return app.isPackaged ? path.join(process.resourcesPath, rel) : path.join(__dirname, rel);
+// Resolve the bundled separation models directory (extraResources in prod).
+function separationModelsDir() {
+  return app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, 'models');
 }
 
 // Local stem separation (MDX-Net via onnxruntime-node). Receives decoded
-// Float32 PCM from the renderer, returns instrumental + vocals as Float32.
-// Progress is streamed back over 'stems-separate-progress'.
-ipcMain.handle('stems-separate', async (e, { channels, sampleRate, ep } = {}) => {
+// Float32 PCM from the renderer; mode '2stem' (voz/instrumental) or '4stem'
+// (voz/batería/bajo/otros). Returns an array of stems. Progress streams
+// back over 'stems-separate-progress'.
+ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = {}) => {
   if (!channels || !channels[0]) throw new Error('Audio vacío');
-  const modelPath = separationModelPath();
-  if (!fs.existsSync(modelPath)) throw new Error('Modelo de separación no encontrado');
-  const { separate } = require('./stemSeparator');
+  const { separate, MODELS } = require('./stemSeparator');
+  const modelsDir = separationModelsDir();
+  // Verify the models this mode needs are present.
+  const needed = (mode === '4stem')
+    ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
+    : ['inst_hq3'];
+  for (const k of needed) {
+    if (!fs.existsSync(path.join(modelsDir, MODELS[k].file))) {
+      throw new Error(`Modelo no encontrado: ${MODELS[k].file}`);
+    }
+  }
   const send = (fraction, stage) => {
     try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage }); } catch (_) {}
   };
   const result = await separate({
     channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
     sampleRate: sampleRate || 44100,
-    modelPath,
-    ep: ep || 'cpu',
+    mode: mode === '4stem' ? '4stem' : '2stem',
+    modelsDir,
+    ep: ep || undefined,  // undefined → auto (DML then CPU)
     onProgress: send,
   });
-  // Hand back transferable-friendly typed arrays.
-  return {
-    sampleRate: result.sampleRate,
-    instrumental: result.instrumental,
-    vocals: result.vocals,
-  };
+  return { sampleRate: result.sampleRate, ep: result.ep, stems: result.stems };
 });
 
 ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
