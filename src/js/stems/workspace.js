@@ -389,17 +389,20 @@ let meterRAF = null;
 let meterLastDecay = 0;
 let meterPeakSmoothed = 0;
 function startMasterMeter() {
+  if (meterRAF) return; // already running
   const el = document.getElementById('stems-master-meter');
   if (!el) return;
-  const tick = (now) => {
-    meterRAF = requestAnimationFrame(tick);
+  const tick = () => {
     if (!engine.isCurrentlyPlaying()) {
-      // Decay smoothly to 0 even when stopped.
+      // Decay smoothly to 0, then STOP the loop so it doesn't burn a frame
+      // every tick forever (it used to run even back in the Pads workspace).
       if (meterPeakSmoothed > 0.001) {
         meterPeakSmoothed *= 0.9;
         el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
-      } else if (el.style.height !== '0%') {
-        el.style.height = '0%';
+        meterRAF = requestAnimationFrame(tick);
+      } else {
+        if (el.style.height !== '0%') el.style.height = '0%';
+        meterRAF = null; // idle → stop until playback resumes
       }
       return;
     }
@@ -408,6 +411,7 @@ function startMasterMeter() {
     if (peak > meterPeakSmoothed) meterPeakSmoothed = peak;
     else meterPeakSmoothed = meterPeakSmoothed * 0.85 + peak * 0.15;
     el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
+    meterRAF = requestAnimationFrame(tick);
   };
   meterRAF = requestAnimationFrame(tick);
 }
@@ -2182,6 +2186,8 @@ function refreshTransport() {
 }
 
 function applyPlayingState(playing) {
+  // The VU meter loop self-stops when idle; (re)start it when playback begins.
+  if (playing) startMasterMeter();
   const playBtn  = document.getElementById('stems-play');
   const pauseBtn = document.getElementById('stems-pause');
   const stopBtn  = document.getElementById('stems-stop');
