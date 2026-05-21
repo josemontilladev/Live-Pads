@@ -34,6 +34,30 @@ export function setSongs(arr) { _songs = arr; }
 export function getCurrentGenre() { return _currentGenre; }
 export function setCurrentGenre(g) { _currentGenre = g; }
 
+// "Recientes" filter: a song counts as recent if it was added within this
+// many days.
+export const RECENT_WINDOW_DAYS = 21;
+
+// Best-effort creation timestamp (ms). Prefers an explicit `addedAt`, else
+// recovers it from the id, which encodes Date.now() for synced/imported/new
+// songs (`song_<ts>`, `song_sync_<ts>_x`, `song_imp_<idx>_<ts>`). Returns 0
+// for legacy songs that predate this field — they're treated as "not recent".
+export function songAddedAt(song) {
+  if (!song) return 0;
+  if (Number.isFinite(song.addedAt)) return song.addedAt;
+  let best = 0;
+  for (const part of String(song.id || '').split('_')) {
+    const n = parseInt(part, 10);
+    if (Number.isFinite(n) && n > 1e12 && n > best) best = n;
+  }
+  return best;
+}
+
+export function isRecentSong(song, now = Date.now()) {
+  const ts = songAddedAt(song);
+  return ts > 0 && (now - ts) <= RECENT_WINDOW_DAYS * 86400000;
+}
+
 export function getActiveSongId() { return _activeSongId; }
 export function setActiveSongId(id) { _activeSongId = id; }
 

@@ -60,6 +60,7 @@ export function bindMongoSync(deps) {
         } else {
           songs.push({
             id: 'song_sync_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            addedAt: Date.now(),
             _id: mSong._id,
             title: mSong.title,
             artist: mSong.artist || '',

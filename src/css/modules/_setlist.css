@@ -881,6 +881,10 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
    just tints the row accent when it's the active filter. */
 .gi-filter-option--fav.active .gi-filter-option-label { color: var(--accent); }
 
+/* "Recientes" row — clock icon inline in HTML; green accent when active so
+   it reads as "newly added" and stays distinct from the Favoritos star. */
+.gi-filter-option--recent.active .gi-filter-option-label { color: #4ade80; }
+
 /* "Próxima" cue — the service card that's been staged by Tab. Distinct
    from .active-song (which is "currently playing"). Dashed accent border
    reads as "ready/waiting" without competing with the active-song bar. */
