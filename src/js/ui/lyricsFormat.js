@@ -1,8 +1,8 @@
 import { esc } from '../utils/dom.js';
 
 const CHORD_REGEX = /^[A-G][b#]?(?:maj|min|m|maj7|min7|m7|dim|aug|sus\d*|add\d*|no\d*|2|4|5|6|7|9|11|13)*(?:\/[A-G][b#]?)?$/i;
-const SECTION_KEYWORDS = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO'];
-const HIGHLIGHT_SECTION_KEYWORDS = [...SECTION_KEYWORDS, 'VERSE', 'CHORUS', 'BRIDGE', 'PRE-CHORUS'];
+const SECTION_KEYWORDS = ['INTRO', 'VERSO', 'CORO', 'PUENTE', 'PRECORO', 'PRE-CORO', 'INSTRUMENTAL', 'OUTRO', 'SOLO', 'TAG', 'ENDING', 'ESTRIBILLO', 'VERSE', 'CHORUS', 'BRIDGE', 'PRE-CHORUS', 'PRECHORUS'];
+const HIGHLIGHT_SECTION_KEYWORDS = [...SECTION_KEYWORDS];
 
 function isChordLine(line) {
   const clean = line.replace(/\[|\]/g, '').trim();

@@ -1,5 +1,31 @@
 // Textarea manipulation helpers used by the lyrics editor.
 
+// GI.Setlist stores lyrics as HTML (`<p>line</p>`, `<p><br></p>` for blank
+// lines). LivePads works with plain text + `\n`, so we flatten the markup on
+// import. Plain-text lyrics (no tags) are returned untouched.
+export function htmlToPlainLyrics(html) {
+  if (!html || typeof html !== 'string') return html || '';
+  if (!/<\/?[a-z][\s\S]*>/i.test(html)) return html;
+
+  let text = html
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')          // <br> → newline
+    .replace(/<\s*\/\s*(p|div|li)\s*>/gi, '\n')   // block close → newline
+    .replace(/<\s*(p|div|li)[^>]*>/gi, '')        // block open → strip
+    .replace(/<[^>]+>/g, '');                      // any remaining tags
+
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x27;/gi, "'");
+
+  return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export function wrapTextareaSelection(textarea, before, after) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;

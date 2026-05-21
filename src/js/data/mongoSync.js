@@ -9,6 +9,7 @@
 // Network failure is non-fatal — the app falls back to local-only mode.
 
 import { showToast } from '../ui/toast.js';
+import { htmlToPlainLyrics } from '../utils/text.js';
 
 /**
  * Bind the MongoDB sync button. Idempotent — safe to call once at boot.
@@ -40,6 +41,7 @@ export function bindMongoSync(deps) {
       let newCount = 0;
 
       mongoSongs.forEach(mSong => {
+        const mLyrics = htmlToPlainLyrics(mSong.lyrics);
         const existingIdx = songs.findIndex(s =>
           (s._id && s._id === mSong._id) ||
           (s.title.toLowerCase() === mSong.title.toLowerCase() &&
@@ -50,7 +52,7 @@ export function bindMongoSync(deps) {
           const existing = songs[existingIdx];
           let changed = false;
           if (!existing._id) { existing._id = mSong._id; changed = true; }
-          if (existing.lyrics !== mSong.lyrics) { existing.lyrics = mSong.lyrics; changed = true; }
+          if (existing.lyrics !== mLyrics) { existing.lyrics = mLyrics; changed = true; }
           if (existing.bpm !== mSong.bpm) { existing.bpm = mSong.bpm; changed = true; }
           if (existing.key !== mSong.key) { existing.key = mSong.key; changed = true; }
           if (existing.genre !== mSong.genre) { existing.genre = mSong.genre; changed = true; }
@@ -64,7 +66,7 @@ export function bindMongoSync(deps) {
             bpm: mSong.bpm || '',
             key: mSong.key || '',
             genre: mSong.genre || '',
-            lyrics: mSong.lyrics || ''
+            lyrics: mLyrics || ''
           });
           newCount++;
         }
