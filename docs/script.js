@@ -4,7 +4,7 @@
 // - Intersection-observer-based reveal-on-scroll for sections, so cards
 //   fade in as they enter the viewport instead of appearing all at once.
 //
-// No frameworks, no build step. Works directly on GitHub Pages.
+// No frameworks, no build step — static page.
 
 (() => {
   const nav = document.getElementById('nav');
