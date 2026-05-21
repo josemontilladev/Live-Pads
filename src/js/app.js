@@ -24,7 +24,7 @@ import {
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
-  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause
+  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong
 } from './audio/trackPlayer.js';
 import {
   initPresets, loadPresets as loadPresetsModule
@@ -201,6 +201,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
         renderServiceList();
       }
+    },
+    // Auto-advance: when a track finishes and the toggle is on, chain into
+    // the next service song — but only if the finished track IS the active
+    // service song and there's a real next one (no wrap-around looping).
+    onTrackEnded: () => {
+      if (!autoAdvanceEnabled) return;
+      const idx = getActiveServiceIndex();
+      const songs = getServiceSongs();
+      if (idx < 0 || idx >= songs.length - 1) return; // no next song
+      const cur = getCurrentSong();
+      const active = songs[idx];
+      if (!cur || !active) return;
+      const sameSong = (cur.serviceId && cur.serviceId === active.serviceId) ||
+                       (cur.title === active.title && cur.artist === active.artist);
+      if (sameSong) serviceNextSong();
     }
   });
 
@@ -434,8 +449,27 @@ function onKeyClick(key) {
    Sub-binders reference module-scope `engine`, `metro`, KIT_BANKS, etc.,
    so they're defined at module level too (no closure tricks). */
 
+// Auto-advance toggle state (persisted). Read at boot; toggled from the
+// track-player transport button.
+let autoAdvanceEnabled = localStorage.getItem('tpAutoAdvance') === '1';
+function bindAutoAdvanceToggle() {
+  const btn = q('#tp-autoadvance-btn');
+  if (!btn) return;
+  const sync = () => {
+    btn.classList.toggle('active', autoAdvanceEnabled);
+    btn.setAttribute('aria-pressed', String(autoAdvanceEnabled));
+  };
+  sync();
+  btn.onclick = () => {
+    autoAdvanceEnabled = !autoAdvanceEnabled;
+    localStorage.setItem('tpAutoAdvance', autoAdvanceEnabled ? '1' : '0');
+    sync();
+  };
+}
+
 function bindAll() {
   bindTrackPlayerControls();
+  bindAutoAdvanceToggle();
   bindKitControls({ buildBankSelects, loadKitBank });
   bindWindowControls();
   bindSidebarAndTabs();
@@ -1085,4 +1119,24 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') scheduleCompanionPoll();
 });
 scheduleCompanionPoll();
+
+// Auto-update: when a new version finishes downloading in the background,
+// show a non-intrusive banner offering to restart now (it also installs on
+// the next normal quit).
+if (window.electronAPI && window.electronAPI.onUpdateReady) {
+  window.electronAPI.onUpdateReady((info) => {
+    if (document.getElementById('update-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'update-banner';
+    bar.className = 'update-banner';
+    bar.innerHTML = `
+      <span>Actualización lista${info && info.version ? ` (v${info.version})` : ''} — reinicia para aplicarla.</span>
+      <button id="update-restart">Reiniciar ahora</button>
+      <button id="update-later" class="update-banner__later" aria-label="Más tarde">✕</button>`;
+    document.body.appendChild(bar);
+    requestAnimationFrame(() => bar.classList.add('is-in'));
+    bar.querySelector('#update-restart').onclick = () => window.electronAPI.installUpdate();
+    bar.querySelector('#update-later').onclick = () => bar.remove();
+  });
+}
 

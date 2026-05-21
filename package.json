@@ -13,6 +13,7 @@
     "dev": "electron . --dev",
     "fetch-models": "node scripts/fetch-models.mjs",
     "build": "node scripts/fetch-models.mjs && electron-builder --win",
+    "release": "node scripts/fetch-models.mjs && electron-builder --win --publish always",
     "build:dir": "electron-builder --win --dir",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
@@ -26,6 +27,7 @@
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
+    "electron-updater": "^6.8.3",
     "kissfft-js": "^0.1.8",
     "mongodb": "^7.2.0",
     "onnxruntime-node": "^1.26.0",
@@ -36,6 +38,13 @@
     "appId": "com.livepads.app",
     "productName": "LivePads",
     "copyright": "Copyright © 2026 LivePads",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "josemontilladev",
+        "repo": "Live-Pads"
+      }
+    ],
     "asar": true,
     "compression": "maximum",
     "directories": {

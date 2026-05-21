@@ -865,6 +865,35 @@ app.whenReady().then(() => {
   if (prefs.autostart) {
     companionServer.start().catch(e => console.warn('Companion autostart failed:', e.message));
   }
+
+  checkForUpdates();
+});
+
+// Auto-update via electron-updater + GitHub Releases. Only in the packaged
+// app; failures (offline, no release yet, misconfig) are swallowed so they
+// never block startup. Downloads in the background and installs on quit.
+let _autoUpdater = null;
+function checkForUpdates() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return; }
+  _autoUpdater = autoUpdater;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-ready', { version: info && info.version });
+      }
+    } catch (_) {}
+  });
+  autoUpdater.on('error', (err) => console.warn('Auto-update error:', err && err.message));
+  autoUpdater.checkForUpdates().catch(e => console.warn('Update check failed:', e && e.message));
+}
+
+// Quit and install a downloaded update (triggered from the renderer banner).
+ipcMain.handle('update-install', () => {
+  try { if (_autoUpdater) _autoUpdater.quitAndInstall(); } catch (e) { console.warn('quitAndInstall failed:', e.message); }
 });
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', async () => {

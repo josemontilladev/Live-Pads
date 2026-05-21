@@ -91,6 +91,7 @@ export function songCardInnerHTML(song, opts) {
         ${song.bpm   ? `<span class="gi-badge bpm">${esc(song.bpm)}</span>` : ''}
         ${song.key   ? `<span class="gi-badge key">${esc(song.key)}</span>` : ''}
         ${song.genre ? `<span class="gi-badge hidden-genre">${esc(song.genre)}</span>` : ''}
+        ${Array.isArray(song.tags) ? song.tags.map(t => `<span class="gi-badge tag">${esc(t)}</span>`).join('') : ''}
       </div>
     </div>
     <div class="gi-song-actions">

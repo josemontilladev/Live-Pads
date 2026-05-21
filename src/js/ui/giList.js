@@ -72,7 +72,10 @@ export function renderGiList(filter = '', editSongId = null) {
   const keyPrefix = (lower.startsWith('tono:') || lower.startsWith('key:'))
     ? lower.replace(/^(tono|key):\s*/, '').trim()
     : null;
-  const textTerm = keyPrefix === null ? lower : '';
+  const tagPrefix = (keyPrefix === null && (lower.startsWith('tag:') || lower.startsWith('etiqueta:')))
+    ? lower.replace(/^(tag|etiqueta):\s*/, '').trim()
+    : null;
+  const textTerm = (keyPrefix === null && tagPrefix === null) ? lower : '';
 
   const currentGenre = getCurrentGenre();
   const filtered = songs.filter(s => {
@@ -80,9 +83,17 @@ export function renderGiList(filter = '', editSongId = null) {
       // Empty key prefix \u2192 show all songs that HAVE a key set.
       if (!s.key) return false;
       if (!s.key.toLowerCase().startsWith(keyPrefix)) return false;
+    } else if (tagPrefix !== null) {
+      const tags = Array.isArray(s.tags) ? s.tags : [];
+      if (!tags.some(t => String(t).toLowerCase().includes(tagPrefix))) return false;
     } else {
+      // Global free-text: title, artist, tags AND lyrics (HTML stripped).
+      const tagsText = Array.isArray(s.tags) ? s.tags.join(' ').toLowerCase() : '';
+      const lyricsText = s.lyrics ? String(s.lyrics).replace(/<[^>]*>/g, ' ').toLowerCase() : '';
       const matchText = s.title.toLowerCase().includes(textTerm) ||
-                        (s.artist && s.artist.toLowerCase().includes(textTerm));
+                        (s.artist && s.artist.toLowerCase().includes(textTerm)) ||
+                        tagsText.includes(textTerm) ||
+                        lyricsText.includes(textTerm);
       if (!matchText) return false;
     }
     if (currentGenre === 'all') return true;
@@ -315,6 +326,10 @@ function initDelegation() {
         song.bpm = card.querySelector('.edit-bpm').value.trim();
         song.key = card.querySelector('.edit-key').value;
         song.genre = card.querySelector('.edit-genre').value;
+        const tagsEl = card.querySelector('.edit-tags');
+        if (tagsEl) {
+          song.tags = tagsEl.value.split(',').map(t => t.trim()).filter(Boolean);
+        }
         deps.persist();
         deps.updateFilterCounts();
         const sortChanged = oldTitle !== song.title;
