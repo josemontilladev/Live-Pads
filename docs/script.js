@@ -46,11 +46,6 @@
   //   • point [data-github] links at the repo.
   // Fails silently (offline / API limit) → links keep the "soon" fallback.
   const REPO = 'josemontilladev/Live-Pads';
-  document.querySelectorAll('[data-github]').forEach(a => {
-    a.href = `https://github.com/${REPO}`;
-    a.target = '_blank'; a.rel = 'noopener';
-    a.removeAttribute('data-soon');
-  });
   fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
     .then(r => (r.ok ? r.json() : null))
     .then(rel => {
