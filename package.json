@@ -11,7 +11,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win",
+    "fetch-models": "node scripts/fetch-models.mjs",
+    "build": "node scripts/fetch-models.mjs && electron-builder --win",
     "build:dir": "electron-builder --win --dir",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
@@ -25,7 +26,9 @@
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
+    "kissfft-js": "^0.1.8",
     "mongodb": "^7.2.0",
+    "onnxruntime-node": "^1.26.0",
     "qrcode": "^1.5.4",
     "ws": "^8.20.1"
   },
@@ -42,6 +45,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "stemSeparator.js",
       "src/**/*",
       "companion/**/*",
       "!src/**/*.map",
@@ -49,7 +53,14 @@
       "!**/{.DS_Store,Thumbs.db,.git,.gitignore,.idea,.vscode,.editorconfig}",
       "!**/{test,tests,__tests__,spec,__mocks__}/**",
       "!**/{LICENSE,README,CHANGELOG,HISTORY,CONTRIBUTING}*",
-      "!**/node_modules/*/{example,examples,demo,docs,doc,sample,samples}/**"
+      "!**/node_modules/*/{example,examples,demo,docs,doc,sample,samples}/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"
+    ],
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**",
+      "node_modules/kissfft-js/**"
     ],
     "extraResources": [
       {
@@ -58,6 +69,13 @@
         "filter": [
           "**/*",
           "!**/.gitkeep"
+        ]
+      },
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.onnx"
         ]
       }
     ],

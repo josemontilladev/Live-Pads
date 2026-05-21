@@ -733,6 +733,38 @@ ipcMain.handle('stems-export-mp3', async (_e, { suggestedName, buffer } = {}) =>
   return result.filePath;
 });
 
+// Resolve the bundled separation model (extraResources in production).
+function separationModelPath() {
+  const rel = path.join('models', 'UVR-MDX-NET-Inst_HQ_3.onnx');
+  return app.isPackaged ? path.join(process.resourcesPath, rel) : path.join(__dirname, rel);
+}
+
+// Local stem separation (MDX-Net via onnxruntime-node). Receives decoded
+// Float32 PCM from the renderer, returns instrumental + vocals as Float32.
+// Progress is streamed back over 'stems-separate-progress'.
+ipcMain.handle('stems-separate', async (e, { channels, sampleRate, ep } = {}) => {
+  if (!channels || !channels[0]) throw new Error('Audio vacío');
+  const modelPath = separationModelPath();
+  if (!fs.existsSync(modelPath)) throw new Error('Modelo de separación no encontrado');
+  const { separate } = require('./stemSeparator');
+  const send = (fraction, stage) => {
+    try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage }); } catch (_) {}
+  };
+  const result = await separate({
+    channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
+    sampleRate: sampleRate || 44100,
+    modelPath,
+    ep: ep || 'cpu',
+    onProgress: send,
+  });
+  // Hand back transferable-friendly typed arrays.
+  return {
+    sampleRate: result.sampleRate,
+    instrumental: result.instrumental,
+    vocals: result.vocals,
+  };
+});
+
 ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
   if (typeof livepadsUrl !== 'string') return false;
   const rest = livepadsUrl.startsWith('livepads://')

@@ -36,5 +36,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
   stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),
   stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),
-  stemsDeleteProject: (slug) => ipcRenderer.invoke('stems-delete-project', slug)
+  stemsDeleteProject: (slug) => ipcRenderer.invoke('stems-delete-project', slug),
+  stemsSeparate: (data) => ipcRenderer.invoke('stems-separate', data),
+  onStemsSeparateProgress: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('stems-separate-progress', handler);
+    return () => ipcRenderer.removeListener('stems-separate-progress', handler);
+  }
 });

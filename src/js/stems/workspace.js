@@ -12,7 +12,7 @@ import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGen
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
-import { detectBPM } from './bpmDetector.js';
+import { detectTempoMeter } from './bpmDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -186,6 +186,9 @@ const SHELL_HTML = `
           <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
         </button>
         <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Reanudar" disabled>${SVG_PLAY}</button>
+        <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
+          <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
+        </span>
       </div>
 
       <div class="stems-tb-right">
@@ -432,37 +435,25 @@ function wireSeekClicks(root) {
 // we pause auto-follow so they can inspect the timeline freely. Auto-
 // follow resumes the next time they hit Play (or when the playhead
 // catches back up to the viewport on its own).
-let autoFollowLastScroll = 0;
-let userPaused = false;
+// Keep the playhead visible during playback by scrolling the timeline so
+// the cursor stays anchored ~30% from the left of the lane area. Always
+// follows while playing (clamped to the scrollable range) so the vertical
+// playback bar is never lost off-screen.
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
   const arrange = document.getElementById('stems-arrange');
   if (!arrange) return;
 
-  // Detect manual scroll: if scrollLeft has drifted from the value
-  // we last wrote, the user moved it themselves.
-  if (Math.abs(arrange.scrollLeft - autoFollowLastScroll) > 2) userPaused = true;
-  if (userPaused) return;
-
   const headX = STRIP_WIDTH + sec * PX_PER_SEC;
-  const viewW = arrange.clientWidth;
-  const laneW = viewW - STRIP_WIDTH;
+  const laneW = arrange.clientWidth - STRIP_WIDTH;
   if (laneW <= 0) return;
   const anchor = STRIP_WIDTH + laneW * 0.3;
-  const target = headX - anchor;
-  if (target <= 0) {
-    if (arrange.scrollLeft > 1) { arrange.scrollLeft = 0; autoFollowLastScroll = 0; }
-    return;
-  }
-  if (Math.abs(arrange.scrollLeft - target) > 1) {
-    arrange.scrollLeft = target;
-    autoFollowLastScroll = target;
-  }
+  const maxScroll = Math.max(0, arrange.scrollWidth - arrange.clientWidth);
+  const target = Math.max(0, Math.min(headX - anchor, maxScroll));
+  if (Math.abs(arrange.scrollLeft - target) > 0.5) arrange.scrollLeft = target;
 }
 
-// Resume auto-follow whenever play/stop/seek explicitly changes the
-// transport — the user is no longer "inspecting offline" at that point.
-export function resumeAutoFollow() { userPaused = false; }
+export function resumeAutoFollow() { /* always-follow now; kept for callers */ }
 
 // ── Wiring: top bar ────────────────────────────────────────────────
 function wireTopbarEvents(root) {
@@ -557,24 +548,35 @@ function onDetectBpm() {
   requestAnimationFrame(() => {
     try {
       const buf = engine.getTrackBuffer(stemTrack.id);
-      const detected = detectBPM(buf);
-      if (!detected) {
+      const result = detectTempoMeter(buf);
+      if (!result || !result.bpm) {
         alert('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).');
         return;
       }
-      const oldBpm = bpm;
-      if (detected === bpm) {
-        alert(`La pista coincide con el BPM actual (${detected}).`);
+      const detected = result.bpm;
+      const detectedSig = result.signature || `${beatsPerBar}/${beatValue}`;
+      const oldBpm = bpm, oldSig = `${beatsPerBar}/${beatValue}`;
+      if (detected === bpm && detectedSig === oldSig) {
+        alert(`La pista ya coincide con lo actual (${detected} BPM, ${oldSig}).`);
         return;
       }
-      if (!confirm(`BPM detectado: ${detected}. ¿Aplicarlo? (actual: ${bpm})`)) return;
-      bpm = detected;
-      const input = document.getElementById('stems-bpm');
-      if (input) input.value = detected;
-      drawRuler();
-      pushHistory('Detectar BPM',
-        () => { bpm = oldBpm; if (input) input.value = oldBpm; drawRuler(); scheduleSave(); },
-        () => { bpm = detected; if (input) input.value = detected; drawRuler(); scheduleSave(); }
+      if (!confirm(`Detectado: ${detected} BPM · compás ${detectedSig}.\n¿Aplicarlo? (actual: ${oldBpm} BPM · ${oldSig})`)) return;
+
+      const apply = (b, sig) => {
+        bpm = b;
+        const [bp, bv] = sig.split('/').map(n => parseInt(n, 10));
+        if (bp) beatsPerBar = bp;
+        if (bv) beatValue = bv;
+        const input = document.getElementById('stems-bpm');
+        if (input) input.value = b;
+        const sigSel = document.getElementById('stems-sig');
+        if (sigSel) sigSel.value = sig;
+        drawRuler();
+      };
+      apply(detected, detectedSig);
+      pushHistory('Detectar BPM y compás',
+        () => { apply(oldBpm, oldSig); scheduleSave(); },
+        () => { apply(detected, detectedSig); scheduleSave(); }
       );
       scheduleSave();
     } catch (e) {
@@ -835,8 +837,64 @@ function appendTrackRow(id, savedPath) {
 
   wireStrip(row, id);
   wireConsoleStrip(console, id);
+  wireLaneDrag(lane, id);
   drawTrackWaveform(id);
   refreshTimelineWidth();
+}
+
+// Drag the waveform left/right to shift this track on the timeline (to
+// align a click, a guide, or an offset stem to the rest). A small move is
+// treated as a seek-click (handled by wireSeekClicks); only a real drag
+// changes the offset, and we then swallow the trailing click.
+function wireLaneDrag(lane, id) {
+  const DRAG_THRESHOLD = 4; // px before it counts as a drag, not a click
+  lane.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('input, select, button')) return;
+    const startX = e.clientX;
+    const startOffset = engine.getTrackOffset(id);
+    let dragging = false;
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
+      dragging = true;
+      lane.classList.add('is-shifting');
+      let newOffset = startOffset + dx / PX_PER_SEC;
+      if (snapToBeat) newOffset = Math.round(newOffset / (60 / bpm)) * (60 / bpm);
+      newOffset = Math.max(0, newOffset);
+      // Live visual: shift only this row's canvas; commit to engine on up.
+      const row = trackRows.get(id);
+      if (row) row.canvas.style.transform = `translateX(${newOffset * PX_PER_SEC}px)`;
+      lane.dataset.pendingOffset = String(newOffset);
+    };
+    const onUp = () => {
+      lane.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      lane.classList.remove('is-shifting');
+      if (!dragging) return;
+      const newOffset = parseFloat(lane.dataset.pendingOffset || String(startOffset));
+      delete lane.dataset.pendingOffset;
+      if (Math.abs(newOffset - startOffset) < 1e-4) return;
+      applyTrackOffset(id, newOffset);
+      pushHistory('Alinear pista',
+        () => { applyTrackOffset(id, startOffset); scheduleSave(); },
+        () => { applyTrackOffset(id, newOffset); scheduleSave(); }
+      );
+      scheduleSave();
+      // Swallow the click that fires right after a drag so it doesn't seek.
+      lane.addEventListener('click', (ce) => { ce.stopImmediatePropagation(); ce.preventDefault(); }, { capture: true, once: true });
+    };
+    lane.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+function applyTrackOffset(id, sec) {
+  engine.setTrackOffset(id, sec);
+  drawTrackWaveform(id);
+  refreshTimelineWidth();
+  refreshTotalTime();
 }
 
 function appendConsoleStrip(track) {
@@ -1062,6 +1120,10 @@ function buildRowHtml(track) {
         <span class="stems-row-kind">${kindLabel}</span>
         <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
       </div>
+      ${track.kind === 'click' || track.kind === 'guide' ? '' : `
+      <button class="stems-row-export" data-action="separate" title="Separar en voz e instrumental (IA, local)">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      </button>`}
       <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
@@ -1153,6 +1215,122 @@ function wireStrip(root, id) {
       });
     };
   }
+
+  const separateBtn = root.querySelector('[data-action="separate"]');
+  if (separateBtn) {
+    separateBtn.onclick = async (e) => {
+      e.stopPropagation();
+      await onSeparateTrack(id);
+    };
+  }
+}
+
+// ── Local AI stem separation (voz / instrumental) ────────────────
+let separating = false;
+async function onSeparateTrack(id) {
+  if (separating) return;
+  if (!window.electronAPI?.stemsSeparate) {
+    alert('La separación de stems no está disponible en esta versión.');
+    return;
+  }
+  const track = engine.getTracks().find(t => t.id === id);
+  const buffer = engine.getTrackBuffer(id);
+  if (!track || !buffer) return;
+
+  separating = true;
+  const toast = showSepToast(track.name);
+
+  const unsubscribe = window.electronAPI.onStemsSeparateProgress(({ fraction, stage }) => {
+    toast.update(fraction, stage);
+  });
+
+  try {
+    const ch0 = buffer.getChannelData(0).slice();
+    const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1).slice() : ch0;
+    const result = await window.electronAPI.stemsSeparate({
+      channels: [ch0, ch1],
+      sampleRate: buffer.sampleRate,
+      ep: 'cpu',
+    });
+
+    toast.update(1, 'Creando pistas…');
+    const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
+    await addSeparatedTrack(`${baseName} — Instrumental`, result.instrumental, result.sampleRate, 'instrumental');
+    await addSeparatedTrack(`${baseName} — Voces`, result.vocals, result.sampleRate, 'vocals');
+
+    toast.done(`✓ ${baseName}: 2 pistas añadidas`);
+  } catch (err) {
+    console.error('Separation failed:', err);
+    toast.error(err.message || String(err));
+  } finally {
+    unsubscribe && unsubscribe();
+    separating = false;
+  }
+}
+
+// Non-modal corner toast so separation runs in the background while the
+// user keeps editing. Returns { update, done, error }.
+function showSepToast(trackName) {
+  const el = document.createElement('div');
+  el.className = 'stems-sep-toast';
+  el.innerHTML = `
+    <div class="stems-sep-toast-head">
+      <span class="stems-sep-toast-spin" aria-hidden="true"></span>
+      <div class="stems-sep-toast-text">
+        <strong>Separando pista</strong>
+        <span class="stems-sep-toast-name">${escapeHtml(trackName)}</span>
+      </div>
+      <span class="stems-sep-toast-pct">0%</span>
+    </div>
+    <div class="stems-sep-toast-stage">Preparando audio</div>
+    <div class="stems-sep-toast-bar"><div class="stems-sep-toast-fill"></div></div>
+  `;
+  document.body.appendChild(el);
+  const fill  = el.querySelector('.stems-sep-toast-fill');
+  const pct   = el.querySelector('.stems-sep-toast-pct');
+  const stage = el.querySelector('.stems-sep-toast-stage');
+  requestAnimationFrame(() => el.classList.add('is-in'));
+  const remove = (delay) => setTimeout(() => {
+    el.classList.remove('is-in');
+    setTimeout(() => el.remove(), 280);
+  }, delay);
+  return {
+    update(fraction, label) {
+      const p = Math.round((fraction || 0) * 100);
+      fill.style.width = `${p}%`;
+      pct.textContent = `${p}%`;
+      if (label) stage.textContent = label;
+    },
+    done(msg) {
+      el.classList.add('is-done');
+      el.querySelector('.stems-sep-toast-spin').remove();
+      stage.textContent = msg;
+      fill.style.width = '100%';
+      pct.textContent = '✓';
+      remove(2600);
+    },
+    error(msg) {
+      el.classList.add('is-error');
+      stage.textContent = msg;
+      remove(4500);
+    },
+  };
+}
+
+// Build a stereo AudioBuffer from [L,R] Float32 and add it as a new track.
+async function addSeparatedTrack(name, channels, sampleRate, kind) {
+  const ctx = engine.getAudioContext();
+  const len = channels[0].length;
+  const buffer = ctx.createBuffer(2, len, sampleRate);
+  buffer.copyToChannel(Float32Array.from(channels[0]), 0);
+  buffer.copyToChannel(Float32Array.from(channels[1] || channels[0]), 1);
+  const wav = audioBufferToWav(buffer);
+  const tid = `sep-${nextTrackId++}`;
+  await engine.addTrack({ id: tid, name, audioBuffer: buffer, kind });
+  const savedPath = await projectStore.saveStem(tid, `${kind}.wav`, wav);
+  appendTrackRow(tid, savedPath);
+  refreshTransport();
+  scheduleSave();
 }
 
 async function removeTrackById(id) {
@@ -1279,6 +1457,9 @@ function drawTrackWaveform(id) {
   row.lane.style.width = `${projectWidthPx()}px`;
   row.canvas.style.width = `${audioPx}px`;
   row.canvas.style.height = `${ROW_HEIGHT - 8}px`;
+  // Shift the waveform horizontally by the track's timeline offset.
+  const offPx = (engine.getTrackOffset(id) || 0) * PX_PER_SEC;
+  row.canvas.style.transform = `translateX(${offPx}px)`;
   let peaks = peaksCache.get(id);
   if (!peaks || peaks.length / 2 !== audioPx) {
     peaks = computePeaks(buffer, audioPx);
@@ -1753,6 +1934,7 @@ function refreshTransport() {
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
   const c2 = document.getElementById('stems-console-count');
   if (c2) c2.textContent = countText;
+  refreshTotalTime();
 }
 
 function applyPlayingState(playing) {
@@ -1778,9 +1960,18 @@ function applyPlayingState(playing) {
 function applyTimeUpdate(sec) {
   const tc = document.getElementById('stems-timecode');
   if (tc) tc.textContent = formatTimecode(sec);
+  const cur = document.getElementById('stems-tb-cur');
+  if (cur) cur.textContent = formatTime(sec);
   const head = document.getElementById('stems-playhead');
   if (head) head.style.transform = `translateX(${STRIP_WIDTH + sec * PX_PER_SEC}px)`;
   autoFollowPlayhead(sec);
+}
+
+// Refresh the total-duration readout in the transport (call when tracks
+// change, since duration = the longest track).
+function refreshTotalTime() {
+  const total = document.getElementById('stems-tb-total');
+  if (total) total.textContent = formatTime(engine.getDurationSec() || 0);
 }
 
 // ── Export ────────────────────────────────────────────────────────
@@ -1851,7 +2042,7 @@ async function doSave() {
       return {
         id: t.id, kind: t.kind, name: t.name,
         volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed,
-        color: t.color || null,
+        color: t.color || null, offsetSec: t.offsetSec || 0,
         path: entry ? entry.row.dataset.path : null
       };
     });
@@ -1910,7 +2101,7 @@ async function rehydrate(state) {
     if (!t.path) continue;
     try {
       const arrayBuffer = await projectStore.fetchStem(t.path);
-      await engine.addTrack({ id: t.id, name: t.name, arrayBuffer, kind: t.kind || 'stem' });
+      await engine.addTrack({ id: t.id, name: t.name, arrayBuffer, kind: t.kind || 'stem', offsetSec: t.offsetSec || 0 });
       engine.setTrackVolume(t.id, t.volume);
       engine.setTrackPan(t.id, t.pan);
       if (t.muted)  engine.setTrackMuted(t.id, true);
