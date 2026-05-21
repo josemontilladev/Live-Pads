@@ -1488,4 +1488,5 @@ a { color: inherit; text-decoration: none; }
 
 .soon-ok {
   min-width: 140px;
+  justify-content: center;
 }
