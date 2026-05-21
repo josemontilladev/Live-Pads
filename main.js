@@ -365,6 +365,21 @@ ipcMain.handle('load-gi-setlist', async () => {
   return raw ? rewritePaths(raw) : null;
 });
 
+// Reuse one connected MongoClient across syncs (it keeps its own connection
+// pool) instead of opening + closing a fresh client every call. Pings to
+// confirm liveness; reconnects if the cached client is stale or the URI changed.
+let _mongoClient = null, _mongoUri = null;
+async function getMongoClient(uri) {
+  if (_mongoClient && _mongoUri === uri) {
+    try { await _mongoClient.db('admin').command({ ping: 1 }); return _mongoClient; }
+    catch (e) { try { await _mongoClient.close(); } catch (_) {} _mongoClient = null; }
+  }
+  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 4000 });
+  await client.connect();
+  _mongoClient = client; _mongoUri = uri;
+  return client;
+}
+
 ipcMain.handle('sync-mongo-setlist', async () => {
   const configPath = path.join(app.getPath('userData'), 'config.json');
   let uri = '';
@@ -385,14 +400,10 @@ ipcMain.handle('sync-mongo-setlist', async () => {
   }
 
   try {
-    const client = new MongoClient(uri, {
-      serverSelectionTimeoutMS: 4000 // 4 seconds timeout for fast offline detection
-    });
-    await client.connect();
+    const client = await getMongoClient(uri);
     const db = client.db('gi-setlist');
     const collection = db.collection('songs');
     const songs = collection ? await collection.find({}).toArray() : [];
-    await client.close();
     return songs.map(s => {
       const obj = { ...s };
       if (obj._id) obj._id = obj._id.toString();
@@ -670,23 +681,29 @@ ipcMain.handle('stems-save-as', async (_e, { name } = {}) => {
   if (!fs.existsSync(src)) throw new Error('No hay proyecto actual para guardar');
   if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
   fs.cpSync(src, dst, { recursive: true });
-  // Rewrite project.json paths from `StemProjects/current/...` →
-  // `StemProjects/<slug>/...` so the renderer picks up the right files on load.
+  // Rewrite only the per-track `path` fields from the `current` folder to the
+  // new slug — structurally, so a stray substring in lyrics/names is never
+  // clobbered (the old global string-replace could).
   const projectFp = path.join(dst, 'project.json');
-  if (fs.existsSync(projectFp)) {
-    let raw = fs.readFileSync(projectFp, 'utf-8');
-    raw = raw.replace(/StemProjects\/current\//g, `StemProjects/${slug}/`);
-    // The name field should reflect what the user picked
-    try {
-      const j = JSON.parse(raw);
-      j.projectName = name;
-      fs.writeFileSync(projectFp, JSON.stringify(j, null, 2), 'utf-8');
-    } catch {
-      fs.writeFileSync(projectFp, raw, 'utf-8');
-    }
+  const j = readJsonSafe(projectFp);
+  if (j) {
+    remapStemProjectPaths(j, 'StemProjects/current/', `StemProjects/${slug}/`);
+    j.projectName = name;
+    fs.writeFileSync(projectFp, JSON.stringify(j, null, 2), 'utf-8');
   }
   return slug;
 });
+
+// Rewrite the slug segment in each track's saved-file path. Only touches
+// `tracks[].path`, never the rest of the JSON.
+function remapStemProjectPaths(json, fromSeg, toSeg) {
+  if (json && Array.isArray(json.tracks)) {
+    for (const t of json.tracks) {
+      if (t && typeof t.path === 'string') t.path = t.path.split(fromSeg).join(toSeg);
+    }
+  }
+  return json;
+}
 
 ipcMain.handle('stems-load-project', async (_e, slug) => {
   const safe = safeProjectName(slug);
@@ -697,18 +714,15 @@ ipcMain.handle('stems-load-project', async (_e, slug) => {
   if (!fs.existsSync(src)) throw new Error('Proyecto no encontrado');
   if (fs.existsSync(dst)) fs.rmSync(dst, { recursive: true, force: true });
   fs.cpSync(src, dst, { recursive: true });
-  // Rewrite paths back to `current/`
+  // Rewrite track paths back to `current/` (structurally).
   const projectFp = path.join(dst, 'project.json');
-  if (fs.existsSync(projectFp)) {
-    let raw = fs.readFileSync(projectFp, 'utf-8');
-    raw = raw.replace(new RegExp(`StemProjects/${safe}/`, 'g'), 'StemProjects/current/');
-    fs.writeFileSync(projectFp, raw, 'utf-8');
+  const j = readJsonSafe(projectFp);
+  if (j) {
+    remapStemProjectPaths(j, `StemProjects/${safe}/`, 'StemProjects/current/');
+    fs.writeFileSync(projectFp, JSON.stringify(j, null, 2), 'utf-8');
+    return rewritePaths(j);
   }
-  // Return loaded data so renderer can rehydrate immediately.
-  const fp = path.join(dst, 'project.json');
-  if (!fs.existsSync(fp)) return null;
-  try { return rewritePaths(JSON.parse(fs.readFileSync(fp, 'utf-8'))); }
-  catch (e) { return null; }
+  return null;
 });
 
 ipcMain.handle('stems-delete-project', async (_e, slug) => {
