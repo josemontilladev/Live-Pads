@@ -182,7 +182,10 @@ function buildCard(song, idx, editSongId, searchTerm = '') {
 // than a full re-render of the library.
 export function repaintGiCard(card, song) {
   if (!card) return;
-  const idx = Array.prototype.indexOf.call(card.parentNode.children, card);
+  // Prefer the cached row index (kept current by renumberGiCards); fall back
+  // to an O(N) DOM scan only if it's missing/stale.
+  let idx = parseInt(card.dataset.libIndex, 10);
+  if (!Number.isFinite(idx)) idx = Array.prototype.indexOf.call(card.parentNode.children, card);
   const activeId = getActiveSongId();
   const openAccId = getOpenAccordionSongId();
   const isActive = song.id && activeId && (song.id === activeId);
@@ -204,6 +207,7 @@ export function renumberGiCards() {
   const container = q('#gi-songs-container');
   if (!container) return;
   container.querySelectorAll('.gi-song-item').forEach((card, i) => {
+    card.dataset.libIndex = String(i); // keep cached index current for repaintGiCard
     const numEl = card.querySelector('.gi-row-num-text');
     if (numEl) numEl.textContent = String(i + 1);
   });

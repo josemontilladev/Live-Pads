@@ -701,11 +701,19 @@ export class SynthEngine {
     g.connect(dest); return g;
   }
 
-  _noise(dur) {
-    const sr = this.ctx.sampleRate, buf = this.ctx.createBuffer(1, sr*dur, sr);
-    const d = buf.getChannelData(0);
-    for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
-    const s = this.ctx.createBufferSource(); s.buffer = buf; return s;
+  _noise(/* dur */) {
+    // White noise is identical regardless of length, so bake one buffer once
+    // and reuse it for every hit (callers gate the real length via stop()).
+    // Avoids allocating + filling sr*dur samples on every drum trigger.
+    if (!this._noiseBuf) {
+      const sr = this.ctx.sampleRate, len = Math.ceil(sr * 3);
+      this._noiseBuf = this.ctx.createBuffer(1, len, sr);
+      const d = this._noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const s = this.ctx.createBufferSource();
+    s.buffer = this._noiseBuf;
+    return s;
   }
 
   _synthKick(dest) {

@@ -36,8 +36,15 @@ function getDefaultsPath() {
 function initializeUserData() {
   const userDataPath = app.getPath('userData');
   const defaultsPath = getDefaultsPath();
-  
-  if (fs.existsSync(defaultsPath)) {
+
+  // Only walk/copy the defaults tree on first install or after a version
+  // bump — a marker file lets every normal boot skip the recursive scan
+  // (which previously ran synchronously on every launch).
+  const marker = path.join(userDataPath, '.defaults-version');
+  let upToDate = false;
+  try { upToDate = fs.existsSync(marker) && fs.readFileSync(marker, 'utf-8') === app.getVersion(); } catch (e) {}
+
+  if (!upToDate && fs.existsSync(defaultsPath)) {
     const copyRecursive = (src, dest) => {
       if (fs.statSync(src).isDirectory()) {
         if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
@@ -51,8 +58,9 @@ function initializeUserData() {
       }
     };
     copyRecursive(defaultsPath, userDataPath);
+    try { fs.writeFileSync(marker, app.getVersion(), 'utf-8'); } catch (e) {}
   }
-  
+
   // Auto-initialize an empty config.json template. The user must fill in
   // mongoUri locally — credentials are NEVER baked into the source tree.
   const configPath = path.join(userDataPath, 'config.json');
@@ -237,6 +245,18 @@ function safeId(id) {
   return id;
 }
 
+// Parse a JSON file, returning `fallback` (and logging) instead of throwing
+// on a missing/corrupt file — so one bad file never hangs an IPC handler.
+function readJsonSafe(fp, fallback = null) {
+  try {
+    if (!fs.existsSync(fp)) return fallback;
+    return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+  } catch (e) {
+    console.warn('Bad JSON, ignoring:', fp, e.message);
+    return fallback;
+  }
+}
+
 // Cap any single audio-file read to avoid loading multi-GB files into memory.
 const MAX_AUDIO_BYTES = 500 * 1024 * 1024; // 500 MB
 
@@ -294,7 +314,8 @@ ipcMain.handle('load-presets', async () => {
   if (!fs.existsSync(dir)) return [];
   const list = fs.readdirSync(dir)
     .filter(f => f.endsWith('.json'))
-    .map(f => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')));
+    .map(f => readJsonSafe(path.join(dir, f)))
+    .filter(Boolean); // skip any corrupt preset instead of failing the whole load
   return rewritePaths(list);
 });
 
@@ -340,11 +361,8 @@ ipcMain.handle('save-gi-setlist', async (_e, songs) => {
 
 ipcMain.handle('load-gi-setlist', async () => {
   const fp = path.join(app.getPath('userData'), 'canciones_app.json');
-  if (fs.existsSync(fp)) {
-    const raw = JSON.parse(fs.readFileSync(fp, 'utf-8'));
-    return rewritePaths(raw);
-  }
-  return null;
+  const raw = readJsonSafe(fp);
+  return raw ? rewritePaths(raw) : null;
 });
 
 ipcMain.handle('sync-mongo-setlist', async () => {
@@ -444,11 +462,8 @@ ipcMain.handle('save-user-drums', async (_e, kitMap) => {
 
 ipcMain.handle('load-user-drums', async () => {
   const fp = path.join(app.getPath('userData'), 'user_drums.json');
-  if (fs.existsSync(fp)) {
-    const raw = JSON.parse(fs.readFileSync(fp, 'utf-8'));
-    return rewritePaths(raw);
-  }
-  return null;
+  const raw = readJsonSafe(fp);
+  return raw ? rewritePaths(raw) : null;
 });
 
 ipcMain.handle('save-midi-map', async (_e, mapData) => {
@@ -458,11 +473,8 @@ ipcMain.handle('save-midi-map', async (_e, mapData) => {
 
 ipcMain.handle('load-midi-map', async () => {
   const fp = path.join(app.getPath('userData'), 'midi_map.json');
-  if (fs.existsSync(fp)) {
-    const raw = JSON.parse(fs.readFileSync(fp, 'utf-8'));
-    return rewritePaths(raw);
-  }
-  return null;
+  const raw = readJsonSafe(fp);
+  return raw ? rewritePaths(raw) : null;
 });
 
 // ── Chord/Lyrics URL importer ────────────────────────────────

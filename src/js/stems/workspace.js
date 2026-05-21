@@ -193,12 +193,12 @@ const SHELL_HTML = `
       </div>
 
       <div class="stems-tb-right">
-        <div class="stems-zoom-group" title="Zoom del timeline (Ctrl+rueda)">
+        <div class="stems-zoom-group" title="Zoom del timeline (Alt + rueda del ratón)">
           <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
           <span class="stems-zoom-readout" id="stems-zoom-readout">100%</span>
           <button class="stems-zoom-btn" id="stems-zoom-in" aria-label="Aumentar zoom">+</button>
         </div>
-        <div class="stems-zoom-group" title="Altura de las pistas">
+        <div class="stems-zoom-group" title="Altura de las pistas (Ctrl + rueda del ratón)">
           <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
           <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
         </div>
@@ -512,24 +512,44 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
   root.querySelector('#stems-bpm-detect').onclick = onDetectBpm;
 
-  root.querySelector('#stems-zoom-in').onclick  = () => setZoom(PX_PER_SEC * 1.5);
-  root.querySelector('#stems-zoom-out').onclick = () => setZoom(PX_PER_SEC / 1.5);
+  // Buttons animate too, anchored to the centre of the visible lane area.
+  const zoomBtnAnchorX = () => {
+    const arrange = document.getElementById('stems-arrange');
+    if (!arrange) return 0;
+    const r = arrange.getBoundingClientRect();
+    return r.left + STRIP_WIDTH + (r.width - STRIP_WIDTH) / 2;
+  };
+  const stepZoom = (mult) => {
+    const base = zoomRAF ? zoomTarget : PX_PER_SEC;
+    animateZoomTo(base * mult, zoomBtnAnchorX());
+  };
+  root.querySelector('#stems-zoom-in').onclick  = () => stepZoom(1.5);
+  root.querySelector('#stems-zoom-out').onclick = () => stepZoom(1 / 1.5);
   root.querySelector('#stems-row-taller').onclick   = () => setRowHeight(ROW_HEIGHT + 14);
   root.querySelector('#stems-row-shorter').onclick  = () => setRowHeight(ROW_HEIGHT - 14);
   root.querySelector('#stems-snap').onchange = (e) => { snapToBeat = e.target.checked; scheduleSave(); };
 
-  // Ctrl+wheel zooms in/out, anchoring on the cursor X for natural feel.
+  // Alt+wheel  → horizontal zoom (anchored on the cursor X for natural feel)
+  // Ctrl+wheel → row height (stack tighter / stretch taller)
   const arrange = root.querySelector('#stems-arrange');
   arrange.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
-    e.preventDefault();
-    const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    const rect = arrange.getBoundingClientRect();
-    const cursorX = e.clientX - rect.left + arrange.scrollLeft;
-    const secAtCursor = (cursorX - STRIP_WIDTH) / PX_PER_SEC;
-    setZoom(PX_PER_SEC * dir);
-    // Keep the same audio time under the cursor after the zoom.
-    arrange.scrollLeft = secAtCursor * PX_PER_SEC + STRIP_WIDTH - (e.clientX - rect.left);
+    if (e.altKey) {
+      e.preventDefault();
+      // Smooth, speed-proportional zoom: normalise deltaY across mouse-wheel
+      // (lines/pages) and trackpad (pixels), then an exponential factor so a
+      // single notch is a gentle ~12% step instead of compounding 1.15× jumps.
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) dy *= 16;        // lines → ~px
+      else if (e.deltaMode === 2) dy *= 100;  // pages → ~px
+      dy = Math.max(-100, Math.min(100, dy)); // clamp a single event
+      const factor = Math.exp(-dy * 0.0009);
+      // Accumulate onto the pending target so rapid notches glide together.
+      const base = zoomRAF ? zoomTarget : PX_PER_SEC;
+      animateZoomTo(base * factor, e.clientX);
+    } else if (e.ctrlKey) {
+      e.preventDefault();
+      setRowHeight(ROW_HEIGHT + (e.deltaY < 0 ? 14 : -14));
+    }
   }, { passive: false });
 }
 
@@ -592,12 +612,73 @@ function onDetectBpm() {
   });
 }
 
+function clampPx(v) { return Math.max(PX_PER_SEC_MIN, Math.min(PX_PER_SEC_MAX, v)); }
+
+// Instant zoom (used on project load). Interactive zoom uses animateZoomTo.
 function setZoom(next) {
-  PX_PER_SEC = Math.max(PX_PER_SEC_MIN, Math.min(PX_PER_SEC_MAX, next));
+  PX_PER_SEC = clampPx(next);
   const readout = document.getElementById('stems-zoom-readout');
   if (readout) readout.textContent = `${Math.round((PX_PER_SEC / 40) * 100)}%`;
   refreshTimelineWidth();
   scheduleSave();
+}
+
+// Smooth, anchor-preserving zoom: glide PX_PER_SEC toward a target over a few
+// frames so wheel notches feel continuous instead of snapping. During the
+// glide the existing waveform bitmaps are cheaply CSS-stretched (no peak
+// recompute); a single crisp redraw runs when the glide settles.
+let zoomTarget = PX_PER_SEC;
+let zoomRAF = 0;
+let zoomAnchorSec = 0;       // audio time to keep under the anchor point
+let zoomAnchorOffsetX = 0;   // anchor X relative to the arrange left edge
+
+function animateZoomTo(target, anchorClientX) {
+  const arrange = document.getElementById('stems-arrange');
+  if (!arrange) { setZoom(target); return; }
+  zoomTarget = clampPx(target);
+  const rectLeft = arrange.getBoundingClientRect().left;
+  zoomAnchorOffsetX = anchorClientX - rectLeft;
+  zoomAnchorSec = (arrange.scrollLeft + zoomAnchorOffsetX - STRIP_WIDTH) / PX_PER_SEC;
+  if (zoomRAF) return; // already gliding; new target picked up next frame
+
+  const tick = () => {
+    const diff = zoomTarget - PX_PER_SEC;
+    const done = Math.abs(diff) < 0.5;
+    PX_PER_SEC = done ? zoomTarget : clampPx(PX_PER_SEC + diff * 0.28);
+    applyZoomFrame(arrange, done);
+    if (done) { zoomRAF = 0; scheduleSave(); }
+    else zoomRAF = requestAnimationFrame(tick);
+  };
+  zoomRAF = requestAnimationFrame(tick);
+}
+
+function applyZoomFrame(arrange, crisp) {
+  const readout = document.getElementById('stems-zoom-readout');
+  if (readout) readout.textContent = `${Math.round((PX_PER_SEC / 40) * 100)}%`;
+  const inner = document.getElementById('stems-arrange-inner');
+  const w = projectWidthPx();
+  const tl = inner && inner.querySelector('.stems-head-tl');
+  if (tl) tl.style.width = `${w}px`;
+  for (const [id, entry] of trackRows) {
+    entry.lane.style.width = `${w}px`;
+    if (crisp) {
+      drawTrackWaveform(id);
+    } else {
+      // cheap: stretch the existing bitmap via CSS, no peak recompute
+      const buffer = engine.getTrackBuffer(id);
+      if (buffer) {
+        entry.canvas.style.width = `${Math.ceil(buffer.duration * PX_PER_SEC)}px`;
+        entry.canvas.style.transform = `translateX(${(engine.getTrackOffset(id) || 0) * PX_PER_SEC}px)`;
+      }
+    }
+  }
+  drawRuler();
+  redrawMarkers();
+  syncLoopRegion();
+  const head = document.getElementById('stems-playhead');
+  if (head) head.style.transform = `translateX(${STRIP_WIDTH + engine.getCurrentSec() * PX_PER_SEC}px)`;
+  // keep the anchored audio time pinned under the cursor
+  arrange.scrollLeft = zoomAnchorSec * PX_PER_SEC + STRIP_WIDTH - zoomAnchorOffsetX;
 }
 
 function setRowHeight(next) {
@@ -1132,6 +1213,7 @@ function buildRowHtml(track) {
     </aside>
     <div class="stems-row-lane">
       <canvas class="stems-row-canvas"></canvas>
+      <div class="stems-row-grid" aria-hidden="true"></div>
     </div>
   `;
 }
@@ -1482,7 +1564,12 @@ function projectWidthPx() {
   return Math.max(MIN_TIMELINE_PX, Math.ceil(projectDurationSec() * PX_PER_SEC));
 }
 
-function refreshTimelineWidth() {
+let waveformRedrawRAF = 0;
+// coalesceWaveforms: during continuous zoom (wheel) the cheap layout (widths,
+// ruler, grid, markers) runs every event for instant feedback, but the
+// expensive per-track peak recompute is collapsed to once per animation
+// frame at the latest zoom — keeps zooming smooth instead of jumpy.
+function refreshTimelineWidth({ coalesceWaveforms = false } = {}) {
   const inner = document.getElementById('stems-arrange-inner');
   if (!inner) return;
   const w = projectWidthPx();
@@ -1495,9 +1582,15 @@ function refreshTimelineWidth() {
     entry.lane.style.width = `${w}px`;
   }
   drawRuler();
-  redrawAllWaveforms();
   redrawMarkers();
   syncLoopRegion();
+  if (coalesceWaveforms) {
+    if (!waveformRedrawRAF) {
+      waveformRedrawRAF = requestAnimationFrame(() => { waveformRedrawRAF = 0; redrawAllWaveforms(); });
+    }
+  } else {
+    redrawAllWaveforms();
+  }
 }
 
 function drawRuler() {
@@ -1527,6 +1620,24 @@ function drawRuler() {
   // Ruler is position:absolute inset:0 inside .stems-head-tl, so width
   // is inherited from the parent — no need to set it here.
   ruler.innerHTML = html;
+  drawGrid();
+}
+
+// Beat/bar guide lines on the lanes, aligned to the ruler, so dragged
+// tracks can be lined up. Implemented as CSS custom properties consumed by
+// .stems-row-lane backgrounds (lanes scroll with content and sit to the
+// right of the sticky strip, so the lines never overlap the controls).
+function drawGrid() {
+  const beatPx = (60 / bpm) * PX_PER_SEC;
+  const barPx = beatPx * beatsPerBar;
+  const root = document.documentElement.style;
+  if (!isFinite(beatPx) || beatPx <= 0) {
+    root.setProperty('--stems-beatpx', '100000px');
+    root.setProperty('--stems-barpx', '100000px');
+    return;
+  }
+  root.setProperty('--stems-beatpx', `${beatPx}px`);
+  root.setProperty('--stems-barpx', `${barPx}px`);
 }
 function formatBarTime(sec) {
   const mm = Math.floor(sec / 60);

@@ -311,6 +311,7 @@ function loadPadBank(idx) {
   localStorage.setItem('lastPadBankIdx', getPadBankIdx());
 }
 
+let lastDrumGridSig = null; // pad-layout signature of the currently-mounted drum grid
 function loadKitBank(idx) {
   setKitBankIdx(((idx % KIT_BANKS.length) + KIT_BANKS.length) % KIT_BANKS.length);
   const kit = KIT_BANKS[getKitBankIdx()];
@@ -324,9 +325,16 @@ function loadKitBank(idx) {
   const btnEdit = q('#btn-edit-kit');
   if (btnEdit) btnEdit.classList.toggle('kit-action-btn--disabled', !kit.isCustom);
 
-  engine.initDrumVolumes(kit.pads);
-  buildDrumGrid(kit.pads);
-  buildDrumVolumes(kit.pads);
+  // Skip rebuilding the grid/volumes when the pad layout is unchanged (e.g.
+  // re-selecting the same kit) — avoids needless DOM churn and, importantly,
+  // preserves the user's current drum volumes instead of resetting them.
+  const sig = kit.pads.map(p => `${p.id}:${p.label}:${p.type}`).join('|');
+  if (sig !== lastDrumGridSig) {
+    engine.initDrumVolumes(kit.pads);
+    buildDrumGrid(kit.pads);
+    buildDrumVolumes(kit.pads);
+    lastDrumGridSig = sig;
+  }
   // Load real WAV samples in background
   engine.loadKitSamples(kit.pads).then(loadedIds => {
     loadedIds.forEach(id => {
@@ -1051,17 +1059,30 @@ function applyGiSong(song) {
   }
 }
 
-// Cheap poller that mirrors the cabin's playing state to the Companion.
-// Track player + metronome state changes don't fan out through a central
-// event, so a 500 ms diff-publish is the lowest-friction way to keep the
-// LAN viewer's "live" dot in sync. Only emits on actual change.
+// Mirrors the cabin's playing state to the Companion. Track player +
+// metronome state changes don't fan out through a central event, so a
+// diff-publish poll is the lowest-friction way to keep the LAN viewer's
+// "live" dot in sync. It only emits on actual change AND fully pauses while
+// the window is hidden/minimised (no battery/CPU waste in the background).
 let lastCompanionPlaying = null;
-setInterval(() => {
-  if (!window.electronAPI || !window.electronAPI.companionPublishPlaying) return;
-  const playing = isTrackLoaded() ? isTrackPlaying() : getMetroRunning();
-  if (playing !== lastCompanionPlaying) {
-    lastCompanionPlaying = playing;
-    window.electronAPI.companionPublishPlaying(playing).catch(() => {});
+let companionPollTimer = null;
+function companionPollTick() {
+  companionPollTimer = null;
+  if (window.electronAPI && window.electronAPI.companionPublishPlaying) {
+    const playing = isTrackLoaded() ? isTrackPlaying() : getMetroRunning();
+    if (playing !== lastCompanionPlaying) {
+      lastCompanionPlaying = playing;
+      window.electronAPI.companionPublishPlaying(playing).catch(() => {});
+    }
   }
-}, 500);
+  scheduleCompanionPoll();
+}
+function scheduleCompanionPoll() {
+  if (companionPollTimer || document.visibilityState !== 'visible') return;
+  companionPollTimer = setTimeout(companionPollTick, 600);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') scheduleCompanionPoll();
+});
+scheduleCompanionPoll();
 
