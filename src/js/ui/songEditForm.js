@@ -69,6 +69,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false } = {}) {
           <option value="adoracion" ${song.genre === 'adoracion' ? 'selected' : ''}>Adoración</option>
         </select>
       </div>
+      <input type="text" class="gi-edit-input edit-tags" value="${esc(Array.isArray(song.tags) ? song.tags.join(', ') : '')}" placeholder="Etiquetas (separadas por comas: rápida, navidad…)">
       ${audioSection}
       <div class="gi-edit-actions">
         <button class="gi-edit-btn save" data-action="edit-save">Guardar</button>

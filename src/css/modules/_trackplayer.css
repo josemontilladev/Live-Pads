@@ -20,6 +20,16 @@
 .tp-play  { background: var(--blue); color: #000; transition: transform 0.15s; }
 .tp-stop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
 .tp-loop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+.tp-autoadvance {
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.tp-autoadvance.active { background: var(--blue); border-color: var(--blue); color: #000; }
 
 .tp-info {
   flex: 1;

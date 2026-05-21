@@ -114,3 +114,46 @@
   background: #4ade80;
   box-shadow: 0 0 6px rgba(74, 222, 128, 0.55);
 }
+
+/* ── Auto-update banner (bottom-center, non-intrusive) ───────────── */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 16px);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 10px 16px;
+  background: var(--bg-card, #141414);
+  border: 1px solid var(--border-strong, rgba(255,255,255,0.15));
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  color: var(--text, #fff);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1);
+}
+.update-banner.is-in { opacity: 1; transform: translate(-50%, 0); }
+.update-banner button {
+  appearance: none;
+  border: 1px solid var(--accent, #FBAE00);
+  background: var(--accent, #FBAE00);
+  color: #0a0a14;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.update-banner button:hover { filter: brightness(1.08); }
+.update-banner .update-banner__later {
+  background: transparent;
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  color: var(--text-muted, #a3a3a3);
+  font-weight: 700;
+  padding: 7px 10px;
+}

@@ -227,6 +227,7 @@ async function startTrackPlayback(url, title, type) {
     updatePlayBtn();
     if (els.progress) { els.progress.value = 0; deps.syncSlider(els.progress); }
     if (els.timeCur)  els.timeCur.textContent = '0:00';
+    if (deps.onTrackEnded) deps.onTrackEnded();
   };
 
   updatePlayBtn();

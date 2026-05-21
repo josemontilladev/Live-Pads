@@ -157,6 +157,7 @@ function bindSearchAndAdd(deps) {
         bpm: '',
         key: '',
         genre: 'adoracion',
+        tags: [],
         audio: { sequence: null, original: null }
       };
       getSongs().push(newSong);

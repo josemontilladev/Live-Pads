@@ -483,6 +483,12 @@ input.pan-slider {
 .gi-badge.bpm { color: var(--text-muted); }
 .gi-badge.key { background: rgba(251,174,0,0.12); color: var(--blue); }
 .gi-badge.genre { display: none; } /* Hide genre — too long for compact layout */
+.gi-badge.tag {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  text-transform: lowercase;
+}
 
 /* Action buttons — hidden until hover */
 .gi-song-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
