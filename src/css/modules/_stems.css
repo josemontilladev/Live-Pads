@@ -95,13 +95,38 @@ body[data-workspace="stems"] #body {
 }
 #workspace-stems.hidden { display: none; }
 
+/* Bento layout: the shell is a padded container on the app's base
+   background; each major area (control deck, timeline, console) is a
+   rounded card with a gap between, matching the Pads stage grid. */
 .stems-shell {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   position: relative;
+  padding: 14px;
+  gap: 14px;
+  background: var(--bg-main);
 }
+
+/* Card shell shared by the bento blocks. Overflow is set per-component
+   below (arrange needs auto for scroll; deck/console/footer hidden). */
+.stems-deck,
+.stems-arrange,
+.stems-console {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+/* Control deck (transport + actions) — stacked rows inside one card */
+.stems-deck {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.stems-console { overflow: hidden; }
 
 #workspace-stems.is-dragover .stems-shell::after {
   content: "Suelta los archivos para importar";
@@ -123,8 +148,8 @@ body[data-workspace="stems"] #body {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--gap-sm) var(--gap-md);
-  padding: 14px 20px;
-  background: var(--bg-surface);
+  padding: 7px 16px;
+  background: transparent;
   border-bottom: 1px solid var(--border);
 }
 
@@ -254,7 +279,7 @@ body[data-workspace="stems"] #body {
   background: var(--accent);
   border-color: var(--accent);
   color: #0a0a14;
-  width: 52px; height: 52px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   box-shadow: 0 0 18px var(--glow), 0 4px 12px rgba(0,0,0,0.4);
   margin-left: 2px;
@@ -265,7 +290,7 @@ body[data-workspace="stems"] #body {
   color: #0a0a14;
   filter: brightness(1.1);
 }
-.stems-tb-btn--play svg { width: 22px; height: 22px; }
+.stems-tb-btn--play svg { width: 18px; height: 18px; }
 .stems-tb-btn--play.is-playing {
   animation: stemsPulse 1.6s ease-in-out infinite;
 }
@@ -369,9 +394,9 @@ body[data-workspace="stems"] #body {
   align-items: center;
   gap: var(--gap-md);
   flex-wrap: wrap;
-  padding: 12px 20px;
+  padding: 7px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: transparent;
 }
 
 .stems-actions-primary {
@@ -443,7 +468,7 @@ body[data-workspace="stems"] #body {
   padding: 6px 16px;
   gap: 16px;
   background: rgba(255,255,255,0.018);
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;
 }
 .stems-tools-group {
   display: flex;
@@ -521,6 +546,8 @@ body[data-workspace="stems"] #body {
 }
 .stems-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
 .stems-btn:active { transform: scale(0.97); }
+.stems-btn:focus { outline: none; }
+.stems-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stems-btn:hover { filter: brightness(1.15); }
 .stems-btn:active { transform: scale(0.97); }
 .stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -528,7 +555,13 @@ body[data-workspace="stems"] #body {
   background: var(--accent);
   color: #0a0a14;
   border-color: var(--accent);
-  box-shadow: 0 0 14px var(--glow);
+}
+/* Keep the accent fill on hover (the base .stems-btn:hover would turn it
+   dark) and just brighten slightly — no glow ring, which read as ugly. */
+.stems-btn--primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  filter: brightness(1.08);
 }
 
 /* Mini-select matches Pads' .metro-dropdown — same paddings, font,
@@ -800,7 +833,7 @@ body[data-workspace="stems"] #body {
 
 .stems-row {
   display: flex;
-  min-height: var(--stems-row-height, 78px);
+  min-height: var(--stems-row-height, 64px);
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   transition: opacity 0.15s, background 0.15s;
@@ -810,7 +843,7 @@ body[data-workspace="stems"] #body {
 .stems-row.is-dragging { opacity: 0.4; background: rgba(255,255,255,0.04); }
 .stems-row.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }
 
-.stems-lane { min-height: var(--stems-row-height, 78px); }
+.stems-lane { min-height: var(--stems-row-height, 64px); }
 
 /* Drag handle on strip — always visible so reordering is discoverable */
 .stems-row-grip {
@@ -826,9 +859,10 @@ body[data-workspace="stems"] #body {
 .stems-row-strip:hover .stems-row-grip { opacity: 0.9; color: var(--accent); }
 .stems-row-grip:active { cursor: grabbing; }
 
-/* Left strip — sticky during horizontal scroll. Flat surface that
-   matches the Pads card pattern (bg-card + 1px border, no gradient
-   layers). Fills the row vertically via space-evenly. */
+/* Left strip — single horizontal row with identification + reorder +
+   per-track destructive actions. Mixing controls (vol/pan/mute/solo)
+   live in the console below; duplicating them here was visually busy
+   and forced a tall row. */
 .stems-row-strip {
   width: 220px;
   min-width: 220px;
@@ -837,10 +871,9 @@ body[data-workspace="stems"] #body {
   z-index: 2;
   background: var(--bg-card);
   border-right: 1px solid var(--border);
-  padding: 10px 12px;
+  padding: 8px 12px;
   display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;
+  align-items: center;
   gap: 6px;
 }
 .stems-row--click .stems-row-strip {
@@ -850,12 +883,17 @@ body[data-workspace="stems"] #body {
   box-shadow: inset 3px 0 0 #4ade80, 2px 0 4px rgba(0,0,0,0.25);
 }
 
+/* Strip head: single horizontal row with the name claiming flex space
+   between the M/S group on the left and the action icons on the right.
+   Using flex (not grid) keeps all six elements on one line at 220 px
+   width — grid was wrapping them onto two rows. */
 .stems-row-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
 }
+.stems-row-head .stems-row-meta { flex: 1 1 auto; min-width: 0; }
 .stems-ms-pair { display: flex; gap: 3px; }
 .stems-ms {
   appearance: none;
@@ -935,17 +973,18 @@ body[data-workspace="stems"] #body {
 
 .stems-row-remove {
   appearance: none;
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0;
+  opacity: 0.5;
+  flex-shrink: 0;
   transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 }
-.stems-row:hover .stems-row-remove { opacity: 1; }
+.stems-row-strip:hover .stems-row-remove { opacity: 1; }
 .stems-row-remove:hover { border-color: rgba(255,95,87,0.5); color: #ff5f57; }
 
 .stems-row-controls { display: flex; flex-direction: column; gap: 4px; }
@@ -1026,16 +1065,11 @@ body[data-workspace="stems"] #body {
   opacity: 0.7;
   text-align: center;
 }
-/* Bipolar fill: the segment between the center (50 %) and the thumb
-   lights up gold. JS sets --fill-start / --fill-end. */
+/* Pan slider: plain grey track + white thumb, identical to the Pads
+   `.pan-slider`. No fill — the thumb position and the readout carry the
+   pan value, exactly like in the Pads mixer. */
 .stems-pan-slider {
-  background: linear-gradient(to right,
-    var(--border-strong) 0%,
-    var(--border-strong) var(--fill-start, 50%),
-    var(--accent) var(--fill-start, 50%),
-    var(--accent) var(--fill-end, 50%),
-    var(--border-strong) var(--fill-end, 50%),
-    var(--border-strong) 100%);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Lane — the part that fills horizontally with the waveform */
@@ -1094,7 +1128,6 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  border-top: 1px solid var(--border);
   max-height: 260px;
 }
 .stems-console-header {
@@ -1137,6 +1170,8 @@ body[data-workspace="stems"] #body {
 .stems-console-strip {
   flex: 0 0 92px;
   width: 92px;
+  min-width: 92px;
+  max-width: 92px;
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
@@ -1146,6 +1181,7 @@ body[data-workspace="stems"] #body {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   position: relative;
+  overflow: hidden;
   transition: border-color 0.18s, opacity 0.15s;
 }
 .stems-console-strip:hover {
@@ -1163,6 +1199,8 @@ body[data-workspace="stems"] #body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  min-width: 0;
+  width: 100%;
 }
 .stems-console-strip-kind {
   font-size: 8px;
@@ -1173,28 +1211,39 @@ body[data-workspace="stems"] #body {
 .stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
 .stems-console-strip--guide .stems-console-strip-kind { color: #4ade80; }
 .stems-console-strip-name {
+  display: block;
   font-size: 11px;
   font-weight: 700;
   color: var(--text);
   width: 100%;
+  max-width: 100%;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 
+/* Console pan: PAN label + slider + value readout, stacked compact to
+   fit the 92px strip — same slider primitive as Pads (gold left-fill +
+   white thumb). */
 .stems-console-pan-row {
-  display: grid;
-  grid-template-columns: 10px 1fr 10px;
-  align-items: center;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.stems-console-pan-letter {
-  font-size: 8.5px;
-  font-weight: 900;
-  color: var(--accent);
-  opacity: 0.7;
-  text-align: center;
+.stems-console-pan-label {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+.stems-console-pan-readout {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  text-align: right;
 }
 
 .stems-console-ms-row {
@@ -1203,69 +1252,72 @@ body[data-workspace="stems"] #body {
   gap: 3px;
 }
 
-/* Vertical fader column */
-.stems-console-fader-wrap {
+/* Custom pointer-driven vertical fader — reliable across Chromium
+   versions (native vertical range was ignoring drags). track = the
+   groove, fill = lit portion from the bottom, handle = draggable cap. */
+.stems-cfader {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 90px;
-}
-.stems-console-fader-meter {
-  position: absolute;
-  inset: 0;
-  background:
-    repeating-linear-gradient(180deg,
-      transparent 0,
-      transparent 7px,
-      rgba(255,255,255,0.04) 7px,
-      rgba(255,255,255,0.04) 8px);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background-color: rgba(0,0,0,0.4);
-  box-shadow:
-    inset 0 1px 4px rgba(0,0,0,0.55),
-    inset 0 0 0 1px rgba(255,255,255,0.025);
-}
-/* Modern vertical slider (Chromium 121+ deprecated slider-vertical) —
-   use writing-mode + direction:rtl so the bar fills bottom→top, then
-   custom-paint a "wide" thumb that looks like a real fader handle. */
-.stems-console-fader {
-  -webkit-appearance: none;
-  appearance: none;
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 28px;
+  width: 100%;
   height: 100%;
-  background: transparent;
-  outline: none;
+  min-height: 110px;
   cursor: pointer;
-  position: relative;
-  z-index: 1;
+  touch-action: none;       /* let pointer events drive the drag */
+  outline: none;
 }
-.stems-console-fader::-webkit-slider-runnable-track {
-  width: 4px;
+.stems-cfader:focus-visible {
+  box-shadow: 0 0 0 2px var(--glow);
+  border-radius: 6px;
+}
+.stems-cfader-track {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 8px; bottom: 8px;
+  width: 6px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.stems-cfader-fill {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  width: 6px;
+  background: var(--accent);
+  border-radius: 3px;
+  box-shadow: 0 0 8px var(--glow);
+  pointer-events: none;
+}
+.stems-cfader-handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 18px;
   background: linear-gradient(180deg,
-    rgba(255,255,255,0.08) 0,
-    rgba(255,255,255,0.04) 100%);
-  border-radius: 2px;
-}
-.stems-console-fader::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 26px;
-  height: 14px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%) 0%, var(--accent) 55%, color-mix(in srgb, var(--accent), black 35%) 100%);
+    color-mix(in srgb, var(--accent), white 35%) 0%,
+    var(--accent) 55%,
+    color-mix(in srgb, var(--accent), black 35%) 100%);
   border: 1px solid rgba(0,0,0,0.5);
   border-radius: 4px;
-  cursor: grab;
-  /* The negative margin centers the thumb on the 4px-wide track */
-  margin-left: -11px;
   box-shadow:
-    0 0 12px var(--glow),
+    0 2px 6px rgba(0,0,0,0.5),
     inset 0 1px 0 rgba(255,255,255,0.45),
     inset 0 -1px 0 rgba(0,0,0,0.35);
+  pointer-events: none;
+  /* A center grip line for that real-fader look */
 }
-.stems-console-fader::-webkit-slider-thumb:active { cursor: grabbing; }
+.stems-cfader-handle::after {
+  content: "";
+  position: absolute;
+  left: 6px; right: 6px; top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.35);
+  border-radius: 1px;
+}
 
 .stems-console-strip-readout {
   font-size: 9.5px;
@@ -1279,25 +1331,39 @@ body[data-workspace="stems"] #body {
   padding: 1px 0;
 }
 
-/* ── Footer (master + saved pill) ───────────────────────────────── */
-.stems-footer {
+/* ── Master (lives in the console header, right side) ───────────── */
+.stems-console-header-left,
+.stems-console-header-right {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--border);
+  gap: 12px;
 }
 .stems-master {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 1.4px;
   color: var(--text-muted);
 }
-.stems-master .stems-range { width: 200px; }
+.stems-master .stems-range { width: 150px; }
+/* Gold left-fill for the master, identical to the Pads `.blue-slider`
+   (gold up to the thumb, rgba(255,255,255,0.12) track after it). */
+.stems-range--fill {
+  background: linear-gradient(to right,
+    var(--accent) 0%,
+    var(--accent) var(--fill, 85%),
+    rgba(255, 255, 255, 0.12) var(--fill, 85%),
+    rgba(255, 255, 255, 0.12) 100%);
+}
+.stems-master-readout {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  min-width: 36px;
+}
 
 /* Master VU meter — thin vertical bar to the left of the slider that
    reflects realtime peak amplitude from the master analyser. */
@@ -1323,13 +1389,14 @@ body[data-workspace="stems"] #body {
   transition: height 0.05s linear;
 }
 
-/* Per-track colour swatch — readable square with thin border. */
+/* Per-track colour swatch — same footprint as the M/S/icon buttons so
+   the head row stays visually balanced. */
 .stems-row-color {
   appearance: none;
   -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   border: 1px solid var(--border-strong);
   background: transparent;
   cursor: pointer;
@@ -1339,23 +1406,26 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
 }
 .stems-row-color::-webkit-color-swatch-wrapper { padding: 0; }
-.stems-row-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+.stems-row-color::-webkit-color-swatch { border: none; border-radius: 4px; }
 .stems-row-color:hover { border-color: var(--accent); transform: scale(1.1); }
 
-/* Export-this-track button on the strip (next to the trash) */
+/* Export + remove sit always-visible at low opacity so the strip head
+   layout never reflows on hover. Same 20 px footprint as the color
+   swatch to keep visual rhythm. */
 .stems-row-export {
   appearance: none;
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   border-radius: 5px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0;
+  opacity: 0.5;
+  flex-shrink: 0;
   transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 }
-.stems-row:hover .stems-row-export { opacity: 1; }
+.stems-row-strip:hover .stems-row-export { opacity: 1; }
 .stems-row-export:hover {
   border-color: var(--accent);
   color: var(--accent);
@@ -1710,15 +1780,16 @@ body[data-workspace="stems"] #body {
 
 /* ── Export overlay ─────────────────────────────────────────────── */
 .stems-export-overlay {
-  position: absolute;
+  /* fixed so it's centred on the whole window, not just the stems area */
+  position: fixed;
   inset: 0;
-  background: rgba(10, 10, 20, 0.78);
+  background: rgba(10, 10, 20, 0.82);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  z-index: 9000;
 }
 .stems-export-overlay[hidden] { display: none; }
 .stems-export-panel {
@@ -1731,6 +1802,17 @@ body[data-workspace="stems"] #body {
   text-align: center;
   box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 60px var(--glow);
 }
+.stems-spinner {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 14px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: stemsSpin 0.7s linear infinite;
+}
+@keyframes stemsSpin { to { transform: rotate(360deg); } }
+
 .stems-export-panel h3 {
   margin: 0 0 10px;
   font-size: 16px;
