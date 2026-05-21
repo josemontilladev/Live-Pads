@@ -152,6 +152,7 @@ function bindSearchAndAdd(deps) {
     btnAddGiSong.onclick = () => {
       const newSong = {
         id: 'song_' + Date.now(),
+        addedAt: Date.now(),
         title: 'Nueva Canción',
         artist: '',
         bpm: '',

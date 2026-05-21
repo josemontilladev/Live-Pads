@@ -13,6 +13,7 @@ import {
   getCurrentGenre,
   getActiveSongId,
   getOpenAccordionSongId,
+  isRecentSong, songAddedAt,
 } from '../state/store.js';
 
 let deps = null;
@@ -98,9 +99,16 @@ export function renderGiList(filter = '', editSongId = null) {
     }
     if (currentGenre === 'all') return true;
     if (currentGenre === 'favoritos') return !!s.favorite;
+    if (currentGenre === 'recientes') return isRecentSong(s);
     const genre = s.genre ? s.genre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() : '';
     return genre.includes(currentGenre);
   });
+
+  // "Recientes" sorts newest-first so the just-added songs sit at the top,
+  // overriding the manual array order (which only matters for the full list).
+  if (currentGenre === 'recientes') {
+    filtered.sort((a, b) => songAddedAt(b) - songAddedAt(a));
+  }
 
   // Library now renders in the songs[] array order so drag-and-drop reorder
   // sticks. The only forced override is editSongId — when the user just
