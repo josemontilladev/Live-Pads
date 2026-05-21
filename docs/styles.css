@@ -361,6 +361,29 @@ a { color: inherit; text-decoration: none; }
   transform: translateY(-3px);
   background: var(--bg-surface);
 }
+/* Highlighted (new headline) feature card */
+.feature-card--highlight {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: linear-gradient(160deg, rgba(251,174,0,0.07), var(--bg-card) 60%);
+}
+.feature-card--highlight .feature-icon {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #0a0a14;
+}
+.feature-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #0a0a14;
+  background: var(--accent);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.feature-card b { color: var(--text); font-weight: 700; }
 .feature-icon {
   width: 44px;
   height: 44px;

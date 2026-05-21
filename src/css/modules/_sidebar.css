@@ -147,6 +147,20 @@
 .about-update .sb-btn:disabled { opacity: 0.5; cursor: default; }
 .about-update-status { font-size: 11px; color: var(--text-muted); min-height: 14px; }
 .about-update-status.is-error { color: #ff8a84; }
+.about-features { text-align: left; margin-bottom: 18px; }
+.about-feat-title {
+  font-size: 10px; font-weight: 800; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+}
+.about-feat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.about-feat-list li {
+  font-size: 11.5px; color: var(--text-muted); line-height: 1.45; padding-left: 16px; position: relative;
+}
+.about-feat-list li::before {
+  content: ""; position: absolute; left: 2px; top: 7px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+}
+.about-feat-list li b { color: var(--text); font-weight: 700; }
 .about-blurb {
   font-size: 12px;
   color: var(--text-muted);

@@ -38,7 +38,11 @@ export function formatLyrics(lyrics) {
     }
 
     const isBracketedHeader = trimmed.startsWith('[') && trimmed.endsWith(']') && !isChordLine(trimmed);
-    const isKeywordHeader = SECTION_KEYWORDS.some(k => trimmed.toUpperCase().startsWith(k)) && trimmed.split(/\s+/).length <= 3;
+    // A bare keyword header must BE the keyword (optionally + a number), e.g.
+    // "VERSO 2" or "CORO" — not just any lyric line that happens to start with
+    // one ("Verso favorito mío" must stay a lyric, not become a header).
+    const headerCandidate = trimmed.toUpperCase().replace(/\s+\d+$/, '').trim();
+    const isKeywordHeader = SECTION_KEYWORDS.includes(headerCandidate);
 
     if (isBracketedHeader || isKeywordHeader) {
       const headerText = trimmed.replace(/\[|\]/g, '');

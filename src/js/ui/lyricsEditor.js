@@ -79,7 +79,7 @@ function modalHTML(song) {
     </div>
 
     <div class="lyrics-modal-footer">
-      <span class="lyrics-shortcut-hint">Ctrl+S guardar · Esc cerrar</span>
+      <span class="lyrics-shortcut-hint">Ctrl+S guardar · Ctrl+[ acorde · Esc cerrar</span>
       <span class="lyrics-autosave-indicator" data-state="idle">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="12" height="12" class="lai-icon-saved"><polyline points="20 6 9 17 4 12"/></svg>
         <span class="lai-text"></span>
