@@ -53,8 +53,11 @@
   position: relative;
   flex: 1;
   display: flex;
+  align-items: center;
 }
-.gi-search-wrap .gi-search-input { padding-right: 30px; }
+/* margin-bottom:0 (higher specificity than the responsive .gi-search-input
+   rule) so the wrap hugs the input and the clear-× stays vertically centred. */
+.gi-search-wrap .gi-search-input { padding-right: 30px; margin-bottom: 0; }
 .gi-search-clear {
   position: absolute;
   top: 50%; right: 8px;
