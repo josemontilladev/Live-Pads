@@ -42,7 +42,8 @@
       {
         "provider": "github",
         "owner": "josemontilladev",
-        "repo": "Live-Pads"
+        "repo": "Live-Pads",
+        "releaseType": "release"
       }
     ],
     "asar": true,

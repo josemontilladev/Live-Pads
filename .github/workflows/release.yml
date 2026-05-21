@@ -1,0 +1,40 @@
+name: Release
+
+# Build + publish the Windows installer to GitHub Releases whenever a
+# version tag is pushed (e.g. v1.0.1). The published release includes the
+# .exe, latest.yml and .blockmap that electron-updater needs, so installed
+# apps update themselves automatically.
+#
+# Release flow (run locally):
+#   npm version patch    # bumps package.json + commits + creates tag vX.Y.Z
+#   git push --follow-tags
+# (use `minor` / `major` instead of `patch` as needed)
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # let GITHUB_TOKEN create the release + upload assets
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and publish (fetches models, packages, uploads to Release)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release
