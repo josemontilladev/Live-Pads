@@ -147,6 +147,24 @@
 .about-update .sb-btn:disabled { opacity: 0.5; cursor: default; }
 .about-update-status { font-size: 11px; color: var(--text-muted); min-height: 14px; }
 .about-update-status.is-error { color: #ff8a84; }
+.about-update-status b { color: var(--accent); font-weight: 800; }
+.update-bar {
+  display: block;
+  width: 180px;
+  max-width: 100%;
+  height: 6px;
+  margin: 6px auto 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.update-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
 .about-features { text-align: left; margin-bottom: 18px; }
 .about-feat-title {
   font-size: 10px; font-weight: 800; letter-spacing: 1.2px;

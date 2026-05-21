@@ -1148,6 +1148,19 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
 
   const checkBtn = document.getElementById('btn-check-updates');
   const statusEl = document.getElementById('update-status');
+  let downloadingVersion = '';
+
+  // Render "Descargando vX… NN%" with a thin progress bar inside the status.
+  const renderProgress = (pct) => {
+    const el = document.getElementById('update-status');
+    if (!el) return;
+    const p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    el.className = 'about-update-status';
+    el.innerHTML =
+      `Descargando${downloadingVersion ? ` v${downloadingVersion}` : ''}… <b>${p}%</b>` +
+      `<span class="update-bar"><span class="update-bar-fill" style="width:${p}%"></span></span>`;
+  };
+
   if (checkBtn) {
     checkBtn.onclick = async () => {
       if (!statusEl) return;
@@ -1156,7 +1169,7 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
       statusEl.className = 'about-update-status';
       try {
         const r = await window.electronAPI.checkForUpdates();
-        if (r.status === 'available')      statusEl.textContent = `Descargando v${r.version}…`;
+        if (r.status === 'available')      { downloadingVersion = r.version || ''; renderProgress(0); }
         else if (r.status === 'latest')    statusEl.textContent = 'Ya tienes la última versión ✓';
         else if (r.status === 'dev')       statusEl.textContent = 'Solo disponible en la app instalada';
         else                               { statusEl.textContent = 'No se pudo comprobar'; statusEl.classList.add('is-error'); }
@@ -1168,10 +1181,25 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
       }
     };
   }
+
+  // Live download progress + errors (also fires from the auto-check on launch).
+  if (window.electronAPI.onUpdateProgress) {
+    window.electronAPI.onUpdateProgress((p) => renderProgress(p && p.percent));
+  }
+  if (window.electronAPI.onUpdateError) {
+    window.electronAPI.onUpdateError((e) => {
+      const el = document.getElementById('update-status');
+      if (!el) return;
+      el.className = 'about-update-status is-error';
+      el.textContent = `Error al actualizar: ${(e && e.message) || 'desconocido'}`;
+    });
+  }
 }
 
 if (window.electronAPI && window.electronAPI.onUpdateReady) {
   window.electronAPI.onUpdateReady((info) => {
+    const st = document.getElementById('update-status');
+    if (st) { st.className = 'about-update-status'; st.textContent = '✓ Descarga completa — listo para reiniciar'; }
     if (document.getElementById('update-banner')) return;
     const bar = document.createElement('div');
     bar.id = 'update-banner';

@@ -873,22 +873,36 @@ app.whenReady().then(() => {
 // app; failures (offline, no release yet, misconfig) are swallowed so they
 // never block startup. Downloads in the background and installs on quit.
 let _autoUpdater = null;
-function checkForUpdates() {
-  if (!app.isPackaged) return;
+let _updaterWired = false;
+// Lazily load electron-updater and register its event listeners once. Events
+// are forwarded to the renderer: live download progress, ready-to-install,
+// and errors — so the UI can show a real progress bar and clear feedback.
+function getAutoUpdater() {
+  if (_autoUpdater) return _autoUpdater;
   let autoUpdater;
-  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return; }
-  _autoUpdater = autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return null; }
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.on('update-downloaded', (info) => {
-    try {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('update-ready', { version: info && info.version });
-      }
-    } catch (_) {}
-  });
-  autoUpdater.on('error', (err) => console.warn('Auto-update error:', err && err.message));
-  autoUpdater.checkForUpdates().catch(e => console.warn('Update check failed:', e && e.message));
+  _autoUpdater = autoUpdater;
+  if (!_updaterWired) {
+    _updaterWired = true;
+    const send = (channel, payload) => {
+      try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload); } catch (_) {}
+    };
+    autoUpdater.on('download-progress', (p) => send('update-progress', {
+      percent: p.percent, transferred: p.transferred, total: p.total, bytesPerSecond: p.bytesPerSecond,
+    }));
+    autoUpdater.on('update-downloaded', (info) => send('update-ready', { version: info && info.version }));
+    autoUpdater.on('error', (err) => send('update-error', { message: (err && err.message) || String(err) }));
+  }
+  return autoUpdater;
+}
+
+function checkForUpdates() {
+  if (!app.isPackaged) return;
+  const au = getAutoUpdater();
+  if (!au) return;
+  au.checkForUpdates().catch(e => console.warn('Update check failed:', e && e.message));
 }
 
 // Quit and install a downloaded update (triggered from the renderer banner).
@@ -899,19 +913,17 @@ ipcMain.handle('update-install', () => {
 ipcMain.handle('app-version', () => app.getVersion());
 
 // Manual "check for updates" from the Info panel. Returns a status the
-// renderer can show. In dev (not packaged) there's nothing to check.
+// renderer can show. In dev (not packaged) there's nothing to check. When an
+// update exists, the download starts and progress streams over 'update-progress'.
 ipcMain.handle('check-for-updates', async () => {
   if (!app.isPackaged) return { status: 'dev' };
-  let autoUpdater;
-  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return { status: 'error', message: 'updater no disponible' }; }
-  _autoUpdater = autoUpdater;
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  const au = getAutoUpdater();
+  if (!au) return { status: 'error', message: 'updater no disponible' };
   try {
-    const r = await autoUpdater.checkForUpdates();
+    const r = await au.checkForUpdates();
     const latest = r && r.updateInfo && r.updateInfo.version;
     if (latest && latest !== app.getVersion()) {
-      return { status: 'available', version: latest };  // download proceeds; 'update-ready' banner fires when done
+      return { status: 'available', version: latest };
     }
     return { status: 'latest', version: app.getVersion() };
   } catch (e) {
