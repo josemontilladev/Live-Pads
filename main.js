@@ -906,8 +906,10 @@ function checkForUpdates() {
 }
 
 // Quit and install a downloaded update (triggered from the renderer banner).
+// quitAndInstall(isSilent=true, isForceRunAfter=true): install silently to the
+// existing location (no setup wizard) and relaunch with the new version.
 ipcMain.handle('update-install', () => {
-  try { if (_autoUpdater) _autoUpdater.quitAndInstall(); } catch (e) { console.warn('quitAndInstall failed:', e.message); }
+  try { if (_autoUpdater) _autoUpdater.quitAndInstall(true, true); } catch (e) { console.warn('quitAndInstall failed:', e.message); }
 });
 
 ipcMain.handle('app-version', () => app.getVersion());
