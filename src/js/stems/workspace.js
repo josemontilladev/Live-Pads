@@ -14,6 +14,7 @@ import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
 import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
+import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -64,6 +65,10 @@ let projectName = 'Mi proyecto';
 let bpm = 120;
 let beatsPerBar = 4;
 let beatValue = 4;
+// Which beats of the bar get the accent click. Length tracks beatsPerBar;
+// default accents beat 1 only. User-configurable via the accent chips.
+let accentPattern = [true, false, false, false];
+function makeDefaultAccent(n) { const a = new Array(n).fill(false); a[0] = true; return a; }
 let markers = [];        // array of { id, label, atSec, url }
 let nextMarkerId = 1;
 const trackRows = new Map();   // trackId → { strip, lane, canvas }
@@ -128,6 +133,7 @@ export async function mount() {
   wireRowReorder(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
+  renderAccentChips();
   refreshTimelineWidth();
 
   // Repaint waveforms whenever the global theme changes so the accent
@@ -248,6 +254,7 @@ const SHELL_HTML = `
       <div class="stems-tools-group">
         <span class="stems-tools-label">PISTAS</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
+        <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
         <button class="stems-btn stems-btn--subtle" id="stems-add-click" title="Genera un click track al BPM actual">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
           Generar Click
@@ -262,6 +269,10 @@ const SHELL_HTML = `
         <select id="stems-section-select" class="stems-mini-select" aria-label="Sección"></select>
         <button class="stems-btn stems-btn--accent" id="stems-add-marker" title="Añadir marcador en el tiempo actual">
           ${SVG_FLAG} Añadir marcador
+        </button>
+        <button class="stems-btn stems-btn--subtle" id="stems-detect-sections" title="Analiza la canción y coloca marcadores en los cambios de sección (puedes editarlos a mano)">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/></svg>
+          Detectar secciones
         </button>
         <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Loop entre los dos marcadores marcados">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -495,16 +506,20 @@ function wireTopbarEvents(root) {
     const oldSig = sigBefore;
     beatsPerBar = parseInt(m[1], 10);
     beatValue = parseInt(m[2], 10);
+    accentPattern = makeDefaultAccent(beatsPerBar);
+    renderAccentChips();
     drawRuler();
     scheduleSave();
     pushHistory('Cambiar compás',
       () => {
         const om = oldSig.match(/^(\d+)\s*\/\s*(\d+)$/);
         beatsPerBar = parseInt(om[1], 10); beatValue = parseInt(om[2], 10);
+        accentPattern = makeDefaultAccent(beatsPerBar); renderAccentChips();
         sigInput.value = oldSig; drawRuler(); scheduleSave();
       },
       () => {
         beatsPerBar = parseInt(m[1], 10); beatValue = parseInt(m[2], 10);
+        accentPattern = makeDefaultAccent(beatsPerBar); renderAccentChips();
         sigInput.value = newSig; drawRuler(); scheduleSave();
       }
     );
@@ -592,6 +607,8 @@ function onDetectBpm() {
         const [bp, bv] = sig.split('/').map(n => parseInt(n, 10));
         if (bp) beatsPerBar = bp;
         if (bv) beatValue = bv;
+        accentPattern = makeDefaultAccent(beatsPerBar);
+        renderAccentChips();
         const input = document.getElementById('stems-bpm');
         if (input) input.value = b;
         const sigSel = document.getElementById('stems-sig');
@@ -762,6 +779,7 @@ function wireArrangeEvents(root) {
 
   root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
   root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
+  root.querySelector('#stems-detect-sections').onclick = () => onDetectSections();
   root.querySelector('#stems-rebuild-guide').onclick = () => onRebuildGuide();
   root.querySelector('#stems-loop-toggle').onclick = () => toggleLoop();
 
@@ -813,6 +831,28 @@ function refreshClickSoundDropdown() {
     clickSoundId = e.target.value;
     scheduleSave();
   };
+}
+
+// Beat-accent chips — one per beat in the bar. Click to toggle which beats
+// carry the accent sample. Rebuilt whenever beatsPerBar changes.
+function renderAccentChips() {
+  const box = document.getElementById('stems-accent');
+  if (!box) return;
+  if (accentPattern.length !== beatsPerBar) accentPattern = makeDefaultAccent(beatsPerBar);
+  box.innerHTML = '';
+  for (let i = 0; i < beatsPerBar; i++) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'stems-accent-chip' + (accentPattern[i] ? ' is-on' : '');
+    chip.textContent = String(i + 1);
+    chip.title = `Tiempo ${i + 1} — clic para acentuar`;
+    chip.onclick = () => {
+      accentPattern[i] = !accentPattern[i];
+      chip.classList.toggle('is-on', accentPattern[i]);
+      scheduleSave();
+    };
+    box.appendChild(chip);
+  }
 }
 
 // ── Import + track strip rendering ────────────────────────────────
@@ -2044,6 +2084,59 @@ function openChangeCueMenu(x, y, markerId) {
   document.addEventListener('mousedown', closeMarkerMenuOnce, { capture: true });
 }
 
+// ── Auto-detect sections ──────────────────────────────────────────
+// Analyses the loaded song and drops generic markers at each structural
+// change. Purely additive to the manual workflow: the markers are normal
+// markers the user can rename / re-cue / move / delete, and one undo step
+// reverts the whole batch. If detection finds nothing, the user just adds
+// markers by hand as before.
+async function onDetectSections() {
+  const stem = engine.getTracks().find(t => t.kind === 'stem');
+  if (!stem) { alert('Sube una canción primero para detectar sus secciones.'); return; }
+  const buf = engine.getTrackBuffer(stem.id);
+  if (!buf) { alert('No se pudo leer el audio de la canción.'); return; }
+
+  const btn = document.getElementById('stems-detect-sections');
+  const prevHtml = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Analizando…'; }
+  let times = [];
+  try {
+    await new Promise(r => setTimeout(r, 20)); // let the button repaint first
+    times = detectSections(buf);
+  } catch (e) {
+    console.warn('Section detection failed:', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
+  }
+
+  if (!times.length) {
+    alert('No se detectaron cambios de sección claros. Puedes añadir los marcadores a mano.');
+    return;
+  }
+
+  // The song's start is the first section; detected times are the rest.
+  const boundaries = [0, ...times];
+  if (markers.length &&
+      !confirm(`Se detectaron ${boundaries.length} secciones. Esto reemplazará los marcadores actuales por los detectados. ¿Continuar?`)) {
+    return;
+  }
+
+  const prevMarkers = markers.slice();
+  const cueFor = (i) => findCueById(i === 0 ? 'intro' : 'verso') || SECTION_CUES[0];
+  const newMarkers = boundaries.map((t, i) => {
+    const cue = cueFor(i);
+    return { id: `m${nextMarkerId++}`, cueId: cue.id, label: `Sección ${i + 1}`, url: cue.url, atSec: t };
+  });
+  markers = newMarkers;
+  redrawMarkers();
+  pushHistory('Detectar secciones',
+    () => { markers = prevMarkers; redrawMarkers(); scheduleSave(); scheduleGuideSync(); },
+    () => { markers = newMarkers; redrawMarkers(); scheduleSave(); scheduleGuideSync(); }
+  );
+  scheduleSave();
+  scheduleGuideSync();
+}
+
 // ── Click track generator ─────────────────────────────────────────
 async function onAddClickTrack() {
   const existingClickId = engine.findTrackByKind('click');
@@ -2077,7 +2170,7 @@ function computeClickAlignment() {
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset });
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
   await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
@@ -2091,7 +2184,7 @@ async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset });
+  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);
   engine.setTrackOffset(existingId, offsetSec);
@@ -2299,6 +2392,7 @@ async function doSave() {
     await projectStore.saveCurrent({
       projectName,
       bpm, beatsPerBar, beatValue,
+      accentPattern,
       masterVolume: engine.getMasterVolume(),
       nextTrackId, nextMarkerId,
       tracks,
@@ -2341,6 +2435,11 @@ async function rehydrate(state) {
   if (typeof state.beatValue === 'number') beatValue = state.beatValue;
   const sigSel = document.getElementById('stems-sig');
   if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
+  // Restore the accent pattern (fall back to a sane default if absent/stale).
+  accentPattern = (Array.isArray(state.accentPattern) && state.accentPattern.length === beatsPerBar)
+    ? state.accentPattern.map(Boolean)
+    : makeDefaultAccent(beatsPerBar);
+  renderAccentChips();
 
   if (typeof state.masterVolume === 'number') {
     engine.setMasterVolume(state.masterVolume);

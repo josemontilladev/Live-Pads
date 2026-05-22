@@ -39,7 +39,7 @@ export function detectTempoMeter(audioBuffer) {
 }
 
 // ── tiny iterative radix-2 FFT (real input) ───────────────────────
-function makeFFT(n) {
+export function makeFFT(n) {
   const rev = new Uint32Array(n);
   for (let i = 0, j = 0; i < n; i++) {
     rev[i] = j;
@@ -140,22 +140,50 @@ export function detectBeatAlignment(audioBuffer, bpm, beatsPerBar = 4) {
   const P = (60 / bpm) * envRate; // beat period in frames
   if (!isFinite(P) || P < 2) return null;
 
-  // Beat phase: sweep p in [0, P) and sum onset energy at p, p+P, p+2P, …
-  const steps = Math.max(16, Math.round(P));
-  let bestPhase = 0, bestScore = -1;
-  for (let i = 0; i < steps; i++) {
-    const p = (i / steps) * P;
-    let score = 0;
-    for (let f = p; f < nFrames; f += P) score += onset[Math.round(f)] || 0;
-    if (score > bestScore) { bestScore = score; bestPhase = p; }
-  }
+  // Linear-interpolated onset read so phase isn't quantised to the hop grid.
+  const sampleAt = (f) => {
+    if (f < 0 || f >= nFrames - 1) return onset[Math.round(f)] || 0;
+    const i = f | 0, frac = f - i;
+    return onset[i] + (onset[i + 1] - onset[i]) * frac;
+  };
+  // Comb score for a beat phase: sum interpolated onset at p, p+P, p+2P, …
+  const phaseScore = (p) => {
+    let s = 0;
+    for (let f = p; f < nFrames; f += P) s += sampleAt(f);
+    return s;
+  };
 
-  // Downbeat: of the beatsPerBar beat positions, the one whose onsets are
-  // strongest (summed every bar) is beat 1.
+  // Fine phase sweep over [0, P) — 4× the period in steps for sub-frame
+  // resolution, then a parabolic refine around the winner.
+  const steps = Math.max(64, Math.round(P * 4));
+  const stepF = P / steps;
+  let bestI = 0, bestScore = -1;
+  const sc = new Float32Array(steps);
+  for (let i = 0; i < steps; i++) {
+    const s = phaseScore(i * stepF);
+    sc[i] = s;
+    if (s > bestScore) { bestScore = s; bestI = i; }
+  }
+  let bestPhase = bestI * stepF;
+  {
+    const a = sc[(bestI - 1 + steps) % steps], b = sc[bestI], c = sc[(bestI + 1) % steps];
+    const denom = a - 2 * b + c;
+    if (denom !== 0) {
+      const d = 0.5 * (a - c) / denom;
+      if (d > -1 && d < 1) bestPhase = (bestI + d) * stepF;
+    }
+  }
+  // Keep the phase as the EARLIEST beat (the music's first downbeat region),
+  // not an arbitrary later one: fold back toward 0 by whole beats.
+  while (bestPhase >= P) bestPhase -= P;
+  if (bestPhase < 0) bestPhase += P;
+
+  // Downbeat: of the beatsPerBar positions, the one whose onsets summed every
+  // bar are strongest is beat 1 (interpolated read for stability).
   let bestDb = 0, bestDbScore = -1;
   for (let d = 0; d < beatsPerBar; d++) {
     let score = 0;
-    for (let f = bestPhase + d * P; f < nFrames; f += beatsPerBar * P) score += onset[Math.round(f)] || 0;
+    for (let f = bestPhase + d * P; f < nFrames; f += beatsPerBar * P) score += sampleAt(f);
     if (score > bestDbScore) { bestDbScore = score; bestDb = d; }
   }
 

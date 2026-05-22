@@ -109,6 +109,12 @@ export function bindMidiHandlers(deps) {
           deps.triggerMasterStop();
         } else if (mapping.action === 'loop_seq') {
           const btn = q('#tp-loop-btn'); if (btn) btn.click();
+        } else if (mapping.action === 'restart_seq') {
+          const btn = q('#tp-restart-btn'); if (btn) btn.click();
+        } else if (mapping.action === 'autoadvance_seq') {
+          const btn = q('#tp-autoadvance-btn'); if (btn) btn.click();
+        } else if (mapping.action === 'close_seq') {
+          const btn = q('#tp-close-btn'); if (btn) btn.click();
         } else if (mapping.action === 'prev_song') {
           servicePrevSong();
         } else if (mapping.action === 'next_song') {
@@ -156,7 +162,10 @@ export function bindMidiHandlers(deps) {
     const metroBtn  = e.target.closest('#btn-metro-main');
     const playSeqBtn = e.target.closest('#tp-play-btn');
     const stopSeqBtn = e.target.closest('#tp-stop-btn');
+    const restartBtn = e.target.closest('#tp-restart-btn');
     const loopBtn   = e.target.closest('#tp-loop-btn');
+    const autoAdvBtn = e.target.closest('#tp-autoadvance-btn');
+    const closeBtn  = e.target.closest('#tp-close-btn');
     const prevBtn   = e.target.closest('#btn-service-prev');
     const nextBtn   = e.target.closest('#btn-service-next');
     const slider    = e.target.closest('input[type="range"]');
@@ -167,7 +176,10 @@ export function bindMidiHandlers(deps) {
     else if (metroBtn) target = { action: 'metro' };
     else if (playSeqBtn) target = { action: 'play_seq' };
     else if (stopSeqBtn) target = { action: 'stop_seq' };
+    else if (restartBtn) target = { action: 'restart_seq' };
     else if (loopBtn)  target = { action: 'loop_seq' };
+    else if (autoAdvBtn) target = { action: 'autoadvance_seq' };
+    else if (closeBtn) target = { action: 'close_seq' };
     else if (prevBtn)  target = { action: 'prev_song' };
     else if (nextBtn)  target = { action: 'next_song' };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };

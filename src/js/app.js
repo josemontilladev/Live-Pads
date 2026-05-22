@@ -44,6 +44,7 @@ import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
 import { bindMetronomeControls } from './ui/metronomeControls.js';
+import { bindMixerBar } from './ui/mixerBar.js';
 import { applyTheme, buildThemesList, getCurrentTheme } from './ui/themes.js';
 import {
   initService, getServiceSongs, getActiveServiceIndex,
@@ -510,6 +511,9 @@ function bindAll() {
     applyBpm,
     buildKeyGrid,
   });
+  // Must run after the canonical sliders above are wired — the mixer bar
+  // bridges to them.
+  bindMixerBar();
   bindRestOfApp();
 }
 

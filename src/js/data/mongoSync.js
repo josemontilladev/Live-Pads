@@ -32,8 +32,11 @@ export function bindMongoSync(deps) {
       btn.style.color = '#fbae00';
 
       const mongoSongs = await window.electronAPI.syncMongoSetlist();
+      // Empty result is NOT a connection failure — say so plainly instead of
+      // dropping into the misleading "Modo Local" warning.
       if (!mongoSongs || !mongoSongs.length) {
-        throw new Error('No se encontraron canciones en MongoDB');
+        showToast('Conectado, pero no hay canciones en la nube todavía.', 'warning');
+        return;
       }
 
       const songs = deps.getSongs();
@@ -83,7 +86,13 @@ export function bindMongoSync(deps) {
       }
     } catch (e) {
       console.error('Error sincronizando con MongoDB:', e);
-      showToast('Error de red. Operando en Modo Local.', 'warning');
+      const raw = (e && e.message) ? e.message : '';
+      // Distinguish a genuine connectivity/timeout failure from config issues
+      // so the user isn't told "sin internet" when the URI is just missing.
+      const msg = /URI no configurada/i.test(raw)
+        ? 'Falta configurar la conexión (mongoUri). Revisa config.json.'
+        : 'No se pudo conectar con la nube. Reintenta en unos segundos.';
+      showToast(msg, 'warning');
     } finally {
       btn.style.animation = '';
       btn.style.color = '';

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -374,44 +374,77 @@ async function getMongoClient(uri) {
     try { await _mongoClient.db('admin').command({ ping: 1 }); return _mongoClient; }
     catch (e) { try { await _mongoClient.close(); } catch (_) {} _mongoClient = null; }
   }
-  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 4000 });
+  // Generous timeouts: Atlas free-tier clusters cold-start (or wake from
+  // idle) well past the old 4s, and mongodb+srv:// needs a DNS SRV/TXT
+  // lookup that can be slow on Windows — both produced spurious "Modo Local"
+  // errors despite a live connection.
+  const client = new MongoClient(uri, {
+    serverSelectionTimeoutMS: 15000,
+    connectTimeoutMS: 15000,
+    socketTimeoutMS: 20000,
+  });
   await client.connect();
   _mongoClient = client; _mongoUri = uri;
   return client;
 }
 
+// Default GI.Setlist API base (HTTPS). Overridable via config.json `giApiUrl`.
+const DEFAULT_GI_API = 'https://gi-setlist.vercel.app';
+
 ipcMain.handle('sync-mongo-setlist', async () => {
   const configPath = path.join(app.getPath('userData'), 'config.json');
   let uri = '';
+  let apiBase = DEFAULT_GI_API;
 
   try {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       if (config && typeof config.mongoUri === 'string') uri = config.mongoUri.trim();
+      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
+        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
+      }
     }
   } catch (e) {
-    console.warn("Could not read config.json:", e.message);
+    console.warn('Could not read config.json:', e.message);
   }
 
-  if (!uri) {
-    const msg = `MongoDB URI no configurada. Edita ${configPath} y pega tu cadena de conexion en "mongoUri".`;
-    console.warn(msg);
-    throw new Error(msg);
-  }
+  const normalize = (songs) => songs.map(s => {
+    const obj = { ...s };
+    if (obj._id) obj._id = String(obj._id);
+    return obj;
+  });
+
+  // Primary: GI.Setlist HTTPS API (port 443). Works on networks that block
+  // MongoDB's port 27017 — the reason the web app connects fine while the
+  // desktop's direct driver times out with ReplicaSetNoPrimary.
+  const fetchFromApi = async () => {
+    const res = await net.fetch(`${apiBase}/api/songs`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`API respondió ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('La respuesta de la API no es una lista');
+    return normalize(data);
+  };
+
+  // Fallback: direct MongoDB driver (needs `mongoUri` + an open port 27017).
+  const fetchFromMongo = async () => {
+    if (!uri) throw new Error('Sin mongoUri configurada para el fallback directo.');
+    const client = await getMongoClient(uri);
+    const songs = await client.db('gi-setlist').collection('songs').find({}).toArray();
+    return normalize(songs);
+  };
 
   try {
-    const client = await getMongoClient(uri);
-    const db = client.db('gi-setlist');
-    const collection = db.collection('songs');
-    const songs = collection ? await collection.find({}).toArray() : [];
-    return songs.map(s => {
-      const obj = { ...s };
-      if (obj._id) obj._id = obj._id.toString();
-      return obj;
-    });
-  } catch (err) {
-    console.error('Mongo sync error:', err);
-    throw err;
+    return await fetchFromApi();
+  } catch (apiErr) {
+    console.warn('Sync vía API HTTPS falló, intentando Mongo directo:', apiErr.message);
+    try {
+      return await fetchFromMongo();
+    } catch (mongoErr) {
+      try { if (_mongoClient) await _mongoClient.close(); } catch (_) {}
+      _mongoClient = null;
+      console.error('Sync falló (API + Mongo):', mongoErr.message);
+      throw mongoErr;
+    }
   }
 });
 
@@ -549,6 +582,40 @@ ipcMain.handle('companion-start', async () => {
 
 ipcMain.handle('companion-stop', async () => {
   return await companionServer.stop();
+});
+
+// Add a Windows Firewall inbound-allow rule for the Companion port range so
+// phones on the LAN can reach the laptop. Firewall changes need elevation, so
+// we trigger a single UAC prompt via PowerShell Start-Process -Verb RunAs.
+ipcMain.handle('companion-allow-firewall', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  const { spawn } = require('child_process');
+  // Inner command (runs elevated): drop any old rule, then add a fresh one
+  // covering the whole 3001-3010 range the server may bind to.
+  const inner = 'netsh advfirewall firewall delete rule name=LivePadsCompanion 2>$null; ' +
+                'netsh advfirewall firewall add rule name=LivePadsCompanion dir=in action=allow protocol=TCP localport=3001-3010';
+  const psCmd = `Start-Process -Verb RunAs -WindowStyle Hidden powershell -ArgumentList '-NoProfile','-Command','${inner}'`;
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true });
+    child.on('error', (e) => resolve({ ok: false, reason: e.message }));
+    // Start-Process exits 0 once the elevated process launches; a non-zero
+    // code means the user dismissed the UAC prompt.
+    child.on('exit', (code) => resolve({ ok: code === 0, code }));
+  });
+});
+
+// Open Windows' Mobile Hotspot settings so the laptop can become its own
+// access point — the fully-offline "church mode": phones join the laptop's
+// WiFi and just scan the QR. Windows doesn't expose a reliable API to toggle
+// the hotspot itself, so we deep-link to the settings page.
+ipcMain.handle('companion-open-hotspot', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  try {
+    await shell.openExternal('ms-settings:network-mobilehotspot');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
 });
 
 ipcMain.handle('companion-status', async () => {
@@ -850,7 +917,18 @@ app.whenReady().then(() => {
   protocol.handle('livepads', async (request) => {
     try {
       const filePath = resolveLivepadsUrl(request.url);
-      return await net.fetch(pathToFileURL(filePath).toString());
+      const res = await net.fetch(pathToFileURL(filePath).toString());
+      const headers = new Headers(res.headers);
+      // Expose an explicit ACAO header so the renderer can route these assets
+      // through Web Audio (e.g. the track-player pan node) with
+      // crossOrigin='anonymous' without the media element getting tainted.
+      headers.set('Access-Control-Allow-Origin', '*');
+      // Ensure Content-Length is present — without it, media elements report
+      // duration === Infinity (e.g. MP3 sequences showed "Infinity:NaN").
+      if (!headers.has('Content-Length')) {
+        try { headers.set('Content-Length', String(fs.statSync(filePath).size)); } catch (e) {}
+      }
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
     } catch (e) {
       console.warn('livepads:// fetch failed for', request.url, e.message);
       return new Response('Not Found', { status: 404 });

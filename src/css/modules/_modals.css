@@ -1436,6 +1436,38 @@
   color: var(--accent);
   font-weight: 700;
 }
+#companion-overlay .cp-fw-btn {
+  display: block;
+  margin: 8px 0 4px;
+  padding: 8px 14px;
+  border-radius: 7px;
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#companion-overlay .cp-fw-btn:hover:not(:disabled) { background: rgba(245, 158, 11, 0.28); }
+#companion-overlay .cp-fw-btn:disabled { opacity: 0.7; cursor: default; }
+#companion-overlay .cp-fw-tip { display: block; margin-top: 4px; color: var(--text-muted); font-size: 10.5px; }
+
+#companion-overlay .cp-hotspot-row { margin: 0 0 14px; }
+#companion-overlay .cp-hotspot-btn {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#companion-overlay .cp-hotspot-btn:hover { border-color: var(--accent); color: var(--accent); }
+#companion-overlay .cp-hotspot-tip { display: block; margin-top: 5px; color: var(--text-muted); font-size: 10.5px; line-height: 1.45; }
 
 #companion-overlay .cp-autostart {
   display: flex;
