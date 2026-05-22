@@ -2183,7 +2183,8 @@ async function onDetectSections() {
   let sections = [];
   try {
     await new Promise(r => setTimeout(r, 20)); // let the button repaint first
-    sections = detectSections(buf);
+    // Pass the project tempo so boundaries snap to exact bar lines.
+    sections = detectSections(buf, { bpm, beatsPerBar });
   } catch (e) {
     console.warn('Section detection failed:', e);
   } finally {
