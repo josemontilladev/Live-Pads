@@ -483,7 +483,9 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
     if (!s || !s.title) continue;
     const body = {
       title: s.title,
-      artist: s.artist || '',
+      // GI.Setlist requires a non-empty artist — fall back so songs without
+      // one still upload instead of being silently rejected (HTTP 500).
+      artist: (s.artist && s.artist.trim()) ? s.artist : 'Desconocido',
       lyrics: plainLyricsToHtml(s.lyrics || ''),
       bpm: s.bpm || '',
       key: s.key || '',
@@ -497,7 +499,7 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
           body: JSON.stringify(body),
         });
         if (res.ok) updated++;
-        else errors.push(`${s.title}: HTTP ${res.status}`);
+        else errors.push(`${s.title} → HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
       } else {
         const res = await net.fetch(`${apiBase}/api/songs`, {
           method: 'POST',
@@ -509,13 +511,14 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
           if (doc && doc._id) idMap[s.id] = String(doc._id);
           created++;
         } else {
-          errors.push(`${s.title}: HTTP ${res.status}`);
+          errors.push(`${s.title} → HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
         }
       }
     } catch (err) {
-      errors.push(`${s.title}: ${err.message}`);
+      errors.push(`${s.title} → ${err.message}`);
     }
   }
+  if (errors.length) console.warn('[push] fallos:\n' + errors.join('\n'));
   return { created, updated, idMap, errors };
 });
 

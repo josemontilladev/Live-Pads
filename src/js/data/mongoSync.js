@@ -142,7 +142,8 @@ function bindMongoPush(deps) {
 
       if (res.errors && res.errors.length) {
         console.warn('Push errors:', res.errors);
-        showToast(`Subidas: ${res.created} nuevas, ${res.updated} actualizadas · ${res.errors.length} con error.`, 'warning');
+        const first = res.errors[0] || '';
+        showToast(`Subidas: ${res.created} nuevas, ${res.updated} act. · ${res.errors.length} con error (ej: ${first.slice(0, 60)})`, 'warning');
       } else {
         showToast(`Subida exitosa. Nuevas: ${res.created}, Actualizadas: ${res.updated}.`, 'success');
       }
