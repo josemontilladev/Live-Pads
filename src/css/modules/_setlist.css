@@ -346,11 +346,10 @@ input.pan-slider {
   color: var(--blue);
 }
 
-/* When the song list is scrolled, also collapse the panel-wide chrome
-   (Setlist title row + Presets/Librería/Servicio tabs). Only the search
-   input remains visible — closest match to the user's request. */
-#panel-setlist.songs-scrolled .setlist-header,
-#panel-setlist.songs-scrolled .setlist-tabs-toggle {
+/* When the song list is scrolled, collapse only the Setlist title row to
+   reclaim space. The Presets/Librería/Servicio tabs stay pinned (like the
+   search input) so the user can switch tabs without scrolling back up. */
+#panel-setlist.songs-scrolled .setlist-header {
   max-height: 0;
   opacity: 0;
   margin-top: 0;

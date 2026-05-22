@@ -10,10 +10,26 @@
 // once at boot by initTrackPlayer().
 
 import { q } from '../utils/dom.js';
+import { panShort } from '../utils/format.js';
+import { syncPanSlider } from '../utils/sliders.js';
 
 let audio = null;
 let currentType = null;
 let currentSong = null;
+
+// Web Audio graph used solely to give the track a stereo-pan control
+// (HTMLAudioElement has no pan). The element's own .volume still applies —
+// the MediaElementSource taps the element post-volume — so the volume slider
+// keeps working untouched. The context is a singleton; the source + panner
+// are rebuilt per load (a fresh <audio> element each time).
+let audioCtx = null;
+let mediaSource = null;
+let pannerNode = null;
+
+// Loop/repeat is a persistent transport mode, not per-track. Held here so the
+// button works whether or not a track is loaded, and every freshly loaded
+// track inherits it.
+let loopEnabled = false;
 
 // Injected at boot. Keeps the module decoupled from app.js's globals.
 //   syncSlider(el)           : visual update for our sliders
@@ -35,8 +51,32 @@ export const isTrackPlaying = () => !!(audio && !audio.paused);
 export const getCurrentSong = () => currentSong;
 export const getCurrentType = () => currentType;
 
+// Builds (lazily) the pan graph for the current <audio> element. Failure is
+// non-fatal: pan simply won't apply, but playback/volume are untouched
+// because we only reroute once the source is created successfully.
+function connectPanGraph() {
+  if (!audio) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return; // No Web Audio → pan disabled, playback unaffected.
+  try {
+    if (!audioCtx) audioCtx = new AC();
+    mediaSource = audioCtx.createMediaElementSource(audio);
+    pannerNode = audioCtx.createStereoPanner();
+    const panEl = els.panSlider;
+    pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
+    mediaSource.connect(pannerNode);
+    pannerNode.connect(audioCtx.destination);
+  } catch (e) {
+    console.warn('Track pan graph unavailable:', e);
+    mediaSource = null;
+    pannerNode = null;
+  }
+}
+
 // Safe audio release and hardware decoder garbage collection
 export function cleanupTrackAudio() {
+  if (mediaSource) { try { mediaSource.disconnect(); } catch (e) {} mediaSource = null; }
+  if (pannerNode) { try { pannerNode.disconnect(); } catch (e) {} pannerNode = null; }
   if (audio) {
     try {
       audio.pause();
@@ -116,7 +156,9 @@ const PLAY_ICON  = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" heig
 const PAUSE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
 
 function formatTime(seconds) {
-  if (isNaN(seconds)) return '0:00';
+  // !isFinite covers both NaN (no metadata yet) and Infinity (streams whose
+  // length the decoder can't determine) so we never render "Infinity:NaN".
+  if (!isFinite(seconds)) return '0:00';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -134,9 +176,12 @@ function cacheTrackPlayerEls() {
   els.progress = q('#tp-progress');
   els.playBtn  = q('#tp-play-btn');
   els.stopBtn  = q('#tp-stop-btn');
+  els.restartBtn = q('#tp-restart-btn');
   els.loopBtn  = q('#tp-loop-btn');
   els.closeBtn = q('#tp-close-btn');
   els.volSlider = q('#tp-vol');
+  els.panSlider = q('#tp-pan');
+  els.panVal   = q('#tp-pan-val');
   els.cached = true;
 }
 
@@ -144,8 +189,21 @@ async function startTrackPlayback(url, title, type) {
   const safeUrl = await resolvePlayableUrl(url);
   cacheTrackPlayerEls();
 
-  audio = new Audio(safeUrl);
+  audio = new Audio();
+  // crossOrigin only for remote/custom schemes — file:// is same-origin as the
+  // page and setting it there can break local loads. This keeps the Web Audio
+  // pan tap untainted (silent) for livepads:// / http(s) sources.
+  if (/^(livepads:|https?:)/i.test(safeUrl)) audio.crossOrigin = 'anonymous';
+  audio.src = safeUrl;
   currentType = type;
+  connectPanGraph();
+
+  // The pan graph routes audio through the context, so a suspended context
+  // means silence. Resume on every play start, whatever triggered it
+  // (manual button, master transport, auto-advance).
+  audio.addEventListener('play', () => {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  });
 
   audio.onerror = (e) => {
     console.error('Error loading audio:', safeUrl, e);
@@ -161,28 +219,40 @@ async function startTrackPlayback(url, title, type) {
   };
 
   if (els.playBtn) els.playBtn.onclick = () => {
-    if (audio.paused) audio.play(); else audio.pause();
+    if (audio.paused) {
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      audio.play();
+    } else {
+      audio.pause();
+    }
     updatePlayBtn();
   };
 
+  // Pause (keeps the playhead where it is). Returning to the start is the
+  // restart button's job now.
   if (els.stopBtn) els.stopBtn.onclick = () => {
     audio.pause();
-    audio.currentTime = 0;
     updatePlayBtn();
-    if (els.progress) els.progress.value = 0;
+  };
+
+  // Restart: jump back to the start while preserving the play/pause state —
+  // if it was playing it keeps playing from 0, distinct from Stop (which
+  // halts and resets).
+  if (els.restartBtn) els.restartBtn.onclick = () => {
+    const wasPlaying = !audio.paused;
+    audio.currentTime = 0;
+    if (wasPlaying) {
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      audio.play();
+    }
+    updatePlayBtn();
+    if (els.progress) { els.progress.value = 0; deps.syncSlider(els.progress); }
     if (els.timeCur) els.timeCur.textContent = '0:00';
   };
 
-  if (els.loopBtn) {
-    if (!els.loopBtn.dataset.active) els.loopBtn.dataset.active = 'false';
-    audio.loop = els.loopBtn.dataset.active === 'true';
-    paintLoopBtn(els.loopBtn, audio.loop);
-    els.loopBtn.onclick = () => {
-      audio.loop = !audio.loop;
-      els.loopBtn.dataset.active = audio.loop ? 'true' : 'false';
-      paintLoopBtn(els.loopBtn, audio.loop);
-    };
-  }
+  // The freshly loaded track inherits the persistent loop mode. The button
+  // itself is wired once in bindTrackPlayerControls().
+  audio.loop = loopEnabled;
 
   // Capture refs locally to skip repeated property access on hot path.
   const { timeCur, timeTot, progress } = els;
@@ -199,18 +269,37 @@ async function startTrackPlayback(url, title, type) {
     }
   };
 
-  // Stamp the duration onto the song the first time we discover it. The
-  // service-list total-time estimate (updateServiceMeta) sums these so
-  // the user sees a real ETA instead of a 4-min heuristic per song.
+  // Some encodings (notably VBR MP3 served without a Content-Length) report
+  // duration === Infinity until the decoder scans to the end. Nudge it: seek
+  // far past the end so the browser computes the real duration, then snap
+  // back to the start. `durationchange` (below) picks up the recovered value.
   audio.addEventListener('loadedmetadata', () => {
+    if (audio.duration === Infinity) {
+      const recover = () => {
+        audio.removeEventListener('timeupdate', recover);
+        audio.currentTime = 0;
+      };
+      audio.addEventListener('timeupdate', recover);
+      audio.currentTime = 1e7;
+    }
+  }, { once: true });
+
+  // Stamp the duration onto the song + the readout once it's known. Fires on
+  // both the normal metadata path and the Infinity-recovery path. The
+  // service-list total-time estimate (updateServiceMeta) sums these so the
+  // user sees a real ETA instead of a 4-min heuristic per song.
+  const stampDuration = () => {
     if (!isFinite(audio.duration) || audio.duration <= 0) return;
+    if (timeTot) timeTot.textContent = formatTime(audio.duration);
     if (currentSong && (!currentSong.durationSec || currentSong.durationSec !== Math.round(audio.duration))) {
       currentSong.durationSec = Math.round(audio.duration);
       if (typeof deps.onDurationDiscovered === 'function') {
         deps.onDurationDiscovered(currentSong);
       }
     }
-  }, { once: true });
+  };
+  audio.addEventListener('loadedmetadata', stampDuration);
+  audio.addEventListener('durationchange', stampDuration);
 
   if (els.volSlider) audio.volume = els.volSlider.value / 100;
 
@@ -234,8 +323,8 @@ async function startTrackPlayback(url, title, type) {
 }
 
 function paintLoopBtn(btn, on) {
-  btn.style.color = on ? 'var(--blue)' : 'var(--text-muted)';
-  btn.style.borderColor = on ? 'var(--blue)' : 'var(--border)';
+  btn.classList.toggle('active', on);
+  btn.title = on ? 'Repetir: activado' : 'Repetir (Loop)';
 }
 
 // Wire the volume slider and seek bar once at boot.
@@ -249,6 +338,30 @@ export function bindTrackPlayerControls() {
       deps.syncSlider(e.target);
     };
     deps.syncSlider(tpVolSlider);
+  }
+
+  // Loop/repeat toggle — wired once. Works with or without a track loaded;
+  // a track applies the mode on load (see startTrackPlayback).
+  const tpLoopBtn = q('#tp-loop-btn');
+  if (tpLoopBtn) {
+    paintLoopBtn(tpLoopBtn, loopEnabled);
+    tpLoopBtn.onclick = () => {
+      loopEnabled = !loopEnabled;
+      if (audio) audio.loop = loopEnabled;
+      paintLoopBtn(tpLoopBtn, loopEnabled);
+    };
+  }
+
+  const tpPanSlider = q('#tp-pan');
+  const tpPanVal = q('#tp-pan-val');
+  if (tpPanSlider && tpPanVal) {
+    tpPanSlider.oninput = (e) => {
+      const v = parseFloat(e.target.value) || 0;
+      if (pannerNode) pannerNode.pan.value = v / 100;
+      tpPanVal.textContent = panShort(v);
+      syncPanSlider(e.target);
+    };
+    syncPanSlider(tpPanSlider);
   }
 
   const tpProgress = q('#tp-progress');

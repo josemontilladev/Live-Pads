@@ -29,6 +29,11 @@ export function openCompanionPanel() {
       </div>
       <p class="cp-subtitle">Visor pasivo de letras+acordes para los músicos en la misma WiFi.</p>
 
+      <div class="cp-hotspot-row">
+        <button class="cp-hotspot-btn" id="cp-hotspot" type="button">📶 Modo iglesia (Hotspot)</button>
+        <span class="cp-hotspot-tip">Sin internet: la laptop emite su propia WiFi y los teléfonos solo escanean.</span>
+      </div>
+
       <div class="cp-status" data-running="false">
         <span class="cp-dot"></span>
         <span class="cp-status-label">Apagado</span>
@@ -56,10 +61,10 @@ export function openCompanionPanel() {
 
       <div class="cp-firewall" hidden>
         <strong>¿No conecta nadie?</strong>
-        Windows puede estar bloqueando el puerto. La primera vez que arrancas el server,
-        Windows muestra un diálogo "¿Permitir el acceso?" — marca <em>Redes privadas</em> y
-        acepta. Si no salió, abre <em>Firewall de Windows → Aplicaciones permitidas</em> y
-        habilita <em>LivePads</em> / <em>Electron</em> en redes privadas.
+        Windows suele bloquear el puerto en redes nuevas. Pulsa para permitirlo
+        (pedirá confirmación de administrador una sola vez y queda permanente):
+        <button class="cp-fw-btn" id="cp-allow-fw" type="button">Permitir en el Firewall</button>
+        <span class="cp-fw-tip">Asegúrate también de que el teléfono y la laptop estén en la <em>misma</em> red/WiFi.</span>
       </div>
 
       <label class="cp-autostart">
@@ -122,6 +127,33 @@ export function openCompanionPanel() {
       await refresh();
     } catch (err) {
       console.error('Set IP failed:', err);
+    }
+  };
+
+  const hotspotBtn = overlay.querySelector('#cp-hotspot');
+  if (hotspotBtn) hotspotBtn.onclick = async () => {
+    if (!window.electronAPI.companionOpenHotspot) return;
+    try { await window.electronAPI.companionOpenHotspot(); } catch (e) {}
+  };
+
+  const fwBtn = overlay.querySelector('#cp-allow-fw');
+  if (fwBtn) fwBtn.onclick = async () => {
+    if (!window.electronAPI.companionAllowFirewall) return;
+    const prev = fwBtn.textContent;
+    fwBtn.disabled = true;
+    fwBtn.textContent = 'Solicitando permiso…';
+    try {
+      const res = await window.electronAPI.companionAllowFirewall();
+      if (res && res.ok) {
+        fwBtn.textContent = '✓ Permitido — reintenta escanear';
+      } else {
+        fwBtn.textContent = 'Cancelado — púlsalo de nuevo';
+        fwBtn.disabled = false;
+        setTimeout(() => { if (fwBtn.textContent.startsWith('Cancelado')) fwBtn.textContent = prev; }, 3000);
+      }
+    } catch (e) {
+      fwBtn.textContent = prev;
+      fwBtn.disabled = false;
     }
   };
 

@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fetchChordUrl: (url) => ipcRenderer.invoke('fetch-chord-url', url),
   companionStart: () => ipcRenderer.invoke('companion-start'),
   companionStop: () => ipcRenderer.invoke('companion-stop'),
+  companionAllowFirewall: () => ipcRenderer.invoke('companion-allow-firewall'),
+  companionOpenHotspot: () => ipcRenderer.invoke('companion-open-hotspot'),
   companionStatus: () => ipcRenderer.invoke('companion-status'),
   companionPublishSong: (song) => ipcRenderer.invoke('companion-publish-song', song),
   companionPublishPlaying: (playing) => ipcRenderer.invoke('companion-publish-playing', playing),

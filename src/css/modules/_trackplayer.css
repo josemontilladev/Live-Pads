@@ -14,14 +14,17 @@
   margin-bottom: 12px;
 }
 .tp-transport { display: flex; gap: 10px; }
-.tp-play, .tp-stop, .tp-loop {
+.tp-play, .tp-stop, .tp-restart, .tp-loop {
   border-radius: 50%;
   width: 44px;
   height: 44px;
 }
 .tp-play  { background: var(--blue); color: #000; transition: transform 0.15s; }
 .tp-stop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+.tp-restart { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+.tp-restart:hover { color: var(--text); border-color: var(--border-strong); }
 .tp-loop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
+.tp-loop.active { background: var(--blue); border-color: var(--blue); color: #000; }
 .tp-autoadvance {
   border-radius: 50%;
   width: 44px;
@@ -71,7 +74,7 @@
   gap: 20px;
   margin-left: 10px;
 }
-.tp-vol-row { padding: 0; }
+.tp-vol-row, .tp-pan-row { padding: 0; }
 .tp-vol-label { font-size: 10px; min-width: 24px; }
 .tp-vol-slider { width: 80px; }
 .tp-vol-val { min-width: 26px; }
@@ -80,6 +83,64 @@
   height: 32px;
   background: var(--bg-hover);
   border-radius: 8px;
+}
+
+/* ── Mezclador: consolidated volume/pan bar ───────────────────────────
+   All vol/pan controls were moved here for one-glance access + MIDI
+   mapping. The original sliders stay in the DOM (driving the engine) but
+   their host containers carry .mx-relocated to hide them visually. */
+.mx-relocated { display: none !important; }
+
+/* Lives inside #panel-drums (where the per-pad drum volumes used to be), so
+   it's styled as a bento card rather than a full-width bottom bar. */
+#mixer-bar {
+  flex-shrink: 0;
+  /* Same subtle card gradient as the other bento panels (bank/setlist/metro)
+     so it doesn't read as a flat near-black block. */
+  background: linear-gradient(155deg, var(--bg-card) 0%, var(--bg-surface) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mx-title {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); font-size: 13px; font-weight: 800;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.mx-hint {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.2px; white-space: nowrap;
+}
+.mx-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.mx-channel {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+}
+.mx-channel--master { justify-content: center; }
+.mx-name {
+  font-size: 11px; font-weight: 800; color: var(--text);
+  letter-spacing: 0.3px; white-space: nowrap;
+}
+.mx-ctrl { display: flex; align-items: center; gap: 8px; }
+.mx-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
+.mx-slider { flex: 1; min-width: 0; }
+.mx-val {
+  font-size: 10px; color: var(--text-muted);
+  min-width: 32px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 600;
 }
 
 /* Floating "Añadida al servicio" popup over the library card after click.

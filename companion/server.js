@@ -43,6 +43,11 @@ const LAN_NAME_RE = /wi-?fi|wlan|ethernet|eth\d|en\d|^lan/i;
 
 function scoreInterface(name, addr) {
   let score = 0;
+  // Hotspot ranges win outright — Windows Mobile Hotspot hands out
+  // 192.168.137.x and Android tethering 192.168.43.x. When the laptop is its
+  // own access point ("church mode"), that's exactly the network the phones
+  // are on, so the QR must point there.
+  if (/^192\.168\.137\./.test(addr) || /^192\.168\.43\./.test(addr)) score += 200;
   // Address-range scoring — 192.168.x.x is the gold standard for home LAN.
   if (/^192\.168\./.test(addr))     score += 100;
   else if (/^172\.(1[6-9]|2\d|3[01])\./.test(addr)) score += 40;

@@ -606,6 +606,27 @@ body[data-workspace="stems"] #body {
   transition: border-color 0.2s, background 0.2s;
 }
 .stems-mini-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
+
+/* Accent chips — one per beat in the bar; toggle which beats are accented. */
+.stems-accent { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.stems-accent-chip {
+  appearance: none;
+  width: 22px; height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: 11px; font-weight: 800;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.stems-accent-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.stems-accent-chip.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
 .stems-mini-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
 .stems-mini-select option { background: var(--bg-card); color: var(--text); }
 

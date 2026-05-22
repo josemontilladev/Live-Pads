@@ -104,16 +104,17 @@ export function renderGiList(filter = '', editSongId = null) {
     return genre.includes(currentGenre);
   });
 
-  // "Recientes" sorts newest-first so the just-added songs sit at the top,
-  // overriding the manual array order (which only matters for the full list).
+  // Sort the library view. "Recientes" goes newest-first; every other view
+  // is alphabetical by title (accent-insensitive, Spanish locale) so songs
+  // are easy to scan and find.
   if (currentGenre === 'recientes') {
     filtered.sort((a, b) => songAddedAt(b) - songAddedAt(a));
+  } else {
+    filtered.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
   }
 
-  // Library now renders in the songs[] array order so drag-and-drop reorder
-  // sticks. The only forced override is editSongId — when the user just
-  // added a new song, we pin it to the top so the inline edit form is
-  // visible without scrolling.
+  // editSongId override — when the user just added a new song, we pin it to
+  // the top so the inline edit form is visible without scrolling.
   if (editSongId) {
     filtered.sort((a, b) => {
       if (a.id === editSongId) return -1;
