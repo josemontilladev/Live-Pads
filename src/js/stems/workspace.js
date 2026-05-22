@@ -2449,11 +2449,27 @@ async function rehydrate(state) {
     document.getElementById('stems-master-vol').value = Math.round(state.masterVolume * 100);
   }
 
-  for (const t of state.tracks || []) {
-    if (!t.path) continue;
+  // Fetch + decode every stem IN PARALLEL (the slow part — disk read + audio
+  // decode). Previously this ran one track at a time, so on reopen the tracks
+  // trickled in one by one. Now they all decode at once and we add them in
+  // the saved order once ready.
+  const trackList = (state.tracks || []).filter(t => t.path);
+  const ctx = engine.getAudioContext();
+  const decoded = await Promise.all(trackList.map(async (t) => {
     try {
       const arrayBuffer = await projectStore.fetchStem(t.path);
-      await engine.addTrack({ id: t.id, name: t.name, arrayBuffer, kind: t.kind || 'stem', offsetSec: t.offsetSec || 0 });
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      return { t, audioBuffer };
+    } catch (e) {
+      console.warn('Could not load stem', t.id, e);
+      return null;
+    }
+  }));
+  for (const d of decoded) {
+    if (!d) continue;
+    const { t, audioBuffer } = d;
+    try {
+      await engine.addTrack({ id: t.id, name: t.name, audioBuffer, kind: t.kind || 'stem', offsetSec: t.offsetSec || 0 });
       engine.setTrackVolume(t.id, t.volume);
       engine.setTrackPan(t.id, t.pan);
       if (t.muted)  engine.setTrackMuted(t.id, true);
