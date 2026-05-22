@@ -62,7 +62,9 @@ function nextStemColor() {
 let mounted = false;
 let nextTrackId = 1;
 let projectName = 'Mi proyecto';
-let bpm = 120;
+let bpm = 120;            // integer shown in the UI / track names
+let bpmFloat = 120;       // precise tempo used for click, alignment + grid so
+                          // nothing drifts across a long track
 let beatsPerBar = 4;
 let beatValue = 4;
 // Which beats of the bar get the accent click. Length tracks beatsPerBar;
@@ -482,6 +484,7 @@ function wireTopbarEvents(root) {
     const v = parseInt(bpmInput.value, 10);
     if (isFinite(v) && v >= 20 && v <= 300) {
       bpm = v;
+      bpmFloat = v; // manual entry → the integer IS the precise tempo
       drawRuler();
       scheduleSave();
     }
@@ -490,8 +493,8 @@ function wireTopbarEvents(root) {
     if (bpm === bpmBefore) return;
     const oldBpm = bpmBefore, newBpm = bpm;
     pushHistory('Cambiar BPM',
-      () => { bpm = oldBpm; bpmInput.value = oldBpm; drawRuler(); scheduleSave(); },
-      () => { bpm = newBpm; bpmInput.value = newBpm; drawRuler(); scheduleSave(); }
+      () => { bpm = oldBpm; bpmFloat = oldBpm; bpmInput.value = oldBpm; drawRuler(); scheduleSave(); },
+      () => { bpm = newBpm; bpmFloat = newBpm; bpmInput.value = newBpm; drawRuler(); scheduleSave(); }
     );
     bpmBefore = bpm;
   });
@@ -595,15 +598,17 @@ function onDetectBpm() {
       }
       const detected = result.bpm;
       const detectedSig = result.signature || `${beatsPerBar}/${beatValue}`;
-      const oldBpm = bpm, oldSig = `${beatsPerBar}/${beatValue}`;
+      const detectedFloat = result.bpmFloat || detected;
+      const oldBpm = bpm, oldBpmFloat = bpmFloat, oldSig = `${beatsPerBar}/${beatValue}`;
       if (detected === bpm && detectedSig === oldSig) {
         alert(`La pista ya coincide con lo actual (${detected} BPM, ${oldSig}).`);
         return;
       }
       if (!confirm(`Detectado: ${detected} BPM · compás ${detectedSig}.\n¿Aplicarlo? (actual: ${oldBpm} BPM · ${oldSig})`)) return;
 
-      const apply = (b, sig) => {
+      const apply = (b, sig, bFloat) => {
         bpm = b;
+        bpmFloat = bFloat || b;
         const [bp, bv] = sig.split('/').map(n => parseInt(n, 10));
         if (bp) beatsPerBar = bp;
         if (bv) beatValue = bv;
@@ -615,10 +620,10 @@ function onDetectBpm() {
         if (sigSel) sigSel.value = sig;
         drawRuler();
       };
-      apply(detected, detectedSig);
+      apply(detected, detectedSig, detectedFloat);
       pushHistory('Detectar BPM y compás',
-        () => { apply(oldBpm, oldSig); scheduleSave(); },
-        () => { apply(detected, detectedSig); scheduleSave(); }
+        () => { apply(oldBpm, oldSig, oldBpmFloat); scheduleSave(); },
+        () => { apply(detected, detectedSig, detectedFloat); scheduleSave(); }
       );
       scheduleSave();
     } catch (e) {
@@ -987,7 +992,7 @@ function wireLaneDrag(lane, id) {
       dragging = true;
       lane.classList.add('is-shifting');
       let newOffset = startOffset + dx / PX_PER_SEC;
-      if (snapToBeat) newOffset = Math.round(newOffset / (60 / bpm)) * (60 / bpm);
+      if (snapToBeat) newOffset = Math.round(newOffset / (60 / bpmFloat)) * (60 / bpmFloat);
       newOffset = Math.max(0, newOffset);
       // Live visual: shift only this row's canvas; commit to engine on up.
       const row = trackRows.get(id);
@@ -1750,8 +1755,8 @@ function drawRuler() {
   if (!ruler) return;
   const w = projectWidthPx();
   const dur = projectDurationSec();
-  const barSec = (60 / bpm) * beatsPerBar;
-  const beatSec = 60 / bpm;
+  const barSec = (60 / bpmFloat) * beatsPerBar;
+  const beatSec = 60 / bpmFloat;
   const beatsTotal = Math.ceil(dur / beatSec);
 
   let html = '';
@@ -1780,7 +1785,7 @@ function drawRuler() {
 // .stems-row-lane backgrounds (lanes scroll with content and sit to the
 // right of the sticky strip, so the lines never overlap the controls).
 function drawGrid() {
-  const beatPx = (60 / bpm) * PX_PER_SEC;
+  const beatPx = (60 / bpmFloat) * PX_PER_SEC;
   const barPx = beatPx * beatsPerBar;
   const root = document.documentElement.style;
   if (!isFinite(beatPx) || beatPx <= 0) {
@@ -1856,7 +1861,7 @@ let loopEnabled = false;
 
 function snapTimeIfEnabled(sec) {
   if (!snapToBeat) return sec;
-  const beatSec = 60 / bpm;
+  const beatSec = 60 / bpmFloat;
   return Math.round(sec / beatSec) * beatSec;
 }
 
@@ -2183,8 +2188,8 @@ async function onDetectSections() {
   let sections = [];
   try {
     await new Promise(r => setTimeout(r, 20)); // let the button repaint first
-    // Pass the project tempo so boundaries snap to exact bar lines.
-    sections = detectSections(buf, { bpm, beatsPerBar });
+    // Pass the precise project tempo so boundaries snap to exact bar lines.
+    sections = detectSections(buf, { bpm: bpmFloat, beatsPerBar });
   } catch (e) {
     console.warn('Section detection failed:', e);
   } finally {
@@ -2248,14 +2253,14 @@ function computeClickAlignment() {
   if (!stem) return { offsetSec: 0, accentBeatOffset: 0 };
   const buf = engine.getTrackBuffer(stem.id);
   if (!buf) return { offsetSec: 0, accentBeatOffset: 0 };
-  const a = detectBeatAlignment(buf, bpm, beatsPerBar);
+  const a = detectBeatAlignment(buf, bpmFloat, beatsPerBar);
   return a || { offsetSec: 0, accentBeatOffset: 0 };
 }
 
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
+  const buffer = await generateClickTrack({ bpm: bpmFloat, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
   await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
@@ -2269,7 +2274,7 @@ async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
+  const buffer = await generateClickTrack({ bpm: bpmFloat, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);
   engine.setTrackOffset(existingId, offsetSec);
@@ -2476,7 +2481,7 @@ async function doSave() {
     });
     await projectStore.saveCurrent({
       projectName,
-      bpm, beatsPerBar, beatValue,
+      bpm, bpmFloat, beatsPerBar, beatValue,
       accentPattern,
       masterVolume: engine.getMasterVolume(),
       nextTrackId, nextMarkerId,
@@ -2514,6 +2519,7 @@ async function rehydrate(state) {
 
   if (typeof state.bpm === 'number') {
     bpm = state.bpm;
+    bpmFloat = (typeof state.bpmFloat === 'number') ? state.bpmFloat : state.bpm;
     document.getElementById('stems-bpm').value = bpm;
   }
   if (typeof state.beatsPerBar === 'number') beatsPerBar = state.beatsPerBar;
@@ -2731,7 +2737,7 @@ async function resetProject() {
   nextTrackId = 1;
   nextMarkerId = 1;
   projectName = 'Mi proyecto';
-  bpm = 120; beatsPerBar = 4; beatValue = 4;
+  bpm = 120; bpmFloat = 120; beatsPerBar = 4; beatValue = 4;
   document.getElementById('stems-project-name').value = projectName;
   document.getElementById('stems-bpm').value = bpm;
   document.getElementById('stems-sig').value = '4/4';

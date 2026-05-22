@@ -236,7 +236,9 @@ function analyze(audioBuffer) {
   while (bpm > NICE_BPM_MAX && bpm / 2 >= MIN_BPM) bpm /= 2;
 
   const signature = guessMeter(onset, nFrames, (60 * envRate) / bpm);
-  return { bpm: Math.round(bpm), signature };
+  // bpm = precise float (sub-BPM from parabolic interp); bpmRounded for display.
+  // The click/guide use the float so they don't drift over a 4-min track.
+  return { bpm: Math.round(bpm), bpmFloat: bpm, signature };
 }
 
 function guessMeter(onset, nFrames, beatLag) {
