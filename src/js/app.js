@@ -47,7 +47,7 @@ import { bindMetronomeControls } from './ui/metronomeControls.js';
 import { bindMixerBar } from './ui/mixerBar.js';
 import { applyTheme, buildThemesList, getCurrentTheme } from './ui/themes.js';
 import {
-  initService, getServiceSongs, getActiveServiceIndex,
+  initService, getServiceSongs, getActiveServiceIndex, setActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
   serviceNextSong, servicePrevSong
@@ -729,6 +729,20 @@ function bindGlobalHandlers() {
       requestAnimationFrame(() => card.classList.add('flash-locate'));
       setTimeout(() => card.classList.remove('flash-locate'), 950);
     };
+
+    // Deselect button — clears the active song (library + service), which
+    // hides the banner and drops the .active-song highlight. Stops
+    // propagation so it doesn't also trigger the jump-to-card click above.
+    const npClose = q('#np-close-btn');
+    if (npClose) {
+      npClose.onclick = (e) => {
+        e.stopPropagation();
+        setActiveSongId(null);
+        setActiveServiceIndex(-1);
+        qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
+        refreshActiveSongHighlights();
+      };
+    }
   }
 }
 
