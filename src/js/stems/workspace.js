@@ -1362,8 +1362,10 @@ function openSeparateMenu(anchor, id) {
   menu.innerHTML = `
     <button data-mode="2stem">Voz / Instrumental <span class="stems-ctx-hint">rápido</span></button>
     <button data-mode="4stem">Voz · Batería · Bajo · Otros <span class="stems-ctx-hint">lento</span></button>
+    <button data-mode="otros">Solo "Otros" (teclados, guitarras…) <span class="stems-ctx-hint">medio</span></button>
     <div class="stems-ctx-sep"></div>
     <button data-toggle="cpu" class="stems-ctx-toggle">${forceCpu ? '☑' : '☐'} Forzar CPU (sin GPU)</button>
+    <button data-action="cloud" class="stems-ctx-toggle">☁ Separación en la nube${getCloudConfig() ? ' ✓' : '…'}</button>
   `;
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
@@ -1384,12 +1386,63 @@ function openSeparateMenu(anchor, id) {
     localStorage.setItem('livepads-stems-force-cpu', next);
     cpuToggle.textContent = `${next === '1' ? '☑' : '☐'} Forzar CPU (sin GPU)`;
   };
+  const cloudBtn = menu.querySelector('[data-action="cloud"]');
+  if (cloudBtn) cloudBtn.onclick = (ev) => { ev.stopPropagation(); menu.remove(); openCloudConfigDialog(); };
   const close = (ev) => {
     if (menu.contains(ev.target)) return;
     menu.remove();
     document.removeEventListener('mousedown', close, true);
   };
   setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+}
+
+// ── Hybrid cloud separation config ────────────────────────────────
+// Stored in localStorage as { provider, apiKey }. When present + online, the
+// separation routes to the cloud (with automatic local fallback on failure).
+const CLOUD_CFG_KEY = 'livepads-stems-cloud';
+function getCloudConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || 'null');
+    return (c && c.apiKey && c.provider) ? c : null;
+  } catch (e) { return null; }
+}
+
+// Minimal config dialog (Electron disables window.prompt, so we build our own).
+function openCloudConfigDialog() {
+  document.getElementById('stems-cloud-cfg')?.remove();
+  const cur = getCloudConfig() || { provider: 'replicate', apiKey: '' };
+  const overlay = document.createElement('div');
+  overlay.id = 'stems-cloud-cfg';
+  overlay.className = 'stems-cloud-overlay';
+  overlay.innerHTML = `
+    <div class="stems-cloud-panel" role="dialog" aria-modal="true">
+      <h3>Separación en la nube</h3>
+      <p>Con internet y una API key, la separación se hace en la nube (más rápida y con más stems, ej. "Otros" sin guitarra). Sin internet o sin key, se usa tu GPU/CPU local. La key se guarda solo en este equipo.</p>
+      <label>Proveedor</label>
+      <select id="cloud-provider">
+        <option value="replicate"${cur.provider === 'replicate' ? ' selected' : ''}>Replicate (Demucs, pago por uso)</option>
+      </select>
+      <label>API key</label>
+      <input id="cloud-key" type="password" placeholder="Pega tu token aquí" value="${cur.apiKey ? cur.apiKey.replace(/"/g, '&quot;') : ''}">
+      <div class="stems-cloud-actions">
+        <button id="cloud-clear" class="stems-btn stems-btn--subtle">Quitar</button>
+        <span style="flex:1"></span>
+        <button id="cloud-cancel" class="stems-btn stems-btn--subtle">Cancelar</button>
+        <button id="cloud-save" class="stems-btn stems-btn--accent">Guardar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  overlay.querySelector('#cloud-cancel').onclick = close;
+  overlay.querySelector('#cloud-clear').onclick = () => { localStorage.removeItem(CLOUD_CFG_KEY); close(); };
+  overlay.querySelector('#cloud-save').onclick = () => {
+    const provider = overlay.querySelector('#cloud-provider').value;
+    const apiKey = overlay.querySelector('#cloud-key').value.trim();
+    if (apiKey) localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({ provider, apiKey }));
+    else localStorage.removeItem(CLOUD_CFG_KEY);
+    close();
+  };
 }
 
 // ── Local AI stem separation (voz / instrumental) ────────────────
@@ -1430,6 +1483,34 @@ async function onSeparateTrack(id, mode = '2stem') {
       separating = false;
     }
     return;
+  }
+
+  // Cloud route (hybrid): if a provider + key are configured AND we're online,
+  // offload to the cloud. ANY failure falls through to the local model below,
+  // so live use is never blocked.
+  const cloudCfg = getCloudConfig();
+  if (cloudCfg && navigator.onLine && window.electronAPI.stemsSeparateCloud) {
+    try {
+      toast.update(0.05, `Separando en la nube (${cloudCfg.provider})…`);
+      const wavBytes = new Uint8Array(audioBufferToWav(buffer));
+      const res = await window.electronAPI.stemsSeparateCloud({
+        wav: wavBytes, provider: cloudCfg.provider, apiKey: cloudCfg.apiKey, mode,
+      });
+      const bytes = res && res.audio;
+      if (bytes) {
+        const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        const ab = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+        const decoded = await engine.getAudioContext().decodeAudioData(ab);
+        const ch = [decoded.getChannelData(0), decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : decoded.getChannelData(0)];
+        await addSeparatedTrack(`${baseName} — ${res.name || 'Otros'}`, ch, decoded.sampleRate, res.kind || 'other');
+        toast.done(`✓ ${baseName}: ${res.name || 'Otros'} (nube)`);
+        separating = false;
+        return;
+      }
+    } catch (err) {
+      console.warn('Cloud separation failed, falling back to local:', err);
+      toast.update(0.05, 'Nube no disponible, usando local…');
+    }
   }
 
   const unsubscribe = window.electronAPI.onStemsSeparateProgress(({ fraction, stage }) => {

@@ -180,6 +180,18 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
     return { sampleRate: SR, ep: chosenEp, stems };
   }
 
+  // "Otros": run ONLY the k_other model → a single stem with everything that
+  // isn't voice/drums/bass (keyboards, guitars, synths, strings…). ~4× faster
+  // than full 4-stem since it runs one model instead of four.
+  if (mode === 'otros') {
+    report(0.02, 'Cargando modelo');
+    const { channels: ch, ep: used } = await runModel(L, R, mp('k_other'), MODELS.k_other, chosenEp,
+      (lf) => report(0.02 + 0.95 * lf, 'Separando Otros…'), shouldCancel);
+    chosenEp = used;
+    report(1, 'Listo');
+    return { sampleRate: SR, ep: chosenEp, stems: [{ name: 'Otros', kind: 'other', channels: ch }] };
+  }
+
   // 2-stem: instrumental model predicts the instrumental; vocals = mix - inst.
   report(0.02, 'Cargando modelo');
   const { channels: inst, ep: used } = await runModel(L, R, mp('inst_hq3'), MODELS.inst_hq3, chosenEp,
