@@ -2099,33 +2099,36 @@ async function onDetectSections() {
   const btn = document.getElementById('stems-detect-sections');
   const prevHtml = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Analizando…'; }
-  let times = [];
+  let sections = [];
   try {
     await new Promise(r => setTimeout(r, 20)); // let the button repaint first
-    times = detectSections(buf);
+    sections = detectSections(buf);
   } catch (e) {
     console.warn('Section detection failed:', e);
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; }
   }
 
-  if (!times.length) {
+  if (!sections.length) {
     alert('No se detectaron cambios de sección claros. Puedes añadir los marcadores a mano.');
     return;
   }
 
-  // The song's start is the first section; detected times are the rest.
-  const boundaries = [0, ...times];
   if (markers.length &&
-      !confirm(`Se detectaron ${boundaries.length} secciones. Esto reemplazará los marcadores actuales por los detectados. ¿Continuar?`)) {
+      !confirm(`Se detectaron ${sections.length} secciones. Esto reemplazará los marcadores actuales por los detectados. ¿Continuar?`)) {
     return;
   }
 
+  // Each detected section carries a best-guess cue (Intro / Verso / Coro);
+  // the user fine-tunes the names via the marker right-click menu.
   const prevMarkers = markers.slice();
-  const cueFor = (i) => findCueById(i === 0 ? 'intro' : 'verso') || SECTION_CUES[0];
-  const newMarkers = boundaries.map((t, i) => {
-    const cue = cueFor(i);
-    return { id: `m${nextMarkerId++}`, cueId: cue.id, label: `Sección ${i + 1}`, url: cue.url, atSec: t };
+  let versoN = 0, coroN = 0;
+  const newMarkers = sections.map((sec) => {
+    const cue = findCueById(sec.cueId) || SECTION_CUES[0];
+    let label = sec.label;
+    if (sec.cueId === 'verso') label = `Verso ${++versoN}`;
+    else if (sec.cueId === 'coro') label = `Coro ${++coroN}`;
+    return { id: `m${nextMarkerId++}`, cueId: cue.id, label, url: cue.url, atSec: sec.atSec };
   });
   markers = newMarkers;
   redrawMarkers();

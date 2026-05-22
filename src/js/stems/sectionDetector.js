@@ -160,7 +160,66 @@ export function detectSections(audioBuffer) {
     peaks.push({ frame: i, v });
   }
 
-  return peaks
-    .map(p => +(p.frame * HOP_SEC).toFixed(3))
-    .filter(t => t > 1.5); // ignore boundaries right at the very start
+  // Real boundaries (ignore peaks within the first ~1.5 s — that's the intro
+  // start, represented separately by the 0 boundary). No peaks → no sections.
+  const peakFrames = peaks.map(p => p.frame).filter(f => f * HOP_SEC > 1.5);
+  if (!peakFrames.length) return [];
+
+  // Segment the song: start (0) + each boundary. Label each segment by texture
+  // similarity (the most-repeated cluster = chorus, the rest = verses).
+  const boundaryFrames = [0, ...peakFrames].sort((a, b) => a - b);
+  const segMeans = boundaryFrames.map((a, i) => {
+    const b = (i + 1 < boundaryFrames.length) ? boundaryFrames[i + 1] : n;
+    const m = new Float32Array(N_BANDS);
+    let cnt = 0;
+    for (let f = a; f < b; f++) { const v = feats[f]; for (let d = 0; d < N_BANDS; d++) m[d] += v[d]; cnt++; }
+    if (cnt) for (let d = 0; d < N_BANDS; d++) m[d] /= cnt;
+    let nrm = 0; for (let d = 0; d < N_BANDS; d++) nrm += m[d] * m[d]; nrm = Math.sqrt(nrm) || 1;
+    for (let d = 0; d < N_BANDS; d++) m[d] /= nrm;
+    return m;
+  });
+
+  const labels = labelSegments(segMeans);
+  const CUE = {
+    intro: { cueId: 'intro', label: 'Intro' },
+    verso: { cueId: 'verso', label: 'Verso' },
+    coro:  { cueId: 'coro',  label: 'Coro' },
+  };
+  return boundaryFrames.map((f, i) => {
+    const c = CUE[labels[i]] || CUE.verso;
+    return { atSec: +(f * HOP_SEC).toFixed(3), cueId: c.cueId, label: c.label };
+  });
+}
+
+// Heuristic structure labelling: greedily cluster segments by texture
+// (cosine similarity of their mean feature). The most-repeated cluster is
+// almost always the chorus; the first segment is the intro; everything else
+// is a verse. Naming is best-effort — the user adjusts via the marker menu.
+function labelSegments(segMeans) {
+  const N = segMeans.length;
+  const sim = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += a[i] * b[i]; return d; };
+
+  const cluster = new Array(N).fill(-1);
+  const reps = [];
+  for (let i = 0; i < N; i++) {
+    let best = -1, bestS = 0.85; // similarity threshold to be "the same section"
+    for (let c = 0; c < reps.length; c++) {
+      const s = sim(segMeans[i], reps[c]);
+      if (s > bestS) { bestS = s; best = c; }
+    }
+    if (best >= 0) cluster[i] = best;
+    else { cluster[i] = reps.length; reps.push(segMeans[i]); }
+  }
+
+  // Chorus = the most-populated cluster (must repeat at least twice).
+  const counts = {};
+  for (const c of cluster) counts[c] = (counts[c] || 0) + 1;
+  let chorusCluster = -1, bestCount = 1;
+  for (const c in counts) { if (counts[c] > bestCount) { bestCount = counts[c]; chorusCluster = +c; } }
+
+  return cluster.map((c, i) => {
+    if (i === 0) return 'intro';
+    if (c === chorusCluster) return 'coro';
+    return 'verso';
+  });
 }

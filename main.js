@@ -448,6 +448,77 @@ ipcMain.handle('sync-mongo-setlist', async () => {
   }
 });
 
+// Push the local library UP to GI.Setlist via its HTTPS API. Serves both as
+// a cloud backup and the "reverse" direction of sync. Songs with a known
+// `_id` are updated (PUT); songs without one are created (POST) and their new
+// cloud id is returned so the renderer can store it (no duplicates next time).
+// Plain-text lyrics are wrapped back into the <p>-per-line HTML the web app
+// expects, so the round-trip stays clean.
+function plainLyricsToHtml(text) {
+  if (!text) return '';
+  return String(text).replace(/\r/g, '').split('\n')
+    .map(line => line.trim() === '' ? '<p><br></p>'
+      : `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
+    .join('');
+}
+
+ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
+  if (!Array.isArray(songs)) throw new Error('Lista de canciones inválida.');
+  let apiBase = DEFAULT_GI_API;
+  try {
+    const configPath = path.join(app.getPath('userData'), 'config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
+        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
+      }
+    }
+  } catch (e) { /* fall back to default */ }
+
+  const idMap = {};   // localId -> new mongo _id (for newly created songs)
+  let created = 0, updated = 0;
+  const errors = [];
+
+  for (const s of songs) {
+    if (!s || !s.title) continue;
+    const body = {
+      title: s.title,
+      artist: s.artist || '',
+      lyrics: plainLyricsToHtml(s.lyrics || ''),
+      bpm: s.bpm || '',
+      key: s.key || '',
+      genre: s.genre || '',
+    };
+    try {
+      if (s._id) {
+        const res = await net.fetch(`${apiBase}/api/songs/${s._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) updated++;
+        else errors.push(`${s.title}: HTTP ${res.status}`);
+      } else {
+        const res = await net.fetch(`${apiBase}/api/songs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          const doc = await res.json();
+          if (doc && doc._id) idMap[s.id] = String(doc._id);
+          created++;
+        } else {
+          errors.push(`${s.title}: HTTP ${res.status}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`${s.title}: ${err.message}`);
+    }
+  }
+  return { created, updated, idMap, errors };
+});
+
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
   if (typeof relativePath !== 'string') return '';
 
