@@ -916,7 +916,9 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
   // Verify the models this mode needs are present.
   const needed = (mode === '4stem')
     ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
-    : ['inst_hq3'];
+    : (mode === 'otros')
+      ? ['k_other']
+      : ['inst_hq3'];
   for (const k of needed) {
     if (!fs.existsSync(path.join(modelsDir, MODELS[k].file))) {
       throw new Error(`Modelo no encontrado: ${MODELS[k].file}`);
@@ -930,7 +932,7 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
     const result = await separate({
       channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
       sampleRate: sampleRate || 44100,
-      mode: mode === '4stem' ? '4stem' : '2stem',
+      mode: (mode === '4stem' || mode === 'otros') ? mode : '2stem',
       modelsDir,
       ep: ep || undefined,  // undefined → auto (DML then CPU)
       onProgress: send,
@@ -946,6 +948,57 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
 // Cooperative cancel — checked between inference windows/models.
 let separationCancel = false;
 ipcMain.handle('stems-separate-cancel', () => { separationCancel = true; return true; });
+
+// ── Cloud separation (hybrid) ─────────────────────────────────────────
+// Optional: when the user has configured a provider + API key AND there's
+// internet, separation is offloaded to a cloud service (faster + richer
+// stems). The renderer ALWAYS falls back to the local model on any failure,
+// so this can never block live use. Currently wired for Replicate (Demucs).
+async function cloudSeparateReplicate(wavBytes, apiKey, mode) {
+  const dataUri = 'data:audio/wav;base64,' + Buffer.from(wavBytes).toString('base64');
+  // 6-stem model so guitar/piano are pulled OUT of "other" — leaving only the
+  // synths/organ/strings the band doesn't already cover. For "otros" we ask
+  // for just that stem.
+  const input = { audio: dataUri, model: 'htdemucs_6s' };
+  if (mode === 'otros') input.stem = 'other';
+
+  const create = await net.fetch('https://api.replicate.com/v1/models/ryan5453/demucs/predictions', {
+    method: 'POST',
+    headers: { Authorization: `Token ${apiKey}`, 'Content-Type': 'application/json', Prefer: 'wait' },
+    body: JSON.stringify({ input }),
+  });
+  if (!create.ok) throw new Error(`Replicate ${create.status}: ${(await create.text()).slice(0, 160)}`);
+  let pred = await create.json();
+
+  const t0 = Date.now();
+  while (pred.status && !['succeeded', 'failed', 'canceled'].includes(pred.status)) {
+    if (Date.now() - t0 > 300000) throw new Error('Replicate: tiempo agotado');
+    await new Promise(r => setTimeout(r, 2500));
+    const poll = await net.fetch(pred.urls.get, { headers: { Authorization: `Token ${apiKey}` } });
+    pred = await poll.json();
+  }
+  if (pred.status !== 'succeeded') throw new Error(`Replicate: ${pred.status} ${pred.error || ''}`);
+
+  // Output is either a single URL (when one stem requested) or a map of stems.
+  let url = null;
+  const out = pred.output;
+  if (typeof out === 'string') url = out;
+  else if (Array.isArray(out)) url = out[0];
+  else if (out && typeof out === 'object') url = out.other || Object.values(out).find(v => typeof v === 'string');
+  if (!url) throw new Error('Replicate: sin stem de salida');
+
+  const dl = await net.fetch(url);
+  if (!dl.ok) throw new Error(`Descarga del stem falló: ${dl.status}`);
+  const audio = Buffer.from(await dl.arrayBuffer());
+  return { audio, name: 'Otros', kind: 'other' };
+}
+
+ipcMain.handle('stems-separate-cloud', async (_e, { wav, provider, apiKey, mode } = {}) => {
+  if (!apiKey) throw new Error('Falta la API key de la nube.');
+  if (!wav) throw new Error('Audio vacío.');
+  if (provider === 'replicate') return await cloudSeparateReplicate(wav, apiKey, mode);
+  throw new Error('Proveedor de nube no soportado: ' + provider);
+});
 
 ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
   if (typeof livepadsUrl !== 'string') return false;
