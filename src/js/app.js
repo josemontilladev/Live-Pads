@@ -422,9 +422,10 @@ function updateKeyHints() {
     if (hintEl) hintEl.textContent = hint;
   });
   qa('.drum-btn').forEach((btn, i) => {
-    const type = btn.dataset.type;
     let hint = KEY_MAP_DRUMS[i] || '';
-    const found = findKeyboardMappingFor('drum', type);
+    // Drum mappings key by unique pad id now; fall back to type for legacy maps.
+    const found = findKeyboardMappingFor('drum', btn.dataset.drum)
+               || findKeyboardMappingFor('drum', btn.dataset.type);
     if (found) hint = cleanHint(found.key);
     const hintEl = btn.querySelector('.kbd-hint');
     if (hintEl) hintEl.textContent = hint;
@@ -943,7 +944,7 @@ function onKey(e) {
     } else if (mapping.action === 'drum') {
       const kit = KIT_BANKS[getKitBankIdx()];
       if (!kit) return;
-      const pad = kit.pads.find(p => p.type === mapping.id);
+      const pad = kit.pads.find(p => p.id === mapping.id) || kit.pads.find(p => p.type === mapping.id);
       if (pad) {
         const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
         if (btn) btn.classList.add('hit');
