@@ -82,15 +82,24 @@
 .metro-main-btn.running {
   background: #ff4747;
   color: #fff;
-  /* Soft heartbeat while the metronome is running — pulses the glow,
-     not the size, so the button stays clickable without jittering its
-     target. Fixed 1.2s cadence reads as "alive" without competing with
-     the actual click track. */
+  position: relative;
+}
+/* Soft heartbeat while the metronome runs. Uses a pseudo-element ring animated
+   with transform+opacity (GPU-composited) instead of animating box-shadow
+   spread — the old version repainted every frame for the whole service, a real
+   cost on weak laptop GPUs. */
+.metro-main-btn.running::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px rgba(255, 71, 71, 0.5);
+  pointer-events: none;
   animation: metro-running-pulse 1.2s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 @keyframes metro-running-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 71, 71, 0.45); }
-  50%      { box-shadow: 0 0 0 8px rgba(255, 71, 71, 0); }
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0;    transform: scale(1.22); }
 }
 
 /* Metro cards */

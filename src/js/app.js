@@ -954,10 +954,10 @@ function onKey(e) {
       if (!kit) return;
       const pad = resolveDrumPad(kit, mapping.id);
       if (pad) {
-        const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
-        if (btn) btn.classList.add('hit');
-        setTimeout(() => { if(btn) btn.classList.remove('hit'); }, 120);
+        // Audio FIRST (zero added latency), then the visual feedback.
         if (!engine.playCustomDrum(pad.id, pad.id)) engine.playDrum(pad.type, pad.id);
+        const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
+        if (btn) { btn.classList.add('hit'); setTimeout(() => btn.classList.remove('hit'), 120); }
       }
     } else if (mapping.action === 'metro') {
       toggleMetro();

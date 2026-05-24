@@ -44,6 +44,18 @@ export class SynthEngine {
     this.drumPanNode.connect(this.masterGain);
     this.masterGain.connect(this.limiterNode);
     this.limiterNode.connect(this.ctx.destination);
+
+    // Keep-alive: a silent constant source keeps the AudioContext from idling
+    // so the FIRST pad/drum hit after a quiet stretch has zero warm-up latency
+    // (a suspended/idle context adds tens of ms on the first scheduled sound).
+    try {
+      const ka = this.ctx.createConstantSource();
+      const kaGain = this.ctx.createGain();
+      kaGain.gain.value = 0;
+      ka.connect(kaGain).connect(this.masterGain);
+      ka.start();
+      this._keepAlive = ka;
+    } catch (e) {}
   }
 
   async _buildReverb(dur) {
