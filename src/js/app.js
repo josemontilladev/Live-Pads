@@ -501,6 +501,10 @@ function bindAutoAdvanceToggle() {
 
 function bindAll() {
   bindClickWithSeqToggle();
+  // Refresh the on-pad key hints whenever mappings are cleared/changed.
+  document.addEventListener('livepads:mappings-changed', () => {
+    if (typeof updateKeyHints === 'function') updateKeyHints();
+  });
   bindTrackPlayerControls();
   bindAutoAdvanceToggle();
   bindKitControls({ buildBankSelects, loadKitBank });

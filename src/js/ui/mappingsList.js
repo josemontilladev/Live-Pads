@@ -7,7 +7,7 @@
 // deletes. Re-renders itself after each deletion so the row count and
 // "no mappings" empty state stay accurate.
 
-import { getMidiMap, deleteMapping } from '../midi/midiMap.js';
+import { getMidiMap, deleteMapping, clearAllMappings } from '../midi/midiMap.js';
 
 let mounted = null;
 
@@ -18,6 +18,9 @@ const ACTION_LABELS = {
   play_seq:  'Master Play/Pause',
   stop_seq:  'Master Stop',
   loop_seq:  'Loop Track',
+  restart_seq: 'Reiniciar pista',
+  autoadvance_seq: 'Auto-avance',
+  close_seq: 'Cerrar pista',
   prev_song: 'Canción anterior',
   next_song: 'Canción siguiente',
   slider:    'Slider',
@@ -98,6 +101,9 @@ export function openMappingsList() {
       </div>
       <p class="mp-subtitle">Cada fila muestra una asignación (MIDI o teclado) a un control. Pulsa × para quitar individualmente.</p>
       <div class="mp-body">${rowsHtml()}</div>
+      <div class="mp-footer">
+        <button class="mp-clear-all" type="button">Borrar todos los mapeos</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -109,6 +115,15 @@ export function openMappingsList() {
     if (clearBtn) {
       deleteMapping(clearBtn.dataset.clear);
       rerender();
+      document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
+      return;
+    }
+    if (e.target.closest('.mp-clear-all')) {
+      if (confirm('¿Borrar TODOS los mapeos MIDI y de teclado? Tendrás que volver a asignarlos.')) {
+        clearAllMappings();
+        rerender();
+        document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
+      }
       return;
     }
   };

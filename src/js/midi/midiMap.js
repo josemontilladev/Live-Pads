@@ -54,6 +54,13 @@ export function deleteMapping(mapKey) {
   }
 }
 
+// Wipe every mapping (MIDI + keyboard). Lets the user start from a clean
+// slate when old/inherited entries conflict.
+export function clearAllMappings() {
+  map = {};
+  persistAsync();
+}
+
 function persistAsync() {
   if (window.electronAPI && window.electronAPI.saveMidiMap) {
     window.electronAPI.saveMidiMap(map);
