@@ -60,7 +60,7 @@ import {
   initPresets, loadPresets as loadPresetsModule
 } from './data/presets.js';
 import {
-  setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor
+  setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
 } from './midi/midiMap.js';
 import { bindMidiHandlers } from './midi/midiBindings.js';
 import { hydrateCustomKitsInto } from './data/customKits.js';
@@ -670,6 +670,9 @@ function applyWorkspace(name) {
   if (stems) stems.classList.remove('ws-entering');
 
   document.body.dataset.workspace = valid;
+  // Switch the active MIDI map so Pads and Stems use fully independent
+  // mappings (a control mapped in one never fires in the other).
+  setMidiScope(valid);
   try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 
   // First-run tutorial fires the very first time the user enters each

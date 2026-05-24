@@ -16,6 +16,9 @@ import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } f
 import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
 import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
+import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
+import { setStemsMidiHandler } from '../midi/midiBindings.js';
+import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget } from '../state/store.js';
 
 // ── Constants ──────────────────────────────────────────────────────
 let PX_PER_SEC        = 40;     // horizontal scale of the timeline (zoomable)
@@ -117,6 +120,108 @@ export function stemsRedo() { if (mounted) historyRedo(); }
 // Public entry point to trigger the tour manually (from menu / cheat-sheet).
 export function showStemsTour() { startTour(); }
 
+// ── Stems MIDI (independent map; only active while the Stems workspace is
+//    the current scope — see midiBindings/midiMap). Mappings here NEVER touch
+//    the Pads map. Wired once from mount(). ───────────────────────────────
+let stemsMidiWired = false;
+function wireStemsMidi() {
+  if (stemsMidiWired) return;
+  stemsMidiWired = true;
+  setStemsMidiHandler(handleStemsMidi);
+  // Learn-target capture for Stems controls (the Pads intercept ignores us).
+  document.addEventListener('click', stemsLearnClick, true);
+}
+
+const stripsList = () => [...document.querySelectorAll('#stems-console-strips .stems-console-strip')];
+const stripBySlot = (slot) => stripsList()[Number(slot)] || null;
+
+function stemsLearnClick(e) {
+  if (!getIsMidiLearnMode()) return;
+  if (document.body.dataset.workspace !== 'stems') return;
+  if (e.target.closest('#midi-learn-overlay')) return; // exit handled elsewhere
+
+  let target = null;
+  if (e.target.closest('#stems-play') || e.target.closest('#stems-pause')) target = { action: 'st_play' };
+  else if (e.target.closest('#stems-stop')) target = { action: 'st_stop' };
+  else if (e.target.closest('#stems-master-vol')) target = { action: 'st_master_vol' };
+  else if (e.target.closest('#stems-add-marker')) target = { action: 'st_marker' };
+  else if (e.target.closest('#stems-add-click')) target = { action: 'st_genclick' };
+  else if (e.target.closest('#stems-detect-sections')) target = { action: 'st_detectsec' };
+  else if (e.target.closest('#stems-bpm-detect')) target = { action: 'st_detectbpm' };
+  else if (e.target.closest('#stems-rebuild-guide')) target = { action: 'st_guide' };
+  else {
+    const strip = e.target.closest('.stems-console-strip');
+    const ctrl  = e.target.closest('[data-action]');
+    const ACT = { vol: 'st_vol', pan: 'st_pan', mute: 'st_mute', solo: 'st_solo' };
+    if (strip && ctrl && ACT[ctrl.dataset.action]) {
+      const slot = stripsList().indexOf(strip);
+      if (slot >= 0) target = { action: ACT[ctrl.dataset.action], id: slot };
+    }
+  }
+  if (!target) return;
+  e.stopPropagation(); e.preventDefault();
+  setMidiLearnTarget(target);
+  const ov = document.getElementById('midi-learn-overlay');
+  if (ov) ov.innerHTML = `🎹 <b>Stems</b> — esperando MIDI para: <b>${target.action}${target.id != null ? ' ' + (target.id + 1) : ''}</b>… Toca tu controlador.`;
+}
+
+function handleStemsMidi(cmd, data1, data2) {
+  const isCC = cmd >= 176 && cmd <= 191;
+  const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
+
+  // Learn mode → capture (strict uniqueness within the Stems scope).
+  if (getIsMidiLearnMode() && getMidiLearnTarget()) {
+    if (data2 > 0) {
+      const target = getMidiLearnTarget();
+      clearMappingForTarget(target, false);
+      addMapping(mapKey, target);
+      const ov = document.getElementById('midi-learn-overlay');
+      if (ov) ov.innerHTML = `✅ ¡Asignado y guardado! (Stems) Selecciona otro o sal.`;
+      setMidiLearnTarget(null);
+    }
+    return;
+  }
+
+  const m = getMapping(mapKey, data1);
+  if (!m) return;
+
+  // Continuous controls (use the 0-127 value).
+  if (m.action === 'st_master_vol') {
+    const el = document.getElementById('stems-master-vol');
+    if (el) { el.value = Math.round((data2 / 127) * 100); el.dispatchEvent(new Event('input', { bubbles: true })); }
+    return;
+  }
+  if (m.action === 'st_vol') {
+    const strip = stripBySlot(m.id); if (!strip) return;
+    const id = strip.dataset.trackId;
+    const pct = Math.round((data2 / 127) * 100);
+    engine.setTrackVolume(id, pct / 100);
+    syncConsoleStripVol(id, pct);
+    scheduleSave();
+    return;
+  }
+  if (m.action === 'st_pan') {
+    const strip = stripBySlot(m.id); if (!strip) return;
+    const panInput = strip.querySelector('[data-action="pan"]');
+    if (panInput) { panInput.value = Math.round((data2 / 127) * 200 - 100); panInput.dispatchEvent(new Event('input', { bubbles: true })); }
+    return;
+  }
+
+  // Triggers (act on press only).
+  if (data2 <= 0) return;
+  switch (m.action) {
+    case 'st_play':       toggleStemsPlay(); break;
+    case 'st_stop':       engine.stop(); break;
+    case 'st_marker':     addStemsMarker(); break;
+    case 'st_genclick':   onAddClickTrack(); break;
+    case 'st_detectsec':  onDetectSections(); break;
+    case 'st_detectbpm':  onDetectBpm(); break;
+    case 'st_guide':      onRebuildGuide(); break;
+    case 'st_mute':       stripBySlot(m.id)?.querySelector('[data-action="mute"]')?.click(); break;
+    case 'st_solo':       stripBySlot(m.id)?.querySelector('[data-action="solo"]')?.click(); break;
+  }
+}
+
 export async function mount() {
   if (mounted) return;
   mounted = true;
@@ -125,6 +230,8 @@ export async function mount() {
     onPlayingChange: applyPlayingState,
     onTimeUpdate: applyTimeUpdate
   });
+
+  wireStemsMidi();
 
   const root = document.getElementById('workspace-stems');
   if (!root) return;
