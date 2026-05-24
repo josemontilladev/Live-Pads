@@ -1022,6 +1022,20 @@
 }
 #mappings-overlay .mp-close:hover { border-color: var(--accent); color: var(--accent); }
 
+#mappings-overlay .mp-footer {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+#mappings-overlay .mp-clear-all {
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid rgba(232, 17, 35, 0.4);
+  background: rgba(232, 17, 35, 0.1);
+  color: #ff6b6b; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+#mappings-overlay .mp-clear-all:hover { background: #e81123; color: #fff; border-color: #e81123; }
+
 #mappings-overlay .mp-subtitle {
   margin: 0 0 16px;
   font-size: 12px;
