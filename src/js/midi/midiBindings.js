@@ -38,6 +38,13 @@ import {
 export function bindMidiHandlers(deps) {
   const engine = deps.getEngine();
 
+  // Guarantee the mapping survives an app close: the per-assignment async save
+  // can be dropped if the window tears down right after mapping. A synchronous
+  // flush on beforeunload writes the final state to disk before exit.
+  window.addEventListener('beforeunload', () => {
+    try { window.electronAPI?.saveMidiMapSync?.(getMidiMap()); } catch (e) {}
+  });
+
   // Render the device-name pill in the topbar. Hidden when no MIDI device
   // is connected (or before MIDI access resolves on app boot).
   const renderDevicePill = (names) => {

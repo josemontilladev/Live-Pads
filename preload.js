@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadUserDrums: () => ipcRenderer.invoke('load-user-drums'),
   loadMidiMap: () => ipcRenderer.invoke('load-midi-map'),
   saveMidiMap: (data) => ipcRenderer.invoke('save-midi-map', data),
+  saveMidiMapSync: (data) => { try { return ipcRenderer.sendSync('save-midi-map-sync', data); } catch (e) { return false; } },
   fetchChordUrl: (url) => ipcRenderer.invoke('fetch-chord-url', url),
   companionStart: () => ipcRenderer.invoke('companion-start'),
   companionStop: () => ipcRenderer.invoke('companion-stop'),
