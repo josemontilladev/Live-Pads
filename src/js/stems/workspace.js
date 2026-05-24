@@ -516,7 +516,7 @@ function startMasterMeter() {
     if (!engine.isCurrentlyPlaying()) {
       // Decay smoothly to 0, then STOP the loop so it doesn't burn a frame
       // every tick forever (it used to run even back in the Pads workspace).
-      if (meterPeakSmoothed > 0.001) {
+      if (meterPeakSmoothed > 0.02) {
         meterPeakSmoothed *= 0.9;
         el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
         meterRAF = requestAnimationFrame(tick);
