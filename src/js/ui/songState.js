@@ -34,7 +34,15 @@ export function refreshActiveSongHighlights() {
     const activeId = getActiveSongId();
     if (activeId != null) {
       const match = getGiCardBySongId(activeId);
-      if (match) match.classList.add('active-song');
+      if (match) {
+        match.classList.add('active-song');
+        // Pin the active song to the TOP of the list so it's always in view
+        // (only when the library is the visible tab — don't yank scroll while
+        // the user browses elsewhere).
+        if (giContainer.offsetParent !== null) {
+          match.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
       // Source the banner data from the library copy so we always show
       // the canonical title (service entries are clones, may have stale).
       nowPlayingSong = getGiSongsFromStore().find(s => s.id === activeId) || null;
@@ -59,12 +67,11 @@ export function refreshActiveSongHighlights() {
         const match = svcContainer.querySelector(sel);
         if (match) {
           match.classList.add('active-song');
-          // Smooth-scroll the active card into view ONLY if the service
-          // panel is the one currently visible (don't yank scroll while
-          // user is browsing Librería/Presets). nearest+block:center keeps
-          // the next song below it in eyeshot too.
+          // Pin the active song to the TOP of the service list so the director
+          // always sees exactly where they are (only when the panel is visible
+          // so we don't yank scroll while browsing Librería/Presets).
           if (svcContainer.offsetParent !== null) {
-            match.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            match.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
         // Service-side fallback when the song isn't in the library (rare —

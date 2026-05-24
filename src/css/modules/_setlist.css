@@ -25,6 +25,7 @@
   /* Breathing room so the first card's hover lift (translateY + glow) isn't
      clipped against the scroll container's top edge. */
   padding-top: 6px;
+  scroll-padding-top: 8px; /* pinned active card isn't flush to the top edge */
 }
 
 /* Beat visualizer */
