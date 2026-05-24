@@ -1033,6 +1033,18 @@ ipcMain.handle('companion-qr', async (_e, url) => {
 initializeUserData(); // Run copy of defaults to userData on boot
 
 // Resolve a livepads://app/<rel> URL to an absolute file path under userData.
+const MIME_BY_EXT = {
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+  '.aac': 'audio/aac', '.m4a': 'audio/mp4', '.flac': 'audio/flac',
+  '.opus': 'audio/opus', '.webm': 'audio/webm',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+  '.json': 'application/json',
+};
+function mimeForPath(fp) {
+  return MIME_BY_EXT[path.extname(fp).toLowerCase()] || 'application/octet-stream';
+}
+
 function resolveLivepadsUrl(reqUrl) {
   const after = reqUrl.slice('livepads://'.length); // e.g. 'app/UserDrums/foo.mp3'
   const withoutHost = after.replace(/^app\/?/, '');
@@ -1044,18 +1056,42 @@ app.whenReady().then(() => {
   protocol.handle('livepads', async (request) => {
     try {
       const filePath = resolveLivepadsUrl(request.url);
-      const res = await net.fetch(pathToFileURL(filePath).toString());
-      const headers = new Headers(res.headers);
-      // Expose an explicit ACAO header so the renderer can route these assets
-      // through Web Audio (e.g. the track-player pan node) with
-      // crossOrigin='anonymous' without the media element getting tainted.
-      headers.set('Access-Control-Allow-Origin', '*');
-      // Ensure Content-Length is present — without it, media elements report
-      // duration === Infinity (e.g. MP3 sequences showed "Infinity:NaN").
-      if (!headers.has('Content-Length')) {
-        try { headers.set('Content-Length', String(fs.statSync(filePath).size)); } catch (e) {}
+      const stat = await fs.promises.stat(filePath);
+      if (!stat.isFile()) return new Response('Not Found', { status: 404 });
+      const total = stat.size;
+
+      const baseHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        // Advertise byte-range support so media elements can SEEK and read the
+        // real duration. Without this the <audio> tag couldn't seek/length the
+        // stream — which made tracks jump back to 0 mid-play and cut off at the
+        // end. We honour Range with 206 below.
+        'Accept-Ranges': 'bytes',
+        'Content-Type': mimeForPath(filePath),
+      };
+
+      const rangeHeader = request.headers.get('Range') || request.headers.get('range');
+      const m = rangeHeader && /bytes=(\d*)-(\d*)/.exec(rangeHeader);
+      if (m) {
+        let start = m[1] === '' ? 0 : parseInt(m[1], 10);
+        let end   = m[2] === '' ? total - 1 : parseInt(m[2], 10);
+        if (!isFinite(start)) start = 0;
+        if (!isFinite(end) || end >= total) end = total - 1;
+        if (start > end || start >= total) {
+          return new Response(null, { status: 416, headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` } });
+        }
+        const chunkSize = end - start + 1;
+        const buf = Buffer.alloc(chunkSize);
+        const fd = await fs.promises.open(filePath, 'r');
+        try { await fd.read(buf, 0, chunkSize, start); } finally { await fd.close(); }
+        return new Response(buf, {
+          status: 206,
+          headers: { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': String(chunkSize) },
+        });
       }
-      return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+
+      const buf = await fs.promises.readFile(filePath);
+      return new Response(buf, { status: 200, headers: { ...baseHeaders, 'Content-Length': String(total) } });
     } catch (e) {
       console.warn('livepads:// fetch failed for', request.url, e.message);
       return new Response('Not Found', { status: 404 });
