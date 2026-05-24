@@ -19,7 +19,7 @@
 import { q } from '../utils/dom.js';
 import { KIT_BANKS } from '../data/banks.js';
 import { KEYS_FLAT, KEYS_SHARP } from '../data/musicConstants.js';
-import { clearMappingForTarget, addMapping, getMapping } from './midiMap.js';
+import { clearMappingForTarget, addMapping, getMapping, getMidiMap } from './midiMap.js';
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
 import { hitDrum, resolveDrumPad } from '../ui/drumGrid.js';
 import {
@@ -125,7 +125,15 @@ export function bindMidiHandlers(deps) {
       return;
     }
 
-    // Hardcoded fallback map — works even without any saved mapping.
+    // Hardcoded fallback map — a convenience for a brand-new user who hasn't
+    // mapped anything yet (plug in a controller and pads/drums just work).
+    // BUT the moment the user has ANY explicit MIDI mapping, we trust ONLY
+    // their mappings: otherwise a stray/extra note the controller emits (many
+    // send note+CC, or notes outside what was mapped) would phantom-trigger a
+    // pad/drum on top of the real action — catastrophic live. So bail here.
+    const hasMidiMappings = Object.keys(getMidiMap()).some(k => k.startsWith('note_') || k.startsWith('cc_'));
+    if (hasMidiMappings) return;
+
     if (isNoteOn && data2 > 0) {
       if (data1 >= 60 && data1 <= 71) {
         const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
