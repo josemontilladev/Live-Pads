@@ -86,6 +86,7 @@ import {
   refreshActiveSongHighlights,
   toggleLyricsAccordion,
   toggleChordVisibility,
+  closeAllLyrics,
 } from './ui/songState.js';
 import {
   getSongs, setSongs,
@@ -497,6 +498,7 @@ function bindAutoAdvanceToggle() {
 }
 
 function bindAll() {
+  bindClickWithSeqToggle();
   bindTrackPlayerControls();
   bindAutoAdvanceToggle();
   bindKitControls({ buildBankSelects, loadKitBank });
@@ -827,13 +829,28 @@ function triggerMasterPlayPause() {
     // 1. Play the pad if not already active (if it crossfaded, it's already active!)
     if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
 
-    // 2. Play the track or the metronome
+    // 2. Play the track or the metronome. One timing source by default: a
+    //    loaded sequence carries its own click, so the metronome stays off —
+    //    UNLESS "Click con secuencia" is enabled (for sequences without a
+    //    built-in click). With no track, the metronome is the timing source.
     if (isTrackLoaded()) {
       if (!isTrackPlaying()) clickPlayPause();
+      if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
     } else if (!getMetroRunning()) {
       toggleMetro();
     }
   }
+}
+
+function clickWithSequenceEnabled() {
+  return localStorage.getItem('livepads-click-with-seq') === '1';
+}
+
+function bindClickWithSeqToggle() {
+  const cb = q('#click-with-seq');
+  if (!cb) return;
+  cb.checked = clickWithSequenceEnabled();
+  cb.onchange = () => localStorage.setItem('livepads-click-with-seq', cb.checked ? '1' : '0');
 }
 
 function triggerMasterStop() {
@@ -1052,6 +1069,10 @@ const renderServiceList = renderServiceListModule;
 
 
 function applyGiSong(song) {
+  // Switching songs → fold away the previous song's open lyrics so the list
+  // stays tidy.
+  closeAllLyrics();
+
   // Sync active library song id in the store.
   setActiveSongId(song.id);
 

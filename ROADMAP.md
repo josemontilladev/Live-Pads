@@ -6,6 +6,22 @@ Un software profesional y ligero para la reproducción de pads ambientales y dis
 
 ---
 
+## 🎯 Flujo perfecto en vivo (referencia de diseño)
+
+Principio rector: **seleccionar = preparar · Play = lanzar · una sola fuente de tiempo a la vez.** El director nunca debe dudar de qué sonará al pulsar Play.
+
+1. **Seleccionar canción = preparar (nada suena aún)**: ajusta BPM/compás, **prepara** el pad en el tono (resaltado, sin sonar), carga la **secuencia** si existe (en pausa), muestra letra/acordes y la envía al Companion. La letra de la canción anterior **se contrae**.
+2. **Play maestro (Espacio) = lanzar**: dispara el pad + la fuente de tiempo:
+   - Con **secuencia** → pad + secuencia (el metrónomo queda OFF; la secuencia lleva su click). Excepción: el toggle **"Click + secuencia"** lo enciende para secuencias sin click.
+   - Sin secuencia → pad + **metrónomo** (click guía para la banda).
+   - La **ORIGINAL nunca entra al Play maestro** — solo se carga al pulsar su ícono (referencia/ensayo). Regla de seguridad en vivo.
+3. **Tab** prepara la siguiente sin cortar la actual (crossfade de pads); **auto-avance** encadena el set.
+4. **Esc** (pánico) detiene todo.
+
+Estado: implementado (incl. "Click + secuencia" y contracción de letra al cambiar de canción).
+
+---
+
 ## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (decimocuarta pasada — Companion móvil + polish)
 
 ### Estado al cerrar
