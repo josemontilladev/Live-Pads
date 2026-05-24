@@ -272,20 +272,12 @@ async function startTrackPlayback(url, title, type) {
   // Some encodings (notably VBR MP3 served without a Content-Length) report
   // duration === Infinity until the decoder scans to the end. Nudge it: seek
   // far past the end so the browser computes the real duration, then snap
-  // back to the start. `durationchange` (below) picks up the recovered value.
-  audio.addEventListener('loadedmetadata', () => {
-    if (audio.duration === Infinity) {
-      const recover = () => {
-        audio.removeEventListener('timeupdate', recover);
-        audio.currentTime = 0;
-      };
-      audio.addEventListener('timeupdate', recover);
-      audio.currentTime = 1e7;
-    }
-  }, { once: true });
+  // (The old Infinity-duration "seek to the end and back" hack was removed: it
+  // fought with playback and caused the track to jump back to 0 mid-song. With
+  // the livepads:// protocol now honouring byte ranges, the media element gets
+  // the real duration on its own and can seek normally.)
 
-  // Stamp the duration onto the song + the readout once it's known. Fires on
-  // both the normal metadata path and the Infinity-recovery path. The
+  // Stamp the duration onto the song + the readout once it's known. The
   // service-list total-time estimate (updateServiceMeta) sums these so the
   // user sees a real ETA instead of a 4-min heuristic per song.
   const stampDuration = () => {
