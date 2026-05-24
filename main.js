@@ -589,6 +589,14 @@ ipcMain.handle('save-midi-map', async (_e, mapData) => {
   return true;
 });
 
+// Synchronous variant — used from the renderer's `beforeunload` so the final
+// mapping state is guaranteed to hit disk before the window closes (the async
+// save can be dropped if the window tears down mid-flight).
+ipcMain.on('save-midi-map-sync', (e, mapData) => {
+  try { saveToBoth('midi_map.json', JSON.stringify(mapData, null, 2)); } catch (err) {}
+  e.returnValue = true;
+});
+
 ipcMain.handle('load-midi-map', async () => {
   const fp = path.join(app.getPath('userData'), 'midi_map.json');
   const raw = readJsonSafe(fp);
