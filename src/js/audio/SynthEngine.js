@@ -856,6 +856,9 @@ export class SynthEngine {
 
   playCustomDrum(id, padId) {
     if (!this.customDrums[id]) return false;
+    // Resume a suspended context BEFORE scheduling — a suspended ctx delays
+    // (or swallows) the hit, which is unacceptable for live drum triggering.
+    if (this.ctx.state === 'suspended') this.ctx.resume();
     const now = this.ctx.currentTime;
     const src = this.ctx.createBufferSource(); src.buffer = this.customDrums[id];
     const dest = this._getDrumDest(padId);
