@@ -18,13 +18,11 @@
 
 import { q } from '../utils/dom.js';
 import { KIT_BANKS } from '../data/banks.js';
-import { KEYS_FLAT, KEYS_SHARP } from '../data/musicConstants.js';
-import { clearMappingForTarget, addMapping, getMapping, getMidiMap } from './midiMap.js';
+import { addMapping, getMapping, getMidiMap, deleteMapping } from './midiMap.js';
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
-import { hitDrum, resolveDrumPad } from '../ui/drumGrid.js';
+import { resolveDrumPad } from '../ui/drumGrid.js';
 import {
   getKitBankIdx,
-  getUseFlats,
   getIsMidiLearnMode, setIsMidiLearnMode,
   getMidiLearnTarget, setMidiLearnTarget,
 } from '../state/store.js';
@@ -56,6 +54,26 @@ export function bindMidiHandlers(deps) {
     pill.classList.remove('hidden');
   };
 
+  // Remove every MIDI mapping that points to the same target so a function
+  // can only live on ONE controller key. Drum-aware: legacy entries keyed by
+  // type/id that resolve to the same pad are cleared too.
+  const clearMidiMappingsForTarget = (target) => {
+    const map = getMidiMap();
+    const kit = KIT_BANKS[getKitBankIdx()];
+    const targetPad = (target.action === 'drum') ? resolveDrumPad(kit, target.id) : null;
+    for (const key of Object.keys(map)) {
+      if (key.startsWith('kbd_')) continue; // keyboard mappings are separate
+      const m = map[key];
+      if (!m) continue;
+      let same = (m.action === target.action && m.id === target.id);
+      if (!same && targetPad && m.action === 'drum') {
+        const mPad = resolveDrumPad(kit, m.id);
+        if (mPad && mPad.id === targetPad.id) same = true;
+      }
+      if (same) deleteMapping(key);
+    }
+  };
+
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;
     const isNoteOn = cmd >= 144 && cmd <= 159;
@@ -67,9 +85,15 @@ export function bindMidiHandlers(deps) {
     if (getIsMidiLearnMode() && getMidiLearnTarget()) {
       if (data2 > 0) {
         const target = getMidiLearnTarget();
-        clearMappingForTarget(target, false);
+        // STRICT uniqueness, both directions:
+        //  • one function = one MIDI control → clear any MIDI key already
+        //    pointing to this target (incl. legacy drum entries that resolve
+        //    to the same pad).
+        //  • one MIDI control = one function → addMapping overwrites whatever
+        //    this key previously triggered.
+        clearMidiMappingsForTarget(target);
         addMapping(mapKey, target);
-        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${target.action.toUpperCase()} al control MIDI. Selecciona otro o sal.`;
+        q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado y guardado! Selecciona otro control o sal.`;
         setMidiLearnTarget(null);
       }
       return;
@@ -125,30 +149,9 @@ export function bindMidiHandlers(deps) {
       return;
     }
 
-    // Hardcoded fallback map — a convenience for a brand-new user who hasn't
-    // mapped anything yet (plug in a controller and pads/drums just work).
-    // BUT the moment the user has ANY explicit MIDI mapping, we trust ONLY
-    // their mappings: otherwise a stray/extra note the controller emits (many
-    // send note+CC, or notes outside what was mapped) would phantom-trigger a
-    // pad/drum on top of the real action — catastrophic live. So bail here.
-    const hasMidiMappings = Object.keys(getMidiMap()).some(k => k.startsWith('note_') || k.startsWith('cc_'));
-    if (hasMidiMappings) return;
-
-    if (isNoteOn && data2 > 0) {
-      if (data1 >= 60 && data1 <= 71) {
-        const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
-        deps.onKeyClick(keys[data1 - 60]);
-      } else {
-        const kit = KIT_BANKS[getKitBankIdx()];
-        if (!kit) return;
-        const typeMap = { 36:'kick',38:'snare',40:'snare',39:'clap',42:'hihatC',44:'hihatC',46:'hihatO',50:'tomH',47:'tomM',43:'tomL',41:'tomL',49:'crash',55:'crash',51:'ride',54:'tamb',56:'cowbell',81:'shaker',82:'shaker' };
-        const mappedType = typeMap[data1];
-        if (mappedType) {
-          const pad = kit.pads.find(p => p.type === mappedType || p.id.includes(mappedType));
-          if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
-        }
-      }
-    }
+    // No hardcoded/default fallback: an unmapped MIDI control does NOTHING.
+    // Only the user's explicit mappings ever trigger anything — no phantom
+    // pads/drums from notes the controller happens to emit.
   }, renderDevicePill);
 
   // Midi Learn click intercept — while learn-mode is on, the first click
