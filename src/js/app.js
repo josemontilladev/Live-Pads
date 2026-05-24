@@ -1120,15 +1120,15 @@ function applyGiSong(song) {
     }
   }
 
-  // Auto-load track if available
-  if (song.audio) {
-    if (song.audio.sequence) {
-      loadAndPlayTrack(song, 'sequence');
-    } else if (song.audio.original) {
-      loadAndPlayTrack(song, 'original');
-    }
+  // Auto-load ONLY the sequence (the backing track that master Play drives).
+  // The ORIGINAL is never auto-loaded — it loads exclusively when the user
+  // clicks its icon. Live safety: selecting a song (or hitting Play) must
+  // never fire the studio recording by accident.
+  if (song.audio && song.audio.sequence) {
+    loadAndPlayTrack(song, 'sequence');
   } else if (isTrackLoaded()) {
-    // No audio for the new song — release the previous track and reset the UI.
+    // New song has no sequence — release whatever track was loaded (incl. a
+    // previously hand-loaded original) and reset the player UI.
     clearTrackUI();
   }
 
