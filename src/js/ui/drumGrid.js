@@ -22,6 +22,16 @@ export function initDrumGrid(injected) {
   deps = { ...deps, ...injected };
 }
 
+// Resolve a drum mapping target id to a pad in the given kit. New mappings
+// store the 0-based SLOT (kit-agnostic); legacy mappings stored the pad id or
+// type — both still resolve so old maps keep working.
+export function resolveDrumPad(kit, mapId) {
+  if (!kit || !kit.pads) return null;
+  const idx = Number(mapId);
+  if (Number.isInteger(idx) && idx >= 0 && idx < kit.pads.length) return kit.pads[idx];
+  return kit.pads.find(p => p.id === mapId) || kit.pads.find(p => p.type === mapId) || null;
+}
+
 export function buildDrumGrid(pads) {
   const grid = q('#drum-grid');
   if (!grid) return;
@@ -32,6 +42,9 @@ export function buildDrumGrid(pads) {
     btn.className = 'drum-btn';
     btn.dataset.drum = pad.id;
     btn.dataset.type = pad.type;
+    btn.dataset.slot = String(i); // 0-based slot — MIDI/keyboard map by slot so
+                                  // bindings survive kit changes (sound changes,
+                                  // mapping stays) and never collide.
     btn.innerHTML = `<span class="drum-label" spellcheck="false">${esc(pad.label)}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>`;
 
     if (pad.sample) btn.classList.add('has-sample');

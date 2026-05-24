@@ -21,7 +21,7 @@ import { KIT_BANKS } from '../data/banks.js';
 import { KEYS_FLAT, KEYS_SHARP } from '../data/musicConstants.js';
 import { clearMappingForTarget, addMapping, getMapping } from './midiMap.js';
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
-import { hitDrum } from '../ui/drumGrid.js';
+import { hitDrum, resolveDrumPad } from '../ui/drumGrid.js';
 import {
   getKitBankIdx,
   getUseFlats,
@@ -94,10 +94,8 @@ export function bindMidiHandlers(deps) {
         } else if (mapping.action === 'drum') {
           const kit = KIT_BANKS[getKitBankIdx()];
           if (!kit) return;
-          // Match by unique pad id (current) or type (legacy maps saved before
-          // the switch). Keying by id avoids the type-collision that dropped
-          // one drum mapping on reload.
-          const pad = kit.pads.find(p => p.id === mapping.id) || kit.pads.find(p => p.type === mapping.id);
+          // Resolve by slot (kit-agnostic) with legacy id/type fallback.
+          const pad = resolveDrumPad(kit, mapping.id);
           if (pad) {
             const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
             if (btn) btn.classList.add('hit');
@@ -175,7 +173,7 @@ export function bindMidiHandlers(deps) {
 
     let target = null;
     if (keyBtn)        target = { action: 'pad',       id: keyBtn.dataset.key };
-    else if (drumBtn)  target = { action: 'drum',      id: drumBtn.dataset.drum };
+    else if (drumBtn)  target = { action: 'drum',      id: drumBtn.dataset.slot };
     else if (metroBtn) target = { action: 'metro' };
     else if (playSeqBtn) target = { action: 'play_seq' };
     else if (stopSeqBtn) target = { action: 'stop_seq' };
