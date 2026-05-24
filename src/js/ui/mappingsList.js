@@ -24,6 +24,19 @@ const ACTION_LABELS = {
   prev_song: 'Canción anterior',
   next_song: 'Canción siguiente',
   slider:    'Slider',
+  // Stems workspace (independent map)
+  st_play:       'Stems · Play/Pausa',
+  st_stop:       'Stems · Stop',
+  st_master_vol: 'Stems · Volumen maestro',
+  st_vol:        'Stems · Volumen pista',
+  st_pan:        'Stems · Paneo pista',
+  st_mute:       'Stems · Mute pista',
+  st_solo:       'Stems · Solo pista',
+  st_marker:     'Stems · Añadir marcador',
+  st_genclick:   'Stems · Generar click',
+  st_detectbpm:  'Stems · Detectar BPM',
+  st_detectsec:  'Stems · Detectar secciones',
+  st_guide:      'Stems · Generar guía',
 };
 
 function prettyKey(mapKey) {

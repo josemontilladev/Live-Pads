@@ -18,7 +18,13 @@
 
 import { q } from '../utils/dom.js';
 import { KIT_BANKS } from '../data/banks.js';
-import { addMapping, getMapping, getMidiMap, deleteMapping } from './midiMap.js';
+import { addMapping, getMapping, getMidiMap, deleteMapping, getMidiScope, flushMidiSync } from './midiMap.js';
+
+// The Stems workspace registers its own MIDI message handler here. When the
+// active scope is 'stems', raw MIDI is delegated to it (Pads logic is skipped
+// entirely), so the two workspaces have totally independent mappings.
+let stemsMidiHandler = null;
+export function setStemsMidiHandler(fn) { stemsMidiHandler = fn; }
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
 import { resolveDrumPad } from '../ui/drumGrid.js';
 import {
@@ -41,9 +47,7 @@ export function bindMidiHandlers(deps) {
   // Guarantee the mapping survives an app close: the per-assignment async save
   // can be dropped if the window tears down right after mapping. A synchronous
   // flush on beforeunload writes the final state to disk before exit.
-  window.addEventListener('beforeunload', () => {
-    try { window.electronAPI?.saveMidiMapSync?.(getMidiMap()); } catch (e) {}
-  });
+  window.addEventListener('beforeunload', () => { flushMidiSync(); });
 
   // Render the device-name pill in the topbar. Hidden when no MIDI device
   // is connected (or before MIDI access resolves on app boot).
@@ -87,6 +91,12 @@ export function bindMidiHandlers(deps) {
     const isCC = cmd >= 176 && cmd <= 191;
 
     if (!isNoteOn && !isCC) return;
+
+    // Stems workspace owns its own (independent) MIDI map + handling.
+    if (getMidiScope() === 'stems') {
+      if (stemsMidiHandler) stemsMidiHandler(cmd, data1, data2);
+      return;
+    }
     const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
 
     if (getIsMidiLearnMode() && getMidiLearnTarget()) {
@@ -166,6 +176,8 @@ export function bindMidiHandlers(deps) {
   // event completes the mapping.
   document.addEventListener('click', (e) => {
     if (!getIsMidiLearnMode()) return;
+    // In Stems, the Stems workspace handles its own learn-target capture.
+    if (getMidiScope() === 'stems' && !e.target.closest('#midi-learn-overlay')) return;
 
     if (e.target.closest('#midi-learn-overlay')) {
       setIsMidiLearnMode(false);
