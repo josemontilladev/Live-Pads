@@ -441,14 +441,11 @@ function updateKeyHints() {
 const PAD_STOP_FADE_S = 5.0;
 
 function onKeyClick(key) {
-  // Any prior fade visualisation on any key is no longer relevant the
-  // moment another pad event happens. Clear before we set new state.
-  qa('.key-btn.fading-out').forEach(b => b.classList.remove('fading-out'));
-
   if (getActiveKey() === key) {
     engine.stopPad(PAD_STOP_FADE_S);
     setActiveKey(null);
     setPreparedPadKey(key); // Keep it prepared
+    qa('.key-btn.fading-out').forEach(b => b.classList.remove('fading-out'));
     qa('.key-btn').forEach(b => {
       b.classList.remove('active');
       if (b.dataset.key === key) {
@@ -461,9 +458,11 @@ function onKeyClick(key) {
       }
     });
   } else {
+    // Audio FIRST (zero added latency), then all the visual state.
     engine.playPad(key, PAD_BANKS[getPadBankIdx()].synth);
     setActiveKey(key);
     setPreparedPadKey(null);
+    qa('.key-btn.fading-out').forEach(b => b.classList.remove('fading-out'));
     qa('.key-btn').forEach(b => {
       b.classList.remove('prepared');
       b.classList.toggle('active', b.dataset.key === getActiveKey());
