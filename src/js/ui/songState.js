@@ -96,6 +96,16 @@ function paintNowPlayingBanner(song) {
   banner.classList.remove('hidden');
 }
 
+// Collapse any open lyrics accordion (across both lists). Called when the
+// user switches to a different song so the previous song's lyrics fold away
+// instead of cluttering the list.
+export function closeAllLyrics() {
+  qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
+  qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
+  setOpenAccordionSongId(null);
+  setOpenAccordionServiceId(null);
+}
+
 // Toggle a song's lyrics accordion open/closed WITHOUT a full re-render.
 // Closes any other accordion (across either list) first — global rule:
 // only one accordion open at a time.

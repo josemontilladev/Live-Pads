@@ -47,6 +47,13 @@
   flex: 0 0 160px;
   gap: 4px;
 }
+.hm-clickseq {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+.hm-clickseq input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+.hm-clickseq:hover { color: var(--text); }
 
 #metro-beat-row {
   background: transparent;
