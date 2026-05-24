@@ -70,7 +70,7 @@ import { bindSetlistTabs } from './ui/setlistTabs.js';
 import { bindGiToolbar } from './ui/giToolbar.js';
 import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter.js';
 import { openSidebarTab, closeAllOverlays } from './ui/overlays.js';
-import { initDrumGrid, buildDrumGrid, hitDrum } from './ui/drumGrid.js';
+import { initDrumGrid, buildDrumGrid, hitDrum, resolveDrumPad } from './ui/drumGrid.js';
 import { initMetroBeatDots, buildMetroBeatDots, onMetroBeat } from './ui/metroBeatDots.js';
 import { initDrumVolumes, buildDrumVolumes } from './ui/drumVolumes.js';
 import { KEYS_FLAT, KEYS_SHARP, KEY_MAP_PADS, KEY_MAP_DRUMS } from './data/musicConstants.js';
@@ -423,8 +423,9 @@ function updateKeyHints() {
   });
   qa('.drum-btn').forEach((btn, i) => {
     let hint = KEY_MAP_DRUMS[i] || '';
-    // Drum mappings key by unique pad id now; fall back to type for legacy maps.
-    const found = findKeyboardMappingFor('drum', btn.dataset.drum)
+    // Drum mappings key by slot now; fall back to pad id / type for legacy maps.
+    const found = findKeyboardMappingFor('drum', String(i))
+               || findKeyboardMappingFor('drum', btn.dataset.drum)
                || findKeyboardMappingFor('drum', btn.dataset.type);
     if (found) hint = cleanHint(found.key);
     const hintEl = btn.querySelector('.kbd-hint');
@@ -944,7 +945,7 @@ function onKey(e) {
     } else if (mapping.action === 'drum') {
       const kit = KIT_BANKS[getKitBankIdx()];
       if (!kit) return;
-      const pad = kit.pads.find(p => p.id === mapping.id) || kit.pads.find(p => p.type === mapping.id);
+      const pad = resolveDrumPad(kit, mapping.id);
       if (pad) {
         const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
         if (btn) btn.classList.add('hit');
