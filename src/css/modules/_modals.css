@@ -1,6 +1,6 @@
 /* ── DIALOGS & OVERLAYS ── */
 #dialog-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: none;
   display: flex; align-items: center; justify-content: center;
   /* 100000 = above every other overlay (lyrics modal 9999, midi 10000,
      sound pool 99999). This is the top-most inline prompt so it must win
@@ -76,8 +76,8 @@
   top: 0; left: 0;
   width: 100vw; height: 100vh;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -387,7 +387,7 @@
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh;
   background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex; justify-content: flex-end; align-items: flex-start;
   z-index: 9999;
   opacity: 0; transition: opacity 0.3s ease;
@@ -840,7 +840,7 @@
   font-size: 13px;
   font-weight: 700;
   box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -859,7 +859,7 @@
 #preflight-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex; align-items: center; justify-content: center;
   padding: 32px;
   z-index: 100001;
@@ -974,7 +974,7 @@
 #mappings-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex; align-items: center; justify-content: center;
   padding: 32px;
   z-index: 100001;
@@ -1110,7 +1110,7 @@
 #spotlight-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex; align-items: flex-start; justify-content: center;
   padding: 12vh 24px 24px;
   z-index: 100002;
@@ -1246,7 +1246,7 @@
 #companion-overlay {
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex; align-items: center; justify-content: center;
   padding: 32px;
   z-index: 1000;

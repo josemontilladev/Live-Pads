@@ -188,6 +188,9 @@ export function isCompanionPanelOpen() { return mounted !== null; }
 
 async function refresh() {
   if (!mounted) return;
+  // Skip the IPC round-trip + QR work while the window is hidden/minimized —
+  // resumes automatically when visible again.
+  if (document.hidden) return;
   try {
     const status = await window.electronAPI.companionStatus();
     const statusEl = mounted.querySelector('.cp-status');

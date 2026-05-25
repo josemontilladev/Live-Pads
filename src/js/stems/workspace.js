@@ -564,8 +564,15 @@ function wireSeekClicks(root) {
 // the cursor stays anchored ~30% from the left of the lane area. Always
 // follows while playing (clamped to the scrollable range) so the vertical
 // playback bar is never lost off-screen.
+let _lastFollowTs = 0;
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
+  // The playhead bar itself moves every frame (cheap GPU transform); the
+  // timeline auto-scroll reads layout (clientWidth/scrollWidth = reflow), so
+  // we throttle it to ~30fps — plenty for follow, half the reflows.
+  const now = performance.now();
+  if (now - _lastFollowTs < 33) return;
+  _lastFollowTs = now;
   const arrange = document.getElementById('stems-arrange');
   if (!arrange) return;
 
