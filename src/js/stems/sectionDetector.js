@@ -213,9 +213,11 @@ export function detectSections(audioBuffer, opts = {}) {
 
   const labels = labelSegments(segMeans);
   const CUE = {
-    intro: { cueId: 'intro', label: 'Intro' },
-    verso: { cueId: 'verso', label: 'Verso' },
-    coro:  { cueId: 'coro',  label: 'Coro' },
+    intro:  { cueId: 'intro',  label: 'Intro' },
+    verso:  { cueId: 'verso',  label: 'Verso' },
+    coro:   { cueId: 'coro',   label: 'Coro' },
+    puente: { cueId: 'puente', label: 'Puente' },
+    outro:  { cueId: 'outro',  label: 'Outro' },
   };
   return boundaryFrames.map((f, i) => {
     const c = CUE[labels[i]] || CUE.verso;
@@ -249,7 +251,12 @@ function labelSegments(segMeans) {
 
   return cluster.map((c, i) => {
     if (i === 0) return 'intro';
+    // Last segment that doesn't repeat → outro/ending.
+    if (i === N - 1 && counts[c] === 1 && N >= 4) return 'outro';
     if (c === chorusCluster) return 'coro';
+    // A unique (non-repeating) segment in the back half that isn't the chorus
+    // is most likely a bridge.
+    if (counts[c] === 1 && chorusCluster >= 0 && i >= Math.floor(N * 0.5)) return 'puente';
     return 'verso';
   });
 }

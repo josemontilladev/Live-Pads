@@ -499,6 +499,11 @@ function bindAutoAdvanceToggle() {
 }
 
 function bindAll() {
+  // Safety net: an unexpected error in any handler should be logged, never
+  // bubble up as an uncaught exception that could leave the UI mid-action
+  // during a live service.
+  window.addEventListener('error', (e) => { try { console.error('[LivePads] error:', e.message); } catch (_) {} });
+  window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
   // Refresh the on-pad key hints whenever mappings are cleared/changed.
   document.addEventListener('livepads:mappings-changed', () => {
