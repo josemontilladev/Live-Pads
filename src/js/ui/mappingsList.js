@@ -7,7 +7,7 @@
 // deletes. Re-renders itself after each deletion so the row count and
 // "no mappings" empty state stay accurate.
 
-import { getMidiMap, deleteMapping, clearAllMappings } from '../midi/midiMap.js';
+import { getMidiMap, getAllMidiMaps, deleteMapping, clearAllMappings, importMidiMaps } from '../midi/midiMap.js';
 
 let mounted = null;
 
@@ -115,6 +115,9 @@ export function openMappingsList() {
       <p class="mp-subtitle">Cada fila muestra una asignación (MIDI o teclado) a un control. Pulsa × para quitar individualmente.</p>
       <div class="mp-body">${rowsHtml()}</div>
       <div class="mp-footer">
+        <button class="mp-io" data-io="import" type="button">Importar…</button>
+        <button class="mp-io" data-io="export" type="button">Exportar…</button>
+        <span style="flex:1"></span>
         <button class="mp-clear-all" type="button">Borrar todos los mapeos</button>
       </div>
     </div>
@@ -129,6 +132,21 @@ export function openMappingsList() {
       deleteMapping(clearBtn.dataset.clear);
       rerender();
       document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
+      return;
+    }
+    const ioBtn = e.target.closest('[data-io]');
+    if (ioBtn) {
+      const api = window.electronAPI;
+      if (ioBtn.dataset.io === 'export' && api?.exportMidiMap) {
+        api.exportMidiMap(getAllMidiMaps());
+      } else if (ioBtn.dataset.io === 'import' && api?.importMidiMap) {
+        api.importMidiMap().then(loaded => {
+          if (!loaded) return;
+          importMidiMaps(loaded);
+          rerender();
+          document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
+        });
+      }
       return;
     }
     if (e.target.closest('.mp-clear-all')) {

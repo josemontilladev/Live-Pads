@@ -1,3 +1,15 @@
+/* Honor the OS "reduce motion" setting: kill decorative animations and
+   transitions (also a perf win on very weak GPUs when enabled). Audio timing
+   is unaffected — this is purely visual. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    Motion + tactile polish (Fase 32)
    ─────────────────────────────────────────────────────────────────────

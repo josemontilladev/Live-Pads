@@ -603,6 +603,30 @@ ipcMain.handle('load-midi-map', async () => {
   return raw ? rewritePaths(raw) : null;
 });
 
+// Export the full mapping (both Pads + Stems scopes) to a user-chosen file —
+// lets the user back up or move their setup to another PC/controller.
+ipcMain.handle('export-midi-map', async (_e, maps) => {
+  const res = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exportar mapeos MIDI',
+    defaultPath: 'livepads-midi-map.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (res.canceled || !res.filePath) return false;
+  try { fs.writeFileSync(res.filePath, JSON.stringify(maps, null, 2), 'utf-8'); return true; }
+  catch (e) { dialog.showErrorBox('No se pudo exportar', e.message); return false; }
+});
+
+ipcMain.handle('import-midi-map', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Importar mapeos MIDI',
+    properties: ['openFile'],
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  try { return JSON.parse(fs.readFileSync(res.filePaths[0], 'utf-8')); }
+  catch (e) { dialog.showErrorBox('No se pudo importar', e.message); return null; }
+});
+
 // ── Chord/Lyrics URL importer ────────────────────────────────
 // Whitelist of public chord sites we trust to fetch from. Renderer cannot
 // reach arbitrary URLs directly (webSecurity:true); this handler does the
@@ -1141,7 +1165,14 @@ function getAutoUpdater() {
     autoUpdater.on('download-progress', (p) => send('update-progress', {
       percent: p.percent, transferred: p.transferred, total: p.total, bytesPerSecond: p.bytesPerSecond,
     }));
-    autoUpdater.on('update-downloaded', (info) => send('update-ready', { version: info && info.version }));
+    autoUpdater.on('update-downloaded', (info) => {
+      // releaseNotes can be a string or an array of {version, note} — normalise
+      // to a short plain-text string for the in-app "what's new" line.
+      let notes = info && info.releaseNotes;
+      if (Array.isArray(notes)) notes = notes.map(n => (n && n.note) || '').join('\n');
+      if (typeof notes === 'string') notes = notes.replace(/<[^>]+>/g, '').trim().slice(0, 600);
+      send('update-ready', { version: info && info.version, notes: notes || '' });
+    });
     autoUpdater.on('error', (err) => send('update-error', { message: (err && err.message) || String(err) }));
   }
   return autoUpdater;
