@@ -77,8 +77,16 @@ export class SynthEngine {
   setDrumPan(v)   { if(this.drumPanNode) this.drumPanNode.pan.value = v; }
   setDrumPadVolume(id, v) { if(this.drumVolumes[id]) this.drumVolumes[id].gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
   setCrossfade(s)  { this._crossfadeDur = s; }
-  setPadBank(bank) { 
-    this.currentPadBank = bank; 
+  setPadBank(bank) {
+    this.currentPadBank = bank;
+    // Free decoded pad buffers from OTHER banks to keep RAM low on weak
+    // laptops (pad-amb buffers are large). A pad that's currently playing keeps
+    // its own buffer reference alive, so dropping our cache entry is safe even
+    // mid-crossfade — the buffer is GC'd only once that pad finishes.
+    const prefix = `${bank.id}_`;
+    for (const k of Object.keys(this._padAmbBuffers)) {
+      if (!k.startsWith(prefix)) delete this._padAmbBuffers[k];
+    }
     this._preloadBank(bank);
   }
 
