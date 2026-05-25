@@ -1264,7 +1264,21 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
 if (window.electronAPI && window.electronAPI.onUpdateReady) {
   window.electronAPI.onUpdateReady((info) => {
     const st = document.getElementById('update-status');
-    if (st) { st.className = 'about-update-status'; st.textContent = '✓ Descarga completa — listo para reiniciar'; }
+    if (st) {
+      st.className = 'about-update-status';
+      st.textContent = '✓ Descarga completa — listo para reiniciar';
+      // Show "what's new" in the Info panel when the release carries notes.
+      const notes = info && info.notes ? String(info.notes).trim() : '';
+      const prev = document.getElementById('update-notes');
+      if (prev) prev.remove();
+      if (notes) {
+        const nb = document.createElement('div');
+        nb.id = 'update-notes';
+        nb.className = 'about-update-notes';
+        nb.innerHTML = `<strong>Novedades v${(info && info.version) || ''}</strong><br>${notes.replace(/\n/g, '<br>')}`;
+        st.insertAdjacentElement('afterend', nb);
+      }
+    }
     if (document.getElementById('update-banner')) return;
     const bar = document.createElement('div');
     bar.id = 'update-banner';

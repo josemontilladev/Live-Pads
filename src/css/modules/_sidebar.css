@@ -148,6 +148,13 @@
 .about-update-status { font-size: 11px; color: var(--text-muted); min-height: 14px; }
 .about-update-status.is-error { color: #ff8a84; }
 .about-update-status b { color: var(--accent); font-weight: 800; }
+.about-update-notes {
+  margin-top: 8px; padding: 8px 10px; border-radius: 8px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  font-size: 11px; line-height: 1.5; color: var(--text-muted);
+  max-height: 140px; overflow-y: auto;
+}
+.about-update-notes strong { color: var(--accent); }
 .update-bar {
   display: block;
   width: 180px;

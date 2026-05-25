@@ -85,3 +85,9 @@ function persistAsync() {
 export function flushMidiSync() {
   try { window.electronAPI?.saveMidiMapSync?.(maps); } catch (e) {}
 }
+
+// Replace the whole mapping (both scopes) from an imported file and persist.
+export function importMidiMaps(loaded) {
+  setMidiMap(loaded);
+  persistAsync();
+}

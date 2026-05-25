@@ -1035,6 +1035,13 @@
   cursor: pointer; transition: all 0.15s;
 }
 #mappings-overlay .mp-clear-all:hover { background: #e81123; color: #fff; border-color: #e81123; }
+#mappings-overlay .mp-io {
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-hover);
+  color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.15s;
+}
+#mappings-overlay .mp-io:hover { border-color: var(--accent); color: var(--accent); }
 
 #mappings-overlay .mp-subtitle {
   margin: 0 0 16px;
