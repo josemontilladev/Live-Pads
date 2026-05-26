@@ -11,6 +11,14 @@ import { getActiveLibraryId } from './libraries.js';
 import { getSongs, setSongs } from '../state/store.js';
 
 // ── Mapeo entre el objeto local y la fila de Supabase ──────────────────────
+// Clave natural para deduplicar: título + artista + TONO. Incluir el tono es
+// clave: si duplicas una canción a propósito en otra tonalidad, cuenta como
+// distinta y NO se fusiona; mismas tres → es la misma y se vincula.
+function nkey(s) {
+  const norm = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return `${norm(s.title)}|${norm(s.artist)}|${norm(s.key)}`;
+}
+
 function toTags(tags) {
   if (Array.isArray(tags)) return tags.filter(Boolean);
   if (typeof tags === 'string' && tags.trim()) return tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -73,10 +81,27 @@ function requireContext() {
 export async function pushLibrarySongs() {
   const libId = requireContext();
   const songs = getSongs();
+
+  let created = 0, updated = 0, linked = 0;
+
+  // Dedup: antes de crear, vincula las locales sin cloudId que YA existen en la
+  // nube (mismo título+artista+tono) para no subir copias. Hace el push
+  // idempotente (correrlo dos veces no duplica).
+  const withoutCloud = songs.filter(s => !s.cloudId);
+  if (withoutCloud.length) {
+    const existRows = await rest(`/songs?library_id=eq.${libId}&select=id,title,artist,key`);
+    const cloudByKey = new Map();
+    (Array.isArray(existRows) ? existRows : []).forEach(r => {
+      const k = nkey(r); if (!cloudByKey.has(k)) cloudByKey.set(k, r.id);
+    });
+    withoutCloud.forEach(s => {
+      const id = cloudByKey.get(nkey(s));
+      if (id) { s.cloudId = id; s.libraryId = libId; linked++; }
+    });
+  }
+
   const toCreate = songs.filter(s => !s.cloudId);
   const toUpdate = songs.filter(s => s.cloudId);
-
-  let created = 0, updated = 0;
 
   // Nuevas: inserción en bloque, devuelve filas en orden para sellar el id.
   if (toCreate.length) {
@@ -104,8 +129,8 @@ export async function pushLibrarySongs() {
     updated = toUpdate.length;
   }
 
-  if (created) { setSongs(getSongs().slice()); notifyUpdated(); } // persiste cloudId sellado
-  return { created, updated };
+  if (created || linked) { setSongs(getSongs().slice()); notifyUpdated(); } // persiste cloudId sellado
+  return { created, updated, linked };
 }
 
 // ── Bajar (pull) ──────────────────────────────────────────────────────────
@@ -118,9 +143,14 @@ export async function pullLibrarySongs() {
 
   const songs = getSongs().slice();
   const byCloud = new Map();
-  songs.forEach(s => { if (s.cloudId) byCloud.set(s.cloudId, s); });
+  const localUntagged = new Map(); // nkey → canción local sin cloudId (candidata a vincular)
+  songs.forEach(s => {
+    if (s.cloudId) byCloud.set(s.cloudId, s);
+    else { const k = nkey(s); if (!localUntagged.has(k)) localUntagged.set(k, s); }
+  });
 
-  let added = 0, refreshed = 0;
+  const consumed = new Set();
+  let added = 0, refreshed = 0, linked = 0;
   for (const row of rows) {
     const incoming = fromRow(row);
     const existing = byCloud.get(row.id);
@@ -130,13 +160,25 @@ export async function pullLibrarySongs() {
       Object.assign(existing, incoming, { id: existing.id });
       if (localAudio && (localAudio.sequence || localAudio.original)) existing.audio = localAudio;
       refreshed++;
+      continue;
+    }
+    // ¿Existe ya localmente (mismo título+artista+tono) sin vincular? → vincula
+    // en vez de duplicar. Un duplicado intencional en otro tono NO coincide.
+    const k = nkey(incoming);
+    const adopt = !consumed.has(k) ? localUntagged.get(k) : null;
+    if (adopt && !adopt.cloudId) {
+      const localAudio = adopt.audio;
+      Object.assign(adopt, incoming, { id: adopt.id });
+      if (localAudio && (localAudio.sequence || localAudio.original)) adopt.audio = localAudio;
+      consumed.add(k);
+      linked++;
     } else {
       songs.push(incoming);
       added++;
     }
   }
-  if (added || refreshed) { setSongs(songs); notifyUpdated(); }
-  return { added, refreshed };
+  if (added || refreshed || linked) { setSongs(songs); notifyUpdated(); }
+  return { added, refreshed, linked };
 }
 
 // Borra una canción de la nube (por cloudId). El borrado local lo hace la UI.
