@@ -25,6 +25,7 @@ function ensureStemsMounted() {
 }
 import { maybeStartTour, startTour } from './stems/tour.js';
 import { initAuthGate } from './cloud/authUI.js';
+import { initLibrarySelector } from './cloud/librarySelector.js';
 
 // Pads workspace guided tour (mirrors the Stems one). Targets stable static
 // elements in the Pads layout. Its own one-time localStorage flag.
@@ -172,6 +173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     toggleChordVisibility,
     updateFilterCounts,
   });
+  initLibrarySelector();
   initServiceList({
     getSongs: getServiceSongs,
     getActiveIndex: getActiveServiceIndex,

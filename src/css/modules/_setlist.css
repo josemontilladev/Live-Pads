@@ -1159,3 +1159,29 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   filter: brightness(1.06);
   border: 1px solid var(--accent) !important;
 }
+
+/* ── Selector de repertorio (librería de la nube) en la cabecera de Librería ── */
+.gi-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.gi-lib-row.hidden { display: none; }
+.gi-lib-icon { color: var(--text-muted); flex: 0 0 auto; }
+.gi-lib-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+}
+.gi-lib-select:hover { border-color: var(--border-strong); }
+.gi-lib-select:focus { border-color: var(--accent); }
