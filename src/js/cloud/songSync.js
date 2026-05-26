@@ -41,6 +41,7 @@ function fromRow(row) {
   return {
     id: 'song_cloud_' + row.id,
     cloudId: row.id,
+    libraryId: row.library_id || null,
     title:  row.title || '',
     artist: row.artist || '',
     lyrics: row.lyrics || '',
@@ -86,7 +87,7 @@ export async function pushLibrarySongs() {
     });
     if (Array.isArray(rows)) {
       rows.forEach((row, i) => {
-        if (toCreate[i]) { toCreate[i].cloudId = row.id; toCreate[i].cloudUpdatedAt = row.updated_at; }
+        if (toCreate[i]) { toCreate[i].cloudId = row.id; toCreate[i].libraryId = row.library_id || libId; toCreate[i].cloudUpdatedAt = row.updated_at; }
       });
       created = rows.length;
     }

@@ -161,6 +161,8 @@ async function refreshLibs() {
       </div>`).join('');
   }
   await renderManage();
+  // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
+  try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
 }
 
 // Gestión de la librería activa (miembros + invitaciones) — solo si eres dueño.

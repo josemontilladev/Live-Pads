@@ -19,6 +19,17 @@ import {
 let deps = null;
 let renderToken = 0;
 
+// Ámbito de repertorio (librería de la nube) por el que se filtra la lista:
+//   'all'  → todas · 'local' → solo canciones sin librería · <uuid> → esa librería
+let libraryScope = 'all';
+export function setLibraryScope(scope) { libraryScope = scope || 'all'; }
+export function getLibraryScope() { return libraryScope; }
+function matchesLibraryScope(s) {
+  if (libraryScope === 'all') return true;
+  if (libraryScope === 'local') return !s.libraryId;
+  return s.libraryId === libraryScope;
+}
+
 const CHUNK_THRESHOLD = 60;
 const CHUNK_SIZE = 30;
 
@@ -80,6 +91,7 @@ export function renderGiList(filter = '', editSongId = null) {
 
   const currentGenre = getCurrentGenre();
   const filtered = songs.filter(s => {
+    if (!matchesLibraryScope(s)) return false;
     if (keyPrefix !== null) {
       // Empty key prefix \u2192 show all songs that HAVE a key set.
       if (!s.key) return false;
@@ -124,7 +136,24 @@ export function renderGiList(filter = '', editSongId = null) {
   }
 
   if (!filtered.length) {
-    container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
+    // Si el filtro de búsqueda/género está activo → resultado vacío normal.
+    // Si es un repertorio de la nube sin canciones locales → invita a bajarlas.
+    const scopedLib = libraryScope !== 'all' && libraryScope !== 'local';
+    const noFilters = !filter.trim() && getCurrentGenre() === 'all';
+    if (scopedLib && noFilters) {
+      container.innerHTML = `
+        <div class="setlist-empty setlist-empty--cta">
+          <p>Este repertorio aún no está en este equipo.</p>
+          <div class="empty-cta-row">
+            <button type="button" class="empty-cta empty-cta--primary" data-empty-action="pull">⬇ Bajar canciones</button>
+          </div>
+        </div>`;
+      const b = container.querySelector('[data-empty-action="pull"]');
+      if (b) b.onclick = () => import('../cloud/songSync.js')
+        .then(m => m.pullLibrarySongs()).catch(() => {});
+    } else {
+      container.innerHTML = '<div class="setlist-empty">No se encontraron resultados.</div>';
+    }
     return;
   }
 
