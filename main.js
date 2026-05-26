@@ -632,6 +632,71 @@ ipcMain.handle('auth-clear-session', async () => {
   return true;
 });
 
+// ── Inicio de sesión con OAuth (Google) ──────────────────────────────────
+// Abre una ventana hacia el /authorize de Supabase; Supabase rebota a Google y
+// vuelve al redirectTo con los tokens en el fragmento (#access_token=...).
+// Interceptamos esa navegación, extraemos los tokens y cerramos la ventana.
+ipcMain.handle('auth-oauth', async (_e, opts) => {
+  const provider = (opts && opts.provider) || 'google';
+  const supabaseUrl = opts && opts.supabaseUrl;
+  const redirectTo = (opts && opts.redirectTo) || 'https://livepads.online/';
+  if (!supabaseUrl) return { error: 'Falta supabaseUrl' };
+
+  const authorizeUrl = `${supabaseUrl}/auth/v1/authorize?provider=${encodeURIComponent(provider)}`
+    + `&redirect_to=${encodeURIComponent(redirectTo)}`;
+
+  return new Promise((resolve) => {
+    const authWin = new BrowserWindow({
+      width: 480, height: 660, show: true, modal: true, parent: mainWindow,
+      autoHideMenuBar: true, title: 'Iniciar sesión',
+      webPreferences: { nodeIntegration: false, contextIsolation: true, partition: 'persist:oauth' },
+    });
+    let done = false;
+    const finish = (result) => {
+      if (done) return; done = true;
+      try { authWin.removeAllListeners('closed'); authWin.close(); } catch (_) {}
+      resolve(result);
+    };
+
+    // Extrae tokens de un URL (fragmento #... o query ?...).
+    const tryExtract = (url) => {
+      if (!url || url.indexOf(redirectTo) !== 0) return false;
+      let params = null;
+      const hash = url.indexOf('#');
+      if (hash >= 0) params = new URLSearchParams(url.slice(hash + 1));
+      else { const q = url.indexOf('?'); if (q >= 0) params = new URLSearchParams(url.slice(q + 1)); }
+      if (!params) return false;
+      if (params.get('error') || params.get('error_description')) {
+        finish({ error: params.get('error_description') || params.get('error') });
+        return true;
+      }
+      const access_token = params.get('access_token');
+      if (access_token) {
+        finish({
+          access_token,
+          refresh_token: params.get('refresh_token'),
+          expires_in: params.get('expires_in'),
+        });
+        return true;
+      }
+      return false;
+    };
+
+    const wc = authWin.webContents;
+    // UA de Chrome de escritorio: Google rechaza el login en "navegadores
+    // embebidos"; con un UA estándar lo acepta.
+    const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+    try { wc.setUserAgent(CHROME_UA); } catch (_) {}
+    wc.on('will-redirect', (_ev, url) => tryExtract(url));
+    wc.on('will-navigate', (_ev, url) => tryExtract(url));
+    wc.on('did-navigate', (_ev, url) => tryExtract(url));
+    wc.on('did-navigate-in-page', (_ev, url) => tryExtract(url));
+    authWin.on('closed', () => { if (!done) { done = true; resolve({ error: 'Ventana cerrada' }); } });
+
+    authWin.loadURL(authorizeUrl).catch((e) => finish({ error: e.message }));
+  });
+});
+
 // Abrir un enlace externo (web de confirmación de correo, etc.) en el navegador.
 ipcMain.handle('open-external', async (_e, url) => {
   try {

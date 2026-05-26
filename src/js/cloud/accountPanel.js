@@ -139,6 +139,12 @@ async function refreshLibs() {
   const box = overlay.querySelector('#acc-libs');
   try {
     state.libs = await listLibraries() || [];
+    // Librería por defecto: si el usuario no tiene ninguna, se le crea una
+    // automáticamente ("Mi librería") para que pueda subir e invitar de una.
+    if (!state.libs.length) {
+      const lib = await createLibrary('Mi librería');
+      if (lib && lib.id) { setActiveLibraryId(lib.id); state.libs = [lib]; }
+    }
   } catch (e) { box.innerHTML = `<div class="acc-empty">No se pudieron cargar (${escapeHtml(e.message)})</div>`; return; }
   state.activeId = getActiveLibraryId();
   if (!state.activeId && state.libs[0]) { state.activeId = state.libs[0].id; setActiveLibraryId(state.activeId); }
