@@ -55,11 +55,20 @@ Migraciones 0001–0004 · Edge Function desplegada · secrets RESEND_API_KEY/IN
 - **Correo de invitación**: fallaba (caía a `mailto`) porque Resend tenía verificado el SUBDOMINIO `send.livepads.online` pero los remitentes usaban la raíz `@livepads.online`. Fix (sin código): `INVITE_FROM="LivePads <no-reply@send.livepads.online>"` + SMTP Auth Sender = `no-reply@send.livepads.online`. Verificado en vivo (HTTP 200, correo enviado). El código/función ya estaba bien.
 - **Landing (`docs/index.html`)**: botones "Descargar" ahora **dinámicos** — un script consulta `api.github.com/.../releases/latest`, apunta `.js-download` al `.exe` y actualiza `.js-version`. Fallback: página de Releases. Cero mantenimiento por release. Servida en livepads.online (Vercel).
 
+### Centralización GI.Setlist en Supabase (HECHO ✅)
+- La otra app `KronnicxZ/GI.Setlist` (gi-setlist.vercel.app) migrada a la MISMA tabla `songs`/`setlists` de Supabase (fuente única). Backend reescrito a `service_role` (`server/db.js`), Mongo retirado. Migración: 81 canciones (con YouTube URL) → librería maestra `GISETLIST_LIBRARY_ID=4809a605-c885-4bf1-8e35-fe9e94f47b3b`. Migración 0005 añadió columnas extra (youtube_url, notes, original_key, vocalist_key, duration). Verificado en vivo (81 vía API). Como la red bloquea Mongo directo, el script migró leyendo `SOURCE_API_URL=.../api/backup`.
+
+### LivePads v1.0.1 (HECHO ✅)
+- **Selector de repertorio** en pestaña Librería (`librarySelector.js`): Todas / librerías / Solo locales; arranca en la activa. Canciones etiquetadas con `libraryId`; `giList` filtra por scope.
+- **Deduplicación** (songSync) por título+artista+tono: pull adopta locales, push vincula → idempotente; duplicado intencional en otro tono se respeta.
+- Landing: descarga + versión **dinámicas** (API GitHub) → no requiere redeploy por release.
+
 ### Operaciones
-- Release: `npm version patch` → `git push --follow-tags`.
+- Release: `npm version patch` → `git push --follow-tags`. Antes: revertir `defaults/*.json` ensuciados en dev (`git checkout -- defaults/...`).
 - Regenerar iconos: `electron scripts/brand/render-logo.js` (sin `ELECTRON_RUN_AS_NODE`).
 - Tras editar plantilla de invitación: `supabase functions deploy send-invite`.
 - Borrado de releases/tags GitHub: vía API con el token del credential manager (`git credential fill`).
+- GI.Setlist: repo `KronnicxZ/GI.Setlist`, clon local `Escritorio/gi-setlist-src` (identidad git local seteada). Migración: `node migrate-to-supabase.js` con `.env` + `SOURCE_API_URL`.
 
 ---
 
