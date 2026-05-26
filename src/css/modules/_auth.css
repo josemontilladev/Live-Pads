@@ -1,0 +1,149 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Pantalla de cuenta (bienvenida / login / registro).
+   Overlay a pantalla completa que aparece al arrancar si no hay sesión.
+   ═══════════════════════════════════════════════════════════════════ */
+
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+    var(--bg, #0e0f13);
+  -webkit-app-region: drag;        /* permite mover la ventana frameless */
+}
+#auth-gate.hidden { display: none; }
+
+.auth-card {
+  -webkit-app-region: no-drag;
+  width: min(420px, 92vw);
+  background: var(--panel, #16181f);
+  border: 1px solid var(--border, #262a35);
+  border-radius: 16px;
+  padding: 32px 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.auth-logo {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.auth-logo span { color: var(--accent, #6366f1); }
+.auth-sub {
+  color: var(--text-dim, #9aa0ad);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.auth-view { display: none; }
+.auth-view.active { display: block; }
+
+.auth-field { text-align: left; margin-bottom: 14px; }
+.auth-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim, #9aa0ad);
+  margin-bottom: 6px;
+}
+.auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border, #2a2f3c);
+  background: var(--input-bg, #0f1117);
+  color: var(--text, #e8eaf0);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+.auth-field input:focus { border-color: var(--accent, #6366f1); }
+
+.auth-btn {
+  -webkit-app-region: no-drag;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: transform .08s, filter .15s, background .15s;
+}
+.auth-btn:active { transform: translateY(1px); }
+.auth-btn.primary { background: var(--accent, #6366f1); color: #fff; }
+.auth-btn.primary:hover { filter: brightness(1.08); }
+.auth-btn.ghost {
+  background: transparent;
+  color: var(--text, #e8eaf0);
+  border: 1px solid var(--border, #2a2f3c);
+}
+.auth-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); }
+.auth-btn:disabled { opacity: .55; cursor: progress; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim, #6b7280);
+  font-size: 11px;
+  margin: 18px 0 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border, #262a35);
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--accent, #818cf8);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px;
+}
+.auth-link:hover { text-decoration: underline; }
+
+.auth-foot {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-dim, #9aa0ad);
+}
+
+.auth-msg {
+  font-size: 13px;
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  text-align: left;
+  display: none;
+}
+.auth-msg.show { display: block; }
+.auth-msg.error { background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+.auth-msg.ok    { background: rgba(34, 197, 94, 0.12);  color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+.auth-msg.info  { background: rgba(99, 102, 241, 0.12); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.3); }
+
+.auth-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim, #9aa0ad); font-size: 13px;
+  margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px;
+}
+.auth-back:hover { color: var(--text, #e8eaf0); }
+
+.auth-confirm-icon {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}

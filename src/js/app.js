@@ -24,6 +24,7 @@ function ensureStemsMounted() {
   });
 }
 import { maybeStartTour, startTour } from './stems/tour.js';
+import { initAuthGate } from './cloud/authUI.js';
 
 // Pads workspace guided tour (mirrors the Stems one). Targets stable static
 // elements in the Pads layout. Its own one-time localStorage flag.
@@ -113,6 +114,10 @@ let engine, metro;
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
+  // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
+  initAuthGate().catch(() => {});
+
   engine = new SynthEngine();
 
   // Boot phase 1: kick off everything that can run in parallel.
