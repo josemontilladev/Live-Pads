@@ -44,5 +44,41 @@ app.whenReady().then(async () => {
     fs.writeFileSync(out, img.toPNG());
     console.log('wrote', t.file, `(${t.size}px)`);
   }
+
+  // .ico multi-resolución (Windows): tamaños chicos nítidos para la barra de
+  // tareas. El formato ICO admite PNGs embebidos (Vista+), así que lo armamos
+  // a mano sin herramientas externas.
+  const sizes = [16, 24, 32, 48, 64, 128, 256];
+  const pngs = sizes.map(s => base.resize({ width: s, height: s, quality: 'best' }).toPNG());
+  const ico = buildIco(sizes, pngs);
+  const icoOut = path.join(ROOT, 'src/assets/icon.ico');
+  fs.writeFileSync(icoOut, ico);
+  console.log('wrote src/assets/icon.ico', `(${sizes.length} tamaños, ${(ico.length/1024).toFixed(1)}KB)`);
   app.quit();
 }).catch(e => { console.error(e); app.exit(1); });
+
+// Ensambla un .ico con payloads PNG.
+function buildIco(sizes, pngs) {
+  const count = sizes.length;
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);      // reserved
+  header.writeUInt16LE(1, 2);      // type 1 = icon
+  header.writeUInt16LE(count, 4);  // número de imágenes
+
+  const dir = Buffer.alloc(16 * count);
+  let offset = 6 + 16 * count;
+  sizes.forEach((s, i) => {
+    const png = pngs[i];
+    const e = i * 16;
+    dir.writeUInt8(s >= 256 ? 0 : s, e + 0);     // ancho (0 = 256)
+    dir.writeUInt8(s >= 256 ? 0 : s, e + 1);     // alto
+    dir.writeUInt8(0, e + 2);                    // paleta
+    dir.writeUInt8(0, e + 3);                    // reservado
+    dir.writeUInt16LE(1, e + 4);                 // planos de color
+    dir.writeUInt16LE(32, e + 6);                // bits por píxel
+    dir.writeUInt32LE(png.length, e + 8);        // tamaño de los datos
+    dir.writeUInt32LE(offset, e + 12);           // offset de los datos
+    offset += png.length;
+  });
+  return Buffer.concat([header, dir, ...pngs]);
+}
