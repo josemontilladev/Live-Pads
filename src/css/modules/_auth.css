@@ -17,6 +17,30 @@
 }
 #auth-gate.hidden { display: none; }
 
+.auth-winctrls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  -webkit-app-region: no-drag;
+  z-index: 1;
+}
+.auth-wm {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim, #9aa0ad);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.auth-wm:hover { background: rgba(255, 255, 255, 0.08); color: var(--text, #e8eaf0); }
+.auth-wm-close:hover { background: #e81123; color: #fff; }
+
 .auth-card {
   -webkit-app-region: no-drag;
   width: min(420px, 92vw);

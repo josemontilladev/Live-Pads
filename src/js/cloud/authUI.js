@@ -29,6 +29,17 @@ function googleSvg() {
 function buildGate() {
   const gate = el(`
     <div id="auth-gate">
+      <div class="auth-winctrls">
+        <button class="auth-wm" data-win="minimize" title="Minimizar" aria-label="Minimizar">
+          <svg viewBox="0 0 10 1" width="10" height="10"><rect width="10" height="1" fill="currentColor"/></svg>
+        </button>
+        <button class="auth-wm" data-win="maximize" title="Maximizar" aria-label="Maximizar">
+          <svg viewBox="0 0 10 10" width="10" height="10"><path d="M0,0v10h10V0H0z M9,9H1V1h8V9z" fill="currentColor"/></svg>
+        </button>
+        <button class="auth-wm auth-wm-close" data-win="close" title="Cerrar" aria-label="Cerrar">
+          <svg viewBox="0 0 10 10" width="10" height="10"><path d="M10,0.7L9.3,0L5,4.3L0.7,0L0,0.7L4.3,5L0,9.3L0.7,10L5,5.7L9.3,10L10,9.3L5.7,5L10,0.7z" fill="currentColor"/></svg>
+        </button>
+      </div>
       <div class="auth-card">
         <img class="auth-logo-img" src="assets/logo.png" alt="LivePads" width="64" height="64">
         <div class="auth-logo">Live<span>Pads</span></div>
@@ -189,6 +200,8 @@ async function handleGoogle(btn) {
 
 function wire() {
   rootEl.addEventListener('click', (ev) => {
+    const win = ev.target.closest('[data-win]');
+    if (win) { try { window.electronAPI?.windowAction(win.dataset.win); } catch (_) {} return; }
     const btn = ev.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.dataset.act;
