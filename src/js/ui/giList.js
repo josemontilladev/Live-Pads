@@ -36,6 +36,54 @@ const CHUNK_SIZE = 30;
 export function initGiList(_deps) {
   deps = _deps;
   initDelegation();
+  wireDedupe();
+}
+
+// Quita canciones repetidas (mismo título + artista + tono, normalizados).
+// Conserva una por grupo, prefiriendo la vinculada a la nube (cloudId). Los
+// duplicados intencionales en OTRA tonalidad NO se tocan. No muta; devuelve el
+// resultado para que el handler confirme antes de aplicar.
+function computeDedupe() {
+  const norm = (v) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const nkey = (s) => `${norm(s.title)}|${norm(s.artist)}|${norm(s.key)}`;
+  const seen = new Map();
+  const keep = [];
+  let removed = 0;
+  for (const s of getSongs()) {
+    const k = nkey(s);
+    const prev = seen.get(k);
+    if (!prev) { seen.set(k, s); keep.push(s); continue; }
+    // Duplicado: si el que teníamos no está vinculado y este sí, conserva este.
+    if (!prev.cloudId && s.cloudId) {
+      const idx = keep.indexOf(prev);
+      if (idx >= 0) keep[idx] = s;
+      seen.set(k, s);
+    }
+    removed++;
+  }
+  return { removed, kept: keep };
+}
+
+function wireDedupe() {
+  const btn = q('#gi-dedupe-btn');
+  if (!btn) return;
+  btn.onclick = () => {
+    q('#gi-filter-menu')?.classList.add('hidden');
+    const { removed, kept } = computeDedupe();
+    if (!removed) { window.showToast?.('No hay canciones duplicadas.', 'info'); return; }
+    confirmDialog({
+      title: 'Eliminar duplicados',
+      message: `Se encontraron ${removed} canción(es) repetida(s) (mismo título, artista y tono). ¿Dejar solo una de cada una? Los duplicados a propósito en otra tonalidad se conservan.`,
+      confirmLabel: 'Eliminar', danger: true,
+      onConfirm: () => {
+        setSongs(kept);
+        deps.persist();
+        deps.updateFilterCounts();
+        renderGiList(q('#gi-search')?.value || '');
+        window.showToast?.(`${removed} duplicado(s) eliminado(s).`, 'success');
+      },
+    });
+  };
 }
 
 export function renderGiList(filter = '', editSongId = null) {

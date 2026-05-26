@@ -1185,3 +1185,12 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .gi-lib-select:hover { border-color: var(--border-strong); }
 .gi-lib-select:focus { border-color: var(--accent); }
+
+/* ── Acción "Eliminar duplicados" en el menú del filtro de Librería ── */
+.gi-filter-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+.gi-filter-action .gi-filter-option-label { color: var(--text-muted); }
+.gi-filter-action:hover .gi-filter-option-label { color: #fca5a5; }
