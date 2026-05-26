@@ -45,3 +45,4 @@ scripts/stem-poc/*.mp3
 # Original audio tracks dropped in defaults during dev (not shipped)
 defaults/Original Tracks/
 scripts/brand/.render*.html
+supabase/.temp/
