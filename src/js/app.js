@@ -637,6 +637,14 @@ function bindRestOfApp() {
     getSearchFilter: () => q('#gi-search')?.value || '',
   });
   bindGiToolbar({ updateFilterCounts });
+
+  // La sincronización con la librería de la nube (cloud/songSync.js) actualiza
+  // la lista en memoria y avisa por este evento para refrescar disco + UI.
+  window.addEventListener('livepads:library-synced', () => {
+    if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+    renderGiList(q('#gi-search')?.value || '');
+    updateFilterCounts();
+  });
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,
