@@ -633,67 +633,72 @@ ipcMain.handle('auth-clear-session', async () => {
 });
 
 // ── Inicio de sesión con OAuth (Google) ──────────────────────────────────
-// Abre una ventana hacia el /authorize de Supabase; Supabase rebota a Google y
-// vuelve al redirectTo con los tokens en el fragmento (#access_token=...).
-// Interceptamos esa navegación, extraemos los tokens y cerramos la ventana.
+// Google BLOQUEA el login dentro de ventanas embebidas (política anti-webview).
+// Por eso abrimos el navegador del SISTEMA hacia /authorize de Supabase y
+// recibimos la sesión de vuelta en un mini-servidor local (loopback).
+// Supabase devuelve los tokens en el fragmento (#access_token=…), que el
+// navegador NO manda al servidor; por eso la página de callback los lee con JS
+// y los reenvía a /token.
+const OAUTH_PORT = 8788; // debe figurar en Supabase → Auth → Redirect URLs como http://127.0.0.1:8788/callback
 ipcMain.handle('auth-oauth', async (_e, opts) => {
+  const http = require('http');
   const provider = (opts && opts.provider) || 'google';
   const supabaseUrl = opts && opts.supabaseUrl;
-  const redirectTo = (opts && opts.redirectTo) || 'https://livepads.online/';
   if (!supabaseUrl) return { error: 'Falta supabaseUrl' };
 
-  const authorizeUrl = `${supabaseUrl}/auth/v1/authorize?provider=${encodeURIComponent(provider)}`
-    + `&redirect_to=${encodeURIComponent(redirectTo)}`;
-
   return new Promise((resolve) => {
-    const authWin = new BrowserWindow({
-      width: 480, height: 660, show: true, modal: true, parent: mainWindow,
-      autoHideMenuBar: true, title: 'Iniciar sesión',
-      webPreferences: { nodeIntegration: false, contextIsolation: true, partition: 'persist:oauth' },
-    });
-    let done = false;
+    let settled = false;
+    let server = null;
     const finish = (result) => {
-      if (done) return; done = true;
-      try { authWin.removeAllListeners('closed'); authWin.close(); } catch (_) {}
+      if (settled) return; settled = true;
+      try { if (server) server.close(); } catch (_) {}
       resolve(result);
     };
 
-    // Extrae tokens de un URL (fragmento #... o query ?...).
-    const tryExtract = (url) => {
-      if (!url || url.indexOf(redirectTo) !== 0) return false;
-      let params = null;
-      const hash = url.indexOf('#');
-      if (hash >= 0) params = new URLSearchParams(url.slice(hash + 1));
-      else { const q = url.indexOf('?'); if (q >= 0) params = new URLSearchParams(url.slice(q + 1)); }
-      if (!params) return false;
-      if (params.get('error') || params.get('error_description')) {
-        finish({ error: params.get('error_description') || params.get('error') });
-        return true;
-      }
-      const access_token = params.get('access_token');
-      if (access_token) {
-        finish({
-          access_token,
-          refresh_token: params.get('refresh_token'),
-          expires_in: params.get('expires_in'),
-        });
-        return true;
-      }
-      return false;
-    };
+    server = http.createServer((req, res) => {
+      let u;
+      try { u = new URL(req.url, `http://127.0.0.1:${OAUTH_PORT}`); } catch (_) { res.writeHead(400); res.end(); return; }
 
-    const wc = authWin.webContents;
-    // UA de Chrome de escritorio: Google rechaza el login en "navegadores
-    // embebidos"; con un UA estándar lo acepta.
-    const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-    try { wc.setUserAgent(CHROME_UA); } catch (_) {}
-    wc.on('will-redirect', (_ev, url) => tryExtract(url));
-    wc.on('will-navigate', (_ev, url) => tryExtract(url));
-    wc.on('did-navigate', (_ev, url) => tryExtract(url));
-    wc.on('did-navigate-in-page', (_ev, url) => tryExtract(url));
-    authWin.on('closed', () => { if (!done) { done = true; resolve({ error: 'Ventana cerrada' }); } });
+      if (u.pathname === '/callback') {
+        // Página puente: lee el #fragmento (o ?query) y lo reenvía a /token.
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`<!doctype html><html><head><meta charset="utf-8"><title>LivePads</title></head>
+<body style="font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a0a0a;color:#fff;text-align:center;padding-top:90px">
+  <div style="font-size:24px;font-weight:800">Live<span style="color:#FBAE00">Pads</span></div>
+  <p id="m" style="color:#a3a3a3">Procesando inicio de sesión…</p>
+  <script>
+    var data = location.hash ? location.hash.slice(1) : location.search.slice(1);
+    fetch('/token?' + data).then(function(){
+      document.getElementById('m').innerHTML = '✓ Sesión iniciada. Vuelve a LivePads; ya puedes cerrar esta pestaña.';
+    }).catch(function(){ document.getElementById('m').textContent = 'No se pudo completar. Vuelve a la app e inténtalo de nuevo.'; });
+  </script>
+</body></html>`);
+        return;
+      }
 
-    authWin.loadURL(authorizeUrl).catch((e) => finish({ error: e.message }));
+      if (u.pathname === '/token') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('ok');
+        const p = u.searchParams;
+        if (p.get('error') || p.get('error_description')) return finish({ error: p.get('error_description') || p.get('error') });
+        const access_token = p.get('access_token');
+        if (access_token) return finish({ access_token, refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in') });
+        return; // ?code= (PKCE) no usado en flujo implícito
+      }
+
+      res.writeHead(404); res.end();
+    });
+
+    server.on('error', (err) => finish({ error: `No se pudo abrir el puerto ${OAUTH_PORT} (${err.code}). Cierra lo que lo use e inténtalo de nuevo.` }));
+
+    server.listen(OAUTH_PORT, '127.0.0.1', () => {
+      const redirectTo = `http://127.0.0.1:${OAUTH_PORT}/callback`;
+      const authorizeUrl = `${supabaseUrl}/auth/v1/authorize?provider=${encodeURIComponent(provider)}`
+        + `&redirect_to=${encodeURIComponent(redirectTo)}`;
+      shell.openExternal(authorizeUrl).catch((e) => finish({ error: e.message }));
+    });
+
+    // Si el usuario nunca completa, no dejamos el servidor colgado.
+    setTimeout(() => finish({ error: 'Tiempo de espera agotado. Inténtalo de nuevo.' }), 300000);
   });
 });
 
