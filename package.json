@@ -78,7 +78,8 @@
         "to": "defaults",
         "filter": [
           "**/*",
-          "!**/.gitkeep"
+          "!**/.gitkeep",
+          "!Original Tracks/**"
         ]
       },
       {
