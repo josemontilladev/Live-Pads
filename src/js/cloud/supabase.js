@@ -105,6 +105,41 @@ export async function signIn(email, password) {
   return applyTokenResponse(data);
 }
 
+// Aplica una sesión obtenida por OAuth (Google) — el flujo lo abre el proceso
+// principal en una ventana y nos devuelve los tokens. Recupera el usuario.
+export async function applySessionTokens({ access_token, refresh_token, expires_in }) {
+  if (!access_token) throw new Error('No se recibió la sesión de Google.');
+  session = {
+    access_token,
+    refresh_token: refresh_token || null,
+    expires_at: Date.now() + ((Number(expires_in) || 3600) * 1000),
+    user: null,
+  };
+  try {
+    const res = await fetch(`${AUTH}/user`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${access_token}` },
+    });
+    if (res.ok) session.user = await res.json();
+  } catch (_) {}
+  persist();
+  emit();
+  return session;
+}
+
+// Inicia sesión con Google. El proceso principal abre la ventana de Google,
+// captura los tokens del redirect y los aplica aquí.
+export const OAUTH_REDIRECT = 'https://livepads.online/';
+export async function signInWithGoogle() {
+  if (!window.electronAPI?.authOAuth) throw new Error('OAuth no disponible.');
+  const tokens = await window.electronAPI.authOAuth({
+    provider: 'google',
+    supabaseUrl: SUPABASE_URL,
+    redirectTo: OAUTH_REDIRECT,
+  });
+  if (!tokens || tokens.error) throw new Error(tokens?.error || 'No se pudo iniciar con Google.');
+  return applySessionTokens(tokens);
+}
+
 export async function resetPassword(email) {
   await authFetch('/recover', { body: { email } });
   return true;

@@ -40,6 +40,7 @@ interface ElectronAPI {
   authSaveSession(s: any): Promise<boolean>;
   authLoadSession(): Promise<any | null>;
   authClearSession(): Promise<boolean>;
+  authOAuth(opts: { provider: string; supabaseUrl: string; redirectTo: string }): Promise<any>;
   openExternal(url: string): Promise<boolean>;
 }
 

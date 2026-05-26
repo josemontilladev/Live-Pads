@@ -87,6 +87,16 @@
 }
 .auth-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); }
 .auth-btn:disabled { opacity: .55; cursor: progress; }
+.auth-btn.google {
+  background: #fff;
+  color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.auth-btn.google:hover { filter: brightness(0.97); }
+.auth-btn.google svg { flex: 0 0 auto; }
 
 .auth-divider {
   display: flex;

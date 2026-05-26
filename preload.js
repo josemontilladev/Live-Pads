@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authSaveSession: (s) => ipcRenderer.invoke('auth-save-session', s),
   authLoadSession: () => ipcRenderer.invoke('auth-load-session'),
   authClearSession: () => ipcRenderer.invoke('auth-clear-session'),
+  authOAuth: (opts) => ipcRenderer.invoke('auth-oauth', opts),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   saveMidiMap: (data) => ipcRenderer.invoke('save-midi-map', data),
   saveMidiMapSync: (data) => { try { return ipcRenderer.sendSync('save-midi-map-sync', data); } catch (e) { return false; } },
