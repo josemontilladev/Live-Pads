@@ -37,6 +37,10 @@ interface ElectronAPI {
   loadMidiMap(): Promise<any | null>;
   saveMidiMap(data: any): Promise<boolean>;
   fetchChordUrl(url: string): Promise<string>;
+  authSaveSession(s: any): Promise<boolean>;
+  authLoadSession(): Promise<any | null>;
+  authClearSession(): Promise<boolean>;
+  openExternal(url: string): Promise<boolean>;
 }
 
 interface Window {

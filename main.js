@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -601,6 +601,43 @@ ipcMain.handle('load-midi-map', async () => {
   const fp = path.join(app.getPath('userData'), 'midi_map.json');
   const raw = readJsonSafe(fp);
   return raw ? rewritePaths(raw) : null;
+});
+
+// ── Sesión de la nube (Supabase) — cifrada con safeStorage ────────────────
+// El token de acceso/refresh NUNCA se guarda en texto plano: safeStorage usa
+// el llavero del SO (DPAPI en Windows). Si el cifrado no está disponible (caso
+// raro), no persistimos la sesión en vez de dejarla expuesta.
+function authSessionPath() {
+  return path.join(app.getPath('userData'), 'cloud_session.bin');
+}
+ipcMain.handle('auth-save-session', async (_e, sessionObj) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return false;
+    const enc = safeStorage.encryptString(JSON.stringify(sessionObj));
+    fs.writeFileSync(authSessionPath(), enc);
+    return true;
+  } catch (err) { return false; }
+});
+ipcMain.handle('auth-load-session', async () => {
+  try {
+    const fp = authSessionPath();
+    if (!fs.existsSync(fp) || !safeStorage.isEncryptionAvailable()) return null;
+    const buf = fs.readFileSync(fp);
+    const json = safeStorage.decryptString(buf);
+    return JSON.parse(json);
+  } catch (err) { return null; }
+});
+ipcMain.handle('auth-clear-session', async () => {
+  try { const fp = authSessionPath(); if (fs.existsSync(fp)) fs.unlinkSync(fp); } catch (_) {}
+  return true;
+});
+
+// Abrir un enlace externo (web de confirmación de correo, etc.) en el navegador.
+ipcMain.handle('open-external', async (_e, url) => {
+  try {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) { await shell.openExternal(url); return true; }
+  } catch (_) {}
+  return false;
 });
 
 // Export the full mapping (both Pads + Stems scopes) to a user-chosen file —
