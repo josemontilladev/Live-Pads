@@ -1,0 +1,44 @@
+name: Supabase Keep-Alive
+
+# Mantiene activo el proyecto Supabase del plan gratis (se pausa tras ~7 días
+# sin actividad). Hace una petición real a la API REST una vez al día, lo que
+# resetea el contador de inactividad. Es gratis (GitHub Actions) y no toca la
+# app.
+#
+# Configuración (una sola vez):
+#   1) Crea el proyecto en Supabase.
+#   2) Crea una tabla mínima `keepalive` (ver README/instrucciones) con una
+#      política RLS de lectura pública.
+#   3) En el repo → Settings → Secrets and variables → Actions, añade:
+#        - SUPABASE_URL       (ej. https://xxxx.supabase.co)
+#        - SUPABASE_ANON_KEY  (la anon/public key del proyecto)
+#   Mientras no estén los secrets, el job se salta sin error.
+
+on:
+  schedule:
+    - cron: '17 7 * * *'    # cada día ~07:17 UTC
+  workflow_dispatch: {}      # permite ejecutarlo manualmente desde la pestaña Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_ANON_KEY aún no configurados — se omite."
+            exit 0
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/keepalive?select=id&limit=1")
+          echo "Supabase respondió HTTP $code"
+          # 200 (tabla existe) o 404 (aún sin tabla) cuentan como actividad y
+          # resetean la inactividad. Solo fallamos ante errores de servidor.
+          if [ "$code" -ge 500 ]; then
+            echo "Error del servidor Supabase"; exit 1
+          fi
