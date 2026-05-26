@@ -51,6 +51,10 @@ Migraciones 0001–0004 · Edge Function desplegada · secrets RESEND_API_KEY/IN
 - Landing → URLs livepads.online + precios + descarga.
 - Pulidos: auto-sync de canciones (hoy manual a propósito), conflictos (hoy last-write-wins), notas de versión reales.
 
+### Post-cierre (mismo día)
+- **Correo de invitación**: fallaba (caía a `mailto`) porque Resend tenía verificado el SUBDOMINIO `send.livepads.online` pero los remitentes usaban la raíz `@livepads.online`. Fix (sin código): `INVITE_FROM="LivePads <no-reply@send.livepads.online>"` + SMTP Auth Sender = `no-reply@send.livepads.online`. Verificado en vivo (HTTP 200, correo enviado). El código/función ya estaba bien.
+- **Landing (`docs/index.html`)**: botones "Descargar" ahora **dinámicos** — un script consulta `api.github.com/.../releases/latest`, apunta `.js-download` al `.exe` y actualiza `.js-version`. Fallback: página de Releases. Cero mantenimiento por release. Servida en livepads.online (Vercel).
+
 ### Operaciones
 - Release: `npm version patch` → `git push --follow-tags`.
 - Regenerar iconos: `electron scripts/brand/render-logo.js` (sin `ELECTRON_RUN_AS_NODE`).
