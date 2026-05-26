@@ -603,6 +603,14 @@ function bindHamburgerMenu() {
     };
   }
 
+  const btnAccount = q('#menu-account');
+  if (btnAccount) {
+    btnAccount.onclick = () => {
+      closeMenu();
+      import('./cloud/accountPanel.js').then(m => m.openAccountPanel()).catch(() => {});
+    };
+  }
+
   const btnMidiLearn = q('#menu-midi-learn');
   if (btnMidiLearn) {
     btnMidiLearn.onclick = () => {
