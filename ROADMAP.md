@@ -22,6 +22,43 @@ Estado: implementado (incl. "Click + secuencia" y contracción de letra al cambi
 
 ---
 
+## 📍 CHECKPOINT — Sesión cerrada 2026-05-26 (backend multiusuario + cuentas + marca + v1.0.0)
+
+### Estado al cerrar
+- **Versión:** **v1.0.0** (reset de debut — se borraron los 31 releases + 32 tags previos en GitHub). Build de v1.0.0 corriendo/recién publicado en Actions.
+- **Gran hito:** backend **Supabase** (free tier) para cuentas + librerías compartidas + config personal, todo **offline-first** y dentro del .exe. Comercialización con dominio **livepads.online**.
+- **Pendiente del usuario:** probar v1.0.0 instalado end-to-end (ver "Pendiente inmediato" abajo).
+
+### Lo construido esta sesión
+- **Esquema/DB** (`supabase/migrations/` 0001–0004): profiles, libraries, memberships (owner/editor/viewer), invites (+`accept_invite` RPC), songs, setlists, `user_settings`; RLS + helpers SECURITY DEFINER (`is_member`/`is_editor`/`shares_any_library`); `meta` jsonb. Todas aplicadas por el usuario.
+- **Keep-alive:** `.github/workflows/supabase-keepalive.yml` (cron diario) — el proyecto free nunca se pausa.
+- **Cliente nube** (`src/js/cloud/`): `config.js` (URL+anon key), `supabase.js` (auth/rest/rpc/edge fn, refresh token), `authUI.js` (pantalla bienvenida login/registro/recuperar + **Google**), `libraries.js`, `accountPanel.js` (panel "Mi cuenta y librerías"), `songSync.js` (subir/bajar + borrado propagado), `userSettings.js` (MIDI+kits+servicios+prefs, **auto + offline-first**). Sesión cifrada con safeStorage (IPC en main.js). Modo local "sin cuenta" intacto.
+- **Google OAuth:** `main.js` `auth-oauth` abre ventana al `/authorize`, captura tokens del redirect (UA Chrome). Provider + redirect URLs configurados por el usuario.
+- **Correos brandeados:** Edge Function `supabase/functions/send-invite` (Resend, HTML dorado, fallback `mailto`); plantillas Auth (confirm/reset/magic/invite) pegadas por el usuario; Custom SMTP (Resend) para que el remitente sea `livepads.online`.
+- **Marca:** logo nuevo (pad dorado + onda) en `scripts/brand/logo.svg`; `render-logo.js` (Electron offscreen) genera `logo.png`/`icon.png` (512) + **`icon.ico` multi-resolución 16–256** (arregla icono distorsionado en barra de tareas). Iconos de ventana e instalador → `.ico`.
+- **Build:** excluido `defaults/Original Tracks/` del instalador (no inflar).
+
+### Config externa que el usuario YA dejó lista
+Migraciones 0001–0004 · Edge Function desplegada · secrets RESEND_API_KEY/INVITE_FROM/APP_URL · Custom SMTP Auth · plantillas correo · Google provider + redirect URLs · Site URL · dominio livepads.online (Namecheap→Vercel, verificado en Resend) · GitHub secrets keep-alive.
+
+### Pendiente inmediato (al volver)
+1. Probar v1.0.0 INSTALADO: icono nítido; crear cuenta / **entrar con Google** (si la ventana embebida falla → migrar a navegador del sistema + loopback); crear librería → subir → invitar (correo Resend llega) → otra cuenta se une con código → bajar; config personal sigue a la cuenta; correos Auth brandeados desde livepads.online.
+2. Recordar: 1.0.32 instalado NO auto-actualiza a 1.0.0 (menor) — instalar 1.0.0 a mano una vez.
+
+### Siguientes fases
+- **Fase 4 monetización:** Free/Pro (límites en Free), Lemon Squeezy/Stripe, tabla `subscriptions` + gating.
+- Migrar canciones MongoDB (GI.Setlist) → Supabase como fuente única.
+- Landing → URLs livepads.online + precios + descarga.
+- Pulidos: auto-sync de canciones (hoy manual a propósito), conflictos (hoy last-write-wins), notas de versión reales.
+
+### Operaciones
+- Release: `npm version patch` → `git push --follow-tags`.
+- Regenerar iconos: `electron scripts/brand/render-logo.js` (sin `ELECTRON_RUN_AS_NODE`).
+- Tras editar plantilla de invitación: `supabase functions deploy send-invite`.
+- Borrado de releases/tags GitHub: vía API con el token del credential manager (`git credential fill`).
+
+---
+
 ## 📍 CHECKPOINT — Sesión cerrada 2026-05-19 (decimocuarta pasada — Companion móvil + polish)
 
 ### Estado al cerrar
