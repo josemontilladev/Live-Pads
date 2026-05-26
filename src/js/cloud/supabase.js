@@ -174,6 +174,24 @@ export function rpc(fn, args) {
   return rest(`/rpc/${fn}`, { method: 'POST', body: args || {} });
 }
 
+// Invoca una Edge Function (p.ej. send-invite) autenticada con la sesión.
+export async function invokeFunction(name, payload) {
+  const token = await validToken();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error((data && (data.error || data.message)) || `Error ${res.status}`);
+  return data;
+}
+
 // Restaura la sesión guardada al arrancar la app. Refresca el token si hace
 // falta. Devuelve el usuario o null.
 export async function restoreSession() {

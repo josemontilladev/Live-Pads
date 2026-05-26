@@ -3,7 +3,7 @@
 // equipo y unirse con un código. Se abre desde el menú principal.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { isCloudEnabled, isLoggedIn, getUser, signOut } from './supabase.js';
+import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction } from './supabase.js';
 import { openAuthGate } from './authUI.js';
 import {
   listLibraries, createLibrary, renameLibrary, deleteLibrary,
@@ -47,6 +47,21 @@ ${code}
     if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
     else window.location.href = url;
   } catch (_) {}
+}
+
+// Intenta enviar la invitación por correo automático (Edge Function + Resend).
+// Si la función no está desplegada o falla, cae al cliente de correo (mailto).
+// Devuelve 'sent' | 'mailto'.
+async function sendInvite(email, code) {
+  const active = state.libs.find(l => l.id === state.activeId);
+  const libraryName = active ? active.name : 'mi librería';
+  try {
+    await invokeFunction('send-invite', { email, code, libraryName });
+    return 'sent';
+  } catch (_) {
+    openInviteEmail(email, code);
+    return 'mailto';
+  }
 }
 
 function ensureOverlay() {
@@ -258,18 +273,23 @@ async function onClick(e) {
           await renderInvites(state.activeId);
           if (inv && inv.token) {
             try { await navigator.clipboard.writeText(inv.token); } catch (_) {}
-            openInviteEmail(inv.email || email, inv.token);   // abre el correo listo para enviar
-            msg('Invitación creada. Se abrió tu correo para enviarla (y el código quedó copiado).', 'ok');
+            const how = await sendInvite(inv.email || email, inv.token);
+            msg(how === 'sent'
+              ? `Invitación enviada por correo a ${inv.email || email}. (El código también quedó copiado.)`
+              : 'Invitación creada. Se abrió tu correo para enviarla (y el código quedó copiado).', 'ok');
           }
           return;
         }
         case 'copy-code':
           try { await navigator.clipboard.writeText(btn.dataset.code); msg('Código copiado al portapapeles.', 'ok'); } catch (_) {}
           return;
-        case 'mail-invite':
-          openInviteEmail(btn.dataset.email, btn.dataset.code);
-          msg('Se abrió tu correo con la invitación lista para enviar.', 'ok');
+        case 'mail-invite': {
+          const how = await sendInvite(btn.dataset.email, btn.dataset.code);
+          msg(how === 'sent'
+            ? `Invitación enviada por correo a ${btn.dataset.email}.`
+            : 'Se abrió tu correo con la invitación lista para enviar.', 'ok');
           return;
+        }
         case 'revoke':
           await revokeInvite(btn.dataset.id);
           return renderInvites(state.activeId);
