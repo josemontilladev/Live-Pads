@@ -79,6 +79,7 @@ function persistAsync() {
   if (window.electronAPI && window.electronAPI.saveMidiMap) {
     window.electronAPI.saveMidiMap(maps);
   }
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
 // Synchronous flush (used on window close) — writes BOTH scopes.

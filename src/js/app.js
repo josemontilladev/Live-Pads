@@ -114,6 +114,16 @@ let engine, metro;
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Configuración personal en la nube (offline-first): si hay sesión + internet,
+  // baja la config del usuario a local ANTES de leerla, para que el arranque
+  // tome los valores de la nube. Sin red o sin sesión, no bloquea nada.
+  try {
+    const { restoreSession } = await import('./cloud/supabase.js');
+    await restoreSession();
+    const us = await import('./cloud/userSettings.js');
+    await us.bootSyncBeforeLoad();
+  } catch (_) {}
+
   // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
   initAuthGate().catch(() => {});

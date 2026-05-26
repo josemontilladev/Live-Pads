@@ -54,6 +54,7 @@ export function applyTheme(id) {
   // Notify any view that needs to repaint with the new tokens — the
   // Stems waveforms use the accent at draw time so they must re-render.
   document.dispatchEvent(new CustomEvent('livepads:theme-change', { detail: { id } }));
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
 export function buildThemesList() {
