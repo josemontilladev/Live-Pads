@@ -137,7 +137,7 @@ export function renderGiList(filter = '', editSongId = null) {
     : null;
   const textTerm = (keyPrefix === null && tagPrefix === null) ? lower : '';
 
-  const currentGenre = getCurrentGenre();
+  const currentGenre = getCurrentGenre() || 'all';
   const filtered = songs.filter(s => {
     if (!matchesLibraryScope(s)) return false;
     if (keyPrefix !== null) {
