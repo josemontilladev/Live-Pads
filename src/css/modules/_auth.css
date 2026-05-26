@@ -28,6 +28,13 @@
   text-align: center;
 }
 
+.auth-logo-img {
+  display: block;
+  margin: 0 auto 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+}
 .auth-logo {
   font-size: 26px;
   font-weight: 800;

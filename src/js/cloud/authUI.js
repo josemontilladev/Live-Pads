@@ -30,6 +30,7 @@ function buildGate() {
   const gate = el(`
     <div id="auth-gate">
       <div class="auth-card">
+        <img class="auth-logo-img" src="assets/logo.png" alt="LivePads" width="64" height="64">
         <div class="auth-logo">Live<span>Pads</span></div>
         <p class="auth-sub">Tu repertorio, en cualquier equipo.</p>
 
