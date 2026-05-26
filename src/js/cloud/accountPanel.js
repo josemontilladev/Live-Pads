@@ -318,7 +318,7 @@ async function onClick(e) {
           try {
             const { pushLibrarySongs } = await import('./songSync.js');
             const r = await pushLibrarySongs();
-            msg(`Subidas ${r.created} nuevas y actualizadas ${r.updated}.`, 'ok');
+            msg(`Subidas ${r.created} nuevas, actualizadas ${r.updated}${r.linked ? `, vinculadas ${r.linked} (ya existían)` : ''}.`, 'ok');
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
@@ -327,7 +327,7 @@ async function onClick(e) {
           try {
             const { pullLibrarySongs } = await import('./songSync.js');
             const r = await pullLibrarySongs();
-            msg(`Añadidas ${r.added} y actualizadas ${r.refreshed} canciones.`, 'ok');
+            msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}.`, 'ok');
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
