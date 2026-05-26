@@ -23,6 +23,32 @@ function el(html) {
 const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// Abre el cliente de correo del usuario con la invitación ya redactada (incluye
+// el código para unirse). Correo real desde su propia cuenta, sin servidor.
+function openInviteEmail(email, code) {
+  const active = state.libs.find(l => l.id === state.activeId);
+  const libName = active ? active.name : 'mi librería';
+  const subject = `Invitación a "${libName}" en LivePads`;
+  const body =
+`¡Hola!
+
+Te invito a la librería "${libName}" en LivePads.
+
+Cómo unirte:
+1) Descarga LivePads e inicia sesión (o crea tu cuenta).
+2) Abre el menú → "Mi cuenta y librerías".
+3) En "Unirme a una librería", pega este código:
+
+${code}
+
+¡Nos vemos!`;
+  const url = `mailto:${encodeURIComponent(email || '')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  try {
+    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+    else window.location.href = url;
+  } catch (_) {}
+}
+
 function ensureOverlay() {
   if (overlay) return overlay;
   overlay = el(`<div id="account-overlay" class="hidden"><div class="acc-panel" id="acc-panel"></div></div>`);
@@ -182,6 +208,7 @@ async function renderInvites(libId) {
   box.innerHTML = pending.map(i => `
     <div class="acc-invite">
       <span class="i-email">${escapeHtml(i.email)} · ${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
+      <button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar por correo</button>
       <button class="acc-btn ghost sm" data-act="copy-code" data-code="${escapeHtml(i.token)}">Copiar código</button>
       <button class="acc-btn danger sm" data-act="revoke" data-id="${i.id}">Anular</button>
     </div>`).join('');
@@ -228,13 +255,20 @@ async function onClick(e) {
           if (!email.trim()) return msg('Escribe el correo de la persona.');
           const inv = await createInvite(state.activeId, email, role);
           overlay.querySelector('#acc-inv-email').value = '';
-          msg('Invitación creada. Comparte el código con esa persona (botón "Copiar código").', 'ok');
           await renderInvites(state.activeId);
-          if (inv && inv.token) { try { await navigator.clipboard.writeText(inv.token); } catch (_) {} }
+          if (inv && inv.token) {
+            try { await navigator.clipboard.writeText(inv.token); } catch (_) {}
+            openInviteEmail(inv.email || email, inv.token);   // abre el correo listo para enviar
+            msg('Invitación creada. Se abrió tu correo para enviarla (y el código quedó copiado).', 'ok');
+          }
           return;
         }
         case 'copy-code':
           try { await navigator.clipboard.writeText(btn.dataset.code); msg('Código copiado al portapapeles.', 'ok'); } catch (_) {}
+          return;
+        case 'mail-invite':
+          openInviteEmail(btn.dataset.email, btn.dataset.code);
+          msg('Se abrió tu correo con la invitación lista para enviar.', 'ok');
           return;
         case 'revoke':
           await revokeInvite(btn.dataset.id);

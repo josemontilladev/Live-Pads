@@ -635,7 +635,7 @@ ipcMain.handle('auth-clear-session', async () => {
 // Abrir un enlace externo (web de confirmación de correo, etc.) en el navegador.
 ipcMain.handle('open-external', async (_e, url) => {
   try {
-    if (typeof url === 'string' && /^https?:\/\//i.test(url)) { await shell.openExternal(url); return true; }
+    if (typeof url === 'string' && /^(https?|mailto):/i.test(url)) { await shell.openExternal(url); return true; }
   } catch (_) {}
   return false;
 });

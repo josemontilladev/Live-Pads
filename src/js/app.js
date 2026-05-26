@@ -655,6 +655,14 @@ function bindRestOfApp() {
     renderGiList(q('#gi-search')?.value || '');
     updateFilterCounts();
   });
+
+  // Borrado propagado: al eliminar una canción que está en la nube, la quita
+  // también de la librería compartida (silencioso sin red / sin permiso).
+  window.addEventListener('livepads:song-deleted', (ev) => {
+    const cloudId = ev?.detail?.cloudId;
+    if (!cloudId) return;
+    import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId)).catch(() => {});
+  });
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,
