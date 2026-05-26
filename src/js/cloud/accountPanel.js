@@ -73,6 +73,15 @@ async function render() {
     <div class="acc-section" id="acc-manage"></div>
 
     <div class="acc-section">
+      <h4>Canciones de esta librería</h4>
+      <div class="acc-row">
+        <button class="acc-btn ghost" data-act="pull-songs" style="flex:1">⬇ Bajar canciones</button>
+        <button class="acc-btn" data-act="push-songs" style="flex:1">⬆ Subir mis canciones</button>
+      </div>
+      <div class="acc-empty" style="margin-top:6px">Subir copia tus canciones locales a la nube (las comparte con tu equipo). Bajar trae las de la librería a este equipo.</div>
+    </div>
+
+    <div class="acc-section">
       <h4>Unirme a una librería</h4>
       <div class="acc-row">
         <input id="acc-join-code" placeholder="Pega aquí el código de invitación…">
@@ -241,6 +250,24 @@ async function onClick(e) {
           overlay.querySelector('#acc-join-code').value = '';
           msg('¡Te uniste a la librería!', 'ok');
           return refreshLibs();
+        }
+        case 'push-songs': {
+          btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Subiendo…';
+          try {
+            const { pushLibrarySongs } = await import('./songSync.js');
+            const r = await pushLibrarySongs();
+            msg(`Subidas ${r.created} nuevas y actualizadas ${r.updated}.`, 'ok');
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'pull-songs': {
+          btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Bajando…';
+          try {
+            const { pullLibrarySongs } = await import('./songSync.js');
+            const r = await pullLibrarySongs();
+            msg(`Añadidas ${r.added} y actualizadas ${r.refreshed} canciones.`, 'ok');
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
         }
       }
     } catch (err) { msg(err.message || 'Algo salió mal.'); }
