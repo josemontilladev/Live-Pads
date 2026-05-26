@@ -39,6 +39,7 @@ export function loadServiceSongs() {
 
 export function saveServiceSongs() {
   localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
 export function addToService(song) {

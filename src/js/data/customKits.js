@@ -108,4 +108,5 @@ export function saveCustomKitsToStorage() {
   if (window.electronAPI && window.electronAPI.saveUserDrums) {
     window.electronAPI.saveUserDrums({ kits: customKits });
   }
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }

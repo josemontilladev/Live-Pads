@@ -46,6 +46,7 @@ function saveMixerState() {
     if (c) state[canonId] = c.value;
   }
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
 // Apply saved values to the canonical sliders BEFORE bridges are wired, so
