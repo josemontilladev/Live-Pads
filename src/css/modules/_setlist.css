@@ -1192,5 +1192,18 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   background: var(--border);
   margin: 6px 4px;
 }
-.gi-filter-action .gi-filter-option-label { color: var(--text-muted); }
+.gi-filter-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  text-align: left;
+}
+.gi-filter-action:hover { background: var(--bg-hover); }
+.gi-filter-action .gi-filter-option-label { color: var(--text-muted); font-size: 13px; }
 .gi-filter-action:hover .gi-filter-option-label { color: #fca5a5; }

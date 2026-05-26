@@ -213,6 +213,7 @@ function bindGenreFilter(_deps) {
   qa('.gi-filter-option').forEach(opt => {
     opt.onclick = (e) => {
       e.stopPropagation();
+      if (!opt.dataset.genre) return; // ignora acciones que no son género (p.ej. eliminar duplicados)
       setCurrentGenre(opt.dataset.genre);
       refreshFilterActiveStates();
       closeFilterMenu();
