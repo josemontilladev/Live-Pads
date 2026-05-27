@@ -57,6 +57,7 @@ export function openPreflight(ctx) {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
+  if (!window.__escPreflight) { window.__escPreflight = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closePreflight(); }); }
 
   overlay.onclick = (e) => { if (e.target === overlay) closePreflight(); };
   overlay.querySelector('.pf-close').onclick = closePreflight;

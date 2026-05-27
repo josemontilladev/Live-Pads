@@ -74,6 +74,9 @@ function ensureOverlay() {
   if (overlay) return overlay;
   overlay = el(`<div id="account-overlay" class="hidden"><div class="acc-panel" id="acc-panel"></div></div>`);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) { e.preventDefault(); close(); }
+  });
   document.body.appendChild(overlay);
   return overlay;
 }
