@@ -3,7 +3,8 @@
 // equipo y unirse con un código. Se abre desde el menú principal.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle } from './supabase.js';
+import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle, updatePassword, deleteAccount } from './supabase.js';
+import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
 
 // ¿La cuenta ya tiene a Google como método de acceso?
 function hasGoogleIdentity(u) {
@@ -12,11 +13,12 @@ function hasGoogleIdentity(u) {
 }
 import { openAuthGate } from './authUI.js';
 import {
-  listLibraries, createLibrary, renameLibrary, deleteLibrary,
+  listLibraries, createLibrary, renameLibrary, deleteLibrary, leaveLibrary,
   listMembers, removeMember, changeMemberRole,
   listInvites, createInvite, revokeInvite, acceptInvite,
   getActiveLibraryId, setActiveLibraryId,
 } from './libraries.js';
+import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
 
 let overlay = null;
 let state = { libs: [], activeId: null };
@@ -120,6 +122,7 @@ async function render() {
              Vincular con Google
            </button>
            <div class="acc-empty" style="margin-top:6px">Inicia con Google usando tu mismo correo para no escribir la contraseña la próxima vez.</div>`}
+      <button class="acc-btn ghost" data-act="change-pass" style="width:100%;margin-top:8px">Cambiar contraseña</button>
     </div>
 
     <div class="acc-section">
@@ -143,11 +146,26 @@ async function render() {
     </div>
 
     <div class="acc-section">
+      <h4>Servicios compartidos</h4>
+      <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
+      <div class="acc-row">
+        <button class="acc-btn" data-act="save-setlist" style="flex:1">☁ Guardar servicio actual</button>
+      </div>
+      <div class="acc-empty" style="margin-top:6px">Guarda el orden del servicio actual para que tu equipo lo cargue. Solo incluye canciones que estén en la nube.</div>
+    </div>
+
+    <div class="acc-section">
       <h4>Unirme a una librería</h4>
       <div class="acc-row">
         <input id="acc-join-code" placeholder="Pega aquí el código de invitación…">
         <button class="acc-btn ghost" data-act="join">Unirme</button>
       </div>
+    </div>
+
+    <div class="acc-section acc-danger">
+      <h4>Zona de peligro</h4>
+      <button class="acc-btn danger" data-act="delete-account" style="width:100%">Eliminar mi cuenta</button>
+      <div class="acc-empty" style="margin-top:6px">Borra tu cuenta y los datos asociados (librerías propias, canciones y configuración). No se puede deshacer.</div>
     </div>
 
     <div class="acc-msg" id="acc-msg"></div>
@@ -181,8 +199,26 @@ async function refreshLibs() {
       </div>`).join('');
   }
   await renderManage();
+  await renderSetlists();
   // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
   try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
+}
+
+// Lista los setlists/servicios compartidos de la librería activa.
+async function renderSetlists() {
+  const box = overlay.querySelector('#acc-setlists');
+  if (!box) return;
+  if (!state.activeId) { box.innerHTML = '<div class="acc-empty">Elige una librería.</div>'; return; }
+  let rows;
+  try { rows = await listSharedSetlists(); }
+  catch (e) { box.innerHTML = `<div class="acc-empty">No se pudieron cargar.</div>`; return; }
+  if (!rows.length) { box.innerHTML = '<div class="acc-empty">Aún no hay servicios guardados.</div>'; return; }
+  box.innerHTML = rows.map(s => `
+    <div class="acc-member">
+      <span class="m-email">${escapeHtml(s.name)} · ${(s.song_ids || []).length} canciones</span>
+      <button class="acc-btn ghost sm" data-act="load-setlist" data-id="${s.id}">Cargar</button>
+      <button class="acc-btn danger sm" data-act="del-setlist" data-id="${s.id}">Borrar</button>
+    </div>`).join('');
 }
 
 // Gestión de la librería activa (miembros + invitaciones) — solo si eres dueño.
@@ -195,7 +231,8 @@ async function renderManage() {
 
   if (!isOwner) {
     wrap.innerHTML = `<h4>${escapeHtml(active.name)}</h4>
-      <div class="acc-empty">Eres invitado en esta librería. Solo el propietario gestiona miembros.</div>`;
+      <div class="acc-empty">Eres invitado en esta librería. Solo el propietario gestiona miembros.</div>
+      <div class="acc-row"><button class="acc-btn danger" data-act="leave-lib" data-lib="${active.id}" style="flex:1">Salir de esta librería</button></div>`;
     return;
   }
 
@@ -270,6 +307,64 @@ async function onClick(e) {
           close();
           await openAuthGate();
           return;
+        case 'change-pass': {
+          showDialog('Cambiar contraseña', 'Nueva contraseña (mín. 6)', async (val) => {
+            const pass = (val || '').trim();
+            if (pass.length < 6) return msg('La contraseña debe tener al menos 6 caracteres.');
+            try { await updatePassword(pass); msg('Contraseña actualizada.', 'ok'); }
+            catch (e2) { msg(e2.message); }
+          });
+          return;
+        }
+        case 'delete-account': {
+          const ok = await confirmDialogAsync({
+            title: 'Eliminar mi cuenta',
+            message: 'Esto borra tu cuenta y tus datos (librerías propias, canciones y configuración) de forma permanente. ¿Continuar?',
+            confirmLabel: 'Eliminar cuenta', danger: true,
+          });
+          if (!ok) return;
+          try {
+            await deleteAccount();
+            close();
+            await openAuthGate();
+          } catch (e2) { msg(e2.message || 'No se pudo eliminar la cuenta.'); }
+          return;
+        }
+        case 'leave-lib': {
+          const ok = await confirmDialogAsync({
+            title: 'Salir de la librería',
+            message: 'Dejarás de ver el repertorio compartido de esta librería. ¿Continuar?',
+            confirmLabel: 'Salir', danger: true,
+          });
+          if (!ok) return;
+          await leaveLibrary(btn.dataset.lib);
+          msg('Saliste de la librería.', 'ok');
+          return refreshLibs();
+        }
+        case 'save-setlist': {
+          showDialog('Guardar servicio', 'Nombre del servicio…', async (val) => {
+            try {
+              const r = await saveServiceAsSetlist(val);
+              msg(`Servicio guardado (${r.saved} canciones${r.skipped ? `, ${r.skipped} omitidas por no estar en la nube` : ''}).`, 'ok');
+              await renderSetlists();
+            } catch (e2) { msg(e2.message); }
+          });
+          return;
+        }
+        case 'load-setlist': {
+          try {
+            const r = await loadSharedSetlist(btn.dataset.id);
+            msg(`Servicio cargado (${r.loaded} canciones${r.missing ? `, ${r.missing} no están en este equipo — baja las canciones` : ''}).`, 'ok');
+          } catch (e2) { msg(e2.message); }
+          return;
+        }
+        case 'del-setlist': {
+          const ok = await confirmDialogAsync({ title: 'Borrar servicio', message: '¿Borrar este servicio compartido para todo el equipo?', confirmLabel: 'Borrar', danger: true });
+          if (!ok) return;
+          try { await deleteSharedSetlist(btn.dataset.id); await renderSetlists(); msg('Servicio borrado.', 'ok'); }
+          catch (e2) { msg(e2.message); }
+          return;
+        }
         case 'link-google': {
           btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Abriendo Google…';
           try {

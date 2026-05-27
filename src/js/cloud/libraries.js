@@ -41,6 +41,17 @@ export async function deleteLibrary(id) {
   return true;
 }
 
+// Salir de una librería en la que eres invitado (borra tu propia membresía).
+// El dueño no "sale": elimina la librería. RLS solo permite borrar la membresía
+// propia de rol distinto a owner.
+export async function leaveLibrary(libraryId) {
+  const u = getUser();
+  if (!u) throw new Error('Sesión no válida.');
+  await rest(`/memberships?library_id=eq.${libraryId}&user_id=eq.${u.id}`, { method: 'DELETE', prefer: 'return=minimal' });
+  if (getActiveLibraryId() === libraryId) setActiveLibraryId(null);
+  return true;
+}
+
 // ── Membresías (miembros de una librería) ─────────────────────────────────
 
 // Devuelve los miembros con su correo (vía join al profile).
