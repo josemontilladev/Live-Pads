@@ -3,7 +3,13 @@
 // equipo y unirse con un código. Se abre desde el menú principal.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction } from './supabase.js';
+import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle } from './supabase.js';
+
+// ¿La cuenta ya tiene a Google como método de acceso?
+function hasGoogleIdentity(u) {
+  const ids = (u && u.identities) || [];
+  return ids.some(i => (i.provider || '').toLowerCase() === 'google');
+}
 import { openAuthGate } from './authUI.js';
 import {
   listLibraries, createLibrary, renameLibrary, deleteLibrary,
@@ -100,6 +106,17 @@ async function render() {
         <div class="email">${escapeHtml(u ? u.email : '')}</div>
       </div>
       <button class="acc-btn ghost sm" data-act="signout">Cerrar sesión</button>
+    </div>
+
+    <div class="acc-section">
+      <h4>Acceso rápido</h4>
+      ${u && hasGoogleIdentity(u)
+        ? `<div class="acc-empty">✓ Google vinculado — ya puedes entrar con el botón de Google.</div>`
+        : `<button class="acc-btn ghost" data-act="link-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+             <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22 22-9.8 22-22c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 16 2 9.1 6.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.1 41.4 16 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 31 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+             Vincular con Google
+           </button>
+           <div class="acc-empty" style="margin-top:6px">Inicia con Google usando tu mismo correo para no escribir la contraseña la próxima vez.</div>`}
     </div>
 
     <div class="acc-section">
@@ -250,6 +267,23 @@ async function onClick(e) {
           close();
           await openAuthGate();
           return;
+        case 'link-google': {
+          btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Abriendo Google…';
+          try {
+            const u = getUser();
+            await signInWithGoogle();
+            const after = getUser();
+            // Si el correo de Google no coincide, Supabase entra a OTRA cuenta.
+            if (u && after && after.email && u.email && after.email.toLowerCase() !== u.email.toLowerCase()) {
+              msg(`Entraste con otra cuenta de Google (${after.email}). Para vincular, usa el mismo correo: ${u.email}.`, 'error');
+            } else {
+              msg('¡Google vinculado! La próxima vez entra con el botón de Google.', 'ok');
+            }
+            await refreshLibs();
+          } catch (e2) { msg(e2.message || 'No se pudo vincular Google.'); }
+          finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
         case 'create-lib': {
           const name = overlay.querySelector('#acc-new-lib').value;
           if (!name.trim()) return msg('Escribe un nombre.');
