@@ -50,6 +50,15 @@ export function addToService(song) {
   triggerRender();
 }
 
+// Reemplaza todo el servicio de una vez (p.ej. al cargar un setlist compartido
+// de la nube). Re-etiqueta serviceId y renderiza una sola vez.
+export function replaceService(songs) {
+  serviceSongs = (songs || []).map((s, i) => ({ ...s, serviceId: Date.now() + i + Math.random() }));
+  activeServiceIndex = -1;
+  saveServiceSongs();
+  triggerRender();
+}
+
 export function removeFromService(serviceId) {
   serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
   saveServiceSongs();

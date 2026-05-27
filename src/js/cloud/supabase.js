@@ -140,6 +140,31 @@ export async function signInWithGoogle() {
   return applySessionTokens(tokens);
 }
 
+// Cambiar la contraseña del usuario logueado (no requiere la actual; la sesión
+// activa autoriza el cambio, como en la mayoría de apps).
+export async function updatePassword(newPassword) {
+  const token = await validToken();
+  if (!token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+  const res = await fetch(`${AUTH}/user`, {
+    method: 'PUT',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  let data = null; try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(translateAuthError((data && (data.msg || data.error_description || data.error || data.message)) || `Error ${res.status}`));
+  return true;
+}
+
+// Eliminar la cuenta (vía Edge Function con privilegios). Borra el usuario y,
+// en cascada, sus librerías propias, canciones, setlists y configuración.
+export async function deleteAccount() {
+  await invokeFunction('delete-account', {});
+  session = null;
+  persist();
+  emit();
+  return true;
+}
+
 export async function resetPassword(email) {
   await authFetch('/recover', { body: { email } });
   return true;
