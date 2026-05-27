@@ -220,8 +220,13 @@ function wire() {
       case 'google':     handleGoogle(btn); break;
     }
   });
-  // Enter envía el formulario de la vista activa.
+  // Enter envía el formulario de la vista activa; Escape vuelve a bienvenida.
   rootEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+      const active = rootEl.querySelector('.auth-view.active');
+      if (active && active.dataset.view !== 'welcome') { ev.preventDefault(); show('welcome'); }
+      return;
+    }
     if (ev.key !== 'Enter') return;
     const view = rootEl.querySelector('.auth-view.active');
     if (!view) return;

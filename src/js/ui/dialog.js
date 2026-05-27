@@ -12,6 +12,22 @@
 
 import { q } from '../utils/dom.js';
 
+// Cerrar con Escape (se registra una sola vez). Si hay botón Cancelar visible
+// con handler, lo dispara (respeta onCancel); si no, solo oculta.
+let escWired = false;
+function wireDialogEsc() {
+  if (escWired) return; escWired = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const overlay = q('#dialog-overlay');
+    if (!overlay || overlay.classList.contains('hidden')) return;
+    e.preventDefault();
+    const cancelBtn = q('#dialog-cancel');
+    if (cancelBtn && typeof cancelBtn.onclick === 'function') cancelBtn.onclick();
+    else hideDialog();
+  });
+}
+
 function resetDialogChrome() {
   const msg   = q('#dialog-message');
   const input = q('#dialog-name');
@@ -19,6 +35,8 @@ function resetDialogChrome() {
   if (msg)   { msg.classList.add('hidden'); msg.textContent = ''; }
   if (input) { input.classList.remove('hidden'); input.value = ''; }
   if (okBtn) { okBtn.classList.remove('d-ok--danger'); okBtn.textContent = 'Guardar'; }
+  const cancel = q('#dialog-cancel');
+  if (cancel) cancel.onclick = hideDialog; // limpia handler previo; confirmDialog lo sobreescribe
 }
 
 export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
@@ -28,6 +46,7 @@ export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
   if (!titleEl || !overlay || !input) return;
 
   resetDialogChrome();
+  wireDialogEsc();
   titleEl.textContent = title;
   overlay.classList.remove('hidden');
   input.placeholder = placeholder;
@@ -65,6 +84,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Eliminar', dange
   if (!titleEl || !overlay || !msgEl || !input || !okBtn || !cancelBtn) return;
 
   resetDialogChrome();
+  wireDialogEsc();
   titleEl.textContent = title;
   msgEl.textContent = message;
   msgEl.classList.remove('hidden');

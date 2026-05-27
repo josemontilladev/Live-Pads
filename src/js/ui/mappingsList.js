@@ -124,6 +124,7 @@ export function openMappingsList() {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
+  if (!window.__escMappings) { window.__escMappings = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closeMappingsList(); }); }
 
   overlay.onclick = (e) => {
     if (e.target === overlay) { closeMappingsList(); return; }

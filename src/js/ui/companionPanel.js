@@ -79,6 +79,7 @@ export function openCompanionPanel() {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
+  if (!window.__escCompanion) { window.__escCompanion = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closeCompanionPanel(); }); }
 
   overlay.onclick = (e) => { if (e.target === overlay) closeCompanionPanel(); };
   overlay.querySelector('.cp-close').onclick = closeCompanionPanel;
