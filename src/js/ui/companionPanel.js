@@ -30,8 +30,12 @@ export function openCompanionPanel() {
       <p class="cp-subtitle">Visor pasivo de letras+acordes para los músicos en la misma WiFi.</p>
 
       <div class="cp-hotspot-row">
-        <button class="cp-hotspot-btn" id="cp-hotspot" type="button">📶 Modo iglesia (Hotspot)</button>
-        <span class="cp-hotspot-tip">Sin internet: la laptop emite su propia WiFi y los teléfonos solo escanean.</span>
+        <button class="cp-hotspot-btn" id="cp-softap" type="button">📡 Crear red WiFi local (sin internet)</button>
+        <span class="cp-hotspot-tip">La laptop emite la red <b>LivePads</b> (clave <b>livepads2026</b>). Conecta los teléfonos a esa red y escanea el QR. No requiere internet.</span>
+      </div>
+      <div class="cp-hotspot-row">
+        <button class="cp-hotspot-btn" id="cp-hotspot" type="button">⚙ Hotspot de Windows (si hay internet)</button>
+        <span class="cp-hotspot-tip">Alternativa: abre los ajustes de Windows (solo funciona si la laptop tiene internet que compartir).</span>
       </div>
 
       <div class="cp-status" data-running="false">
@@ -129,6 +133,26 @@ export function openCompanionPanel() {
     } catch (err) {
       console.error('Set IP failed:', err);
     }
+  };
+
+  const softapBtn = overlay.querySelector('#cp-softap');
+  if (softapBtn) softapBtn.onclick = async () => {
+    if (!window.electronAPI.companionCreateSoftap) return;
+    softapBtn.disabled = true; const lbl = softapBtn.textContent; softapBtn.textContent = 'Creando red…';
+    try {
+      // Avisa si el adaptador no soporta crear red local (drivers modernos a veces no).
+      const sup = await window.electronAPI.companionSoftapSupported?.();
+      if (sup && sup.supported === false) {
+        window.showToast?.('Tu WiFi no permite crear red local. Usa el hotspot de tu teléfono o un router.', 'warning');
+      }
+      const r = await window.electronAPI.companionCreateSoftap();
+      if (r && r.ok) {
+        window.showToast?.('Red "LivePads" creada (clave: livepads2026). Conecta los teléfonos a esa WiFi.', 'success');
+      } else {
+        window.showToast?.('No se pudo crear la red. Acepta el permiso (UAC) o usa el hotspot del teléfono.', 'error');
+      }
+    } catch (e) { window.showToast?.('No se pudo crear la red local.', 'error'); }
+    finally { softapBtn.disabled = false; softapBtn.textContent = lbl; }
   };
 
   const hotspotBtn = overlay.querySelector('#cp-hotspot');
