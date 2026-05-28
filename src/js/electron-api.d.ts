@@ -41,6 +41,7 @@ interface ElectronAPI {
   authLoadSession(): Promise<any | null>;
   authClearSession(): Promise<boolean>;
   authOAuth(opts: { provider: string; supabaseUrl: string; redirectTo: string }): Promise<any>;
+  downloadYoutubeAudio(data: { url: string; title?: string }): Promise<string>;
   openExternal(url: string): Promise<boolean>;
 }
 

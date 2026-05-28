@@ -6,7 +6,7 @@
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
-import { confirmDialog } from './dialog.js';
+import { confirmDialog, showDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 import {
   getSongs, setSongs,
@@ -387,6 +387,27 @@ function initDelegation() {
         return;
       case 'assign-audio-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
       case 'assign-audio-orig': deps.loadAndPlayTrack(song, 'original'); return;
+      case 'yt-audio-orig': {
+        if (!navigator.onLine) { window.showToast?.('Necesitas internet para descargar de YouTube.', 'warning'); return; }
+        const ytBtn = e.target.closest('[data-action="yt-audio-orig"]');
+        showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', async (url) => {
+          if (!url || !url.trim()) return;
+          if (ytBtn) { ytBtn.disabled = true; ytBtn.textContent = 'Descargando…'; }
+          window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
+          try {
+            const path = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
+            if (!song.audio) song.audio = {};
+            song.audio.original = path;
+            deps.persist();
+            card.innerHTML = songEditFormHTML(song);
+            window.showToast?.('Audio original asignado desde YouTube.', 'success');
+          } catch (err) {
+            window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error');
+            if (ytBtn) { ytBtn.disabled = false; ytBtn.textContent = 'Desde YouTube'; }
+          }
+        });
+        return;
+      }
       case 'clear-audio-seq':
       case 'clear-audio-orig': {
         const slot = action === 'clear-audio-seq' ? 'sequence' : 'original';
