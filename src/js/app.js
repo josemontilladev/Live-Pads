@@ -40,6 +40,10 @@ const PADS_TOUR_STEPS = [
   { target: '#btn-help',        title: 'Atajos de teclado',     body: 'Pulsa <b>?</b> en cualquier momento para ver todos los atajos. Casi todo se controla sin ratón.' },
 ];
 function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); }
+
+// El tour de bienvenida no debe solaparse con la pantalla de login: esperamos
+// a que el usuario termine con el auth gate (inicie sesión o entre sin cuenta).
+let authGateReady = Promise.resolve();
 window.__padsShowTour = () => startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
 import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
 import { showToast } from './ui/toast.js';
@@ -127,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
-  initAuthGate().catch(() => {});
+  authGateReady = initAuthGate().catch(() => {});
 
   engine = new SynthEngine();
 
@@ -724,9 +728,9 @@ function applyWorkspace(name) {
   // workspace. After that it can be re-launched manually. Entering Stems
   // also lazily loads + mounts the heavy Stems workspace.
   if (valid === 'stems') {
-    ensureStemsMounted().then(() => maybeStartTour());
+    authGateReady.then(() => ensureStemsMounted().then(() => maybeStartTour()));
   } else {
-    maybeStartPadsTour();
+    authGateReady.then(() => maybeStartPadsTour());
   }
 }
 
