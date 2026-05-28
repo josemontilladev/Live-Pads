@@ -1104,7 +1104,17 @@ const updateFilterCounts = () => updateFilterCountsModule(getSongs());
 async function loadGiSetlistFromFile() {
   const songs = await loadGiSetlistFromFileModule();
   if (!songs) return;
+  // Normaliza una sola vez las letras que llegaron como HTML (canciones
+  // importadas/GI.Setlist) → texto plano con acordes. Persiste si cambió algo.
+  let changed = 0;
+  for (const s of songs) {
+    if (s.lyrics && /<\/?(p|br|div|li)\b/i.test(s.lyrics)) {
+      const plain = htmlToPlainLyrics(s.lyrics);
+      if (plain !== s.lyrics) { s.lyrics = plain; changed++; }
+    }
+  }
   setSongs(songs);
+  if (changed && window.electronAPI) window.electronAPI.saveGiSetlist(songs);
   updateFilterCounts();
   renderGiList();
 }

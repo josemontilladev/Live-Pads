@@ -9,6 +9,7 @@
 import { rest, isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
 import { getSongs, setSongs } from '../state/store.js';
+import { htmlToPlainLyrics } from '../utils/text.js';
 
 // ── Mapeo entre el objeto local y la fila de Supabase ──────────────────────
 // Clave natural para deduplicar: título + artista + TONO. Incluir el tono es
@@ -52,7 +53,7 @@ function fromRow(row) {
     libraryId: row.library_id || null,
     title:  row.title || '',
     artist: row.artist || '',
-    lyrics: row.lyrics || '',
+    lyrics: htmlToPlainLyrics(row.lyrics || ''),
     bpm:    row.bpm || '',
     key:    row.key || '',
     genre:  row.genre || 'adoracion',

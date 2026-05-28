@@ -650,6 +650,33 @@ input.pan-slider {
   color: var(--blue);
   border-color: var(--blue);
 }
+
+/* Mini-menú "Canción Original": elegir subir archivo o descargar de YouTube */
+.orig-src-menu {
+  position: fixed;
+  z-index: 9500;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  min-width: 180px;
+}
+.orig-src-menu button {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.orig-src-menu button:hover { background: var(--bg-hover); color: var(--accent); }
 .action-btn.btn-remove,
 .action-btn.btn-remove-lib {
   color: #ff4747;

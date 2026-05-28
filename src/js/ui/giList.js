@@ -86,6 +86,44 @@ function wireDedupe() {
   };
 }
 
+// Descarga el audio original desde YouTube y lo asigna a la canción.
+function assignFromYoutube(song, onSuccess) {
+  if (!navigator.onLine) { window.showToast?.('Necesitas internet para descargar de YouTube.', 'warning'); return; }
+  showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', async (url) => {
+    if (!url || !url.trim()) return;
+    window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
+    try {
+      const p = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
+      if (!song.audio) song.audio = {};
+      song.audio.original = p;
+      deps.persist();
+      if (typeof onSuccess === 'function') onSuccess();
+      window.showToast?.('Audio original asignado desde YouTube.', 'success');
+    } catch (err) { window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error'); }
+  });
+}
+
+// Mini-menú al pulsar "Canción Original" cuando aún no hay audio: elegir entre
+// subir un archivo local o descargarlo desde YouTube.
+function showOrigSourceMenu(anchor, song, card) {
+  document.querySelector('.orig-src-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.className = 'orig-src-menu';
+  menu.innerHTML = `
+    <button type="button" data-src="local">⬆ Subir archivo</button>
+    <button type="button" data-src="youtube">▶ Desde YouTube</button>`;
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const w = 190;
+  menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  menu.style.top = (r.bottom + 6) + 'px';
+  const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
+  const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
+  setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
+  menu.querySelector('[data-src="local"]').onclick = () => { close(); deps.loadAndPlayTrack(song, 'original'); };
+  menu.querySelector('[data-src="youtube"]').onclick = () => { close(); assignFromYoutube(song, () => repaintGiCard(card, song)); };
+}
+
 export function renderGiList(filter = '', editSongId = null) {
   const container = q('#gi-songs-container');
   if (!container) return;
@@ -360,7 +398,11 @@ function initDelegation() {
 
     switch (action) {
       case 'play-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
-      case 'play-orig': deps.loadAndPlayTrack(song, 'original'); return;
+      case 'play-orig':
+        // Con audio → carga/reproduce la original; sin audio → menú para añadir.
+        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        else showOrigSourceMenu(e.target.closest('.action-btn'), song, card);
+        return;
       case 'add':       handleAddToService(song, card, actionEl); return;
       case 'toggle-favorite':
         song.favorite = !song.favorite;
@@ -387,27 +429,9 @@ function initDelegation() {
         return;
       case 'assign-audio-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
       case 'assign-audio-orig': deps.loadAndPlayTrack(song, 'original'); return;
-      case 'yt-audio-orig': {
-        if (!navigator.onLine) { window.showToast?.('Necesitas internet para descargar de YouTube.', 'warning'); return; }
-        const ytBtn = e.target.closest('[data-action="yt-audio-orig"]');
-        showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', async (url) => {
-          if (!url || !url.trim()) return;
-          if (ytBtn) { ytBtn.disabled = true; ytBtn.textContent = 'Descargando…'; }
-          window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
-          try {
-            const path = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
-            if (!song.audio) song.audio = {};
-            song.audio.original = path;
-            deps.persist();
-            card.innerHTML = songEditFormHTML(song);
-            window.showToast?.('Audio original asignado desde YouTube.', 'success');
-          } catch (err) {
-            window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error');
-            if (ytBtn) { ytBtn.disabled = false; ytBtn.textContent = 'Desde YouTube'; }
-          }
-        });
+      case 'yt-audio-orig':
+        assignFromYoutube(song, () => { card.innerHTML = songEditFormHTML(song); });
         return;
-      }
       case 'clear-audio-seq':
       case 'clear-audio-orig': {
         const slot = action === 'clear-audio-seq' ? 'sequence' : 'original';
