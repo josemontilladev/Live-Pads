@@ -37,9 +37,17 @@ async function persist() {
   } catch (_) {}
 }
 
+// fetch con timeout (AbortController): ninguna llamada a la nube puede colgar
+// la app (p.ej. WiFi conectado sin salida a internet). Falla rápido y limpio.
+function httpFetch(url, opts = {}, timeoutMs = 12000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
 // ── Llamadas HTTP base ────────────────────────────────────────────────────
 async function authFetch(path, { method = 'POST', body, token } = {}) {
-  const res = await fetch(`${AUTH}${path}`, {
+  const res = await httpFetch(`${AUTH}${path}`, {
     method,
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -116,7 +124,7 @@ export async function applySessionTokens({ access_token, refresh_token, expires_
     user: null,
   };
   try {
-    const res = await fetch(`${AUTH}/user`, {
+    const res = await httpFetch(`${AUTH}/user`, {
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${access_token}` },
     });
     if (res.ok) session.user = await res.json();
@@ -145,7 +153,7 @@ export async function signInWithGoogle() {
 export async function updatePassword(newPassword) {
   const token = await validToken();
   if (!token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
-  const res = await fetch(`${AUTH}/user`, {
+  const res = await httpFetch(`${AUTH}/user`, {
     method: 'PUT',
     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: newPassword }),
@@ -185,16 +193,17 @@ export async function signOut() {
 // sesión válida.
 async function refreshSession() {
   if (!session || !session.refresh_token) return false;
+  // Offline: no tocamos la red ni invalidamos la sesión (la conservamos).
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
   try {
     const data = await authFetch('/token?grant_type=refresh_token', {
       body: { refresh_token: session.refresh_token },
     });
     return !!applyTokenResponse(data);
   } catch (_) {
-    // refresh inválido → sesión muerta
-    session = null;
-    persist();
-    emit();
+    // Solo damos la sesión por muerta si HABÍA conexión (rechazo real del
+    // servidor). Si fue un fallo de red, conservamos la sesión.
+    if (typeof navigator === 'undefined' || navigator.onLine) { session = null; persist(); emit(); }
     return false;
   }
 }
@@ -203,6 +212,8 @@ async function refreshSession() {
 async function validToken() {
   if (!session) return null;
   if (Date.now() > session.expires_at - 60_000) {
+    // Offline: usa el token que haya (no se puede refrescar sin red).
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return session.access_token;
     const ok = await refreshSession();
     if (!ok) return null;
   }
@@ -219,7 +230,7 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
     'Content-Type': 'application/json',
   };
   if (prefer) headers['Prefer'] = prefer;
-  const res = await fetch(`${REST}${path}`, {
+  const res = await httpFetch(`${REST}${path}`, {
     method, headers,
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -237,7 +248,7 @@ export function rpc(fn, args) {
 // Invoca una Edge Function (p.ej. send-invite) autenticada con la sesión.
 export async function invokeFunction(name, payload) {
   const token = await validToken();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+  const res = await httpFetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: 'POST',
     headers: {
       'apikey': SUPABASE_ANON_KEY,
@@ -260,8 +271,9 @@ export async function restoreSession() {
     const saved = await window.electronAPI.authLoadSession();
     if (saved && saved.access_token) {
       session = saved;
-      // refresca de forma silenciosa si está por caducar
-      if (Date.now() > session.expires_at - 60_000) await refreshSession();
+      // IMPORTANTE: no tocamos la red al arrancar. Cargar la sesión guardada
+      // basta para entrar a la app (offline incluido). El token se refresca de
+      // forma perezosa en validToken() solo cuando se hace una operación online.
       emit();
     }
   } catch (_) {}
