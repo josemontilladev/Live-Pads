@@ -655,28 +655,45 @@ input.pan-slider {
 .orig-src-menu {
   position: fixed;
   z-index: 9500;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  padding: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
-  min-width: 180px;
+  gap: 1px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  min-width: 152px;
+  animation: orig-src-in .1s ease-out;
 }
+@keyframes orig-src-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 .orig-src-menu button {
   background: none;
   border: none;
-  color: var(--text);
+  color: var(--text-muted);
   text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.orig-src-menu button:hover { background: var(--bg-hover); color: var(--text); }
+
+.about-tour-btn {
+  margin-top: 14px;
+  width: 100%;
   padding: 9px 12px;
-  border-radius: 7px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: border-color .15s, color .15s;
 }
-.orig-src-menu button:hover { background: var(--bg-hover); color: var(--accent); }
+.about-tour-btn:hover { border-color: var(--accent); color: var(--accent); }
 .action-btn.btn-remove,
 .action-btn.btn-remove-lib {
   color: #ff4747;

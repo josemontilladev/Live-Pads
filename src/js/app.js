@@ -595,6 +595,18 @@ function bindHamburgerMenu() {
   };
   q('#menu-about').onclick = () => { closeMenu(); openSidebarTab('about'); };
 
+  // Relanzar el tutorial a demanda (según el espacio activo), desde el menú o
+  // desde el panel Info. Ignora el flag de "ya visto".
+  const relaunchTour = () => {
+    const ws = document.querySelector('.ws-tab.is-active')?.dataset.workspace;
+    if (ws === 'stems') ensureStemsMounted().then(() => startTour());
+    else startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
+  };
+  const btnMenuTour = q('#menu-tour');
+  if (btnMenuTour) btnMenuTour.onclick = () => { closeMenu(); relaunchTour(); };
+  const btnAboutTour = q('#about-tour');
+  if (btnAboutTour) btnAboutTour.onclick = relaunchTour;
+
   const btnPreflight = q('#menu-preflight');
   if (btnPreflight) {
     btnPreflight.onclick = () => {
