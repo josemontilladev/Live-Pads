@@ -353,6 +353,66 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
   return toLivepadsUrl(relPath);
 });
 
+// ── Descargar audio desde YouTube (solo con internet) ────────────────────
+// Usa yt-dlp (se descarga una vez a userData/bin). Baja el mejor audio nativo
+// (m4a) — sin ffmpeg, ligero — y lo guarda en "Original Tracks". Uso personal.
+function downloadFileTo(url, dest) {
+  return new Promise((resolve, reject) => {
+    const req = net.request(url); // net sigue redirects (GitHub → CDN) por defecto
+    req.on('response', (res) => {
+      if (res.statusCode >= 400) { reject(new Error('HTTP ' + res.statusCode)); return; }
+      const out = fs.createWriteStream(dest);
+      res.on('data', (c) => out.write(c));
+      res.on('end', () => out.end(() => resolve(dest)));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function ensureYtDlp() {
+  const binDir = path.join(app.getPath('userData'), 'bin');
+  fs.mkdirSync(binDir, { recursive: true });
+  const exe = path.join(binDir, 'yt-dlp.exe');
+  if (fs.existsSync(exe) && fs.statSync(exe).size > 1_000_000) return exe;
+  await downloadFileTo('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', exe);
+  if (!fs.existsSync(exe) || fs.statSync(exe).size < 1_000_000) throw new Error('No se pudo descargar el componente de YouTube.');
+  return exe;
+}
+
+ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
+  if (typeof url !== 'string' || !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(url)) {
+    throw new Error('Pega un enlace de YouTube válido.');
+  }
+  const { spawn } = require('child_process');
+  const exe = await ensureYtDlp();
+  const outDir = path.join(app.getPath('userData'), 'Original Tracks');
+  fs.mkdirSync(outDir, { recursive: true });
+  const prefix = 'yt_' + Date.now();
+  const outTmpl = path.join(outDir, prefix + '.%(ext)s');
+  const args = ['-f', 'bestaudio[ext=m4a]/bestaudio', '--no-playlist', '--no-part', '-o', outTmpl, url];
+
+  await new Promise((resolve, reject) => {
+    let stderr = '';
+    const child = spawn(exe, args, { windowsHide: true });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.on('error', reject);
+    child.on('close', (code) => code === 0 ? resolve() : reject(new Error('La descarga falló. ' + stderr.slice(-300))));
+  });
+
+  // Localiza el archivo producido (prefijo único) y devuelve su URL livepads://.
+  const file = fs.readdirSync(outDir).find((f) => f.startsWith(prefix));
+  if (!file) throw new Error('No se encontró el audio descargado.');
+  // Renombra a un nombre legible basado en el título.
+  const safe = String(title || 'YouTube').replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, '').trim().slice(0, 60) || 'YouTube';
+  const ext = path.extname(file);
+  let finalName = `${safe}${ext}`;
+  if (fs.existsSync(path.join(outDir, finalName))) finalName = `${safe}-${Date.now()}${ext}`;
+  try { fs.renameSync(path.join(outDir, file), path.join(outDir, finalName)); } catch (_) { finalName = file; }
+  return toLivepadsUrl(path.join('Original Tracks', finalName));
+});
+
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {
   const data = { data: { songs } };
   saveToBoth('canciones_app.json', JSON.stringify(data, null, 2));

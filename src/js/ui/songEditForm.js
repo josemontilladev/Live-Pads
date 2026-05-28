@@ -51,7 +51,8 @@ export function songEditFormHTML(song, { placeholderForNewSong = false } = {}) {
             ${origPath
               ? `<span class="gi-edit-audio-status has">✓ asignado</span>
                  <button class="gi-edit-audio-clear" data-action="clear-audio-orig" type="button" title="Quitar audio original">×</button>`
-              : `<button class="gi-edit-audio-assign" data-action="assign-audio-orig" type="button">Asignar archivo</button>`}
+              : `<button class="gi-edit-audio-assign" data-action="assign-audio-orig" type="button">Asignar archivo</button>
+                 <button class="gi-edit-audio-assign" data-action="yt-audio-orig" type="button" title="Descargar el audio desde un enlace de YouTube (requiere internet)">Desde YouTube</button>`}
           </div>
         </div>
       </details>

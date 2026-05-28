@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePreset: (id) => ipcRenderer.invoke('delete-preset', id),
   windowAction: (action) => ipcRenderer.invoke('window-action', action),
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
+  downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
   saveGiSetlist: (songs) => ipcRenderer.invoke('save-gi-setlist', songs),
   loadGiSetlist: () => ipcRenderer.invoke('load-gi-setlist'),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
