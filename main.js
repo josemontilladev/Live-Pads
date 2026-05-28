@@ -891,6 +891,48 @@ ipcMain.handle('companion-open-hotspot', async () => {
   }
 });
 
+// ¿El adaptador WiFi soporta crear una red local (hosted network)? Muchos
+// drivers modernos lo quitaron; lo comprobamos para avisar al usuario.
+ipcMain.handle('companion-softap-supported', async () => {
+  if (process.platform !== 'win32') return { supported: false };
+  const { exec } = require('child_process');
+  return new Promise((resolve) => {
+    exec('netsh wlan show drivers', { windowsHide: true }, (err, stdout) => {
+      if (err) return resolve({ supported: false });
+      const s = String(stdout);
+      const supported = /Hosted network supported\s*:\s*Yes/i.test(s) || /red hospedada\s*:\s*S/i.test(s);
+      resolve({ supported });
+    });
+  });
+});
+
+// Crea una red WiFi LOCAL en la laptop (sin internet) para el Companion:
+// los teléfonos se conectan a "LivePads" y abren el QR. Requiere elevación.
+const SOFTAP_SSID = 'LivePads';
+const SOFTAP_KEY = 'livepads2026';
+ipcMain.handle('companion-create-softap', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  const { spawn } = require('child_process');
+  const inner = `netsh wlan set hostednetwork mode=allow ssid=${SOFTAP_SSID} key=${SOFTAP_KEY}; netsh wlan start hostednetwork`;
+  const psCmd = `Start-Process -Verb RunAs -WindowStyle Hidden powershell -ArgumentList '-NoProfile','-Command','${inner}'`;
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true });
+    child.on('error', (e) => resolve({ ok: false, reason: e.message }));
+    child.on('exit', (code) => resolve({ ok: code === 0, code, ssid: SOFTAP_SSID, key: SOFTAP_KEY }));
+  });
+});
+
+ipcMain.handle('companion-stop-softap', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  const { spawn } = require('child_process');
+  const psCmd = `Start-Process -Verb RunAs -WindowStyle Hidden powershell -ArgumentList '-NoProfile','-Command','netsh wlan stop hostednetwork'`;
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true });
+    child.on('error', (e) => resolve({ ok: false, reason: e.message }));
+    child.on('exit', (code) => resolve({ ok: code === 0, code }));
+  });
+});
+
 ipcMain.handle('companion-status', async () => {
   return companionServer.getStatus();
 });
