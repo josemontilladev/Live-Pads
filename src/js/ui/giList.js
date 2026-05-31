@@ -6,6 +6,7 @@
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
+import { openCardMoreMenu } from './cardMoreMenu.js';
 import { confirmDialog, showDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 import {
@@ -124,6 +125,24 @@ function showOrigSourceMenu(anchor, song, card) {
   menu.querySelector('[data-src="youtube"]').onclick = () => { close(); assignFromYoutube(song, () => repaintGiCard(card, song)); };
 }
 
+// Puntúa cuán "fuerte" matchea una canción contra el término libre.
+// Mayor score = más arriba en la lista. Coincidencia exacta de título gana
+// siempre; luego prefijo de título, luego substring de título, artista,
+// tags y por último letra (que es la fuente de más ruido).
+function matchScore(s, term) {
+  const t = (s.title || '').toLowerCase();
+  if (t === term) return 100;
+  if (t.startsWith(term)) return 90;
+  // Match de inicio de palabra dentro del título (ej. "Cristo" en "Aleluya Cristo Vive").
+  if (new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(t)) return 75;
+  if (t.includes(term)) return 60;
+  const ar = (s.artist || '').toLowerCase();
+  if (ar.includes(term)) return 45;
+  const tags = Array.isArray(s.tags) ? s.tags.join(' ').toLowerCase() : '';
+  if (tags.includes(term)) return 30;
+  return 10; // solo letra
+}
+
 export function renderGiList(filter = '', editSongId = null) {
   const container = q('#gi-songs-container');
   if (!container) return;
@@ -202,10 +221,21 @@ export function renderGiList(filter = '', editSongId = null) {
     return genre.includes(currentGenre);
   });
 
-  // Sort the library view. "Recientes" goes newest-first; every other view
-  // is alphabetical by title (accent-insensitive, Spanish locale) so songs
-  // are easy to scan and find.
-  if (currentGenre === 'recientes') {
+  // Sort the library view:
+  //   · Búsqueda libre activa → ranking por relevancia (título > artista >
+  //     tags > letra), desempate alfabético. Así "Cristo" trae primero las
+  //     canciones cuyo TÍTULO empieza por "Cristo" en vez de mezclarlas con
+  //     decenas de canciones que mencionan "Cristo" en la letra.
+  //   · "Recientes" → más nuevas primero.
+  //   · Resto → alfabético por título (accent-insensitive, locale ES).
+  if (textTerm) {
+    filtered.sort((a, b) => {
+      const sb = matchScore(b, textTerm);
+      const sa = matchScore(a, textTerm);
+      if (sb !== sa) return sb - sa;
+      return (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' });
+    });
+  } else if (currentGenre === 'recientes') {
     filtered.sort((a, b) => songAddedAt(b) - songAddedAt(a));
   } else {
     filtered.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
@@ -404,20 +434,6 @@ function initDelegation() {
         else showOrigSourceMenu(e.target.closest('.action-btn'), song, card);
         return;
       case 'add':       handleAddToService(song, card, actionEl); return;
-      case 'toggle-favorite':
-        song.favorite = !song.favorite;
-        deps.persist();
-        deps.updateFilterCounts();
-        // If user is currently filtering by favorites and just un-favorited,
-        // the card no longer matches the filter → drop it from the DOM.
-        if (getCurrentGenre() === 'favoritos' && !song.favorite) {
-          card.remove();
-          renumberGiCards();
-          ensureEmptyState();
-        } else {
-          repaintGiCard(card, song);
-        }
-        return;
       case 'toggle-lyrics': deps.toggleLyricsAccordion(song, false); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, false); return;
       case 'edit-lyrics':
@@ -440,6 +456,60 @@ function initDelegation() {
         // Re-render the inline edit form so the status pill flips
         // from "✓ asignado" back to the "Asignar archivo" button.
         card.innerHTML = songEditFormHTML(song);
+        return;
+      }
+      case 'more': {
+        e.stopPropagation();
+        const ICON_EDIT_SM   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        const ICON_TRASH_SM  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        const ICON_STAR_OUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        const ICON_STAR_FILL = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        openCardMoreMenu(actionEl, [
+          {
+            label: song.favorite ? 'Quitar de favoritos' : 'Marcar favorito',
+            icon: song.favorite ? ICON_STAR_FILL : ICON_STAR_OUT,
+            onSelect: () => {
+              song.favorite = !song.favorite;
+              deps.persist();
+              deps.updateFilterCounts();
+              if (getCurrentGenre() === 'favoritos' && !song.favorite) {
+                card.remove(); renumberGiCards(); ensureEmptyState();
+              } else {
+                repaintGiCard(card, song);
+              }
+            }
+          },
+          {
+            label: 'Editar',
+            icon: ICON_EDIT_SM,
+            onSelect: () => {
+              card.innerHTML = songEditFormHTML(song, { placeholderForNewSong: true });
+              const firstInput = card.querySelector('.edit-title');
+              if (firstInput) firstInput.focus();
+            }
+          },
+          {
+            label: 'Eliminar',
+            icon: ICON_TRASH_SM,
+            danger: true,
+            onSelect: () => {
+              confirmDialog({
+                title: 'Eliminar canción',
+                message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
+                confirmLabel: 'Eliminar',
+                danger: true,
+                onConfirm: () => {
+                  setSongs(getSongs().filter(s => s.id !== song.id));
+                  deps.persist();
+                  deps.updateFilterCounts();
+                  card.remove();
+                  renumberGiCards();
+                  ensureEmptyState();
+                }
+              });
+            }
+          }
+        ]);
         return;
       }
       case 'edit': {

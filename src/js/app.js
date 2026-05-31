@@ -63,9 +63,6 @@ import {
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong
 } from './audio/trackPlayer.js';
 import {
-  initPresets, loadPresets as loadPresetsModule
-} from './data/presets.js';
-import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
 } from './midi/midiMap.js';
 import { bindMidiHandlers } from './midi/midiBindings.js';
@@ -305,8 +302,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   ensureShortcutsRendered();
   loadServiceSongs();
   bindAll();
-  initPresets({ onApply: applyPreset });
-  loadPresetsModule();
   loadGiSetlistFromFile();
   bindWorkspaceSwitcher(); // mounts the Stems workspace lazily on first entry
 
@@ -1103,19 +1098,6 @@ function onKey(e) {
     const pad = kit.pads[drumIdx];
     if (pad) { const btn = q(`.drum-btn[data-drum="${pad.id}"]`); hitDrum(pad.id, pad.type, btn); }
   }
-}
-
-// doSavePreset was only called from a `#btn-add-preset` button that doesn't
-// exist in the HTML — removed as dead code. If a "Save preset" button is
-// added back later, use `addPreset({...})` directly.
-
-// Apply a saved snapshot to the live engine + UI. Lives here (not in
-// presets.js) because it touches engine/metro/UI globals.
-function applyPreset(p) {
-  loadPadBank(p.padBankIdx);
-  loadKitBank(p.kitBankIdx);
-  if (p.key) onKeyClick(p.key);
-  applyBpm(p.bpm);
 }
 
 /* ── GI-SETLIST LOGIC ── */

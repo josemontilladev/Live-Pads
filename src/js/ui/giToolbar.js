@@ -145,6 +145,38 @@ function bindSearchAndAdd(deps) {
   }
   refreshClearBtn();
 
+  // Buscador colapsable — por defecto la fila muestra solo el icono 🔍.
+  // Click → expande el input y enfoca. Blur con input vacío → colapsa de nuevo.
+  // Si hay texto, se mantiene expandido para que el usuario vea su búsqueda activa.
+  const searchToggle = q('#btn-gi-search-toggle');
+  const searchRow = searchToggle?.closest('.gi-search-row');
+  if (searchToggle && searchRow && searchInput) {
+    const expand = () => {
+      searchRow.classList.remove('search-collapsed');
+      searchToggle.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => searchInput.focus());
+    };
+    const collapseIfEmpty = () => {
+      if (!searchInput.value) {
+        searchRow.classList.add('search-collapsed');
+        searchToggle.setAttribute('aria-expanded', 'false');
+      }
+    };
+    searchToggle.onclick = expand;
+    searchInput.addEventListener('blur', () => {
+      // Espera un tick para no colapsar si el blur fue por click en clearBtn.
+      setTimeout(collapseIfEmpty, 120);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        refreshClearBtn();
+        renderGiList('');
+        searchInput.blur();
+      }
+    });
+  }
+
   // "+ Nueva canción" — inserts a placeholder song and immediately opens
   // the inline edit form (handled by giList.js via the editSongId param).
   const btnAddGiSong = q('#btn-add-gi-song');

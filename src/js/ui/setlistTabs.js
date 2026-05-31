@@ -1,9 +1,9 @@
 // Setlist panel — tab toggle + service-list navigation buttons.
 //
-// The 3 tabs (Presets / Librería / Servicio) share `.s-toggle` markup;
-// switching tabs (a) hides the previous list, (b) shows the new one, and
-// (c) flips a `data-active-tab` attribute on #panel-setlist so the CSS
-// can show/hide header actions (Import / Sync / Export / AddPreset).
+// The 2 tabs (Librería / Servicio) share `.s-toggle` markup; switching
+// tabs (a) hides the previous list, (b) shows the new one, and (c) flips
+// a `data-active-tab` attribute on #panel-setlist so the CSS can show/hide
+// header actions.
 //
 // The service-nav buttons (prev / next / clear) live in the same header
 // block, so they're wired here for cohesion.
@@ -22,7 +22,6 @@ export function bindSetlistTabs() {
     btn.onclick = () => {
       qa('.s-toggle').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      q('#setlist-list').classList.add('hidden');
       q('#gi-setlist-list').classList.add('hidden');
       q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
