@@ -17,3 +17,13 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // true cuando la anon key está puesta; si está vacía, la app simplemente no
 // ofrece la nube (modo local de siempre) en vez de romperse.
 export const CLOUD_ENABLED = SUPABASE_ANON_KEY.length > 20;
+
+// Correos con permisos de administrador: ven la sincronización con GI.Setlist
+// (MongoDB), porque esa base es compartida y solo el responsable del
+// repertorio debe poder modificarla. El resto de usuarios usa únicamente sus
+// librerías de la nube (creadas por ellos o donde fueron invitados).
+export const ADMIN_EMAILS = ['montillajose221@gmail.com'];
+
+export function isAdminEmail(email) {
+  return !!email && ADMIN_EMAILS.map(e => e.toLowerCase()).includes(String(email).toLowerCase());
+}
