@@ -28,7 +28,7 @@ export class Metronome {
     this.multiplier = 1;
     this.volume  = 0.8;
     this.sound   = 'logic';
-    this.accents = [0];
+    this.accents = []; // sin acento por defecto; el usuario marca los que quiera
     this.pan     = 0;
 
     // Scheduler state
@@ -81,7 +81,6 @@ export class Metronome {
   setBeats(n) {
     this.beats = n;
     this.accents = this.accents.filter(a => a < n);
-    if (this.accents.length === 0) this.accents = [0];
   }
 
   toggleAccent(idx) {
