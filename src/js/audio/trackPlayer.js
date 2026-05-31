@@ -221,7 +221,7 @@ async function startTrackPlayback(url, title, type) {
   if (!ensureAudioCtx()) { console.warn('Web Audio no disponible'); return; }
   audio = new PitchAudio(audioCtx);
   // Restaurar tono guardado en la canción (si lo hay) antes de cargar el audio.
-  currentPitch = Number((song.audio && song.audio.pitch) || 0) || 0;
+  currentPitch = Number((currentSong && currentSong.audio && currentSong.audio.pitch) || 0) || 0;
   audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
   currentType = type;
