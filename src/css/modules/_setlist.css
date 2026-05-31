@@ -694,10 +694,13 @@ input.pan-slider {
   transition: border-color .15s, color .15s;
 }
 .about-tour-btn:hover { border-color: var(--accent); color: var(--accent); }
-.action-btn.btn-remove,
-.action-btn.btn-remove-lib {
-  color: #ff4747;
-}
+/* Quitar del SERVICIO de hoy (acción ligera) — gris, sin alarma visual */
+.action-btn.btn-remove { color: var(--text-dim, #9aa0ad); }
+.action-btn.btn-remove:hover { color: var(--text, #e8eaf0); }
+
+/* Eliminar de la LIBRERÍA (irreversible) — rojo + papelera para distinguir */
+.action-btn.btn-remove-lib { color: #ff4747; }
+.action-btn.btn-remove-lib:hover { color: #ff7a7a; }
 
 .sound-btn { padding: 6px 4px; font-size: 10px; }
 

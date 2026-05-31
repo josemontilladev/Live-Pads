@@ -177,19 +177,16 @@ async function refreshLibs() {
   const box = overlay.querySelector('#acc-libs');
   try {
     state.libs = await listLibraries() || [];
-    // Librería por defecto: si el usuario no tiene ninguna, se le crea una
-    // automáticamente ("Mi librería") para que pueda subir e invitar de una.
-    if (!state.libs.length) {
-      const lib = await createLibrary('Mi librería');
-      if (lib && lib.id) { setActiveLibraryId(lib.id); state.libs = [lib]; }
-    }
+    // No auto-creamos librería: una cuenta nueva arranca limpia. El usuario
+    // crea la suya manualmente o se une a una vía código de invitación.
   } catch (e) { box.innerHTML = `<div class="acc-empty">No se pudieron cargar (${escapeHtml(e.message)})</div>`; return; }
   state.activeId = getActiveLibraryId();
   if (!state.activeId && state.libs[0]) { state.activeId = state.libs[0].id; setActiveLibraryId(state.activeId); }
 
   const uid = getUser()?.id;
   if (!state.libs.length) {
-    box.innerHTML = `<div class="acc-empty">Aún no tienes librerías. Crea una abajo.</div>`;
+    box.innerHTML = `<div class="acc-empty">Aún no tienes librerías.<br>
+      <span style="color:var(--text-dim)">Crea una abajo, o si te invitaron pega tu código en "Unirme a una librería".</span></div>`;
   } else {
     box.innerHTML = state.libs.map(l => `
       <div class="acc-lib ${l.id === state.activeId ? 'active' : ''}" data-lib="${l.id}">

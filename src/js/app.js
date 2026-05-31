@@ -71,7 +71,8 @@ import {
 import { bindMidiHandlers } from './midi/midiBindings.js';
 import { hydrateCustomKitsInto } from './data/customKits.js';
 import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
-import { bindMongoSync } from './data/mongoSync.js';
+// mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
+// la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';
 import { bindGiToolbar } from './ui/giToolbar.js';
 import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter.js';
@@ -666,13 +667,9 @@ function bindHamburgerMenu() {
 
 function bindRestOfApp() {
   bindSetlistTabs();
-  bindMongoSync({
-    getSongs: () => getSongs(),
-    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs()); },
-    rerender: renderGiList,
-    updateFilterCounts,
-    getSearchFilter: () => q('#gi-search')?.value || '',
-  });
+  // bindMongoSync retirado: la sincronización con GI.Setlist ahora va por
+  // Supabase ("Mi cuenta → Repertorio GI.Setlist → ⬆/⬇"). RLS protege que
+  // solo el dueño suba; los invitados solo pueden bajar.
   bindGiToolbar({ updateFilterCounts });
 
   // La sincronización con la librería de la nube (cloud/songSync.js) actualiza
