@@ -289,7 +289,7 @@
      the lyrics flow naturally means the OUTER setlist scrollbar handles
      everything, eliminating the confusing double-scrollbar (one for the
      card list, one inside the expanded card). */
-  max-height: 2500px;
+  max-height: 20000px;
   overflow: visible;
   opacity: 1;
   padding-top: 12px;
