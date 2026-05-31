@@ -12,6 +12,8 @@ import { q, qa } from '../utils/dom.js';
 import {
   clearServiceList, serviceNextSong, servicePrevSong,
 } from '../data/service.js';
+import { showDialog } from './dialog.js';
+import { isLoggedIn } from '../cloud/supabase.js';
 
 export function bindSetlistTabs() {
   const panelSetlist = q('#panel-setlist');
@@ -47,5 +49,46 @@ export function bindSetlistTabs() {
   const btnGoLib = q('#btn-service-go-library');
   if (btnGoLib) {
     btnGoLib.onclick = () => q('.s-toggle[data-target="gi-setlist-list"]')?.click();
+  }
+
+  // Compartir servicio: guarda el orden actual como setlist de la librería
+  // activa, para que el equipo lo cargue.
+  const btnShare = q('#btn-service-share');
+  if (btnShare) {
+    btnShare.onclick = async () => {
+      if (!isLoggedIn()) {
+        window.showToast?.('Inicia sesión para compartir el servicio con tu equipo.', 'warning');
+        return;
+      }
+      showDialog('Compartir servicio', 'Nombre del servicio…', async (name) => {
+        if (!name || !name.trim()) return;
+        try {
+          const { saveServiceAsSetlist } = await import('../cloud/setlistSync.js');
+          const r = await saveServiceAsSetlist(name);
+          window.showToast?.(`Servicio compartido (${r.saved} canciones${r.skipped ? `, ${r.skipped} omitidas por no estar en la nube` : ''}).`, 'success');
+        } catch (e2) {
+          window.showToast?.(e2.message || 'No se pudo compartir el servicio.', 'error');
+        }
+      });
+    };
+  }
+
+  // Búsqueda dentro del servicio
+  const svcSearch = q('#svc-search');
+  const svcSearchClear = q('#svc-search-clear');
+  if (svcSearch) {
+    const updateClearVisibility = () => {
+      if (svcSearchClear) svcSearchClear.classList.toggle('hidden', !svcSearch.value);
+    };
+    svcSearch.oninput = () => {
+      updateClearVisibility();
+      window.dispatchEvent(new CustomEvent('livepads:service-search', { detail: { q: svcSearch.value } }));
+    };
+    if (svcSearchClear) svcSearchClear.onclick = () => {
+      svcSearch.value = '';
+      updateClearVisibility();
+      window.dispatchEvent(new CustomEvent('livepads:service-search', { detail: { q: '' } }));
+      svcSearch.focus();
+    };
   }
 }

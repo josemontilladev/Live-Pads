@@ -702,6 +702,11 @@ input.pan-slider {
 .action-btn.btn-remove-lib { color: #ff4747; }
 .action-btn.btn-remove-lib:hover { color: #ff7a7a; }
 
+/* Búsqueda dentro del Servicio (pestaña Servicio) */
+.svc-search-row { position: relative; margin: 8px 0 6px; }
+.svc-search-row .gi-search-input { width: 100%; padding-right: 30px; box-sizing: border-box; }
+.svc-search-row .gi-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+
 .sound-btn { padding: 6px 4px; font-size: 10px; }
 
 /* Setlist header buttons (Sync / Import / Export) visibility per active

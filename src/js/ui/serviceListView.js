@@ -11,10 +11,16 @@ import { getOpenAccordionServiceId } from '../state/store.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 
 let deps = null;
+let svcSearchTerm = '';
 
 export function initServiceList(_deps) {
   deps = _deps;
   initDelegation();
+  // Listener de búsqueda dentro del Servicio (input #svc-search en setlistTabs).
+  window.addEventListener('livepads:service-search', (ev) => {
+    svcSearchTerm = (ev?.detail?.q || '').trim().toLowerCase();
+    renderServiceList();
+  });
 }
 
 export function renderServiceList() {
@@ -24,19 +30,32 @@ export function renderServiceList() {
 
   container.innerHTML = '';
 
-  const songs = deps.getSongs();
+  const allSongs = deps.getSongs();
   const activeIdx = deps.getActiveIndex();
-  updateServiceMeta(songs);
+  updateServiceMeta(allSongs);
 
-  if (songs.length === 0) {
+  if (allSongs.length === 0) {
     if (emptyMsg) emptyMsg.classList.remove('hidden');
     return;
   }
 
   if (emptyMsg) emptyMsg.classList.add('hidden');
 
+  // Filtro de búsqueda — conserva el índice original para que la navegación
+  // (prev/next y el highlight de activa) siga apuntando bien.
+  const t = svcSearchTerm;
+  const visible = t
+    ? allSongs.map((s, i) => ({ s, i }))
+              .filter(({ s }) => (s.title || '').toLowerCase().includes(t) || (s.artist || '').toLowerCase().includes(t))
+    : allSongs.map((s, i) => ({ s, i }));
+
+  if (visible.length === 0) {
+    container.innerHTML = '<div class="setlist-empty">Sin coincidencias en el servicio.</div>';
+    return;
+  }
+
   const fragment = document.createDocumentFragment();
-  songs.forEach((song, index) => fragment.appendChild(buildCard(song, index, activeIdx)));
+  visible.forEach(({ s, i }) => fragment.appendChild(buildCard(s, i, activeIdx)));
   container.appendChild(fragment);
 }
 
