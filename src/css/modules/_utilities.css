@@ -40,11 +40,36 @@
 /* Setlist header actions */
 .setlist-header-actions { display: flex; gap: 8px; }
 
-/* GI search row */
-.gi-search-row { display: flex; gap: 8px; align-items: center; position: relative; }
+/* GI search row — los 3 botones (🔍 / filtro / +) viven a la derecha;
+   cuando se expande el input crece desde la izquierda. justify-content
+   funciona también colapsado, porque el wrap queda con width 0. */
+.gi-search-row { display: flex; gap: 6px; align-items: center; position: relative; justify-content: flex-end; }
 .gi-search-input--inline { flex: 1; margin-bottom: 0; }
 .no-shrink { flex-shrink: 0; }
 .btn-add-gi-song { flex-shrink: 0; transition: transform 0.15s; }
+
+/* Tamaños unificados para los 3 botones de la fila (🔍 / filtro / +).
+   Mismas dimensiones que .gi-filter-toggle: 32×32 cápsula. La regla de
+   .accent-btn en _sidebar.css usa !important (34×34), así que aquí
+   también marcamos !important para ganarle SIN tocar el sidebar. */
+.gi-search-row .icon-btn,
+.gi-search-row .accent-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 16px !important;
+}
+.gi-search-row .icon-btn svg { width: 14px; height: 14px; }
+.gi-search-row .accent-btn svg { width: 14px !important; height: 14px !important; }
+.gi-search-toggle {
+  display: none;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+}
+.gi-search-toggle:hover { color: var(--text); border-color: var(--blue); }
+.gi-search-row.search-collapsed .gi-search-toggle { display: inline-flex; }
+/* Colapsado: ocultamos el wrap con display:none para que NO contribuya al
+   flex-gap (con width:0 el gap entre toggle y filtro se duplicaba). */
+.gi-search-row.search-collapsed .gi-search-wrap { display: none; }
 
 /* Search input + clear-X overlay. The wrap is flex:1 so it inherits the
    width allotted to the search column; the input has padding-right to

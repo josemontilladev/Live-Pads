@@ -9,7 +9,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -17,8 +17,7 @@
   overflow: hidden;
 }
 #gi-songs-container,
-#service-songs-container,
-#setlist-list {
+#service-songs-container {
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
@@ -214,10 +213,10 @@ input.pan-slider {
 .toggle-sw.on::after { transform: translateX(20px); background: #000; }
 
 /* ── GI-SETLIST ── */
-.setlist-tabs-toggle { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-hover); padding: 4px; border-radius: 10px; }
-.s-toggle { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: 9px; }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-.gi-search-input { width: 100%; padding: 10px 14px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 12px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
 .gi-search-input:focus { border-color: var(--blue); }
 .gi-song-item { 
   padding: 12px; 
@@ -280,8 +279,8 @@ input.pan-slider {
 #gi-setlist-list .gi-sticky-header {
   flex-shrink: 0;
   background: var(--bg-surface);
-  padding-bottom: 6px;
-  margin-bottom: 4px;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
 }
 #gi-setlist-list.scrolled .gi-sticky-header {
   padding-bottom: 4px;
@@ -290,11 +289,13 @@ input.pan-slider {
 }
 
 /* Filter icon button (between search and the "+" add). The orange dot
-   appears only when a non-default genre filter is active. */
+   appears only when a non-default genre filter is active.
+   Tamaño unificado con el toggle de búsqueda y el botón de + para que la
+   fila se vea ordenada (3 capsulas del mismo alto). */
 .gi-filter-toggle {
   position: relative;
-  width: 36px; height: 36px;
-  border-radius: 18px;
+  width: 32px; height: 32px;
+  border-radius: 16px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -405,19 +406,21 @@ input.pan-slider {
   padding-right: 2px;
 }
 
-.setlist-tabs-toggle { display: flex; gap: 8px; margin-bottom: 16px; background: var(--bg-hover); padding: 4px; border-radius: 10px; }
-.s-toggle { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: 9px; }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
 /* Search */
 .gi-search-input {
-  width: 100%; padding: 9px 14px 9px 36px;
+  width: 100%; padding: 6px 12px 6px 32px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 20px; color: #fff; margin-bottom: 10px;
+  border-radius: 16px; color: #fff; margin-bottom: 10px;
   font-size: 12px; outline: none; transition: border-color 0.2s;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: 12px center;
+  background-position: 11px center;
+  height: 32px;
+  box-sizing: border-box;
 }
 .gi-search-input:focus { border-color: var(--blue); }
 
@@ -702,6 +705,46 @@ input.pan-slider {
 .action-btn.btn-remove-lib { color: #ff4747; }
 .action-btn.btn-remove-lib:hover { color: #ff7a7a; }
 
+/* "..." — acciones secundarias (editar, eliminar). Tono apagado para no
+   competir con las acciones primarias de la fila. */
+.action-btn.btn-more { color: var(--text-dim, #9aa0ad); }
+.action-btn.btn-more:hover { color: var(--text, #e8eaf0); }
+.action-btn.btn-more[aria-expanded="true"] { color: var(--blue); }
+
+/* Popover anclado al botón "...": vive en <body> (posicionado fixed) para
+   evitar clipping por overflow:hidden de la lista. */
+.card-more-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--bg-elevated, #1a1d24);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.card-more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text, #e8eaf0);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.card-more-item:hover { background: rgba(255,255,255,0.06); }
+.card-more-item.danger { color: #ff7a7a; }
+.card-more-item.danger:hover { background: rgba(255,71,71,0.10); }
+.card-more-item .cmm-ico { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
+.card-more-item .cmm-ico svg { width: 14px; height: 14px; }
+
 /* Búsqueda dentro del Servicio (pestaña Servicio) */
 .svc-search-row { position: relative; margin: 8px 0 6px; }
 .svc-search-row .gi-search-input { width: 100%; padding-right: 30px; box-sizing: border-box; }
@@ -710,11 +753,8 @@ input.pan-slider {
 .sound-btn { padding: 6px 4px; font-size: 10px; }
 
 /* Setlist header buttons (Sync / Import / Export) visibility per active
-   tab. #panel-setlist[data-active-tab="..."] is set by JS when a .s-toggle
-   button is clicked. These actions are only relevant on the Library tab. */
-#panel-setlist[data-active-tab="setlist-list"] #btn-import-gi,
-#panel-setlist[data-active-tab="setlist-list"] #btn-export-gi,
-#panel-setlist[data-active-tab="setlist-list"] #btn-sync-gi,
+   tab. #panel-setlist[data-active-tab="..."] is set por JS al togglear tabs.
+   Estas acciones solo aplican a la Librería. */
 #panel-setlist[data-active-tab="service-setlist-list"] #btn-import-gi,
 #panel-setlist[data-active-tab="service-setlist-list"] #btn-export-gi,
 #panel-setlist[data-active-tab="service-setlist-list"] #btn-sync-gi {
@@ -828,53 +868,83 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-edit-btn.save:hover   { filter: brightness(1.08); }
 .gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); }
 
-/* ── "Now playing" banner ────────────────────────────────────────────
-   Anchored between the setlist header and the tab toggle, this strip
-   surfaces the currently-loaded song at a glance so the worship leader
-   can see "what's on" without scanning 80 cards. Hidden via .hidden
-   while no song is active (refreshActiveSongHighlights toggles it). */
-#now-playing-banner {
+/* ── "Sonando" — tira discreta encima del track player ───────────────
+   Una sola línea, baja prominencia: punto pulsante + "Sonando" + título
+   en línea. Click salta a la card activa en la Librería. Oculta cuando
+   no hay canción activa (refreshActiveSongHighlights togglea .hidden). */
+#now-playing-banner.np-strip {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 8px 0 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--accent);
-  background:
-    linear-gradient(95deg, var(--glow) 0%, transparent 60%),
-    var(--bg-card);
-  box-shadow: 0 0 14px var(--glow);
-  overflow: hidden;
-  position: relative;
-  /* Acts as a button now: clicking jumps to the active card in the library. */
+  gap: 8px;
+  margin: 0;
+  padding: 4px 12px;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
-  width: 100%;
-  text-align: left;
   font-family: inherit;
-  transition: transform 0.18s var(--ease-spring, ease), filter 0.18s ease;
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
 }
-#now-playing-banner:hover { filter: brightness(1.08); }
-#now-playing-banner:active { transform: scale(0.985); }
-#now-playing-banner.hidden { display: none; }
-#now-playing-banner .np-jump {
+#now-playing-banner.np-strip:hover { background: rgba(255,255,255,0.025); }
+#now-playing-banner.np-strip.hidden { display: none; }
+
+#now-playing-banner .np-dot {
+  flex-shrink: 0;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: np-pulse 1.8s ease-in-out infinite;
+}
+@keyframes np-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+
+#now-playing-banner .np-label {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.85;
+}
+#now-playing-banner .np-title {
+  flex-shrink: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist {
+  flex-shrink: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist:not(:empty)::before { content: "·"; margin: 0 4px; opacity: 0.6; }
+#now-playing-banner .np-artist:empty { display: none; }
+
+#now-playing-banner .np-close {
   margin-left: auto;
   flex-shrink: 0;
-  color: var(--accent);
-  opacity: 0.7;
-}
-#now-playing-banner:hover .np-jump { opacity: 1; }
-#now-playing-banner .np-close {
-  flex-shrink: 0;
-  width: 24px; height: 24px;
+  width: 20px; height: 20px;
   display: flex; align-items: center; justify-content: center;
-  border: none; border-radius: 6px;
-  background: rgba(0,0,0,0.25);
+  border: none; border-radius: 4px;
+  background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.15s;
 }
-#now-playing-banner .np-close:hover { background: #e81123; color: #fff; }
+#now-playing-banner .np-close:hover { background: rgba(232,17,35,0.18); color: #ff7a7a; }
 
 /* Brief flash applied to the active card after clicking the banner — pulses
    the existing accent glow once so the eye lands on it instantly. */
@@ -886,51 +956,6 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   35%  { box-shadow: 0 0 36px var(--accent), 0 0 0 2px var(--accent); }
   100% { box-shadow: 0 0 14px var(--glow); }
 }
-
-#now-playing-banner .np-icon {
-  flex-shrink: 0;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #000;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 10px var(--glow);
-}
-
-#now-playing-banner .np-text {
-  display: flex; flex-direction: column;
-  min-width: 0; /* allow truncation */
-  flex: 1;
-}
-#now-playing-banner .np-label {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--accent);
-  opacity: 0.85;
-  line-height: 1;
-  margin-bottom: 3px;
-}
-#now-playing-banner .np-title {
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--text);
-  line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#now-playing-banner .np-artist {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#now-playing-banner .np-artist:empty { display: none; }
 
 /* Loading state for action icon buttons (import JSON / future loaders).
    Mirrors the pulse used by the MongoDB sync button so the visual
@@ -1217,7 +1242,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .gi-lib-row.hidden { display: none; }
 .gi-lib-icon { color: var(--text-muted); flex: 0 0 auto; }
@@ -1228,8 +1253,8 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  padding: 7px 10px;
-  font-size: 13px;
+  padding: 5px 10px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   outline: none;

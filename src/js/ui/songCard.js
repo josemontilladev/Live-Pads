@@ -27,6 +27,7 @@ const ICON_ADD    = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width
 const ICON_EDIT   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
 const ICON_CLOSE  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 const ICON_TRASH  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+const ICON_MORE   = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 const ICON_PLAY   = '<svg class="gi-row-num-play" viewBox="0 0 24 24" fill="var(--blue)" width="12" height="12" style="filter:drop-shadow(0 0 3px var(--blue));margin-right:1px;"><polygon points="5,3 19,12 5,21"/></svg>';
 const ICON_PENCIL = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
 const ICON_STAR_OUTLINE = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
@@ -96,13 +97,14 @@ export function songCardInnerHTML(song, opts) {
       </div>
     </div>
     <div class="gi-song-actions">
-      <button class="action-btn btn-favorite ${song.favorite ? 'is-fav' : ''}" data-action="toggle-favorite" title="${song.favorite ? 'Quitar de favoritos' : 'Marcar como favorito'}" aria-pressed="${song.favorite ? 'true' : 'false'}">${song.favorite ? ICON_STAR_FILLED : ICON_STAR_OUTLINE}</button>
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="Ver letra y acordes" ${disabledAttr}>${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>
       ${includeAdd ? ADD_BTN_HTML : ''}
-      <button class="action-btn btn-edit" data-action="edit" title="Editar canción">${ICON_EDIT}</button>
-      <button class="action-btn ${removeBtnClass}" data-action="remove" title="${removeBtnTitle}">${removeBtnClass === 'btn-remove-lib' ? ICON_TRASH : ICON_CLOSE}</button>
+      ${removeBtnClass === 'btn-remove-lib'
+        ? ''
+        : `<button class="action-btn ${removeBtnClass}" data-action="remove" title="${removeBtnTitle}">${ICON_CLOSE}</button>`}
+      <button class="action-btn btn-more" data-action="more" title="Más opciones" aria-haspopup="menu" aria-expanded="false">${ICON_MORE}</button>
     </div>
 
     <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">

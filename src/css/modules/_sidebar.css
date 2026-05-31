@@ -64,8 +64,8 @@
 .sb-label:first-child { margin-top: 0; }
 
 /* Setlist */
-.setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.setlist-title { font-size: 16px; font-weight: 800; }
+.setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.setlist-title { font-size: 15px; font-weight: 800; }
 .accent-btn { background: var(--blue) !important; color: #000 !important; width: 34px !important; height: 34px !important; border-radius: 8px !important; display: flex; align-items: center; justify-content: center; }
 .accent-btn svg { width: 16px !important; height: 16px !important; }
 .setlist-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 32px 0; }
