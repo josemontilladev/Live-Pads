@@ -55,9 +55,19 @@ export class PitchAudio extends EventTarget {
 
   async _load(url) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const arr = await res.arrayBuffer();
+      const isLocal = /^(livepads:|file:)/i.test(url) || /^[a-zA-Z]:\\/.test(url);
+      let arr;
+      // En Electron, fetch contra esquemas privilegiados (livepads://) suele
+      // fallar cross-origin. El proceso principal lee el archivo y nos devuelve
+      // el ArrayBuffer crudo (rápido y confiable). Para http(s)/blob seguimos
+      // con fetch normal.
+      if (isLocal && window.electronAPI && typeof window.electronAPI.readAudioFile === 'function') {
+        arr = await window.electronAPI.readAudioFile(url);
+      } else {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        arr = await res.arrayBuffer();
+      }
       const buf = await this._ctx.decodeAudioData(arr);
       // Si el src cambió mientras decodificábamos, no apliques.
       if (this._src !== url) return;

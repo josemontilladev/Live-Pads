@@ -340,6 +340,29 @@ function toLivepadsUrl(relPath) {
   return `livepads://app/${encoded}`;
 }
 
+// Lee un archivo y devuelve su ArrayBuffer al renderer. Necesario para que
+// PitchAudio pueda decodificar audio desde URLs `livepads://` o `file://`
+// (Chromium bloquea fetch cross-origin contra esquemas privilegiados).
+ipcMain.handle('read-audio-file', async (_e, url) => {
+  if (typeof url !== 'string') throw new Error('URL inválida');
+  let filePath = null;
+  if (url.startsWith('livepads://')) {
+    const m = url.match(/^livepads:\/\/(?:app\/)?(.*)$/i);
+    const rest = m ? decodeURIComponent(m[1] || '') : '';
+    filePath = path.join(app.getPath('userData'), rest);
+  } else if (url.startsWith('file:///')) {
+    filePath = decodeURI(url.replace(/^file:\/\/\//, '')).replace(/\//g, path.sep);
+  } else if (path.isAbsolute(url)) {
+    filePath = url;
+  } else {
+    throw new Error('Esquema no soportado: ' + url);
+  }
+  if (!fs.existsSync(filePath)) throw new Error('Archivo no encontrado: ' + filePath);
+  const buf = fs.readFileSync(filePath);
+  // Devuelve un ArrayBuffer "puro" (sin compartir con otros buffers de Node)
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+});
+
 ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
   if (typeof sourcePath !== 'string' || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
     throw new Error('sourcePath inválido');
