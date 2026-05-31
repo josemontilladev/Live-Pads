@@ -36,6 +36,41 @@
 }
 .tp-autoadvance.active { background: var(--blue); border-color: var(--blue); color: #000; }
 
+/* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS) */
+.tp-pitch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  margin-left: 4px;
+}
+.tp-pitch-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+}
+.tp-pitch-btn:hover { color: var(--blue); background: rgba(255,255,255,.05); }
+.tp-pitch-val {
+  min-width: 28px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+  cursor: pointer;
+}
+.tp-pitch-val.shifted { color: var(--blue); }
+
 .tp-info {
   flex: 1;
   display: flex;
