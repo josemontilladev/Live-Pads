@@ -93,6 +93,9 @@ function isAllChordsLine(line) {
 export function transposeChordOnlyLines(text, semitones, preferFlats = null) {
   if (!text || semitones === 0) return text;
   return text.split('\n').map(line => {
+    // Si la línea ya tiene corchetes, transposeBracketedChords se encargó.
+    // Volver a transponerla aquí causaría el doble salto (D → E en vez de D#).
+    if (line.indexOf('[') !== -1) return line;
     if (!isAllChordsLine(line)) return line;
     return line.replace(/[A-G][b#]?(?:[a-zA-Z0-9]+)?(?:\/[A-G][b#]?)?/g, (token) => {
       return transposeChordToken(token, semitones, preferFlats);
