@@ -230,6 +230,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Hook the track player to app.js helpers so it stays decoupled.
   initTrackPlayer({
     syncSlider,
+    // Persiste cualquier cambio en la canción (ej. pitch del track player).
+    persistSong: (song) => {
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
+      if (giSong && giSong !== song) {
+        if (!giSong.audio) giSong.audio = {};
+        Object.assign(giSong.audio, song.audio || {});
+      }
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+    },
     onAudioPathAssigned: (song, type, newPath) => {
       // Sync the new file path back into the library + persist + refresh views.
       const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);

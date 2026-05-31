@@ -12,19 +12,17 @@
 import { q } from '../utils/dom.js';
 import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
+import { PitchAudio } from './pitchAudio.js';
 
-let audio = null;
+let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSemitones)
 let currentType = null;
 let currentSong = null;
 
-// Web Audio graph used solely to give the track a stereo-pan control
-// (HTMLAudioElement has no pan). The element's own .volume still applies —
-// the MediaElementSource taps the element post-volume — so the volume slider
-// keeps working untouched. The context is a singleton; the source + panner
-// are rebuilt per load (a fresh <audio> element each time).
+// Web Audio graph: PitchAudio (fuente con pitch-shift) → pannerNode → destino.
+// audioCtx es singleton; pannerNode se reconstruye por carga.
 let audioCtx = null;
-let mediaSource = null;
 let pannerNode = null;
+let currentPitch = 0;        // semitonos aplicados al audio cargado
 
 // Loop/repeat is a persistent transport mode, not per-track. Held here so the
 // button works whether or not a track is loaded, and every freshly loaded
@@ -50,38 +48,66 @@ export const isTrackLoaded  = () => !!(audio && audio.src);
 export const isTrackPlaying = () => !!(audio && !audio.paused);
 export const getCurrentSong = () => currentSong;
 export const getCurrentType = () => currentType;
+export const getTrackPitch  = () => currentPitch;
 
-// Builds (lazily) the pan graph for the current <audio> element. Failure is
-// non-fatal: pan simply won't apply, but playback/volume are untouched
-// because we only reroute once the source is created successfully.
-function connectPanGraph() {
-  if (!audio) return;
+// Ajusta el tono del audio cargado en semitonos (sin alterar el tempo).
+// Se acota a ±12 semitonos. Persiste por canción vía deps.persistSong (si existe).
+export function setTrackPitch(n) {
+  const v = Math.max(-12, Math.min(12, Math.round(Number(n) || 0)));
+  currentPitch = v;
+  if (audio) { try { audio.pitchSemitones = v; } catch (_) {} }
+  if (currentSong) {
+    if (!currentSong.audio) currentSong.audio = {};
+    currentSong.audio.pitch = v;
+    if (typeof deps.persistSong === 'function') {
+      try { deps.persistSong(currentSong); } catch (_) {}
+    }
+  }
+  paintPitchUI();
+}
+
+function paintPitchUI() {
+  const lbl = q('#tp-pitch-val');
+  if (!lbl) return;
+  lbl.textContent = currentPitch > 0 ? '+' + currentPitch : String(currentPitch);
+  lbl.classList.toggle('shifted', currentPitch !== 0);
+}
+
+// Asegura un AudioContext singleton antes de crear cualquier nodo.
+function ensureAudioCtx() {
+  if (audioCtx) return audioCtx;
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return; // No Web Audio → pan disabled, playback unaffected.
+  if (!AC) return null;
+  try { audioCtx = new AC(); } catch (_) { audioCtx = null; }
+  return audioCtx;
+}
+
+// Inserta el panner entre la fuente (audio.output) y el destino.
+// audio.output es el nodo de ganancia de PitchAudio; pan no afecta el volumen.
+function connectPanGraph() {
+  if (!audio || !audioCtx) return;
   try {
-    if (!audioCtx) audioCtx = new AC();
-    mediaSource = audioCtx.createMediaElementSource(audio);
     pannerNode = audioCtx.createStereoPanner();
     const panEl = els.panSlider;
     pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
-    mediaSource.connect(pannerNode);
+    audio.output.connect(pannerNode);
     pannerNode.connect(audioCtx.destination);
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
-    mediaSource = null;
     pannerNode = null;
   }
 }
 
-// Safe audio release and hardware decoder garbage collection
+// Libera la fuente actual y el panner para que la siguiente carga arranque limpia.
 export function cleanupTrackAudio() {
-  if (mediaSource) { try { mediaSource.disconnect(); } catch (e) {} mediaSource = null; }
+  if (audio) {
+    try { audio.output && audio.output.disconnect(); } catch (e) {}
+  }
   if (pannerNode) { try { pannerNode.disconnect(); } catch (e) {} pannerNode = null; }
   if (audio) {
     try {
       audio.pause();
       audio.src = '';
-      audio.load(); // Force immediate release of OS audio resources
       audio.onerror = null;
       audio.ontimeupdate = null;
       audio.onended = null;
@@ -189,14 +215,18 @@ async function startTrackPlayback(url, title, type) {
   const safeUrl = await resolvePlayableUrl(url);
   cacheTrackPlayerEls();
 
-  audio = new Audio();
-  // crossOrigin only for remote/custom schemes — file:// is same-origin as the
-  // page and setting it there can break local loads. This keeps the Web Audio
-  // pan tap untainted (silent) for livepads:// / http(s) sources.
-  if (/^(livepads:|https?:)/i.test(safeUrl)) audio.crossOrigin = 'anonymous';
+  // PitchAudio: fuente Web Audio con desplazamiento de tono (SoundTouchJS).
+  // Requiere el audioCtx creado de antemano (a diferencia del flujo anterior
+  // basado en HTMLAudioElement + createMediaElementSource lazy).
+  if (!ensureAudioCtx()) { console.warn('Web Audio no disponible'); return; }
+  audio = new PitchAudio(audioCtx);
+  // Restaurar tono guardado en la canción (si lo hay) antes de cargar el audio.
+  currentPitch = Number((song.audio && song.audio.pitch) || 0) || 0;
+  audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
   currentType = type;
   connectPanGraph();
+  paintPitchUI();
 
   // The pan graph routes audio through the context, so a suspended context
   // means silence. Resume on every play start, whatever triggered it
@@ -366,6 +396,16 @@ export function bindTrackPlayerControls() {
     };
     deps.syncSlider(tpProgress);
   }
+
+  // Pitch (tono): ±1 semitono sin alterar el tempo (SoundTouchJS).
+  const tpPitchUp = q('#tp-pitch-up');
+  const tpPitchDown = q('#tp-pitch-down');
+  const tpPitchReset = q('#tp-pitch-val');
+  if (tpPitchUp)   tpPitchUp.onclick   = () => setTrackPitch(currentPitch + 1);
+  if (tpPitchDown) tpPitchDown.onclick = () => setTrackPitch(currentPitch - 1);
+  // Doble-clic en el contador para resetear a 0.
+  if (tpPitchReset) tpPitchReset.ondblclick = () => setTrackPitch(0);
+  paintPitchUI();
 }
 
 // Used by master play/stop logic for the "Sin pista seleccionada" reset.
