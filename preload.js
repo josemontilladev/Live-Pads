@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowAction: (action) => ipcRenderer.invoke('window-action', action),
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
   downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
+  readAudioFile: (url) => ipcRenderer.invoke('read-audio-file', url),
   saveGiSetlist: (songs) => ipcRenderer.invoke('save-gi-setlist', songs),
   loadGiSetlist: () => ipcRenderer.invoke('load-gi-setlist'),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
