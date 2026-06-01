@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadGiSetlist: () => ipcRenderer.invoke('load-gi-setlist'),
   libraryConflictsCheck: () => ipcRenderer.invoke('library-conflicts-check'),
   libraryConflictsResolve: () => ipcRenderer.invoke('library-conflicts-resolve'),
+  libraryAudioAudit: () => ipcRenderer.invoke('library-audio-audit'),
+  libraryAudioRepair: () => ipcRenderer.invoke('library-audio-repair'),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
   pushMongoSetlist: (songs) => ipcRenderer.invoke('push-mongo-setlist', songs),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),
