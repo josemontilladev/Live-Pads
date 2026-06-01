@@ -29,7 +29,8 @@ body[data-workspace="stems"] #body {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  margin-left: 16px;
+  /* Sin margin-left: el .topbar-left ya define gap entre el menú
+     hamburguesa y este switcher. */
   background:
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.1)),
     var(--bg-card);
