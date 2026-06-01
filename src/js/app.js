@@ -5,6 +5,7 @@ import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { hideDialog } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
+import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
@@ -300,6 +301,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildMetroBeatDots(4);
   buildThemesList();
   ensureShortcutsRendered();
+  initAudioLibrarySetting();
   loadServiceSongs();
   bindAll();
   loadGiSetlistFromFile();
