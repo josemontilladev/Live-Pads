@@ -207,6 +207,18 @@ function isAudioLibraryRelPath(rel) {
   return AUDIO_LIBRARY_SUBFOLDERS.some(sub => norm === sub || norm.startsWith(sub + '/'));
 }
 
+// Defensa contra path traversal: une `rel` a `root` y verifica que el resultado
+// NO escape de `root` (p.ej. una URL livepads://app/../../.. fabricada, o un
+// audio.path malicioso en una librería importada/sincronizada). Devuelve la ruta
+// absoluta contenida, o null si se sale. Las rutas legítimas (Sequences/…,
+// Original Tracks/…, Datos/…) no llevan ".." y pasan sin problema.
+function containInRoot(root, rel) {
+  const resolvedRoot = path.resolve(root);
+  const target = path.resolve(resolvedRoot, rel);
+  if (target === resolvedRoot || target.startsWith(resolvedRoot + path.sep)) return target;
+  return null;
+}
+
 function deleteFromBoth(relativeSubPath) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
   if (fs.existsSync(userPath)) {
@@ -500,7 +512,8 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
     // (Sequences, Original Tracks) salen de la carpeta custom si la
     // hay; el resto sigue desde userData.
     const root = isAudioLibraryRelPath(rest) ? getAudioLibraryRoot() : app.getPath('userData');
-    filePath = path.join(root, rest);
+    filePath = containInRoot(root, rest);
+    if (!filePath) throw new Error('Ruta fuera de la carpeta permitida');
   } else if (url.startsWith('file:///')) {
     filePath = decodeURI(url.replace(/^file:\/\/\//, '')).replace(/\//g, path.sep);
   } else if (path.isAbsolute(url)) {
@@ -958,16 +971,16 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
   if (typeof relativePath !== 'string') return '';
 
-  // livepads://app/<rel> -> userData/<rel>
+  // livepads://app/<rel> -> userData/<rel> (contenido: sin escape por '..')
   if (relativePath.startsWith('livepads://')) {
     const rest = relativePath.slice('livepads://'.length).replace(/^app\//, '');
-    return path.join(app.getPath('userData'), decodeURIComponent(rest));
+    return containInRoot(app.getPath('userData'), decodeURIComponent(rest)) || '';
   }
   if (relativePath.includes('/livepads/')) {
     const parts = relativePath.split('/livepads/');
-    return path.join(app.getPath('userData'), decodeURIComponent(parts[1]));
+    return containInRoot(app.getPath('userData'), decodeURIComponent(parts[1] || '')) || '';
   }
-  return path.join(__dirname, 'src', relativePath);
+  return containInRoot(path.join(__dirname, 'src'), relativePath) || '';
 });
 
 // Custom Drums
@@ -1667,7 +1680,9 @@ function resolveLivepadsUrl(reqUrl) {
   // pertenece a una subcarpeta de biblioteca de audios. Mantiene
   // compatibilidad: UserDrums y demás siguen en userData.
   const root = isAudioLibraryRelPath(decoded) ? getAudioLibraryRoot() : app.getPath('userData');
-  return path.join(root, decoded);
+  const contained = containInRoot(root, decoded);
+  if (!contained) throw new Error('Ruta fuera de la carpeta permitida: ' + decoded);
+  return contained;
 }
 
 app.whenReady().then(() => {
