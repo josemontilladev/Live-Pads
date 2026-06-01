@@ -857,6 +857,16 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   0%, 100% { opacity: 0.55; transform: scale(1); }
   50%      { opacity: 1;    transform: scale(1.25); }
 }
+/* Estado "preparada" (seleccionada, nada suena): punto estático y atenuado, sin
+   la pulsación de "sonando". La clase .is-live (la pone refreshNowPlayingLiveState)
+   reactiva la pulsación y el color de acento cuando algo realmente suena. */
+#now-playing-banner:not(.is-live) .np-dot {
+  animation: none;
+  background: var(--text-muted);
+  box-shadow: none;
+  opacity: 0.7;
+}
+#now-playing-banner:not(.is-live) .np-label { color: var(--text-muted); }
 
 #now-playing-banner .np-label {
   flex-shrink: 0;

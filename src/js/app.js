@@ -92,6 +92,7 @@ import {
   toggleLyricsAccordion,
   toggleChordVisibility,
   closeAllLyrics,
+  refreshNowPlayingLiveState,
 } from './ui/songState.js';
 import {
   getSongs, setSongs,
@@ -925,6 +926,7 @@ function triggerMasterPlayPause() {
       toggleMetro();
     }
   }
+  refreshNowPlayingLiveState();
 }
 
 function clickWithSequenceEnabled() {
@@ -942,6 +944,7 @@ function triggerMasterStop() {
   if (getActiveKey()) onKeyClick(getActiveKey());
   if (getMetroRunning()) toggleMetro();
   if (isTrackPlaying()) clickPlayPause();
+  refreshNowPlayingLiveState();
 }
 
 // PÁNICO: corta absolutamente todo y cierra cualquier overlay/ayuda, pase lo que
@@ -1325,6 +1328,9 @@ function companionPollTick() {
       window.electronAPI.companionPublishPlaying(playing).catch(() => {});
     }
   }
+  // Mantiene la etiqueta del banner ("Preparada"/"Sonando") al día ante
+  // play/pause que no pasan por un cambio de canción (idempotente y barato).
+  refreshNowPlayingLiveState();
   scheduleCompanionPoll();
 }
 function scheduleCompanionPoll() {

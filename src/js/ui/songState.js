@@ -14,12 +14,40 @@ import { q, qa } from '../utils/dom.js';
 import { getGiCardBySongId } from './giList.js';
 import { getActiveServiceIndex, getServiceSongs } from '../data/service.js';
 import { refreshServiceMeta } from './serviceListView.js';
+import { isTrackPlaying } from '../audio/trackPlayer.js';
 import {
   getSongs as getGiSongsFromStore,
   getActiveSongId,
+  getMetroRunning,
   getOpenAccordionSongId, setOpenAccordionSongId,
   getOpenAccordionServiceId, setOpenAccordionServiceId,
 } from '../state/store.js';
+
+// ¿Hay algo audible ahora? (secuencia/original sonando, o metrónomo corriendo).
+// Distingue "preparada" (seleccionada, nada suena) de "sonando" en el banner.
+function isLiveNow() {
+  return isTrackPlaying() || getMetroRunning();
+}
+
+// Solo actualiza la etiqueta/punto del banner según el estado live, sin tocar
+// título/artista. Lo llama el poll de reproducción para reflejar play/pause.
+export function refreshNowPlayingLiveState() {
+  const banner = q('#now-playing-banner');
+  if (!banner || banner.classList.contains('hidden')) return;
+  const live = isLiveNow();
+  banner.classList.toggle('is-live', live);
+  const label = banner.querySelector('.np-label');
+  if (label) label.textContent = live ? 'Sonando' : 'Preparada';
+}
+
+// ¿La card ya está completamente visible dentro de su contenedor scrolleable?
+// Si lo está, no hace falta tironear el scroll (evita saltos al cambiar rápido
+// de canción o en auto-avance, sobre todo en cabina táctil).
+function isCardInView(card, container) {
+  const cr = card.getBoundingClientRect();
+  const co = container.getBoundingClientRect();
+  return cr.top >= co.top && cr.bottom <= co.bottom;
+}
 
 // Targeted highlight update: toggles `.active-song` on at most two cards
 // (one in each list) AND refreshes the "now playing" banner above the
@@ -36,10 +64,10 @@ export function refreshActiveSongHighlights() {
       const match = getGiCardBySongId(activeId);
       if (match) {
         match.classList.add('active-song');
-        // Pin the active song to the TOP of the list so it's always in view
-        // (only when the library is the visible tab — don't yank scroll while
-        // the user browses elsewhere).
-        if (giContainer.offsetParent !== null) {
+        // Traer la canción activa a la vista — pero solo si NO está ya visible
+        // (no tironear el scroll si la card ya se ve) y solo con la Librería
+        // visible (no robar scroll mientras el usuario navega en otra pestaña).
+        if (giContainer.offsetParent !== null && !isCardInView(match, giContainer)) {
           match.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
@@ -67,10 +95,9 @@ export function refreshActiveSongHighlights() {
         const match = svcContainer.querySelector(sel);
         if (match) {
           match.classList.add('active-song');
-          // Pin the active song to the TOP of the service list so the director
-          // always sees exactly where they are (only when the panel is visible
-          // so we don't yank scroll while browsing Librería/Presets).
-          if (svcContainer.offsetParent !== null) {
+          // Igual que en la Librería: traer la card a la vista solo si no está
+          // ya visible, y solo con el panel Servicio visible.
+          if (svcContainer.offsetParent !== null && !isCardInView(match, svcContainer)) {
             match.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
@@ -101,6 +128,9 @@ function paintNowPlayingBanner(song) {
   if (titleEl)  titleEl.textContent  = song.title || 'Sin título';
   if (artistEl) artistEl.textContent = song.artist || '';
   banner.classList.remove('hidden');
+  // "Preparada" (seleccionada, nada suena) vs "Sonando" — coherente con el
+  // principio "seleccionar = preparar, nada suena hasta pulsar Play".
+  refreshNowPlayingLiveState();
 }
 
 // Collapse any open lyrics accordion (across both lists). Called when the
