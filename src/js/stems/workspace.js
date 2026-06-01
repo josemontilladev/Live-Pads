@@ -20,6 +20,7 @@ import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.j
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
 
 // Toast helper local — el módulo emite muchísimos avisos al usuario; antes
 // usaba alert() nativo que bloquea la UI y rompe la estética. Pasa todo
@@ -435,10 +436,14 @@ const SHELL_HTML = `
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/></svg>
           Detectar secciones
         </button>
-        <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Loop entre los dos marcadores marcados">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-          Loop
-        </button>
+        <div class="stems-loop-group" title="Loop A-B: marca un punto A y un punto B en el tiempo actual, luego activa Loop">
+          <button class="stems-btn stems-btn--subtle stems-loop-ab" id="stems-loop-a" type="button" title="Marcar punto A en el tiempo actual (vacío)">A</button>
+          <button class="stems-btn stems-btn--subtle stems-loop-ab" id="stems-loop-b" type="button" title="Marcar punto B en el tiempo actual (vacío)">B</button>
+          <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Activar/desactivar loop (entre A-B o marcadores)">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            Loop
+          </button>
+        </div>
       </div>
     </header>
    </div>
@@ -999,6 +1004,38 @@ function wireArrangeEvents(root) {
   root.querySelector('#stems-detect-sections').onclick = () => onDetectSections();
   root.querySelector('#stems-rebuild-guide').onclick = () => onRebuildGuide();
   root.querySelector('#stems-loop-toggle').onclick = () => toggleLoop();
+
+  // Loop A-B "libres" — dropear al tiempo actual, doble-clic para limpiar.
+  // Si después de setear ambos el loop no estaba activo, lo activamos
+  // automáticamente: el usuario quería loop, no marcar puntos por nada.
+  const loopABtn = root.querySelector('#stems-loop-a');
+  const loopBBtn = root.querySelector('#stems-loop-b');
+  if (loopABtn) {
+    loopABtn.onclick = () => {
+      freeLoopA = engine.getCurrentSec();
+      if (freeLoopA != null && freeLoopB != null && !loopEnabled) {
+        loopEnabled = true;
+      }
+      syncLoopRegion();
+    };
+    loopABtn.ondblclick = () => {
+      freeLoopA = null;
+      syncLoopRegion();
+    };
+  }
+  if (loopBBtn) {
+    loopBBtn.onclick = () => {
+      freeLoopB = engine.getCurrentSec();
+      if (freeLoopA != null && freeLoopB != null && !loopEnabled) {
+        loopEnabled = true;
+      }
+      syncLoopRegion();
+    };
+    loopBBtn.ondblclick = () => {
+      freeLoopB = null;
+      syncLoopRegion();
+    };
+  }
 
   const nameInput = root.querySelector('#stems-project-name');
   nameInput.addEventListener('input', () => {
@@ -1597,6 +1634,90 @@ function wireStrip(root, id) {
       openHarmonyMenu(harmonyBtn, id);
     };
   }
+
+  // Click derecho en cualquier parte de la row → menú contextual con
+  // todas las acciones de la pista en un solo lugar (export, separar,
+  // armonía, renombrar, color, eliminar). Duplica los botones-icono pero
+  // los hace descubribles con shortcut estándar de "right-click siempre".
+  root.addEventListener('contextmenu', (e) => {
+    // No interferir con el menú del input de nombre o el color picker.
+    if (e.target.closest('input, [contenteditable="true"]')) return;
+    e.preventDefault();
+    openRowContextMenu(e.clientX, e.clientY, id);
+  });
+}
+
+// Menú contextual de pista (click derecho en la row). Centraliza
+// acciones que también viven en botones-icono, útil cuando la fila está
+// estrecha o cuando el usuario prefiere "right-click for everything".
+function openRowContextMenu(x, y, id) {
+  document.getElementById('stems-row-ctx')?.remove();
+  const track = engine.getTracks().find(t => t.id === id);
+  if (!track) return;
+  const isCueTrack = track.kind === 'click' || track.kind === 'guide';
+  const menu = document.createElement('div');
+  menu.id = 'stems-row-ctx';
+  menu.className = 'stems-context-menu';
+  menu.innerHTML = `
+    <button data-cmd="export">Exportar esta pista a MP3</button>
+    ${isCueTrack ? '' : '<button data-cmd="separate">Separar con IA…</button>'}
+    ${isCueTrack ? '' : '<button data-cmd="harmony">Referencia armónica…</button>'}
+    <div class="smc-sep"></div>
+    <button data-cmd="rename">Renombrar pista</button>
+    <button data-cmd="color">Cambiar color…</button>
+    <div class="smc-sep"></div>
+    <button data-cmd="remove" class="danger">Eliminar pista</button>
+  `;
+  document.body.appendChild(menu);
+  menu.style.left = `${x}px`;
+  menu.style.top  = `${y}px`;
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth)  menu.style.left = `${window.innerWidth - r.width - 8}px`;
+    if (r.bottom > window.innerHeight) menu.style.top  = `${window.innerHeight - r.height - 8}px`;
+  });
+  const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
+  const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
+  setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
+
+  menu.querySelector('[data-cmd="export"]').onclick = async () => {
+    close();
+    const t = engine.getTracks().find(tr => tr.id === id);
+    if (!t) return;
+    await runExport({ onlyTrackIds: [id], suggestedName: `${projectName} - ${t.name}` });
+  };
+  menu.querySelector('[data-cmd="separate"]')?.addEventListener('click', () => {
+    close();
+    const row = trackRows.get(id)?.row;
+    const anchor = row?.querySelector('[data-action="separate"]');
+    if (anchor) openSeparateMenu(anchor, id);
+  });
+  menu.querySelector('[data-cmd="harmony"]')?.addEventListener('click', () => {
+    close();
+    const row = trackRows.get(id)?.row;
+    const anchor = row?.querySelector('[data-action="harmony"]');
+    if (anchor) openHarmonyMenu(anchor, id);
+  });
+  menu.querySelector('[data-cmd="rename"]').onclick = () => {
+    close();
+    const input = trackRows.get(id)?.row?.querySelector('.stems-row-name');
+    if (input) { input.focus(); input.select(); }
+  };
+  menu.querySelector('[data-cmd="color"]').onclick = () => {
+    close();
+    const colorInput = trackRows.get(id)?.row?.querySelector('[data-action="color"]');
+    if (colorInput) colorInput.click();
+  };
+  menu.querySelector('[data-cmd="remove"]').onclick = async () => {
+    close();
+    const ok = await confirmDialogAsync({
+      title: 'Eliminar pista',
+      message: '¿Eliminar esta pista del proyecto?',
+      confirmLabel: 'Eliminar', danger: true,
+    });
+    if (!ok) return;
+    await removeTrackById(id);
+  };
 }
 
 // Small popup to choose separation mode before running.
@@ -1646,12 +1767,19 @@ function openSeparateMenu(anchor, id) {
 // ── Hybrid cloud separation config ────────────────────────────────
 // Stored in localStorage as { provider, apiKey }. When present + online, the
 // separation routes to the cloud (with automatic local fallback on failure).
+// Schema v1: { provider:string, apiKey:string }. Helper de storage envuelve
+// el blob con su versión y descarta valores corruptos/incompatibles.
 const CLOUD_CFG_KEY = 'livepads-stems-cloud';
+const CLOUD_CFG_VERSION = 1;
 function getCloudConfig() {
-  try {
-    const c = JSON.parse(localStorage.getItem(CLOUD_CFG_KEY) || 'null');
-    return (c && c.apiKey && c.provider) ? c : null;
-  } catch (e) { return null; }
+  const c = storageRead(CLOUD_CFG_KEY, {
+    version: CLOUD_CFG_VERSION,
+    fallback: null,
+    // Migra cualquier clave legacy (string JSON sin wrapper) que ya tuviera
+    // la forma { provider, apiKey }. Nada que tocar más allá de validarla.
+    migrateLegacy: (val) => (val && val.apiKey && val.provider) ? val : null,
+  });
+  return (c && c.apiKey && c.provider) ? c : null;
 }
 
 // Minimal config dialog (Electron disables window.prompt, so we build our own).
@@ -1682,12 +1810,12 @@ function openCloudConfigDialog() {
   const close = () => overlay.remove();
   overlay.onclick = (e) => { if (e.target === overlay) close(); };
   overlay.querySelector('#cloud-cancel').onclick = close;
-  overlay.querySelector('#cloud-clear').onclick = () => { localStorage.removeItem(CLOUD_CFG_KEY); close(); };
+  overlay.querySelector('#cloud-clear').onclick = () => { storageRemove(CLOUD_CFG_KEY); close(); };
   overlay.querySelector('#cloud-save').onclick = () => {
     const provider = overlay.querySelector('#cloud-provider').value;
     const apiKey = overlay.querySelector('#cloud-key').value.trim();
-    if (apiKey) localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({ provider, apiKey }));
-    else localStorage.removeItem(CLOUD_CFG_KEY);
+    if (apiKey) storageWrite(CLOUD_CFG_KEY, { provider, apiKey }, { version: CLOUD_CFG_VERSION });
+    else storageRemove(CLOUD_CFG_KEY);
     close();
   };
 }
@@ -2282,6 +2410,12 @@ let clickSoundId = 'cowbell';
 let loopStartMarkerId = null;
 let loopEndMarkerId = null;
 let loopEnabled = false;
+// Loop A-B "libre" — bounds en segundos que NO dependen de marcadores.
+// Si ambos están set, ganan sobre los marcadores. Botones A / B en la
+// toolbar los dropean en el tiempo actual; permite loopear cualquier
+// trozo sin tener que crear marcadores permanentes para algo efímero.
+let freeLoopA = null;
+let freeLoopB = null;
 
 function snapTimeIfEnabled(sec) {
   if (!snapToBeat) return sec;
@@ -2345,11 +2479,13 @@ function moveMarkerTo(markerId, atSec, { record = true } = {}) {
   const newSec = snapTimeIfEnabled(Math.max(0, atSec));
   if (Math.abs(newSec - oldSec) < 0.001) return; // unchanged, skip
   m.atSec = newSec;
-  redrawMarkers();
+  // Drag path: ráfaga de moveMarkerTo a 60Hz; coalescer en RAF para que
+  // el layer no se rebuilde por cada pointermove.
+  scheduleMarkersRedraw();
   if (record) {
     pushHistory('Mover marcador',
-      () => { m.atSec = oldSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); },
-      () => { m.atSec = newSec; redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); }
+      () => { m.atSec = oldSec; scheduleMarkersRedraw(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); },
+      () => { m.atSec = newSec; scheduleMarkersRedraw(); syncLoopRegion(); scheduleSave(); scheduleGuideSync(); }
     );
   }
   syncLoopRegion();
@@ -2384,6 +2520,19 @@ function changeMarkerCue(markerId, cueId) {
   );
   scheduleSave();
   scheduleGuideSync();
+}
+
+// Coalesce repeated marker redraws en un solo RAF — necesario porque
+// pointermove durante el drag dispara redrawMarkers a 60+ Hz, y cada
+// llamada hace un innerHTML completo del layer. Sin batching el drag
+// se vuelve perceptiblemente lento con muchos marcadores.
+let markersRedrawRAF = 0;
+function scheduleMarkersRedraw() {
+  if (markersRedrawRAF) return;
+  markersRedrawRAF = requestAnimationFrame(() => {
+    markersRedrawRAF = 0;
+    redrawMarkers();
+  });
 }
 
 function redrawMarkers() {
@@ -2446,20 +2595,46 @@ function enableMarkerDrag(el, markerId) {
   });
 }
 
+// Tipos de sección más comunes — los que aparecen en el grid inline del
+// menú contextual de marcadores. Los menos frecuentes (vamp, breakdown,
+// interludio, etc.) viven detrás de "Más tipos…" para no saturar.
+const MARKER_QUICK_TYPES = [
+  'intro', 'verso', 'pre-coro',
+  'coro', 'puente', 'instrumental',
+  'post-coro', 'solo', 'outro',
+];
+
 // ── Right-click menu for markers ────────────────────────────────
 function openMarkerMenu(x, y, markerId) {
   closeMarkerMenu();
   const m = markers.find(t => t.id === markerId);
   if (!m) return;
+  const isLoopA = loopStartMarkerId === markerId;
+  const isLoopB = loopEndMarkerId === markerId;
+  const inLoop = isLoopA || isLoopB;
+  const quickCues = MARKER_QUICK_TYPES.map(id => SECTION_CUES.find(c => c.id === id)).filter(Boolean);
   const menu = document.createElement('div');
-  menu.className = 'stems-context-menu';
+  menu.className = 'stems-context-menu stems-marker-ctx';
   menu.id = 'stems-marker-menu';
+  // Grid visual de tipos en lugar del submenú anidado anterior. Tap-friendly,
+  // sin necesidad de hover-for-submenu, con el tipo actual resaltado.
   menu.innerHTML = `
-    <button data-cmd="rename">Renombrar</button>
-    <button data-cmd="change">Cambiar tipo…</button>
-    <button data-cmd="loop-start">Marcar como inicio de loop</button>
-    <button data-cmd="loop-end">Marcar como fin de loop</button>
-    <button data-cmd="loop-clear">Quitar de loop</button>
+    <div class="smc-section-label">CAMBIAR TIPO</div>
+    <div class="smc-type-grid">
+      ${quickCues.map(c => `
+        <button data-cue="${c.id}" class="smc-type-btn ${m.cueId === c.id ? 'is-active' : ''}" title="${c.label}">
+          <span>${c.label}</span>
+        </button>
+      `).join('')}
+    </div>
+    <button data-cmd="change" class="smc-more">Más tipos…</button>
+    <div class="smc-sep"></div>
+    <button data-cmd="rename">Renombrar etiqueta</button>
+    <div class="smc-sep"></div>
+    <button data-cmd="loop-start" class="${isLoopA ? 'is-active' : ''}">▎ Marcar como inicio de loop (A)</button>
+    <button data-cmd="loop-end"   class="${isLoopB ? 'is-active' : ''}">▎ Marcar como fin de loop (B)</button>
+    ${inLoop ? '<button data-cmd="loop-clear">Quitar de loop</button>' : ''}
+    <div class="smc-sep"></div>
     <button data-cmd="delete" class="danger">Eliminar marcador</button>
   `;
   document.body.appendChild(menu);
@@ -2470,6 +2645,9 @@ function openMarkerMenu(x, y, markerId) {
     const r = menu.getBoundingClientRect();
     if (r.right > window.innerWidth)  menu.style.left = `${window.innerWidth - r.width - 8}px`;
     if (r.bottom > window.innerHeight) menu.style.top  = `${window.innerHeight - r.height - 8}px`;
+  });
+  menu.querySelectorAll('[data-cue]').forEach(b => {
+    b.onclick = () => { changeMarkerCue(markerId, b.dataset.cue); closeMarkerMenu(); };
   });
   menu.querySelector('[data-cmd="rename"]').onclick = () => {
     closeMarkerMenu();
@@ -2508,7 +2686,8 @@ function openMarkerMenu(x, y, markerId) {
     redrawMarkers();
     scheduleSave();
   };
-  menu.querySelector('[data-cmd="loop-clear"]').onclick = () => {
+  const loopClearBtn = menu.querySelector('[data-cmd="loop-clear"]');
+  if (loopClearBtn) loopClearBtn.onclick = () => {
     closeMarkerMenu();
     if (loopStartMarkerId === markerId) loopStartMarkerId = null;
     if (loopEndMarkerId === markerId)   loopEndMarkerId = null;
@@ -2538,16 +2717,24 @@ function toggleLoop() {
 
 function syncLoopRegion() {
   const overlay = document.getElementById('stems-loop-overlay');
-  if (!loopEnabled || !loopStartMarkerId || !loopEndMarkerId) {
+  // Prioridad: si hay A/B "libres" definidos, ganan sobre los marcadores.
+  // Eso permite loopear secciones efímeras (entre verso y coro, etc.) sin
+  // ensuciar la lista de marcadores con anclas permanentes.
+  let start = null, end = null;
+  if (freeLoopA != null && freeLoopB != null) {
+    start = Math.min(freeLoopA, freeLoopB);
+    end   = Math.max(freeLoopA, freeLoopB);
+  } else if (loopStartMarkerId && loopEndMarkerId) {
+    const a = markers.find(m => m.id === loopStartMarkerId);
+    const b = markers.find(m => m.id === loopEndMarkerId);
+    if (a && b) { start = Math.min(a.atSec, b.atSec); end = Math.max(a.atSec, b.atSec); }
+  }
+  if (!loopEnabled || start == null || end == null || end <= start) {
     engine.clearLoopRegion();
     if (overlay) overlay.hidden = true;
+    paintLoopAbButtons();
     return;
   }
-  const a = markers.find(m => m.id === loopStartMarkerId);
-  const b = markers.find(m => m.id === loopEndMarkerId);
-  if (!a || !b) { engine.clearLoopRegion(); if (overlay) overlay.hidden = true; return; }
-  const start = Math.min(a.atSec, b.atSec);
-  const end   = Math.max(a.atSec, b.atSec);
   engine.setLoopRegion(start, end);
   // Position overlay over the timeline area (after the sticky strip column).
   if (overlay) {
@@ -2555,6 +2742,29 @@ function syncLoopRegion() {
     overlay.style.left  = `${STRIP_WIDTH + start * PX_PER_SEC}px`;
     overlay.style.width = `${(end - start) * PX_PER_SEC}px`;
   }
+  paintLoopAbButtons();
+}
+
+// Pinta el estado visual de los botones A/B: vacío vs. activo (con el
+// tiempo definido), y le pone el time como title para que se vea al
+// pasar el mouse. El toggle de Loop también se sincroniza.
+function paintLoopAbButtons() {
+  const aBtn = document.getElementById('stems-loop-a');
+  const bBtn = document.getElementById('stems-loop-b');
+  const loopBtn = document.getElementById('stems-loop-toggle');
+  if (aBtn) {
+    aBtn.classList.toggle('is-set', freeLoopA != null);
+    aBtn.title = freeLoopA != null
+      ? `Punto A: ${freeLoopA.toFixed(2)}s — clic para mover al tiempo actual, doble-clic para limpiar`
+      : 'Marcar punto A en el tiempo actual';
+  }
+  if (bBtn) {
+    bBtn.classList.toggle('is-set', freeLoopB != null);
+    bBtn.title = freeLoopB != null
+      ? `Punto B: ${freeLoopB.toFixed(2)}s — clic para mover al tiempo actual, doble-clic para limpiar`
+      : 'Marcar punto B en el tiempo actual';
+  }
+  if (loopBtn) loopBtn.classList.toggle('is-on', loopEnabled);
 }
 function closeMarkerMenuOnce(e) {
   const menu = document.getElementById('stems-marker-menu');
