@@ -371,14 +371,26 @@ const SHELL_HTML = `
         <span class="stems-tools-label">PISTAS</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
-        <button class="stems-btn stems-btn--subtle" id="stems-add-click" title="Genera un click track al BPM actual">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
-          Generar Click
-        </button>
-        <button class="stems-btn stems-btn--subtle" id="stems-rebuild-guide" title="Regenera la pista de guía con los marcadores actuales">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-          Generar Guía
-        </button>
+        <div class="stems-generators-wrap">
+          <button class="stems-btn stems-btn--subtle" id="stems-generators-trigger" type="button" title="Generar Click o Guía" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            Generar
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <!-- Popover con las acciones — los botones originales viven aquí
+                con sus IDs intactos para que el mapeo MIDI y el resto del
+                código siga apuntando al mismo lugar. -->
+          <div class="stems-generators-pop hidden" id="stems-generators-pop" role="menu">
+            <button class="stems-btn stems-btn--subtle" id="stems-add-click" title="Genera un click track al BPM actual">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
+              Generar Click
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-rebuild-guide" title="Regenera la pista de guía con los marcadores actuales">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+              Generar Guía
+            </button>
+          </div>
+        </div>
       </div>
       <div class="stems-tools-group">
         <span class="stems-tools-label">MARCADORES</span>
@@ -914,6 +926,33 @@ function wireArrangeEvents(root) {
     await runExport();
   };
 
+  // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
+  const genTrigger = root.querySelector('#stems-generators-trigger');
+  const genPop = root.querySelector('#stems-generators-pop');
+  if (genTrigger && genPop) {
+    const closeGenPop = () => {
+      genPop.classList.add('hidden');
+      genTrigger.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('mousedown', onDocGen, true);
+    };
+    const onDocGen = (ev) => {
+      if (genTrigger.contains(ev.target) || genPop.contains(ev.target)) return;
+      closeGenPop();
+    };
+    genTrigger.onclick = (e) => {
+      e.stopPropagation();
+      const isOpen = !genPop.classList.contains('hidden');
+      if (isOpen) { closeGenPop(); return; }
+      genPop.classList.remove('hidden');
+      genTrigger.setAttribute('aria-expanded', 'true');
+      setTimeout(() => document.addEventListener('mousedown', onDocGen, true), 0);
+    };
+    // Cerrar también al elegir una acción adentro.
+    genPop.addEventListener('click', (e) => {
+      if (e.target.closest('button')) closeGenPop();
+    });
+  }
+
   root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
   root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
   root.querySelector('#stems-detect-sections').onclick = () => onDetectSections();
@@ -1171,10 +1210,16 @@ function appendConsoleStrip(track) {
   return strip;
 }
 
+// Etiqueta legible del tipo de pista. Usada en row, strip y console por
+// igual; antes el ternario vivía duplicado en cada builder.
+function kindLabelFor(track) {
+  return track.kind === 'click' ? 'CLICK'
+       : track.kind === 'guide' ? 'GUÍA'
+       : 'AUDIO';
+}
+
 function buildConsoleStripHtml(track) {
-  const kindLabel = track.kind === 'click' ? 'CLICK'
-                  : track.kind === 'guide' ? 'GUÍA'
-                  : 'AUDIO';
+  const kindLabel = kindLabelFor(track);
   const volPct = Math.round(track.volume * 100);
   return `
     <header class="stems-console-strip-head">
@@ -1312,7 +1357,6 @@ function wireConsoleStrip(strip, id) {
     const next = !muteBtn.classList.contains('is-on');
     engine.setTrackMuted(id, next);
     muteBtn.classList.toggle('is-on', next);
-    syncRowStripMute(id, next);
     reflectSoloHighlights();
     scheduleSave();
   };
@@ -1322,7 +1366,6 @@ function wireConsoleStrip(strip, id) {
     const next = !soloBtn.classList.contains('is-on');
     engine.setTrackSoloed(id, next);
     soloBtn.classList.toggle('is-on', next);
-    syncRowStripSolo(id, next);
     reflectSoloHighlights();
     scheduleSave();
   };
@@ -1360,18 +1403,9 @@ function syncConsoleStripName(id, name) {
   if (el) { el.textContent = name; el.title = name; }
 }
 
-// Row-strip sync helpers are now no-ops because the strip no longer
-// has vol / pan / mute / solo controls (they live solely in the
-// console). Kept as empty exports so callers don't have to be edited.
-function syncRowStripVol()  {}
-function syncRowStripPan()  {}
-function syncRowStripMute() {}
-function syncRowStripSolo() {}
 
 function buildRowHtml(track) {
-  const kindLabel = track.kind === 'click' ? 'CLICK'
-                  : track.kind === 'guide' ? 'GUÍA'
-                  : 'AUDIO';
+  const kindLabel = kindLabelFor(track);
   // Slim strip: identification + reorder + per-track destructive actions.
   // The mixer console below owns vol / pan / mute / solo so we don't
   // duplicate the same four controls on every row.
@@ -1403,9 +1437,7 @@ function buildRowHtml(track) {
 }
 
 function buildStripHtml(track) {
-  const kindLabel = track.kind === 'click' ? 'CLICK'
-                  : track.kind === 'guide' ? 'GUÍA'
-                  : 'AUDIO';
+  const kindLabel = kindLabelFor(track);
   return `
     <header class="stems-strip-head">
       <span class="stems-strip-kind">${kindLabel}</span>
@@ -2280,10 +2312,8 @@ function openMarkerMenu(x, y, markerId) {
   });
   menu.querySelector('[data-cmd="rename"]').onclick = () => {
     closeMarkerMenu();
-    const next = window.prompt
-      ? null
-      : null; // prompt is disabled in Electron 33 — use inline approach
-    // Inline rename: turn the label into a contenteditable
+    // Inline rename: turn the label into a contenteditable (window.prompt
+    // está deshabilitado en Electron renderer; este flujo lo reemplaza).
     const el = document.querySelector(`.stems-marker[data-marker-id="${markerId}"] .stems-marker-label`);
     if (!el) return;
     el.contentEditable = 'true';
