@@ -426,11 +426,25 @@ body[data-workspace="stems"] #body {
 .stems-actions {
   display: flex;
   align-items: center;
-  gap: var(--gap-md);
+  gap: 10px;
   flex-wrap: wrap;
-  padding: 7px 16px;
+  padding: 6px 14px;
   border-bottom: 1px solid var(--border);
   background: transparent;
+}
+/* Fila unificada (antes había row1 + row2). Mismo padding compacto que
+   row2 para que el deck no consuma más de lo necesario en vertical. */
+.stems-actions--unified {
+  padding: 5px 14px;
+  background: rgba(255,255,255,0.018);
+  gap: 8px;
+}
+.stems-actions-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
 }
 
 .stems-actions-primary {
@@ -442,15 +456,6 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-}
-.stems-actions-mid {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 200px;
-  min-width: 160px;
-  max-width: 360px;
-  padding: 0 16px;
 }
 /* Popover "Generar" — agrupa Click + Guía para evitar dos botones siempre
    visibles en la fila PISTAS. Posicionado abajo-izquierda del trigger. */
@@ -511,13 +516,6 @@ body[data-workspace="stems"] #body {
   box-shadow: 0 0 12px var(--glow);
 }
 
-/* Row 2 (tools) — always-visible, two clearly-labeled groups */
-.stems-actions--row2 {
-  padding: 6px 16px;
-  gap: 16px;
-  background: rgba(255,255,255,0.018);
-  border-bottom: none;
-}
 .stems-tools-group {
   display: flex;
   align-items: center;
@@ -703,7 +701,6 @@ body[data-workspace="stems"] #body {
 @media (max-width: 1024px) {
   .stems-topbar { padding: 6px 10px; gap: 6px 12px; }
   .stems-actions { padding: 6px 10px; gap: 8px; }
-  .stems-actions-mid { padding: 0 6px; }
   .stems-tb-right .stems-readout:not(:last-of-type) { display: none; }
   .stems-mixer-console { max-height: 260px; }
   .stems-mixer-strips { height: 230px; }
@@ -732,6 +729,11 @@ body[data-workspace="stems"] #body {
      internally — which also makes scrollLeft (and auto-follow) a no-op. */
   min-width: 0;
 }
+/* Sin pistas cargadas: no tiene sentido scrollear vertical (la timeline está
+   vacía debajo de la regla). Ocultamos el scroll-y para que el área negra
+   no se sienta "rota". Cuando hay pistas, vuelve overflow:auto normal. */
+#workspace-stems:not(.has-tracks) .stems-arrange { overflow-y: hidden; }
+#workspace-stems:not(.has-tracks) .stems-arrange-inner { min-height: 100%; }
 .stems-arrange-inner {
   display: flex;
   flex-direction: column;
@@ -1253,6 +1255,9 @@ body[data-workspace="stems"] #body {
   background: var(--bg-surface);
   max-height: 260px;
 }
+/* Sin pistas: oculta la consola entera para que no aparezca como bloque
+   negro vacío de 260px debajo de la timeline. */
+#workspace-stems:not(.has-tracks) .stems-console { display: none; }
 .stems-console-header {
   display: flex;
   align-items: center;

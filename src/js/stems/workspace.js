@@ -336,7 +336,10 @@ const SHELL_HTML = `
       </div>
     </header>
 
-    <header class="stems-actions stems-actions--row1">
+    <!-- Fila única de acciones (antes había dos filas: proyecto y tools).
+         Las 3 secciones se separan con un divider vertical y la fila usa
+         flex-wrap para no romperse en viewports estrechos. -->
+    <header class="stems-actions stems-actions--unified">
       <div class="stems-actions-primary">
         <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
         <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
@@ -344,36 +347,30 @@ const SHELL_HTML = `
           Exportar MP3
         </button>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
-      </div>
-
-      <div class="stems-actions-mid">
-        <span class="stems-project-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        </span>
+        <span class="stems-actions-divider" aria-hidden="true"></span>
         <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto">
-      </div>
-
-      <div class="stems-proj-menu">
-        <button class="stems-btn stems-btn--subtle" id="stems-proj-toggle" title="Proyecto…">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Proyecto ▾
-        </button>
-        <div class="stems-proj-dropdown" id="stems-proj-dropdown" hidden>
-          <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
-          <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
-          <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
+        <div class="stems-proj-menu">
+          <button class="stems-btn stems-btn--subtle" id="stems-proj-toggle" title="Proyecto…">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-proj-dropdown" id="stems-proj-dropdown" hidden>
+            <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
+            <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
+            <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
+          </div>
         </div>
       </div>
-    </header>
 
-    <header class="stems-actions stems-actions--row2">
+      <span class="stems-actions-divider" aria-hidden="true"></span>
+
       <div class="stems-tools-group">
         <span class="stems-tools-label">PISTAS</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
         <div class="stems-generators-wrap">
           <button class="stems-btn stems-btn--subtle" id="stems-generators-trigger" type="button" title="Generar Click o Guía" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
             Generar
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
@@ -392,11 +389,14 @@ const SHELL_HTML = `
           </div>
         </div>
       </div>
+
+      <span class="stems-actions-divider" aria-hidden="true"></span>
+
       <div class="stems-tools-group">
         <span class="stems-tools-label">MARCADORES</span>
         <select id="stems-section-select" class="stems-mini-select" aria-label="Sección"></select>
         <button class="stems-btn stems-btn--accent" id="stems-add-marker" title="Añadir marcador en el tiempo actual">
-          ${SVG_FLAG} Añadir marcador
+          ${SVG_FLAG} Añadir
         </button>
         <button class="stems-btn stems-btn--subtle" id="stems-detect-sections" title="Analiza la canción y coloca marcadores en los cambios de sección (puedes editarlos a mano)">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/></svg>
@@ -1118,6 +1118,9 @@ function appendTrackRow(id, savedPath) {
 
   const empty = document.getElementById('stems-empty');
   if (empty) empty.hidden = true;
+  // Marca el shell como "con pistas" para que el CSS (a) muestre la consola
+  // y (b) deje la timeline scrollable. Cuando está vacío, ambos colapsan.
+  document.getElementById('workspace-stems')?.classList.add('has-tracks');
 
   // A row is the unit: sticky strip on the left + waveform lane on the right.
   const rows = document.getElementById('stems-rows');
@@ -1938,6 +1941,7 @@ async function removeTrackById(id) {
   if (trackRows.size === 0) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
+    document.getElementById('workspace-stems')?.classList.remove('has-tracks');
   }
   refreshTransport();
   refreshTimelineWidth();
@@ -3018,6 +3022,7 @@ async function resetProject() {
   document.getElementById('stems-bpm').value = bpm;
   document.getElementById('stems-sig').value = '4/4';
   document.getElementById('stems-empty').hidden = false;
+  document.getElementById('workspace-stems')?.classList.remove('has-tracks');
   refreshTransport();
   refreshTimelineWidth();
   redrawMarkers();
