@@ -1804,6 +1804,83 @@ body[data-workspace="stems"] #body {
   max-height: 320px;
   overflow-y: auto;
 }
+
+/* Menú contextual de marcador: cabecera + grid de tipos en línea (sin
+   submenú anidado). Tipos comunes a un clic, "Más tipos…" para los raros. */
+.stems-marker-ctx { min-width: 230px; }
+.smc-section-label {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+}
+.smc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 0 6px 4px;
+}
+.smc-type-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 4px !important;
+  text-align: center !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  color: var(--text) !important;
+  font-size: 11px !important;
+  font-weight: 600;
+  transition: all 0.12s;
+}
+.smc-type-btn:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--bg-card) !important;
+}
+.smc-type-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+.smc-more {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  padding: 4px 10px 8px !important;
+  text-align: center !important;
+}
+.smc-more:hover { color: var(--accent) !important; background: transparent !important; }
+.smc-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+.stems-context-menu button.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* Loop A-B "libres" — botones compactos al lado del toggle de Loop.
+   Cuando un punto está marcado, se ilumina en accent. */
+.stems-loop-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stems-btn.stems-loop-ab {
+  min-width: 26px;
+  padding: 4px 8px !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+}
+.stems-btn.stems-loop-ab.is-set {
+  color: var(--on-accent) !important;
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
 .stems-ctx-hint {
   font-size: 10px;
   font-weight: 700;

@@ -258,13 +258,22 @@ export function detectSections(audioBuffer, opts = {}) {
     return m;
   });
 
-  const labels = labelSegments(segMeans);
+  // Para labelSegments necesitamos también las longitudes de cada segmento
+  // (en frames) — el pre-coro es típicamente CORTO (1-2 compases), así que
+  // contar duración relativa al promedio nos ayuda a distinguirlo de un verso.
+  const segLengths = boundaryFrames.map((a, i) => {
+    const b = (i + 1 < boundaryFrames.length) ? boundaryFrames[i + 1] : n;
+    return b - a;
+  });
+
+  const labels = labelSegments(segMeans, segLengths);
   const CUE = {
-    intro:  { cueId: 'intro',  label: 'Intro' },
-    verso:  { cueId: 'verso',  label: 'Verso' },
-    coro:   { cueId: 'coro',   label: 'Coro' },
-    puente: { cueId: 'puente', label: 'Puente' },
-    outro:  { cueId: 'outro',  label: 'Outro' },
+    intro:    { cueId: 'intro',    label: 'Intro' },
+    verso:    { cueId: 'verso',    label: 'Verso' },
+    precoro:  { cueId: 'pre-coro', label: 'Pre-Coro' },
+    coro:     { cueId: 'coro',     label: 'Coro' },
+    puente:   { cueId: 'puente',   label: 'Puente' },
+    outro:    { cueId: 'outro',    label: 'Outro' },
   };
   return boundaryFrames.map((f, i) => {
     const c = CUE[labels[i]] || CUE.verso;
@@ -272,10 +281,20 @@ export function detectSections(audioBuffer, opts = {}) {
   });
 }
 
-// Heuristic structure labelling: greedily cluster segments by texture; the
-// most-repeated cluster is the chorus, the first segment is the intro, the
-// rest are verses. Best-effort — the user fine-tunes via the marker menu.
-function labelSegments(segMeans) {
+// Heurística de estructura:
+//   1. Cluster por textura (greedy con umbral de similitud).
+//   2. El cluster más repetido = CORO.
+//   3. PRECORO: segmento corto (<= 60% de la longitud promedio) que aparece
+//      INMEDIATAMENTE ANTES de un coro de forma consistente (más de una vez
+//      o, si solo aparece una vez, justo antes del primer coro).
+//   4. PUENTE: segmento único (counts === 1) que NO es el coro y aparece en
+//      la segunda mitad del tema. Si hay varios candidatos, el más distinto
+//      al coro (menor similitud) gana.
+//   5. INTRO siempre va en la primera posición; OUTRO en la última si es
+//      única y el tema tiene ≥4 secciones.
+//
+// Best-effort — el usuario afina con el menú de marcadores.
+function labelSegments(segMeans, segLengths) {
   const N = segMeans.length;
   const sim = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += a[i] * b[i]; return d; };
 
@@ -296,13 +315,51 @@ function labelSegments(segMeans) {
   let chorusCluster = -1, bestCount = 1;
   for (const c in counts) { if (counts[c] > bestCount) { bestCount = counts[c]; chorusCluster = +c; } }
 
+  // Longitud promedio de los segmentos "no únicos" (para detectar el corto).
+  const reasonableLens = segLengths.filter((_, i) => (counts[cluster[i]] || 0) > 1);
+  const avgLen = reasonableLens.length
+    ? reasonableLens.reduce((s, x) => s + x, 0) / reasonableLens.length
+    : (segLengths.reduce((s, x) => s + x, 0) / Math.max(1, N));
+
+  // ── Pre-coro: marca clústers que sean cortos Y aparezcan justo antes
+  // de un coro consistentemente. Si el mismo clúster aparece varias veces
+  // y todas sus apariciones (o ≥2) preceden a un coro, lo etiquetamos.
+  const precorusClusters = new Set();
+  const clusterToIndices = new Map();
+  cluster.forEach((c, i) => {
+    if (c === chorusCluster) return;
+    if (!clusterToIndices.has(c)) clusterToIndices.set(c, []);
+    clusterToIndices.get(c).push(i);
+  });
+  for (const [c, indices] of clusterToIndices) {
+    if (chorusCluster < 0) break;
+    // Longitud típica de este clúster: media de sus segmentos.
+    const lens = indices.map(i => segLengths[i]);
+    const meanLen = lens.reduce((s, x) => s + x, 0) / lens.length;
+    if (meanLen > avgLen * 0.6) continue; // demasiado largo, no es pre-coro
+    // ¿Cuántas veces este clúster va seguido de un coro?
+    let beforeChorus = 0;
+    for (const i of indices) {
+      if (i + 1 < N && cluster[i + 1] === chorusCluster) beforeChorus++;
+    }
+    // Reglas:
+    //   - Si aparece ≥2 veces y mitad o más son ante-coro → es pre-coro.
+    //   - Si aparece solo 1 vez Y es ante-coro Y está antes del segundo
+    //     coro → también lo aceptamos (canciones que solo tienen pre-coro
+    //     antes del bridge-coro final son válidas).
+    if (indices.length >= 2 && beforeChorus >= Math.ceil(indices.length / 2)) {
+      precorusClusters.add(c);
+    } else if (indices.length === 1 && beforeChorus === 1) {
+      precorusClusters.add(c);
+    }
+  }
+
   return cluster.map((c, i) => {
     if (i === 0) return 'intro';
-    // Last segment that doesn't repeat → outro/ending.
     if (i === N - 1 && counts[c] === 1 && N >= 4) return 'outro';
     if (c === chorusCluster) return 'coro';
-    // A unique (non-repeating) segment in the back half that isn't the chorus
-    // is most likely a bridge.
+    if (precorusClusters.has(c)) return 'precoro';
+    // Puente: segmento único en la segunda mitad, no coro, no pre-coro.
     if (counts[c] === 1 && chorusCluster >= 0 && i >= Math.floor(N * 0.5)) return 'puente';
     return 'verso';
   });
