@@ -170,6 +170,24 @@ function getUserDataDbPath() {
 function getLibraryDbPath() {
   return path.join(getAudioLibraryRoot(), LIBRARY_DB_FILE);
 }
+
+// Detecta "copias en conflicto" que OneDrive crea cuando dos máquinas editan la
+// BD a la vez estando offline. Sus nombres varían:
+//   canciones_app-DESKTOP-ABC.json
+//   canciones_app (PC's conflicted copy 2024-01-15).json
+//   canciones_app-Copia.json
+// Patrón: empieza por "canciones_app", termina en ".json", pero NO es el
+// archivo principal. Detectarlas evita perder datos en silencio.
+function listDbConflicts() {
+  const root = getAudioLibraryRoot();
+  let files;
+  try { files = fs.readdirSync(root); } catch (_) { return []; }
+  return files.filter(f =>
+    /^canciones_app.+\.json$/i.test(f) &&
+    f !== LIBRARY_DB_FILE &&
+    !f.endsWith('.livepads-tmp')
+  );
+}
 // Indica si una ruta relativa (ej. "Sequences/foo.mp3") cae en una
 // subcarpeta que debe servirse desde la carpeta custom (si está configurada)
 // o desde userData (si no).
@@ -701,6 +719,56 @@ ipcMain.handle('load-gi-setlist', async () => {
     raw = readJsonSafe(getUserDataDbPath());
   }
   return raw ? rewritePaths(raw) : null;
+});
+
+// ¿Hay copias en conflicto de OneDrive junto a la BD? La UI lo consulta al
+// cargar la librería para ofrecer fusionarlas.
+ipcMain.handle('library-conflicts-check', async () => {
+  const conflicts = listDbConflicts();
+  return { count: conflicts.length, conflicts };
+});
+
+// Fusiona las copias en conflicto dentro de la BD principal SIN perder datos:
+//  · canciones que solo están en una copia → se añaden
+//  · canciones que están en ambas (mismo id) → se rellenan los slots de audio
+//    faltantes desde la copia (no se pisa lo que ya tiene la principal)
+// Las copias originales NO se borran: se mueven a "_conflictos_resueltos/".
+ipcMain.handle('library-conflicts-resolve', async () => {
+  const root = getAudioLibraryRoot();
+  const conflicts = listDbConflicts();
+  if (!conflicts.length) return { resolved: 0, addedSongs: 0, filledSlots: 0 };
+
+  const mainData = readJsonSafe(getLibraryDbPath()) || { data: { songs: [] } };
+  const primary = (mainData.data && Array.isArray(mainData.data.songs)) ? mainData.data.songs : [];
+  const byId = new Map(primary.filter(s => s && s.id).map(s => [s.id, s]));
+
+  let addedSongs = 0, filledSlots = 0;
+  for (const cf of conflicts) {
+    const cdata = readJsonSafe(path.join(root, cf));
+    const songs = (cdata && cdata.data && Array.isArray(cdata.data.songs)) ? cdata.data.songs : [];
+    for (const s of songs) {
+      if (!s || !s.id) continue;
+      const existing = byId.get(s.id);
+      if (!existing) { primary.push(s); byId.set(s.id, s); addedSongs++; continue; }
+      const ea = existing.audio || (existing.audio = {});
+      const sa = s.audio || {};
+      for (const slot of ['sequence', 'original']) {
+        if (!ea[slot] && sa[slot]) { ea[slot] = sa[slot]; filledSlots++; }
+      }
+    }
+  }
+
+  // Persiste la BD fusionada de forma atómica ANTES de mover las copias.
+  writeFileAtomic(getLibraryDbPath(), JSON.stringify({ data: { songs: primary } }, null, 2));
+
+  // Aparta las copias resueltas (no las borra — red de seguridad).
+  const backupDir = path.join(root, '_conflictos_resueltos');
+  try { fs.mkdirSync(backupDir, { recursive: true }); } catch (_) {}
+  for (const cf of conflicts) {
+    try { fs.renameSync(path.join(root, cf), path.join(backupDir, cf)); } catch (_) {}
+  }
+
+  return { resolved: conflicts.length, addedSongs, filledSlots, songs: primary.length };
 });
 
 // Reuse one connected MongoClient across syncs (it keeps its own connection
