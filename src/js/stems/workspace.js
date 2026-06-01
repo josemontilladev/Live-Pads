@@ -402,22 +402,20 @@ const SHELL_HTML = `
           <label>TONALIDAD</label>
           <select id="stems-key">
             <option value="">—</option>
-            <optgroup label="Mayores">
-              <option value="C">C</option><option value="C#">C#</option>
-              <option value="D">D</option><option value="D#">D#</option>
-              <option value="E">E</option><option value="F">F</option>
-              <option value="F#">F#</option><option value="G">G</option>
-              <option value="G#">G#</option><option value="A">A</option>
-              <option value="A#">A#</option><option value="B">B</option>
-            </optgroup>
-            <optgroup label="Menores">
-              <option value="Am">Am</option><option value="A#m">A#m</option>
-              <option value="Bm">Bm</option><option value="Cm">Cm</option>
-              <option value="C#m">C#m</option><option value="Dm">Dm</option>
-              <option value="D#m">D#m</option><option value="Em">Em</option>
-              <option value="Fm">Fm</option><option value="F#m">F#m</option>
-              <option value="Gm">Gm</option><option value="G#m">G#m</option>
-            </optgroup>
+            <option value="" disabled>── Mayores ──</option>
+            <option value="C">C</option><option value="C#">C#</option>
+            <option value="D">D</option><option value="D#">D#</option>
+            <option value="E">E</option><option value="F">F</option>
+            <option value="F#">F#</option><option value="G">G</option>
+            <option value="G#">G#</option><option value="A">A</option>
+            <option value="A#">A#</option><option value="B">B</option>
+            <option value="" disabled>── Menores ──</option>
+            <option value="Am">Am</option><option value="A#m">A#m</option>
+            <option value="Bm">Bm</option><option value="Cm">Cm</option>
+            <option value="C#m">C#m</option><option value="Dm">Dm</option>
+            <option value="D#m">D#m</option><option value="Em">Em</option>
+            <option value="Fm">Fm</option><option value="F#m">F#m</option>
+            <option value="Gm">Gm</option><option value="G#m">G#m</option>
           </select>
         </div>
         <!-- Grupo de tono master — shift de ±12 semitonos aplicado a TODAS las
@@ -1029,7 +1027,19 @@ function wireArrangeEvents(root) {
   const projDropdown = root.querySelector('#stems-proj-dropdown');
   projToggle.onclick = (e) => {
     e.stopPropagation();
-    projDropdown.hidden = !projDropdown.hidden;
+    const willOpen = projDropdown.hidden;
+    projDropdown.hidden = !willOpen;
+    if (willOpen) {
+      // Posiciona en coords absolutas porque el dropdown ahora es
+      // position:fixed (escape del overflow:hidden del .stems-deck).
+      const r = projToggle.getBoundingClientRect();
+      projDropdown.style.left = `${r.left}px`;
+      projDropdown.style.top  = `${r.bottom + 4}px`;
+      requestAnimationFrame(() => {
+        const dr = projDropdown.getBoundingClientRect();
+        if (dr.right > window.innerWidth) projDropdown.style.left = `${window.innerWidth - dr.width - 8}px`;
+      });
+    }
   };
   document.addEventListener('mousedown', (e) => {
     if (!projDropdown.hidden && !projDropdown.contains(e.target) && e.target !== projToggle) {
@@ -2806,12 +2816,10 @@ function openMarkerMenu(x, y, markerId) {
     <div class="smc-key-row">
       <select class="smc-key-select" data-cmd="set-key">
         <option value="">— (usa tonalidad del proyecto)</option>
-        <optgroup label="Mayores">
-          ${['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
-        </optgroup>
-        <optgroup label="Menores">
-          ${['Am','A#m','Bm','Cm','C#m','Dm','D#m','Em','Fm','F#m','Gm','G#m'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
-        </optgroup>
+        <option value="" disabled>── Mayores ──</option>
+        ${['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
+        <option value="" disabled>── Menores ──</option>
+        ${['Am','A#m','Bm','Cm','C#m','Dm','D#m','Em','Fm','F#m','Gm','G#m'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
       </select>
     </div>
     <div class="smc-sep"></div>
