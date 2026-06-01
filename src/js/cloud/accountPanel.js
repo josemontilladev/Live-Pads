@@ -507,8 +507,14 @@ async function onClick(e) {
           return refreshLibs();
         }
         case 'push-songs': {
-          btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Subiendo…';
+          btn.disabled = true; const lbl = btn.textContent;
           try {
+            // Cuenta local visible para que el usuario sepa el tamaño del lote
+            // antes de que termine (push es una sola request bulk, así que no
+            // hay "progreso real", pero el conteo da contexto).
+            const { getSongs } = await import('../state/store.js');
+            const total = getSongs().length;
+            btn.textContent = `⟳ Subiendo ${total} canciones…`;
             const { pushLibrarySongs } = await import('./songSync.js');
             const r = await pushLibrarySongs();
             msg(`Subidas ${r.created} nuevas, actualizadas ${r.updated}${r.linked ? `, vinculadas ${r.linked} (ya existían)` : ''}.`, 'ok');
@@ -516,8 +522,9 @@ async function onClick(e) {
           return;
         }
         case 'pull-songs': {
-          btn.disabled = true; const lbl = btn.textContent; btn.textContent = 'Bajando…';
+          btn.disabled = true; const lbl = btn.textContent;
           try {
+            btn.textContent = '⟳ Bajando canciones…';
             const { pullLibrarySongs } = await import('./songSync.js');
             const r = await pullLibrarySongs();
             msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}.`, 'ok');

@@ -661,39 +661,41 @@ input.pan-slider {
 .action-btn.btn-more:hover { color: var(--text, #e8eaf0); }
 .action-btn.btn-more[aria-expanded="true"] { color: var(--blue); }
 
-/* Popover anclado al botón "...": vive en <body> (posicionado fixed) para
-   evitar clipping por overflow:hidden de la lista. */
+/* Popover anclado al botón "..." — mismo lenguaje visual sutil que
+   .orig-src-menu (el desplegable de "subir audio / desde YouTube"). */
 .card-more-menu {
   position: fixed;
-  z-index: 1000;
-  min-width: 160px;
+  z-index: 9500;
+  min-width: 152px;
   padding: 4px;
-  background: var(--bg-elevated, #1a1d24);
-  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  animation: orig-src-in .1s ease-out;
 }
 .card-more-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
-  background: transparent;
+  padding: 7px 10px;
+  background: none;
   border: none;
-  color: var(--text, #e8eaf0);
-  font: inherit;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
   border-radius: 6px;
 }
-.card-more-item:hover { background: rgba(255,255,255,0.06); }
-.card-more-item.danger { color: #ff7a7a; }
-.card-more-item.danger:hover { background: rgba(255,71,71,0.10); }
-.card-more-item .cmm-ico { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; }
-.card-more-item .cmm-ico svg { width: 14px; height: 14px; }
+.card-more-item:hover { background: var(--bg-hover); color: var(--text); }
+.card-more-item.danger { color: var(--text-muted); }
+.card-more-item.danger:hover { background: var(--bg-hover); color: #ff7a7a; }
+.card-more-item .cmm-ico { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; opacity: 0.8; }
+.card-more-item .cmm-ico svg { width: 13px; height: 13px; }
 
 /* Búsqueda dentro del Servicio (pestaña Servicio) */
 .svc-search-row { position: relative; margin: 8px 0 6px; }

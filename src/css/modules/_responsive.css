@@ -217,14 +217,8 @@
     font-size: 11px;
     background-position: 10px center;
   }
-  .gi-filters {
-    margin-bottom: 8px !important;
-    gap: 4px !important;
-  }
-  .gi-filter-btn {
-    padding: 4px;
-    font-size: 10px;
-  }
+  /* (.gi-filters y .gi-filter-btn eran chips antiguos — el filtro ahora
+      es un menú dropdown, así que estas reglas no aplicaban a nada.) */
   .gi-song-item {
     padding: 8px 10px;
     margin-bottom: 6px;
