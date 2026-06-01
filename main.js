@@ -76,6 +76,17 @@ function initializeUserData() {
   }
 }
 
+// Escritura atómica: escribe a un .tmp y renombra sobre el destino. Evita que
+// un corte (cierre/crash) o que OneDrive lea a mitad de la escritura dejen el
+// JSON truncado/corrupto — crítico ahora que el documento de la librería vive
+// en una carpeta sincronizada. El rename es atómico en el mismo volumen.
+function writeFileAtomic(filePath, contentString) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmp = filePath + '.livepads-tmp';
+  fs.writeFileSync(tmp, contentString, 'utf-8');
+  fs.renameSync(tmp, filePath);
+}
+
 // Mirror dynamic updates back into the project's defaults folder in development
 function saveToBoth(relativeSubPath, contentString) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
@@ -144,6 +155,19 @@ function getAudioLibraryRoot() {
   const custom = readAudioLibraryConfig();
   if (custom && isAudioLibraryAvailable()) return custom;
   return app.getPath('userData');
+}
+
+// El "documento" de la librería (canciones + sus referencias de audio) vive
+// JUNTO a los audios en la carpeta custom (OneDrive) cuando está configurada y
+// disponible, para que TODO —archivos y referencias— sincronice en una sola
+// carpeta entre máquinas. Sin carpeta custom (o no disponible), sigue en
+// userData: comportamiento previo, retrocompatible.
+const LIBRARY_DB_FILE = 'canciones_app.json';
+function getUserDataDbPath() {
+  return path.join(app.getPath('userData'), LIBRARY_DB_FILE);
+}
+function getLibraryDbPath() {
+  return path.join(getAudioLibraryRoot(), LIBRARY_DB_FILE);
 }
 // Indica si una ruta relativa (ej. "Sequences/foo.mp3") cae en una
 // subcarpeta que debe servirse desde la carpeta custom (si está configurada)
@@ -512,6 +536,21 @@ ipcMain.handle('audio-library-migrate', async (_e, { fromPath, toPath } = {}) =>
       }
     }
   }
+  // Copia también el documento de la librería (canciones + referencias de
+  // audio) para que la carpeta nueva tenga la BD completa, no solo los audios.
+  // No pisa una BD ya existente en destino (podría ser la sincronizada de la
+  // otra PC).
+  try {
+    const srcDb = path.join(fromPath, LIBRARY_DB_FILE);
+    const dstDb = path.join(toPath, LIBRARY_DB_FILE);
+    if (fs.existsSync(srcDb) && !fs.existsSync(dstDb)) {
+      const tmp = dstDb + '.livepads-tmp';
+      fs.copyFileSync(srcDb, tmp);
+      fs.renameSync(tmp, dstDb);
+    }
+  } catch (e) {
+    console.warn('No se pudo migrar la BD de la librería:', e.message);
+  }
   return { copied, skipped, failed };
 });
 
@@ -590,13 +629,22 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
 
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {
   const data = { data: { songs } };
-  saveToBoth('canciones_app.json', JSON.stringify(data, null, 2));
+  // La BD se escribe en la carpeta de la librería (OneDrive si está
+  // configurada) de forma atómica. Ya NO se espeja a defaults/ en dev: eso
+  // ensuciaba git y, además, defaults es solo la semilla de primer arranque.
+  writeFileAtomic(getLibraryDbPath(), JSON.stringify(data, null, 2));
   return true;
 });
 
 ipcMain.handle('load-gi-setlist', async () => {
-  const fp = path.join(app.getPath('userData'), 'canciones_app.json');
-  const raw = readJsonSafe(fp);
+  const dbPath = getLibraryDbPath();
+  let raw = readJsonSafe(dbPath);
+  // Si la BD vive en OneDrive pero aún no está ahí (recién configurada la
+  // carpeta, o la otra PC todavía no la sincronizó), cae a la copia de userData
+  // para no arrancar con la librería vacía.
+  if (!raw && dbPath !== getUserDataDbPath()) {
+    raw = readJsonSafe(getUserDataDbPath());
+  }
   return raw ? rewritePaths(raw) : null;
 });
 
