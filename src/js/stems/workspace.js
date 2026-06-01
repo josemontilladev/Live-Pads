@@ -19,6 +19,13 @@ import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget } from '../state/store.js';
+import { confirmDialogAsync } from '../ui/dialog.js';
+
+// Toast helper local — el módulo emite muchísimos avisos al usuario; antes
+// usaba alert() nativo que bloquea la UI y rompe la estética. Pasa todo
+// por el toast global; kind por defecto 'error' porque la mayoría son
+// "algo no se pudo hacer".
+const toast = (msg, kind = 'error') => window.showToast?.(msg, kind);
 
 // ── Constants ──────────────────────────────────────────────────────
 let PX_PER_SEC        = 40;     // horizontal scale of the timeline (zoomable)
@@ -696,18 +703,19 @@ function wireTopbarEvents(root) {
 function onDetectBpm() {
   const stemTrack = engine.getTracks().find(t => t.kind === 'stem');
   if (!stemTrack) {
-    alert('Importa primero un stem para detectar el BPM.');
+    toast('Importa primero un stem para detectar el BPM.', 'warning');
     return;
   }
   const btn = document.getElementById('stems-bpm-detect');
   if (btn) { btn.disabled = true; btn.textContent = 'Analizando…'; }
-  // Defer to next frame so the UI updates before we crunch numbers.
-  requestAnimationFrame(() => {
+  // Dos RAFs para que la pintura del texto ocurra ANTES del crunch (un solo
+  // RAF a veces se intercala con el trabajo y el flash sigue siendo visible).
+  requestAnimationFrame(() => requestAnimationFrame(async () => {
     try {
       const buf = engine.getTrackBuffer(stemTrack.id);
       const result = detectTempoMeter(buf);
       if (!result || !result.bpm) {
-        alert('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).');
+        toast('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).', 'warning');
         return;
       }
       const detected = result.bpm;
@@ -715,10 +723,15 @@ function onDetectBpm() {
       const detectedFloat = result.bpmFloat || detected;
       const oldBpm = bpm, oldBpmFloat = bpmFloat, oldSig = `${beatsPerBar}/${beatValue}`;
       if (detected === bpm && detectedSig === oldSig) {
-        alert(`La pista ya coincide con lo actual (${detected} BPM, ${oldSig}).`);
+        toast(`Ya coincide con lo actual (${detected} BPM, ${oldSig}).`, 'info');
         return;
       }
-      if (!confirm(`Detectado: ${detected} BPM · compás ${detectedSig}.\n¿Aplicarlo? (actual: ${oldBpm} BPM · ${oldSig})`)) return;
+      const ok = await confirmDialogAsync({
+        title: 'Aplicar BPM detectado',
+        message: `Detectado: ${detected} BPM · compás ${detectedSig}. ¿Aplicarlo?\nActual: ${oldBpm} BPM · ${oldSig}.`,
+        confirmLabel: 'Aplicar', danger: false,
+      });
+      if (!ok) return;
 
       const apply = (b, sig, bFloat) => {
         bpm = b;
@@ -742,14 +755,14 @@ function onDetectBpm() {
       scheduleSave();
     } catch (e) {
       console.error('BPM detection failed:', e);
-      alert('Error detectando BPM: ' + (e.message || e));
+      toast('Error detectando BPM: ' + (e.message || e));
     } finally {
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg> Detectar`;
       }
     }
-  });
+  }));
 }
 
 function clampPx(v) { return Math.max(PX_PER_SEC_MIN, Math.min(PX_PER_SEC_MAX, v)); }
@@ -882,7 +895,12 @@ function wireArrangeEvents(root) {
     projDropdown.hidden = true;
     if (cmd === 'new') {
       if (engine.getTracks().length === 0 && markers.length === 0) return;
-      if (!confirm('¿Vaciar el proyecto actual? Esta acción no se puede deshacer.')) return;
+      const ok = await confirmDialogAsync({
+        title: 'Vaciar proyecto',
+        message: '¿Vaciar el proyecto actual? Esta acción no se puede deshacer.',
+        confirmLabel: 'Vaciar', danger: true,
+      });
+      if (!ok) return;
       await resetProject();
     } else if (cmd === 'save-as') {
       openSaveAsModal();
@@ -1001,7 +1019,7 @@ async function importFiles(fileList) {
       appendTrackRow(id, savedPath);
     } catch (err) {
       console.error('Failed to import', file.name, err);
-      alert(`No se pudo importar "${file.name}": ${err.message || err}`);
+      toast(`No se pudo importar "${file.name}": ${err.message || err}`);
     }
     done++;
     updateImportOverlay(done, files.length, '');
@@ -1405,8 +1423,8 @@ function buildStripHtml(track) {
     </div>
 
     <footer class="stems-strip-foot">
-      <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar (M)">M</button>
-      <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo (S)">S</button>
+      <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
+      <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
     </footer>
   `;
 }
@@ -1425,7 +1443,12 @@ function wireStrip(root, id) {
   });
 
   root.querySelector('[data-action="remove"]').onclick = async () => {
-    if (!confirm('¿Eliminar esta pista del proyecto?')) return;
+    const ok = await confirmDialogAsync({
+      title: 'Eliminar pista',
+      message: '¿Eliminar esta pista del proyecto?',
+      confirmLabel: 'Eliminar', danger: true,
+    });
+    if (!ok) return;
     await removeTrackById(id);
   };
 
@@ -1574,7 +1597,7 @@ let lastSeparation = null;
 async function onSeparateTrack(id, mode = '2stem') {
   if (separating) return;
   if (!window.electronAPI?.stemsSeparate) {
-    alert('La separación de stems no está disponible en esta versión.');
+    toast('La separación de stems no está disponible en esta versión.', 'warning');
     return;
   }
   const track = engine.getTracks().find(t => t.id === id);
@@ -1583,6 +1606,22 @@ async function onSeparateTrack(id, mode = '2stem') {
 
   const cacheKey = `${id}:${mode}:${buffer.length}`;
   const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
+
+  // Confirmación: el proceso es pesado (1-2 min en un PC modesto), consume
+  // CPU/RAM y bloquea otras separaciones. Mejor avisar antes que dejar al
+  // usuario preguntándose qué pasa.
+  const modeLabel = mode === '2stem' ? 'Voz / Instrumental'
+                  : mode === '4stem' ? 'Voz · Batería · Bajo · Otros'
+                  : 'Solo "Otros"';
+  const reuseCached = lastSeparation && lastSeparation.cacheKey === cacheKey;
+  if (!reuseCached) {
+    const ok = await confirmDialogAsync({
+      title: 'Separar pista con IA',
+      message: `"${baseName}" → ${modeLabel}.\nPuede tardar 1-2 minutos y consume CPU. Mientras se procesa, no podrás separar otra pista.`,
+      confirmLabel: 'Separar', danger: false,
+    });
+    if (!ok) return;
+  }
 
   separating = true;
   const toast = showSepToast(track.name);
@@ -2292,9 +2331,9 @@ function openChangeCueMenu(x, y, markerId) {
 // markers by hand as before.
 async function onDetectSections() {
   const stem = engine.getTracks().find(t => t.kind === 'stem');
-  if (!stem) { alert('Sube una canción primero para detectar sus secciones.'); return; }
+  if (!stem) { toast('Sube una canción primero para detectar sus secciones.', 'warning'); return; }
   const buf = engine.getTrackBuffer(stem.id);
-  if (!buf) { alert('No se pudo leer el audio de la canción.'); return; }
+  if (!buf) { toast('No se pudo leer el audio de la canción.'); return; }
 
   const btn = document.getElementById('stems-detect-sections');
   const prevHtml = btn ? btn.innerHTML : '';
@@ -2311,13 +2350,17 @@ async function onDetectSections() {
   }
 
   if (!sections.length) {
-    alert('No se detectaron cambios de sección claros. Puedes añadir los marcadores a mano.');
+    toast('No se detectaron cambios de sección claros. Puedes añadir los marcadores a mano.', 'warning');
     return;
   }
 
-  if (markers.length &&
-      !confirm(`Se detectaron ${sections.length} secciones. Esto reemplazará los marcadores actuales por los detectados. ¿Continuar?`)) {
-    return;
+  if (markers.length) {
+    const ok = await confirmDialogAsync({
+      title: 'Reemplazar marcadores',
+      message: `Se detectaron ${sections.length} secciones. Esto reemplazará los marcadores actuales por los detectados. ¿Continuar?`,
+      confirmLabel: 'Reemplazar', danger: true,
+    });
+    if (!ok) return;
   }
 
   // Each detected section carries a best-guess cue (Intro / Verso / Coro);
@@ -2345,7 +2388,12 @@ async function onDetectSections() {
 async function onAddClickTrack() {
   const existingClickId = engine.findTrackByKind('click');
   if (existingClickId) {
-    if (!confirm('Ya existe una pista de click. ¿Regenerarla con el BPM actual?')) return;
+    const ok = await confirmDialogAsync({
+      title: 'Regenerar click',
+      message: 'Ya existe una pista de click. ¿Regenerarla con el BPM actual?',
+      confirmLabel: 'Regenerar', danger: false,
+    });
+    if (!ok) return;
     await regenerateClickTrack(existingClickId);
     return;
   }
@@ -2433,7 +2481,7 @@ async function runGuideSync() {
 
 async function onRebuildGuide({ silent = false } = {}) {
   if (markers.length === 0) {
-    if (!silent) alert('Añade al menos un marcador antes de generar la guía.');
+    if (!silent) toast('Añade al menos un marcador antes de generar la guía.', 'warning');
     return;
   }
   try {
@@ -2463,7 +2511,7 @@ async function onRebuildGuide({ silent = false } = {}) {
     scheduleSave();
   } catch (e) {
     console.error('Guide build failed', e);
-    if (!silent) alert('No se pudo generar la guía: ' + (e.message || e));
+    if (!silent) toast('No se pudo generar la guía: ' + (e.message || e));
   }
 }
 
@@ -2751,7 +2799,7 @@ function openSaveAsModal() {
       flashSavedPill();
       closeStemsModal();
     } catch (e) {
-      alert('Error: ' + (e.message || e));
+      toast('Error: ' + (e.message || e));
     }
   };
   input.addEventListener('keydown', (e) => {
@@ -2805,14 +2853,20 @@ async function openProjectsModal() {
         const state = await window.electronAPI.stemsLoadProject(slug);
         if (state) await rehydrate(state);
         closeStemsModal();
-      } catch (e) { alert('No se pudo abrir: ' + (e.message || e)); }
+      } catch (e) { toast('No se pudo abrir: ' + (e.message || e)); }
     };
     row.querySelector('[data-act="delete"]').onclick = async () => {
-      if (!confirm(`¿Eliminar el proyecto "${row.querySelector('.stems-modal-row-name').textContent}"? Esto borra sus stems del disco.`)) return;
+      const projName = row.querySelector('.stems-modal-row-name').textContent;
+      const ok = await confirmDialogAsync({
+        title: 'Eliminar proyecto',
+        message: `¿Eliminar el proyecto "${projName}"? Esto borra sus stems del disco.`,
+        confirmLabel: 'Eliminar', danger: true,
+      });
+      if (!ok) return;
       try {
         await window.electronAPI.stemsDeleteProject(slug);
         row.remove();
-      } catch (e) { alert('No se pudo eliminar: ' + (e.message || e)); }
+      } catch (e) { toast('No se pudo eliminar: ' + (e.message || e)); }
     };
   });
 }
