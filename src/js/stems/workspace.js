@@ -91,11 +91,54 @@ let bpmFloat = 120;       // precise tempo used for click, alignment + grid so
                           // nothing drifts across a long track
 let beatsPerBar = 4;
 let beatValue = 4;
-// Clave musical del proyecto (ej. "C", "Am", "F#m"). Si está definida,
-// las opciones "diatónicas" del menú de referencia armónica eligen el
-// intervalo correcto (3ra mayor en clave mayor, menor en clave menor).
-// `null` = no fijada → el menú armónico solo ofrece intervalos fijos.
+// Tonalidad ORIGINAL del audio cargado (ej. "C", "Am", "F#m"). El selector
+// del topbar muestra la tonalidad EFECTIVA = projectKey transpuesta por
+// currentStemsPitch — si el usuario baja 1 semitono al transpose, ve la
+// tonalidad efectiva en pantalla (C# en vez de D). Las armonías diatónicas
+// se calculan contra el modo (mayor/menor), que no cambia con el shift,
+// así que el cálculo es robusto en ambos sentidos.
 let projectKey = null;
+
+// Pitch-class (semitone) de cada nota. Solo sostenidos en la UI; al
+// transponer hacia arriba/abajo usamos el equivalente enarmónico con #.
+const PITCH_CLASSES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+// Mapa de aliases enarmónicos para aceptar entradas con bemoles si en el
+// futuro habilitamos esas opciones (hoy el select solo tiene sostenidos).
+const FLAT_TO_SHARP = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+
+function keyToParts(key) {
+  if (!key) return null;
+  const isMinor = /m$/.test(key);
+  let root = isMinor ? key.slice(0, -1) : key;
+  if (FLAT_TO_SHARP[root]) root = FLAT_TO_SHARP[root];
+  const idx = PITCH_CLASSES.indexOf(root);
+  return idx >= 0 ? { semi: idx, minor: isMinor } : null;
+}
+function partsToKey(semi, isMinor) {
+  const r = ((semi % 12) + 12) % 12;
+  return PITCH_CLASSES[r] + (isMinor ? 'm' : '');
+}
+function transposeKey(key, semitones) {
+  const p = keyToParts(key);
+  if (!p) return null;
+  return partsToKey(p.semi + semitones, p.minor);
+}
+
+// La tonalidad efectiva es lo que el audio realmente está sonando AHORA:
+// la original transpuesta por el shift master actual.
+function getEffectiveKey() {
+  if (!projectKey) return null;
+  return transposeKey(projectKey, currentStemsPitch);
+}
+
+// Actualiza el select para mostrar la tonalidad efectiva sin disparar
+// el onchange (que reinterpretaría el valor como original).
+function paintEffectiveKeyUI() {
+  const sel = document.getElementById('stems-key');
+  if (!sel) return;
+  const eff = getEffectiveKey();
+  sel.value = eff || '';
+}
 // Which beats of the bar get the accent click. Length tracks beatsPerBar;
 // default accents beat 1 only. User-configurable via the accent chips.
 let accentPattern = [true, false, false, false];
@@ -328,11 +371,13 @@ const SHELL_HTML = `
             <option value="12/8">12/8</option>
           </select>
         </div>
-        <!-- Clave de la canción — habilita las opciones "diatónicas" en el
-             menú de referencia armónica (3ra, 5ta) sin tener que adivinar
-             si la canción está en mayor o menor. -->
-        <div class="stems-field stems-field--select" title="Clave de la canción (habilita armonías diatónicas)">
-          <label>CLAVE</label>
+        <!-- Tonalidad de la canción — habilita las opciones "diatónicas" en
+             el menú de referencia armónica (3ra, 5ta) sin tener que adivinar
+             si la canción está en mayor o menor. El valor visible refleja
+             la tonalidad EFECTIVA (incluyendo el shift de TONO), no la
+             original; si subes/bajas semitonos, el selector se actualiza. -->
+        <div class="stems-field stems-field--select" title="Tonalidad de la canción (habilita armonías diatónicas)">
+          <label>TONALIDAD</label>
           <select id="stems-key">
             <option value="">—</option>
             <optgroup label="Mayores">
@@ -994,16 +1039,22 @@ function wireArrangeEvents(root) {
     await runExport();
   };
 
-  // Selector de clave musical del proyecto.
+  // Selector de tonalidad del proyecto. El usuario PICKEA la tonalidad
+  // efectiva (lo que oye); internamente guardamos la "original" para que
+  // las armonías diatónicas y el display sigan coherentes cuando se
+  // transponga con TONO.
   const keySel = root.querySelector('#stems-key');
   if (keySel) {
-    keySel.value = projectKey || '';
+    paintEffectiveKeyUI();
     keySel.onchange = () => {
+      const effective = keySel.value || null;
       const old = projectKey;
-      projectKey = keySel.value || null;
-      pushHistory('Cambiar clave',
-        () => { projectKey = old;  keySel.value = old || ''; scheduleSave(); },
-        () => { projectKey = keySel.value || null; scheduleSave(); }
+      // Si transpose está en +N, lo que el usuario picó (efectiva) ES
+      // (original + N). Para guardar original = picked - N.
+      projectKey = effective ? transposeKey(effective, -currentStemsPitch) : null;
+      pushHistory('Cambiar tonalidad',
+        () => { projectKey = old; paintEffectiveKeyUI(); scheduleSave(); },
+        () => { projectKey = effective ? transposeKey(effective, -currentStemsPitch) : null; paintEffectiveKeyUI(); scheduleSave(); }
       );
       scheduleSave();
     };
@@ -1901,6 +1952,7 @@ async function setStemsPitchShift(semitones) {
     // se aplicará al import (ver appendTrackRow más abajo).
     currentStemsPitch = semitones;
     paintStemsPitchUI();
+    paintEffectiveKeyUI();
     return;
   }
 
@@ -1924,6 +1976,7 @@ async function setStemsPitchShift(semitones) {
     }
     currentStemsPitch = 0;
     paintStemsPitchUI();
+    paintEffectiveKeyUI();
     refreshTimelineWidth();
     redrawAllWaveforms();
     if (wasPlaying) engine.seek(curSec);
@@ -1951,6 +2004,7 @@ async function setStemsPitchShift(semitones) {
     }
     currentStemsPitch = semitones;
     paintStemsPitchUI();
+    paintEffectiveKeyUI();
     toastUi.done(`✓ Tono ${sign}${semitones} st aplicado`);
     if (wasPlaying) engine.seek(curSec);
   } catch (err) {
@@ -1975,18 +2029,18 @@ async function openHarmonyMenu(anchor, id) {
   menu.id = 'stems-harmony-menu';
   menu.className = 'stems-ctx-menu';
 
-  // Sección diatónica — solo si hay clave fijada en el proyecto. Cada
-  // opción precomputa los semitonos finales (vs. los presets fijos que
-  // los traen hardcodeados). El nombre de la pista resultante incluye la
-  // clave entre paréntesis para que el músico sepa contra qué se generó.
-  const hasKey = !!projectKey;
+  // Sección diatónica — solo si hay tonalidad fijada en el proyecto. Usa
+  // la tonalidad EFECTIVA (incluye el shift master) para que el label y
+  // los semitonos reflejen lo que el usuario está oyendo realmente.
+  const effKey = getEffectiveKey();
+  const hasKey = !!effKey;
   const modeNote = hasKey
-    ? `Clave: ${projectKey} (${isMinorKey(projectKey) ? 'menor' : 'mayor'})`
-    : 'Fija una clave arriba para activar opciones diatónicas';
+    ? `Tonalidad efectiva: ${effKey} (${isMinorKey(effKey) ? 'menor' : 'mayor'})`
+    : 'Fija una tonalidad arriba para activar opciones diatónicas';
   const diatonicHtml = hasKey ? `
-    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:1px;">DIATÓNICAS (${projectKey})</div>
+    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:1px;">DIATÓNICAS (${effKey})</div>
     ${HARMONY_DIATONIC.map((d, idx) => {
-      const semis = resolveDiatonic(d, projectKey);
+      const semis = resolveDiatonic(d, effKey);
       return `<button data-dia="${idx}" data-st="${semis}">${d.label} (${semis > 0 ? '+' : ''}${semis} st)</button>`;
     }).join('')}
     <div class="stems-ctx-sep" style="height:1px;background:var(--border);margin:4px 6px;"></div>
@@ -2019,7 +2073,7 @@ async function openHarmonyMenu(anchor, id) {
       // Si es preset diatónico, el nombre incluye la clave para trazabilidad.
       if (b.dataset.dia != null) {
         const d = HARMONY_DIATONIC[+b.dataset.dia];
-        runHarmonyShift(id, semis, `${d.name} en ${projectKey}`);
+        runHarmonyShift(id, semis, `${d.name} en ${effKey}`);
       } else {
         const preset = HARMONY_PRESETS.find(p => p.semitones === semis);
         runHarmonyShift(id, semis, preset?.name || `${semis}st`);
@@ -3238,10 +3292,13 @@ async function rehydrate(state) {
   }
   if (typeof state.beatsPerBar === 'number') beatsPerBar = state.beatsPerBar;
   if (typeof state.beatValue === 'number') beatValue = state.beatValue;
-  // Clave del proyecto — string ("C", "Am", etc.) o null si no se fijó.
+  // Tonalidad del proyecto — string ("C", "Am", etc.) o null si no se fijó.
+  // El display refleja la efectiva (= original transpuesta por el shift
+  // master vigente). En este punto currentStemsPitch ya está en 0 porque
+  // resetProject() corre antes de rehydrate; igual llamamos al pintor para
+  // mantener la invariante "select = effective".
   projectKey = (typeof state.projectKey === 'string' && state.projectKey) ? state.projectKey : null;
-  const keySel = document.getElementById('stems-key');
-  if (keySel) keySel.value = projectKey || '';
+  paintEffectiveKeyUI();
   const sigSel = document.getElementById('stems-sig');
   if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
   // Restore the accent pattern (fall back to a sane default if absent/stale).
@@ -3461,8 +3518,7 @@ async function resetProject() {
   currentStemsPitch = 0;
   paintStemsPitchUI();
   projectKey = null;
-  const keySel = document.getElementById('stems-key');
-  if (keySel) keySel.value = '';
+  paintEffectiveKeyUI();
   markers = [];
   nextTrackId = 1;
   nextMarkerId = 1;
