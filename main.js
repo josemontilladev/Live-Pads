@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const { MongoClient } = require('mongodb');
 const dns = require('dns');
@@ -345,6 +346,38 @@ function readJsonSafe(fp, fallback = null) {
 // Cap any single audio-file read to avoid loading multi-GB files into memory.
 const MAX_AUDIO_BYTES = 500 * 1024 * 1024; // 500 MB
 
+// Hash corto del CONTENIDO de un archivo (en bloques de 1 MB para no cargar
+// audios grandes enteros en memoria). Se usa para nombrar los audios asignados:
+// mismo contenido → mismo nombre (dedup natural entre máquinas, sin conflicto en
+// OneDrive); archivos distintos con igual nombre → hashes distintos (sin
+// colisión, no se pisan al sincronizar entre las 2 PCs).
+function hashFileShort(filePath) {
+  const hash = crypto.createHash('sha256');
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.allocUnsafe(1 << 20);
+    let n;
+    while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
+      hash.update(buf.subarray(0, n));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  return hash.digest('hex').slice(0, 12);
+}
+
+// Construye un nombre de archivo seguro y único por contenido:
+//   <nombre-saneado>__<hash12><.ext>   ej: "intro__a3f9c2d1b0e4.mp3"
+function contentAddressedName(sourcePath) {
+  const ext = path.extname(sourcePath).toLowerCase();
+  const stem = path.basename(sourcePath, path.extname(sourcePath))
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // sin acentos
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')                   // solo chars seguros
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'audio';
+  return `${stem}__${hashFileShort(sourcePath)}${ext}`;
+}
+
 function readAudioFileSafe(filePath) {
   const stat = fs.statSync(filePath);
   if (!stat.isFile()) throw new Error('Not a file: ' + filePath);
@@ -559,10 +592,16 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
     throw new Error('sourcePath inválido');
   }
   const folder = type === 'sequence' ? 'Sequences' : 'Original Tracks';
-  const fileName = path.basename(sourcePath);
+  // Nombre único por contenido para que subir audios desde ambas PCs no se pise
+  // en OneDrive (antes usaba el basename crudo → dos "intro.mp3" distintos se
+  // clobbereaban). Mismo archivo → mismo nombre → dedup natural al sincronizar.
+  const fileName = contentAddressedName(sourcePath);
   const relPath = path.join(folder, fileName);
 
-  copyToBoth(sourcePath, relPath);
+  // Si ya existe (mismo contenido = mismo hash), no recopiar — es el mismo audio.
+  if (!fs.existsSync(path.join(getAudioLibraryRoot(), relPath))) {
+    copyToBoth(sourcePath, relPath);
+  }
 
   return toLivepadsUrl(relPath);
 });
@@ -618,12 +657,28 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   // Localiza el archivo producido (prefijo único) y devuelve su URL livepads://.
   const file = fs.readdirSync(outDir).find((f) => f.startsWith(prefix));
   if (!file) throw new Error('No se encontró el audio descargado.');
-  // Renombra a un nombre legible basado en el título.
-  const safe = String(title || 'YouTube').replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, '').trim().slice(0, 60) || 'YouTube';
-  const ext = path.extname(file);
-  let finalName = `${safe}${ext}`;
-  if (fs.existsSync(path.join(outDir, finalName))) finalName = `${safe}-${Date.now()}${ext}`;
-  try { fs.renameSync(path.join(outDir, file), path.join(outDir, finalName)); } catch (_) { finalName = file; }
+  // Renombra a un nombre legible + hash de contenido, igual que los audios
+  // asignados: determinista entre máquinas (sin Date.now()) y sin colisión al
+  // sincronizar por OneDrive.
+  const downloadedPath = path.join(outDir, file);
+  const ext = path.extname(file).toLowerCase();
+  const stem = String(title || 'YouTube')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'YouTube';
+  let finalName;
+  try {
+    finalName = `${stem}__${hashFileShort(downloadedPath)}${ext}`;
+    const finalPath = path.join(outDir, finalName);
+    if (fs.existsSync(finalPath)) {
+      // Mismo contenido ya presente — descarta la copia recién bajada.
+      try { fs.unlinkSync(downloadedPath); } catch (_) {}
+    } else {
+      fs.renameSync(downloadedPath, finalPath);
+    }
+  } catch (_) {
+    finalName = file; // si algo falla, deja el nombre temporal del descargado
+  }
   return toLivepadsUrl(path.join('Original Tracks', finalName));
 });
 
