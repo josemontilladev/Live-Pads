@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   audioLibraryMigrate: (data)    => ipcRenderer.invoke('audio-library-migrate', data),
   saveGiSetlist: (songs) => ipcRenderer.invoke('save-gi-setlist', songs),
   loadGiSetlist: () => ipcRenderer.invoke('load-gi-setlist'),
+  libraryConflictsCheck: () => ipcRenderer.invoke('library-conflicts-check'),
+  libraryConflictsResolve: () => ipcRenderer.invoke('library-conflicts-resolve'),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
   pushMongoSetlist: (songs) => ipcRenderer.invoke('push-mongo-setlist', songs),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),

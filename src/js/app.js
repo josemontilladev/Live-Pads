@@ -3,7 +3,7 @@ import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
-import { hideDialog } from './ui/dialog.js';
+import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
 import { openPreflight } from './ui/preflight.js';
@@ -1122,7 +1122,7 @@ function onKey(e) {
 // updateFilterCounts -> src/js/ui/genreFilter.js (passing the current songs list)
 const updateFilterCounts = () => updateFilterCountsModule(getSongs());
 
-async function loadGiSetlistFromFile() {
+async function loadGiSetlistFromFile(skipConflictCheck = false) {
   const songs = await loadGiSetlistFromFileModule();
   if (!songs) return;
   // Normaliza una sola vez las letras que llegaron como HTML (canciones
@@ -1138,6 +1138,29 @@ async function loadGiSetlistFromFile() {
   if (changed && window.electronAPI) window.electronAPI.saveGiSetlist(songs);
   updateFilterCounts();
   renderGiList();
+  if (!skipConflictCheck) checkLibraryConflicts();
+}
+
+// Si OneDrive creó copias en conflicto de la BD (editar en 2 PCs a la vez),
+// ofrece fusionarlas en vez de perder datos en silencio.
+async function checkLibraryConflicts() {
+  try {
+    const api = window.electronAPI;
+    if (!api || !api.libraryConflictsCheck) return;
+    const { count, conflicts } = await api.libraryConflictsCheck();
+    if (!count) return;
+    const ok = await confirmDialogAsync({
+      title: 'Copias en conflicto detectadas',
+      message: `OneDrive creó ${count} copia(s) en conflicto de tu librería (pasa si editás en las dos PCs antes de que sincronice):\n\n${conflicts.join('\n')}\n\n¿Fusionarlas ahora? Se agregan las canciones que falten y se completan los audios faltantes — sin pisar lo que ya tenés. Las copias se archivan en "_conflictos_resueltos/" por las dudas.`,
+      confirmLabel: 'Fusionar', danger: false,
+    });
+    if (!ok) return;
+    const r = await api.libraryConflictsResolve();
+    showToast(`✓ Fusionado: +${r.addedSongs} canciones, +${r.filledSlots} audios. ${r.resolved} copia(s) archivada(s).`, 'success');
+    await loadGiSetlistFromFile(true); // recarga ya fusionada, sin re-chequear
+  } catch (e) {
+    console.warn('Chequeo de conflictos falló:', e);
+  }
 }
 
 // Lyrics formatting (formatLyrics, highlightSyntax) -> src/js/ui/lyricsFormat.js
