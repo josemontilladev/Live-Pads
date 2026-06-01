@@ -301,6 +301,18 @@ const SHELL_HTML = `
             <option value="12/8">12/8</option>
           </select>
         </div>
+        <!-- Grupo de tono master — shift de ±12 semitonos aplicado a TODAS las
+             pistas del proyecto sin alterar el tempo. Igual idea que el
+             reproductor de Pads; la diferencia es que aquí el render es
+             offline por pista (ver setStemsPitchShift), no en tiempo real. -->
+        <div class="stems-field stems-field--pitch" title="Tono master: aplica ±N semitonos a todas las pistas conservando el tempo. Doble clic en el número para resetear.">
+          <label>TONO</label>
+          <div class="stems-pitch-group" id="stems-pitch-group">
+            <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
+            <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para resetear)">0</span>
+            <button class="stems-pitch-btn" id="stems-pitch-up" type="button" title="Subir 1 semitono">▲</button>
+          </div>
+        </div>
       </div>
 
       <div class="stems-tb-mid">
@@ -926,6 +938,14 @@ function wireArrangeEvents(root) {
     await runExport();
   };
 
+  // Grupo de tono master.
+  const pitchUp = root.querySelector('#stems-pitch-up');
+  const pitchDown = root.querySelector('#stems-pitch-down');
+  const pitchVal = root.querySelector('#stems-pitch-val');
+  if (pitchUp)   pitchUp.onclick   = () => setStemsPitchShift(currentStemsPitch + 1);
+  if (pitchDown) pitchDown.onclick = () => setStemsPitchShift(currentStemsPitch - 1);
+  if (pitchVal)  pitchVal.ondblclick = () => setStemsPitchShift(0);
+
   // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
   const genTrigger = root.querySelector('#stems-generators-trigger');
   const genPop = root.querySelector('#stems-generators-pop');
@@ -1121,6 +1141,25 @@ function appendTrackRow(id, savedPath) {
   // Marca el shell como "con pistas" para que el CSS (a) muestre la consola
   // y (b) deje la timeline scrollable. Cuando está vacío, ambos colapsan.
   document.getElementById('workspace-stems')?.classList.add('has-tracks');
+
+  // Si hay un pitch master activo, la pista recién añadida debe quedar al
+  // mismo tono que las demás. Se hace en background para no bloquear la
+  // adición; el usuario verá el toast de "Procesando…".
+  if (currentStemsPitch !== 0) {
+    const buf = engine.getTrackBuffer(id);
+    if (buf) {
+      originalBuffers.set(id, buf);
+      (async () => {
+        try {
+          const { pitchShiftBuffer } = await import('./harmonyShifter.js');
+          const shifted = await pitchShiftBuffer(buf, currentStemsPitch);
+          engine.replaceTrackBuffer(id, shifted);
+          peaksCache.delete(id);
+          drawTrackWaveform(id);
+        } catch (e) { console.warn('Auto-shift on new track failed:', e); }
+      })();
+    }
+  }
 
   // A row is the unit: sticky strip on the left + waveform lane on the right.
   const rows = document.getElementById('stems-rows');
@@ -1632,6 +1671,102 @@ function openCloudConfigDialog() {
   };
 }
 
+// ── Tono master (pitch shift offline en todas las pistas) ───────
+// Aplica un desplazamiento de N semitonos a TODAS las pistas del proyecto
+// sin alterar el tempo. A diferencia del player de Pads (que tiene un solo
+// AudioBuffer y usa PitchShifter en tiempo real), el motor de Stems mezcla
+// múltiples AudioBufferSourceNodes en paralelo — no podemos meter un
+// PitchShifter al master sin reescribir la arquitectura de scheduling.
+//
+// Trade-off: el shift se hace offline (re-renderiza cada pista al cambiar
+// el valor), con coste de 2-5 s por minuto de audio. A cambio: sync
+// perfecto, sin glitches, ningún cambio en engine.js.
+//
+// Caching: los buffers originales se guardan en originalBuffers la primera
+// vez que se pide un shift; volver a 0 restaura instantáneamente.
+const originalBuffers = new Map();   // trackId → AudioBuffer original
+let currentStemsPitch = 0;
+let pitchApplying = false;
+
+function paintStemsPitchUI() {
+  const lbl = document.getElementById('stems-pitch-val');
+  if (!lbl) return;
+  lbl.textContent = currentStemsPitch > 0 ? '+' + currentStemsPitch : String(currentStemsPitch);
+  const shifted = currentStemsPitch !== 0;
+  lbl.classList.toggle('shifted', shifted);
+  document.getElementById('stems-pitch-group')?.classList.toggle('shifted', shifted);
+}
+
+async function setStemsPitchShift(semitones) {
+  semitones = Math.max(-12, Math.min(12, semitones | 0));
+  if (semitones === currentStemsPitch) return;
+  if (pitchApplying) { toast('Espera a que termine la aplicación anterior.', 'warning'); return; }
+  const trackList = engine.getTracks();
+  if (!trackList.length) {
+    // Sin pistas todavía: solo actualiza el valor y la UI. Cuando lleguen,
+    // se aplicará al import (ver appendTrackRow más abajo).
+    currentStemsPitch = semitones;
+    paintStemsPitchUI();
+    return;
+  }
+
+  const wasPlaying = engine.isCurrentlyPlaying();
+  const curSec = engine.getCurrentSec();
+  if (wasPlaying) engine.pause();
+
+  // Guarda originales la primera vez que vemos cada pista.
+  trackList.forEach(t => {
+    if (!originalBuffers.has(t.id)) {
+      const b = engine.getTrackBuffer(t.id);
+      if (b) originalBuffers.set(t.id, b);
+    }
+  });
+
+  // Volver a 0 = restaurar originales (instantáneo).
+  if (semitones === 0) {
+    for (const t of trackList) {
+      const orig = originalBuffers.get(t.id);
+      if (orig) engine.replaceTrackBuffer(t.id, orig);
+    }
+    currentStemsPitch = 0;
+    paintStemsPitchUI();
+    refreshTimelineWidth();
+    redrawAllWaveforms();
+    if (wasPlaying) engine.seek(curSec);
+    return;
+  }
+
+  pitchApplying = true;
+  const sign = semitones > 0 ? '+' : '';
+  const toastUi = showSepToast(`Tono ${sign}${semitones} st`);
+  try {
+    const { pitchShiftBuffer } = await import('./harmonyShifter.js');
+    let i = 0;
+    for (const t of trackList) {
+      const orig = originalBuffers.get(t.id);
+      if (!orig) continue;
+      const base = i / trackList.length;
+      toastUi.update(base, `Procesando ${t.name}…`);
+      const shifted = await pitchShiftBuffer(orig, semitones, {
+        onProgress: (f) => toastUi.update(base + (f / trackList.length), `Procesando ${t.name}…`)
+      });
+      engine.replaceTrackBuffer(t.id, shifted);
+      peaksCache.delete(t.id);
+      drawTrackWaveform(t.id);
+      i++;
+    }
+    currentStemsPitch = semitones;
+    paintStemsPitchUI();
+    toastUi.done(`✓ Tono ${sign}${semitones} st aplicado`);
+    if (wasPlaying) engine.seek(curSec);
+  } catch (err) {
+    console.error('Stems pitch shift failed:', err);
+    toastUi.error(err.message || String(err));
+  } finally {
+    pitchApplying = false;
+  }
+}
+
 // ── Referencia armónica (pitch-shift offline) ─────────────────────
 // Crea una pista nueva con el audio fuente desplazado N semitonos sin
 // alterar el tempo. Útil para que coristas/segundas voces tengan una guía
@@ -1938,6 +2073,7 @@ async function removeTrackById(id) {
   }
   trackRows.delete(id);
   peaksCache.delete(id);
+  originalBuffers.delete(id);
   if (trackRows.size === 0) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
@@ -3013,6 +3149,9 @@ async function resetProject() {
   }
   trackRows.clear();
   peaksCache.clear();
+  originalBuffers.clear();
+  currentStemsPitch = 0;
+  paintStemsPitchUI();
   markers = [];
   nextTrackId = 1;
   nextMarkerId = 1;

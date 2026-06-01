@@ -251,6 +251,47 @@ body[data-workspace="stems"] #body {
 }
 .stems-field--select option { background: var(--bg-card); color: var(--text); }
 
+/* Grupo de tono master — mismo lenguaje visual que el pitch del player
+   de Pads: cápsula con ▼ valor ▲. El borde se tinta cuando shifted ≠ 0
+   para feedback claro. */
+.stems-field--pitch { padding-right: 4px; }
+.stems-pitch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: border-color 0.15s;
+}
+.stems-pitch-group.shifted { border-color: var(--accent); }
+.stems-pitch-btn {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.stems-pitch-btn:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+.stems-pitch-val {
+  min-width: 24px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+  cursor: pointer;
+}
+.stems-pitch-val.shifted { color: var(--accent); }
+
 /* Transport group — Stop + Pause clustered together as secondary, Play
    floats as the prominent primary action (matches the visual weight of
    the metronome's Play in Pads). */
