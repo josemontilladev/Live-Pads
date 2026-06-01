@@ -296,15 +296,17 @@
   padding-bottom: 4px;
 }
 
-/* Accordion header: edit icon + chord pill, right-aligned */
+/* Accordion header: el toggle "Con/Sin acordes" pega a la izquierda
+   (acción primaria de visualización) y los iconos de edición + pantalla
+   completa a la derecha. La separación visual ayuda a no confundirlos. */
 .lyrics-accordion-header {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 6px;
   margin-bottom: 10px;
   margin-right: 8px;
 }
+.lyrics-accordion-header .chord-toggle-btn { margin-right: auto; }
 .lyrics-edit-btn {
   width: 22px; height: 22px;
   display: flex; align-items: center; justify-content: center;
@@ -449,6 +451,25 @@ body.lyrics-fs-open { overflow: hidden; }
   font-family: var(--font-main);
 }
 .lyrics-section-select:hover { border-color: var(--blue); }
+/* Estilos de las opciones del select de secciones — antes eran inline
+   en cada <option> con color/background hardcodeados. Aquí salen del
+   tema y el placeholder ("+ SECCIÓN") es atenuado. */
+.lyrics-section-select option { background: var(--bg-card); color: var(--text); }
+.lyrics-section-select option.opt-placeholder { color: var(--text-muted); }
+
+/* Cuerpo del modal de editor (ocupa el espacio entre header y footer) */
+.lyrics-modal-body {
+  flex: 1; min-height: 0;
+  margin-bottom: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.editor-workspace { flex: 1; position: relative; min-height: 0; }
+.editor-workspace .editor-container { display: block; }
+.editor-workspace .modal-preview-panel { display: none; }
+.editor-workspace.is-preview .editor-container { display: none; }
+.editor-workspace.is-preview .modal-preview-panel { display: block; }
+.editor-workspace .modal-preview-panel .lyrics-text-content { font-size: 12px; }
+.editor-textarea { tab-size: 4; overflow-y: auto; }
 .toolbar-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
 .format-tool-btn.chord-btn {
   color: var(--blue); font-weight: 900;

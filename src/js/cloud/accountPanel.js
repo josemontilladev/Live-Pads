@@ -435,13 +435,23 @@ async function onClick(e) {
         }
         case 'rename-lib': {
           const active = state.libs.find(l => l.id === state.activeId);
-          const name = prompt('Nuevo nombre de la librería:', active ? active.name : '');
-          if (name && name.trim()) { await renameLibrary(state.activeId, name); await refreshLibs(); }
+          // Prompt nativo → showDialog tematizado.
+          showDialog(`Renombrar "${active ? active.name : ''}"`, 'Nuevo nombre…', async (val) => {
+            const name = (val || '').trim();
+            if (!name) return;
+            try { await renameLibrary(state.activeId, name); msg('Librería renombrada.', 'ok'); await refreshLibs(); }
+            catch (e2) { msg(e2.message); }
+          });
           return;
         }
         case 'delete-lib': {
           const active = state.libs.find(l => l.id === state.activeId);
-          if (!confirm(`¿Eliminar "${active?.name}" y todo su contenido? Esto no se puede deshacer.`)) return;
+          const ok = await confirmDialogAsync({
+            title: 'Eliminar librería',
+            message: `¿Eliminar "${active?.name}" y todo su contenido? Esto no se puede deshacer.`,
+            confirmLabel: 'Eliminar', danger: true,
+          });
+          if (!ok) return;
           await deleteLibrary(state.activeId);
           msg('Librería eliminada.', 'ok');
           return refreshLibs();
@@ -478,10 +488,16 @@ async function onClick(e) {
         case 'revoke':
           await revokeInvite(btn.dataset.id);
           return renderInvites(state.activeId);
-        case 'kick':
-          if (!confirm('¿Quitar a este miembro de la librería?')) return;
+        case 'kick': {
+          const ok = await confirmDialogAsync({
+            title: 'Quitar miembro',
+            message: '¿Quitar a este miembro de la librería?',
+            confirmLabel: 'Quitar', danger: true,
+          });
+          if (!ok) return;
           await removeMember(btn.dataset.id);
           return renderMembers(state.activeId);
+        }
         case 'join': {
           const code = overlay.querySelector('#acc-join-code').value;
           if (!code.trim()) return msg('Pega el código de invitación.');

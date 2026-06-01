@@ -11,17 +11,14 @@
 // modal vocabulary (overlay blur, box border, button row).
 
 import { q } from '../utils/dom.js';
+import { pushModal } from './modalStack.js';
 
-// Cerrar con Escape (se registra una sola vez). Si hay botón Cancelar visible
-// con handler, lo dispara (respeta onCancel); si no, solo oculta.
-let escWired = false;
-function wireDialogEsc() {
-  if (escWired) return; escWired = true;
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const overlay = q('#dialog-overlay');
-    if (!overlay || overlay.classList.contains('hidden')) return;
-    e.preventDefault();
+// Escape lo gestiona el modalStack: al abrir cada dialog se hace push, al
+// cerrar pop. Así no compite con otros modales abiertos por encima.
+let popModal = null;
+function pushDialogOnStack() {
+  if (popModal) return; // ya pusheado en este open
+  popModal = pushModal(() => {
     const cancelBtn = q('#dialog-cancel');
     if (cancelBtn && typeof cancelBtn.onclick === 'function') cancelBtn.onclick();
     else hideDialog();
@@ -46,7 +43,7 @@ export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
   if (!titleEl || !overlay || !input) return;
 
   resetDialogChrome();
-  wireDialogEsc();
+  pushDialogOnStack();
   titleEl.textContent = title;
   overlay.classList.remove('hidden');
   input.placeholder = placeholder;
@@ -84,7 +81,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Eliminar', dange
   if (!titleEl || !overlay || !msgEl || !input || !okBtn || !cancelBtn) return;
 
   resetDialogChrome();
-  wireDialogEsc();
+  pushDialogOnStack();
   titleEl.textContent = title;
   msgEl.textContent = message;
   msgEl.classList.remove('hidden');
@@ -119,4 +116,5 @@ export function confirmDialogAsync(opts) {
 export function hideDialog() {
   const overlay = q('#dialog-overlay');
   if (overlay) overlay.classList.add('hidden');
+  if (popModal) { popModal(); popModal = null; }
 }

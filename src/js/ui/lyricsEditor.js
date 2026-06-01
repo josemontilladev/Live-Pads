@@ -4,6 +4,7 @@ import { formatLyrics, highlightSyntax } from './lyricsFormat.js';
 import { transposeAll, keyPrefersFlats } from './chordTransposer.js';
 import { parseChordPage } from '../data/chordImporter.js';
 import { showDialog, confirmDialog, confirmDialogAsync } from './dialog.js';
+import { pushModal } from './modalStack.js';
 
 // Section dropdown -> bracket tag inserted into the textarea. Verso auto-
 // increments based on existing [VERSO N] tokens to save keystrokes when
@@ -35,18 +36,18 @@ function modalHTML(song) {
       </button>
     </div>
 
-    <div style="flex:1; min-height:0; margin-bottom:20px; display:flex; flex-direction:column; gap:12px;">
+    <div class="lyrics-modal-body">
       <div class="lyrics-editor-toolbar">
         <select class="format-select lyrics-section-select">
-          <option value="normal" style="background:#121212; color:#888;">+ SECCIÓN</option>
-          <option value="intro" style="background:#121212; color:#fff;">Intro</option>
-          <option value="verso" style="background:#121212; color:#fff;">Verso</option>
-          <option value="pre-coro" style="background:#121212; color:#fff;">Pre-Coro</option>
-          <option value="coro" style="background:#121212; color:#fff;">Coro</option>
-          <option value="puente" style="background:#121212; color:#fff;">Puente</option>
-          <option value="instrumental" style="background:#121212; color:#fff;">Instrumental</option>
-          <option value="solo" style="background:#121212; color:#fff;">Solo</option>
-          <option value="final" style="background:#121212; color:#fff;">Final</option>
+          <option value="normal" class="opt-placeholder">+ SECCIÓN</option>
+          <option value="intro">Intro</option>
+          <option value="verso">Verso</option>
+          <option value="pre-coro">Pre-Coro</option>
+          <option value="coro">Coro</option>
+          <option value="puente">Puente</option>
+          <option value="instrumental">Instrumental</option>
+          <option value="solo">Solo</option>
+          <option value="final">Final</option>
         </select>
         <div class="toolbar-sep"></div>
         <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Envolver selección en [ ]   ·   Ctrl+[">[ ]</button>
@@ -67,13 +68,13 @@ function modalHTML(song) {
         </button>
       </div>
 
-      <div class="editor-workspace" style="flex:1; position:relative; min-height:0;">
+      <div class="editor-workspace">
         <div class="editor-container">
           <div class="editor-highlight"></div>
-          <textarea class="editor-textarea" placeholder="[Intro]\n[C#m] [B] [A]\n\n[Verso 1]\n[C#m]              [B]\nMi Dios todo lo puede hacer..." spellcheck="false" style="tab-size:4; overflow-y:auto;"></textarea>
+          <textarea class="editor-textarea" placeholder="[Intro]\n[C#m] [B] [A]\n\n[Verso 1]\n[C#m]              [B]\nMi Dios todo lo puede hacer..." spellcheck="false"></textarea>
         </div>
-        <div class="modal-preview-panel lyrics-preview-panel" style="display:none;">
-          <div class="lyrics-text-content" style="font-size:12px;"></div>
+        <div class="modal-preview-panel lyrics-preview-panel">
+          <div class="lyrics-text-content"></div>
         </div>
       </div>
     </div>
@@ -121,21 +122,30 @@ export function openLyricsEditorModal(song, onSaveCallback) {
     content.style.transform = 'translateX(0)';
   }, 10);
 
+  let popModal = null;
+  // Guarda mientras un confirmDialog está visible: Escape doble-tap no
+  // debe cerrar el editor por encima del propio confirmDialog.
+  let closeInFlight = false;
   const closeModal = (force = false) => {
     const animateOut = () => {
+      if (popModal) { popModal(); popModal = null; }
       overlay.style.opacity = '0';
       content.style.transform = 'translateX(100%)';
       setTimeout(() => overlay.remove(), 300);
     };
     if (force || !isDirty()) { animateOut(); return; }
+    if (closeInFlight) return;
+    closeInFlight = true;
     confirmDialog({
       title: 'Cambios sin guardar',
       message: '¿Descartar los cambios y cerrar el editor?',
       confirmLabel: 'Descartar',
       danger: true,
-      onConfirm: animateOut,
+      onConfirm: () => { closeInFlight = false; animateOut(); },
+      onCancel:  () => { closeInFlight = false; },
     });
   };
+  popModal = pushModal(() => closeModal());
 
   overlay.querySelector('.modal-close-btn').onclick = () => closeModal();
   overlay.querySelector('.cancel-btn').onclick = () => closeModal();
@@ -298,13 +308,11 @@ export function openLyricsEditorModal(song, onSaveCallback) {
     previewBtn.classList.toggle('active', isPreview);
     previewBtn.title = isPreview ? 'Editar letra' : 'Vista previa';
     previewBtn.setAttribute('aria-label', previewBtn.title);
+    const workspace = overlay.querySelector('.editor-workspace');
+    workspace.classList.toggle('is-preview', isPreview);
     if (isPreview) {
-      textarea.parentNode.style.display = 'none';
-      previewPanel.style.display = 'block';
       previewPanel.querySelector('.lyrics-text-content').innerHTML = formatLyrics(textarea.value);
     } else {
-      textarea.parentNode.style.display = 'block';
-      previewPanel.style.display = 'none';
       refreshHighlight();
     }
   };
@@ -384,11 +392,7 @@ export function openLyricsEditorModal(song, onSaveCallback) {
       }
       return;
     }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      e.stopPropagation();
-      closeModal();
-    }
+    // Escape ahora lo gestiona modalStack (push en open / pop en close).
   };
   overlay.addEventListener('keydown', onKey);
   overlay.tabIndex = -1;

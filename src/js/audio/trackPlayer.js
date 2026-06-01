@@ -70,7 +70,12 @@ function paintPitchUI() {
   const lbl = q('#tp-pitch-val');
   if (!lbl) return;
   lbl.textContent = currentPitch > 0 ? '+' + currentPitch : String(currentPitch);
-  lbl.classList.toggle('shifted', currentPitch !== 0);
+  const shifted = currentPitch !== 0;
+  lbl.classList.toggle('shifted', shifted);
+  // Borde del grupo también se tinta para feedback visible aun sin mirar
+  // el número.
+  const group = lbl.closest('.tp-pitch-group');
+  if (group) group.classList.toggle('shifted', shifted);
 }
 
 // Asegura un AudioContext singleton antes de crear cualquier nodo.
