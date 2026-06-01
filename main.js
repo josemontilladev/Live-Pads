@@ -717,6 +717,12 @@ ipcMain.handle('load-gi-setlist', async () => {
   // para no arrancar con la librería vacía.
   if (!raw && dbPath !== getUserDataDbPath()) {
     raw = readJsonSafe(getUserDataDbPath());
+    // Primer arranque tras configurar OneDrive: la BD estaba en userData. La
+    // sembramos en la carpeta de OneDrive para que de ahí en más viva (y
+    // sincronice) ahí. Solo si hay algo que sembrar y el destino aún no existe.
+    if (raw && !fs.existsSync(dbPath)) {
+      try { writeFileAtomic(dbPath, JSON.stringify(raw, null, 2)); } catch (_) {}
+    }
   }
   return raw ? rewritePaths(raw) : null;
 });
