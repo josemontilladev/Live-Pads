@@ -91,22 +91,21 @@
 }
 .tp-pitch-val.shifted { color: var(--blue); }
 
+/* Single horizontal row: title · scrubber · time, all vertically centered
+   so the progress bar lines up with the transport buttons and the close ×
+   (the old two-row stack pushed the scrubber into the lower half). */
 .tp-info {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  padding: 0 10px;
-}
-.tp-info-header {
-  display: flex;
-  justify-content: space-between;
+  flex-direction: row;
   align-items: center;
+  gap: 14px;
+  padding: 0 10px;
+  min-width: 0;
 }
-/* Kill the default vertical margin browsers give range inputs so the
-   scrubber sits flush in the centered info block. */
-#tp-progress { margin: 0; display: block; }
+/* Kill the default vertical margin browsers give range inputs and let the
+   scrubber absorb the free space between title and time. */
+#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; }
 #tp-title {
   font-size: 14px;
   font-weight: 800;
@@ -115,12 +114,16 @@
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.3px;
+  flex-shrink: 0;
+  max-width: 240px;
 }
 .tp-time {
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tp-right {
