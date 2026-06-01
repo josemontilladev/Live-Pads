@@ -105,15 +105,28 @@ function assignFromYoutube(song, onSuccess) {
   });
 }
 
-// Mini-menú al pulsar "Canción Original" cuando aún no hay audio: elegir entre
-// subir un archivo local o descargarlo desde YouTube.
-function showOrigSourceMenu(anchor, song, card) {
+// Menú "Cargar audio" — aparece al clickear los botones de audio cuando aún
+// no hay audio asignado para ese slot. Las opciones dependen del tipo:
+//   · original: subir archivo local | desde YouTube
+//   · sequence: subir archivo local | extraer del audio original (si hay)
+// Si el sequence no tiene original ni nada que ofrecer extra, no se muestra
+// menú — se va directo al file picker para no añadir un click vacío.
+function showLoadAudioMenu(anchor, song, type, card) {
+  const hasOriginal = !!(song.audio && song.audio.original);
+  const items = [];
+  items.push({ key: 'local', label: '⬆ Subir archivo' });
+  if (type === 'original') {
+    items.push({ key: 'youtube', label: '▶ Desde YouTube' });
+  } else if (type === 'sequence' && hasOriginal) {
+    items.push({ key: 'extract', label: '✂ Extraer del original' });
+  }
+  // Una sola opción → file picker directo, sin abrir menú.
+  if (items.length < 2) { deps.loadAndPlayTrack(song, type); return; }
+
   document.querySelector('.orig-src-menu')?.remove();
   const menu = document.createElement('div');
   menu.className = 'orig-src-menu';
-  menu.innerHTML = `
-    <button type="button" data-src="local">⬆ Subir archivo</button>
-    <button type="button" data-src="youtube">▶ Desde YouTube</button>`;
+  menu.innerHTML = items.map(it => `<button type="button" data-src="${it.key}">${it.label}</button>`).join('');
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
   const w = 190;
@@ -122,8 +135,25 @@ function showOrigSourceMenu(anchor, song, card) {
   const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
   const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
   setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
-  menu.querySelector('[data-src="local"]').onclick = () => { close(); deps.loadAndPlayTrack(song, 'original'); };
-  menu.querySelector('[data-src="youtube"]').onclick = () => { close(); assignFromYoutube(song, () => repaintGiCard(card, song)); };
+  menu.onclick = (e) => {
+    const btn = e.target.closest('[data-src]');
+    if (!btn) return;
+    close();
+    const src = btn.dataset.src;
+    if (src === 'local')   { deps.loadAndPlayTrack(song, type); return; }
+    if (src === 'youtube') { assignFromYoutube(song, () => repaintGiCard(card, song)); return; }
+    if (src === 'extract') {
+      // Cambia al workspace de Stems para que el usuario separe el original.
+      // Pre-cargar el archivo desde aquí requeriría leer el URL livepads://
+      // vía IPC + envolverlo como File — preferimos no acoplar este módulo
+      // a la API de Stems y dejar que el usuario arrastre/abra el archivo
+      // que ya tiene a mano. El toast guía esa transición.
+      const stemsTab = document.querySelector('.ws-tab[data-workspace="stems"]');
+      if (stemsTab) stemsTab.click();
+      window.showToast?.('Arrastra el audio original en el área de tracks para extraer la secuencia.', 'info');
+      return;
+    }
+  };
 }
 
 // Puntúa cuán "fuerte" matchea una canción contra el término libre.
@@ -428,11 +458,16 @@ function initDelegation() {
     const action = actionEl && card.contains(actionEl) ? actionEl.dataset.action : null;
 
     switch (action) {
-      case 'play-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
+      case 'play-seq':
+        // Con audio → reproduce; sin audio → menú "Cargar audio" (sube
+        // archivo o, si hay original, extrae del original vía Stems).
+        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        else showLoadAudioMenu(e.target.closest('.action-btn'), song, 'sequence', card);
+        return;
       case 'play-orig':
-        // Con audio → carga/reproduce la original; sin audio → menú para añadir.
+        // Con audio → reproduce; sin audio → menú (Subir archivo / YouTube).
         if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
-        else showOrigSourceMenu(e.target.closest('.action-btn'), song, card);
+        else showLoadAudioMenu(e.target.closest('.action-btn'), song, 'original', card);
         return;
       case 'add':       handleAddToService(song, card, actionEl); return;
       case 'toggle-lyrics': deps.toggleLyricsAccordion(song, false); return;
