@@ -276,7 +276,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!cur || !active) return;
       const sameSong = (cur.serviceId && cur.serviceId === active.serviceId) ||
                        (cur.title === active.title && cur.artist === active.artist);
-      if (sameSong) serviceNextSong();
+      if (sameSong) {
+        // Prepara la siguiente pero NO la lanza (control en vivo): avisamos
+        // claramente para que no parezca que el set se cortó.
+        serviceNextSong();
+        showToast('Siguiente preparada — pulsá Espacio para lanzar', 'info');
+      }
     }
   });
 

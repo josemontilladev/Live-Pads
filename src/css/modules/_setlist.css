@@ -895,6 +895,23 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 #now-playing-banner .np-artist:not(:empty)::before { content: "·"; margin: 0 4px; opacity: 0.6; }
 #now-playing-banner .np-artist:empty { display: none; }
 
+/* "Qué sonará al pulsar Play" — chip a la derecha, solo visible cuando la
+   canción está preparada (refreshNowPlayingLiveState lo vacía si ya suena). */
+#now-playing-banner .np-plan {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+  background: var(--glow);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+#now-playing-banner .np-plan:empty { display: none; }
+
 #now-playing-banner .np-close {
   margin-left: auto;
   flex-shrink: 0;
