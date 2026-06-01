@@ -178,11 +178,29 @@ body[data-workspace="stems"] #body {
 
 /* Field wrapper aligns with Pads dropdown dimensions (radius var(--r-md),
    bg-card surface, border that lifts on hover/focus). */
+/* ── Altura uniforme de "chips" del toolbar ──────────────────────────
+   Todos los contenedores de control (BPM, COMPÁS, TONALIDAD, TONO,
+   zoom, snap, timecode, pill de estado, grupos PISTAS/MARCADORES,
+   botones) miden 32px para que la fila se vea ordenada. Cada regla
+   particular abajo solo ajusta padding/contenido — la altura se aplica
+   acá una sola vez. */
+.stems-field,
+.stems-pitch-group,
+.stems-zoom-group,
+.stems-snap-toggle,
+.stems-state-pill,
+.stems-readout,
+.stems-tools-group,
+.stems-btn {
+  height: 32px;
+  box-sizing: border-box;
+}
+
 .stems-field {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bg-card);
@@ -260,11 +278,11 @@ body[data-workspace="stems"] #body {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  height: 26px;
-  padding: 0 2px;
+  /* height viene de la regla unificada (32px). */
+  padding: 0 4px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   transition: border-color 0.15s;
 }
 .stems-pitch-group.shifted { border-color: var(--accent); }
@@ -382,6 +400,7 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: center;     /* centra vertical dentro de los 32px de altura */
   line-height: 1.05;
   flex-shrink: 0;
 }
@@ -450,10 +469,12 @@ body[data-workspace="stems"] #body {
 .stems-snap-toggle:has(input:checked) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 .stems-state-pill {
+  display: inline-flex;
+  align-items: center;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 1.3px;
-  padding: 4px 9px;
+  padding: 0 12px;            /* height viene de la regla unificada */
   border-radius: 999px;
   background: rgba(255,255,255,0.05);
   border: 1px solid var(--border);
@@ -503,13 +524,12 @@ body[data-workspace="stems"] #body {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
 }
-/* Popover "Generar" — agrupa Click + Guía para evitar dos botones siempre
-   visibles en la fila PISTAS. Posicionado abajo-izquierda del trigger. */
+/* Popover "Generar" — agrupa Click + Guía. Igual que el dropdown de
+   Proyecto: position:fixed para escapar del overflow:hidden del
+   .stems-deck; el JS reposiciona en coords absolutas al abrir. */
 .stems-generators-wrap { position: relative; display: inline-block; }
 .stems-generators-pop {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed;
   z-index: 9500;
   display: flex;
   flex-direction: column;
