@@ -164,10 +164,21 @@ function getAudioLibraryRoot() {
 // carpeta entre máquinas. Sin carpeta custom (o no disponible), sigue en
 // userData: comportamiento previo, retrocompatible.
 const LIBRARY_DB_FILE = 'canciones_app.json';
+// La BD vive en una subcarpeta "Datos/" dentro de la carpeta de la librería,
+// para no dejar el JSON suelto junto a las carpetas de audio (orden).
+const LIBRARY_DB_SUBDIR = 'Datos';
 function getUserDataDbPath() {
   return path.join(app.getPath('userData'), LIBRARY_DB_FILE);
 }
+function getLibraryDataDir() {
+  return path.join(getAudioLibraryRoot(), LIBRARY_DB_SUBDIR);
+}
 function getLibraryDbPath() {
+  return path.join(getLibraryDataDir(), LIBRARY_DB_FILE);
+}
+// Ubicación previa (suelta en la raíz de la carpeta custom), para migrar la BD
+// de quienes ya la tenían ahí antes de mover todo a "Datos/".
+function getLegacyRootDbPath() {
   return path.join(getAudioLibraryRoot(), LIBRARY_DB_FILE);
 }
 
@@ -177,11 +188,11 @@ function getLibraryDbPath() {
 //   canciones_app (PC's conflicted copy 2024-01-15).json
 //   canciones_app-Copia.json
 // Patrón: empieza por "canciones_app", termina en ".json", pero NO es el
-// archivo principal. Detectarlas evita perder datos en silencio.
+// archivo principal. Viven junto a la BD (subcarpeta Datos/).
 function listDbConflicts() {
-  const root = getAudioLibraryRoot();
+  const dir = getLibraryDataDir();
   let files;
-  try { files = fs.readdirSync(root); } catch (_) { return []; }
+  try { files = fs.readdirSync(dir); } catch (_) { return []; }
   return files.filter(f =>
     /^canciones_app.+\.json$/i.test(f) &&
     f !== LIBRARY_DB_FILE &&
@@ -588,13 +599,18 @@ ipcMain.handle('audio-library-migrate', async (_e, { fromPath, toPath } = {}) =>
     }
   }
   // Copia también el documento de la librería (canciones + referencias de
-  // audio) para que la carpeta nueva tenga la BD completa, no solo los audios.
-  // No pisa una BD ya existente en destino (podría ser la sincronizada de la
-  // otra PC).
+  // audio) a la subcarpeta Datos/ del destino, para que la carpeta nueva tenga
+  // la BD completa, no solo los audios. Busca el origen en Datos/ y, si no, en
+  // la raíz (ubicación legacy). No pisa una BD ya existente en destino (podría
+  // ser la sincronizada de la otra PC).
   try {
-    const srcDb = path.join(fromPath, LIBRARY_DB_FILE);
-    const dstDb = path.join(toPath, LIBRARY_DB_FILE);
-    if (fs.existsSync(srcDb) && !fs.existsSync(dstDb)) {
+    const srcDb = [
+      path.join(fromPath, LIBRARY_DB_SUBDIR, LIBRARY_DB_FILE),
+      path.join(fromPath, LIBRARY_DB_FILE),
+    ].find(p => fs.existsSync(p));
+    const dstDb = path.join(toPath, LIBRARY_DB_SUBDIR, LIBRARY_DB_FILE);
+    if (srcDb && !fs.existsSync(dstDb)) {
+      fs.mkdirSync(path.dirname(dstDb), { recursive: true });
       const tmp = dstDb + '.livepads-tmp';
       fs.copyFileSync(srcDb, tmp);
       fs.renameSync(tmp, dstDb);
@@ -712,16 +728,21 @@ ipcMain.handle('save-gi-setlist', async (_e, songs) => {
 ipcMain.handle('load-gi-setlist', async () => {
   const dbPath = getLibraryDbPath();
   let raw = readJsonSafe(dbPath);
-  // Si la BD vive en OneDrive pero aún no está ahí (recién configurada la
-  // carpeta, o la otra PC todavía no la sincronizó), cae a la copia de userData
-  // para no arrancar con la librería vacía.
-  if (!raw && dbPath !== getUserDataDbPath()) {
-    raw = readJsonSafe(getUserDataDbPath());
-    // Primer arranque tras configurar OneDrive: la BD estaba en userData. La
-    // sembramos en la carpeta de OneDrive para que de ahí en más viva (y
-    // sincronice) ahí. Solo si hay algo que sembrar y el destino aún no existe.
+  // Migración de ubicaciones previas hacia "Datos/<file>":
+  //   1) la raíz de la carpeta custom (donde vivía la BD antes de ordenarla)
+  //   2) userData (instalación previa / OneDrive aún no sincronizó)
+  if (!raw) {
+    const legacyRoot = getLegacyRootDbPath();
+    const fromLegacy = (legacyRoot !== dbPath) ? readJsonSafe(legacyRoot) : null;
+    const fromUser   = readJsonSafe(getUserDataDbPath());
+    raw = fromLegacy || fromUser;
     if (raw && !fs.existsSync(dbPath)) {
+      // Siembra la BD en su nueva casa (Datos/) de forma atómica…
       try { writeFileAtomic(dbPath, JSON.stringify(raw, null, 2)); } catch (_) {}
+      // …y si vino del archivo suelto en la raíz custom, lo quita (orden).
+      if (fromLegacy && legacyRoot !== getUserDataDbPath() && fs.existsSync(dbPath)) {
+        try { fs.unlinkSync(legacyRoot); } catch (_) {}
+      }
     }
   }
   return raw ? rewritePaths(raw) : null;
@@ -740,7 +761,7 @@ ipcMain.handle('library-conflicts-check', async () => {
 //    faltantes desde la copia (no se pisa lo que ya tiene la principal)
 // Las copias originales NO se borran: se mueven a "_conflictos_resueltos/".
 ipcMain.handle('library-conflicts-resolve', async () => {
-  const root = getAudioLibraryRoot();
+  const dir = getLibraryDataDir();
   const conflicts = listDbConflicts();
   if (!conflicts.length) return { resolved: 0, addedSongs: 0, filledSlots: 0 };
 
@@ -750,7 +771,7 @@ ipcMain.handle('library-conflicts-resolve', async () => {
 
   let addedSongs = 0, filledSlots = 0;
   for (const cf of conflicts) {
-    const cdata = readJsonSafe(path.join(root, cf));
+    const cdata = readJsonSafe(path.join(dir, cf));
     const songs = (cdata && cdata.data && Array.isArray(cdata.data.songs)) ? cdata.data.songs : [];
     for (const s of songs) {
       if (!s || !s.id) continue;
@@ -768,10 +789,10 @@ ipcMain.handle('library-conflicts-resolve', async () => {
   writeFileAtomic(getLibraryDbPath(), JSON.stringify({ data: { songs: primary } }, null, 2));
 
   // Aparta las copias resueltas (no las borra — red de seguridad).
-  const backupDir = path.join(root, '_conflictos_resueltos');
+  const backupDir = path.join(dir, '_conflictos_resueltos');
   try { fs.mkdirSync(backupDir, { recursive: true }); } catch (_) {}
   for (const cf of conflicts) {
-    try { fs.renameSync(path.join(root, cf), path.join(backupDir, cf)); } catch (_) {}
+    try { fs.renameSync(path.join(dir, cf), path.join(backupDir, cf)); } catch (_) {}
   }
 
   return { resolved: conflicts.length, addedSongs, filledSlots, songs: primary.length };
