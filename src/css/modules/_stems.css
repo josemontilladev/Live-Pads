@@ -71,7 +71,7 @@ body[data-workspace="stems"] #body {
 }
 .ws-tab:hover:not(.is-active) { color: var(--text); }
 .ws-tab.is-active {
-  color: #0a0a14;
+  color: var(--on-accent);
 }
 
 /* Smooth crossfade for the workspace content. Outgoing hides instantly
@@ -279,7 +279,7 @@ body[data-workspace="stems"] #body {
 .stems-tb-btn--play {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   width: 40px; height: 40px;
   border-radius: 50%;
   box-shadow: 0 0 18px var(--glow), 0 4px 12px rgba(0,0,0,0.4);
@@ -288,8 +288,25 @@ body[data-workspace="stems"] #body {
 .stems-tb-btn--play:hover {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   filter: brightness(1.1);
+}
+/* Disabled: el bg accent + opacity 0.4 dejaba el botón aún "brillante" en
+   ámbar quemado, confuso (parecía activo). Apagamos por completo el accent
+   y el glow para que se lea como inactivo de un vistazo. */
+.stems-tb-btn--play:disabled,
+.stems-tb-btn--play[disabled] {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+  opacity: 0.55;
+}
+.stems-tb-btn--play:disabled:hover,
+.stems-tb-btn--play[disabled]:hover {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  filter: none;
 }
 .stems-tb-btn--play svg { width: 18px; height: 18px; }
 
@@ -435,13 +452,27 @@ body[data-workspace="stems"] #body {
   max-width: 360px;
   padding: 0 16px;
 }
-.stems-actions-secondary {
+/* Popover "Generar" — agrupa Click + Guía para evitar dos botones siempre
+   visibles en la fila PISTAS. Posicionado abajo-izquierda del trigger. */
+.stems-generators-wrap { position: relative; display: inline-block; }
+.stems-generators-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 9500;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  min-width: 170px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
+.stems-generators-pop.hidden { display: none; }
+.stems-generators-pop .stems-btn { justify-content: flex-start; }
+
 .stems-marker-add {
   display: flex;
   align-items: center;
@@ -506,7 +537,7 @@ body[data-workspace="stems"] #body {
 
 .stems-btn--accent {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 14px var(--glow);
   font-weight: 800;
@@ -570,7 +601,7 @@ body[data-workspace="stems"] #body {
 .stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-btn--primary {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 /* Keep the accent fill on hover (the base .stems-btn:hover would turn it
@@ -608,17 +639,27 @@ body[data-workspace="stems"] #body {
 .stems-mini-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
 
 /* Accent chips — one per beat in the bar; toggle which beats are accented. */
-/* Cloud-separation config dialog */
+/* Cloud-separation config dialog — alineado con el resto de modales:
+   backdrop con blur sutil y entrada animada para que no se sienta seco. */
 .stems-cloud-overlay {
   position: fixed; inset: 0; z-index: 4000;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
+  animation: stems-cloud-fade .14s ease-out;
 }
+@keyframes stems-cloud-fade { from { opacity: 0; } to { opacity: 1; } }
 .stems-cloud-panel {
   width: min(440px, 92vw);
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 14px; padding: 22px 24px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  animation: stems-cloud-pop .18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes stems-cloud-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
 }
 .stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 800; color: var(--text); }
 .stems-cloud-panel p { margin: 0 0 16px; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
@@ -801,7 +842,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-marker-flag {
   background: #4ade80;
-  color: #0a0a14;
+  color: var(--on-accent);
   padding: 2px 4px;
   border-radius: 3px;
   display: flex;
@@ -978,13 +1019,13 @@ body[data-workspace="stems"] #body {
 .stems-ms--mute.is-on {
   background: linear-gradient(180deg, #ff7a73, #ff5f57);
   border-color: #ff5f57;
-  color: #0a0a14;
+  color: var(--on-accent);
   box-shadow: 0 0 10px rgba(255,95,87,0.55);
 }
 .stems-ms--solo.is-on {
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent));
   border-color: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   box-shadow: 0 0 10px var(--glow);
 }
 
@@ -1529,13 +1570,13 @@ body[data-workspace="stems"] #body {
 }
 #stems-loop-toggle.is-on {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--glow);
 }
 #stems-loop-toggle.is-on::after {
   content: "ON";
-  color: #0a0a14;
+  color: var(--on-accent);
   opacity: 1;
 }
 
@@ -1621,7 +1662,7 @@ body[data-workspace="stems"] #body {
 .stems-marker--loop-start .stems-marker-flag,
 .stems-marker--loop-end   .stems-marker-flag {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
 }
 .stems-marker--loop-start .stems-marker-label,
 .stems-marker--loop-end   .stems-marker-label {
