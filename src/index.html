@@ -507,6 +507,22 @@
               </div>
             </div>
             <div class="sb-card" id="sidebar-drum-volumes"></div>
+
+            <!-- Biblioteca de audios — carpeta personalizada que sincroniza
+                 entre máquinas vía OneDrive/Dropbox/etc. -->
+            <div class="sb-label">Biblioteca de audios</div>
+            <div class="sb-card audio-lib-card">
+              <div class="audio-lib-desc">Carpeta donde se guardan Sequences y Original Tracks. Si usás OneDrive/Dropbox, configurá aquí esa ruta en cada máquina para que los audios se sincronicen automáticamente.</div>
+              <div class="audio-lib-row">
+                <span class="audio-lib-label">Ruta actual:</span>
+                <code class="audio-lib-path" id="audio-lib-path">…</code>
+              </div>
+              <div class="audio-lib-actions">
+                <button class="acc-btn ghost sm" id="btn-audio-lib-pick">Cambiar carpeta…</button>
+                <button class="acc-btn ghost sm" id="btn-audio-lib-reset" title="Volver a la carpeta interna de LivePads">Restaurar</button>
+              </div>
+              <div class="audio-lib-msg" id="audio-lib-msg" hidden></div>
+            </div>
           </div>
 
 

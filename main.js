@@ -95,6 +95,48 @@ function saveToBoth(relativeSubPath, contentString) {
   }
 }
 
+// ── Biblioteca de audios — carpeta configurable por máquina ────────
+// Por defecto los audios (Sequences, Original Tracks) viven dentro de
+// userData. Si el usuario configura una carpeta custom (típicamente una
+// ruta dentro de OneDrive/Dropbox/etc.), los Sequences y Original Tracks
+// pasan a vivir ahí — así puede sincronizar entre sus máquinas usando
+// el servicio de sync de archivos que prefiera, sin tener que subir los
+// audios a Supabase. La config se guarda en userData (NO en la carpeta
+// custom — debe poder bootstrapear sin ella).
+//
+// Lo que SÍ se redirige a la carpeta custom: Sequences/, Original Tracks/.
+// Lo que NO: UserDrums/ (samples del kit, app-data, no librería de usuario).
+const AUDIO_LIBRARY_CFG_FILE = 'audio-library.json';
+const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks'];
+
+function readAudioLibraryConfig() {
+  try {
+    const file = path.join(app.getPath('userData'), AUDIO_LIBRARY_CFG_FILE);
+    if (!fs.existsSync(file)) return null;
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (data && typeof data.path === 'string' && data.path.trim()) return data.path;
+    return null;
+  } catch (_) { return null; }
+}
+function writeAudioLibraryConfig(p) {
+  const file = path.join(app.getPath('userData'), AUDIO_LIBRARY_CFG_FILE);
+  if (!p) {
+    try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch (_) {}
+    return;
+  }
+  fs.writeFileSync(file, JSON.stringify({ path: p }, null, 2));
+}
+function getAudioLibraryRoot() {
+  return readAudioLibraryConfig() || app.getPath('userData');
+}
+// Indica si una ruta relativa (ej. "Sequences/foo.mp3") cae en una
+// subcarpeta que debe servirse desde la carpeta custom (si está configurada)
+// o desde userData (si no).
+function isAudioLibraryRelPath(rel) {
+  const norm = rel.replace(/\\/g, '/').replace(/^\/+/, '');
+  return AUDIO_LIBRARY_SUBFOLDERS.some(sub => norm === sub || norm.startsWith(sub + '/'));
+}
+
 function deleteFromBoth(relativeSubPath) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
   if (fs.existsSync(userPath)) {
@@ -111,8 +153,11 @@ function deleteFromBoth(relativeSubPath) {
 }
 
 function copyToBoth(sourcePath, relativeSubPath) {
-  const userPath = path.join(app.getPath('userData'), relativeSubPath);
-  
+  // Si la ruta cae en Sequences/ o Original Tracks/ y hay biblioteca
+  // de audios configurada, escribimos ahí. Si no, fallback a userData.
+  const root = isAudioLibraryRelPath(relativeSubPath) ? getAudioLibraryRoot() : app.getPath('userData');
+  const userPath = path.join(root, relativeSubPath);
+
   fs.mkdirSync(path.dirname(userPath), { recursive: true });
   if (sourcePath !== userPath) {
     try { fs.copyFileSync(sourcePath, userPath); } catch(e){ console.error("Error copying to userPath:", e); }
@@ -349,7 +394,11 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
   if (url.startsWith('livepads://')) {
     const m = url.match(/^livepads:\/\/(?:app\/)?(.*)$/i);
     const rest = m ? decodeURIComponent(m[1] || '') : '';
-    filePath = path.join(app.getPath('userData'), rest);
+    // Mismo redirect que resolveLivepadsUrl: las carpetas de audios
+    // (Sequences, Original Tracks) salen de la carpeta custom si la
+    // hay; el resto sigue desde userData.
+    const root = isAudioLibraryRelPath(rest) ? getAudioLibraryRoot() : app.getPath('userData');
+    filePath = path.join(root, rest);
   } else if (url.startsWith('file:///')) {
     filePath = decodeURI(url.replace(/^file:\/\/\//, '')).replace(/\//g, path.sep);
   } else if (path.isAbsolute(url)) {
@@ -361,6 +410,74 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
   const buf = fs.readFileSync(filePath);
   // Devuelve un ArrayBuffer "puro" (sin compartir con otros buffers de Node)
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+});
+
+// ── IPCs de biblioteca de audios (carpeta custom) ──────────────────
+ipcMain.handle('audio-library-get', async () => {
+  return {
+    customPath: readAudioLibraryConfig(),         // null si no configurada
+    defaultPath: app.getPath('userData'),         // dónde caería sin custom
+    effectivePath: getAudioLibraryRoot(),         // el que se usa hoy
+    subfolders: AUDIO_LIBRARY_SUBFOLDERS,
+  };
+});
+
+ipcMain.handle('audio-library-pick', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Elige la carpeta para Sequences / Original Tracks',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('audio-library-set', async (_e, { path: newPath } = {}) => {
+  // null o '' => limpiar y volver a userData.
+  if (!newPath) { writeAudioLibraryConfig(null); return { ok: true, customPath: null }; }
+  if (typeof newPath !== 'string') throw new Error('path inválido');
+  // Verifica que la carpeta exista y sea escribible (o creable).
+  try {
+    fs.mkdirSync(newPath, { recursive: true });
+    const probe = path.join(newPath, '.livepads-write-test');
+    fs.writeFileSync(probe, 'ok');
+    fs.unlinkSync(probe);
+  } catch (e) {
+    throw new Error('No se puede escribir en esa carpeta: ' + (e.message || e));
+  }
+  writeAudioLibraryConfig(newPath);
+  return { ok: true, customPath: newPath };
+});
+
+// Copia los audios existentes (Sequences/ y Original Tracks/) desde una
+// carpeta a otra. NO borra el origen — limpieza manual cuando confirme.
+ipcMain.handle('audio-library-migrate', async (_e, { fromPath, toPath } = {}) => {
+  if (!fromPath || !toPath) throw new Error('faltan rutas');
+  if (path.resolve(fromPath) === path.resolve(toPath)) {
+    return { copied: 0, skipped: 0, message: 'origen y destino iguales' };
+  }
+  let copied = 0, skipped = 0;
+  for (const sub of AUDIO_LIBRARY_SUBFOLDERS) {
+    const srcDir = path.join(fromPath, sub);
+    if (!fs.existsSync(srcDir)) continue;
+    const dstDir = path.join(toPath, sub);
+    fs.mkdirSync(dstDir, { recursive: true });
+    const files = fs.readdirSync(srcDir);
+    for (const f of files) {
+      const srcFile = path.join(srcDir, f);
+      const dstFile = path.join(dstDir, f);
+      try {
+        if (!fs.statSync(srcFile).isFile()) continue;
+        if (fs.existsSync(dstFile) && fs.statSync(dstFile).size === fs.statSync(srcFile).size) {
+          skipped++; continue;
+        }
+        fs.copyFileSync(srcFile, dstFile);
+        copied++;
+      } catch (e) {
+        console.warn('Skip migrate', srcFile, '→', dstFile, ':', e.message);
+      }
+    }
+  }
+  return { copied, skipped };
 });
 
 ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
@@ -410,7 +527,7 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   }
   const { spawn } = require('child_process');
   const exe = await ensureYtDlp();
-  const outDir = path.join(app.getPath('userData'), 'Original Tracks');
+  const outDir = path.join(getAudioLibraryRoot(), 'Original Tracks');
   fs.mkdirSync(outDir, { recursive: true });
   const prefix = 'yt_' + Date.now();
   const outTmpl = path.join(outDir, prefix + '.%(ext)s');
@@ -1313,7 +1430,11 @@ function resolveLivepadsUrl(reqUrl) {
   const after = reqUrl.slice('livepads://'.length); // e.g. 'app/UserDrums/foo.mp3'
   const withoutHost = after.replace(/^app\/?/, '');
   const decoded = decodeURIComponent(withoutHost);
-  return path.join(app.getPath('userData'), decoded);
+  // Redirige a la carpeta custom solo si está configurada Y la ruta
+  // pertenece a una subcarpeta de biblioteca de audios. Mantiene
+  // compatibilidad: UserDrums y demás siguen en userData.
+  const root = isAudioLibraryRelPath(decoded) ? getAudioLibraryRoot() : app.getPath('userData');
+  return path.join(root, decoded);
 }
 
 app.whenReady().then(() => {

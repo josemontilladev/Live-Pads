@@ -61,6 +61,34 @@
 .stab-body { display: none; }
 .stab-body.visible { display: block; }
 .sb-label { font-size: 10px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
+
+/* ── Biblioteca de audios (sidebar Ajustes) ────────────────────────── */
+.audio-lib-card { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.audio-lib-desc { font-size: 11.5px; line-height: 1.45; color: var(--text-muted); }
+.audio-lib-row { display: flex; flex-direction: column; gap: 4px; }
+.audio-lib-label {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
+  color: var(--text-muted); text-transform: uppercase;
+}
+.audio-lib-path {
+  display: block; padding: 7px 9px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px; color: var(--text);
+  word-break: break-all;
+  white-space: normal;
+}
+.audio-lib-path.is-custom { border-color: var(--accent); color: var(--accent); }
+.audio-lib-actions { display: flex; gap: 6px; }
+.audio-lib-actions .acc-btn { flex: 1; }
+.audio-lib-msg {
+  font-size: 11.5px; padding: 7px 9px; border-radius: 6px;
+  background: rgba(34,197,94,.12); color: #86efac;
+}
+.audio-lib-msg.error { background: rgba(239,68,68,.12); color: #fca5a5; }
+.audio-lib-msg.info  { background: rgba(99,102,241,.12); color: #a5b4fc; }
 .sb-label:first-child { margin-top: 0; }
 
 /* Setlist */
