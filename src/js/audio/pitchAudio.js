@@ -141,10 +141,15 @@ export class PitchAudio extends EventTarget {
     const shifter = new PitchShifter(this._ctx, this._buffer, 4096);
     try { shifter.tempo = 1; } catch (_) {}
     try { shifter.pitchSemitones = this._pitchSemitones; } catch (_) {}
-    // Posición inicial
+    // Posición inicial. OJO: el SETTER de percentagePlayed en SoundTouchJS es
+    // fraccional (0..1): sourcePosition = perc * duration * sampleRate. Su
+    // GETTER, en cambio, devuelve 0..100 — la librería es internamente
+    // inconsistente. Pasar 0..100 aquí reposicionaba a ~100× la muestra
+    // correcta (más allá del final), disparando 'end' y saltando la pista a su
+    // final en cada seek. Hay que pasar la fracción.
     const d = this._buffer.duration || 0;
     if (d > 0 && this._currentTime > 0) {
-      try { shifter.percentagePlayed = (this._currentTime / d) * 100; } catch (_) {}
+      try { shifter.percentagePlayed = this._currentTime / d; } catch (_) {}
     }
     shifter.connect(this._gain);
     try {
