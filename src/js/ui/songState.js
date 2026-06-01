@@ -14,11 +14,12 @@ import { q, qa } from '../utils/dom.js';
 import { getGiCardBySongId } from './giList.js';
 import { getActiveServiceIndex, getServiceSongs } from '../data/service.js';
 import { refreshServiceMeta } from './serviceListView.js';
-import { isTrackPlaying } from '../audio/trackPlayer.js';
+import { isTrackPlaying, isTrackLoaded, getCurrentType } from '../audio/trackPlayer.js';
 import {
   getSongs as getGiSongsFromStore,
   getActiveSongId,
   getMetroRunning,
+  getActiveKey, getPreparedPadKey,
   getOpenAccordionSongId, setOpenAccordionSongId,
   getOpenAccordionServiceId, setOpenAccordionServiceId,
 } from '../state/store.js';
@@ -29,8 +30,18 @@ function isLiveNow() {
   return isTrackPlaying() || getMetroRunning();
 }
 
-// Solo actualiza la etiqueta/punto del banner según el estado live, sin tocar
-// título/artista. Lo llama el poll de reproducción para reflejar play/pause.
+// Qué disparará el Play maestro (Espacio) — misma lógica que triggerMasterPlayPause:
+// un pad (si hay uno preparado/activo) + la fuente de tiempo (Secuencia si hay
+// una cargada, si no Click/metrónomo). La ORIGINAL nunca es fuente maestra.
+function playPlanLabel() {
+  const hasPad = !!(getPreparedPadKey() || getActiveKey());
+  const timing = (isTrackLoaded() && getCurrentType() === 'sequence') ? 'Secuencia' : 'Click';
+  return '▶ ' + (hasPad ? 'Pad + ' : '') + timing;
+}
+
+// Actualiza la etiqueta/punto del banner según el estado live + el plan de lo
+// que sonará al pulsar Play. Lo llama el poll de reproducción y los cambios de
+// canción.
 export function refreshNowPlayingLiveState() {
   const banner = q('#now-playing-banner');
   if (!banner || banner.classList.contains('hidden')) return;
@@ -38,6 +49,10 @@ export function refreshNowPlayingLiveState() {
   banner.classList.toggle('is-live', live);
   const label = banner.querySelector('.np-label');
   if (label) label.textContent = live ? 'Sonando' : 'Preparada';
+  // El plan "qué sonará al Play" solo tiene sentido cuando está PREPARADA
+  // (si ya suena, no hay nada que anticipar).
+  const plan = banner.querySelector('#np-plan');
+  if (plan) plan.textContent = live ? '' : playPlanLabel();
 }
 
 // ¿La card ya está completamente visible dentro de su contenedor scrolleable?
