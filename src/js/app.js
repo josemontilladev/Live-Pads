@@ -61,7 +61,7 @@ import {
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
-  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong
+  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType
 } from './audio/trackPlayer.js';
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
@@ -891,22 +891,34 @@ function prepareNextSongKey(song) {
   });
 }
 
+// La ORIGINAL nunca es la fuente maestra: solo cuenta como fuente de tiempo una
+// SECUENCIA cargada. La original es referencia/ensayo y se controla aparte.
+function isSequenceLoaded() {
+  return isTrackLoaded() && getCurrentType() === 'sequence';
+}
+
 function triggerMasterPlayPause() {
-  // A session is "currently active" if the loaded track is playing, or — if
-  // no track is loaded — the metronome is running.
-  const isCurrentlyActive = isTrackLoaded() ? isTrackPlaying() : getMetroRunning();
+  // "Activo" = la secuencia maestra está sonando, o —sin secuencia— el
+  //  metrónomo corre. La original NO cuenta como fuente maestra.
+  const isCurrentlyActive = isSequenceLoaded() ? isTrackPlaying() : getMetroRunning();
 
   if (isCurrentlyActive) {
     triggerMasterStop();
   } else {
+    // Si hay una ORIGINAL cargada (referencia), detenela antes de lanzar: nunca
+    // es la fuente maestra y no debe sonar encima de lo que se dispara.
+    if (isTrackLoaded() && getCurrentType() === 'original' && isTrackPlaying()) {
+      clickPlayPause();
+    }
+
     // 1. Play the pad if not already active (if it crossfaded, it's already active!)
     if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
 
-    // 2. Play the track or the metronome. One timing source by default: a
-    //    loaded sequence carries its own click, so the metronome stays off —
-    //    UNLESS "Click con secuencia" is enabled (for sequences without a
-    //    built-in click). With no track, the metronome is the timing source.
-    if (isTrackLoaded()) {
+    // 2. Play the SEQUENCE or the metronome. One timing source by default: una
+    //    secuencia lleva su propio click, así que el metrónomo queda OFF —
+    //    salvo que "Click con secuencia" esté activo. Sin secuencia (haya o no
+    //    una original cargada), el metrónomo es la fuente de tiempo.
+    if (isSequenceLoaded()) {
       if (!isTrackPlaying()) clickPlayPause();
       if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
     } else if (!getMetroRunning()) {
@@ -932,6 +944,23 @@ function triggerMasterStop() {
   if (isTrackPlaying()) clickPlayPause();
 }
 
+// PÁNICO: corta absolutamente todo y cierra cualquier overlay/ayuda, pase lo que
+// pase. Es la tecla de seguridad en vivo (Esc) — el director nunca debe dudar de
+// que esto silencia el escenario.
+function panicStopAll() {
+  // Cerrar overlays/ayuda/sidebar primero (no bloquean el corte de audio).
+  if (isCheatSheetOpen()) closeCheatSheet();
+  closeAllOverlays();
+  q('#sidebar').classList.remove('open');
+  // Cortar TODA fuente de sonido: pad, metrónomo y la pista (secuencia U original).
+  engine.stopPad();
+  setActiveKey(null);
+  setPreparedPadKey(null);
+  buildKeyGrid();
+  if (getMetroRunning()) toggleMetro();
+  if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa secuencia/original
+}
+
 function onKey(e) {
   // Don't capture keypresses meant for any text editor — INPUT, TEXTAREA,
   // SELECT, or contentEditable. Previously only INPUT was filtered, so
@@ -952,6 +981,16 @@ function onKey(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
   // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
   if (document.getElementById('gi-lyrics-modal')) return;
+
+  // Esc = PÁNICO: detiene TODO (pad, metrónomo, secuencia/original) y cierra
+  // cualquier overlay/ayuda, pase lo que pase. Se maneja ANTES de los bloques de
+  // Tab/Stems/cheat-sheet para que funcione siempre, incluso con la ayuda o un
+  // overlay abierto. (En inputs ya se retornó arriba — Esc cancela la edición.)
+  if (e.code === 'Escape') {
+    e.preventDefault();
+    panicStopAll();
+    return;
+  }
 
   // Tab → alternar workspace Pads ↔ Stems. Solo si el foco no está en un
   // input (ya filtrado arriba) y sin modificadores (Ctrl+Tab está reservado
@@ -999,12 +1038,10 @@ function onKey(e) {
     else openCheatSheet();
     return;
   }
-  // Cheat sheet visible — only Escape escapes; everything else is locked
-  // so pads/drums don't fire while the help is being read.
-  if (isCheatSheetOpen()) {
-    if (e.code === 'Escape') { closeCheatSheet(); e.preventDefault(); }
-    return;
-  }
+  // Cheat sheet visible — todo bloqueado para que pads/drums no disparen
+  // mientras se lee la ayuda. (Esc ya se manejó arriba como pánico, que también
+  // cierra la ayuda.)
+  if (isCheatSheetOpen()) return;
 
   const k = e.code; // Use e.code (e.g. 'KeyA', 'Digit1', 'Space')
   
@@ -1103,8 +1140,6 @@ function onKey(e) {
       return;
     }
   }
-
-  if (e.code === 'Escape') { closeAllOverlays(); q('#sidebar').classList.remove('open'); engine.stopPad(); setActiveKey(null); setPreparedPadKey(null); buildKeyGrid(); }
 
   const padIdx = KEY_MAP_PADS.indexOf(kUpper);
   if (padIdx !== -1) { const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP; onKeyClick(keys[padIdx]); }
