@@ -184,6 +184,12 @@ export class PitchAudio extends EventTarget {
 
   _teardownShifter() {
     if (this._shifter) {
+      // Anular onaudioprocess es CLAVE: un ScriptProcessorNode con su callback
+      // asignado sigue referenciado por el motor de audio aunque se desconecte,
+      // así que no se recolecta. Sin esto, cada play/pause/seek/loop dejaba un
+      // nodo vivo procesando en silencio → CPU y glitches acumulados en sesiones
+      // largas en vivo.
+      try { this._shifter.node.onaudioprocess = null; } catch (_) {}
       try { this._shifter.disconnect(); } catch (_) {}
       this._shifter = null;
     }
