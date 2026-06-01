@@ -88,24 +88,15 @@ function writeFileAtomic(filePath, contentString) {
   fs.renameSync(tmp, filePath);
 }
 
-// Mirror dynamic updates back into the project's defaults folder in development
+// Guarda en userData (la copia viva). NOTA: antes también espejaba a defaults/
+// en dev, pero eso ensuciaba git en cada sesión (defaults es solo la SEMILLA de
+// primer arranque, no un destino de escritura). Para actualizar la semilla a
+// propósito se editan los archivos de defaults/ directamente.
 function saveToBoth(relativeSubPath, contentString) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
-
   // Escritura atómica (tmp+rename): un corte a mitad no deja el JSON de
   // presets/mapeos/kits truncado. Misma protección que ya tiene la BD.
   writeFileAtomic(userPath, contentString);
-
-  // Only mirror back to defaults in development (not when packaged inside read-only app.asar)
-  if (!app.isPackaged) {
-    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
-    try {
-      fs.mkdirSync(path.dirname(defPath), { recursive: true });
-      fs.writeFileSync(defPath, contentString, 'utf-8');
-    } catch (e) {
-      console.warn("Could not save to defaults folder in development:", e.message);
-    }
-  }
 }
 
 // ── Biblioteca de audios — carpeta configurable por máquina ────────
@@ -221,17 +212,10 @@ function containInRoot(root, rel) {
 }
 
 function deleteFromBoth(relativeSubPath) {
+  // Solo userData (la copia viva). Ya no se toca defaults/ en dev: es la semilla.
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
   if (fs.existsSync(userPath)) {
     try { fs.unlinkSync(userPath); } catch(e){}
-  }
-
-  // Only delete from defaults in development
-  if (!app.isPackaged) {
-    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
-    if (fs.existsSync(defPath)) {
-      try { fs.unlinkSync(defPath); } catch(e){}
-    }
   }
 }
 
@@ -245,17 +229,8 @@ function copyToBoth(sourcePath, relativeSubPath) {
   if (sourcePath !== userPath) {
     try { fs.copyFileSync(sourcePath, userPath); } catch(e){ console.error("Error copying to userPath:", e); }
   }
-  
-  // Only copy to defaults in development (packaged app.asar is read-only)
-  if (!app.isPackaged) {
-    const defPath = path.join(__dirname, 'defaults', relativeSubPath);
-    try {
-      fs.mkdirSync(path.dirname(defPath), { recursive: true });
-      if (sourcePath !== defPath) fs.copyFileSync(sourcePath, defPath);
-    } catch (e) {
-      console.warn("Could not copy to defaults folder in development:", e.message);
-    }
-  }
+  // Ya no se espeja a defaults/ en dev: eso metía audios personales en la semilla
+  // y ensuciaba git. defaults/ es solo la semilla de primer arranque.
 }
 
 // Rewrite persisted asset paths into the privileged livepads:// scheme so the
@@ -1007,9 +982,8 @@ ipcMain.handle('assign-drum-sample', async (_e, { sourcePath, padName, kitId } =
     }
   };
   cleanDir(path.join(app.getPath('userData'), 'UserDrums'));
-  if (!app.isPackaged) {
-    cleanDir(path.join(__dirname, 'defaults', 'UserDrums'));
-  }
+  // (Ya no se limpia defaults/UserDrums en dev: defaults es la semilla, no un
+  // destino de escritura.)
 
   // Generate unique filename with kit+pad prefix
   const fileName = `${prefix}${Date.now()}_${path.basename(sourcePath).replace(/[^a-z0-9.]/gi, '_')}`;
