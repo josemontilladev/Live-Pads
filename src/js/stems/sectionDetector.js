@@ -162,19 +162,51 @@ export function detectSections(audioBuffer, opts = {}) {
     novelty[i] = acc;
   }
 
-  // Adaptive peak-pick.
-  let mean = 0; for (let i = 0; i < n; i++) mean += novelty[i];
-  mean /= n;
-  let varc = 0; for (let i = 0; i < n; i++) { const d = novelty[i] - mean; varc += d * d; }
-  const std = Math.sqrt(varc / n) || 1;
-  const thresh = mean + 0.55 * std;
+  // ── Suavizado de la curva de novedad ──
+  // Kernel gaussiano de 5 taps (~1.25 s a 4 frames/s) para apagar spikes de
+  // un solo frame, que solían meter marcadores donde no había transición
+  // real. Mantiene los picos anchos (cambios de sección genuinos).
+  const smoothed = new Float32Array(n);
+  const SMOOTH_K = [0.1, 0.2, 0.4, 0.2, 0.1];
+  for (let i = 0; i < n; i++) {
+    let s = 0;
+    for (let k = -2; k <= 2; k++) {
+      const j = Math.max(0, Math.min(n - 1, i + k));
+      s += novelty[j] * SMOOTH_K[k + 2];
+    }
+    smoothed[i] = s;
+  }
+  for (let i = 0; i < n; i++) novelty[i] = smoothed[i];
 
+  // ── Threshold robusto (mediana + MAD) ──
+  // Antes usábamos mean + 0.55·std. El problema: una sola transición muy
+  // marcada (silencio→entra la banda) infla std y eleva el umbral, dejando
+  // fuera transiciones genuinas pero más sutiles (verso→coro). Mediana y
+  // MAD son insensibles a un puñado de outliers.
+  const sorted = Array.from(novelty).sort((a, b) => a - b);
+  const median = sorted[Math.floor(n / 2)];
+  const devs = sorted.map(v => Math.abs(v - median)).sort((a, b) => a - b);
+  const mad = devs[Math.floor(n / 2)] || 1;
+  // 1.4826 escala MAD a std-equivalente; 1.6 es el "k" empírico (más alto
+  // que el 0.55·std anterior porque mediana+MAD comprime el rango).
+  const thresh = median + 1.6 * 1.4826 * mad;
+
+  // ── Pico válido sobre ventana ±3 frames (0.75 s) ──
+  // Antes pedía solo > vecino inmediato (±1). Eso dejaba pasar ondulaciones
+  // ruidosas. Pedir local-max sobre ±3 elimina picos espurios y deja solo
+  // los que destacan claramente sobre su entorno.
   const minGapFrames = Math.max(1, Math.round(MIN_GAP_SEC / HOP_SEC));
+  const PEAK_HALF = 3;
   const peaks = [];
-  for (let i = KERNEL_HALF + 1; i < n - KERNEL_HALF - 1; i++) {
+  for (let i = KERNEL_HALF + PEAK_HALF; i < n - KERNEL_HALF - PEAK_HALF; i++) {
     const v = novelty[i];
     if (v < thresh) continue;
-    if (v < novelty[i - 1] || v < novelty[i + 1]) continue;
+    let isLocalMax = true;
+    for (let k = -PEAK_HALF; k <= PEAK_HALF; k++) {
+      if (k === 0) continue;
+      if (novelty[i + k] > v) { isLocalMax = false; break; }
+    }
+    if (!isLocalMax) continue;
     if (peaks.length && (i - peaks[peaks.length - 1].frame) < minGapFrames) {
       if (v > peaks[peaks.length - 1].v) peaks[peaks.length - 1] = { frame: i, v };
       continue;
@@ -186,15 +218,30 @@ export function detectSections(audioBuffer, opts = {}) {
   if (!times.length) return [];
 
   // Snap each boundary to the nearest bar line so markers are musically exact.
+  // Mejora: probamos snap a barra entera Y media barra (para anacrusis: una
+  // sección que entra 2 beats antes del compás formal). Elegimos el snap que
+  // caiga más cerca del pico de novedad detectado — el "alineamiento real"
+  // de la transición, no una abstracción rítmica forzada.
   if (opts.bpm > 0) {
     const beatsPerBar = opts.beatsPerBar || 4;
     const barSec = (60 / opts.bpm) * beatsPerBar;
+    const halfBarSec = barSec / 2;
     let offsetSec = 0;
     try {
       const a = detectBeatAlignment(audioBuffer, opts.bpm, beatsPerBar);
       if (a && isFinite(a.offsetSec)) offsetSec = a.offsetSec;
     } catch (e) { /* keep 0 */ }
-    times = times.map(t => offsetSec + Math.round((t - offsetSec) / barSec) * barSec);
+    times = times.map(t => {
+      const tFromOffset = t - offsetSec;
+      const snapBar = offsetSec + Math.round(tFromOffset / barSec) * barSec;
+      const snapHalf = offsetSec + Math.round(tFromOffset / halfBarSec) * halfBarSec;
+      // Si la distancia al snap-medio es la mitad o menos que al snap-entero,
+      // preferimos el medio. Si están parejos, gana el entero (musicalmente
+      // dominante). Esto evita atraer cualquier transición al medio porque sí.
+      const dBar  = Math.abs(t - snapBar);
+      const dHalf = Math.abs(t - snapHalf);
+      return (dHalf < dBar * 0.55) ? snapHalf : snapBar;
+    });
     // De-dupe boundaries that snapped onto the same bar, keep ascending order.
     times = [...new Set(times.map(t => +t.toFixed(3)))].sort((x, y) => x - y).filter(t => t > 1);
   }

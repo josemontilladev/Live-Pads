@@ -1386,6 +1386,9 @@ function buildRowHtml(track) {
       ${track.kind === 'click' || track.kind === 'guide' ? '' : `
       <button class="stems-row-export" data-action="separate" title="Separar en voz e instrumental (IA, local)">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      </button>
+      <button class="stems-row-export" data-action="harmony" title="Crear referencia armónica (pitch ±semitonos)">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
       </button>`}
       <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1492,6 +1495,13 @@ function wireStrip(root, id) {
       openSeparateMenu(separateBtn, id);
     };
   }
+  const harmonyBtn = root.querySelector('[data-action="harmony"]');
+  if (harmonyBtn) {
+    harmonyBtn.onclick = (e) => {
+      e.stopPropagation();
+      openHarmonyMenu(harmonyBtn, id);
+    };
+  }
 }
 
 // Small popup to choose separation mode before running.
@@ -1585,6 +1595,74 @@ function openCloudConfigDialog() {
     else localStorage.removeItem(CLOUD_CFG_KEY);
     close();
   };
+}
+
+// ── Referencia armónica (pitch-shift offline) ─────────────────────
+// Crea una pista nueva con el audio fuente desplazado N semitonos sin
+// alterar el tempo. Útil para que coristas/segundas voces tengan una guía
+// de afinación encima de la voz líder ya separada.
+let harmonyRunning = false;
+async function openHarmonyMenu(anchor, id) {
+  if (harmonyRunning) return;
+  const { HARMONY_PRESETS } = await import('./harmonyShifter.js');
+  document.getElementById('stems-harmony-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'stems-harmony-menu';
+  menu.className = 'stems-ctx-menu';
+  menu.innerHTML = `
+    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--text-muted);font-size:11px;">Referencia armónica (mismo tempo, otra altura)</div>
+    ${HARMONY_PRESETS.map(p => `
+      <button data-st="${p.semitones}">${p.label}</button>
+    `).join('')}
+  `;
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top  = `${r.bottom + 4}px`;
+  requestAnimationFrame(() => {
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth) menu.style.left = `${window.innerWidth - mr.width - 8}px`;
+    if (mr.bottom > window.innerHeight) menu.style.top = `${r.top - mr.height - 4}px`;
+  });
+  const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
+  const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
+  setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
+  menu.querySelectorAll('[data-st]').forEach(b => {
+    b.onclick = () => {
+      close();
+      const semis = parseInt(b.dataset.st, 10);
+      const preset = HARMONY_PRESETS.find(p => p.semitones === semis);
+      runHarmonyShift(id, semis, preset?.name || `${semis}st`);
+    };
+  });
+}
+
+async function runHarmonyShift(id, semitones, presetName) {
+  if (harmonyRunning) { toast('Espera a que termine la referencia anterior.', 'warning'); return; }
+  const track = engine.getTracks().find(t => t.id === id);
+  const buffer = engine.getTrackBuffer(id);
+  if (!track || !buffer) return;
+  const baseName = track.name.replace(/\.(wav|mp3|ogg|aac|m4a|flac)$/i, '');
+
+  harmonyRunning = true;
+  const toastUi = showSepToast(`${baseName} → ${presetName}`);
+  try {
+    const { pitchShiftBuffer } = await import('./harmonyShifter.js');
+    toastUi.update(0.02, 'Generando referencia armónica…');
+    const shifted = await pitchShiftBuffer(buffer, semitones, {
+      onProgress: (f) => toastUi.update(Math.max(0.02, f), 'Procesando…')
+    });
+    toastUi.update(1, 'Creando pista…');
+    const ch0 = shifted.getChannelData(0).slice();
+    const ch1 = shifted.numberOfChannels > 1 ? shifted.getChannelData(1).slice() : ch0;
+    await addSeparatedTrack(`${baseName} — ${presetName}`, [ch0, ch1], shifted.sampleRate, 'other');
+    toastUi.done(`✓ Referencia ${presetName} creada`);
+  } catch (err) {
+    console.error('Harmony shift failed:', err);
+    toastUi.error(err.message || String(err));
+  } finally {
+    harmonyRunning = false;
+  }
 }
 
 // ── Local AI stem separation (voz / instrumental) ────────────────
