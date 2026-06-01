@@ -178,23 +178,64 @@ body[data-workspace="stems"] #body {
 
 /* Field wrapper aligns with Pads dropdown dimensions (radius var(--r-md),
    bg-card surface, border that lifts on hover/focus). */
-/* ── Altura uniforme de "chips" del toolbar ──────────────────────────
-   Todos los contenedores de control (BPM, COMPÁS, TONALIDAD, TONO,
-   zoom, snap, timecode, pill de estado, grupos PISTAS/MARCADORES,
-   botones) miden 32px para que la fila se vea ordenada. Cada regla
-   particular abajo solo ajusta padding/contenido — la altura se aplica
-   acá una sola vez. */
+/* ── Alturas uniformes y "aire" dentro de wrappers ──────────────────
+   Referencia visual: el contenedor de "Importar stems / Exportar / Mi
+   proyecto" (.stems-actions-primary). Sus buttons internos son ~30px y
+   el wrapper tiene padding 4px → wrapper ~38px con breathing visible
+   entre el borde del button y el borde del wrapper. Ese es el patrón
+   que extendemos al resto.
+
+   Dos niveles:
+   1. Wrappers (.stems-field, .stems-tools-group, .stems-loop-group,
+      .stems-actions-primary, .stems-tb-mid): altura ~38px, padding 4px.
+      Los controles internos no tocan los bordes del wrapper.
+   2. Leaves directos en la fila (.stems-zoom-group, .stems-snap-toggle,
+      .stems-state-pill, .stems-readout, .stems-btn standalone): 32px.
+   3. Controles internos dentro de wrappers (.stems-btn, .stems-mini-select,
+      .stems-pitch-group, .stems-project-name): 30px para dejar 4px de
+      aire en cada lado dentro del wrapper de 38px.
+*/
 .stems-field,
-.stems-pitch-group,
+.stems-tools-group,
+.stems-loop-group,
+.stems-actions-primary,
+.stems-tb-mid {
+  height: 38px;
+  padding: 3px 6px;
+  box-sizing: border-box;
+}
+
+/* Leaves del topbar (sin wrapper interno) — 32px, igual altura que un
+   button standalone. La fila luce alineada visualmente. */
 .stems-zoom-group,
 .stems-snap-toggle,
 .stems-state-pill,
 .stems-readout,
-.stems-tools-group,
 .stems-btn {
   height: 32px;
   box-sizing: border-box;
 }
+
+/* Controles INTERNOS dentro de wrappers — 30px, 4px aire en cada lado
+   contra el wrapper de 38px. */
+.stems-field--pitch .stems-pitch-group,
+.stems-tools-group .stems-btn,
+.stems-tools-group .stems-mini-select,
+.stems-actions-primary .stems-btn,
+.stems-actions-primary .stems-project-name,
+.stems-loop-group .stems-btn,
+.stems-tb-mid .stems-tb-btn {
+  height: 30px;
+  box-sizing: border-box;
+}
+
+/* Paddings ajustados a la altura nueva — los originales asumían más
+   espacio vertical y desbordaban. */
+.stems-tools-group .stems-mini-select,
+.stems-actions-primary .stems-project-name { padding-top: 0; padding-bottom: 0; }
+.stems-tools-group .stems-btn,
+.stems-actions-primary .stems-btn,
+.stems-loop-group .stems-btn { padding-top: 0; padding-bottom: 0; }
 
 .stems-field {
   display: flex;
