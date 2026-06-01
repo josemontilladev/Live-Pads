@@ -8,8 +8,10 @@
 // "no mappings" empty state stay accurate.
 
 import { getMidiMap, getAllMidiMaps, deleteMapping, clearAllMappings, importMidiMaps } from '../midi/midiMap.js';
+import { pushModal } from './modalStack.js';
 
 let mounted = null;
+let popModal = null;
 
 const ACTION_LABELS = {
   pad:       'Pad',
@@ -124,7 +126,7 @@ export function openMappingsList() {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
-  if (!window.__escMappings) { window.__escMappings = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closeMappingsList(); }); }
+  popModal = pushModal(() => closeMappingsList());
 
   overlay.onclick = (e) => {
     if (e.target === overlay) { closeMappingsList(); return; }
@@ -166,6 +168,7 @@ export function openMappingsList() {
 
 export function closeMappingsList() {
   if (!mounted) return;
+  if (popModal) { popModal(); popModal = null; }
   mounted.classList.remove('open');
   const node = mounted;
   mounted = null;
