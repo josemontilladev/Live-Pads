@@ -131,6 +131,28 @@ function getEffectiveKey() {
   return transposeKey(projectKey, currentStemsPitch);
 }
 
+// Tonalidad en un momento específico del audio. Busca el marker más
+// reciente (con tonalidad seteada) cuyo atSec sea ≤ sec. Si ninguno
+// tiene tonalidad, cae al projectKey global. Devuelve EFECTIVA (con el
+// shift master aplicado), igual que getEffectiveKey.
+//
+// Caso típico: canción en Em que modula a G en el último coro. El
+// usuario pone un marker "Coro final" en el cambio, le asigna G, y al
+// generar armonía DESPUÉS de ese tiempo el menú armónico usa G en vez
+// de Em. Antes de ese marker sigue usando Em (o projectKey).
+function getKeyAtTime(sec) {
+  let base = projectKey;
+  // Markers ordenados por atSec ascendente; tomamos el ÚLTIMO con key
+  // que sea <= sec.
+  const sorted = markers.slice().sort((a, b) => a.atSec - b.atSec);
+  for (const m of sorted) {
+    if (m.atSec > sec) break;
+    if (m.key) base = m.key;
+  }
+  if (!base) return null;
+  return transposeKey(base, currentStemsPitch);
+}
+
 // Actualiza el select para mostrar la tonalidad efectiva sin disparar
 // el onchange (que reinterpretaría el valor como original).
 function paintEffectiveKeyUI() {
@@ -2029,13 +2051,17 @@ async function openHarmonyMenu(anchor, id) {
   menu.id = 'stems-harmony-menu';
   menu.className = 'stems-ctx-menu';
 
-  // Sección diatónica — solo si hay tonalidad fijada en el proyecto. Usa
-  // la tonalidad EFECTIVA (incluye el shift master) para que el label y
-  // los semitonos reflejen lo que el usuario está oyendo realmente.
-  const effKey = getEffectiveKey();
+  // Sección diatónica — usa la tonalidad EN EL PLAYHEAD (con prioridad
+  // al marker más reciente con key seteado, fallback al projectKey). Así
+  // si la canción modula y el usuario marca esa sección con G, el menú
+  // armónico al pararse ahí muestra G en vez de la tonalidad original.
+  const refSec = engine.getCurrentSec();
+  const effKey = getKeyAtTime(refSec);
   const hasKey = !!effKey;
+  const isSectional = !!markers.find(mm => mm.key && mm.atSec <= refSec);
+  const sourceNote = isSectional ? '(según marker de sección)' : (projectKey ? '(tonalidad del proyecto)' : '');
   const modeNote = hasKey
-    ? `Tonalidad efectiva: ${effKey} (${isMinorKey(effKey) ? 'menor' : 'mayor'})`
+    ? `Tonalidad: ${effKey} (${isMinorKey(effKey) ? 'menor' : 'mayor'}) ${sourceNote}`
     : 'Fija una tonalidad arriba para activar opciones diatónicas';
   const diatonicHtml = hasKey ? `
     <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:1px;">DIATÓNICAS (${effKey})</div>
@@ -2631,6 +2657,21 @@ function commitMarkerMove(markerId, oldSec) {
   );
 }
 
+function setMarkerKey(markerId, key) {
+  const m = markers.find(x => x.id === markerId);
+  if (!m) return;
+  const oldKey = m.key || null;
+  const newKey = key || null;
+  if (oldKey === newKey) return;
+  m.key = newKey;
+  redrawMarkers();
+  pushHistory('Tonalidad del marcador',
+    () => { m.key = oldKey; redrawMarkers(); scheduleSave(); },
+    () => { m.key = newKey; redrawMarkers(); scheduleSave(); }
+  );
+  scheduleSave();
+}
+
 function changeMarkerCue(markerId, cueId) {
   const cue = findCueById(cueId);
   const m = markers.find(x => x.id === markerId);
@@ -2675,9 +2716,13 @@ function redrawMarkers() {
     el.className = 'stems-marker' + role;
     el.style.left = `${x}px`;
     el.dataset.markerId = m.id;
+    // Si el marker tiene tonalidad de sección asignada, mostramos un
+    // badge con la tonalidad EFECTIVA (transpuesta por el shift master).
+    const effSectionKey = m.key ? transposeKey(m.key, currentStemsPitch) : null;
     el.innerHTML = `
       <span class="stems-marker-flag" title="Arrastra para mover · click derecho para opciones">${SVG_FLAG}</span>
       <span class="stems-marker-label">${escapeHtml(m.label)}</span>
+      ${effSectionKey ? `<span class="stems-marker-key" title="Tonalidad de esta sección">${escapeHtml(effSectionKey)}</span>` : ''}
       <button class="stems-marker-remove" title="Quitar">×</button>
     `;
     el.querySelector('.stems-marker-remove').onclick = (e) => {
@@ -2757,6 +2802,19 @@ function openMarkerMenu(x, y, markerId) {
     <div class="smc-sep"></div>
     <button data-cmd="rename">Renombrar etiqueta</button>
     <div class="smc-sep"></div>
+    <div class="smc-section-label">TONALIDAD DE LA SECCIÓN</div>
+    <div class="smc-key-row">
+      <select class="smc-key-select" data-cmd="set-key">
+        <option value="">— (usa tonalidad del proyecto)</option>
+        <optgroup label="Mayores">
+          ${['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
+        </optgroup>
+        <optgroup label="Menores">
+          ${['Am','A#m','Bm','Cm','C#m','Dm','D#m','Em','Fm','F#m','Gm','G#m'].map(k => `<option value="${k}" ${m.key === k ? 'selected' : ''}>${k}</option>`).join('')}
+        </optgroup>
+      </select>
+    </div>
+    <div class="smc-sep"></div>
     <button data-cmd="loop-start" class="${isLoopA ? 'is-active' : ''}">▎ Marcar como inicio de loop (A)</button>
     <button data-cmd="loop-end"   class="${isLoopB ? 'is-active' : ''}">▎ Marcar como fin de loop (B)</button>
     ${inLoop ? '<button data-cmd="loop-clear">Quitar de loop</button>' : ''}
@@ -2775,6 +2833,16 @@ function openMarkerMenu(x, y, markerId) {
   menu.querySelectorAll('[data-cue]').forEach(b => {
     b.onclick = () => { changeMarkerCue(markerId, b.dataset.cue); closeMarkerMenu(); };
   });
+  const keySelInMenu = menu.querySelector('[data-cmd="set-key"]');
+  if (keySelInMenu) {
+    // Evita que el mousedown cierre el menú vía closeMarkerMenuOnce.
+    keySelInMenu.addEventListener('mousedown', (e) => e.stopPropagation());
+    keySelInMenu.onchange = () => {
+      setMarkerKey(markerId, keySelInMenu.value || null);
+      // No cerramos — el usuario puede querer ver cómo cambia el badge sin
+      // perder el resto del menú.
+    };
+  }
   menu.querySelector('[data-cmd="rename"]').onclick = () => {
     closeMarkerMenu();
     // Inline rename: turn the label into a contenteditable (window.prompt
@@ -2894,7 +2962,13 @@ function paintLoopAbButtons() {
 }
 function closeMarkerMenuOnce(e) {
   const menu = document.getElementById('stems-marker-menu');
-  if (menu && !menu.contains(e.target)) closeMarkerMenu();
+  if (!menu) return;
+  if (menu.contains(e.target)) return;
+  // Si el foco vive dentro del menú (típicamente un <select> abierto cuyo
+  // dropdown nativo está fuera del DOM del menú), no cerramos — el click
+  // es parte de la interacción con ese control.
+  if (menu.contains(document.activeElement)) return;
+  closeMarkerMenu();
 }
 function closeMarkerMenuOnEsc(e) {
   if (e.key === 'Escape') closeMarkerMenu();
