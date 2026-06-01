@@ -70,6 +70,19 @@ function nextStemColor() {
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
+// Cola de archivos que pidió importar otro módulo (ej. giList al
+// "Extraer del original") antes de que el workspace estuviera montado.
+// Se procesa al final de mount(). Si ya está montado, importa directo.
+const pendingImportFiles = [];
+
+export async function acceptIncomingFile(file) {
+  if (!file) return;
+  if (mounted) {
+    await importFiles([file]);
+  } else {
+    pendingImportFiles.push(file);
+  }
+}
 let nextTrackId = 1;
 let projectName = 'Mi proyecto';
 let bpm = 120;            // integer shown in the UI / track names
@@ -268,6 +281,14 @@ export async function mount() {
     }
   } catch (e) {
     console.warn('Could not restore stem project:', e);
+  }
+
+  // Procesa archivos que pidieron importar antes de que el workspace
+  // estuviera listo (ej. giList → "Extraer del original"). El usuario
+  // ya pidió la acción; el archivo aterriza solo, sin pasos extra.
+  if (pendingImportFiles.length) {
+    const files = pendingImportFiles.splice(0);
+    await importFiles(files);
   }
 }
 

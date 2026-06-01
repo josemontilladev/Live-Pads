@@ -143,14 +143,32 @@ function showLoadAudioMenu(anchor, song, type, card) {
     if (src === 'local')   { deps.loadAndPlayTrack(song, type); return; }
     if (src === 'youtube') { assignFromYoutube(song, () => repaintGiCard(card, song)); return; }
     if (src === 'extract') {
-      // Cambia al workspace de Stems para que el usuario separe el original.
-      // Pre-cargar el archivo desde aquí requeriría leer el URL livepads://
-      // vía IPC + envolverlo como File — preferimos no acoplar este módulo
-      // a la API de Stems y dejar que el usuario arrastre/abra el archivo
-      // que ya tiene a mano. El toast guía esa transición.
+      // Salto a Stems + auto-carga del original. El archivo se lee vía IPC
+      // (mismo readAudioFile que usa el track player) y se envuelve como
+      // File para que workspace.importFiles lo trate igual que un drop
+      // manual. Si el workspace aún no se ha montado, queda en cola y se
+      // procesa al final de mount().
+      const path = song.audio?.original;
+      if (!path) {
+        window.showToast?.('Esta canción no tiene audio original cargado.', 'warning');
+        return;
+      }
       const stemsTab = document.querySelector('.ws-tab[data-workspace="stems"]');
       if (stemsTab) stemsTab.click();
-      window.showToast?.('Arrastra el audio original en el área de tracks para extraer la secuencia.', 'info');
+      (async () => {
+        try {
+          const ab = await window.electronAPI.readAudioFile(path);
+          const match = path.match(/[^/\\]+$/);
+          const filename = match ? decodeURIComponent(match[0]) : `${song.title || 'audio'}.mp3`;
+          // Tipo MIME genérico — importFiles lo acepta vía extensión también.
+          const file = new File([ab], filename, { type: 'audio/mpeg' });
+          const ws = await import('../stems/workspace.js');
+          await ws.acceptIncomingFile(file);
+        } catch (err) {
+          console.error('Auto-load to stems failed:', err);
+          window.showToast?.('No se pudo abrir el audio en Stems: ' + (err.message || err), 'error');
+        }
+      })();
       return;
     }
   };
