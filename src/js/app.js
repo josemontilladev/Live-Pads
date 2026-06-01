@@ -951,6 +951,18 @@ function onKey(e) {
   // Lyrics editor modal is open — full lockout of pad/drum/master shortcuts.
   if (document.getElementById('gi-lyrics-modal')) return;
 
+  // Tab → alternar workspace Pads ↔ Stems. Solo si el foco no está en un
+  // input (ya filtrado arriba) y sin modificadores (Ctrl+Tab está reservado
+  // por el sistema). Funciona en ambos workspaces porque está antes del
+  // bloque que retorna para Stems.
+  if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+    e.preventDefault();
+    const current = document.body.dataset.workspace || 'pads';
+    const target = current === 'stems' ? 'pads' : 'stems';
+    document.querySelector(`.ws-tab[data-workspace="${target}"]`)?.click();
+    return;
+  }
+
   // Stems workspace owns its own shortcuts. Space toggles play/pause,
   // M drops a marker, and Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) drive the
   // undo stack. Nothing else from the Pads keymap should reach the user
@@ -1064,7 +1076,10 @@ function onKey(e) {
   // so the next Space press will trigger a smooth crossfade into it.
   // Useful in live: stage the next song silently between segments,
   // confirm with Space when ready.
-  if (e.code === 'Tab') {
+  // Shift+Tab → preparar siguiente canción (antes era Tab solo; Tab pasó a
+  // alternar workspace que es una acción más universal). Útil en vivo:
+  // pre-arma la siguiente canción del servicio para confirmar con Space.
+  if (e.code === 'Tab' && e.shiftKey) {
     const next = peekNextServiceSong();
     if (next) {
       e.preventDefault();
