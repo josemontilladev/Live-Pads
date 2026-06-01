@@ -321,9 +321,13 @@ body[data-workspace="stems"] #body {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
-  width: 40px; height: 40px;
+  /* 32x32 → mismo alto que el resto del topbar (BPM, COMPÁS, TONO).
+     Antes era 40 y empujaba la altura de toda la fila. Conserva el
+     border-radius circular y el glow para mantener la jerarquía visual
+     (sigue siendo "el botón principal"), pero ya no domina la fila. */
+  width: 32px; height: 32px;
   border-radius: 50%;
-  box-shadow: 0 0 18px var(--glow), 0 4px 12px rgba(0,0,0,0.4);
+  box-shadow: 0 0 14px var(--glow), 0 3px 10px rgba(0,0,0,0.4);
   margin-left: 2px;
 }
 .stems-tb-btn--play:hover {
@@ -349,7 +353,7 @@ body[data-workspace="stems"] #body {
   border-color: var(--border);
   filter: none;
 }
-.stems-tb-btn--play svg { width: 18px; height: 18px; }
+.stems-tb-btn--play svg { width: 14px; height: 14px; }
 
 /* Transport time readout: position / total duration */
 .stems-tb-time {
