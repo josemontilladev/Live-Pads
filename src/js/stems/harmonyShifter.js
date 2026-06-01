@@ -56,6 +56,54 @@ export async function pitchShiftBuffer(buffer, semitones, opts = {}) {
   return rendered;
 }
 
+// Lista de claves soportadas (mayores y menores) para el selector y la
+// detección de modo. Los aliases enarmónicos comparten semitonos para
+// que el usuario pueda usar la nota que más cómoda le sea.
+export const KEYS = [
+  // Mayores
+  'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B',
+  // Menores
+  'Am', 'A#m', 'Bbm', 'Bm', 'Cm', 'C#m', 'Dm', 'D#m', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Abm',
+];
+
+// ¿Esta clave es menor? Convención: termina en 'm' minúscula.
+export function isMinorKey(key) {
+  return typeof key === 'string' && /m$/.test(key);
+}
+
+// Para un grado diatónico (1..7) y una clave, devuelve cuántos semitonos
+// hay que sumar para llegar a esa nota en la escala. Para claves mayores
+// usa la escala mayor; para menores, la menor natural.
+//
+// Mayor:  W W H W W W H  → [0, 2, 4, 5, 7, 9, 11]
+// Menor:  W H W W H W W  → [0, 2, 3, 5, 7, 8, 10]
+const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
+
+export function diatonicSemitones(degree, key) {
+  const d = ((degree - 1) % 7 + 7) % 7;
+  return (isMinorKey(key) ? MINOR_SCALE : MAJOR_SCALE)[d];
+}
+
+// Presets "inteligentes" — el intervalo se decide al vuelo según la clave.
+// Si la clave del proyecto está set, estos aparecen primero en el menú,
+// arriba de los intervalos fijos. El label en el menú es ambiguo (solo
+// "3ra arriba") porque el motor sabrá si es +3 o +4 según el modo.
+export const HARMONY_DIATONIC = [
+  { degree: 3, dir: +1, label: '3ra diatónica arriba',  name: '3ra ↑' },
+  { degree: 5, dir: +1, label: '5ta diatónica arriba',  name: '5ta ↑' },
+  { degree: 3, dir: -1, label: '3ra diatónica abajo',   name: '3ra ↓' },
+  { degree: 6, dir: -1, label: '6ta diatónica abajo',   name: '6ta ↓' },
+];
+
+// Resuelve un preset diatónico → semitonos concretos según la clave dada.
+// Para dir=+1: usa la escala (positivo). Para dir=-1: complementa a octava
+// negativa (12 - degree-semitones).
+export function resolveDiatonic(preset, key) {
+  const s = diatonicSemitones(preset.degree, key);
+  return preset.dir > 0 ? s : -(12 - s);
+}
+
 // Intervalos comunes para referencia vocal (música popular / culto).
 // El "label" es lo que se mostrará en el menú; "name" se usa como sufijo
 // del nombre de la pista resultante para que el usuario identifique cuál

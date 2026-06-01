@@ -91,6 +91,11 @@ let bpmFloat = 120;       // precise tempo used for click, alignment + grid so
                           // nothing drifts across a long track
 let beatsPerBar = 4;
 let beatValue = 4;
+// Clave musical del proyecto (ej. "C", "Am", "F#m"). Si está definida,
+// las opciones "diatónicas" del menú de referencia armónica eligen el
+// intervalo correcto (3ra mayor en clave mayor, menor en clave menor).
+// `null` = no fijada → el menú armónico solo ofrece intervalos fijos.
+let projectKey = null;
 // Which beats of the bar get the accent click. Length tracks beatsPerBar;
 // default accents beat 1 only. User-configurable via the accent chips.
 let accentPattern = [true, false, false, false];
@@ -321,6 +326,31 @@ const SHELL_HTML = `
             <option value="7/8">7/8</option>
             <option value="9/8">9/8</option>
             <option value="12/8">12/8</option>
+          </select>
+        </div>
+        <!-- Clave de la canción — habilita las opciones "diatónicas" en el
+             menú de referencia armónica (3ra, 5ta) sin tener que adivinar
+             si la canción está en mayor o menor. -->
+        <div class="stems-field stems-field--select" title="Clave de la canción (habilita armonías diatónicas)">
+          <label>CLAVE</label>
+          <select id="stems-key">
+            <option value="">—</option>
+            <optgroup label="Mayores">
+              <option value="C">C</option><option value="C#">C#</option>
+              <option value="D">D</option><option value="D#">D#</option>
+              <option value="E">E</option><option value="F">F</option>
+              <option value="F#">F#</option><option value="G">G</option>
+              <option value="G#">G#</option><option value="A">A</option>
+              <option value="A#">A#</option><option value="B">B</option>
+            </optgroup>
+            <optgroup label="Menores">
+              <option value="Am">Am</option><option value="A#m">A#m</option>
+              <option value="Bm">Bm</option><option value="Cm">Cm</option>
+              <option value="C#m">C#m</option><option value="Dm">Dm</option>
+              <option value="D#m">D#m</option><option value="Em">Em</option>
+              <option value="Fm">Fm</option><option value="F#m">F#m</option>
+              <option value="Gm">Gm</option><option value="G#m">G#m</option>
+            </optgroup>
           </select>
         </div>
         <!-- Grupo de tono master — shift de ±12 semitonos aplicado a TODAS las
@@ -963,6 +993,21 @@ function wireArrangeEvents(root) {
     if (engine.getTracks().length === 0) return;
     await runExport();
   };
+
+  // Selector de clave musical del proyecto.
+  const keySel = root.querySelector('#stems-key');
+  if (keySel) {
+    keySel.value = projectKey || '';
+    keySel.onchange = () => {
+      const old = projectKey;
+      projectKey = keySel.value || null;
+      pushHistory('Cambiar clave',
+        () => { projectKey = old;  keySel.value = old || ''; scheduleSave(); },
+        () => { projectKey = keySel.value || null; scheduleSave(); }
+      );
+      scheduleSave();
+    };
+  }
 
   // Grupo de tono master.
   const pitchUp = root.querySelector('#stems-pitch-up');
@@ -1923,13 +1968,34 @@ async function setStemsPitchShift(semitones) {
 let harmonyRunning = false;
 async function openHarmonyMenu(anchor, id) {
   if (harmonyRunning) return;
-  const { HARMONY_PRESETS } = await import('./harmonyShifter.js');
+  const harm = await import('./harmonyShifter.js');
+  const { HARMONY_PRESETS, HARMONY_DIATONIC, resolveDiatonic, isMinorKey } = harm;
   document.getElementById('stems-harmony-menu')?.remove();
   const menu = document.createElement('div');
   menu.id = 'stems-harmony-menu';
   menu.className = 'stems-ctx-menu';
+
+  // Sección diatónica — solo si hay clave fijada en el proyecto. Cada
+  // opción precomputa los semitonos finales (vs. los presets fijos que
+  // los traen hardcodeados). El nombre de la pista resultante incluye la
+  // clave entre paréntesis para que el músico sepa contra qué se generó.
+  const hasKey = !!projectKey;
+  const modeNote = hasKey
+    ? `Clave: ${projectKey} (${isMinorKey(projectKey) ? 'menor' : 'mayor'})`
+    : 'Fija una clave arriba para activar opciones diatónicas';
+  const diatonicHtml = hasKey ? `
+    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:1px;">DIATÓNICAS (${projectKey})</div>
+    ${HARMONY_DIATONIC.map((d, idx) => {
+      const semis = resolveDiatonic(d, projectKey);
+      return `<button data-dia="${idx}" data-st="${semis}">${d.label} (${semis > 0 ? '+' : ''}${semis} st)</button>`;
+    }).join('')}
+    <div class="stems-ctx-sep" style="height:1px;background:var(--border);margin:4px 6px;"></div>
+  ` : '';
+
   menu.innerHTML = `
-    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--text-muted);font-size:11px;">Referencia armónica (mismo tempo, otra altura)</div>
+    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--text-muted);font-size:11px;">${modeNote}</div>
+    ${diatonicHtml}
+    <div class="stems-ctx-hint" style="padding:4px 10px;color:var(--text-muted);font-size:10px;font-weight:800;letter-spacing:1px;">INTERVALOS FIJOS</div>
     ${HARMONY_PRESETS.map(p => `
       <button data-st="${p.semitones}">${p.label}</button>
     `).join('')}
@@ -1950,8 +2016,14 @@ async function openHarmonyMenu(anchor, id) {
     b.onclick = () => {
       close();
       const semis = parseInt(b.dataset.st, 10);
-      const preset = HARMONY_PRESETS.find(p => p.semitones === semis);
-      runHarmonyShift(id, semis, preset?.name || `${semis}st`);
+      // Si es preset diatónico, el nombre incluye la clave para trazabilidad.
+      if (b.dataset.dia != null) {
+        const d = HARMONY_DIATONIC[+b.dataset.dia];
+        runHarmonyShift(id, semis, `${d.name} en ${projectKey}`);
+      } else {
+        const preset = HARMONY_PRESETS.find(p => p.semitones === semis);
+        runHarmonyShift(id, semis, preset?.name || `${semis}st`);
+      }
     };
   });
 }
@@ -3124,6 +3196,7 @@ async function doSave() {
       projectName,
       bpm, bpmFloat, beatsPerBar, beatValue,
       accentPattern,
+      projectKey,             // clave musical (habilita armonías diatónicas)
       masterVolume: engine.getMasterVolume(),
       nextTrackId, nextMarkerId,
       tracks,
@@ -3165,6 +3238,10 @@ async function rehydrate(state) {
   }
   if (typeof state.beatsPerBar === 'number') beatsPerBar = state.beatsPerBar;
   if (typeof state.beatValue === 'number') beatValue = state.beatValue;
+  // Clave del proyecto — string ("C", "Am", etc.) o null si no se fijó.
+  projectKey = (typeof state.projectKey === 'string' && state.projectKey) ? state.projectKey : null;
+  const keySel = document.getElementById('stems-key');
+  if (keySel) keySel.value = projectKey || '';
   const sigSel = document.getElementById('stems-sig');
   if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
   // Restore the accent pattern (fall back to a sane default if absent/stale).
@@ -3383,6 +3460,9 @@ async function resetProject() {
   originalBuffers.clear();
   currentStemsPitch = 0;
   paintStemsPitchUI();
+  projectKey = null;
+  const keySel = document.getElementById('stems-key');
+  if (keySel) keySel.value = '';
   markers = [];
   nextTrackId = 1;
   nextMarkerId = 1;
