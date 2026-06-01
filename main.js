@@ -91,9 +91,10 @@ function writeFileAtomic(filePath, contentString) {
 // Mirror dynamic updates back into the project's defaults folder in development
 function saveToBoth(relativeSubPath, contentString) {
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
-  
-  fs.mkdirSync(path.dirname(userPath), { recursive: true });
-  fs.writeFileSync(userPath, contentString, 'utf-8');
+
+  // Escritura atómica (tmp+rename): un corte a mitad no deja el JSON de
+  // presets/mapeos/kits truncado. Misma protección que ya tiene la BD.
+  writeFileAtomic(userPath, contentString);
 
   // Only mirror back to defaults in development (not when packaged inside read-only app.asar)
   if (!app.isPackaged) {
@@ -1039,8 +1040,17 @@ ipcMain.handle('save-midi-map', async (_e, mapData) => {
 // mapping state is guaranteed to hit disk before the window closes (the async
 // save can be dropped if the window tears down mid-flight).
 ipcMain.on('save-midi-map-sync', (e, mapData) => {
-  try { saveToBoth('midi_map.json', JSON.stringify(mapData, null, 2)); } catch (err) {}
-  e.returnValue = true;
+  let ok = true;
+  try {
+    saveToBoth('midi_map.json', JSON.stringify(mapData, null, 2));
+  } catch (err) {
+    // Antes se tragaba en silencio: si falla la escritura final de mapeos en el
+    // beforeunload (disco lleno, permisos), el usuario perdía sus asignaciones
+    // sin enterarse. Al menos dejamos rastro en el log.
+    console.warn('save-midi-map-sync falló:', err.message);
+    ok = false;
+  }
+  e.returnValue = ok;
 });
 
 ipcMain.handle('load-midi-map', async () => {
