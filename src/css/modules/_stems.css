@@ -1863,6 +1863,38 @@ body[data-workspace="stems"] #body {
   color: var(--accent);
 }
 
+/* Row del select de tonalidad dentro del menú contextual del marker. */
+.smc-key-row { padding: 0 6px 4px; }
+.smc-key-select {
+  width: 100%;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.smc-key-select:focus { border-color: var(--accent); }
+.smc-key-select option,
+.smc-key-select optgroup { background: var(--bg-card); color: var(--text); }
+
+/* Badge de tonalidad en el marker — discreto, junto a la etiqueta. */
+.stems-marker-key {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  margin-left: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
 /* Loop A-B "libres" — botones compactos al lado del toggle de Loop.
    Cuando un punto está marcado, se ilumina en accent. */
 .stems-loop-group {
