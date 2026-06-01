@@ -88,7 +88,7 @@ const SECTIONS = [
       ['Click derecho en marcador', 'Renombrar · cambiar tipo · loop · eliminar'],
       ['Arrastrar marcador', 'Reposicionar (snap a beat si activo)'],
       ['Click en timeline',  'Saltar a ese punto'],
-      ['Doble clic en TONO', 'Resetear tono master a 0 semitonos'],
+      ['Doble clic en TRANSPONER', 'Resetear transpose master a 0 semitonos'],
     ],
   },
   {

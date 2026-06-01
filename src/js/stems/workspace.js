@@ -418,12 +418,14 @@ const SHELL_HTML = `
             <option value="Gm">Gm</option><option value="G#m">G#m</option>
           </select>
         </div>
-        <!-- Grupo de tono master — shift de ±12 semitonos aplicado a TODAS las
+        <!-- Transposer master — shift de ±12 semitonos aplicado a TODAS las
              pistas del proyecto sin alterar el tempo. Igual idea que el
              reproductor de Pads; la diferencia es que aquí el render es
-             offline por pista (ver setStemsPitchShift), no en tiempo real. -->
-        <div class="stems-field stems-field--pitch" title="Tono master: aplica ±N semitonos a todas las pistas conservando el tempo. Doble clic en el número para resetear.">
-          <label>TONO</label>
+             offline por pista (ver setStemsPitchShift), no en tiempo real.
+             Label "TRANSPONER" en vez de "TONO" porque al lado vive
+             "TONALIDAD" (la clave musical) y los dos términos chocaban. -->
+        <div class="stems-field stems-field--pitch" title="Transponer: aplica ±N semitonos a todas las pistas conservando el tempo. Doble clic en el número para resetear.">
+          <label>TRANSPONER</label>
           <div class="stems-pitch-group" id="stems-pitch-group">
             <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
             <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para resetear)">0</span>
@@ -1119,6 +1121,15 @@ function wireArrangeEvents(root) {
       if (isOpen) { closeGenPop(); return; }
       genPop.classList.remove('hidden');
       genTrigger.setAttribute('aria-expanded', 'true');
+      // position:fixed → calculamos coords contra el rect del trigger
+      // para que el popover escape del overflow:hidden del .stems-deck.
+      const r = genTrigger.getBoundingClientRect();
+      genPop.style.left = `${r.left}px`;
+      genPop.style.top  = `${r.bottom + 4}px`;
+      requestAnimationFrame(() => {
+        const pr = genPop.getBoundingClientRect();
+        if (pr.right > window.innerWidth) genPop.style.left = `${window.innerWidth - pr.width - 8}px`;
+      });
       setTimeout(() => document.addEventListener('mousedown', onDocGen, true), 0);
     };
     // Cerrar también al elegir una acción adentro.
