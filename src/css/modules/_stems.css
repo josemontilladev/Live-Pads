@@ -527,6 +527,24 @@ body[data-workspace="stems"] #body {
   border-color: rgba(74,222,128,0.5);
   color: #4ade80;
 }
+/* "DETENIDO" en gris no aporta nada (el play button ya muestra el estado).
+   Solo aparece visualmente cuando hay algo distinto a "stop". */
+.stems-state-pill:not([data-state="play"]) { display: none; }
+
+/* ── Responsive: en pantallas <1400px ocultamos los controles más
+   secundarios del topbar para evitar que SNAP/timecode/state se vayan
+   a una segunda línea. La info perdida es no-crítica:
+   · TIMECODE (00:00.000) es redundante con "0:00/5:26" del transport
+     — solo se diferencia en precisión de ms.
+   · Row-height (▼▲) controla el alto visual de las pistas — útil pero
+     poco usado; sigue accesible con Ctrl+rueda sobre los rows.
+*/
+@media (max-width: 1400px) {
+  .stems-tb-right .stems-readout { display: none; }
+}
+@media (max-width: 1280px) {
+  .stems-tb-right .stems-zoom-group[title*="Altura"] { display: none; }
+}
 
 /* ── Single action row — Importar/Exportar (left, prominent) +
        project name (centered) + secondary actions (right). Wraps on
