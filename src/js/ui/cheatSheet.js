@@ -12,24 +12,34 @@ import { openSidebarTab } from './overlays.js';
 
 const SECTIONS = [
   {
+    title: 'General',
+    rows: [
+      ['Tab',             'Alternar workspace Pads ↔ Stems'],
+      ['Ctrl+K',          'Búsqueda global (Spotlight)'],
+      ['Ctrl+N',          'Nueva canción'],
+      ['?',               'Mostrar / cerrar este panel'],
+      ['Esc',             'Cerrar el panel/modal más reciente'],
+    ],
+  },
+  {
+    title: 'Master & metrónomo (Pads)',
+    rows: [
+      ['Espacio',         'Play / Stop maestro'],
+      ['Esc',             'Pánico — detiene todo'],
+    ],
+  },
+  {
     title: 'Pads de notas',
     rows: [
-      ['1 – = (top row)', 'Tocar C C# D … B'],
+      ['1 – = (fila superior)', 'Tocar C, C#, D … B'],
       ['Esc',             'Silenciar pad activo'],
     ],
   },
   {
     title: 'Drums',
     rows: [
-      ['Q W E R',         'Fila superior de drums (1-4)'],
-      ['A S D F',         'Fila inferior de drums (5-8)'],
-    ],
-  },
-  {
-    title: 'Master & metrónomo',
-    rows: [
-      ['Espacio',         'Play / Stop maestro'],
-      ['Esc',             'Pánico — detiene todo'],
+      ['Q W E R',         'Drums fila superior (1-4)'],
+      ['A S D F',         'Drums fila inferior (5-8)'],
     ],
   },
   {
@@ -38,6 +48,24 @@ const SECTIONS = [
       ['↑  /  ←',         'Canción anterior'],
       ['↓  /  →',         'Canción siguiente'],
       ['Shift+Tab',       'Preparar siguiente canción (sin reproducir)'],
+      ['Click en 🔍',     'Expandir buscador de la Librería'],
+      ['Esc en buscador', 'Limpiar texto y colapsar el buscador'],
+    ],
+  },
+  {
+    title: 'Card de canción (Librería / Servicio)',
+    rows: [
+      ['Botón ⛶',         'Abrir letra a pantalla completa'],
+      ['Botón "..."',     'Editar · eliminar · marcar favorito'],
+    ],
+  },
+  {
+    title: 'Letra a pantalla completa',
+    rows: [
+      ['+  /  =',         'Aumentar tamaño de letra'],
+      ['−  /  _',         'Reducir tamaño de letra'],
+      ['C',               'Toggle acordes (Con/Sin acordes)'],
+      ['Esc',             'Cerrar overlay'],
     ],
   },
   {
@@ -45,24 +73,7 @@ const SECTIONS = [
     rows: [
       ['Ctrl+S',          'Guardar y cerrar'],
       ['Ctrl+[',          'Envolver selección en [ ]'],
-      ['Esc',             'Cerrar (con confirmación si hay cambios)'],
-    ],
-  },
-  {
-    title: 'General',
-    rows: [
-      ['Tab',             'Alternar workspace Pads ↔ Stems'],
-      ['Ctrl+K',          'Búsqueda global (Spotlight)'],
-      ['Ctrl+N',          'Nueva canción'],
-      ['?',               'Mostrar este panel'],
-      ['Esc',             'Cerrar paneles / overlays'],
-    ],
-  },
-  {
-    title: 'Companion (móvil)',
-    rows: [
-      ['Menú ☰',          'Abre el panel del Companion (QR + URL)'],
-      ['Spotlight',       'Busca "Companion" en Ctrl+K'],
+      ['Esc',             'Cerrar (confirma si hay cambios sin guardar)'],
     ],
   },
   {
@@ -73,9 +84,18 @@ const SECTIONS = [
       ['Ctrl+Z',          'Deshacer'],
       ['Ctrl+Shift+Z / Ctrl+Y', 'Rehacer'],
       ['Ctrl + rueda',    'Zoom in / out del timeline'],
+      ['Alt + rueda',     'Scroll horizontal del timeline'],
       ['Click derecho en marcador', 'Renombrar · cambiar tipo · loop · eliminar'],
       ['Arrastrar marcador', 'Reposicionar (snap a beat si activo)'],
       ['Click en timeline',  'Saltar a ese punto'],
+      ['Doble clic en TONO', 'Resetear tono master a 0 semitonos'],
+    ],
+  },
+  {
+    title: 'Companion (móvil)',
+    rows: [
+      ['Menú ☰',          'Abre el panel del Companion (QR + URL)'],
+      ['Spotlight',       'Busca "Companion" en Ctrl+K'],
     ],
   },
 ];
