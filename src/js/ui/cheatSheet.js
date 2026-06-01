@@ -37,7 +37,7 @@ const SECTIONS = [
     rows: [
       ['↑  /  ←',         'Canción anterior'],
       ['↓  /  →',         'Canción siguiente'],
-      ['Tab',             'Preparar siguiente canción (sin reproducir)'],
+      ['Shift+Tab',       'Preparar siguiente canción (sin reproducir)'],
     ],
   },
   {
@@ -51,6 +51,7 @@ const SECTIONS = [
   {
     title: 'General',
     rows: [
+      ['Tab',             'Alternar workspace Pads ↔ Stems'],
       ['Ctrl+K',          'Búsqueda global (Spotlight)'],
       ['Ctrl+N',          'Nueva canción'],
       ['?',               'Mostrar este panel'],
