@@ -442,6 +442,14 @@ input.pan-slider {
   background: rgba(255,255,255,0.07); color: var(--text-muted);
   font-size: 9px; font-weight: 700; white-space: nowrap;
   letter-spacing: 0.3px;
+  /* Altura fija + line-height controlado para que el alineamiento vertical
+     no salte al pasar el mouse por la card (el hover empuja el row 1px
+     arriba; sin esto, los badges se reposicionan visiblemente). */
+  line-height: 14px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
 }
 .gi-badge.bpm { color: var(--text-muted); }
 .gi-badge.key { background: rgba(251,174,0,0.12); color: var(--blue); }

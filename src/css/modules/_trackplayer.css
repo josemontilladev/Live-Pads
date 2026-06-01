@@ -7,61 +7,81 @@
   padding: 12px 24px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   z-index: 1000;
   height: 76px;
-  /* Breathing room so the bar doesn't sit flush against the window edge. */
   margin-bottom: 12px;
 }
-.tp-transport { display: flex; gap: 10px; }
-.tp-play, .tp-stop, .tp-restart, .tp-loop {
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
+/* Separador vertical sutil entre los 3 grupos visuales del player
+   (transport | info | right). Ayuda a leer la barra de un vistazo. */
+.tp-info::before, .tp-right::before {
+  content: "";
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.06);
+  margin-right: 12px;
+  flex-shrink: 0;
+  align-self: center;
 }
-.tp-play  { background: var(--blue); color: #000; transition: transform 0.15s; }
-.tp-stop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
-.tp-restart { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
-.tp-restart:hover { color: var(--text); border-color: var(--border-strong); }
-.tp-loop  { background: var(--bg-surface); border: 1px solid var(--border); color: var(--text-muted); transition: all 0.15s; }
-.tp-loop.active { background: var(--blue); border-color: var(--blue); color: #000; }
-.tp-autoadvance {
+
+.tp-transport { display: flex; gap: 8px; align-items: center; }
+/* Tamaños unificados:
+   · Primario (play)               → 40×40
+   · Secundarios (transport icons) → 32×32 cápsulas
+   · SVGs                          → 16px (primario) / 14px (resto) */
+.tp-play {
+  width: 40px; height: 40px;
   border-radius: 50%;
-  width: 44px;
-  height: 44px;
+  background: var(--blue); color: #000;
+  transition: transform 0.15s;
+}
+.tp-play svg { width: 16px; height: 16px; }
+.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance {
+  width: 32px; height: 32px;
+  border-radius: 16px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
   transition: all 0.15s;
 }
+.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover {
+  color: var(--text); border-color: var(--border-strong);
+}
+.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg {
+  width: 14px; height: 14px;
+}
+.tp-loop.active,
 .tp-autoadvance.active { background: var(--blue); border-color: var(--blue); color: #000; }
 
-/* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS) */
+/* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS).
+   Cápsula con misma altura (32px) que el resto de transport-secundario.
+   Cuando shifted, el border completo se tinta para feedback claro. */
 .tp-pitch-group {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 0 4px;
-  height: 44px;
+  padding: 0 2px;
+  height: 32px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
-  margin-left: 4px;
+  border-radius: 16px;
+  transition: border-color 0.15s;
 }
+.tp-pitch-group.shifted { border-color: var(--blue); }
 .tp-pitch-btn {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   padding: 0;
   cursor: pointer;
 }
 .tp-pitch-btn:hover { color: var(--blue); background: rgba(255,255,255,.05); }
 .tp-pitch-val {
-  min-width: 28px;
+  min-width: 24px;
   text-align: center;
   font-size: 12px;
   font-weight: 700;
