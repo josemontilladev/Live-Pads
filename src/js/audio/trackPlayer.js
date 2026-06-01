@@ -29,6 +29,13 @@ let currentPitch = 0;        // semitonos aplicados al audio cargado
 // track inherits it.
 let loopEnabled = false;
 
+// True while the user is actively dragging the progress scrubber. Two reasons
+// it matters: (1) ontimeupdate must NOT write progress.value while dragging or
+// the thumb fights the user's finger; (2) we defer the real seek to drag-release
+// so PitchAudio rebuilds its SoundTouch pipeline ONCE instead of ~once per pixel
+// (rapid teardown/rebuild of ScriptProcessorNodes was breaking playback).
+let isScrubbing = false;
+
 // Injected at boot. Keeps the module decoupled from app.js's globals.
 //   syncSlider(el)           : visual update for our sliders
 //   onAudioPathAssigned(song, type, newPath)
@@ -294,6 +301,9 @@ async function startTrackPlayback(url, title, type) {
   const syncSlider = deps.syncSlider;
 
   audio.ontimeupdate = () => {
+    // While the user is scrubbing, the progress bar + time label reflect the
+    // drag target, not the (still-old) playhead — don't overwrite them.
+    if (isScrubbing) return;
     if (timeCur) timeCur.textContent = formatTime(audio.currentTime);
     if (audio.duration) {
       if (timeTot) timeTot.textContent = formatTime(audio.duration);
@@ -393,11 +403,26 @@ export function bindTrackPlayerControls() {
 
   const tpProgress = q('#tp-progress');
   if (tpProgress) {
+    // oninput fires continuously during a drag — only give visual feedback
+    // (fill + time preview). Committing audio.currentTime here would rebuild
+    // the SoundTouch pipeline dozens of times/sec and break playback.
     tpProgress.oninput = (e) => {
-      if (audio && audio.duration) {
-        audio.currentTime = (e.target.value / 100) * audio.duration;
-        deps.syncSlider(e.target);
+      isScrubbing = true;
+      deps.syncSlider(e.target);
+      if (audio && isFinite(audio.duration)) {
+        const t = (e.target.value / 100) * audio.duration;
+        const tc = q('#tp-time-current');
+        if (tc) tc.textContent = formatTime(t);
       }
+    };
+    // onchange fires once, on drag-release (or click / keyboard) — this is where
+    // the real seek happens, so the shifter is rebuilt a single time.
+    tpProgress.onchange = (e) => {
+      if (audio && isFinite(audio.duration)) {
+        audio.currentTime = (e.target.value / 100) * audio.duration;
+      }
+      isScrubbing = false;
+      deps.syncSlider(e.target);
     };
     deps.syncSlider(tpProgress);
   }
