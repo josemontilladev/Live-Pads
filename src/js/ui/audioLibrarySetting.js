@@ -39,9 +39,19 @@ async function refresh() {
   state = cfg;
   const pathEl = q('#audio-lib-path');
   if (pathEl) {
-    pathEl.textContent = shorten(state.effectivePath);
-    pathEl.title = state.effectivePath;
-    pathEl.classList.toggle('is-custom', !!state.customPath);
+    // Caso clave en la 2da PC: hay una carpeta configurada pero no existe en
+    // esta máquina (OneDrive no sincronizó aún, distinta letra de unidad…).
+    // La app cae a la carpeta interna; hay que avisarlo o parecerá que se
+    // "perdieron" los audios.
+    const unavailable = cfg.customConfigured && !cfg.available;
+    pathEl.textContent = unavailable
+      ? '⚠ Carpeta configurada no disponible — usando la interna'
+      : shorten(state.effectivePath);
+    pathEl.title = unavailable
+      ? `Configurada: ${state.customPath}\n(no existe en esta máquina — OneDrive quizá no sincronizó aún o la ruta es distinta)\nUsando ahora: ${state.effectivePath}`
+      : state.effectivePath;
+    pathEl.classList.toggle('is-custom', !!state.customPath && !unavailable);
+    pathEl.classList.toggle('is-unavailable', unavailable);
   }
 }
 
@@ -67,7 +77,13 @@ async function onPick() {
   if (wantsMigrate) {
     try {
       const r = await window.electronAPI.audioLibraryMigrate({ fromPath: previous, toPath: picked });
-      setMsg(`✓ Carpeta cambiada. Copiados ${r.copied} archivos, ${r.skipped} ya existían.`, 'ok');
+      const failed = r.failed || [];
+      if (failed.length) {
+        const sample = failed.slice(0, 3).join(', ') + (failed.length > 3 ? '…' : '');
+        setMsg(`Carpeta cambiada. Copiados ${r.copied}, ${r.skipped} ya existían, ${failed.length} fallaron (${sample}).`, 'error');
+      } else {
+        setMsg(`✓ Carpeta cambiada. Copiados ${r.copied} archivos, ${r.skipped} ya existían.`, 'ok');
+      }
     } catch (e) {
       setMsg('Carpeta cambiada, pero la migración falló: ' + (e.message || e), 'error');
     }

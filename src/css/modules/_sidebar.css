@@ -81,6 +81,10 @@
   white-space: normal;
 }
 .audio-lib-path.is-custom { border-color: var(--accent); color: var(--accent); }
+.audio-lib-path.is-unavailable {
+  border-color: #ef4444; color: #fca5a5;
+  background: rgba(239,68,68,.10);
+}
 .audio-lib-actions { display: flex; gap: 6px; }
 .audio-lib-actions .acc-btn { flex: 1; }
 .audio-lib-msg {

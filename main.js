@@ -126,8 +126,24 @@ function writeAudioLibraryConfig(p) {
   }
   fs.writeFileSync(file, JSON.stringify({ path: p }, null, 2));
 }
+// ¿La carpeta custom configurada está realmente disponible (existe y es un
+// directorio)? En la 2da máquina la ruta puede no existir todavía: OneDrive aún
+// no montó la carpeta, distinta letra de unidad, o nunca se configuró ahí. En
+// ese caso NO debemos escribir/leer en una ruta fantasma (los audios parecerían
+// "perdidos"): caemos a userData y avisamos en la UI.
+function isAudioLibraryAvailable() {
+  const custom = readAudioLibraryConfig();
+  if (!custom) return true; // sin custom => se usa userData, siempre disponible
+  try {
+    return fs.statSync(custom).isDirectory();
+  } catch (_) {
+    return false;
+  }
+}
 function getAudioLibraryRoot() {
-  return readAudioLibraryConfig() || app.getPath('userData');
+  const custom = readAudioLibraryConfig();
+  if (custom && isAudioLibraryAvailable()) return custom;
+  return app.getPath('userData');
 }
 // Indica si una ruta relativa (ej. "Sequences/foo.mp3") cae en una
 // subcarpeta que debe servirse desde la carpeta custom (si está configurada)
@@ -414,11 +430,17 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
 
 // ── IPCs de biblioteca de audios (carpeta custom) ──────────────────
 ipcMain.handle('audio-library-get', async () => {
+  const customPath = readAudioLibraryConfig();    // null si no configurada
+  const available = isAudioLibraryAvailable();    // ¿la custom existe en disco?
   return {
-    customPath: readAudioLibraryConfig(),         // null si no configurada
+    customPath,
     defaultPath: app.getPath('userData'),         // dónde caería sin custom
-    effectivePath: getAudioLibraryRoot(),         // el que se usa hoy
+    effectivePath: getAudioLibraryRoot(),         // el que se usa HOY (cae a userData si la custom no está)
     subfolders: AUDIO_LIBRARY_SUBFOLDERS,
+    // true salvo que haya una custom configurada pero su carpeta no exista.
+    // La UI lo usa para avisar "configurada pero no disponible — usando interna".
+    available: !customPath || available,
+    customConfigured: !!customPath,
   };
 });
 
@@ -456,6 +478,7 @@ ipcMain.handle('audio-library-migrate', async (_e, { fromPath, toPath } = {}) =>
     return { copied: 0, skipped: 0, message: 'origen y destino iguales' };
   }
   let copied = 0, skipped = 0;
+  const failed = [];   // nombres de archivos que no se pudieron copiar
   for (const sub of AUDIO_LIBRARY_SUBFOLDERS) {
     const srcDir = path.join(fromPath, sub);
     if (!fs.existsSync(srcDir)) continue;
@@ -466,18 +489,30 @@ ipcMain.handle('audio-library-migrate', async (_e, { fromPath, toPath } = {}) =>
       const srcFile = path.join(srcDir, f);
       const dstFile = path.join(dstDir, f);
       try {
-        if (!fs.statSync(srcFile).isFile()) continue;
-        if (fs.existsSync(dstFile) && fs.statSync(dstFile).size === fs.statSync(srcFile).size) {
-          skipped++; continue;
+        const srcStat = fs.statSync(srcFile);
+        if (!srcStat.isFile()) continue;
+        // "Ya copiado" solo si coinciden tamaño Y mtime: el size suelto da
+        // falsos positivos (dos audios distintos del mismo tamaño, o un
+        // placeholder de OneDrive ya presente en destino).
+        if (fs.existsSync(dstFile)) {
+          const dstStat = fs.statSync(dstFile);
+          if (dstStat.size === srcStat.size && Math.abs(dstStat.mtimeMs - srcStat.mtimeMs) < 2000) {
+            skipped++; continue;
+          }
         }
-        fs.copyFileSync(srcFile, dstFile);
+        // Copia a un .tmp y rename atómico para no dejar un destino a medias
+        // si OneDrive descuelga la lectura a mitad de la copia.
+        const tmpFile = dstFile + '.livepads-tmp';
+        fs.copyFileSync(srcFile, tmpFile);
+        fs.renameSync(tmpFile, dstFile);
         copied++;
       } catch (e) {
+        failed.push(f);
         console.warn('Skip migrate', srcFile, '→', dstFile, ':', e.message);
       }
     }
   }
-  return { copied, skipped };
+  return { copied, skipped, failed };
 });
 
 ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
