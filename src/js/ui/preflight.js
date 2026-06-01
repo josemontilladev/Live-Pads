@@ -8,6 +8,9 @@
 
 import { KIT_BANKS, PAD_BANKS } from '../data/banks.js';
 import { getServiceSongs } from '../data/service.js';
+import { pushModal } from './modalStack.js';
+
+let popModal = null;
 import { getPadBankIdx, getKitBankIdx } from '../state/store.js';
 import { getMidiMap } from '../midi/midiMap.js';
 
@@ -57,7 +60,7 @@ export function openPreflight(ctx) {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
-  if (!window.__escPreflight) { window.__escPreflight = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closePreflight(); }); }
+  popModal = pushModal(() => closePreflight());
 
   overlay.onclick = (e) => { if (e.target === overlay) closePreflight(); };
   overlay.querySelector('.pf-close').onclick = closePreflight;
@@ -67,6 +70,7 @@ export function openPreflight(ctx) {
 
 export function closePreflight() {
   if (!mounted) return;
+  if (popModal) { popModal(); popModal = null; }
   mounted.classList.remove('open');
   const node = mounted;
   mounted = null;

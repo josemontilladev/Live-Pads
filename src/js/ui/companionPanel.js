@@ -4,7 +4,10 @@
 // QR code generation lands in Fase 3; for now we show the URL as plain text
 // (selectable + copy button) so phones can type it manually.
 
+import { pushModal } from './modalStack.js';
+
 let mounted = null;
+let popModal = null;
 let pollTimer = null;
 let lastQrUrl = null; // cache so we only regenerate the SVG when the URL changes
 let serverStartedAt = 0; // ms timestamp — used to show the firewall hint after 8s of zero clients
@@ -83,7 +86,7 @@ export function openCompanionPanel() {
   `;
   document.body.appendChild(overlay);
   mounted = overlay;
-  if (!window.__escCompanion) { window.__escCompanion = true; document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mounted) closeCompanionPanel(); }); }
+  popModal = pushModal(() => closeCompanionPanel());
 
   overlay.onclick = (e) => { if (e.target === overlay) closeCompanionPanel(); };
   overlay.querySelector('.cp-close').onclick = closeCompanionPanel;
@@ -202,6 +205,7 @@ export function openCompanionPanel() {
 export function closeCompanionPanel() {
   if (!mounted) return;
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (popModal) { popModal(); popModal = null; }
   lastQrUrl = null;
   mounted.classList.remove('open');
   const node = mounted;

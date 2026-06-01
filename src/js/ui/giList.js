@@ -7,6 +7,7 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { confirmDialog, showDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 import {
@@ -435,6 +436,7 @@ function initDelegation() {
         return;
       case 'add':       handleAddToService(song, card, actionEl); return;
       case 'toggle-lyrics': deps.toggleLyricsAccordion(song, false); return;
+      case 'lyrics-fullscreen': e.stopPropagation(); openLyricsFullscreen(song); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, false); return;
       case 'edit-lyrics':
         deps.openLyricsEditorModal(song, (newLyrics) => {

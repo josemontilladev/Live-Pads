@@ -113,6 +113,9 @@ export function songCardInnerHTML(song, opts) {
         <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" data-action="toggle-chords" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
           ${showChords ? 'Con acordes' : 'Solo letra'}
         </button>
+        <button class="lyrics-fs-btn" data-action="lyrics-fullscreen" title="Pantalla completa (uso en vivo)" aria-label="Pantalla completa">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="4 14 4 20 10 20"/><polyline points="20 10 20 4 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
       </div>
       <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
         ${formatLyrics(song.lyrics)}

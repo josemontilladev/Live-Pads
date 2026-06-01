@@ -5,6 +5,7 @@
 
 import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle, updatePassword, deleteAccount } from './supabase.js';
 import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
+import { pushModal } from '../ui/modalStack.js';
 
 // ¿La cuenta ya tiene a Google como método de acceso?
 function hasGoogleIdentity(u) {
@@ -21,7 +22,9 @@ import {
 import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
 
 let overlay = null;
-let state = { libs: [], activeId: null };
+let popModal = null;
+let msgTimeout = null;
+let state = { libs: [], activeId: null, activeTab: 'cuenta' };
 
 function el(html) {
   const t = document.createElement('template');
@@ -76,20 +79,31 @@ function ensureOverlay() {
   if (overlay) return overlay;
   overlay = el(`<div id="account-overlay" class="hidden"><div class="acc-panel" id="acc-panel"></div></div>`);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) { e.preventDefault(); close(); }
-  });
   document.body.appendChild(overlay);
   return overlay;
 }
 
-function close() { if (overlay) overlay.classList.add('hidden'); }
+function close() {
+  if (popModal) { popModal(); popModal = null; }
+  if (overlay) overlay.classList.add('hidden');
+}
 
 function msg(text, kind = 'error') {
   const m = overlay.querySelector('#acc-msg');
   if (!m) return;
+  if (msgTimeout) { clearTimeout(msgTimeout); msgTimeout = null; }
   m.textContent = text;
   m.className = `acc-msg show ${kind}`;
+  msgTimeout = setTimeout(() => {
+    m.className = 'acc-msg';
+    msgTimeout = null;
+  }, kind === 'ok' ? 3500 : 6000);
+}
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  overlay.querySelectorAll('.acc-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  overlay.querySelectorAll('.acc-tab-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== tab));
 }
 
 // ── Render principal ────────────────────────────────────────────────────────
@@ -113,59 +127,74 @@ async function render() {
       <button class="acc-btn ghost sm" data-act="signout">Cerrar sesión</button>
     </div>
 
-    <div class="acc-section">
-      <h4>Acceso rápido</h4>
-      ${u && hasGoogleIdentity(u)
-        ? `<div class="acc-empty">✓ Google vinculado — ya puedes entrar con el botón de Google.</div>`
-        : `<button class="acc-btn ghost" data-act="link-google" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
-             <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22 22-9.8 22-22c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 16 2 9.1 6.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.1 41.4 16 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 31 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-             Vincular con Google
-           </button>
-           <div class="acc-empty" style="margin-top:6px">Inicia con Google usando tu mismo correo para no escribir la contraseña la próxima vez.</div>`}
-      <button class="acc-btn ghost" data-act="change-pass" style="width:100%;margin-top:8px">Cambiar contraseña</button>
+    <div class="acc-tabs" role="tablist">
+      <button class="acc-tab ${state.activeTab === 'cuenta' ? 'active' : ''}" data-tab="cuenta" role="tab">Cuenta</button>
+      <button class="acc-tab ${state.activeTab === 'librerias' ? 'active' : ''}" data-tab="librerias" role="tab">Librerías</button>
+      <button class="acc-tab ${state.activeTab === 'equipo' ? 'active' : ''}" data-tab="equipo" role="tab">Equipo</button>
     </div>
 
-    <div class="acc-section">
-      <h4>Tus librerías</h4>
-      <div class="acc-lib-list" id="acc-libs"><div class="acc-empty">Cargando…</div></div>
-      <div class="acc-row">
-        <input id="acc-new-lib" placeholder="Nombre de una nueva librería…" maxlength="60">
-        <button class="acc-btn" data-act="create-lib">Crear</button>
+    <!-- TAB: CUENTA — acceso, contraseña, eliminar cuenta -->
+    <div class="acc-tab-panel ${state.activeTab !== 'cuenta' ? 'hidden' : ''}" data-panel="cuenta">
+      <div class="acc-section">
+        <h4>Acceso rápido</h4>
+        ${u && hasGoogleIdentity(u)
+          ? `<div class="acc-empty">✓ Google vinculado — ya puedes entrar con el botón de Google.</div>`
+          : `<button class="acc-btn ghost acc-btn-wide" data-act="link-google">
+               <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22 22-9.8 22-22c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 16 2 9.1 6.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.1 41.4 16 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 31 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+               Vincular con Google
+             </button>
+             <div class="acc-hint">Inicia con Google usando tu mismo correo para no escribir la contraseña la próxima vez.</div>`}
+        <button class="acc-btn ghost acc-btn-full" data-act="change-pass">Cambiar contraseña</button>
+      </div>
+
+      <div class="acc-section acc-danger">
+        <h4>Zona de peligro</h4>
+        <button class="acc-btn danger acc-btn-full" data-act="delete-account">Eliminar mi cuenta</button>
+        <div class="acc-hint">Borra tu cuenta y los datos asociados (librerías propias, canciones y configuración). No se puede deshacer.</div>
       </div>
     </div>
 
-    <div class="acc-section" id="acc-manage"></div>
-
-    <div class="acc-section">
-      <h4>Canciones de esta librería</h4>
-      <div class="acc-row">
-        <button class="acc-btn ghost" data-act="pull-songs" style="flex:1">⬇ Bajar canciones</button>
-        <button class="acc-btn" data-act="push-songs" style="flex:1">⬆ Subir mis canciones</button>
+    <!-- TAB: LIBRERÍAS — tuyas, crear, unirse, push/pull, servicios -->
+    <div class="acc-tab-panel ${state.activeTab !== 'librerias' ? 'hidden' : ''}" data-panel="librerias">
+      <div class="acc-section">
+        <h4>Tus librerías</h4>
+        <div class="acc-lib-list" id="acc-libs"><div class="acc-empty">Cargando…</div></div>
+        <div class="acc-row">
+          <input id="acc-new-lib" placeholder="Nombre de una nueva librería…" maxlength="60">
+          <button class="acc-btn" data-act="create-lib">Crear</button>
+        </div>
       </div>
-      <div class="acc-empty" style="margin-top:6px">Subir copia tus canciones locales a la nube (las comparte con tu equipo). Bajar trae las de la librería a este equipo.</div>
+
+      <div class="acc-section">
+        <h4>Unirme a una librería</h4>
+        <div class="acc-row">
+          <input id="acc-join-code" placeholder="Pega aquí el código de invitación…">
+          <button class="acc-btn ghost" data-act="join">Unirme</button>
+        </div>
+      </div>
+
+      <div class="acc-section">
+        <h4>Canciones de esta librería</h4>
+        <div class="acc-row">
+          <button class="acc-btn ghost acc-btn-flex" data-act="pull-songs">⬇ Bajar canciones</button>
+          <button class="acc-btn acc-btn-flex" data-act="push-songs">⬆ Subir mis canciones</button>
+        </div>
+        <div class="acc-hint">Subir copia tus canciones locales a la nube (las comparte con tu equipo). Bajar trae las de la librería a este equipo.</div>
+      </div>
+
+      <div class="acc-section">
+        <h4>Servicios compartidos</h4>
+        <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
+        <div class="acc-row">
+          <button class="acc-btn acc-btn-flex" data-act="save-setlist">☁ Guardar servicio actual</button>
+        </div>
+        <div class="acc-hint">Guarda el orden del servicio actual para que tu equipo lo cargue. Solo incluye canciones que estén en la nube.</div>
+      </div>
     </div>
 
-    <div class="acc-section">
-      <h4>Servicios compartidos</h4>
-      <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
-      <div class="acc-row">
-        <button class="acc-btn" data-act="save-setlist" style="flex:1">☁ Guardar servicio actual</button>
-      </div>
-      <div class="acc-empty" style="margin-top:6px">Guarda el orden del servicio actual para que tu equipo lo cargue. Solo incluye canciones que estén en la nube.</div>
-    </div>
-
-    <div class="acc-section">
-      <h4>Unirme a una librería</h4>
-      <div class="acc-row">
-        <input id="acc-join-code" placeholder="Pega aquí el código de invitación…">
-        <button class="acc-btn ghost" data-act="join">Unirme</button>
-      </div>
-    </div>
-
-    <div class="acc-section acc-danger">
-      <h4>Zona de peligro</h4>
-      <button class="acc-btn danger" data-act="delete-account" style="width:100%">Eliminar mi cuenta</button>
-      <div class="acc-empty" style="margin-top:6px">Borra tu cuenta y los datos asociados (librerías propias, canciones y configuración). No se puede deshacer.</div>
+    <!-- TAB: EQUIPO — miembros + invitaciones (solo si owner de la lib activa) -->
+    <div class="acc-tab-panel ${state.activeTab !== 'equipo' ? 'hidden' : ''}" data-panel="equipo">
+      <div class="acc-section" id="acc-manage"></div>
     </div>
 
     <div class="acc-msg" id="acc-msg"></div>
@@ -221,15 +250,20 @@ async function renderSetlists() {
 // Gestión de la librería activa (miembros + invitaciones) — solo si eres dueño.
 async function renderManage() {
   const wrap = overlay.querySelector('#acc-manage');
+  if (!wrap) return;
   const active = state.libs.find(l => l.id === state.activeId);
   const uid = getUser()?.id;
-  if (!active) { wrap.innerHTML = ''; return; }
+  if (!active) {
+    wrap.innerHTML = `<h4>Equipo</h4>
+      <div class="acc-empty">Selecciona una librería en la pestaña <b>Librerías</b> para gestionar su equipo.</div>`;
+    return;
+  }
   const isOwner = active.owner_id === uid;
 
   if (!isOwner) {
     wrap.innerHTML = `<h4>${escapeHtml(active.name)}</h4>
       <div class="acc-empty">Eres invitado en esta librería. Solo el propietario gestiona miembros.</div>
-      <div class="acc-row"><button class="acc-btn danger" data-act="leave-lib" data-lib="${active.id}" style="flex:1">Salir de esta librería</button></div>`;
+      <div class="acc-row"><button class="acc-btn danger acc-btn-flex" data-act="leave-lib" data-lib="${active.id}">Salir de esta librería</button></div>`;
     return;
   }
 
@@ -282,17 +316,28 @@ async function renderInvites(libId) {
   catch (e) { box.innerHTML = ''; return; }
   const pending = invites.filter(i => i.status === 'pending');
   if (!pending.length) { box.innerHTML = ''; return; }
+  // Cada invitación pendiente: cabecera con email/rol y el código visible en
+  // un input readonly + botón "Copiar". Reduce fricción cuando hay que
+  // compartirlo manualmente (chat, mensaje de voz, etc.).
   box.innerHTML = pending.map(i => `
     <div class="acc-invite">
-      <span class="i-email">${escapeHtml(i.email)} · ${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
-      <button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar por correo</button>
-      <button class="acc-btn ghost sm" data-act="copy-code" data-code="${escapeHtml(i.token)}">Copiar código</button>
-      <button class="acc-btn danger sm" data-act="revoke" data-id="${i.id}">Anular</button>
+      <div class="acc-invite-head">
+        <span class="i-email">${escapeHtml(i.email)}</span>
+        <span class="acc-role-tag ${i.role === 'editor' ? '' : ''}">${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
+        <button class="acc-btn danger sm" data-act="revoke" data-id="${i.id}" title="Anular invitación">Anular</button>
+      </div>
+      <div class="acc-invite-code">
+        <input type="text" readonly value="${escapeHtml(i.token)}" class="acc-code-input" aria-label="Código de invitación" data-act="select-code">
+        <button class="acc-btn ghost sm" data-act="copy-code" data-code="${escapeHtml(i.token)}">Copiar</button>
+        <button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar correo</button>
+      </div>
     </div>`).join('');
 }
 
 // ── Acciones ────────────────────────────────────────────────────────────────
 async function onClick(e) {
+  const tabBtn = e.target.closest('.acc-tab[data-tab]');
+  if (tabBtn) { switchTab(tabBtn.dataset.tab); return; }
   const btn = e.target.closest('[data-act]');
   if (btn) {
     const act = btn.dataset.act;
@@ -420,6 +465,9 @@ async function onClick(e) {
         case 'copy-code':
           try { await navigator.clipboard.writeText(btn.dataset.code); msg('Código copiado al portapapeles.', 'ok'); } catch (_) {}
           return;
+        case 'select-code':
+          try { btn.select(); } catch (_) {}
+          return;
         case 'mail-invite': {
           const how = await sendInvite(btn.dataset.email, btn.dataset.code);
           msg(how === 'sent'
@@ -488,5 +536,7 @@ export async function openAccountPanel() {
   overlay.classList.remove('hidden');
   overlay.removeEventListener('click', onClick);
   overlay.addEventListener('click', onClick);
+  if (popModal) { popModal(); popModal = null; }
+  popModal = pushModal(() => close());
   await render();
 }
