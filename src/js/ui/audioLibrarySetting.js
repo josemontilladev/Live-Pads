@@ -113,10 +113,60 @@ async function onReset() {
   }
 }
 
+// "Revisar audios": audita la reconciliación BD ↔ archivos y ofrece reparar
+// (vincular huérfanos por título + limpiar referencias rotas).
+async function onAudit() {
+  let r;
+  try {
+    r = await window.electronAPI?.libraryAudioAudit?.();
+  } catch (e) {
+    setMsg('No se pudo revisar: ' + (e.message || e), 'error');
+    return;
+  }
+  if (!r) return;
+  const broken = r.brokenRefs?.length || 0;
+  const orphans = r.orphanFiles?.length || 0;
+  const offline = r.offline?.length || 0;
+
+  if (!broken && !orphans && !offline) {
+    setMsg('✓ Todo en orden: sin referencias rotas ni audios huérfanos.', 'ok');
+    return;
+  }
+
+  const lines = [];
+  if (broken)  lines.push(`• ${broken} referencia(s) rota(s) (canción → audio inexistente)`);
+  if (orphans) lines.push(`• ${orphans} audio(s) huérfano(s) (archivo sin canción)`);
+  if (offline) lines.push(`• ${offline} audio(s) aún en la nube (sin descargar en esta PC)`);
+
+  // Si hay algo reparable (roto o huérfano), ofrece reparar. Los offline solo
+  // se informan (se resuelven con "Conservar siempre en este dispositivo").
+  if (!broken && !orphans) {
+    setMsg(`${offline} audio(s) aún en la nube. Tip: clic derecho en la carpeta → "Conservar siempre en este dispositivo".`, 'info');
+    return;
+  }
+
+  const ok = await confirmDialogAsync({
+    title: 'Revisión de audios',
+    message: `${lines.join('\n')}\n\n¿Reparar ahora? Vincula los huérfanos a su canción por nombre y limpia las referencias rotas (deja esos slots vacíos para reasignar).` +
+             (offline ? `\n\n(Los ${offline} "en la nube" no se tocan — descargalos con "Conservar siempre en este dispositivo".)` : ''),
+    confirmLabel: 'Reparar', danger: false,
+  });
+  if (!ok) return;
+  try {
+    const res = await window.electronAPI.libraryAudioRepair();
+    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    setMsg(`✓ Reparado: ${res.linked} vinculado(s), ${res.cleared} referencia(s) limpiada(s).`, 'ok');
+  } catch (e) {
+    setMsg('La reparación falló: ' + (e.message || e), 'error');
+  }
+}
+
 export function initAudioLibrarySetting() {
   const pickBtn = q('#btn-audio-lib-pick');
   const resetBtn = q('#btn-audio-lib-reset');
+  const auditBtn = q('#btn-audio-lib-audit');
   if (pickBtn) pickBtn.onclick = onPick;
   if (resetBtn) resetBtn.onclick = onReset;
+  if (auditBtn) auditBtn.onclick = onAudit;
   refresh();
 }

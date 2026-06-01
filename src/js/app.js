@@ -683,6 +683,13 @@ function bindRestOfApp() {
     updateFilterCounts();
   });
 
+  // Recarga la librería DESDE DISCO (sin guardar el store antes): lo usa el
+  // orphan linker tras reparar la BD en el proceso principal, para que el
+  // renderer no pise la BD reparada con su copia en memoria (vieja).
+  window.addEventListener('livepads:library-reload', () => {
+    loadGiSetlistFromFile(true);
+  });
+
   // Borrado propagado: al eliminar una canción que está en la nube, la quita
   // también de la librería compartida (silencioso sin red / sin permiso).
   window.addEventListener('livepads:song-deleted', (ev) => {

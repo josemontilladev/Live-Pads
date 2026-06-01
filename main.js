@@ -211,6 +211,20 @@ function containInRoot(root, rel) {
   return null;
 }
 
+// Allowlist para read-audio-file en sus ramas file:// / ruta absoluta: el
+// archivo debe vivir dentro de una raíz conocida de la app (userData, la carpeta
+// de la librería, el dir de la app o la semilla). Evita que una ruta absoluta
+// fabricada lea archivos arbitrarios del sistema. (La rama livepads:// ya queda
+// contenida por containInRoot.)
+function isWithinAllowedRoots(filePath) {
+  const resolved = path.resolve(filePath);
+  const roots = [app.getPath('userData'), getAudioLibraryRoot(), __dirname, getDefaultsPath()];
+  return roots.some(r => {
+    const rr = path.resolve(r);
+    return resolved === rr || resolved.startsWith(rr + path.sep);
+  });
+}
+
 function deleteFromBoth(relativeSubPath) {
   // Solo userData (la copia viva). Ya no se toca defaults/ en dev: es la semilla.
   const userPath = path.join(app.getPath('userData'), relativeSubPath);
@@ -496,6 +510,11 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
     filePath = url;
   } else {
     throw new Error('Esquema no soportado: ' + url);
+  }
+  // file:// y rutas absolutas deben caer dentro de una raíz permitida (no leer
+  // archivos del sistema). livepads:// ya quedó contenido arriba.
+  if (!url.startsWith('livepads://') && !isWithinAllowedRoots(filePath)) {
+    throw new Error('Acceso denegado: fuera de las carpetas permitidas');
   }
   if (!fs.existsSync(filePath)) throw new Error('Archivo no encontrado: ' + filePath);
   const buf = fs.readFileSync(filePath);
@@ -785,6 +804,116 @@ ipcMain.handle('library-conflicts-resolve', async () => {
   }
 
   return { resolved: conflicts.length, addedSongs, filledSlots, songs: primary.length };
+});
+
+// ── Orphan linker / auditoría de audios ─────────────────────────────────────
+// Reconcilia la BD (qué canción usa qué audio) con los archivos reales en
+// Sequences/ + Original Tracks/. Detecta: referencias rotas (canción → archivo
+// inexistente), archivos huérfanos (sin canción) y placeholders de OneDrive
+// (referenciados pero aún no descargados a esta máquina).
+const SLOT_FOLDER = { sequence: 'Sequences', original: 'Original Tracks' };
+function refFileName(url) {
+  if (typeof url !== 'string' || !url) return null;
+  const seg = url.split('/').pop() || '';
+  try { return decodeURIComponent(seg); } catch (_) { return seg; }
+}
+function normTitle(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+}
+// Stem normalizado (nombre sin __hash ni extensión) de un archivo.
+function fileStem(file) {
+  const noHash = file.replace(/__[a-f0-9]{8,}(\.[^.]+)$/i, '$1');
+  return normTitle(noHash.replace(/\.[^.]+$/, ''));
+}
+function listFolderFiles(root, folder) {
+  const dir = path.join(root, folder);
+  try {
+    return fs.readdirSync(dir).filter(f => {
+      if (f.endsWith('.livepads-tmp')) return false;
+      try { return fs.statSync(path.join(dir, f)).isFile(); } catch (_) { return false; }
+    });
+  } catch (_) { return []; }
+}
+// Nombres "offline" (placeholders de OneDrive sin descargar) en una carpeta.
+// Best-effort vía PowerShell; [] si falla o no es Windows.
+function listOfflineFiles(root, folder) {
+  const dir = path.join(root, folder);
+  if (process.platform !== 'win32' || !fs.existsSync(dir)) return [];
+  try {
+    const { execFileSync } = require('child_process');
+    const ps = `Get-ChildItem -LiteralPath '${dir.replace(/'/g, "''")}' -File | Where-Object { $_.Attributes -band [System.IO.FileAttributes]::Offline } | ForEach-Object { $_.Name }`;
+    const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { timeout: 8000, encoding: 'utf8', windowsHide: true });
+    return out.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  } catch (_) { return []; }
+}
+
+function auditLibraryAudio() {
+  const root = getAudioLibraryRoot();
+  const db = readJsonSafe(getLibraryDbPath()) || { data: { songs: [] } };
+  const songs = (db.data && Array.isArray(db.data.songs)) ? db.data.songs : [];
+  const result = { brokenRefs: [], orphanFiles: [], offline: [], songCount: songs.length };
+
+  for (const slot of Object.keys(SLOT_FOLDER)) {
+    const folder = SLOT_FOLDER[slot];
+    const onDisk = new Set(listFolderFiles(root, folder));
+    const referenced = new Set();
+    for (const s of songs) {
+      const fn = refFileName(s.audio && s.audio[slot]);
+      if (!fn) continue;
+      referenced.add(fn);
+      if (!onDisk.has(fn)) result.brokenRefs.push({ id: s.id, title: s.title || 'Sin título', slot, file: fn });
+    }
+    for (const f of onDisk) {
+      if (!referenced.has(f)) result.orphanFiles.push({ slot, file: f });
+    }
+    const offline = new Set(listOfflineFiles(root, folder));
+    for (const f of referenced) {
+      if (offline.has(f)) result.offline.push({ slot, file: f });
+    }
+  }
+  return result;
+}
+
+ipcMain.handle('library-audio-audit', async () => auditLibraryAudio());
+
+// Repara: (1) vincula huérfanos a canciones cuyo título coincide con el nombre
+// del archivo (si el slot está vacío/roto); (2) limpia las referencias rotas
+// que queden. Escribe la BD de forma atómica. Devuelve { linked, cleared }.
+ipcMain.handle('library-audio-repair', async () => {
+  const root = getAudioLibraryRoot();
+  const db = readJsonSafe(getLibraryDbPath()) || { data: { songs: [] } };
+  const songs = (db.data && Array.isArray(db.data.songs)) ? db.data.songs : [];
+  let linked = 0, cleared = 0;
+
+  for (const slot of Object.keys(SLOT_FOLDER)) {
+    const folder = SLOT_FOLDER[slot];
+    const onDisk = new Set(listFolderFiles(root, folder));
+    const referenced = new Set(songs.map(s => refFileName(s.audio && s.audio[slot])).filter(Boolean));
+
+    for (const f of onDisk) {
+      if (referenced.has(f)) continue;            // ya referenciado, no es huérfano
+      const stem = fileStem(f);
+      if (!stem) continue;
+      const match = songs.find(s => {
+        if (normTitle(s.title) !== stem) return false;
+        const cur = refFileName(s.audio && s.audio[slot]);
+        return !cur || !onDisk.has(cur);          // slot vacío o roto
+      });
+      if (match) {
+        if (!match.audio) match.audio = {};
+        match.audio[slot] = toLivepadsUrl(path.join(folder, f));
+        referenced.add(f);
+        linked++;
+      }
+    }
+    for (const s of songs) {
+      const cur = refFileName(s.audio && s.audio[slot]);
+      if (cur && !onDisk.has(cur)) { s.audio[slot] = null; cleared++; }
+    }
+  }
+
+  writeFileAtomic(getLibraryDbPath(), JSON.stringify({ data: { songs } }, null, 2));
+  return { linked, cleared };
 });
 
 // Reuse one connected MongoClient across syncs (it keeps its own connection
