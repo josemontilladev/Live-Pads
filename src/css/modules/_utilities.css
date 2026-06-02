@@ -43,7 +43,11 @@
 /* GI search row — los 3 botones (🔍 / filtro / +) viven a la derecha;
    cuando se expande el input crece desde la izquierda. justify-content
    funciona también colapsado, porque el wrap queda con width 0. */
-.gi-search-row { display: flex; gap: 6px; align-items: center; position: relative; justify-content: flex-end; }
+/* Cabecera de Librería en columna: arriba la LÍNEA (selector + 3 iconos),
+   abajo el buscador (que aparece al tocar la 🔍). */
+.gi-search-row { display: flex; flex-direction: column; gap: 6px; align-items: stretch; position: relative; }
+.gi-lib-line { display: flex; gap: 6px; align-items: center; position: relative; }
+.gi-lib-line .gi-lib-row { flex: 1; min-width: 0; }
 .gi-search-input--inline { flex: 1; margin-bottom: 0; }
 .no-shrink { flex-shrink: 0; }
 .btn-add-gi-song { flex-shrink: 0; border-radius: 50%; transition: transform 0.15s; }
@@ -61,12 +65,13 @@
 .gi-search-row .icon-btn svg { width: 14px; height: 14px; }
 .gi-search-row .accent-btn svg { width: 14px !important; height: 14px !important; }
 .gi-search-toggle {
-  display: none;
+  display: inline-flex;   /* la 🔍 vive fija en la línea; abre/cierra el input de abajo */
   background: var(--bg-hover);
   border: 1px solid var(--border);
 }
 .gi-search-toggle:hover { color: var(--text); border-color: var(--blue); }
-.gi-search-row.search-collapsed .gi-search-toggle { display: inline-flex; }
+/* Expandido (no colapsado): la 🔍 se marca como activa. */
+.gi-search-row:not(.search-collapsed) .gi-search-toggle { color: var(--accent); border-color: var(--accent); }
 /* Colapsado: ocultamos el wrap con display:none para que NO contribuya al
    flex-gap (con width:0 el gap entre toggle y filtro se duplicaba). */
 .gi-search-row.search-collapsed .gi-search-wrap { display: none; }
@@ -76,7 +81,8 @@
    leave room for the absolutely-positioned × button. */
 .gi-search-wrap {
   position: relative;
-  flex: 1;
+  flex: 0 0 auto;
+  width: 100%;
   display: flex;
   align-items: center;
 }
