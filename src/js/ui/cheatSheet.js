@@ -47,7 +47,7 @@ const SECTIONS = [
     rows: [
       ['↑  /  ←',         'Canción anterior'],
       ['↓  /  →',         'Canción siguiente'],
-      ['Shift+Tab',       'Preparar siguiente canción (sin reproducir)'],
+      ['N',               'Preparar siguiente canción (sin reproducir)'],
       ['Click en 🔍',     'Expandir buscador de la Librería'],
       ['Esc en buscador', 'Limpiar texto y colapsar el buscador'],
     ],

@@ -1141,10 +1141,11 @@ function onKey(e) {
   // so the next Space press will trigger a smooth crossfade into it.
   // Useful in live: stage the next song silently between segments,
   // confirm with Space when ready.
-  // Shift+Tab → preparar siguiente canción (antes era Tab solo; Tab pasó a
-  // alternar workspace que es una acción más universal). Útil en vivo:
-  // pre-arma la siguiente canción del servicio para confirmar con Space.
-  if (e.code === 'Tab' && e.shiftKey) {
+  // "N" (next) → preparar la siguiente canción del servicio para confirmar con
+  // Espacio. Antes era Shift+Tab, que pisaba la navegación de foco estándar del
+  // sistema; ahora esa combinación vuelve a ser navegación normal. Guardamos los
+  // modificadores para no chocar con Ctrl+N (nueva canción rápida).
+  if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
     const next = peekNextServiceSong();
     if (next) {
       e.preventDefault();
