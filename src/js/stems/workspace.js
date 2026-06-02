@@ -3676,9 +3676,9 @@ function loadOriginalFromYoutube(song) {
       if (cover && !song.cover) song.cover = cover;
       song.youtubeUrl = url;   // se sube a la nube → la web GI.Setlist muestra la carátula
       if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-      // Auto-sync: si la canción ya existe en la nube, sube SOLO el youtubeUrl.
-      if (song._id && navigator.onLine && window.electronAPI?.pushSongYoutube) {
-        window.electronAPI.pushSongYoutube({ id: song._id, youtubeUrl: url }).catch(() => {});
+      // Auto-sync a la librería ACTIVA de Supabase (multi-tenant correcto).
+      if (navigator.onLine) {
+        import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
       }
       window.dispatchEvent(new CustomEvent('livepads:library-reload'));
       refreshSetlistPanelKeepingSearch();

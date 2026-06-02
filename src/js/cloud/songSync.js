@@ -27,7 +27,7 @@ function toTags(tags) {
 }
 
 function toRow(song, libraryId) {
-  return {
+  const row = {
     library_id: libraryId,
     title:  (song.title || 'Sin título').slice(0, 300),
     artist: song.artist || null,
@@ -43,6 +43,12 @@ function toRow(song, libraryId) {
       audio:      song.audio || null,
     },
   };
+  // Solo se incluye el enlace de YouTube cuando LO HAY: el upsert es
+  // merge-duplicates, así que omitirlo cuando está vacío evita pisar con NULL
+  // un youtube_url ya puesto en la web GI.Setlist. La web usa este campo para
+  // mostrar la carátula.
+  if (song.youtubeUrl && String(song.youtubeUrl).trim()) row.youtube_url = String(song.youtubeUrl).trim();
+  return row;
 }
 
 function fromRow(row) {
@@ -58,6 +64,7 @@ function fromRow(row) {
     key:    row.key || '',
     genre:  row.genre || 'adoracion',
     tags:   Array.isArray(row.tags) ? row.tags : [],
+    youtubeUrl: row.youtube_url || '',
     favorite:   !!m.favorite,
     addedAt:    m.addedAt || Date.parse(row.created_at) || Date.now(),
     showChords: !!m.showChords,
@@ -188,4 +195,27 @@ export async function deleteCloudSong(cloudId) {
   requireContext();
   await rest(`/songs?id=eq.${cloudId}`, { method: 'DELETE', prefer: 'return=minimal' });
   return true;
+}
+
+// Auto-sync puntual: sube SOLO el youtube_url de una canción que YA existe en la
+// librería ACTIVA del usuario (PATCH a la fila por su id de Supabase). Lo usa
+// LivePads al asignar un original desde YouTube → la web GI.Setlist muestra la
+// carátula sin un ⬆ Subir completo. Best-effort y multi-tenant-correcto: sin
+// sesión / librería activa / id en la nube, no hace nada (no crea duplicados ni
+// escribe en otra librería). `cloudId` (sync Supabase) o `_id` (legacy) son el
+// mismo id de fila de Supabase.
+export async function pushSongYoutubeUrl(song) {
+  if (!song || !song.youtubeUrl) return false;
+  const rowId = song.cloudId || song._id;
+  if (!rowId || !isLoggedIn() || !getActiveLibraryId()) return false;
+  try {
+    await rest(`/songs?id=eq.${rowId}`, {
+      method: 'PATCH',
+      body: { youtube_url: String(song.youtubeUrl).trim() },
+      prefer: 'return=minimal',
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
 }

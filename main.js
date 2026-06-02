@@ -1251,35 +1251,6 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
   return { created, updated, idMap, errors };
 });
 
-// Auto-sync puntual: sube SOLO el youtubeUrl de una canción que YA existe en la
-// nube (PUT con body mínimo). Lo usa LivePads al asignar un original desde
-// YouTube, para que la carátula aparezca en GI.Setlist sin un push manual
-// completo. Quirúrgico: el partial-update del backend solo toca `youtube_url`,
-// no pisa letra/notas/etc., y al exigir `id` nunca crea duplicados.
-ipcMain.handle('push-song-youtube', async (_e, { id, youtubeUrl } = {}) => {
-  if (!id || !youtubeUrl) return { ok: false };
-  let apiBase = DEFAULT_GI_API;
-  try {
-    const configPath = path.join(app.getPath('userData'), 'config.json');
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
-        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
-      }
-    }
-  } catch (_) { /* default */ }
-  try {
-    const res = await net.fetch(`${apiBase}/api/songs/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ youtubeUrl: String(youtubeUrl).trim() }),
-    });
-    return { ok: res.ok, status: res.status };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-});
-
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
   if (typeof relativePath !== 'string') return '';
 

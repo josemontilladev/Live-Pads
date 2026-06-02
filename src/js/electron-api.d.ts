@@ -30,7 +30,6 @@ interface ElectronAPI {
   saveGiSetlist(songs: any[]): Promise<boolean>;
   loadGiSetlist(): Promise<any | null>;
   syncMongoSetlist(): Promise<any[]>;
-  pushSongYoutube(data: { id: string; youtubeUrl: string }): Promise<{ ok: boolean; status?: number; error?: string }>;
   getAbsolutePath(relPath: string): Promise<string>;
   assignDrumSample(data: AssignDrumSampleArgs): Promise<string>;
   saveUserDrums(data: any): Promise<boolean>;
