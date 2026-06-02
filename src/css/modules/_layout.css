@@ -139,7 +139,14 @@
   border-radius: var(--r-md); color: var(--text-muted);
   font-size: 18px; font-weight: 800;
   cursor: pointer; outline: none; position: relative;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  /* NO usar `all`: incluía el box-shadow blur 35px del estado .active, que se
+     repintaba durante 0.18s en CADA disparo de pad (la acción más frecuente en
+     vivo). Acotado a transform/color/borde/fondo; el glow aparece instantáneo. */
+  transition:
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 10px 6px;
 }
 .key-btn:hover { background: var(--bg-hover); color: var(--text); border-color: var(--blue); transform: translateY(-2px); }
