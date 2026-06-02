@@ -829,38 +829,48 @@ input.pan-slider {
   gap: 8px;
   padding: 4px 0;
 }
-.gi-edit-row     { display: flex; gap: 6px; }
-.gi-edit-actions { display: flex; gap: 6px; margin-top: 4px; }
+.gi-edit-row     { display: flex; gap: 8px; }
+.gi-edit-actions { display: flex; gap: 8px; margin-top: 6px; }
 .gi-edit-input {
   width: 100%;
-  padding: 6px;
+  padding: 9px 11px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 9px;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   outline: none;
   box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
-.gi-edit-input--title { font-size: 13px; font-weight: 700; }
+.gi-edit-input::placeholder { color: var(--text-muted); }
+.gi-edit-input--title { font-size: 14px; font-weight: 700; }
 .gi-edit-input--small { flex: 1; width: 0; text-align: center; }
 select.gi-edit-input { cursor: pointer; text-align: left; }
-.gi-edit-input:focus { border-color: var(--accent); }
+.gi-edit-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--glow);
+  background: var(--bg-card);
+}
 
 .gi-edit-btn {
   flex: 1;
-  padding: 6px;
-  border-radius: 4px;
-  font-size: 11px;
+  padding: 9px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition: all 0.15s ease;
 }
-.gi-edit-btn.save   { background: var(--blue); color: #000; border-color: var(--blue); font-weight: 700; }
-.gi-edit-btn.save:hover   { filter: brightness(1.08); }
-.gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); }
+.gi-edit-btn.save {
+  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  color: #0a0a14; border-color: transparent; font-weight: 800;
+}
+.gi-edit-btn.save:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+.gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); background: var(--bg-hover); }
 
 /* ── "Sonando" — tira discreta encima del track player ───────────────
    Una sola línea, baja prominencia: punto pulsante + "Sonando" + título
