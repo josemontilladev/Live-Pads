@@ -220,23 +220,18 @@
   /* (.gi-filters y .gi-filter-btn eran chips antiguos — el filtro ahora
       es un menú dropdown, así que estas reglas no aplicaban a nada.) */
   .gi-song-item {
-    padding: 8px 10px;
+    padding: 7px 9px 3px;
     margin-bottom: 6px;
     border-radius: 8px;
   }
   .gi-song-title {
-    font-size: 12px;
+    font-size: 13.5px;
   }
   .gi-song-artist {
     font-size: 10px;
   }
-  .gi-song-meta {
-    margin-top: 2px;
-    font-size: 9px;
-  }
-  .gi-song-actions {
-    margin-top: 6px;
-    padding-top: 6px;
+  .gi-song-meta-line {
+    font-size: 10.5px;
   }
   .action-btn {
     width: 24px;

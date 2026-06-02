@@ -95,9 +95,13 @@ function assignFromYoutube(song, onSuccess) {
     if (!url || !url.trim()) return;
     window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
     try {
-      const p = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
+      const res = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
+      // Compat: antes devolvía un string; ahora { url, cover }.
+      const audioUrl = typeof res === 'string' ? res : res.url;
+      const cover = (res && typeof res === 'object') ? res.cover : null;
       if (!song.audio) song.audio = {};
-      song.audio.original = p;
+      song.audio.original = audioUrl;
+      if (cover && !song.cover) song.cover = cover; // no piso una carátula manual previa
       deps.persist();
       if (typeof onSuccess === 'function') onSuccess();
       window.showToast?.('Audio original asignado desde YouTube.', 'success');
@@ -519,7 +523,13 @@ function initDelegation() {
         const ICON_TRASH_SM  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
         const ICON_STAR_OUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
         const ICON_STAR_FILL = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        const ICON_ADD_SM    = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
         openCardMoreMenu(actionEl, [
+          {
+            label: 'Añadir al servicio',
+            icon: ICON_ADD_SM,
+            onSelect: () => handleAddToService(song, card, actionEl)
+          },
           {
             label: song.favorite ? 'Quitar de favoritos' : 'Marcar favorito',
             icon: song.favorite ? ICON_STAR_FILL : ICON_STAR_OUT,

@@ -102,7 +102,7 @@ body[data-workspace="stems"] #body {
 .stems-shell {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;        /* [panel setlist] [contenido] */
   min-height: 0;
   min-width: 0;
   position: relative;
@@ -110,6 +110,96 @@ body[data-workspace="stems"] #body {
   gap: 14px;
   background: var(--bg-main);
 }
+/* Columna principal: envuelve deck + timeline + consola (el layout vertical de
+   antes vive ahora acá, para dejar el panel de setlist a la izquierda). */
+.stems-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Panel de setlist dentro de Stems (destino de la asignación) ─────────── */
+.stems-setlist {
+  width: 300px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px; min-height: 0;
+}
+.stems-setlist.collapsed { width: 42px; padding: 12px 4px; overflow: hidden; }
+.stems-setlist.collapsed .ssl-slot,
+.stems-setlist.collapsed .ssl-search,
+.stems-setlist.collapsed .ssl-list,
+.stems-setlist.collapsed .ssl-hint,
+.stems-setlist.collapsed .ssl-title { display: none; }
+/* Colapsado: la flecha queda centrada en la columna estrecha. */
+.stems-setlist.collapsed .ssl-head { justify-content: center; }
+.stems-setlist.collapsed .ssl-collapse { transform: rotate(180deg); padding: 0; }
+.ssl-head { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
+.ssl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
+.ssl-collapse { background: transparent; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.ssl-collapse:hover { color: var(--text); }
+.ssl-slot { display: flex; gap: 3px; flex-shrink: 0; }
+.ssl-slot-btn {
+  flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-hover);
+  border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: all 0.15s;
+}
+.ssl-slot-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.ssl-search {
+  flex-shrink: 0;
+  padding: 7px 10px; background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 7px; color: #fff; font-size: 12px; outline: none;
+}
+.ssl-search:focus { border-color: var(--accent); }
+.ssl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ssl-row {
+  text-align: left; border: none; background: transparent; border-radius: 9px;
+  padding: 7px 8px; cursor: pointer; width: 100%;
+  display: flex; align-items: center; gap: 11px;
+}
+.ssl-row:hover { background: var(--bg-hover); }
+/* Check ✓ a la derecha: en modo Secuencia/Original marca las que YA tienen ese
+   slot, en positivo (no atenúa la fila para no parecer deshabilitada). */
+.ssl-check {
+  margin-left: auto; flex-shrink: 0;
+  width: 19px; height: 19px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; line-height: 1;
+}
+.ssl-check.seq  { color: #10b981; background: rgba(16, 185, 129, 0.18); }
+.ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
+.ssl-cover {
+  position: relative; flex-shrink: 0;
+  width: 52px; height: 52px; border-radius: 9px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--song-accent, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+}
+.ssl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ssl-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
+.ssl-cover-fallback { font-size: 21px; font-weight: 800; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; }
+.ssl-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ssl-row-title {
+  font-size: 12.5px; font-weight: 600; color: var(--text); line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ssl-row-artist { font-size: 10.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ssl-row-meta { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ssl-meta-music { flex-shrink: 0; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Badges de estado del slot. Verde = Secuencia, Ámbar = Original — mismo
+   lenguaje de color que el selector de Fuente (Secuencia/Click/Ref). */
+.ssl-tags { display: flex; gap: 3px; flex-shrink: 0; }
+.ssl-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 1px 5px; border-radius: 4px; line-height: 1.5;
+}
+.ssl-tag.seq  { color: #10b981; background: rgba(16, 185, 129, 0.16); }
+.ssl-tag.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
+.ssl-hint { font-size: 9.5px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
+.ssl-empty { padding: 14px 4px; text-align: center; color: var(--text-muted); font-size: 11px; }
 
 /* Card shell shared by the bento blocks. Overflow is set per-component
    below (arrange needs auto for scroll; deck/console/footer hidden). */

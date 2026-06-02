@@ -35,6 +35,32 @@ const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="
 
 const ADD_BTN_HTML = `<button class="action-btn btn-add" data-action="add" title="Añadir al servicio">${ICON_ADD}</button>`;
 
+// Tono de acento estable por canción (barrita lateral de la carátula). Hash
+// determinista del id/título — mismo color en cada render y entre máquinas.
+function songAccentHue(song) {
+  const s = String(song.id || song.title || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+// Carátula del card. Usa song.cover (livepads:// de la miniatura de YouTube, o
+// una URL manual) si existe; si no, un placeholder con la inicial del título
+// sobre un tinte del color de acento. Mantener el markup en sync con el panel
+// de Stems (renderSetlistPanel en stems/workspace.js).
+function songCoverHtml(song) {
+  const hue = songAccentHue(song);
+  const initial = esc((String(song.title || '?').trim().charAt(0) || '?').toUpperCase());
+  if (song.cover) {
+    return `<div class="gi-song-cover" style="--song-accent:hsl(${hue} 60% 55%)">
+      <img src="${esc(song.cover)}" alt="" loading="lazy">
+    </div>`;
+  }
+  return `<div class="gi-song-cover no-cover" style="--song-accent:hsl(${hue} 60% 55%);--song-tint:hsl(${hue} 40% 24%)">
+    <span class="gi-cover-fallback">${initial}</span>
+  </div>`;
+}
+
 // Wrap occurrences of `needle` inside the (already HTML-escaped) `haystack`
 // with <mark class="search-hit">. needle is case-insensitive and matches
 // as a literal substring (no regex meta-chars). Returns the original
@@ -77,33 +103,32 @@ export function songCardInnerHTML(song, opts) {
   const origCls = (song.audio && song.audio.original) ? 'has-audio' : '';
   const disabledAttr = song.lyrics ? '' : 'disabled';
 
+  // Línea de metadatos estilo PlayWorship: tono · BPM · género. El número de
+  // fila se eliminó del modelo (la carátula + la barra de acento del activo
+  // dan el anclaje visual). `rowNumber` se conserva en la firma por compat.
+  const metaLine = [
+    song.key   ? esc(song.key)            : '',
+    song.bpm   ? `${esc(song.bpm)} BPM`   : '',
+    song.genre ? esc(song.genre)          : ''
+  ].filter(Boolean).join(' · ');
+
+  // El texto (carátula + título/artista/meta) ocupa TODO el ancho arriba para
+  // que nada se corte en la barra angosta de Pads. Los iconos van en una tira
+  // compacta debajo: solo los 3 de uso en vivo (letra/secuencia/original) + ⋮.
+  // "Añadir al servicio" y "Quitar de la lista" se movieron al menú ⋮.
   return `
     <div class="gi-song-row">
-      <div class="gi-song-row-left">
-        <div class="gi-row-num">
-          <span class="gi-row-num-text">${rowNumber}</span>
-          ${ICON_PLAY}
-        </div>
-        <div class="gi-song-main">
-          <div class="gi-song-title">${titleHtml}</div>
-          <div class="gi-song-artist">${artistHtml}</div>
-        </div>
-      </div>
-      <div class="gi-song-meta">
-        ${song.bpm   ? `<span class="gi-badge bpm">${esc(song.bpm)}</span>` : ''}
-        ${song.key   ? `<span class="gi-badge key">${esc(song.key)}</span>` : ''}
-        ${song.genre ? `<span class="gi-badge hidden-genre">${esc(song.genre)}</span>` : ''}
-        ${Array.isArray(song.tags) ? song.tags.map(t => `<span class="gi-badge tag">${esc(t)}</span>`).join('') : ''}
+      ${songCoverHtml(song)}
+      <div class="gi-song-main">
+        <div class="gi-song-title">${titleHtml}</div>
+        <div class="gi-song-artist">${artistHtml}</div>
+        ${metaLine ? `<div class="gi-song-meta-line">${metaLine}</div>` : ''}
       </div>
     </div>
     <div class="gi-song-actions">
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="Ver letra y acordes" ${disabledAttr}>${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>
-      ${includeAdd ? ADD_BTN_HTML : ''}
-      ${removeBtnClass === 'btn-remove-lib'
-        ? ''
-        : `<button class="action-btn ${removeBtnClass}" data-action="remove" title="${removeBtnTitle}">${ICON_CLOSE}</button>`}
       <button class="action-btn btn-more" data-action="more" title="Más opciones" aria-haspopup="menu" aria-expanded="false">${ICON_MORE}</button>
     </div>
 
