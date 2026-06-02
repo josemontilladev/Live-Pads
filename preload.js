@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   libraryAudioRepair: () => ipcRenderer.invoke('library-audio-repair'),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
   pushMongoSetlist: (songs) => ipcRenderer.invoke('push-mongo-setlist', songs),
+  pushSongYoutube: (data) => ipcRenderer.invoke('push-song-youtube', data),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),
   assignDrumSample: (data) => ipcRenderer.invoke('assign-drum-sample', data),
   saveUserDrums: (data) => ipcRenderer.invoke('save-user-drums', data),

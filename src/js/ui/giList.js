@@ -102,7 +102,13 @@ function assignFromYoutube(song, onSuccess) {
       if (!song.audio) song.audio = {};
       song.audio.original = audioUrl;
       if (cover && !song.cover) song.cover = cover; // no piso una carátula manual previa
+      song.youtubeUrl = url.trim();   // se sube a la nube → la web GI.Setlist muestra la carátula
       deps.persist();
+      // Auto-sync: si la canción ya existe en la nube, sube SOLO el youtubeUrl
+      // (sin push manual). Quirúrgico y sin duplicados (requiere _id + internet).
+      if (song._id && navigator.onLine && window.electronAPI?.pushSongYoutube) {
+        window.electronAPI.pushSongYoutube({ id: song._id, youtubeUrl: url.trim() }).catch(() => {});
+      }
       if (typeof onSuccess === 'function') onSuccess();
       window.showToast?.('Audio original asignado desde YouTube.', 'success');
     } catch (err) { window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error'); }
