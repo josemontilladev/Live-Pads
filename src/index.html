@@ -393,10 +393,14 @@
          como Espacio es el Play maestro global, hacerlo focusable robaba esa
          tecla. La × interna sí es un <button> accesible. -->
     <div id="now-playing-banner" class="hidden np-strip" aria-live="polite" title="Ir a la canción en la Librería">
-      <span class="np-dot" aria-hidden="true"></span>
-      <span class="np-label">Preparada</span>
-      <span class="np-title" id="np-title">—</span>
-      <span class="np-artist" id="np-artist"></span>
+      <!-- Grupo izquierdo (se trunca con ellipsis): el selector del medio queda
+           FIJO al centro de la barra sin importar el largo del título. -->
+      <div class="np-left">
+        <span class="np-dot" aria-hidden="true"></span>
+        <span class="np-label">Preparada</span>
+        <span class="np-title" id="np-title">—</span>
+        <span class="np-artist" id="np-artist"></span>
+      </div>
       <!-- Selector de FUENTE: cambio rápido de qué suena para esta canción.
            Secuencia / Click (ambos van con el pad en la tonalidad) / Original
            (referencia). Clickeable, táctil y MIDI-mapeable (data-source). El
