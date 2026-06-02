@@ -680,14 +680,56 @@ function downloadFileTo(url, dest) {
   });
 }
 
+const YT_DLP_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+
 async function ensureYtDlp() {
   const binDir = path.join(app.getPath('userData'), 'bin');
   fs.mkdirSync(binDir, { recursive: true });
   const exe = path.join(binDir, 'yt-dlp.exe');
-  if (fs.existsSync(exe) && fs.statSync(exe).size > 1_000_000) return exe;
-  await downloadFileTo('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', exe);
+  if (fs.existsSync(exe) && fs.statSync(exe).size > 1_000_000) {
+    // Auto-actualiza si quedó viejo (>14 días): YouTube cambia seguido y un
+    // yt-dlp añejo deja de extraer. Best-effort y atómico: baja a un .new y solo
+    // reemplaza si el descargado es válido; si algo falla, sigue con el actual.
+    try {
+      const ageDays = (Date.now() - fs.statSync(exe).mtimeMs) / 86_400_000;
+      if (ageDays > 14) {
+        const tmp = exe + '.new';
+        await downloadFileTo(YT_DLP_URL, tmp);
+        if (fs.existsSync(tmp) && fs.statSync(tmp).size > 1_000_000) fs.renameSync(tmp, exe);
+        else { try { fs.unlinkSync(tmp); } catch (_) {} }
+      }
+    } catch (_) { /* sin red o falló la actualización → usar el que hay */ }
+    return exe;
+  }
+  await downloadFileTo(YT_DLP_URL, exe);
   if (!fs.existsSync(exe) || fs.statSync(exe).size < 1_000_000) throw new Error('No se pudo descargar el componente de YouTube.');
   return exe;
+}
+
+const DENO_URL = 'https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip';
+
+// Runtime de JavaScript (Deno) para que yt-dlp resuelva los "challenges" de
+// YouTube — la extracción sin JS quedó deprecada y rompe en más videos cada vez.
+// Se baja UNA vez (~42 MB) a userData/bin y yt-dlp lo detecta solo al tenerlo en
+// el PATH. Best-effort: si falla, devuelve null y yt-dlp sigue sin runtime.
+async function ensureDeno() {
+  const binDir = path.join(app.getPath('userData'), 'bin');
+  fs.mkdirSync(binDir, { recursive: true });
+  const exe = path.join(binDir, 'deno.exe');
+  if (fs.existsSync(exe) && fs.statSync(exe).size > 10_000_000) return exe;
+  const zip = path.join(binDir, 'deno.zip');
+  try {
+    await downloadFileTo(DENO_URL, zip);
+    const { execFileSync } = require('child_process');
+    execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      `Expand-Archive -LiteralPath '${zip.replace(/'/g, "''")}' -DestinationPath '${binDir.replace(/'/g, "''")}' -Force`],
+      { windowsHide: true, timeout: 120_000 });
+  } catch (_) {
+    return null;
+  } finally {
+    try { fs.unlinkSync(zip); } catch (_) {}
+  }
+  return (fs.existsSync(exe) && fs.statSync(exe).size > 10_000_000) ? exe : null;
 }
 
 // Extrae el ID del video de cualquier forma de URL de YouTube
@@ -765,15 +807,65 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   fs.mkdirSync(outDir, { recursive: true });
   const prefix = 'yt_' + Date.now();
   const outTmpl = path.join(outDir, prefix + '.%(ext)s');
-  const args = ['-f', 'bestaudio[ext=m4a]/bestaudio', '--no-playlist', '--no-part', '-o', outTmpl, url];
+  const baseArgs = ['-f', 'bestaudio[ext=m4a]/bestaudio', '--no-playlist', '--no-part', '-o', outTmpl, url];
 
-  await new Promise((resolve, reject) => {
+  // Corre yt-dlp; si se le pasa `denoDir`, lo antepone al PATH para que yt-dlp
+  // encuentre deno.exe y resuelva los challenges de YouTube.
+  const runYtDlp = (extraArgs, denoDir) => new Promise((resolve, reject) => {
+    const env = denoDir ? { ...process.env, PATH: denoDir + path.delimiter + (process.env.PATH || '') } : process.env;
     let stderr = '';
-    const child = spawn(exe, args, { windowsHide: true });
+    const child = spawn(exe, [...baseArgs, ...extraArgs], { windowsHide: true, env });
     child.stderr.on('data', (d) => { stderr += d.toString(); });
     child.on('error', reject);
-    child.on('close', (code) => code === 0 ? resolve() : reject(new Error('La descarga falló. ' + stderr.slice(-300))));
+    child.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr.slice(-400))));
   });
+
+  // Baja Deno solo cuando hace falta (cacheado dentro de esta invocación).
+  let _denoDir;
+  const getDenoDir = async () => {
+    if (_denoDir !== undefined) return _denoDir;
+    const d = await ensureDeno();
+    _denoDir = d ? path.dirname(d) : null;
+    return _denoDir;
+  };
+
+  // 1º intento: sin runtime ni cookies (la mayoría de videos funcionan así).
+  let done = false, firstErr = '';
+  try { await runYtDlp([]); done = true; }
+  catch (e) { firstErr = (e && e.message) ? e.message : String(e); }
+
+  // 2º: si falló por el desafío de JS / formato no disponible, baja Deno y
+  // reintenta con el runtime (resuelve el "n challenge" que YouTube exige).
+  if (!done && /javascript runtime|challenge|requested format is not available|nsig|po token/i.test(firstErr)) {
+    const dir = await getDenoDir();
+    if (dir) { try { await runYtDlp([], dir); done = true; } catch (e) { firstErr = (e && e.message) ? e.message : firstErr; } }
+  }
+
+  // 3º: si YouTube exige iniciar sesión ("confirm you're not a bot"), reintenta
+  // con las cookies del navegador (el primero instalado y con sesión), usando
+  // el runtime si ya está disponible. Los navegadores ausentes se saltan.
+  const authLike = /sign in|not a bot|cookies|consent|account|HTTP Error 403|HTTP Error 429/i.test(firstErr);
+  if (!done && authLike) {
+    const dir = await getDenoDir();
+    for (const browser of ['edge', 'chrome', 'brave', 'firefox', 'opera', 'vivaldi', 'chromium']) {
+      try { await runYtDlp(['--cookies-from-browser', browser], dir); done = true; break; }
+      catch (_) { /* navegador ausente o sin sesión de YouTube → siguiente */ }
+    }
+  }
+  if (!done) {
+    const e = (firstErr || '').toLowerCase();
+    let msg;
+    if (/drm/.test(e)) {
+      msg = 'Este video está protegido con DRM y no se puede descargar (subida oficial del sello). Usá otro enlace de la misma canción: una versión lyric, en vivo, o una subida no oficial.';
+    } else if (/not available|unavailable|is private|been removed|members[- ]only|requested format is not available/.test(e)) {
+      msg = 'YouTube no permite descargar este video (DRM, privado, eliminado o restringido). Probá con otro enlace de la misma canción.';
+    } else if (authLike) {
+      msg = 'YouTube pidió iniciar sesión para este video. Iniciá sesión en YouTube en Edge o Chrome (y cerrá el navegador) y reintentá, o usá otro enlace.';
+    } else {
+      msg = firstErr.slice(-300);
+    }
+    throw new Error('La descarga falló. ' + msg);
+  }
 
   // Localiza el archivo producido (prefijo único) y devuelve su URL livepads://.
   const file = fs.readdirSync(outDir).find((f) => f.startsWith(prefix));
@@ -1124,6 +1216,10 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
       key: s.key || '',
       genre: s.genre || '',
     };
+    // Solo se manda el enlace de YouTube cuando LO HAY: así rellena el campo
+    // `youtubeUrl` en GI.Setlist (la web usa eso para mostrar la carátula) sin
+    // pisar con vacío lo que ya estuviera puesto allá.
+    if (s.youtubeUrl && String(s.youtubeUrl).trim()) body.youtubeUrl = String(s.youtubeUrl).trim();
     try {
       if (s._id) {
         const res = await net.fetch(`${apiBase}/api/songs/${s._id}`, {
@@ -1153,6 +1249,35 @@ ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
   }
   if (errors.length) console.warn('[push] fallos:\n' + errors.join('\n'));
   return { created, updated, idMap, errors };
+});
+
+// Auto-sync puntual: sube SOLO el youtubeUrl de una canción que YA existe en la
+// nube (PUT con body mínimo). Lo usa LivePads al asignar un original desde
+// YouTube, para que la carátula aparezca en GI.Setlist sin un push manual
+// completo. Quirúrgico: el partial-update del backend solo toca `youtube_url`,
+// no pisa letra/notas/etc., y al exigir `id` nunca crea duplicados.
+ipcMain.handle('push-song-youtube', async (_e, { id, youtubeUrl } = {}) => {
+  if (!id || !youtubeUrl) return { ok: false };
+  let apiBase = DEFAULT_GI_API;
+  try {
+    const configPath = path.join(app.getPath('userData'), 'config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
+        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
+      }
+    }
+  } catch (_) { /* default */ }
+  try {
+    const res = await net.fetch(`${apiBase}/api/songs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ youtubeUrl: String(youtubeUrl).trim() }),
+    });
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {

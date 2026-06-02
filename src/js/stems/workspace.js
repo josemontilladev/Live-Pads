@@ -3645,7 +3645,12 @@ function loadOriginalFromYoutube(song) {
       if (!song.audio) song.audio = {};
       song.audio.original = audioUrl;
       if (cover && !song.cover) song.cover = cover;
+      song.youtubeUrl = url;   // se sube a la nube → la web GI.Setlist muestra la carátula
       if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+      // Auto-sync: si la canción ya existe en la nube, sube SOLO el youtubeUrl.
+      if (song._id && navigator.onLine && window.electronAPI?.pushSongYoutube) {
+        window.electronAPI.pushSongYoutube({ id: song._id, youtubeUrl: url }).catch(() => {});
+      }
       window.dispatchEvent(new CustomEvent('livepads:library-reload'));
       refreshSetlistPanelKeepingSearch();
       showToast(`✓ Original asignado a «${song.title}» desde YouTube.`, 'success');
