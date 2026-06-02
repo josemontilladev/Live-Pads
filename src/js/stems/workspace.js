@@ -552,6 +552,8 @@ const SHELL_HTML = `
         </div>
       </div>
 
+      <span class="stems-actions-divider" aria-hidden="true"></span>
+
       <div class="stems-tb-right">
         <div class="stems-zoom-group" title="Zoom del timeline (Alt + rueda del ratón)">
           <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
