@@ -29,7 +29,11 @@ export class SynthEngine {
     this.hpfNode    = this.ctx.createBiquadFilter(); this.hpfNode.type = 'highpass'; this.hpfNode.frequency.value = 20;
     this.drumGain   = this.ctx.createGain(); this.drumGain.gain.value = 0.8;
     this.drumPanNode= this.ctx.createStereoPanner();
-    this.reverbNode = await this._buildReverb(2.5);
+    // Reverb DIFERIDO: el IR (buffer de 2.5s, ~220k iteraciones sample-a-sample)
+    // bloqueaba el boot, y solo se necesita al primer pad sintético. Se genera
+    // en idle tras el arranque (_scheduleReverbBuild, al final de init) y, como
+    // red de seguridad, al primer pad si aún no estuviera listo (ensureReverb).
+    this.reverbNode = null;
     this.limiterNode = this.ctx.createDynamicsCompressor();
     this.limiterNode.threshold.value = -1.5;
     this.limiterNode.knee.value = 0;
@@ -56,16 +60,30 @@ export class SynthEngine {
       ka.start();
       this._keepAlive = ka;
     } catch (e) {}
+
+    // Genera el reverb fuera del camino crítico del boot (en idle).
+    this._scheduleReverbBuild();
   }
 
-  async _buildReverb(dur) {
-    const sr = this.ctx.sampleRate, len = sr * dur;
+  // Construye el IR del reverb si aún no existe y devuelve el convolver. Sync
+  // (el bucle siempre lo fue); idempotente.
+  ensureReverb() {
+    if (this.reverbNode) return this.reverbNode;
+    const dur = 2.5, sr = this.ctx.sampleRate, len = sr * dur;
     const buf = this.ctx.createBuffer(2, len, sr);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
       for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, 2.2);
     }
-    const conv = this.ctx.createConvolver(); conv.buffer = buf; return conv;
+    const conv = this.ctx.createConvolver(); conv.buffer = buf;
+    this.reverbNode = conv;
+    return conv;
+  }
+
+  _scheduleReverbBuild() {
+    const build = () => { try { this.ensureReverb(); } catch (_) {} };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(build, { timeout: 2500 });
+    else setTimeout(build, 800);
   }
 
   setMasterVolume(v) { if(this.masterGain) this.masterGain.gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
@@ -316,7 +334,8 @@ export class SynthEngine {
       const wetGain = this.ctx.createGain(); wetGain.gain.value = reverbWet;
       osc.connect(filter); filter.connect(gain);
       gain.connect(dryGain); dryGain.connect(this.padGain);
-      gain.connect(wetGain); wetGain.connect(this.reverbNode); this.reverbNode.connect(this.padGain);
+      const reverb = this.ensureReverb(); // ya construido en idle; lo crea aquí solo si un pad suena antes
+      gain.connect(wetGain); wetGain.connect(reverb); reverb.connect(this.padGain);
       osc.start(now); lfo.start(now);
       nodes.push({ osc, lfo, gain, rel });
     }
