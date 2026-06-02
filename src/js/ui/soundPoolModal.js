@@ -112,7 +112,7 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
 
   // Integra el modal a la pila central: Esc lo cierra (antes no), y el foco
   // arranca en el botón de cerrar (gestión de foco como los demás modales).
-  const pop = pushModal(() => close());
+  const pop = pushModal(() => close(), modal); // rootEl → Tab atrapado dentro
   const close = () => {
     pop();
     stopPreview();

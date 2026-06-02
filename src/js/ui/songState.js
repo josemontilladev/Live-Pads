@@ -39,20 +39,34 @@ function playPlanLabel() {
   return '▶ ' + (hasPad ? 'Pad + ' : '') + timing;
 }
 
-// Actualiza la etiqueta/punto del banner según el estado live + el plan de lo
-// que sonará al pulsar Play. Lo llama el poll de reproducción y los cambios de
-// canción.
+// Qué está sonando AHORA (para mostrarlo mientras está live). Distingue la
+// ORIGINAL ("Referencia") de la secuencia maestra y del click — el director no
+// debe confundir la pista de ensayo con la fuente maestra.
+function activeSourceLabel() {
+  if (isTrackLoaded() && isTrackPlaying()) {
+    return getCurrentType() === 'original' ? '♪ Referencia' : '♪ Secuencia';
+  }
+  if (getMetroRunning()) return '♪ Click';
+  return '';
+}
+
+// Actualiza la etiqueta/punto del banner + el chip: PREPARADA muestra el plan
+// ("qué sonará al Play"); SONANDO muestra la fuente activa ("♪ Secuencia" /
+// "♪ Click" / "♪ Referencia"). Lo llama el poll de reproducción y los cambios
+// de canción.
 export function refreshNowPlayingLiveState() {
   const banner = q('#now-playing-banner');
   if (!banner || banner.classList.contains('hidden')) return;
   const live = isLiveNow();
+  const ref = live && isTrackLoaded() && isTrackPlaying() && getCurrentType() === 'original';
   banner.classList.toggle('is-live', live);
+  // La ORIGINAL es solo referencia: marcarlo en el banner para no confundirla
+  // con la secuencia maestra (estilo distinto vía .is-reference).
+  banner.classList.toggle('is-reference', ref);
   const label = banner.querySelector('.np-label');
-  if (label) label.textContent = live ? 'Sonando' : 'Preparada';
-  // El plan "qué sonará al Play" solo tiene sentido cuando está PREPARADA
-  // (si ya suena, no hay nada que anticipar).
+  if (label) label.textContent = ref ? 'Referencia' : (live ? 'Sonando' : 'Preparada');
   const plan = banner.querySelector('#np-plan');
-  if (plan) plan.textContent = live ? '' : playPlanLabel();
+  if (plan) plan.textContent = live ? activeSourceLabel() : playPlanLabel();
 }
 
 // ¿La card ya está completamente visible dentro de su contenedor scrolleable?
