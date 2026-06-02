@@ -378,7 +378,7 @@ const SHELL_HTML = `
         mezcla a su slot (Secuencia/Original según el toggle). Colapsable. -->
    <aside class="stems-setlist" id="stems-setlist">
      <div class="ssl-head">
-       <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción">+</button>
+       <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
        <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
          <button class="ssl-slot-btn active" data-slot="all" title="Ver todas las canciones">Todas</button>
          <button class="ssl-slot-btn" data-slot="sequence" title="Ver las de Secuencia">Secuencia</button>
