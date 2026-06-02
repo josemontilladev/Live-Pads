@@ -147,7 +147,7 @@ body[data-workspace="stems"] #body {
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
   color: #0a0a14; border: none; cursor: pointer;
-  border-radius: 10px; transition: all 0.2s ease;
+  border-radius: 50%; transition: all 0.2s ease;
 }
 .ssl-add:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .ssl-add svg { width: 16px; height: 16px; }
