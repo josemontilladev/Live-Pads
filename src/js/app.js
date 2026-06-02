@@ -910,7 +910,15 @@ function isSequenceLoaded() {
   return isTrackLoaded() && getCurrentType() === 'sequence';
 }
 
+let lastMasterToggle = 0;
 function triggerMasterPlayPause() {
+  // Debounce: una doble-pulsación nerviosa de Espacio (o key-repeat) lanzaba y
+  // cortaba al instante, dejando todo en silencio cuando el director creía
+  // haber arrancado. Ignoramos disparos a <250ms del anterior.
+  const now = Date.now();
+  if (now - lastMasterToggle < 250) return;
+  lastMasterToggle = now;
+
   // "Activo" = la secuencia maestra está sonando, o —sin secuencia— el
   //  metrónomo corre. La original NO cuenta como fuente maestra.
   const isCurrentlyActive = isSequenceLoaded() ? isTrackPlaying() : getMetroRunning();
@@ -974,6 +982,9 @@ function panicStopAll() {
   buildKeyGrid();
   if (getMetroRunning()) toggleMetro();
   if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa secuencia/original
+  // Limpiar el marcador "PRÓXIMA": tras el pánico no hay nada pre-armado, así
+  // que la card no debe seguir diciendo que sonará algo al pulsar Espacio.
+  qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
 }
 
 function onKey(e) {

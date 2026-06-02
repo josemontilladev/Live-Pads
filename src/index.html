@@ -389,7 +389,10 @@
 
     <!-- "Sonando" — tira discreta encima del track player. Visible solo
          cuando hay una canción activa. Click → salta a la card en Librería. -->
-    <div id="now-playing-banner" class="hidden np-strip" role="button" tabindex="0" aria-live="polite" title="Ir a la canción en la Librería">
+    <!-- Clic con mouse salta a la canción en la Librería. NO es foco de teclado:
+         como Espacio es el Play maestro global, hacerlo focusable robaba esa
+         tecla. La × interna sí es un <button> accesible. -->
+    <div id="now-playing-banner" class="hidden np-strip" aria-live="polite" title="Ir a la canción en la Librería">
       <span class="np-dot" aria-hidden="true"></span>
       <span class="np-label">Preparada</span>
       <span class="np-title" id="np-title">—</span>
