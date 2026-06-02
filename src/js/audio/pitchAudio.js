@@ -18,7 +18,15 @@ export class PitchAudio extends EventTarget {
     super();
     this._ctx = audioCtx;
     this._buffer = null;            // AudioBuffer decodificado
-    this._shifter = null;            // PitchShifter activo (durante play)
+    this._shifter = null;            // PitchShifter activo (solo cuando pitch≠0)
+    // Modo NATIVO (pitch = 0): reproduce el buffer directo con un
+    // AudioBufferSourceNode → bit-perfect, sin los artefactos/clipping del
+    // overlap-add de SoundTouch, menos CPU y loop sin costuras. SoundTouch solo
+    // se engancha cuando de verdad se transpone (pitch≠0).
+    this._native = null;
+    this._nativeStartCtx = 0;        // ctx.currentTime al arrancar el nativo
+    this._nativeStartOffset = 0;     // offset (seg) desde donde arrancó
+    this._nativeRAF = null;          // rAF que dirige ontimeupdate en modo nativo
     this._gain = audioCtx.createGain(); // volumen
     this._gain.gain.value = 1;
     this._currentTime = 0;           // segundos
@@ -42,7 +50,7 @@ export class PitchAudio extends EventTarget {
   get src() { return this._src; }
   set src(url) {
     if (url === this._src) return;
-    this._teardownShifter();
+    this._teardown();
     this._playing = false;
     this._currentTime = 0;
     this._buffer = null;
@@ -89,9 +97,9 @@ export class PitchAudio extends EventTarget {
       ? Math.max(0, Math.min(t, d))
       : Math.max(0, t);
     if (this._playing) {
-      // Reposicionar = reconstruir el shifter en el punto nuevo
-      this._teardownShifter();
-      this._startShifter();
+      // Reposicionar = reiniciar la fuente (nativa o shifter) en el punto nuevo
+      this._teardown();
+      this._start();
     }
   }
 
@@ -103,7 +111,12 @@ export class PitchAudio extends EventTarget {
   }
 
   get loop() { return this._loop; }
-  set loop(v) { this._loop = !!v; }
+  set loop(v) {
+    this._loop = !!v;
+    // En modo nativo el loop es una propiedad del source → se puede cambiar en
+    // caliente (loop nativo = sin costuras).
+    if (this._native) { try { this._native.loop = this._loop; } catch (_) {} }
+  }
 
   get paused() { return !this._playing; }
 
@@ -111,8 +124,16 @@ export class PitchAudio extends EventTarget {
   get pitchSemitones() { return this._pitchSemitones; }
   set pitchSemitones(n) {
     const s = Number(n) || 0;
+    const was = this._pitchSemitones;
     this._pitchSemitones = s;
-    if (this._shifter) {
+    if (!this._playing) return;
+    // Si cruza el límite 0, cambia de modo (nativo↔shifter) → reiniciar la
+    // fuente en la posición actual. Si sigue en modo shifter (≠0 → ≠0), basta
+    // con actualizar el tono en vivo.
+    if ((was === 0) !== (s === 0)) {
+      this._teardown();
+      this._start();
+    } else if (this._shifter) {
       try { this._shifter.pitchSemitones = s; } catch (_) {}
     }
   }
@@ -126,14 +147,88 @@ export class PitchAudio extends EventTarget {
     }
     if (this._playing) return;
     this._playing = true;
-    this._startShifter();
+    this._start();
     this.dispatchEvent(new Event('play'));
   }
 
   pause() {
     if (!this._playing) return;
     this._playing = false;
+    this._teardown();
+  }
+
+  // Arranca la fuente en el modo adecuado: NATIVO si pitch=0 (pristino),
+  // SoundTouch si hay transposición.
+  _start() {
+    if (!this._buffer) return;
+    if (this._pitchSemitones === 0) this._startNative();
+    else this._startShifter();
+  }
+
+  _teardown() {
+    this._teardownNative();
     this._teardownShifter();
+  }
+
+  // ── Modo nativo (pitch = 0) ───────────────────────────────────────────────
+  _startNative() {
+    const src = this._ctx.createBufferSource();
+    src.buffer = this._buffer;
+    src.loop = this._loop;
+    src.connect(this._gain);
+    this._nativeStartCtx = this._ctx.currentTime;
+    this._nativeStartOffset = this._currentTime || 0;
+    src.onended = () => {
+      if (src !== this._native) return;       // quedó obsoleto (seek/teardown)
+      // Con loop nativo el source no dispara 'ended' (suena indefinido); esto
+      // solo corre al llegar al final real sin loop.
+      this._playing = false;
+      this._currentTime = this._buffer ? this._buffer.duration : 0;
+      this._stopNativeTimer();
+      this._native = null;
+      if (typeof this.onended === 'function') { try { this.onended(); } catch (_) {} }
+      this.dispatchEvent(new Event('ended'));
+    };
+    try { src.start(0, this._nativeStartOffset); } catch (_) { try { src.start(0); } catch (_) {} }
+    this._native = src;
+    this._startNativeTimer();
+  }
+
+  // Dirige ontimeupdate desde ctx.currentTime (el source nativo no emite tiempo).
+  // Calcula la posición cada frame pero emite ontimeupdate ~10/seg (como el
+  // shifter), no a 60fps, para no recargar el scrubber.
+  _startNativeTimer() {
+    let lastEmit = 0;
+    const tick = () => {
+      if (!this._native) return;
+      let t = this._nativeStartOffset + (this._ctx.currentTime - this._nativeStartCtx);
+      const dur = this._buffer ? this._buffer.duration : 0;
+      if (this._loop && dur > 0) t = t % dur;        // loop nativo: el tiempo cicla
+      else if (dur > 0 && t > dur) t = dur;
+      this._currentTime = t;
+      const now = this._ctx.currentTime;
+      if (now - lastEmit >= 0.1) {
+        lastEmit = now;
+        if (typeof this.ontimeupdate === 'function') { try { this.ontimeupdate(); } catch (_) {} }
+        this.dispatchEvent(new Event('timeupdate'));
+      }
+      this._nativeRAF = requestAnimationFrame(tick);
+    };
+    this._nativeRAF = requestAnimationFrame(tick);
+  }
+
+  _stopNativeTimer() {
+    if (this._nativeRAF) { cancelAnimationFrame(this._nativeRAF); this._nativeRAF = null; }
+  }
+
+  _teardownNative() {
+    this._stopNativeTimer();
+    if (this._native) {
+      try { this._native.onended = null; } catch (_) {}
+      try { this._native.stop(); } catch (_) {}
+      try { this._native.disconnect(); } catch (_) {}
+      this._native = null;
+    }
   }
 
   _startShifter() {
