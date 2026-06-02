@@ -388,7 +388,7 @@ input.pan-slider {
     y las cards no tienen header de columnas. Eliminados.) */
 
 /* Song row — Spotify style */
-.gi-song-item { padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
+.gi-song-item { padding: 9px 11px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
   /* Skip rendering offscreen cards — faster initial paint + smoother scroll
      with large libraries. `auto 72px` lets the browser remember each card's
      real height (collapsed ~72px) so the scrollbar doesn't jump. */
@@ -411,6 +411,39 @@ input.pan-slider {
   flex-shrink: 0;
 }
 
+/* Carátula de la canción — miniatura de YouTube (livepads://) o, si no hay,
+   un placeholder con la inicial del título sobre un tinte. La barrita de
+   acento a la izquierda da el look colorido/organizado del setlist. */
+.gi-song-cover {
+  position: relative;
+  width: 52px; height: 52px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--song-accent, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+}
+.gi-song-cover img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gi-song-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
+.gi-cover-fallback {
+  font-size: 21px; font-weight: 800;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: uppercase;
+}
+
+/* Línea de metadatos del modelo: tono · BPM · género (debajo del artista). */
+.gi-song-meta-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
 /* Title + artist block */
 .gi-song-main {
   display: flex;
@@ -420,11 +453,11 @@ input.pan-slider {
   cursor: pointer;
 }
 .gi-song-title {
-  font-size: 13px; font-weight: 700; color: var(--text);
+  font-size: 14px; font-weight: 800; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gi-song-artist {
-  font-size: 11px; color: var(--text-muted);
+  font-size: 11px; color: var(--text-muted); font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -463,10 +496,12 @@ input.pan-slider {
 }
 
 /* Action buttons — hidden until hover */
-.gi-song-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); }
+.gi-song-actions { display: flex; gap: 4px; align-items: center; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
+/* El ⋮ se empuja al extremo derecho; los 3 iconos de uso en vivo quedan a la izquierda. */
+.gi-song-actions .btn-more { margin-left: auto; }
 
 .action-btn {
-  width: 26px; height: 26px; border-radius: 6px;
+  width: 26px; height: 22px; border-radius: 6px;
   border: none; background: transparent;
   color: var(--text-muted); cursor: pointer; display: flex;
   align-items: center; justify-content: center; transition: all 0.15s;
@@ -543,9 +578,8 @@ input.pan-slider {
 /* ── Song Card layout (replaces inline styles in songCard.js) ── */
 .gi-song-row {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 11px;
 }
 .gi-song-row-left {
   display: flex;
@@ -570,15 +604,17 @@ input.pan-slider {
   min-width: 0;
 }
 .gi-song-item .gi-song-title {
-  /* Override the global nowrap+ellipsis rule — song titles wrap in cards */
-  font-size: 13px;
-  font-weight: 700;
+  /* Texto a todo el ancho: el título envuelve hasta 2 líneas para que no se
+     corte (los títulos largos con "(feat. …)" se leen completos). */
+  font-size: 14px;
+  font-weight: 800;
   color: var(--text);
   white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  line-height: 1.2;
-  margin-bottom: 3px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .gi-song-item .gi-song-meta {
   display: flex;
@@ -589,8 +625,8 @@ input.pan-slider {
 }
 .gi-badge.hidden-genre { display: none; }
 .gi-song-item .gi-song-actions {
-  justify-content: flex-end;
-  margin-top: 8px;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 /* Action button state colors — were inline styles, now driven by classes */

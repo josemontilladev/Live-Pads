@@ -186,6 +186,7 @@ function initDelegation() {
         const ICON_EDIT_SM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
         const ICON_STAR_OUT = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
         const ICON_STAR_FILL = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+        const ICON_REMOVE_SM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         openCardMoreMenu(actionEl, [
           {
             label: song.favorite ? 'Quitar de favoritos' : 'Marcar favorito',
@@ -201,6 +202,12 @@ function initDelegation() {
             label: 'Editar',
             icon: ICON_EDIT_SM,
             onSelect: () => { card.innerHTML = songEditFormHTML(song); }
+          },
+          {
+            label: 'Quitar del servicio',
+            icon: ICON_REMOVE_SM,
+            danger: true,
+            onSelect: () => deps.removeFromService(song.serviceId)
           }
         ]);
         return;

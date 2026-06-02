@@ -111,7 +111,7 @@ function saveToBoth(relativeSubPath, contentString) {
 // Lo que SÍ se redirige a la carpeta custom: Sequences/, Original Tracks/.
 // Lo que NO: UserDrums/ (samples del kit, app-data, no librería de usuario).
 const AUDIO_LIBRARY_CFG_FILE = 'audio-library.json';
-const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks'];
+const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers'];
 
 function readAudioLibraryConfig() {
   try {
@@ -690,6 +690,71 @@ async function ensureYtDlp() {
   return exe;
 }
 
+// Extrae el ID del video de cualquier forma de URL de YouTube
+// (watch?v=, youtu.be/, shorts/, embed/, music.youtube).
+function youtubeVideoId(rawUrl) {
+  try {
+    const u = new URL(rawUrl);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return u.pathname.slice(1).split('/')[0] || null;
+    const v = u.searchParams.get('v');
+    if (v) return v;
+    const m = u.pathname.match(/\/(shorts|embed|live)\/([^/?#]+)/);
+    if (m) return m[2];
+  } catch (_) {}
+  return null;
+}
+
+// Descarga bytes de una URL http(s) usando la pila de red de Electron (respeta
+// proxy/DNS configurados). Resuelve a Buffer o rechaza con el status.
+function fetchUrlBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const req = net.request(url);
+    req.on('response', (res) => {
+      if (res.statusCode !== 200) {
+        res.on('data', () => {}); // drena
+        return reject(new Error('HTTP ' + res.statusCode));
+      }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// Baja la miniatura del video y la guarda en Covers/ (nombre por hash de
+// contenido, atómico, sincronizable por OneDrive). Devuelve una URL
+// livepads:// o null si no se pudo. Nunca lanza.
+async function fetchYoutubeCover(videoId) {
+  if (!videoId) return null;
+  try {
+    let buf = null;
+    for (const variant of ['maxresdefault', 'hqdefault', 'mqdefault']) {
+      try {
+        const b = await fetchUrlBuffer(`https://i.ytimg.com/vi/${videoId}/${variant}.jpg`);
+        if (b && b.length > 1200) { buf = b; break; } // descarta el placeholder gris (~1KB)
+      } catch (_) {}
+    }
+    if (!buf) return null;
+    const coversDir = path.join(getAudioLibraryRoot(), 'Covers');
+    fs.mkdirSync(coversDir, { recursive: true });
+    const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
+    const coverName = `yt_${videoId}__${hash}.jpg`;
+    const coverPath = path.join(coversDir, coverName);
+    if (!fs.existsSync(coverPath)) {
+      const tmp = coverPath + '.tmp';
+      fs.writeFileSync(tmp, buf);
+      fs.renameSync(tmp, coverPath);
+    }
+    return toLivepadsUrl(path.join('Covers', coverName));
+  } catch (_) {
+    return null;
+  }
+}
+
 ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   if (typeof url !== 'string' || !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(url)) {
     throw new Error('Pega un enlace de YouTube válido.');
@@ -735,7 +800,10 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   } catch (_) {
     finalName = file; // si algo falla, deja el nombre temporal del descargado
   }
-  return toLivepadsUrl(path.join('Original Tracks', finalName));
+  // Best-effort: baja la miniatura del video para usarla de carátula. Si falla
+  // (offline, video sin thumb), cover queda null y la UI muestra el fallback.
+  const cover = await fetchYoutubeCover(youtubeVideoId(url));
+  return { url: toLivepadsUrl(path.join('Original Tracks', finalName)), cover };
 });
 
 ipcMain.handle('save-gi-setlist', async (_e, songs) => {

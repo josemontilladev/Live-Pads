@@ -19,8 +19,9 @@ import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
-import { confirmDialogAsync } from '../ui/dialog.js';
+import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
+import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
 import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
@@ -338,6 +339,7 @@ export async function mount() {
   refreshClickSoundDropdown();
   renderAccentChips();
   refreshTimelineWidth();
+  bindSetlistPanel();
 
   // Repaint waveforms whenever the global theme changes so the accent
   // colour stays in sync with whatever the user picked in Ajustes.
@@ -369,6 +371,25 @@ export async function mount() {
 // ── HTML shell ─────────────────────────────────────────────────────
 const SHELL_HTML = `
   <div class="stems-shell">
+
+   <!-- Panel de canciones (setlist) — contexto del servicio mientras mezclás +
+        destino de la asignación. Clic en una canción → renderiza y asigna la
+        mezcla a su slot (Secuencia/Original según el toggle). Colapsable. -->
+   <aside class="stems-setlist" id="stems-setlist">
+     <div class="ssl-head">
+       <button class="ssl-collapse" id="stems-setlist-collapse" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">‹</button>
+     </div>
+     <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
+       <button class="ssl-slot-btn active" data-slot="all" title="Ver todas las canciones">Todas</button>
+       <button class="ssl-slot-btn" data-slot="sequence" title="Ver las que faltan de Secuencia">Secuencia</button>
+       <button class="ssl-slot-btn" data-slot="original" title="Ver las que faltan de Original">Original</button>
+     </div>
+     <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
+     <div class="ssl-list" id="stems-setlist-list"></div>
+     <div class="ssl-hint">Clic derecho en una canción para cargarle secuencia u original.</div>
+   </aside>
+
+   <div class="stems-main">
 
    <div class="stems-deck">
     <header class="stems-topbar">
@@ -599,6 +620,8 @@ const SHELL_HTML = `
       </header>
       <div class="stems-console-strips" id="stems-console-strips"></div>
     </section>
+
+    </div><!-- /stems-main -->
 
     <div class="stems-export-overlay" id="stems-export-overlay" hidden>
       <div class="stems-export-panel">
@@ -3309,9 +3332,11 @@ async function runExport(opts = {}) {
     }, opts);
 
     if (opts.assign) {
-      // Asignar directo a una canción (sin "Guardar como" + reimportar).
+      // Asignar directo a una canción (sin "Guardar como" + reimportar). Si
+      // viene un destino pre-elegido (clic en el panel de setlist), no abre el
+      // modal — asigna directo.
       overlay.hidden = true;
-      await assignMixToSong(mp3Bytes, opts.suggestedName || projectName);
+      await assignMixToSong(mp3Bytes, opts.suggestedName || projectName, opts.target);
     } else {
       titleEl.textContent = 'Guardando archivo…';
       stageEl.textContent = 'Elige dónde guardar el .mp3';
@@ -3338,8 +3363,10 @@ async function runExport(opts = {}) {
 
 // Asigna la mezcla recién renderizada a una canción elegida (copia a la librería
 // de OneDrive con nombre por contenido + persiste + recarga la Librería).
-async function assignMixToSong(mp3Bytes, suggestedName) {
-  const choice = await pickSongAndSlot();
+async function assignMixToSong(mp3Bytes, suggestedName, preChosen) {
+  // `preChosen` = { song, slot } cuando viene del panel de setlist (clic en una
+  // fila). Si no, abre el modal buscador.
+  const choice = preChosen || await pickSongAndSlot();
   if (!choice) return; // cancelado
   const { song, slot } = choice;
   try {
@@ -3354,6 +3381,9 @@ async function assignMixToSong(mp3Bytes, suggestedName) {
     window.dispatchEvent(new CustomEvent('livepads:library-reload'));
     const slotLabel = slot === 'original' ? 'Original' : 'Secuencia';
     showToast(`✓ Mezcla asignada a "${song.title}" (${slotLabel}).`, 'success');
+    // Refrescar el panel para que la fila muestre el nuevo badge Sec/Orig.
+    const se = document.querySelector('#stems-setlist .ssl-search');
+    renderSetlistPanel(se ? se.value : '');
   } catch (e) {
     showToast('No se pudo asignar: ' + (e.message || e), 'error');
   }
@@ -3427,6 +3457,201 @@ function pickSongAndSlot() {
       const song = songs.find(s => String(s.id) === row.dataset.id);
       if (song) done({ song, slot });
     };
+  });
+}
+
+// ── Panel de setlist siempre visible (destino de la mezcla) ─────────────────
+// Replica la lista del servicio dentro de Stems: el usuario mezcla el
+// multitrack y, de un clic en una canción, le asigna la mezcla al slot elegido
+// (Secuencia u Original) sin pasar por el modal.
+let setlistPanelSlot = 'all';   // 'all' | 'sequence' | 'original'
+
+// Tono de acento estable por canción — mismo hash que songCard.js para que la
+// barrita de color coincida con la del setlist principal.
+function ssAccentHue(song) {
+  const s = String(song.id || song.title || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
+}
+
+function ssCoverHtml(song) {
+  const hue = ssAccentHue(song);
+  if (song.cover) {
+    return `<span class="ssl-cover" style="--song-accent:hsl(${hue} 60% 55%)"><img src="${esc(song.cover)}" alt="" loading="lazy"></span>`;
+  }
+  const initial = esc((String(song.title || '?').trim().charAt(0) || '?').toUpperCase());
+  return `<span class="ssl-cover no-cover" style="--song-accent:hsl(${hue} 60% 55%);--song-tint:hsl(${hue} 40% 24%)"><span class="ssl-cover-fallback">${initial}</span></span>`;
+}
+
+function renderSetlistPanel(filter = '') {
+  const listEl = document.getElementById('stems-setlist-list');
+  if (!listEl) return;
+  const all = getSongs();
+  const f = (filter || '').trim().toLowerCase();
+  const slotKey = setlistPanelSlot;                          // 'all' | 'sequence' | 'original'
+  const isSlot = slotKey === 'sequence' || slotKey === 'original';   // hay slot destino activo
+  const slotLabel = slotKey === 'original' ? 'Original' : 'Secuencia';
+  // SIEMPRE se muestran todas las canciones (solo se filtra por la búsqueda).
+  // En modo Secuencia/Original el toggle define el slot destino del clic; las
+  // que YA tienen ese slot se atenúan (no se ocultan) para distinguir de un
+  // vistazo lo pendiente, sin que los botones queden inútiles al completar todo.
+  const songs = all
+    .filter(s => !f || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(f))
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
+
+  const hintEl = document.querySelector('#stems-setlist .ssl-hint');
+  if (hintEl) {
+    hintEl.textContent = isSlot
+      ? `Clic en una canción → asigna la mezcla como ${slotLabel}. Las atenuadas ya la tienen.`
+      : 'Clic derecho en una canción para cargarle secuencia u original.';
+  }
+
+  if (!songs.length) {
+    listEl.innerHTML = `<div class="ssl-empty">${all.length ? 'Sin resultados' : 'Tu librería está vacía'}</div>`;
+    return;
+  }
+  listEl.innerHTML = songs.map(s => {
+    const hasSeq = !!(s.audio && s.audio.sequence);
+    const hasOrig = !!(s.audio && s.audio.original);
+    const isDone = isSlot && !!(s.audio && s.audio[slotKey]);   // ya tiene el slot activo
+    // Badges de estado (verde = Secuencia, ámbar = Original). En modo de slot, el
+    // del slot activo no se muestra como badge: lo reemplaza el check ✓ a la
+    // derecha, que lee en positivo ("ya la tiene") sin parecer deshabilitada.
+    const showSeqBadge  = hasSeq  && slotKey !== 'sequence';
+    const showOrigBadge = hasOrig && slotKey !== 'original';
+    const badges =
+      `${showSeqBadge  ? '<span class="ssl-tag seq" title="Ya tiene Secuencia asignada">Sec</span>' : ''}` +
+      `${showOrigBadge ? '<span class="ssl-tag orig" title="Ya tiene Original asignado">Orig</span>' : ''}`;
+    const check = isDone
+      ? `<span class="ssl-check ${slotKey === 'original' ? 'orig' : 'seq'}" title="Ya tiene ${slotLabel} — clic para reemplazar">✓</span>`
+      : '';
+    // Misma estructura que el setlist de Pads: título / artista / tono·BPM·género.
+    const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : '', s.genre || ''].filter(Boolean).join(' · ');
+    const rowTitle = isSlot
+      ? `Asignar la mezcla a «${esc(s.title || '')}» como ${slotLabel} · clic derecho para cargar un archivo`
+      : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia u original`;
+    return `<button class="ssl-row" data-id="${esc(String(s.id))}" title="${rowTitle}">
+      ${ssCoverHtml(s)}
+      <span class="ssl-row-info">
+        <span class="ssl-row-title">${esc(s.title || 'Sin título')}</span>
+        <span class="ssl-row-artist">${esc(s.artist || 'Sin artista')}</span>
+        <span class="ssl-row-meta">
+          ${music ? `<span class="ssl-meta-music">${esc(music)}</span>` : ''}
+          ${badges ? `<span class="ssl-tags">${badges}</span>` : ''}
+        </span>
+      </span>
+      ${check}
+    </button>`;
+  }).join('');
+}
+
+function bindSetlistPanel() {
+  const panel = document.getElementById('stems-setlist');
+  if (!panel) return;
+  const listEl = document.getElementById('stems-setlist-list');
+  const searchEl = panel.querySelector('.ssl-search');
+  const collapseBtn = document.getElementById('stems-setlist-collapse');
+
+  renderSetlistPanel();
+
+  if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
+  if (collapseBtn) collapseBtn.onclick = () => panel.classList.toggle('collapsed');
+
+  panel.querySelectorAll('.ssl-slot-btn').forEach(b => {
+    b.onclick = () => {
+      setlistPanelSlot = b.dataset.slot;
+      panel.querySelectorAll('.ssl-slot-btn').forEach(x => x.classList.toggle('active', x === b));
+      renderSetlistPanel(searchEl ? searchEl.value : '');
+    };
+  });
+
+  // Clic izquierdo: en modo pendiente (Secuencia/Original) asigna la mezcla al
+  // slot activo; en "Todas" no hay slot destino, así que abre el menú de carga.
+  if (listEl) listEl.onclick = async (e) => {
+    const row = e.target.closest('.ssl-row');
+    if (!row) return;
+    const song = getSongs().find(s => String(s.id) === row.dataset.id);
+    if (!song) return;
+    if (setlistPanelSlot === 'all') { openSongAudioMenu(row, song); return; }
+    if (engine.getTracks().length === 0) { showToast('Cargá stems antes de asignar la mezcla.', 'info'); return; }
+    await runExport({ assign: true, target: { song, slot: setlistPanelSlot } });
+  };
+
+  // Clic derecho (en cualquier modo): menú para cargar secuencia/original.
+  if (listEl) listEl.oncontextmenu = (e) => {
+    const row = e.target.closest('.ssl-row');
+    if (!row) return;
+    e.preventDefault();
+    const song = getSongs().find(s => String(s.id) === row.dataset.id);
+    if (song) openSongAudioMenu(row, song);
+  };
+
+  // Si la librería cambia por fuera (otra pantalla, sync), refrescar la lista.
+  window.addEventListener('livepads:library-reload', () => {
+    renderSetlistPanel(searchEl ? searchEl.value : '');
+  });
+}
+
+// Menú contextual del panel: cargar audio a una canción desde Stems. Secuencia
+// y Original aceptan archivo; Original además acepta una URL de YouTube (mismo
+// flujo que el panel de Pads). Tras cargar, persiste y refresca la lista.
+function openSongAudioMenu(anchorEl, song) {
+  const ICON_UP = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 19V6"/><path d="M5 12l7-7 7 7"/></svg>';
+  const ICON_YT = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg>';
+  const seqLabel  = (song.audio && song.audio.sequence) ? 'Reemplazar secuencia (archivo)' : 'Subir secuencia (archivo)';
+  const origLabel = (song.audio && song.audio.original) ? 'Reemplazar original (archivo)'  : 'Subir original (archivo)';
+  openCardMoreMenu(anchorEl, [
+    { label: seqLabel,  icon: ICON_UP, onSelect: () => loadSlotFromFile(song, 'sequence') },
+    { label: origLabel, icon: ICON_UP, onSelect: () => loadSlotFromFile(song, 'original') },
+    { label: 'Original desde YouTube', icon: ICON_YT, onSelect: () => loadOriginalFromYoutube(song) },
+  ]);
+}
+
+function refreshSetlistPanelKeepingSearch() {
+  const se = document.querySelector('#stems-setlist .ssl-search');
+  renderSetlistPanel(se ? se.value : '');
+}
+
+// Carga un archivo local a un slot de la canción (copia a la librería,
+// content-addressed) sin reproducirlo. Persiste y refresca.
+async function loadSlotFromFile(song, slot) {
+  try {
+    const file = await window.electronAPI.openAudioFile();
+    if (!file || !file.path) return;
+    const url = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type: slot });
+    if (!song.audio) song.audio = {};
+    song.audio[slot] = url;
+    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    refreshSetlistPanelKeepingSearch();
+    showToast(`✓ ${slot === 'original' ? 'Original' : 'Secuencia'} cargada en «${song.title}».`, 'success');
+  } catch (e) {
+    showToast('No se pudo cargar el audio: ' + (e.message || e), 'error');
+  }
+}
+
+// Descarga el audio original desde una URL de YouTube y lo asigna (con su
+// carátula), igual que en el panel de Pads.
+function loadOriginalFromYoutube(song) {
+  if (!navigator.onLine) { showToast('Necesitás internet para descargar de YouTube.', 'warning'); return; }
+  showDialog('Original desde YouTube', 'Pegá el enlace de YouTube…', async (url) => {
+    if (!url) return;
+    showToast('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
+    try {
+      const res = await window.electronAPI.downloadYoutubeAudio({ url, title: song.title });
+      const audioUrl = typeof res === 'string' ? res : res.url;
+      const cover = (res && typeof res === 'object') ? res.cover : null;
+      if (!song.audio) song.audio = {};
+      song.audio.original = audioUrl;
+      if (cover && !song.cover) song.cover = cover;
+      if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+      window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+      refreshSetlistPanelKeepingSearch();
+      showToast(`✓ Original asignado a «${song.title}» desde YouTube.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'No se pudo descargar el audio.', 'error');
+    }
   });
 }
 
