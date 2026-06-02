@@ -1654,6 +1654,31 @@ ipcMain.handle('stems-export-mp3', async (_e, { suggestedName, buffer } = {}) =>
   return result.filePath;
 });
 
+// Asigna una mezcla MP3 (buffer) DIRECTO a la librería como audio de una canción
+// (slot 'sequence' u 'original'), sin "Guardar como" + reimportar a mano. Nombre
+// por contenido (sin colisiones), escrito en Sequences/ u Original Tracks/ de la
+// carpeta de la librería (OneDrive) → sincroniza solo a la otra PC. Devuelve la
+// URL livepads:// para guardarla en la canción.
+ipcMain.handle('assign-stems-mix', async (_e, { buffer, type, name } = {}) => {
+  if (!buffer) throw new Error('Buffer vacío');
+  const folder = type === 'original' ? 'Original Tracks' : 'Sequences';
+  const buf = Buffer.from(buffer);
+  const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
+  const stem = String(name || 'mezcla')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'mezcla';
+  const relPath = path.join(folder, `${stem}__${hash}.mp3`);
+  const dest = path.join(getAudioLibraryRoot(), relPath);
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const tmp = dest + '.livepads-tmp';
+    fs.writeFileSync(tmp, buf);          // escritura atómica
+    fs.renameSync(tmp, dest);
+  }
+  return toLivepadsUrl(relPath);
+});
+
 // Resolve the bundled separation models directory (extraResources in prod).
 function separationModelsDir() {
   return app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, 'models');
