@@ -832,7 +832,11 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
    en línea. Click salta a la card activa en la Librería. Oculta cuando
    no hay canción activa (refreshActiveSongHighlights togglea .hidden). */
 #now-playing-banner.np-strip {
-  display: flex;
+  /* Grid de 3 zonas: [izquierda 1fr] [selector auto, CENTRADO] [derecha 1fr].
+     Como las dos columnas laterales son 1fr iguales, el selector del medio queda
+     FIJO al centro sin importar el largo del título (que se trunca a la izq). */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
   margin: 0;
@@ -851,6 +855,16 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 #now-playing-banner.np-strip:hover { background: rgba(255,255,255,0.025); }
 #now-playing-banner.np-strip.hidden { display: none; }
+/* Zona izquierda: dot + label + título + artista, truncada con ellipsis. */
+#now-playing-banner .np-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;       /* permite que el título encoja y haga ellipsis */
+  overflow: hidden;
+}
+/* La × a la derecha del todo (3a columna de la grid). */
+#now-playing-banner .np-close { justify-self: end; }
 
 #now-playing-banner .np-dot {
   flex-shrink: 0;
@@ -919,7 +933,6 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
    (solo referencia). Clickeable, táctil y MIDI-mapeable. */
 #now-playing-banner .source-seg {
   flex-shrink: 0;
-  margin-left: auto;
   display: inline-flex;
   gap: 2px;
   padding: 2px;
