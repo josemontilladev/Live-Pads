@@ -884,8 +884,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
   opacity: 1;
 }
-#now-playing-banner.is-reference .np-label,
-#now-playing-banner.is-reference .np-plan {
+#now-playing-banner.is-reference .np-label {
   color: #f59e0b;
 }
 
@@ -916,22 +915,51 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 #now-playing-banner .np-artist:not(:empty)::before { content: "·"; margin: 0 4px; opacity: 0.6; }
 #now-playing-banner .np-artist:empty { display: none; }
 
-/* "Qué sonará al pulsar Play" — chip a la derecha, solo visible cuando la
-   canción está preparada (refreshNowPlayingLiveState lo vacía si ya suena). */
-#now-playing-banner .np-plan {
+/* Selector de Fuente en el banner — 3 segmentos a la derecha (cambio rápido de
+   qué suena). El activo se ilumina (lo setea refreshNowPlayingLiveState):
+   VERDE = fuente maestra (Secuencia/Click, ambos con el pad), ÁMBAR = Original
+   (solo referencia). Clickeable, táctil y MIDI-mapeable. */
+#now-playing-banner .source-seg {
   flex-shrink: 0;
   margin-left: auto;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  color: var(--accent);
-  background: var(--glow);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 2px 7px;
-  white-space: nowrap;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
 }
-#now-playing-banner .np-plan:empty { display: none; }
+#now-playing-banner .source-seg-btn {
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;            /* más liviano */
+  letter-spacing: 0.2px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+#now-playing-banner .source-seg-btn:hover { background: rgba(255, 255, 255, 0.06); }
+
+/* Cada fuente con su color, para distinguirlas de un vistazo. Inactiva = texto
+   tintado; activa = se llena con el color. */
+#now-playing-banner #src-seq   { color: #34d399; }   /* Secuencia → verde */
+#now-playing-banner #src-click { color: #60a5fa; }   /* Click → azul */
+#now-playing-banner #src-ref   { color: #fbbf24; }   /* Original → ámbar */
+
+#now-playing-banner #src-seq.active {
+  background: #10b981; color: #042016; box-shadow: 0 1px 7px rgba(16, 185, 129, 0.5);
+}
+#now-playing-banner #src-click.active {
+  background: #3b82f6; color: #04122b; box-shadow: 0 1px 7px rgba(59, 130, 246, 0.5);
+}
+#now-playing-banner #src-ref.active {
+  background: #f59e0b; color: #2a1c00; box-shadow: 0 1px 7px rgba(245, 158, 11, 0.5);
+}
+@media (pointer: coarse) {
+  #now-playing-banner .source-seg-btn { padding: 8px 12px; font-size: 11.5px; }
+}
 
 #now-playing-banner .np-close {
   margin-left: auto;
