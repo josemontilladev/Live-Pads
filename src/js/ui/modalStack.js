@@ -19,13 +19,40 @@
 const stack = [];
 let installed = false;
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function focusablesIn(root) {
+  return Array.from(root.querySelectorAll(FOCUSABLE)).filter(el => el.offsetParent !== null);
+}
+
 function onKey(e) {
-  if (e.key !== 'Escape') return;
   if (!stack.length) return;
   const top = stack[stack.length - 1];
-  e.stopPropagation();
-  e.preventDefault();
-  try { top.onEscape(); } catch (_) {}
+
+  if (e.key === 'Escape') {
+    e.stopPropagation();
+    e.preventDefault();
+    try { top.onEscape(); } catch (_) {}
+    return;
+  }
+
+  // Focus-trap: con un modal abierto, Tab cicla SOLO entre sus elementos
+  // enfocables (antes el foco se escapaba a la UI de fondo, que seguía siendo
+  // enfocable — desorientador para teclado).
+  if (e.key === 'Tab' && top.rootEl) {
+    const items = focusablesIn(top.rootEl);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    const outside = !top.rootEl.contains(active);
+    if (e.shiftKey && (active === first || outside)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (active === last || outside)) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 }
 
 function install() {
@@ -34,9 +61,11 @@ function install() {
   document.addEventListener('keydown', onKey, true);
 }
 
-export function pushModal(onEscape) {
+// onEscape: callback de cierre (LIFO). rootEl (opcional): el elemento raíz del
+// modal — si se pasa, Tab queda atrapado dentro de él.
+export function pushModal(onEscape, rootEl = null) {
   install();
-  const entry = { onEscape };
+  const entry = { onEscape, rootEl };
   stack.push(entry);
   return () => {
     const i = stack.lastIndexOf(entry);

@@ -473,6 +473,12 @@ input.pan-slider {
 }
 .action-btn:hover { color: var(--blue); background: rgba(255,255,255,0.08); }
 .action-btn svg { width: 13px; height: 13px; }
+/* Cabina táctil: agranda el área tocable de las acciones por canción a ~40px
+   (sin agrandar el icono), para no errar entre "play secuencia" y "play
+   original" en una tablet con luz baja. Solo en punteros gruesos (no desktop). */
+@media (pointer: coarse) {
+  .action-btn { width: 40px; height: 40px; }
+}
 
 /* Drag & Drop */
 .gi-song-item.dragging { opacity: 0.3; background: var(--bg-card); }
@@ -868,9 +874,23 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 #now-playing-banner:not(.is-live) .np-label { color: var(--text-muted); }
 
+/* Estado "referencia": suena la ORIGINAL de ensayo, NO la secuencia maestra.
+   Punto ámbar estático (sin la pulsación verde de "sonando") + etiqueta ámbar,
+   para que el director no la confunda con la fuente maestra en vivo. */
+#now-playing-banner.is-reference .np-dot {
+  animation: none;
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  opacity: 1;
+}
+#now-playing-banner.is-reference .np-label,
+#now-playing-banner.is-reference .np-plan {
+  color: #f59e0b;
+}
+
 #now-playing-banner .np-label {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 1.2px;
   text-transform: uppercase;

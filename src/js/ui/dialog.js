@@ -22,7 +22,7 @@ function pushDialogOnStack() {
     const cancelBtn = q('#dialog-cancel');
     if (cancelBtn && typeof cancelBtn.onclick === 'function') cancelBtn.onclick();
     else hideDialog();
-  });
+  }, q('#dialog-overlay')); // rootEl → Tab atrapado dentro del diálogo
 }
 
 function resetDialogChrome() {
