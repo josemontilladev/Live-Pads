@@ -104,10 +104,10 @@ function assignFromYoutube(song, onSuccess) {
       if (cover && !song.cover) song.cover = cover; // no piso una carátula manual previa
       song.youtubeUrl = url.trim();   // se sube a la nube → la web GI.Setlist muestra la carátula
       deps.persist();
-      // Auto-sync: si la canción ya existe en la nube, sube SOLO el youtubeUrl
-      // (sin push manual). Quirúrgico y sin duplicados (requiere _id + internet).
-      if (song._id && navigator.onLine && window.electronAPI?.pushSongYoutube) {
-        window.electronAPI.pushSongYoutube({ id: song._id, youtubeUrl: url.trim() }).catch(() => {});
+      // Auto-sync a la librería ACTIVA de Supabase (multi-tenant correcto): si la
+      // canción ya existe en la nube, sube SOLO el youtubeUrl. Best-effort.
+      if (navigator.onLine) {
+        import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
       }
       if (typeof onSuccess === 'function') onSuccess();
       window.showToast?.('Audio original asignado desde YouTube.', 'success');
