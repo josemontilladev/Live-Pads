@@ -52,7 +52,29 @@
   font-size: 10px; font-weight: 600; color: var(--text-muted);
   cursor: pointer; user-select: none; white-space: nowrap;
 }
-.hm-clickseq input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+/* Checkbox custom: caja redondeada que se llena con el gradiente de acento y
+   muestra un check al activarse. */
+.hm-clickseq input {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; margin: 0; flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-hover);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hm-clickseq input:hover { border-color: var(--accent); }
+.hm-clickseq input:checked { background: var(--accent-grad); border-color: transparent; }
+.hm-clickseq input:checked::after {
+  content: '';
+  width: 4px; height: 8px;
+  border: solid #0a0a14;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.hm-clickseq input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hm-clickseq input:checked + span { color: var(--text); }
 .hm-clickseq:hover { color: var(--text); }
 
 #metro-beat-row {
