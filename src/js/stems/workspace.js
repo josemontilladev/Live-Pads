@@ -470,27 +470,6 @@ const SHELL_HTML = `
           <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
         </span>
       </div>
-
-      <div class="stems-tb-right">
-        <div class="stems-zoom-group" title="Zoom del timeline (Alt + rueda del ratón)">
-          <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
-          <span class="stems-zoom-readout" id="stems-zoom-readout">100%</span>
-          <button class="stems-zoom-btn" id="stems-zoom-in" aria-label="Aumentar zoom">+</button>
-        </div>
-        <div class="stems-zoom-group" title="Altura de las pistas (Ctrl + rueda del ratón)">
-          <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
-          <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
-        </div>
-        <label class="stems-snap-toggle" title="Marcadores se ajustan al beat más cercano">
-          <input type="checkbox" id="stems-snap" checked>
-          <span>SNAP</span>
-        </label>
-        <div class="stems-readout">
-          <span class="label">TIMECODE</span>
-          <span class="value mono" id="stems-timecode">00:00.000</span>
-        </div>
-        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
-      </div>
     </header>
 
     <!-- Fila única de acciones (antes había dos filas: proyecto y tools).
@@ -571,6 +550,27 @@ const SHELL_HTML = `
             Loop
           </button>
         </div>
+      </div>
+
+      <div class="stems-tb-right">
+        <div class="stems-zoom-group" title="Zoom del timeline (Alt + rueda del ratón)">
+          <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
+          <span class="stems-zoom-readout" id="stems-zoom-readout">100%</span>
+          <button class="stems-zoom-btn" id="stems-zoom-in" aria-label="Aumentar zoom">+</button>
+        </div>
+        <div class="stems-zoom-group" title="Altura de las pistas (Ctrl + rueda del ratón)">
+          <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
+          <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
+        </div>
+        <label class="stems-snap-toggle" title="Marcadores se ajustan al beat más cercano">
+          <input type="checkbox" id="stems-snap" checked>
+          <span>SNAP</span>
+        </label>
+        <div class="stems-readout">
+          <span class="label">TIMECODE</span>
+          <span class="value mono" id="stems-timecode">00:00.000</span>
+        </div>
+        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
       </div>
     </header>
    </div>

@@ -353,17 +353,14 @@ body[data-workspace="stems"] #body {
 .stems-actions-primary .stems-btn,
 .stems-loop-group .stems-btn { padding-top: 0; padding-bottom: 0; }
 
-/* Laptops / pantallas angostas: el topbar tiene muchos controles y se partía
-   en 2 filas (SNAP/TIMECODE caían abajo). Compactamos para que entre en UNA
-   sola línea, ocultando solo lo decorativo/redundante: la marca, la píldora de
-   estado (redundante con el botón Play) y el bloque TIMECODE (el transporte ya
-   muestra 0:00 / 0:00). Las funciones clave (zoom, alto de pista, SNAP) quedan. */
+/* Laptops / pantallas angostas: el módulo de zoom/SNAP/TIMECODE se movió a la
+   derecha de la fila de MARCADORES (ahí hay espacio). En angosto solo se oculta
+   la píldora de estado (redundante con el botón Play) para que la fila entre
+   cómoda, y se aprietan un poco los gaps. */
 @media (max-width: 1500px) {
   .stems-topbar { gap: 6px 10px; }
-  .stems-tb-left, .stems-tb-mid, .stems-tb-right { gap: 6px; }
-  .stems-brand { display: none; }
+  .stems-tb-left, .stems-tb-mid { gap: 6px; }
   .stems-state-pill { display: none; }
-  .stems-readout { display: none; }
 }
 
 .stems-field {
