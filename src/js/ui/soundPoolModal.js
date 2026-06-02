@@ -9,6 +9,7 @@
 import { q } from '../utils/dom.js';
 import { getCleanSampleName } from '../utils/format.js';
 import { KIT_BANKS } from '../data/banks.js';
+import { pushModal } from './modalStack.js';
 
 const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><polygon points="5,3 19,12 5,21"/></svg>`;
 const ICON_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
@@ -64,6 +65,9 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
 
   /* ── Box ── */
   const box = el('div', 'spm-box');
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-modal', 'true');
+  box.setAttribute('aria-label', 'Selector de sonido');
 
   /* ── Header ── */
   const header = el('div', 'spm-header');
@@ -106,7 +110,11 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
   modal.appendChild(box);
   document.body.appendChild(modal);
 
+  // Integra el modal a la pila central: Esc lo cierra (antes no), y el foco
+  // arranca en el botón de cerrar (gestión de foco como los demás modales).
+  const pop = pushModal(() => close());
   const close = () => {
+    pop();
     stopPreview();
     previewBtn = null;
     modal.remove();
@@ -114,6 +122,7 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
   closeBtn.onclick = close;
   modal.onclick = (e) => { if (e.target === modal) close(); };
   uploadBtn.onclick = () => { close(); onUploadNew(); };
+  try { closeBtn.focus(); } catch (_) {}
 
   function appendSampleRow(parent, item) {
     const cleanName = getCleanSampleName(item.path);
@@ -163,8 +172,7 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
     // ── Assign button
     const assignBtn = el('button', 'spm-assign', { text: 'Usar' });
     assignBtn.onclick = () => {
-      stopPreview();
-      modal.remove();
+      close(); // saca el modal de la pila + limpia preview
       onAssign(item.path);
     };
 

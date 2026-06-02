@@ -12,7 +12,7 @@
 //      existentes desde la ruta anterior.
 //   3. "Restaurar" limpia la config; vuelve a userData (default).
 
-import { q } from '../utils/dom.js';
+import { q, withBusy } from '../utils/dom.js';
 import { confirmDialogAsync } from './dialog.js';
 
 let state = { customPath: null, defaultPath: '', effectivePath: '' };
@@ -116,9 +116,12 @@ async function onReset() {
 // "Revisar audios": audita la reconciliación BD ↔ archivos y ofrece reparar
 // (vincular huérfanos por título + limpiar referencias rotas).
 async function onAudit() {
+  const auditBtn = q('#btn-audio-lib-audit');
   let r;
   try {
-    r = await window.electronAPI?.libraryAudioAudit?.();
+    // El IPC puede tardar ~1s (lista archivos + chequea placeholders) → botón
+    // ocupado para que no parezca colgado ni se re-clickee.
+    r = await withBusy(auditBtn, 'Revisando…', () => window.electronAPI?.libraryAudioAudit?.());
   } catch (e) {
     setMsg('No se pudo revisar: ' + (e.message || e), 'error');
     return;
@@ -153,7 +156,7 @@ async function onAudit() {
   });
   if (!ok) return;
   try {
-    const res = await window.electronAPI.libraryAudioRepair();
+    const res = await withBusy(auditBtn, 'Reparando…', () => window.electronAPI.libraryAudioRepair());
     window.dispatchEvent(new CustomEvent('livepads:library-reload'));
     setMsg(`✓ Reparado: ${res.linked} vinculado(s), ${res.cleared} referencia(s) limpiada(s).`, 'ok');
   } catch (e) {

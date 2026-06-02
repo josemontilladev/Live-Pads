@@ -120,7 +120,14 @@
 .import-url-btn:focus-visible,
 .btn-preview-toggle:focus-visible,
 .gi-edit-input:focus-visible,
-.metro-dropdown:focus-visible {
+.metro-dropdown:focus-visible,
+.ws-tab:focus-visible,
+.key-btn:focus-visible,
+.drum-btn:focus-visible,
+.metro-main-btn:focus-visible,
+.d-ok:focus-visible,
+.d-cancel:focus-visible,
+.empty-cta:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px var(--bg),
