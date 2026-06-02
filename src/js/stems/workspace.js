@@ -377,6 +377,7 @@ const SHELL_HTML = `
         mezcla a su slot (Secuencia/Original según el toggle). Colapsable. -->
    <aside class="stems-setlist" id="stems-setlist">
      <div class="ssl-head">
+       <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería">+ Nueva canción</button>
        <button class="ssl-collapse" id="stems-setlist-collapse" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">‹</button>
      </div>
      <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
@@ -3558,6 +3559,9 @@ function bindSetlistPanel() {
   if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
   if (collapseBtn) collapseBtn.onclick = () => panel.classList.toggle('collapsed');
 
+  const addBtn = document.getElementById('stems-setlist-add');
+  if (addBtn) addBtn.onclick = addSongFromStems;
+
   panel.querySelectorAll('.ssl-slot-btn').forEach(b => {
     b.onclick = () => {
       setlistPanelSlot = b.dataset.slot;
@@ -3611,6 +3615,31 @@ function openSongAudioMenu(anchorEl, song) {
 function refreshSetlistPanelKeepingSearch() {
   const se = document.querySelector('#stems-setlist .ssl-search');
   renderSetlistPanel(se ? se.value : '');
+}
+
+// Crea una canción nueva en la librería desde el panel de Stems (pide el
+// título; lo demás se completa luego en Pads o con clic derecho para el audio).
+function addSongFromStems() {
+  showDialog('Nueva canción', 'Título de la canción…', (title) => {
+    const t = (title || '').trim();
+    if (!t) return;
+    const newSong = {
+      id: 'song_' + Date.now(),
+      addedAt: Date.now(),
+      title: t,
+      artist: '',
+      bpm: '',
+      key: '',
+      genre: 'adoracion',
+      tags: [],
+      audio: { sequence: null, original: null },
+    };
+    getSongs().push(newSong);
+    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    refreshSetlistPanelKeepingSearch();
+    showToast(`✓ «${t}» agregada. Clic derecho para cargarle secuencia u original.`, 'success');
+  });
 }
 
 // Carga un archivo local a un slot de la canción (copia a la librería,
