@@ -29,7 +29,7 @@
   opacity: 0.92;
 }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.d-ok { background: var(--blue); color: #000; font-weight: 900; padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
+.d-ok { background: var(--accent-grad); color: #000; font-weight: 900; padding: 12px 24px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
 .d-ok--danger { background: #ff4747; color: #fff; }
 .d-cancel { background: transparent; color: var(--text-muted); font-weight: 700; padding: 12px 24px; border: none; cursor: pointer; font-size: 14px; }
 
@@ -262,7 +262,7 @@
   color: var(--accent);
 }
 .spm-assign {
-  background: var(--accent);
+  background: var(--accent-grad);
   border: none;
   color: #000;
   font-weight: 700;
@@ -692,7 +692,7 @@ body.lyrics-fs-open { overflow: hidden; }
 }
 .lyrics-modal-cancel:hover { border-color: var(--border-strong); color: var(--text); }
 .lyrics-modal-save {
-  background: var(--blue); border: none; color: #000;
+  background: var(--accent-grad); border: none; color: #000;
   padding: 9px 24px; border-radius: 6px;
   font-size: 12px; font-weight: 800;
   cursor: pointer; transition: all 0.2s;
@@ -1651,7 +1651,7 @@ body.lyrics-fs-open { overflow: hidden; }
   padding: 10px 18px;
   border-radius: 8px;
   border: 1px solid var(--accent);
-  background: var(--accent);
+  background: var(--accent-grad);
   color: #0a0a14;
   font-weight: 700;
   font-size: 13px;

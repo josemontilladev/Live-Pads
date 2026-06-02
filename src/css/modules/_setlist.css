@@ -71,7 +71,7 @@
 /* Start button */
 .metro-main-btn {
   width: 100%; padding: 14px;
-  background: var(--blue); border: none; border-radius: var(--r-md);
+  background: var(--accent-grad); border: none; border-radius: var(--r-md);
   color: #000; font-size: 14px; font-weight: 900;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
   transition: all 0.15s; letter-spacing: 0.3px;
@@ -141,7 +141,7 @@
   border-radius: 10px; color: var(--text); font-weight: 800; font-size: 12px;
   cursor: pointer; letter-spacing: 1px; transition: all 0.15s;
 }
-.tap-btn:active { background: var(--blue); color: #000; border-color: var(--blue); transform: scale(0.97); }
+.tap-btn:active { background: var(--accent-grad); color: #000; border-color: var(--blue); transform: scale(0.97); }
 
 /* Time signature */
 .metro-sig-row {
@@ -154,7 +154,7 @@
   cursor: pointer; transition: all 0.15s; text-align: center;
 }
 .sig-btn:hover { border-color: var(--blue); color: var(--text); }
-.sig-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+.sig-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
 
 /* Multiplier */
 .metro-mult-btn {
@@ -163,7 +163,7 @@
   border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 800;
   cursor: pointer; transition: all 0.15s;
 }
-.metro-mult-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+.metro-mult-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
 
 /* Sound buttons */
 .metro-sound-row  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
@@ -175,7 +175,7 @@
   cursor: pointer; transition: all 0.15s; text-align: center;
 }
 .sound-btn:hover { border-color: var(--blue); color: var(--text); }
-.sound-btn.active { background: var(--blue); color: #000; border-color: var(--blue); }
+.sound-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
 
 /* Sliders */
 input[type="range"] {
@@ -866,7 +866,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   transition: all 0.15s ease;
 }
 .gi-edit-btn.save {
-  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  background: var(--accent-grad);
   color: #0a0a14; border-color: transparent; font-weight: 800;
 }
 .gi-edit-btn.save:hover   { filter: brightness(1.08); transform: translateY(-1px); }
@@ -1150,7 +1150,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .empty-cta:hover { border-color: var(--accent); color: var(--accent); }
 .empty-cta--primary {
-  background: var(--accent);
+  background: var(--accent-grad);
   color: #000;
   border-color: var(--accent);
 }
