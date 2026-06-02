@@ -24,6 +24,10 @@ export function showToast(message, type = 'info') {
     container = document.createElement('div');
     container.id = 'toast-container';
     container.className = 'toast-container';
+    // Live region: los lectores de pantalla anuncian los mensajes (antes eran
+    // mudos). Los errores/avisos van como role="alert" (asertivo) en el toast.
+    container.setAttribute('role', 'status');
+    container.setAttribute('aria-live', 'polite');
     document.body.appendChild(container);
   }
 
@@ -32,20 +36,27 @@ export function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;
+  if (type === 'error' || type === 'warning') toast.setAttribute('role', 'alert');
   // Per-type colour still set inline since it's a small finite set and
   // keeps the global stylesheet from having to know every variant.
   toast.style.background = style.bg;
   toast.style.color = style.color;
   toast.style.border = style.border;
-  toast.innerHTML = `${icon}<span>${esc(message)}</span>`;
+  toast.innerHTML = `${icon}<span>${esc(message)}</span><button class="toast-close" aria-label="Cerrar" title="Cerrar">×</button>`;
   container.appendChild(toast);
 
   requestAnimationFrame(() => toast.classList.add('toast--in'));
 
-  setTimeout(() => {
+  const dismiss = () => {
     toast.classList.add('toast--out');
     setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  };
+  // Los errores duran más (se pierden si el director miraba el escenario) y
+  // todos se pueden cerrar a mano con la ×.
+  const ttl = type === 'error' ? 9000 : 4000;
+  const timer = setTimeout(dismiss, ttl);
+  const closeBtn = toast.querySelector('.toast-close');
+  if (closeBtn) closeBtn.onclick = () => { clearTimeout(timer); dismiss(); };
 }
 
 // Backwards-compatible global so legacy inline handlers still work.

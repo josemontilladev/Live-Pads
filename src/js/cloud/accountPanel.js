@@ -6,6 +6,7 @@
 import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle, updatePassword, deleteAccount } from './supabase.js';
 import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
+import { withBusy } from '../utils/dom.js';
 
 // ¿La cuenta ya tiene a Google como método de acceso?
 function hasGoogleIdentity(u) {
@@ -395,7 +396,9 @@ async function onClick(e) {
         }
         case 'load-setlist': {
           try {
-            const r = await loadSharedSetlist(btn.dataset.id);
+            // Acción directa de red: botón ocupado para evitar doble-clic (que
+            // cargaba el servicio dos veces).
+            const r = await withBusy(btn, '⟳ Cargando…', () => loadSharedSetlist(btn.dataset.id));
             msg(`Servicio cargado (${r.loaded} canciones${r.missing ? `, ${r.missing} no están en este equipo — baja las canciones` : ''}).`, 'ok');
           } catch (e2) { msg(e2.message); }
           return;
