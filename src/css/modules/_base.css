@@ -25,6 +25,9 @@
   --accent: var(--blue);
   --accent2: #FFD45C;
   --glow: rgba(251, 174, 0, 0.20);
+  /* Gradiente de acento reutilizable para fondos de BOTONES (texto e icono).
+     Usa los dos accents del tema activo → se adapta solo a cada paleta. */
+  --accent-grad: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
   /* Texto/icono que va encima del accent (azul/ámbar). Negro azulado para
      conservar el contraste de marca consistente en toda la app. */
   --on-accent: #0a0a14;
@@ -74,7 +77,7 @@
 .accent-btn,
 .btn-add-gi-song,
 button.pi-play {
-  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  background: var(--accent-grad);
 }
 
 /* Section panels gain a refined inner highlight */

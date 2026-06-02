@@ -145,7 +145,7 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
   width: 32px; height: 32px; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  background: var(--accent-grad);
   color: #0a0a14; border: none; cursor: pointer;
   border-radius: 50%; transition: all 0.2s ease;
 }
@@ -160,7 +160,7 @@ body[data-workspace="stems"] #body {
   border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
   transition: all 0.15s;
 }
-.ssl-slot-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.ssl-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
 .ssl-search {
   flex-shrink: 0;
   padding: 7px 10px; background: var(--bg-hover); border: 1px solid var(--border);
@@ -494,7 +494,7 @@ body[data-workspace="stems"] #body {
 .stems-tb-btn:active { transform: scale(0.94); }
 .stems-tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-tb-btn--play {
-  background: var(--accent);
+  background: var(--accent-grad);
   border-color: var(--accent);
   color: var(--on-accent);
   /* 32x32 → mismo alto que el resto del topbar (BPM, COMPÁS, TONO).
@@ -507,7 +507,7 @@ body[data-workspace="stems"] #body {
   margin-left: 2px;
 }
 .stems-tb-btn--play:hover {
-  background: var(--accent);
+  background: var(--accent-grad);
   border-color: var(--accent);
   color: var(--on-accent);
   filter: brightness(1.1);
@@ -775,14 +775,14 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-btn--accent {
-  background: var(--accent);
+  background: var(--accent-grad);
   color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 14px var(--glow);
   font-weight: 800;
 }
 .stems-btn--accent:hover {
-  background: var(--accent);
+  background: var(--accent-grad);
   filter: brightness(1.1);
   border-color: var(--accent);
 }
@@ -839,14 +839,14 @@ body[data-workspace="stems"] #body {
 .stems-btn:active { transform: scale(0.97); }
 .stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stems-btn--primary {
-  background: var(--accent);
+  background: var(--accent-grad);
   color: var(--on-accent);
   border-color: var(--accent);
 }
 /* Keep the accent fill on hover (the base .stems-btn:hover would turn it
    dark) and just brighten slightly — no glow ring, which read as ugly. */
 .stems-btn--primary:hover {
-  background: var(--accent);
+  background: var(--accent-grad);
   border-color: var(--accent);
   filter: brightness(1.08);
 }
@@ -926,7 +926,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-accent-chip:hover { border-color: var(--border-strong); color: var(--text); }
 .stems-accent-chip.is-on {
-  background: var(--accent);
+  background: var(--accent-grad);
   border-color: var(--accent);
   color: #000;
 }
@@ -1823,7 +1823,7 @@ body[data-workspace="stems"] #body {
   opacity: 0.7;
 }
 #stems-loop-toggle.is-on {
-  background: var(--accent);
+  background: var(--accent-grad);
   color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--glow);
@@ -2113,7 +2113,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-btn.stems-loop-ab.is-set {
   color: var(--on-accent) !important;
-  background: var(--accent) !important;
+  background: var(--accent-grad) !important;
   border-color: var(--accent) !important;
 }
 .stems-ctx-hint {
@@ -2432,7 +2432,7 @@ body[data-workspace="stems"] #body {
   border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer;
   transition: all 0.15s;
 }
-.sam-slot-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.sam-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
 .sam-search {
   margin: 0 16px 10px; padding: 9px 12px; background: var(--bg-hover); border: 1px solid var(--border);
   border-radius: 8px; color: #fff; font-size: 13px; outline: none;

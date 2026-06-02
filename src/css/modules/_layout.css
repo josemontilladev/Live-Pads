@@ -151,7 +151,7 @@
 }
 .key-btn:hover { background: var(--bg-hover); color: var(--text); border-color: var(--blue); transform: translateY(-2px); }
 .key-btn.active {
-  background: var(--blue); border-color: var(--blue); color: #000;
+  background: var(--accent-grad); border-color: var(--blue); color: #000;
   box-shadow: 0 0 35px var(--blue);
   transform: translateY(-4px) scale(1.02);
 }
@@ -235,7 +235,7 @@
    needs immediate visual feedback on every hit. The fade back is smooth
    via the base .drum-btn transition when .hit is removed. */
 .drum-btn.hit, .drum-btn:active {
-  background: var(--blue); border-color: var(--blue);
+  background: var(--accent-grad); border-color: var(--blue);
   box-shadow: 0 0 25px var(--blue);
   transition: none;
 }

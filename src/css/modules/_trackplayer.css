@@ -32,7 +32,7 @@
 .tp-play {
   width: 40px; height: 40px;
   border-radius: 50%;
-  background: var(--blue); color: #000;
+  background: var(--accent-grad); color: #000;
   transition: transform 0.15s;
 }
 .tp-play svg { width: 16px; height: 16px; }
@@ -51,7 +51,7 @@
   width: 14px; height: 14px;
 }
 .tp-loop.active,
-.tp-autoadvance.active { background: var(--blue); border-color: var(--blue); color: #000; }
+.tp-autoadvance.active { background: var(--accent-grad); border-color: var(--blue); color: #000; }
 
 /* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS).
    Cápsula con misma altura (32px) que el resto de transport-secundario.

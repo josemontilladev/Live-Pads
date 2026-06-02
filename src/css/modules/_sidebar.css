@@ -102,7 +102,7 @@
    Servicio se oculten los botones de importar/exportar y la fila se encogería. */
 .setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; min-height: 34px; }
 .setlist-title { font-size: 15px; font-weight: 800; }
-.accent-btn { background: var(--blue) !important; color: #000 !important; width: 34px !important; height: 34px !important; border-radius: 8px !important; display: flex; align-items: center; justify-content: center; }
+.accent-btn { background: var(--accent-grad) !important; color: #000 !important; width: 34px !important; height: 34px !important; border-radius: 8px !important; display: flex; align-items: center; justify-content: center; }
 .accent-btn svg { width: 16px !important; height: 16px !important; }
 .setlist-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 32px 0; }
 .preset-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; margin-bottom: 8px; transition: all 0.2s; }
@@ -111,7 +111,7 @@
 .preset-item-name { font-size: 14px; font-weight: 700; }
 .preset-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .preset-actions { display: flex; gap: 8px; }
-.pi-play { background: var(--blue); border: none; color: #000; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pi-play { background: var(--accent-grad); border: none; color: #000; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .pi-play svg { width: 12px; height: 12px; }
 .pi-delete {
   background: transparent; border: none; color: var(--text-muted);
