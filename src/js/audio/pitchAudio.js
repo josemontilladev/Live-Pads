@@ -1,35 +1,65 @@
 // ─────────────────────────────────────────────────────────────────────────
 // PitchAudio — fuente de audio Web Audio con desplazamiento de tono real
-// (sin alterar el tempo) mediante SoundTouchJS PitchShifter.
+// (sin alterar el tempo).
 //
 // Imita la API esencial de HTMLAudioElement (`src`, `play()`, `pause()`,
 // `currentTime`, `duration`, `volume`, `loop`, `paused`, `ontimeupdate`,
 // `onended`, `onerror`) para que el track player no necesite cambiar mucho.
 // Añade `pitchSemitones` para subir/bajar tono sin cambiar la velocidad.
 //
+// Arquitectura:
+//   - La fuente es SIEMPRE un AudioBufferSourceNode nativo, que lleva la
+//     posición/seek/loop/fin (bit-perfect, loop sin costuras, poca CPU).
+//   - Con tono = 0 (caso normal): source → gain → output. Sin procesamiento.
+//   - Con tono ≠ 0: se inserta un SoundTouchNode (AudioWorklet) entre medio:
+//     source → SoundTouchNode → gain. El pitch-shift corre en el HILO DE AUDIO
+//     (no en el main thread), así que un render pesado de UI no lo glitchea.
+//
 // Conecta su salida vía `node.output` a la siguiente etapa del grafo
 // (típicamente un panner). No reemplaza el grafo: lo extiende.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { PitchShifter } from '../../vendor/soundtouchjs.js';
+import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
+
+// Registro del processor del worklet, una vez por AudioContext. Carga el código
+// del processor (leído por IPC) como Blob URL — robusto en dev y en asar.
+const _workletReg = new WeakMap(); // ctx -> { ready:boolean, promise:Promise }
+function ensureWorklet(ctx) {
+  let reg = _workletReg.get(ctx);
+  if (reg) return reg;
+  reg = { ready: false, promise: null };
+  reg.promise = (async () => {
+    let url = null;
+    try {
+      const code = await window.electronAPI?.getSoundtouchWorklet?.();
+      if (code) url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    } catch (_) {}
+    // Fallback (dev): ruta relativa a index.html.
+    if (!url) url = 'vendor/soundtouch-worklet/soundtouch-processor.js';
+    await SoundTouchNode.register(ctx, url);
+    reg.ready = true;
+  })();
+  reg.promise.catch((e) => { console.warn('AudioWorklet SoundTouch no disponible:', e && e.message || e); });
+  _workletReg.set(ctx, reg);
+  return reg;
+}
 
 export class PitchAudio extends EventTarget {
   constructor(audioCtx) {
     super();
     this._ctx = audioCtx;
     this._buffer = null;            // AudioBuffer decodificado
-    this._shifter = null;            // PitchShifter activo (solo cuando pitch≠0)
-    // Modo NATIVO (pitch = 0): reproduce el buffer directo con un
-    // AudioBufferSourceNode → bit-perfect, sin los artefactos/clipping del
-    // overlap-add de SoundTouch, menos CPU y loop sin costuras. SoundTouch solo
-    // se engancha cuando de verdad se transpone (pitch≠0).
-    this._native = null;
-    this._nativeStartCtx = 0;        // ctx.currentTime al arrancar el nativo
-    this._nativeStartOffset = 0;     // offset (seg) desde donde arrancó
-    this._nativeRAF = null;          // rAF que dirige ontimeupdate en modo nativo
-    this._gain = audioCtx.createGain(); // volumen
+    this._gain = audioCtx.createGain(); // volumen / salida
     this._gain.gain.value = 1;
-    this._currentTime = 0;           // segundos
+
+    this._source = null;            // AudioBufferSourceNode (durante play)
+    this._stNode = null;            // SoundTouchNode insertado solo si pitch≠0
+    this._startCtx = 0;             // ctx.currentTime al arrancar la fuente
+    this._startOffset = 0;          // offset (seg) desde donde arrancó
+    this._raf = null;               // rAF que dirige ontimeupdate
+    this._rerouteScheduled = false;
+
+    this._currentTime = 0;
     this._playing = false;
     this._loop = false;
     this._pitchSemitones = 0;
@@ -41,6 +71,10 @@ export class PitchAudio extends EventTarget {
     this.ontimeupdate = null;
     this.onended = null;
     this.onerror = null;
+
+    // Registrar el worklet de antemano para que esté listo en cuanto se
+    // transponga (la registración es asíncrona).
+    ensureWorklet(audioCtx);
   }
 
   // Punto de conexión hacia el siguiente nodo (panner, destino, etc.)
@@ -50,7 +84,7 @@ export class PitchAudio extends EventTarget {
   get src() { return this._src; }
   set src(url) {
     if (url === this._src) return;
-    this._teardown();
+    this._stop();
     this._playing = false;
     this._currentTime = 0;
     this._buffer = null;
@@ -77,8 +111,7 @@ export class PitchAudio extends EventTarget {
         arr = await res.arrayBuffer();
       }
       const buf = await this._ctx.decodeAudioData(arr);
-      // Si el src cambió mientras decodificábamos, no apliques.
-      if (this._src !== url) return;
+      if (this._src !== url) return; // el src cambió mientras decodificábamos
       this._buffer = buf;
       this.dispatchEvent(new Event('loadedmetadata'));
       this.dispatchEvent(new Event('canplay'));
@@ -93,12 +126,10 @@ export class PitchAudio extends EventTarget {
   get currentTime() { return this._currentTime; }
   set currentTime(t) {
     const d = this.duration;
-    this._currentTime = Number.isFinite(d)
-      ? Math.max(0, Math.min(t, d))
-      : Math.max(0, t);
+    this._currentTime = Number.isFinite(d) ? Math.max(0, Math.min(t, d)) : Math.max(0, t);
     if (this._playing) {
-      // Reposicionar = reiniciar la fuente (nativa o shifter) en el punto nuevo
-      this._teardown();
+      // Reposicionar = reiniciar la fuente en el punto nuevo.
+      this._stop();
       this._start();
     }
   }
@@ -113,36 +144,32 @@ export class PitchAudio extends EventTarget {
   get loop() { return this._loop; }
   set loop(v) {
     this._loop = !!v;
-    // En modo nativo el loop es una propiedad del source → se puede cambiar en
-    // caliente (loop nativo = sin costuras).
-    if (this._native) { try { this._native.loop = this._loop; } catch (_) {} }
+    if (this._source) { try { this._source.loop = this._loop; } catch (_) {} }
   }
 
   get paused() { return !this._playing; }
 
-  // ── Pitch shifting ────────────────────────────────────────────────────────
+  // ── Pitch ─────────────────────────────────────────────────────────────────
   get pitchSemitones() { return this._pitchSemitones; }
   set pitchSemitones(n) {
     const s = Number(n) || 0;
     const was = this._pitchSemitones;
     this._pitchSemitones = s;
     if (!this._playing) return;
-    // Si cruza el límite 0, cambia de modo (nativo↔shifter) → reiniciar la
-    // fuente en la posición actual. Si sigue en modo shifter (≠0 → ≠0), basta
-    // con actualizar el tono en vivo.
-    if ((was === 0) !== (s === 0)) {
-      this._teardown();
-      this._start();
-    } else if (this._shifter) {
-      try { this._shifter.pitchSemitones = s; } catch (_) {}
+    const crossing = (was === 0) !== (s === 0);
+    if (!crossing && s !== 0 && this._stNode) {
+      // Sigue transponiendo (≠0 → ≠0): solo actualizar el param, sin re-rutear
+      // (evita un click por desconectar/reconectar).
+      try { this._stNode.pitchSemitones.value = s; } catch (_) {}
+      return;
     }
+    // Cruza el 0 (inserta/quita el SoundTouchNode) → re-rutear.
+    this._routeOutput();
   }
 
   async play() {
     if (!this._buffer) {
-      if (this._loadPromise) {
-        try { await this._loadPromise; } catch (_) {}
-      }
+      if (this._loadPromise) { try { await this._loadPromise; } catch (_) {} }
       if (!this._buffer) throw (this._loadError || new Error('Audio no cargado'));
     }
     if (this._playing) return;
@@ -154,56 +181,101 @@ export class PitchAudio extends EventTarget {
   pause() {
     if (!this._playing) return;
     this._playing = false;
-    this._teardown();
+    this._stop();
   }
 
-  // Arranca la fuente en el modo adecuado: NATIVO si pitch=0 (pristino),
-  // SoundTouch si hay transposición.
+  // ── Motor de reproducción (source nativo + SoundTouchNode opcional) ────────
   _start() {
     if (!this._buffer) return;
-    if (this._pitchSemitones === 0) this._startNative();
-    else this._startShifter();
-  }
-
-  _teardown() {
-    this._teardownNative();
-    this._teardownShifter();
-  }
-
-  // ── Modo nativo (pitch = 0) ───────────────────────────────────────────────
-  _startNative() {
     const src = this._ctx.createBufferSource();
     src.buffer = this._buffer;
     src.loop = this._loop;
-    src.connect(this._gain);
-    this._nativeStartCtx = this._ctx.currentTime;
-    this._nativeStartOffset = this._currentTime || 0;
+    this._source = src;
+    this._startCtx = this._ctx.currentTime;
+    this._startOffset = this._currentTime || 0;
     src.onended = () => {
-      if (src !== this._native) return;       // quedó obsoleto (seek/teardown)
-      // Con loop nativo el source no dispara 'ended' (suena indefinido); esto
-      // solo corre al llegar al final real sin loop.
+      if (src !== this._source) return;        // quedó obsoleto (seek/stop)
+      // Con loop nativo el source no dispara 'ended'; esto solo corre al final real.
       this._playing = false;
       this._currentTime = this._buffer ? this._buffer.duration : 0;
-      this._stopNativeTimer();
-      this._native = null;
+      this._stopTimer();
+      this._dropStNode();
+      this._source = null;
       if (typeof this.onended === 'function') { try { this.onended(); } catch (_) {} }
       this.dispatchEvent(new Event('ended'));
     };
-    try { src.start(0, this._nativeStartOffset); } catch (_) { try { src.start(0); } catch (_) {} }
-    this._native = src;
-    this._startNativeTimer();
+    this._routeOutput();
+    try { src.start(0, this._startOffset); } catch (_) { try { src.start(0); } catch (_) {} }
+    this._startTimer();
+  }
+
+  _stop() {
+    this._stopTimer();
+    if (this._source) {
+      try { this._source.onended = null; } catch (_) {}
+      try { this._source.stop(); } catch (_) {}
+      try { this._source.disconnect(); } catch (_) {}
+      this._source = null;
+    }
+    this._dropStNode();
+  }
+
+  // Conecta source → [SoundTouchNode si pitch≠0] → gain. Si el worklet aún no
+  // está listo, rutea directo (sin pitch) y reprograma el ruteo al estar listo.
+  _routeOutput() {
+    if (!this._source) return;
+    try { this._source.disconnect(); } catch (_) {}
+    if (this._pitchSemitones !== 0) {
+      const st = this._ensureStNode();
+      if (st) {
+        try { st.disconnect(); } catch (_) {}
+        this._source.connect(st);
+        st.connect(this._gain);
+        try { st.pitchSemitones.value = this._pitchSemitones; } catch (_) {}
+        return;
+      }
+      this._scheduleReroute(); // worklet no listo aún → re-rutear cuando lo esté
+    }
+    // bypass (tono 0, o worklet no disponible todavía)
+    this._dropStNode();
+    this._source.connect(this._gain);
+  }
+
+  _ensureStNode() {
+    if (this._stNode) return this._stNode;
+    const reg = _workletReg.get(this._ctx);
+    if (reg && reg.ready) {
+      try { this._stNode = new SoundTouchNode({ context: this._ctx }); } catch (_) { this._stNode = null; }
+    }
+    return this._stNode;
+  }
+
+  _dropStNode() {
+    if (this._stNode) {
+      try { this._stNode.disconnect(); } catch (_) {}
+      this._stNode = null;
+    }
+  }
+
+  _scheduleReroute() {
+    if (this._rerouteScheduled) return;
+    this._rerouteScheduled = true;
+    const reg = _workletReg.get(this._ctx) || ensureWorklet(this._ctx);
+    reg.promise.then(() => {
+      this._rerouteScheduled = false;
+      if (this._playing && this._pitchSemitones !== 0) this._routeOutput();
+    }).catch(() => { this._rerouteScheduled = false; });
   }
 
   // Dirige ontimeupdate desde ctx.currentTime (el source nativo no emite tiempo).
-  // Calcula la posición cada frame pero emite ontimeupdate ~10/seg (como el
-  // shifter), no a 60fps, para no recargar el scrubber.
-  _startNativeTimer() {
+  // Calcula la posición cada frame pero emite ~10/seg para no recargar el scrubber.
+  _startTimer() {
     let lastEmit = 0;
     const tick = () => {
-      if (!this._native) return;
-      let t = this._nativeStartOffset + (this._ctx.currentTime - this._nativeStartCtx);
+      if (!this._source) return;
+      let t = this._startOffset + (this._ctx.currentTime - this._startCtx);
       const dur = this._buffer ? this._buffer.duration : 0;
-      if (this._loop && dur > 0) t = t % dur;        // loop nativo: el tiempo cicla
+      if (this._loop && dur > 0) t = t % dur;
       else if (dur > 0 && t > dur) t = dur;
       this._currentTime = t;
       const now = this._ctx.currentTime;
@@ -212,81 +284,12 @@ export class PitchAudio extends EventTarget {
         if (typeof this.ontimeupdate === 'function') { try { this.ontimeupdate(); } catch (_) {} }
         this.dispatchEvent(new Event('timeupdate'));
       }
-      this._nativeRAF = requestAnimationFrame(tick);
+      this._raf = requestAnimationFrame(tick);
     };
-    this._nativeRAF = requestAnimationFrame(tick);
+    this._raf = requestAnimationFrame(tick);
   }
 
-  _stopNativeTimer() {
-    if (this._nativeRAF) { cancelAnimationFrame(this._nativeRAF); this._nativeRAF = null; }
-  }
-
-  _teardownNative() {
-    this._stopNativeTimer();
-    if (this._native) {
-      try { this._native.onended = null; } catch (_) {}
-      try { this._native.stop(); } catch (_) {}
-      try { this._native.disconnect(); } catch (_) {}
-      this._native = null;
-    }
-  }
-
-  _startShifter() {
-    if (!this._buffer) return;
-    const shifter = new PitchShifter(this._ctx, this._buffer, 4096);
-    try { shifter.tempo = 1; } catch (_) {}
-    try { shifter.pitchSemitones = this._pitchSemitones; } catch (_) {}
-    // Posición inicial. OJO: el SETTER de percentagePlayed en SoundTouchJS es
-    // fraccional (0..1): sourcePosition = perc * duration * sampleRate. Su
-    // GETTER, en cambio, devuelve 0..100 — la librería es internamente
-    // inconsistente. Pasar 0..100 aquí reposicionaba a ~100× la muestra
-    // correcta (más allá del final), disparando 'end' y saltando la pista a su
-    // final en cada seek. Hay que pasar la fracción.
-    const d = this._buffer.duration || 0;
-    if (d > 0 && this._currentTime > 0) {
-      try { shifter.percentagePlayed = this._currentTime / d; } catch (_) {}
-    }
-    shifter.connect(this._gain);
-    try {
-      shifter.on('play', (data) => {
-        if (!this._playing) return;
-        if (data && typeof data.timePlayed === 'number') {
-          this._currentTime = data.timePlayed;
-        }
-        if (typeof this.ontimeupdate === 'function') {
-          try { this.ontimeupdate(); } catch (_) {}
-        }
-        this.dispatchEvent(new Event('timeupdate'));
-      });
-      shifter.on('end', () => {
-        if (this._loop && this._buffer) {
-          this._teardownShifter();
-          this._currentTime = 0;
-          if (this._playing) this._startShifter();
-        } else {
-          this._playing = false;
-          this._currentTime = this._buffer ? this._buffer.duration : 0;
-          this._teardownShifter();
-          if (typeof this.onended === 'function') {
-            try { this.onended(); } catch (_) {}
-          }
-          this.dispatchEvent(new Event('ended'));
-        }
-      });
-    } catch (_) {}
-    this._shifter = shifter;
-  }
-
-  _teardownShifter() {
-    if (this._shifter) {
-      // Anular onaudioprocess es CLAVE: un ScriptProcessorNode con su callback
-      // asignado sigue referenciado por el motor de audio aunque se desconecte,
-      // así que no se recolecta. Sin esto, cada play/pause/seek/loop dejaba un
-      // nodo vivo procesando en silencio → CPU y glitches acumulados en sesiones
-      // largas en vivo.
-      try { this._shifter.node.onaudioprocess = null; } catch (_) {}
-      try { this._shifter.disconnect(); } catch (_) {}
-      this._shifter = null;
-    }
+  _stopTimer() {
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
   }
 }

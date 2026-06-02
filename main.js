@@ -522,6 +522,20 @@ ipcMain.handle('read-audio-file', async (_e, url) => {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 });
 
+// Devuelve el código del processor del AudioWorklet de SoundTouch como texto.
+// El renderer lo carga vía Blob URL en audioWorklet.addModule — robusto dentro
+// de asar, donde addModule(file://) puede no resolver. fs lee de asar sin
+// problema (Electron lo parcha).
+ipcMain.handle('get-soundtouch-worklet', async () => {
+  try {
+    const p = path.join(__dirname, 'src', 'vendor', 'soundtouch-worklet', 'soundtouch-processor.js');
+    return fs.readFileSync(p, 'utf8');
+  } catch (e) {
+    console.warn('No se pudo leer el worklet de SoundTouch:', e.message);
+    return null;
+  }
+});
+
 // ── IPCs de biblioteca de audios (carpeta custom) ──────────────────
 ipcMain.handle('audio-library-get', async () => {
   const customPath = readAudioLibraryConfig();    // null si no configurada
