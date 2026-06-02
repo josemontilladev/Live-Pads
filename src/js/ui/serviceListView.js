@@ -8,6 +8,7 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { getOpenAccordionServiceId } from '../state/store.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
@@ -143,6 +144,16 @@ function findSong(serviceId) {
   return deps.getSongs().find(s => String(s.serviceId) === serviceId);
 }
 
+// Callback tras cargar audio (archivo o YouTube) a una canción del Servicio:
+// sincroniza el audio a la librería, persiste el servicio y repinta la tarjeta.
+function onServiceAudioAssigned(card) {
+  return (song) => {
+    deps.syncAudioToLibrary?.(song);
+    deps.persistServiceSongs();
+    repaintServiceCard(card, song);
+  };
+}
+
 // ── Delegation ────────────────────────────────────────────────────────
 
 function initDelegation() {
@@ -165,10 +176,30 @@ function initDelegation() {
     const action = actionEl && card.contains(actionEl) ? actionEl.dataset.action : null;
 
     switch (action) {
-      case 'play-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
-      case 'play-orig': deps.loadAndPlayTrack(song, 'original'); return;
+      case 'play-seq':
+        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
+          loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
+        return;
+      case 'play-orig':
+        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
+          loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
+        return;
       case 'remove':    deps.removeFromService(song.serviceId); return;
-      case 'toggle-lyrics': deps.toggleLyricsAccordion(song, true); return;
+      case 'toggle-lyrics':
+        // Sin letra → editor directo para agregarla; con letra → acordeón.
+        if (!song.lyrics) {
+          deps.openLyricsEditorModal(song, (newLyrics) => {
+            song.lyrics = newLyrics;
+            deps.syncLyricsToLibrary(song);
+            deps.persistServiceSongs();
+            repaintServiceCard(card, song);
+          });
+        } else {
+          deps.toggleLyricsAccordion(song, true);
+        }
+        return;
       case 'lyrics-fullscreen': e.stopPropagation(); openLyricsFullscreen(song); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, true, true); return;
       case 'edit-lyrics':

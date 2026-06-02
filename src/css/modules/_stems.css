@@ -138,17 +138,21 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-add { display: none; }
 .stems-setlist.collapsed .ssl-head { justify-content: center; }
 .stems-setlist.collapsed .ssl-collapse { transform: rotate(180deg); padding: 0; }
-.ssl-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+/* Cabecera en UNA línea: [+] [Todas|Secuencia|Original] [‹] */
+.ssl-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .ssl-add {
+  flex-shrink: 0;
+  width: 30px; height: 30px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
   background: var(--accent); color: #000; border: none; cursor: pointer;
-  font-size: 11px; font-weight: 800; padding: 5px 10px; border-radius: 7px;
+  font-size: 19px; font-weight: 800; line-height: 1; border-radius: 8px;
   transition: filter 0.15s;
 }
 .ssl-add:hover { filter: brightness(1.1); }
 .ssl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
-.ssl-collapse { background: transparent; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.ssl-collapse { flex-shrink: 0; background: transparent; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; }
 .ssl-collapse:hover { color: var(--text); }
-.ssl-slot { display: flex; gap: 3px; flex-shrink: 0; }
+.ssl-slot { display: flex; gap: 3px; flex: 1; min-width: 0; }
 .ssl-slot-btn {
   flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-hover);
   border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
@@ -207,6 +211,19 @@ body[data-workspace="stems"] #body {
 .ssl-tag.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
 .ssl-hint { font-size: 9.5px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
 .ssl-empty { padding: 14px 4px; text-align: center; color: var(--text-muted); font-size: 11px; }
+
+/* Modal de "nueva canción" en Stems — reusa el form de Pads (.gi-edit-form). */
+.stems-newsong-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 20, 0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.stems-newsong-modal {
+  width: 380px; max-width: 92vw;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
 
 /* Card shell shared by the bento blocks. Overflow is set per-component
    below (arrange needs auto for scroll; deck/console/footer hidden). */
