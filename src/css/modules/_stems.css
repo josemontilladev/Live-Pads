@@ -276,7 +276,9 @@ body[data-workspace="stems"] #body {
   flex-wrap: wrap;
 }
 .stems-tb-mid { flex-shrink: 0; }
-.stems-tb-right { margin-left: auto; }
+/* Ya no se empuja al borde derecho (quedaba un hueco enorme): vive en la fila
+   de MARCADORES, justo después del Loop, como un bloque que no se parte. */
+.stems-tb-right { flex-shrink: 0; flex-wrap: nowrap; }
 
 .stems-brand {
   font-size: 13px;
