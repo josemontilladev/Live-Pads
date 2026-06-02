@@ -72,6 +72,15 @@ export function buildDrumGrid(pads) {
       e.preventDefault();
       hitDrum(pad.id, pad.type, btn);
     });
+    // Accesibilidad: disparar con teclado al tener el pad enfocado. Usamos Enter
+    // (no Espacio) a propósito — Espacio es el Play maestro global y no debe
+    // dispararse un drum por tener foco en él.
+    btn.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      if (deps.isEditKit() && e.target === lbl) return;
+      e.preventDefault();
+      hitDrum(pad.id, pad.type, btn);
+    });
 
     grid.appendChild(btn);
   });
