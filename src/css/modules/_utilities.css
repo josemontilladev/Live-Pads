@@ -46,7 +46,7 @@
 .gi-search-row { display: flex; gap: 6px; align-items: center; position: relative; justify-content: flex-end; }
 .gi-search-input--inline { flex: 1; margin-bottom: 0; }
 .no-shrink { flex-shrink: 0; }
-.btn-add-gi-song { flex-shrink: 0; transition: transform 0.15s; }
+.btn-add-gi-song { flex-shrink: 0; border-radius: 50%; transition: transform 0.15s; }
 
 /* Tamaños unificados para los 3 botones de la fila (🔍 / filtro / +).
    Mismas dimensiones que .gi-filter-toggle: 32×32 cápsula. La regla de
