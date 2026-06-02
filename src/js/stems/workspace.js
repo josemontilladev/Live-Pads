@@ -18,8 +18,11 @@ import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
-import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget } from '../state/store.js';
+import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { pushModal } from '../ui/modalStack.js';
+import { showToast } from '../ui/toast.js';
+import { esc } from '../utils/dom.js';
 import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
 
 // Toast helper local — el módulo emite muchísimos avisos al usuario; antes
@@ -476,6 +479,10 @@ const SHELL_HTML = `
         <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar MP3
+        </button>
+        <button class="stems-btn stems-btn--primary" id="stems-assign" disabled title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          Asignar a canción
         </button>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
         <span class="stems-actions-divider" aria-hidden="true"></span>
@@ -1076,6 +1083,10 @@ function wireArrangeEvents(root) {
   root.querySelector('#stems-export').onclick = async () => {
     if (engine.getTracks().length === 0) return;
     await runExport();
+  };
+  root.querySelector('#stems-assign').onclick = async () => {
+    if (engine.getTracks().length === 0) return;
+    await runExport({ assign: true });
   };
 
   // Selector de tonalidad del proyecto. El usuario PICKEA la tonalidad
@@ -3226,6 +3237,8 @@ function refreshTransport() {
   document.getElementById('stems-pause').disabled = !engine.isCurrentlyPlaying();
   const exportBtn = document.getElementById('stems-export');
   if (exportBtn) exportBtn.disabled = !hasTracks;
+  const assignBtn = document.getElementById('stems-assign');
+  if (assignBtn) assignBtn.disabled = !hasTracks;
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
   const c2 = document.getElementById('stems-console-count');
@@ -3295,19 +3308,25 @@ async function runExport(opts = {}) {
         : 'Codificando a MP3';
     }, opts);
 
-    titleEl.textContent = 'Guardando archivo…';
-    stageEl.textContent = 'Elige dónde guardar el .mp3';
-    const savedPath = await window.electronAPI.stemsExportMp3({
-      suggestedName: opts.suggestedName || projectName,
-      buffer: mp3Bytes.buffer
-    });
-
-    if (savedPath) {
-      titleEl.textContent = 'Mezcla exportada ✓';
-      stageEl.textContent = savedPath;
-      setTimeout(() => { overlay.hidden = true; }, 1800);
-    } else {
+    if (opts.assign) {
+      // Asignar directo a una canción (sin "Guardar como" + reimportar).
       overlay.hidden = true;
+      await assignMixToSong(mp3Bytes, opts.suggestedName || projectName);
+    } else {
+      titleEl.textContent = 'Guardando archivo…';
+      stageEl.textContent = 'Elige dónde guardar el .mp3';
+      const savedPath = await window.electronAPI.stemsExportMp3({
+        suggestedName: opts.suggestedName || projectName,
+        buffer: mp3Bytes.buffer
+      });
+
+      if (savedPath) {
+        titleEl.textContent = 'Mezcla exportada ✓';
+        stageEl.textContent = savedPath;
+        setTimeout(() => { overlay.hidden = true; }, 1800);
+      } else {
+        overlay.hidden = true;
+      }
     }
   } catch (e) {
     console.error('Stem export failed:', e);
@@ -3315,6 +3334,100 @@ async function runExport(opts = {}) {
     stageEl.textContent = e.message || String(e);
     setTimeout(() => { overlay.hidden = true; }, 3000);
   }
+}
+
+// Asigna la mezcla recién renderizada a una canción elegida (copia a la librería
+// de OneDrive con nombre por contenido + persiste + recarga la Librería).
+async function assignMixToSong(mp3Bytes, suggestedName) {
+  const choice = await pickSongAndSlot();
+  if (!choice) return; // cancelado
+  const { song, slot } = choice;
+  try {
+    const url = await window.electronAPI.assignStemsMix({
+      buffer: mp3Bytes.buffer,
+      type: slot,
+      name: suggestedName || song.title,
+    });
+    if (!song.audio) song.audio = {};
+    song.audio[slot] = url;
+    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    const slotLabel = slot === 'original' ? 'Original' : 'Secuencia';
+    showToast(`✓ Mezcla asignada a "${song.title}" (${slotLabel}).`, 'success');
+  } catch (e) {
+    showToast('No se pudo asignar: ' + (e.message || e), 'error');
+  }
+}
+
+// Modal: toggle de slot (Secuencia/Original) + buscador + lista de canciones de
+// la librería. Resuelve { song, slot } al elegir, o null si se cancela.
+function pickSongAndSlot() {
+  return new Promise((resolve) => {
+    const songs = getSongs();
+    let slot = 'sequence';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'stems-assign-overlay';
+    overlay.innerHTML = `
+      <div class="stems-assign-modal" role="dialog" aria-modal="true" aria-label="Asignar mezcla a una canción">
+        <div class="sam-head">
+          <span class="sam-title">Asignar mezcla a…</span>
+          <button class="sam-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="sam-slot" role="group" aria-label="Slot destino">
+          <button class="sam-slot-btn active" data-slot="sequence">Secuencia</button>
+          <button class="sam-slot-btn" data-slot="original">Original</button>
+        </div>
+        <input class="sam-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
+        <div class="sam-list"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const modal = overlay.querySelector('.stems-assign-modal');
+    const listEl = overlay.querySelector('.sam-list');
+    const searchEl = overlay.querySelector('.sam-search');
+
+    const pop = pushModal(() => done(null), modal);
+    const done = (result) => {
+      try { pop(); } catch (_) {}
+      overlay.remove();
+      resolve(result);
+    };
+
+    const renderList = (filter = '') => {
+      const f = (filter || '').trim().toLowerCase();
+      const rows = songs.filter(s => !f || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(f));
+      if (!rows.length) { listEl.innerHTML = `<div class="sam-empty">Sin resultados</div>`; return; }
+      listEl.innerHTML = rows.map(s => {
+        const has = s.audio && s.audio[slot];
+        return `<button class="sam-row" data-id="${esc(String(s.id))}">
+          <span class="sam-row-title">${esc(s.title || 'Sin título')}</span>
+          <span class="sam-row-meta">${esc(s.artist || '')}${s.key ? ' · ' + esc(s.key) : ''}</span>
+          ${has ? `<span class="sam-row-has" title="Ya tiene audio en este slot — se reemplaza">reemplaza</span>` : ''}
+        </button>`;
+      }).join('');
+    };
+
+    renderList();
+    setTimeout(() => { try { searchEl.focus(); } catch (_) {} }, 40);
+
+    searchEl.oninput = () => renderList(searchEl.value);
+    overlay.querySelector('.sam-close').onclick = () => done(null);
+    overlay.onclick = (e) => { if (e.target === overlay) done(null); };
+    overlay.querySelectorAll('.sam-slot-btn').forEach(b => {
+      b.onclick = () => {
+        slot = b.dataset.slot;
+        overlay.querySelectorAll('.sam-slot-btn').forEach(x => x.classList.toggle('active', x === b));
+        renderList(searchEl.value);
+      };
+    });
+    listEl.onclick = (e) => {
+      const row = e.target.closest('.sam-row');
+      if (!row) return;
+      const song = songs.find(s => String(s.id) === row.dataset.id);
+      if (song) done({ song, slot });
+    };
+  });
 }
 
 // ── Persistence ───────────────────────────────────────────────────
