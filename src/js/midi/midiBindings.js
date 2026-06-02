@@ -161,6 +161,9 @@ export function bindMidiHandlers(deps) {
           servicePrevSong();
         } else if (mapping.action === 'next_song') {
           serviceNextSong();
+        } else if (mapping.action === 'source') {
+          // Selector de fuente del banner: sequence / click / reference.
+          if (deps.selectSource) deps.selectSource(mapping.id);
         }
       }
       return;
@@ -199,6 +202,7 @@ export function bindMidiHandlers(deps) {
     const closeBtn  = e.target.closest('#tp-close-btn');
     const prevBtn   = e.target.closest('#btn-service-prev');
     const nextBtn   = e.target.closest('#btn-service-next');
+    const sourceBtn = e.target.closest('.source-seg-btn');
     const slider    = e.target.closest('input[type="range"]');
 
     let target = null;
@@ -213,6 +217,7 @@ export function bindMidiHandlers(deps) {
     else if (closeBtn) target = { action: 'close_seq' };
     else if (prevBtn)  target = { action: 'prev_song' };
     else if (nextBtn)  target = { action: 'next_song' };
+    else if (sourceBtn) target = { action: 'source', id: sourceBtn.dataset.source };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };
     else return; // unmappable
 

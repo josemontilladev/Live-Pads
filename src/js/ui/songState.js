@@ -19,7 +19,6 @@ import {
   getSongs as getGiSongsFromStore,
   getActiveSongId,
   getMetroRunning,
-  getActiveKey, getPreparedPadKey,
   getOpenAccordionSongId, setOpenAccordionSongId,
   getOpenAccordionServiceId, setOpenAccordionServiceId,
 } from '../state/store.js';
@@ -30,43 +29,31 @@ function isLiveNow() {
   return isTrackPlaying() || getMetroRunning();
 }
 
-// Qué disparará el Play maestro (Espacio) — misma lógica que triggerMasterPlayPause:
-// un pad (si hay uno preparado/activo) + la fuente de tiempo (Secuencia si hay
-// una cargada, si no Click/metrónomo). La ORIGINAL nunca es fuente maestra.
-function playPlanLabel() {
-  const hasPad = !!(getPreparedPadKey() || getActiveKey());
-  const timing = (isTrackLoaded() && getCurrentType() === 'sequence') ? 'Secuencia' : 'Click';
-  return '▶ ' + (hasPad ? 'Pad + ' : '') + timing;
-}
-
-// Qué está sonando AHORA (para mostrarlo mientras está live). Distingue la
-// ORIGINAL ("Referencia") de la secuencia maestra y del click — el director no
-// debe confundir la pista de ensayo con la fuente maestra.
-function activeSourceLabel() {
-  if (isTrackLoaded() && isTrackPlaying()) {
-    return getCurrentType() === 'original' ? '♪ Referencia' : '♪ Secuencia';
-  }
-  if (getMetroRunning()) return '♪ Click';
-  return '';
-}
-
-// Actualiza la etiqueta/punto del banner + el chip: PREPARADA muestra el plan
-// ("qué sonará al Play"); SONANDO muestra la fuente activa ("♪ Secuencia" /
-// "♪ Click" / "♪ Referencia"). Lo llama el poll de reproducción y los cambios
-// de canción.
+// Actualiza la etiqueta/punto del banner + ilumina el segmento de la FUENTE
+// activa (Secuencia / Click / Referencia) del selector dentro del banner. Lo
+// llama el poll de reproducción y los cambios de canción.
 export function refreshNowPlayingLiveState() {
   const banner = q('#now-playing-banner');
   if (!banner || banner.classList.contains('hidden')) return;
   const live = isLiveNow();
-  const ref = live && isTrackLoaded() && isTrackPlaying() && getCurrentType() === 'original';
+  const seqOn   = isTrackLoaded() && isTrackPlaying() && getCurrentType() === 'sequence';
+  const refOn   = isTrackLoaded() && isTrackPlaying() && getCurrentType() === 'original';
+  const clickOn = getMetroRunning() && !refOn;
+
   banner.classList.toggle('is-live', live);
-  // La ORIGINAL es solo referencia: marcarlo en el banner para no confundirla
-  // con la secuencia maestra (estilo distinto vía .is-reference).
-  banner.classList.toggle('is-reference', ref);
+  // La ORIGINAL es solo referencia: marcarlo para no confundirla con la maestra.
+  banner.classList.toggle('is-reference', refOn);
   const label = banner.querySelector('.np-label');
-  if (label) label.textContent = ref ? 'Referencia' : (live ? 'Sonando' : 'Preparada');
-  const plan = banner.querySelector('#np-plan');
-  if (plan) plan.textContent = live ? activeSourceLabel() : playPlanLabel();
+  if (label) label.textContent = refOn ? 'Referencia' : (live ? 'Sonando' : 'Preparada');
+
+  // Iluminar el segmento activo del selector de fuente.
+  const setSeg = (id, on) => {
+    const b = banner.querySelector('#' + id);
+    if (b) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); }
+  };
+  setSeg('src-seq', seqOn);
+  setSeg('src-click', clickOn);
+  setSeg('src-ref', refOn);
 }
 
 // ¿La card ya está completamente visible dentro de su contenedor scrolleable?

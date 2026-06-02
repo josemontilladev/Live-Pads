@@ -703,7 +703,9 @@ function bindRestOfApp() {
     toggleMetro,
     triggerMasterPlayPause,
     triggerMasterStop,
+    selectSource,
   });
+  bindSourceControl();
   bindGlobalHandlers();
 }
 
@@ -965,6 +967,49 @@ function triggerMasterStop() {
   if (getMetroRunning()) toggleMetro();
   if (isTrackPlaying()) clickPlayPause();
   refreshNowPlayingLiveState();
+}
+
+// ── Selector de Fuente del banner (Secuencia / Click / Referencia) ─────────
+// Cambio rápido de qué suena para la canción activa. Cada uno es clickeable,
+// táctil y MIDI-mapeable. Una sola fuente de tiempo a la vez.
+function getActiveSongForSource() {
+  const id = getActiveSongIdFromStore();
+  if (id != null) { const s = getSongs().find(x => x.id === id); if (s) return s; }
+  return getCurrentSong();
+}
+
+// Asegura el PAD en la tonalidad de la canción sonando (Secuencia y Click van
+// SIEMPRE con el pad — el click nunca va solo).
+function ensurePadPlaying() {
+  const key = getPreparedPadKey() || getActiveKey();
+  if (key && !getActiveKey()) onKeyClick(key);
+}
+
+function selectSource(which) {
+  const song = getActiveSongForSource();
+  if (which === 'sequence') {
+    if (!song || !(song.audio && song.audio.sequence)) { showToast('Esta canción no tiene secuencia asignada.', 'info'); return; }
+    if (getMetroRunning()) toggleMetro();          // una sola fuente de tiempo
+    ensurePadPlaying();                            // pad + secuencia
+    loadAndPlayTrack(song, 'sequence');
+  } else if (which === 'click') {
+    if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa la pista
+    ensurePadPlaying();                            // pad + click (nunca click solo)
+    if (!getMetroRunning()) toggleMetro();
+  } else if (which === 'reference') {
+    if (!song || !(song.audio && song.audio.original)) { showToast('Esta canción no tiene original asignado.', 'info'); return; }
+    if (getMetroRunning()) toggleMetro();
+    loadAndPlayTrack(song, 'original');            // referencia (sin forzar el pad)
+  }
+  refreshNowPlayingLiveState();                    // feedback inmediato del segmento
+}
+
+function bindSourceControl() {
+  const map = { 'src-seq': 'sequence', 'src-click': 'click', 'src-ref': 'reference' };
+  for (const [id, which] of Object.entries(map)) {
+    const b = q('#' + id);
+    if (b) b.onclick = () => selectSource(which);
+  }
 }
 
 // PÁNICO: corta absolutamente todo y cierra cualquier overlay/ayuda, pase lo que
