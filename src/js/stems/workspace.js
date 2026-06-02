@@ -666,16 +666,21 @@ function startMasterMeter() {
   if (meterRAF) return; // already running
   const el = document.getElementById('stems-master-meter');
   if (!el) return;
+  // Setea el nivel (0..1) recortando desde arriba con clip-path → compositor,
+  // sin layout. inset(100% ...) = 0 (todo recortado); inset(0 ...) = lleno.
+  const setLevel = (lvl) => {
+    el.style.clipPath = `inset(${100 - Math.min(100, lvl * 100)}% 0 0 0)`;
+  };
   const tick = () => {
     if (!engine.isCurrentlyPlaying()) {
       // Decay smoothly to 0, then STOP the loop so it doesn't burn a frame
       // every tick forever (it used to run even back in the Pads workspace).
       if (meterPeakSmoothed > 0.02) {
         meterPeakSmoothed *= 0.9;
-        el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
+        setLevel(meterPeakSmoothed);
         meterRAF = requestAnimationFrame(tick);
       } else {
-        if (el.style.height !== '0%') el.style.height = '0%';
+        setLevel(0);
         meterRAF = null; // idle → stop until playback resumes
       }
       return;
@@ -684,7 +689,7 @@ function startMasterMeter() {
     // Attack fast, release slow — same envelope a real VU has.
     if (peak > meterPeakSmoothed) meterPeakSmoothed = peak;
     else meterPeakSmoothed = meterPeakSmoothed * 0.85 + peak * 0.15;
-    el.style.height = `${Math.min(100, meterPeakSmoothed * 100)}%`;
+    setLevel(meterPeakSmoothed);
     meterRAF = requestAnimationFrame(tick);
   };
   meterRAF = requestAnimationFrame(tick);

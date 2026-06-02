@@ -1632,14 +1632,18 @@ body[data-workspace="stems"] #body {
 .stems-master-meter-fill {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 0%;
+  height: 100%;
+  /* El nivel se revela con clip-path (recorta desde arriba), no con `height`:
+     clip-path corre en el compositor y NO dispara layout/reflow en cada frame
+     del VU meter (~60fps mientras suena una pista en Stems). */
+  clip-path: inset(100% 0 0 0);
   background: linear-gradient(180deg,
     #ff5f57 0%,
     color-mix(in srgb, var(--accent), white 18%) 28%,
     var(--accent) 70%,
     color-mix(in srgb, var(--accent), black 25%) 100%);
   box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
-  transition: height 0.05s linear;
+  transition: clip-path 0.05s linear;
 }
 
 /* Per-track colour swatch — same footprint as the M/S/icon buttons so
