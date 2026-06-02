@@ -43,6 +43,11 @@ export function refreshNowPlayingLiveState() {
   banner.classList.toggle('is-live', live);
   // La ORIGINAL es solo referencia: marcarlo para no confundirla con la maestra.
   banner.classList.toggle('is-reference', refOn);
+  // Clase por fuente activa → el punto + la etiqueta "SONANDO" toman su color
+  // (verde Secuencia / azul Click / ámbar Referencia).
+  banner.classList.toggle('is-src-seq', seqOn);
+  banner.classList.toggle('is-src-click', clickOn);
+  banner.classList.toggle('is-src-ref', refOn);
   const label = banner.querySelector('.np-label');
   if (label) label.textContent = refOn ? 'Referencia' : (live ? 'Sonando' : 'Preparada');
 

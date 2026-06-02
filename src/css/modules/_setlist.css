@@ -875,18 +875,16 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 #now-playing-banner:not(.is-live) .np-label { color: var(--text-muted); }
 
-/* Estado "referencia": suena la ORIGINAL de ensayo, NO la secuencia maestra.
-   Punto ámbar estático (sin la pulsación verde de "sonando") + etiqueta ámbar,
-   para que el director no la confunda con la fuente maestra en vivo. */
-#now-playing-banner.is-reference .np-dot {
-  animation: none;
-  background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
-  opacity: 1;
-}
-#now-playing-banner.is-reference .np-label {
-  color: #f59e0b;
-}
+/* El punto + la etiqueta "SONANDO" toman el color de la FUENTE activa, igual
+   que el segmento seleccionado: verde Secuencia / azul Click / ámbar Referencia.
+   (Cuando está PREPARADA gana la regla :not(.is-live) de arriba: punto/etiqueta
+   atenuados.) */
+#now-playing-banner.is-src-seq   .np-dot   { background: #10b981; box-shadow: 0 0 7px rgba(16,185,129,0.7); }
+#now-playing-banner.is-src-seq   .np-label { color: #10b981; }
+#now-playing-banner.is-src-click .np-dot   { background: #3b82f6; box-shadow: 0 0 7px rgba(59,130,246,0.7); }
+#now-playing-banner.is-src-click .np-label { color: #3b82f6; }
+#now-playing-banner.is-src-ref   .np-dot   { background: #f59e0b; box-shadow: 0 0 7px rgba(245,158,11,0.7); }
+#now-playing-banner.is-src-ref   .np-label { color: #f59e0b; }
 
 #now-playing-banner .np-label {
   flex-shrink: 0;
