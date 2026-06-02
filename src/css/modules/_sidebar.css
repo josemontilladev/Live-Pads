@@ -97,7 +97,10 @@
 .sb-label:first-child { margin-top: 0; }
 
 /* Setlist */
-.setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+/* min-height = alto de los botones de acción (.accent-btn 34px): así el título
+   "Setlist" queda a la MISMA altura en Librería y en Servicio, aunque en
+   Servicio se oculten los botones de importar/exportar y la fila se encogería. */
+.setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; min-height: 34px; }
 .setlist-title { font-size: 15px; font-weight: 800; }
 .accent-btn { background: var(--blue) !important; color: #000 !important; width: 34px !important; height: 34px !important; border-radius: 8px !important; display: flex; align-items: center; justify-content: center; }
 .accent-btn svg { width: 16px !important; height: 16px !important; }
