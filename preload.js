@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
   downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
   readAudioFile: (url) => ipcRenderer.invoke('read-audio-file', url),
+  getSoundtouchWorklet: () => ipcRenderer.invoke('get-soundtouch-worklet'),
   audioLibraryGet:     ()        => ipcRenderer.invoke('audio-library-get'),
   audioLibraryPick:    ()        => ipcRenderer.invoke('audio-library-pick'),
   audioLibrarySet:     (data)    => ipcRenderer.invoke('audio-library-set', data),
