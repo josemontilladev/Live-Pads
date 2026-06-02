@@ -7,8 +7,9 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
-import { confirmDialog, showDialog } from './dialog.js';
+import { confirmDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 import {
   getSongs, setSongs,
@@ -88,101 +89,8 @@ function wireDedupe() {
   };
 }
 
-// Descarga el audio original desde YouTube y lo asigna a la canción.
-function assignFromYoutube(song, onSuccess) {
-  if (!navigator.onLine) { window.showToast?.('Necesitas internet para descargar de YouTube.', 'warning'); return; }
-  showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', async (url) => {
-    if (!url || !url.trim()) return;
-    window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
-    try {
-      const res = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
-      // Compat: antes devolvía un string; ahora { url, cover }.
-      const audioUrl = typeof res === 'string' ? res : res.url;
-      const cover = (res && typeof res === 'object') ? res.cover : null;
-      if (!song.audio) song.audio = {};
-      song.audio.original = audioUrl;
-      if (cover && !song.cover) song.cover = cover; // no piso una carátula manual previa
-      song.youtubeUrl = url.trim();   // se sube a la nube → la web GI.Setlist muestra la carátula
-      deps.persist();
-      // Auto-sync a la librería ACTIVA de Supabase (multi-tenant correcto): si la
-      // canción ya existe en la nube, sube SOLO el youtubeUrl. Best-effort.
-      if (navigator.onLine) {
-        import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
-      }
-      if (typeof onSuccess === 'function') onSuccess();
-      window.showToast?.('Audio original asignado desde YouTube.', 'success');
-    } catch (err) { window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error'); }
-  });
-}
-
-// Menú "Cargar audio" — aparece al clickear los botones de audio cuando aún
-// no hay audio asignado para ese slot. Las opciones dependen del tipo:
-//   · original: subir archivo local | desde YouTube
-//   · sequence: subir archivo local | extraer del audio original (si hay)
-// Si el sequence no tiene original ni nada que ofrecer extra, no se muestra
-// menú — se va directo al file picker para no añadir un click vacío.
-function showLoadAudioMenu(anchor, song, type, card) {
-  const hasOriginal = !!(song.audio && song.audio.original);
-  const items = [];
-  items.push({ key: 'local', label: '⬆ Subir archivo' });
-  if (type === 'original') {
-    items.push({ key: 'youtube', label: '▶ Desde YouTube' });
-  } else if (type === 'sequence' && hasOriginal) {
-    items.push({ key: 'extract', label: '✂ Extraer del original' });
-  }
-  // Una sola opción → file picker directo, sin abrir menú.
-  if (items.length < 2) { deps.loadAndPlayTrack(song, type); return; }
-
-  document.querySelector('.orig-src-menu')?.remove();
-  const menu = document.createElement('div');
-  menu.className = 'orig-src-menu';
-  menu.innerHTML = items.map(it => `<button type="button" data-src="${it.key}">${it.label}</button>`).join('');
-  document.body.appendChild(menu);
-  const r = anchor.getBoundingClientRect();
-  const w = 190;
-  menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
-  menu.style.top = (r.bottom + 6) + 'px';
-  const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
-  const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
-  setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
-  menu.onclick = (e) => {
-    const btn = e.target.closest('[data-src]');
-    if (!btn) return;
-    close();
-    const src = btn.dataset.src;
-    if (src === 'local')   { deps.loadAndPlayTrack(song, type); return; }
-    if (src === 'youtube') { assignFromYoutube(song, () => repaintGiCard(card, song)); return; }
-    if (src === 'extract') {
-      // Salto a Stems + auto-carga del original. El archivo se lee vía IPC
-      // (mismo readAudioFile que usa el track player) y se envuelve como
-      // File para que workspace.importFiles lo trate igual que un drop
-      // manual. Si el workspace aún no se ha montado, queda en cola y se
-      // procesa al final de mount().
-      const path = song.audio?.original;
-      if (!path) {
-        window.showToast?.('Esta canción no tiene audio original cargado.', 'warning');
-        return;
-      }
-      const stemsTab = document.querySelector('.ws-tab[data-workspace="stems"]');
-      if (stemsTab) stemsTab.click();
-      (async () => {
-        try {
-          const ab = await window.electronAPI.readAudioFile(path);
-          const match = path.match(/[^/\\]+$/);
-          const filename = match ? decodeURIComponent(match[0]) : `${song.title || 'audio'}.mp3`;
-          // Tipo MIME genérico — importFiles lo acepta vía extensión también.
-          const file = new File([ab], filename, { type: 'audio/mpeg' });
-          const ws = await import('../stems/workspace.js');
-          await ws.acceptIncomingFile(file);
-        } catch (err) {
-          console.error('Auto-load to stems failed:', err);
-          window.showToast?.('No se pudo abrir el audio en Stems: ' + (err.message || err), 'error');
-        }
-      })();
-      return;
-    }
-  };
-}
+// (assignFromYoutube + showLoadAudioMenu se movieron a ./audioLoadMenu.js para
+//  compartirlos con el Servicio.)
 
 // Puntúa cuán "fuerte" matchea una canción contra el término libre.
 // Mayor score = más arriba en la lista. Coincidencia exacta de título gana
@@ -490,15 +398,28 @@ function initDelegation() {
         // Con audio → reproduce; sin audio → menú "Cargar audio" (sube
         // archivo o, si hay original, extrae del original vía Stems).
         if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
-        else showLoadAudioMenu(e.target.closest('.action-btn'), song, 'sequence', card);
+        else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
+          loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
       case 'play-orig':
         // Con audio → reproduce; sin audio → menú (Subir archivo / YouTube).
         if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
-        else showLoadAudioMenu(e.target.closest('.action-btn'), song, 'original', card);
+        else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
+          loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
       case 'add':       handleAddToService(song, card, actionEl); return;
-      case 'toggle-lyrics': deps.toggleLyricsAccordion(song, false); return;
+      case 'toggle-lyrics':
+        // Sin letra → abre el editor directo para agregarla; con letra → acordeón.
+        if (!song.lyrics) {
+          deps.openLyricsEditorModal(song, (newLyrics) => {
+            song.lyrics = newLyrics;
+            deps.persist();
+            repaintGiCard(card, song);
+          });
+        } else {
+          deps.toggleLyricsAccordion(song, false);
+        }
+        return;
       case 'lyrics-fullscreen': e.stopPropagation(); openLyricsFullscreen(song); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, false); return;
       case 'edit-lyrics':
@@ -511,7 +432,7 @@ function initDelegation() {
       case 'assign-audio-seq':  deps.loadAndPlayTrack(song, 'sequence'); return;
       case 'assign-audio-orig': deps.loadAndPlayTrack(song, 'original'); return;
       case 'yt-audio-orig':
-        assignFromYoutube(song, () => { card.innerHTML = songEditFormHTML(song); });
+        assignFromYoutube(song, () => { deps.persist(); card.innerHTML = songEditFormHTML(song); });
         return;
       case 'clear-audio-seq':
       case 'clear-audio-orig': {

@@ -218,6 +218,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Title/artist may have moved the library card in sort order → full re-render.
       renderGiList(q('#gi-search').value);
     },
+    // Espeja el audio (y youtubeUrl/carátula) cargado desde el Servicio a la
+    // canción de la librería que matchea por título+artista, y persiste.
+    syncAudioToLibrary: (song) => {
+      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
+      if (!giSong) return;
+      if (!giSong.audio) giSong.audio = {};
+      Object.assign(giSong.audio, song.audio || {});
+      if (song.youtubeUrl) giSong.youtubeUrl = song.youtubeUrl;
+      if (song.cover && !giSong.cover) giSong.cover = song.cover;
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      const giCard = getGiCardBySongId(giSong.id);
+      if (giCard) repaintGiCard(giCard, giSong);
+    },
   });
   initDrumGrid({
     getEngine: () => engine,

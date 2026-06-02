@@ -101,7 +101,9 @@ export function songCardInnerHTML(song, opts) {
     : 'no-lyrics';
   const seqCls  = (song.audio && song.audio.sequence) ? 'has-audio' : '';
   const origCls = (song.audio && song.audio.original) ? 'has-audio' : '';
-  const disabledAttr = song.lyrics ? '' : 'disabled';
+  // Sin letra el botón NO se deshabilita: hay que poder agregarla. Clic con
+  // letra → abre el acordeón; sin letra → abre el editor directo (ver giList).
+  const lyricsTitle = song.lyrics ? 'Ver letra y acordes' : 'Agregar letra';
 
   // Línea de metadatos estilo PlayWorship: tono · BPM · género. El número de
   // fila se eliminó del modelo (la carátula + la barra de acento del activo
@@ -126,7 +128,7 @@ export function songCardInnerHTML(song, opts) {
       </div>
     </div>
     <div class="gi-song-actions">
-      <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="Ver letra y acordes" ${disabledAttr}>${ICON_LYRICS}</button>
+      <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="${lyricsTitle}">${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>
       <button class="action-btn btn-more" data-action="more" title="Más opciones" aria-haspopup="menu" aria-expanded="false">${ICON_MORE}</button>
