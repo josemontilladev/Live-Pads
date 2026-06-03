@@ -411,6 +411,14 @@ const SHELL_HTML = `
        </span>
        <span class="ssl-rail-count" id="stems-setlist-count" title="Canciones en la librería"></span>
      </div>
+     <!-- Encabezado (visible expandido): icono + título + botón de contraer. -->
+     <div class="ssl-title-row">
+       <span class="ssl-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+       <span class="ssl-title-label">Canciones</span>
+       <button class="ssl-collapse-btn" id="stems-setlist-collapse" type="button" title="Contraer panel" aria-label="Contraer panel">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+       </button>
+     </div>
      <div class="ssl-head">
        <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
        <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
@@ -422,9 +430,6 @@ const SHELL_HTML = `
      <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
      <div class="ssl-list" id="stems-setlist-list"></div>
      <div class="ssl-hint">Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.</div>
-     <button class="ssl-collapse" id="stems-setlist-collapse" type="button" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">
-       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
-     </button>
    </aside>
 
    <div class="stems-main">
