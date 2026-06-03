@@ -140,7 +140,9 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-hint,
 .stems-setlist.collapsed .ssl-title,
 .stems-setlist.collapsed .ssl-add { display: none; }
-.stems-setlist.collapsed .ssl-collapse { transform: translateY(-50%) rotate(180deg); }
+/* Colapsado: la tab flotante del borde se oculta (quedaba suelta en el medio).
+   El riel completo es clicable y muestra su propio chevron como indicador. */
+.stems-setlist.collapsed .ssl-collapse { display: none; }
 
 /* Riel "Canciones": solo visible colapsado. Tres bloques distribuidos a lo
    largo (chip de icono arriba, texto vertical al centro, contador abajo) con
@@ -166,13 +168,24 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-rail:hover .ssl-rail-icon-chip {
   background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
-/* Chip + texto agrupados ARRIBA (el centro queda libre para la flecha del
-   borde, que antes chocaba con el texto). El contador se queda abajo. */
+/* Chip + texto agrupados ARRIBA, chevron al centro (indica "expandir"),
+   contador abajo. space-between los reparte a lo largo del riel. */
 .ssl-rail-top {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
+}
+.ssl-rail-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.15s, transform 0.2s;
+}
+.stems-setlist.collapsed .ssl-rail:hover .ssl-rail-chevron {
+  color: var(--accent);
+  transform: translateX(2px);
 }
 .ssl-rail-icon-chip {
   display: inline-flex;

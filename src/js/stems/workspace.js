@@ -406,6 +406,9 @@ const SHELL_HTML = `
          </span>
          <span class="ssl-rail-text">Canciones</span>
        </span>
+       <span class="ssl-rail-chevron" aria-hidden="true">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="9 6 15 12 9 18"/></svg>
+       </span>
        <span class="ssl-rail-count" id="stems-setlist-count" title="Canciones en la librería"></span>
      </div>
      <div class="ssl-head">
