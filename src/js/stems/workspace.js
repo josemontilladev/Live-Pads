@@ -391,7 +391,7 @@ const SHELL_HTML = `
      </div>
      <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
      <div class="ssl-list" id="stems-setlist-list"></div>
-     <div class="ssl-hint">Clic derecho en una canción para cargarle secuencia u original.</div>
+     <div class="ssl-hint">Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.</div>
      <button class="ssl-collapse" id="stems-setlist-collapse" type="button" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">
        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
      </button>
@@ -3685,7 +3685,7 @@ function renderSetlistPanel(filter = '') {
   if (hintEl) {
     hintEl.textContent = isSlot
       ? `Clic en una canción → asigna la mezcla como ${slotLabel}. Las atenuadas ya la tienen.`
-      : 'Clic derecho en una canción para cargarle secuencia u original.';
+      : 'Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.';
   }
 
   if (!songs.length) {
@@ -3711,7 +3711,9 @@ function renderSetlistPanel(filter = '') {
     const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : '', s.genre || ''].filter(Boolean).join(' · ');
     const rowTitle = isSlot
       ? `Asignar la mezcla a «${esc(s.title || '')}» como ${slotLabel} · clic derecho para cargar un archivo`
-      : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia u original`;
+      : (hasSeq || hasOrig)
+        ? `Clic para reproducir «${esc(s.title || '')}» en el timeline · clic derecho para asignar audio`
+        : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia u original`;
     return `<button class="ssl-row" data-id="${esc(String(s.id))}" title="${rowTitle}">
       ${ssCoverHtml(s)}
       <span class="ssl-row-info">
@@ -3757,7 +3759,18 @@ function bindSetlistPanel() {
     if (!row) return;
     const song = getSongs().find(s => String(s.id) === row.dataset.id);
     if (!song) return;
-    if (setlistPanelSlot === 'all') { openSongAudioMenu(row, song); return; }
+    if (setlistPanelSlot === 'all') {
+      // Clic izquierdo en "Todas": carga el audio ya asignado al timeline y lo
+      // reproduce. Si tiene secuencia y original, deja elegir; si no tiene
+      // ninguno, abre el menú para asignarlo (mismo que el clic derecho).
+      const hasSeq = !!song.audio?.sequence;
+      const hasOrig = !!song.audio?.original;
+      if (hasSeq && hasOrig) openPlayInTimelineMenu(row, song);
+      else if (hasSeq) loadSongAudioIntoTimeline(song, 'sequence');
+      else if (hasOrig) loadSongAudioIntoTimeline(song, 'original');
+      else openSongAudioMenu(row, song);
+      return;
+    }
     if (engine.getTracks().length === 0) { showToast('Cargá stems antes de asignar la mezcla.', 'info'); return; }
     await runExport({ assign: true, target: { song, slot: setlistPanelSlot } });
   };
@@ -3789,6 +3802,61 @@ function openSongAudioMenu(anchorEl, song) {
     refreshSetlistPanelKeepingSearch();
   };
   openCardMoreMenu(anchorEl, audioMenuItems(song, onAssigned));
+}
+
+// Cuando una canción tiene secuencia Y original, el clic izquierdo abre un menú
+// para elegir cuál cargar/reproducir en el timeline.
+function openPlayInTimelineMenu(anchorEl, song) {
+  const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><polygon points="6,4 20,12 6,20"/></svg>';
+  openCardMoreMenu(anchorEl, [
+    { label: 'Reproducir secuencia', icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'sequence') },
+    { label: 'Reproducir original',  icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'original') },
+  ]);
+}
+
+// Carga el audio ya asignado de una canción (secuencia u original) como una
+// pista del timeline de Stems y lo reproduce. Si ya hay un multitrack cargado,
+// pide confirmación porque vacía el proyecto actual: mezclar una mezcla
+// terminada con stems crudos no tiene sentido. Mismo patrón que importFiles.
+async function loadSongAudioIntoTimeline(song, type) {
+  const url = song?.audio?.[type];
+  if (!url) { showToast('Esa canción no tiene ese audio asignado.', 'info'); return; }
+  const typeLabel = type === 'sequence' ? 'Secuencia' : 'Original';
+
+  if (engine.getTracks().length > 0) {
+    const ok = await confirmDialogAsync({
+      title: 'Cargar canción en el timeline',
+      message: `Esto vaciará el proyecto actual y cargará «${song.title}» (${typeLabel}). ¿Continuar?`,
+      confirmLabel: 'Cargar', danger: true,
+    });
+    if (!ok) return;
+    await resetProject();
+  }
+
+  showImportOverlay(1);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  updateImportOverlay(0, 1, song.title || '');
+  try {
+    const arrayBuffer = await window.electronAPI.readAudioFile(url);
+    const id = `t${nextTrackId++}`;
+    const name = `${song.title || 'Canción'} · ${typeLabel}`;
+    await engine.addTrack({ id, name, arrayBuffer });
+    engine.setTrackColor(id, nextStemColor());
+    const fname = `${String(song.title || 'cancion').replace(/[^\w.-]+/g, '_')}-${type}.mp3`;
+    const savedPath = await projectStore.saveStem(id, fname, arrayBuffer);
+    appendTrackRow(id, savedPath);
+    updateImportOverlay(1, 1, '');
+    await new Promise(r => setTimeout(r, 250));
+    hideImportOverlay();
+    refreshTransport();
+    scheduleSave();
+    engine.seek(0);
+    engine.play();
+  } catch (err) {
+    hideImportOverlay();
+    console.error('No se pudo cargar el audio de la canción', err);
+    toast(`No se pudo cargar «${song.title || ''}»: ${err.message || err}`);
+  }
 }
 
 function refreshSetlistPanelKeepingSearch() {
