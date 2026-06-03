@@ -142,31 +142,66 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-add { display: none; }
 .stems-setlist.collapsed .ssl-collapse { transform: translateY(-50%) rotate(180deg); }
 
-/* Riel "Canciones": solo visible colapsado. Icono arriba + texto vertical
-   centrado, para que la franja angosta no quede sosa y se entienda qué hay ahí.
-   Todo el riel es clicable (expande). */
+/* Riel "Canciones": solo visible colapsado. Tres bloques distribuidos a lo
+   largo (chip de icono arriba, texto vertical al centro, contador abajo) con
+   space-between para LLENAR el alto y que la franja no se sienta vacía. Todo el
+   riel es clicable (expande). */
 .ssl-rail { display: none; }
+.stems-setlist.collapsed {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-surface)), var(--bg-surface) 55%);
+}
 .stems-setlist.collapsed .ssl-rail {
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
+  justify-content: space-between;
+  padding: 4px 0 8px;
   cursor: pointer;
   color: var(--text-muted);
   transition: color 0.15s;
   user-select: none;
 }
 .stems-setlist.collapsed .ssl-rail:hover { color: var(--accent); }
-.ssl-rail-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.stems-setlist.collapsed .ssl-rail:hover .ssl-rail-icon-chip {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.ssl-rail-icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.ssl-rail-icon { width: 17px; height: 17px; }
 .ssl-rail-text {
   writing-mode: vertical-rl;
   transform: rotate(180deg);    /* lee de abajo hacia arriba */
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+.ssl-rail-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 3px;
-  text-transform: uppercase;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* Cabecera en UNA línea: [+] [Todas|Secuencia|Original] */

@@ -392,8 +392,11 @@ const SHELL_HTML = `
      <!-- Riel visible SOLO cuando el panel está colapsado: indica que ahí están
           las canciones. Clic en el riel también expande (además del chevron). -->
      <div class="ssl-rail" aria-hidden="true" title="Mostrar canciones">
-       <svg class="ssl-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+       <span class="ssl-rail-icon-chip">
+         <svg class="ssl-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+       </span>
        <span class="ssl-rail-text">Canciones</span>
+       <span class="ssl-rail-count" id="stems-setlist-count" title="Canciones en la librería"></span>
      </div>
      <div class="ssl-head">
        <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -3735,6 +3738,9 @@ function renderSetlistPanel(filter = '') {
   const listEl = document.getElementById('stems-setlist-list');
   if (!listEl) return;
   const all = getSongs();
+  // Contador del riel colapsado (total de canciones en la librería).
+  const countEl = document.getElementById('stems-setlist-count');
+  if (countEl) countEl.textContent = String(all.length);
   const f = (filter || '').trim().toLowerCase();
   const slotKey = setlistPanelSlot;                          // 'all' | 'sequence' | 'original'
   const isSlot = slotKey === 'sequence' || slotKey === 'original';   // hay slot destino activo
