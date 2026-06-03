@@ -204,6 +204,13 @@ export function toggleStemsPlay() {
   else engine.play();
 }
 
+// Public: corte de audio para el pánico global (Esc). app.js lo llama sobre el
+// módulo de Stems si está montado, para que un Esc detenga TAMBIÉN la
+// reproducción del timeline, no solo los pads/secuencia.
+export function stemsPanicStop() {
+  try { if (engine.isCurrentlyPlaying()) engine.stop(); } catch (_) {}
+}
+
 // Public: drop a marker at the current playhead using whatever section is
 // selected in the dropdown. Bound to the `M` key from the global handler.
 export function addStemsMarker() {
@@ -3739,7 +3746,12 @@ function bindSetlistPanel() {
   renderSetlistPanel();
 
   if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
-  if (collapseBtn) collapseBtn.onclick = () => panel.classList.toggle('collapsed');
+  // Estado colapsado recordado entre sesiones (igual que la consola).
+  try { if (localStorage.getItem('stems-setlist-collapsed') === '1') panel.classList.add('collapsed'); } catch {}
+  if (collapseBtn) collapseBtn.onclick = () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    try { localStorage.setItem('stems-setlist-collapsed', collapsed ? '1' : '0'); } catch {}
+  };
 
   const addBtn = document.getElementById('stems-setlist-add');
   if (addBtn) addBtn.onclick = addSongFromStems;
@@ -3845,6 +3857,11 @@ async function loadSongAudioIntoTimeline(song, type) {
     const fname = `${String(song.title || 'cancion').replace(/[^\w.-]+/g, '_')}-${type}.mp3`;
     const savedPath = await projectStore.saveStem(id, fname, arrayBuffer);
     appendTrackRow(id, savedPath);
+    // El nombre del proyecto pasa a ser la canción, para que se entienda de un
+    // vistazo qué se está oyendo (en vez de quedar como "Mi proyecto").
+    projectName = song.title || 'Mi proyecto';
+    const nameInput = document.getElementById('stems-project-name');
+    if (nameInput) nameInput.value = projectName;
     updateImportOverlay(1, 1, '');
     await new Promise(r => setTimeout(r, 250));
     hideImportOverlay();
