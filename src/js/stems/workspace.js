@@ -339,6 +339,7 @@ export async function mount() {
   wireSeekClicks(root);
   wireRowReorder(root);
   wireTrackSelection(root);
+  wireConsoleCollapse(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -387,11 +388,13 @@ const SHELL_HTML = `
          <button class="ssl-slot-btn" data-slot="sequence" title="Ver las de Secuencia">Secuencia</button>
          <button class="ssl-slot-btn" data-slot="original" title="Ver las de Original">Original</button>
        </div>
-       <button class="ssl-collapse" id="stems-setlist-collapse" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">‹</button>
      </div>
      <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
      <div class="ssl-list" id="stems-setlist-list"></div>
      <div class="ssl-hint">Clic derecho en una canción para cargarle secuencia u original.</div>
+     <button class="ssl-collapse" id="stems-setlist-collapse" type="button" title="Ocultar / mostrar el panel" aria-label="Colapsar panel">
+       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+     </button>
    </aside>
 
    <div class="stems-main">
@@ -611,8 +614,12 @@ const SHELL_HTML = `
     <section class="stems-console" id="stems-console">
       <header class="stems-console-header">
         <div class="stems-console-header-left">
+          <button class="stems-console-collapse" id="stems-console-collapse" type="button" title="Contraer / expandir consola" aria-label="Contraer consola">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
           <span class="stems-console-title">CONSOLA</span>
           <span class="stems-console-count" id="stems-console-count">0 pistas</span>
+          <button class="stems-console-selall" id="stems-console-selall" type="button" title="Seleccionar todas las pistas (Ctrl+A)">Seleccionar todas</button>
         </div>
         <div class="stems-console-header-right">
           <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
@@ -2535,6 +2542,41 @@ function clearTrackSelection() {
   updateTrackSelectionUI();
 }
 
+function selectAllTracks() {
+  selectedTrackIds.clear();
+  for (const id of trackRows.keys()) selectedTrackIds.add(id);
+  updateTrackSelectionUI();
+}
+
+// Contrae/expande la consola para liberar alto y ver más pistas del timeline.
+// El estado se recuerda entre sesiones (localStorage).
+const CONSOLE_COLLAPSE_KEY = 'stems-console-collapsed';
+function setConsoleCollapsed(collapsed) {
+  const section = document.getElementById('stems-console');
+  const btn = document.getElementById('stems-console-collapse');
+  if (!section) return;
+  section.classList.toggle('is-collapsed', collapsed);
+  if (btn) {
+    btn.classList.toggle('is-collapsed', collapsed);
+    btn.title = collapsed ? 'Expandir consola' : 'Contraer consola';
+    btn.setAttribute('aria-label', btn.title);
+  }
+  try { localStorage.setItem(CONSOLE_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {}
+  // El alto del área de pistas cambió: redibuja la regla/timeline.
+  refreshTimelineWidth();
+}
+function wireConsoleCollapse(root) {
+  const btn = root.querySelector('#stems-console-collapse');
+  if (!btn) return;
+  let collapsed = false;
+  try { collapsed = localStorage.getItem(CONSOLE_COLLAPSE_KEY) === '1'; } catch {}
+  setConsoleCollapsed(collapsed);
+  btn.addEventListener('click', () => {
+    const section = document.getElementById('stems-console');
+    setConsoleCollapsed(!section?.classList.contains('is-collapsed'));
+  });
+}
+
 async function deleteSelectedTracks() {
   const ids = [...selectedTrackIds];
   if (!ids.length) return;
@@ -2563,13 +2605,21 @@ function wireTrackSelection(root) {
 
   root.querySelector('#stems-sel-del')?.addEventListener('click', deleteSelectedTracks);
   root.querySelector('#stems-sel-clear')?.addEventListener('click', clearTrackSelection);
+  root.querySelector('#stems-console-selall')?.addEventListener('click', selectAllTracks);
 
   document.addEventListener('keydown', (e) => {
-    if (!selectedTrackIds.size) return;
     const ws = document.getElementById('workspace-stems');
     if (!ws || ws.offsetParent === null) return;   // Stems no visible
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+    // Ctrl/Cmd+A selecciona todas las pistas (si hay alguna cargada).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+      if (!trackRows.size) return;
+      e.preventDefault();
+      selectAllTracks();
+      return;
+    }
+    if (!selectedTrackIds.size) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedTracks(); }
     else if (e.key === 'Escape') { clearTrackSelection(); }
   });
