@@ -47,6 +47,7 @@ const MIN_TIMELINE_PX = 2000;   // empty-project canvas width
 const SAVE_DEBOUNCE_MS = 800;
 
 const SVG_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><polygon points="5,3 19,12 5,21"/></svg>`;
+const SVG_PAUSE = `<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
 const SVG_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><rect x="5" y="5" width="14" height="14" rx="1.5"/></svg>`;
 const SVG_PLUS = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
 // Full trash-can icon: top rail + handle on the lid + body + two vertical
@@ -238,7 +239,7 @@ function stemsLearnClick(e) {
   if (e.target.closest('#midi-learn-overlay')) return; // exit handled elsewhere
 
   let target = null;
-  if (e.target.closest('#stems-play') || e.target.closest('#stems-pause')) target = { action: 'st_play' };
+  if (e.target.closest('#stems-play')) target = { action: 'st_play' };
   else if (e.target.closest('#stems-stop')) target = { action: 'st_stop' };
   else if (e.target.closest('#stems-master-vol')) target = { action: 'st_master_vol' };
   else if (e.target.closest('#stems-add-marker')) target = { action: 'st_marker' };
@@ -468,10 +469,7 @@ const SHELL_HTML = `
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
         </button>
         <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
-        <button class="stems-tb-btn" id="stems-pause" title="Pausa (mantiene la posición)" disabled>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
-        </button>
-        <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Reanudar" disabled>${SVG_PLAY}</button>
+        <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Pausa" disabled>${SVG_PLAY}</button>
         <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
           <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
         </span>
@@ -849,8 +847,12 @@ function wireTopbarEvents(root) {
     sigBefore = newSig;
   });
 
-  root.querySelector('#stems-play').onclick = () => { resumeAutoFollow(); engine.play(); };
-  root.querySelector('#stems-pause').onclick = () => engine.pause();
+  // Play = play/pausa en el mismo botón (como en Pads): el icono alterna en
+  // applyPlayingState. Ya no hay botón de pausa exclusivo.
+  root.querySelector('#stems-play').onclick = () => {
+    if (engine.isCurrentlyPlaying()) engine.pause();
+    else { resumeAutoFollow(); engine.play(); }
+  };
   root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
   // pausa, queda en 0. (Stop, en cambio, detiene.)
@@ -3365,7 +3367,6 @@ function refreshTransport() {
   const hasTracks = engine.getTracks().length > 0;
   document.getElementById('stems-play').disabled  = !hasTracks;
   document.getElementById('stems-stop').disabled  = !hasTracks;
-  document.getElementById('stems-pause').disabled = !engine.isCurrentlyPlaying();
   const exportBtn = document.getElementById('stems-export');
   if (exportBtn) exportBtn.disabled = !hasTracks;
   const assignBtn = document.getElementById('stems-assign');
@@ -3381,17 +3382,18 @@ function applyPlayingState(playing) {
   // The VU meter loop self-stops when idle; (re)start it when playback begins.
   if (playing) startMasterMeter();
   const playBtn  = document.getElementById('stems-play');
-  const pauseBtn = document.getElementById('stems-pause');
   const stopBtn  = document.getElementById('stems-stop');
   const pill     = document.getElementById('stems-state-pill');
   const hasTracks = engine.getTracks().length > 0;
   if (playBtn) {
     playBtn.classList.toggle('is-playing', playing);
+    // El play/pausa es un solo botón que alterna icono (como el reproductor
+    // de Pads): triángulo cuando está pausado, barras cuando reproduce.
+    playBtn.innerHTML = playing ? SVG_PAUSE : SVG_PLAY;
     // Play stays enabled when paused so the user can resume; only the
     // empty-project case disables it.
     playBtn.disabled = !hasTracks;
   }
-  if (pauseBtn) pauseBtn.disabled = !playing;
   if (stopBtn)  stopBtn.disabled  = !hasTracks;
   const restartBtn = document.getElementById('stems-restart');
   if (restartBtn) restartBtn.disabled = !hasTracks;
