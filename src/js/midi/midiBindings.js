@@ -25,6 +25,12 @@ import { addMapping, getMapping, getMidiMap, deleteMapping, getMidiScope, flushM
 // entirely), so the two workspaces have totally independent mappings.
 let stemsMidiHandler = null;
 export function setStemsMidiHandler(fn) { stemsMidiHandler = fn; }
+
+// El piano virtual de Stems registra aquí un handler de NOTAS (on/off). Cuando
+// está activo y el scope es 'stems', las notas se enrutan al piano (tocar +
+// grabar) en vez del learn/mapeo; los CC (faders, etc.) siguen su curso normal.
+let stemsNoteHandler = null;
+export function setStemsNoteHandler(fn) { stemsNoteHandler = fn; }
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
 import { resolveDrumPad } from '../ui/drumGrid.js';
 import {
@@ -88,15 +94,25 @@ export function bindMidiHandlers(deps) {
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;
     const isNoteOn = cmd >= 144 && cmd <= 159;
+    const isNoteOff = cmd >= 128 && cmd <= 143;
     const isCC = cmd >= 176 && cmd <= 191;
-
-    if (!isNoteOn && !isCC) return;
 
     // Stems workspace owns its own (independent) MIDI map + handling.
     if (getMidiScope() === 'stems') {
-      if (stemsMidiHandler) stemsMidiHandler(cmd, data1, data2);
+      // Piano activo: las notas (on/off, o noteOn velocity 0 = off) van al piano.
+      if ((isNoteOn || isNoteOff) && stemsNoteHandler) {
+        const type = (isNoteOn && data2 > 0) ? 'on' : 'off';
+        stemsNoteHandler(type, data1, data2);
+        return;
+      }
+      // Resto (CC para faders/mapeos, o notas para learn) → handler de Stems.
+      if (isNoteOn || isCC) {
+        if (stemsMidiHandler) stemsMidiHandler(cmd, data1, data2);
+      }
       return;
     }
+
+    if (!isNoteOn && !isCC) return;
     const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
 
     if (getIsMidiLearnMode() && getMidiLearnTarget()) {

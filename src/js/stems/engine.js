@@ -137,6 +137,9 @@ export function replaceTrackBuffer(id, audioBuffer) {
 }
 
 export function getAudioContext() { ensureCtx(); return ctx; }
+// Nodo de entrada del bus master — para que módulos externos (p.ej. el piano
+// virtual) suenen por la misma mezcla y pasen por el VU/medidor.
+export function getMasterGain() { ensureCtx(); return masterGain; }
 export function getTrackBuffer(id) { return tracks.get(id)?.buffer || null; }
 export function findTrackByKind(kind) {
   for (const t of tracks.values()) if (t.kind === kind) return t.id;
