@@ -141,6 +141,34 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-title,
 .stems-setlist.collapsed .ssl-add { display: none; }
 .stems-setlist.collapsed .ssl-collapse { transform: translateY(-50%) rotate(180deg); }
+
+/* Riel "Canciones": solo visible colapsado. Icono arriba + texto vertical
+   centrado, para que la franja angosta no quede sosa y se entienda qué hay ahí.
+   Todo el riel es clicable (expande). */
+.ssl-rail { display: none; }
+.stems-setlist.collapsed .ssl-rail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+  user-select: none;
+}
+.stems-setlist.collapsed .ssl-rail:hover { color: var(--accent); }
+.ssl-rail-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.ssl-rail-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);    /* lee de abajo hacia arriba */
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
 /* Cabecera en UNA línea: [+] [Todas|Secuencia|Original] */
 .ssl-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 /* Mismo botón "+" que Pads: gradiente de acento, redondeado, con el ícono SVG. */
