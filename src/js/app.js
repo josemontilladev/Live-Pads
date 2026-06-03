@@ -1040,6 +1040,12 @@ function panicStopAll() {
   buildKeyGrid();
   if (getMetroRunning()) toggleMetro();
   if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa secuencia/original
+  // Detener TAMBIÉN la reproducción del timeline de Stems si está montado: el
+  // motor de Stems es independiente del player de Pads, así que sin esto un Esc
+  // en la pantalla de Stems dejaba el audio sonando.
+  if (stemsWS && stemsWS.stemsPanicStop) {
+    try { stemsWS.stemsPanicStop(); } catch (_) {}
+  }
   // Limpiar el marcador "PRÓXIMA": tras el pánico no hay nada pre-armado, así
   // que la card no debe seguir diciendo que sonará algo al pulsar Espacio.
   qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
