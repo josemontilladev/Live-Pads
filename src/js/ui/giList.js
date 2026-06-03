@@ -8,6 +8,7 @@ import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
+import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { confirmDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
@@ -365,6 +366,70 @@ function findSong(songId) {
   return getSongs().find(s => String(s.id) === songId);
 }
 
+// Menú completo de una card de Librería: opciones de AUDIO/carátula (módulo
+// compartido songMenu.js, iguales a las de Stems) + acciones (añadir al
+// servicio, favorito, editar, eliminar). Lo abren el botón ⋮ y el clic derecho.
+function openGiCardMenu(anchorEl, song, card) {
+  const ICON_EDIT_SM   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const ICON_TRASH_SM  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+  const ICON_STAR_OUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  const ICON_STAR_FILL = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  const ICON_ADD_SM    = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  const onAssigned = (s) => { deps.persist(); repaintGiCard(card, s); };
+  openCardMoreMenu(anchorEl, [
+    ...audioMenuItems(song, onAssigned),
+    {
+      label: 'Añadir al servicio',
+      icon: ICON_ADD_SM,
+      onSelect: () => handleAddToService(song, card, anchorEl)
+    },
+    {
+      label: song.favorite ? 'Quitar de favoritos' : 'Marcar favorito',
+      icon: song.favorite ? ICON_STAR_FILL : ICON_STAR_OUT,
+      onSelect: () => {
+        song.favorite = !song.favorite;
+        deps.persist();
+        deps.updateFilterCounts();
+        if (getCurrentGenre() === 'favoritos' && !song.favorite) {
+          card.remove(); renumberGiCards(); ensureEmptyState();
+        } else {
+          repaintGiCard(card, song);
+        }
+      }
+    },
+    {
+      label: 'Editar',
+      icon: ICON_EDIT_SM,
+      onSelect: () => {
+        card.innerHTML = songEditFormHTML(song, { placeholderForNewSong: true });
+        const firstInput = card.querySelector('.edit-title');
+        if (firstInput) firstInput.focus();
+      }
+    },
+    {
+      label: 'Eliminar',
+      icon: ICON_TRASH_SM,
+      danger: true,
+      onSelect: () => {
+        confirmDialog({
+          title: 'Eliminar canción',
+          message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
+          confirmLabel: 'Eliminar',
+          danger: true,
+          onConfirm: () => {
+            setSongs(getSongs().filter(s => s.id !== song.id));
+            deps.persist();
+            deps.updateFilterCounts();
+            card.remove();
+            renumberGiCards();
+            ensureEmptyState();
+          }
+        });
+      }
+    }
+  ]);
+}
+
 // ── Delegation ────────────────────────────────────────────────────────
 // One click listener per container instead of 8 per card. Dispatch is via
 // [data-action] on the target button, walked up with closest(). The card
@@ -446,62 +511,7 @@ function initDelegation() {
       }
       case 'more': {
         e.stopPropagation();
-        const ICON_EDIT_SM   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
-        const ICON_TRASH_SM  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-        const ICON_STAR_OUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
-        const ICON_STAR_FILL = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
-        const ICON_ADD_SM    = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-        openCardMoreMenu(actionEl, [
-          {
-            label: 'Añadir al servicio',
-            icon: ICON_ADD_SM,
-            onSelect: () => handleAddToService(song, card, actionEl)
-          },
-          {
-            label: song.favorite ? 'Quitar de favoritos' : 'Marcar favorito',
-            icon: song.favorite ? ICON_STAR_FILL : ICON_STAR_OUT,
-            onSelect: () => {
-              song.favorite = !song.favorite;
-              deps.persist();
-              deps.updateFilterCounts();
-              if (getCurrentGenre() === 'favoritos' && !song.favorite) {
-                card.remove(); renumberGiCards(); ensureEmptyState();
-              } else {
-                repaintGiCard(card, song);
-              }
-            }
-          },
-          {
-            label: 'Editar',
-            icon: ICON_EDIT_SM,
-            onSelect: () => {
-              card.innerHTML = songEditFormHTML(song, { placeholderForNewSong: true });
-              const firstInput = card.querySelector('.edit-title');
-              if (firstInput) firstInput.focus();
-            }
-          },
-          {
-            label: 'Eliminar',
-            icon: ICON_TRASH_SM,
-            danger: true,
-            onSelect: () => {
-              confirmDialog({
-                title: 'Eliminar canción',
-                message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
-                confirmLabel: 'Eliminar',
-                danger: true,
-                onConfirm: () => {
-                  setSongs(getSongs().filter(s => s.id !== song.id));
-                  deps.persist();
-                  deps.updateFilterCounts();
-                  card.remove();
-                  renumberGiCards();
-                  ensureEmptyState();
-                }
-              });
-            }
-          }
-        ]);
+        openGiCardMenu(actionEl, song, card);
         return;
       }
       case 'edit': {
@@ -575,6 +585,18 @@ function initDelegation() {
 
     // No action button matched — clicked on row body (title/artist/badges)
     deps.onApplySong(song);
+  });
+
+  // Clic derecho sobre una card → mismo menú completo que el botón ⋮ (como en
+  // Stems): opciones de audio/carátula + acciones.
+  container.addEventListener('contextmenu', (e) => {
+    const card = e.target.closest('.gi-song-item');
+    if (!card || !container.contains(card)) return;
+    if (card.querySelector('.gi-edit-form')) return; // editando → sin menú
+    const song = findSong(card.dataset.songId);
+    if (!song) return;
+    e.preventDefault();
+    openGiCardMenu(card.querySelector('.btn-more') || card, song, card);
   });
 
   // Drag-and-drop reorder. Same delegation pattern as the service list:
