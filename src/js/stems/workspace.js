@@ -450,17 +450,21 @@ const SHELL_HTML = `
              offline por pista (ver setStemsPitchShift), no en tiempo real.
              Label "TRANSPONER" en vez de "TONO" porque al lado vive
              "TONALIDAD" (la clave musical) y los dos términos chocaban. -->
-        <div class="stems-field stems-field--pitch" title="Transponer: aplica ±N semitonos a todas las pistas conservando el tempo. Doble clic en el número para resetear.">
+        <div class="stems-field stems-field--pitch" title="Transponer: fijá ±N semitonos y tocá Aplicar (el render es offline por pista). Doble clic en el número para resetear.">
           <label>TRANSPONER</label>
           <div class="stems-pitch-group" id="stems-pitch-group">
             <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
             <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para resetear)">0</span>
             <button class="stems-pitch-btn" id="stems-pitch-up" type="button" title="Subir 1 semitono">▲</button>
           </div>
+          <button class="stems-pitch-apply" id="stems-pitch-apply" type="button" title="Aplicar la transposición a todas las pistas" hidden>Aplicar</button>
         </div>
       </div>
 
       <div class="stems-tb-mid">
+        <button class="stems-tb-btn" id="stems-restart" title="Volver al inicio (sin detener)" disabled>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+        </button>
         <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
         <button class="stems-tb-btn" id="stems-pause" title="Pausa (mantiene la posición)" disabled>
           <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
@@ -839,6 +843,9 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-play').onclick = () => { resumeAutoFollow(); engine.play(); };
   root.querySelector('#stems-pause').onclick = () => engine.pause();
   root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
+  // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
+  // pausa, queda en 0. (Stop, en cambio, detiene.)
+  root.querySelector('#stems-restart').onclick = () => { resumeAutoFollow(); engine.seek(0); };
   root.querySelector('#stems-bpm-detect').onclick = onDetectBpm;
 
   // Buttons animate too, anchored to the centre of the visible lane area.
@@ -1141,9 +1148,14 @@ function wireArrangeEvents(root) {
   const pitchUp = root.querySelector('#stems-pitch-up');
   const pitchDown = root.querySelector('#stems-pitch-down');
   const pitchVal = root.querySelector('#stems-pitch-val');
-  if (pitchUp)   pitchUp.onclick   = () => setStemsPitchShift(currentStemsPitch + 1);
-  if (pitchDown) pitchDown.onclick = () => setStemsPitchShift(currentStemsPitch - 1);
-  if (pitchVal)  pitchVal.ondblclick = () => setStemsPitchShift(0);
+  // ▼/▲ solo ajustan el valor PENDIENTE (sin procesar). El render offline (caro)
+  // se dispara una sola vez con el botón "Aplicar". Doble clic resetea (a 0 es
+  // instantáneo, restaura los originales).
+  if (pitchUp)   pitchUp.onclick   = () => adjustPendingPitch(1);
+  if (pitchDown) pitchDown.onclick = () => adjustPendingPitch(-1);
+  if (pitchVal)  pitchVal.ondblclick = () => { pendingPitch = 0; setStemsPitchShift(0); };
+  const pitchApply = root.querySelector('#stems-pitch-apply');
+  if (pitchApply) pitchApply.onclick = () => setStemsPitchShift(pendingPitch);
 
   // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
   const genTrigger = root.querySelector('#stems-generators-trigger');
@@ -2016,16 +2028,28 @@ function openCloudConfigDialog() {
 // Caching: los buffers originales se guardan en originalBuffers la primera
 // vez que se pide un shift; volver a 0 restaura instantáneamente.
 const originalBuffers = new Map();   // trackId → AudioBuffer original
-let currentStemsPitch = 0;
+let currentStemsPitch = 0;   // semitonos APLICADOS (lo que realmente suena)
+let pendingPitch = 0;        // valor en la UI, todavía sin aplicar
 let pitchApplying = false;
+
+// Ajusta el valor pendiente del transposer (sin procesar audio). El render se
+// dispara después con "Aplicar".
+function adjustPendingPitch(delta) {
+  if (pitchApplying) return;
+  pendingPitch = Math.max(-12, Math.min(12, pendingPitch + delta));
+  paintStemsPitchUI();
+}
 
 function paintStemsPitchUI() {
   const lbl = document.getElementById('stems-pitch-val');
-  if (!lbl) return;
-  lbl.textContent = currentStemsPitch > 0 ? '+' + currentStemsPitch : String(currentStemsPitch);
-  const shifted = currentStemsPitch !== 0;
-  lbl.classList.toggle('shifted', shifted);
-  document.getElementById('stems-pitch-group')?.classList.toggle('shifted', shifted);
+  const applyBtn = document.getElementById('stems-pitch-apply');
+  const dirty = pendingPitch !== currentStemsPitch;   // hay un cambio sin aplicar
+  if (lbl) {
+    lbl.textContent = pendingPitch > 0 ? '+' + pendingPitch : String(pendingPitch);
+    lbl.classList.toggle('shifted', pendingPitch !== 0);
+  }
+  document.getElementById('stems-pitch-group')?.classList.toggle('shifted', pendingPitch !== 0);
+  if (applyBtn) applyBtn.hidden = !dirty;
 }
 
 async function setStemsPitchShift(semitones) {
@@ -2037,6 +2061,7 @@ async function setStemsPitchShift(semitones) {
     // Sin pistas todavía: solo actualiza el valor y la UI. Cuando lleguen,
     // se aplicará al import (ver appendTrackRow más abajo).
     currentStemsPitch = semitones;
+    pendingPitch = semitones;
     paintStemsPitchUI();
     paintEffectiveKeyUI();
     return;
@@ -2061,6 +2086,7 @@ async function setStemsPitchShift(semitones) {
       if (orig) engine.replaceTrackBuffer(t.id, orig);
     }
     currentStemsPitch = 0;
+    pendingPitch = 0;
     paintStemsPitchUI();
     paintEffectiveKeyUI();
     refreshTimelineWidth();
@@ -2089,6 +2115,7 @@ async function setStemsPitchShift(semitones) {
       i++;
     }
     currentStemsPitch = semitones;
+    pendingPitch = semitones;
     paintStemsPitchUI();
     paintEffectiveKeyUI();
     toastUi.done(`✓ Tono ${sign}${semitones} st aplicado`);
@@ -3289,6 +3316,8 @@ function applyPlayingState(playing) {
   }
   if (pauseBtn) pauseBtn.disabled = !playing;
   if (stopBtn)  stopBtn.disabled  = !hasTracks;
+  const restartBtn = document.getElementById('stems-restart');
+  if (restartBtn) restartBtn.disabled = !hasTracks;
   if (pill) {
     pill.textContent = playing ? 'REPRODUCIENDO' : 'DETENIDO';
     pill.dataset.state = playing ? 'play' : 'stop';

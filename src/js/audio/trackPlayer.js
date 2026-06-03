@@ -259,6 +259,10 @@ async function startTrackPlayback(url, title, type) {
     els.playBtn.innerHTML = audio.paused ? PLAY_ICON : PAUSE_ICON;
     els.playBtn.style.transform = audio.paused ? 'scale(1)' : 'scale(0.96)';
   };
+  // El icono SIEMPRE refleja el estado real, aunque play/pause venga por otra
+  // vía (fin de pista, auto-avance, atajos): así no queda "pegado" en play.
+  audio.addEventListener('play', updatePlayBtn);
+  audio.addEventListener('pause', updatePlayBtn);
 
   if (els.playBtn) els.playBtn.onclick = () => {
     if (audio.paused) {

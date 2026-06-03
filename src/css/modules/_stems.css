@@ -479,6 +479,16 @@ body[data-workspace="stems"] #body {
   cursor: pointer;
 }
 .stems-pitch-val.shifted { color: var(--accent); }
+/* Botón "Aplicar" del transposer — aparece cuando hay un cambio sin aplicar. */
+.stems-pitch-apply {
+  margin-left: 6px; height: 24px; padding: 0 10px;
+  border: none; border-radius: 7px;
+  background: var(--accent-grad); color: #0a0a14;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.3px;
+  cursor: pointer; transition: filter 0.15s;
+}
+.stems-pitch-apply:hover { filter: brightness(1.08); }
+.stems-pitch-apply[hidden] { display: none; }
 
 /* Transport group — Stop + Pause clustered together as secondary, Play
    floats as the prominent primary action (matches the visual weight of
