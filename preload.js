@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePreset: (id) => ipcRenderer.invoke('delete-preset', id),
   windowAction: (action) => ipcRenderer.invoke('window-action', action),
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
+  assignCoverFile: () => ipcRenderer.invoke('assign-cover-file'),
   downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
   readAudioFile: (url) => ipcRenderer.invoke('read-audio-file', url),
   getSoundtouchWorklet: () => ipcRenderer.invoke('get-soundtouch-worklet'),

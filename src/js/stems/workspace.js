@@ -19,9 +19,10 @@ import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
-import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
+import { confirmDialogAsync } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
+import { audioMenuItems } from '../ui/songMenu.js';
 import { songEditFormHTML } from '../ui/songEditForm.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
@@ -336,6 +337,7 @@ export async function mount() {
   wireArrangeEvents(root);
   wireSeekClicks(root);
   wireRowReorder(root);
+  wireTrackSelection(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -630,6 +632,13 @@ const SHELL_HTML = `
     </section>
 
     </div><!-- /stems-main -->
+
+    <!-- Barra de multi-selección de pistas (Ctrl/Cmd + clic para elegir varias). -->
+    <div class="stems-sel-bar" id="stems-sel-bar" hidden>
+      <span class="stems-sel-count">0 pistas seleccionadas</span>
+      <button class="stems-sel-del" id="stems-sel-del" type="button">Eliminar</button>
+      <button class="stems-sel-clear" id="stems-sel-clear" type="button" aria-label="Cancelar selección" title="Cancelar selección (Esc)">✕</button>
+    </div>
 
     <div class="stems-export-overlay" id="stems-export-overlay" hidden>
       <div class="stems-export-panel">
@@ -2471,10 +2480,78 @@ async function removeTrackById(id) {
     if (empty) empty.hidden = false;
     document.getElementById('workspace-stems')?.classList.remove('has-tracks');
   }
+  selectedTrackIds.delete(id);
   refreshTransport();
   refreshTimelineWidth();
   reflectSoloHighlights();
   scheduleSave();
+}
+
+// ── Multi-selección de pistas (Ctrl/Cmd + clic) ─────────────────────────────
+// Permite seleccionar varias pistas y eliminarlas de golpe (tecla Supr o el
+// botón de la barra de selección). Escape limpia la selección.
+const selectedTrackIds = new Set();
+
+function updateTrackSelectionUI() {
+  for (const [id, entry] of trackRows) entry.row.classList.toggle('is-selected', selectedTrackIds.has(id));
+  const bar = document.getElementById('stems-sel-bar');
+  const n = selectedTrackIds.size;
+  if (bar) {
+    bar.hidden = n === 0;
+    const lbl = bar.querySelector('.stems-sel-count');
+    if (lbl) lbl.textContent = `${n} pista${n === 1 ? '' : 's'} seleccionada${n === 1 ? '' : 's'}`;
+  }
+}
+
+function toggleTrackSelection(id) {
+  if (selectedTrackIds.has(id)) selectedTrackIds.delete(id); else selectedTrackIds.add(id);
+  updateTrackSelectionUI();
+}
+
+function clearTrackSelection() {
+  if (!selectedTrackIds.size) return;
+  selectedTrackIds.clear();
+  updateTrackSelectionUI();
+}
+
+async function deleteSelectedTracks() {
+  const ids = [...selectedTrackIds];
+  if (!ids.length) return;
+  const ok = await confirmDialogAsync({
+    title: 'Eliminar pistas',
+    message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'} del proyecto? Esta acción no se puede deshacer.`,
+    confirmLabel: 'Eliminar', danger: true,
+  });
+  if (!ok) return;
+  selectedTrackIds.clear();
+  for (const id of ids) await removeTrackById(id);
+  updateTrackSelectionUI();
+}
+
+function wireTrackSelection(root) {
+  const rows = root.querySelector('#stems-rows');
+  // Ctrl/Cmd + clic en una pista la (de)selecciona. En CAPTURA → gana antes del
+  // seek y de los botones de la fila, sin disparar nada más.
+  if (rows) rows.addEventListener('click', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const row = e.target.closest('.stems-row');
+    if (!row || !row.dataset.trackId) return;
+    e.preventDefault(); e.stopPropagation();
+    toggleTrackSelection(row.dataset.trackId);
+  }, true);
+
+  root.querySelector('#stems-sel-del')?.addEventListener('click', deleteSelectedTracks);
+  root.querySelector('#stems-sel-clear')?.addEventListener('click', clearTrackSelection);
+
+  document.addEventListener('keydown', (e) => {
+    if (!selectedTrackIds.size) return;
+    const ws = document.getElementById('workspace-stems');
+    if (!ws || ws.offsetParent === null) return;   // Stems no visible
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedTracks(); }
+    else if (e.key === 'Escape') { clearTrackSelection(); }
+  });
 }
 
 function panLabel(pan) {
@@ -3633,15 +3710,14 @@ function bindSetlistPanel() {
 // y Original aceptan archivo; Original además acepta una URL de YouTube (mismo
 // flujo que el panel de Pads). Tras cargar, persiste y refresca la lista.
 function openSongAudioMenu(anchorEl, song) {
-  const ICON_UP = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 19V6"/><path d="M5 12l7-7 7 7"/></svg>';
-  const ICON_YT = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg>';
-  const seqLabel  = (song.audio && song.audio.sequence) ? 'Reemplazar secuencia (archivo)' : 'Subir secuencia (archivo)';
-  const origLabel = (song.audio && song.audio.original) ? 'Reemplazar original (archivo)'  : 'Subir original (archivo)';
-  openCardMoreMenu(anchorEl, [
-    { label: seqLabel,  icon: ICON_UP, onSelect: () => loadSlotFromFile(song, 'sequence') },
-    { label: origLabel, icon: ICON_UP, onSelect: () => loadSlotFromFile(song, 'original') },
-    { label: 'Original desde YouTube', icon: ICON_YT, onSelect: () => loadOriginalFromYoutube(song) },
-  ]);
+  // Mismas opciones que las tarjetas de Pads (módulo compartido songMenu.js):
+  // subir/reemplazar secuencia, original, original desde YouTube, carátula.
+  const onAssigned = () => {
+    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    refreshSetlistPanelKeepingSearch();
+  };
+  openCardMoreMenu(anchorEl, audioMenuItems(song, onAssigned));
 }
 
 function refreshSetlistPanelKeepingSearch() {
@@ -3698,52 +3774,8 @@ function addSongFromStems() {
   });
 }
 
-// Carga un archivo local a un slot de la canción (copia a la librería,
-// content-addressed) sin reproducirlo. Persiste y refresca.
-async function loadSlotFromFile(song, slot) {
-  try {
-    const file = await window.electronAPI.openAudioFile();
-    if (!file || !file.path) return;
-    const url = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type: slot });
-    if (!song.audio) song.audio = {};
-    song.audio[slot] = url;
-    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
-    refreshSetlistPanelKeepingSearch();
-    showToast(`✓ ${slot === 'original' ? 'Original' : 'Secuencia'} cargada en «${song.title}».`, 'success');
-  } catch (e) {
-    showToast('No se pudo cargar el audio: ' + (e.message || e), 'error');
-  }
-}
-
-// Descarga el audio original desde una URL de YouTube y lo asigna (con su
-// carátula), igual que en el panel de Pads.
-function loadOriginalFromYoutube(song) {
-  if (!navigator.onLine) { showToast('Necesitás internet para descargar de YouTube.', 'warning'); return; }
-  showDialog('Original desde YouTube', 'Pegá el enlace de YouTube…', async (url) => {
-    if (!url) return;
-    showToast('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
-    try {
-      const res = await window.electronAPI.downloadYoutubeAudio({ url, title: song.title });
-      const audioUrl = typeof res === 'string' ? res : res.url;
-      const cover = (res && typeof res === 'object') ? res.cover : null;
-      if (!song.audio) song.audio = {};
-      song.audio.original = audioUrl;
-      if (cover && !song.cover) song.cover = cover;
-      song.youtubeUrl = url;   // se sube a la nube → la web GI.Setlist muestra la carátula
-      if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-      // Auto-sync a la librería ACTIVA de Supabase (multi-tenant correcto).
-      if (navigator.onLine) {
-        import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
-      }
-      window.dispatchEvent(new CustomEvent('livepads:library-reload'));
-      refreshSetlistPanelKeepingSearch();
-      showToast(`✓ Original asignado a «${song.title}» desde YouTube.`, 'success');
-    } catch (err) {
-      showToast(err.message || 'No se pudo descargar el audio.', 'error');
-    }
-  });
-}
+// (loadSlotFromFile + loadOriginalFromYoutube se movieron al módulo compartido
+//  ui/songMenu.js — los usan tanto Stems como las tarjetas de Pads.)
 
 // ── Persistence ───────────────────────────────────────────────────
 function scheduleSave() {

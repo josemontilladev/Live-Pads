@@ -662,6 +662,33 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
   return toLivepadsUrl(relPath);
 });
 
+// Elige una imagen y la copia a Covers/ (nombre por contenido), devolviendo su
+// URL livepads:// para usarla de carátula manual. null si se cancela.
+ipcMain.handle('assign-cover-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile'],
+    filters: [{ name: 'Imágenes', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const src = result.filePaths[0];
+  try {
+    const coversDir = path.join(getAudioLibraryRoot(), 'Covers');
+    fs.mkdirSync(coversDir, { recursive: true });
+    const ext = (path.extname(src).toLowerCase() || '.jpg').replace('.jpeg', '.jpg');
+    const coverName = `img_${hashFileShort(src)}${ext}`;
+    const coverPath = path.join(coversDir, coverName);
+    if (!fs.existsSync(coverPath)) {
+      const tmp = coverPath + '.tmp';
+      fs.copyFileSync(src, tmp);
+      fs.renameSync(tmp, coverPath);
+    }
+    return toLivepadsUrl(path.join('Covers', coverName));
+  } catch (e) {
+    dialog.showErrorBox('No se pudo asignar la carátula', e.message);
+    return null;
+  }
+});
+
 // ── Descargar audio desde YouTube (solo con internet) ────────────────────
 // Usa yt-dlp (se descarga una vez a userData/bin). Baja el mejor audio nativo
 // (m4a) — sin ffmpeg, ligero — y lo guarda en "Original Tracks". Uso personal.
