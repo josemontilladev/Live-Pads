@@ -631,11 +631,13 @@ const SHELL_HTML = `
     <section class="stems-console" id="stems-console">
       <header class="stems-console-header">
         <div class="stems-console-header-left">
-          <button class="stems-console-collapse" id="stems-console-collapse" type="button" title="Contraer / expandir consola" aria-label="Contraer consola">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+          <button class="stems-console-toggle" id="stems-console-toggle" type="button" title="Contraer / expandir consola" aria-label="Contraer consola">
+            <span class="stems-console-collapse" id="stems-console-collapse" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+            <span class="stems-console-title">CONSOLA</span>
+            <span class="stems-console-count" id="stems-console-count">0 pistas</span>
           </button>
-          <span class="stems-console-title">CONSOLA</span>
-          <span class="stems-console-count" id="stems-console-count">0 pistas</span>
           <button class="stems-console-selall" id="stems-console-selall" type="button" title="Seleccionar todas las pistas (Ctrl+A)">Seleccionar todas</button>
         </div>
         <div class="stems-console-header-right">
@@ -2622,25 +2624,27 @@ function selectAllTracks() {
 const CONSOLE_COLLAPSE_KEY = 'stems-console-collapsed';
 function setConsoleCollapsed(collapsed) {
   const section = document.getElementById('stems-console');
-  const btn = document.getElementById('stems-console-collapse');
   if (!section) return;
   section.classList.toggle('is-collapsed', collapsed);
-  if (btn) {
-    btn.classList.toggle('is-collapsed', collapsed);
-    btn.title = collapsed ? 'Expandir consola' : 'Contraer consola';
-    btn.setAttribute('aria-label', btn.title);
+  // La chevron (span) rota; el botón-toggle lleva el título/aria.
+  const chevron = document.getElementById('stems-console-collapse');
+  if (chevron) chevron.classList.toggle('is-collapsed', collapsed);
+  const toggle = document.getElementById('stems-console-toggle');
+  if (toggle) {
+    toggle.title = collapsed ? 'Expandir consola' : 'Contraer consola';
+    toggle.setAttribute('aria-label', toggle.title);
   }
   try { localStorage.setItem(CONSOLE_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {}
   // El alto del área de pistas cambió: redibuja la regla/timeline.
   refreshTimelineWidth();
 }
 function wireConsoleCollapse(root) {
-  const btn = root.querySelector('#stems-console-collapse');
-  if (!btn) return;
+  const toggle = root.querySelector('#stems-console-toggle');
+  if (!toggle) return;
   let collapsed = false;
   try { collapsed = localStorage.getItem(CONSOLE_COLLAPSE_KEY) === '1'; } catch {}
   setConsoleCollapsed(collapsed);
-  btn.addEventListener('click', () => {
+  toggle.addEventListener('click', () => {
     const section = document.getElementById('stems-console');
     setConsoleCollapsed(!section?.classList.contains('is-collapsed'));
   });
