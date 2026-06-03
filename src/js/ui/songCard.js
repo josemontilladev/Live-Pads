@@ -131,7 +131,6 @@ export function songCardInnerHTML(song, opts) {
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="${lyricsTitle}">${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>
-      <button class="action-btn btn-more" data-action="more" title="Más opciones" aria-haspopup="menu" aria-expanded="false">${ICON_MORE}</button>
     </div>
 
     <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
