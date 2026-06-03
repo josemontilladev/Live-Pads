@@ -133,6 +133,7 @@ body[data-workspace="stems"] #body {
    por eso no se oculta aquí; sí todo el contenido. Sin overflow:hidden para que
    la tab pueda sobresalir del borde derecho. */
 .stems-setlist.collapsed { width: 42px; padding: 12px 4px; }
+.stems-setlist.collapsed .ssl-title-row,
 .stems-setlist.collapsed .ssl-head,
 .stems-setlist.collapsed .ssl-slot,
 .stems-setlist.collapsed .ssl-search,
@@ -140,9 +141,6 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-hint,
 .stems-setlist.collapsed .ssl-title,
 .stems-setlist.collapsed .ssl-add { display: none; }
-/* Colapsado: la tab flotante del borde se oculta (quedaba suelta en el medio).
-   El riel completo es clicable y muestra su propio chevron como indicador. */
-.stems-setlist.collapsed .ssl-collapse { display: none; }
 
 /* Riel "Canciones": solo visible colapsado. Tres bloques distribuidos a lo
    largo (chip de icono arriba, texto vertical al centro, contador abajo) con
@@ -239,15 +237,16 @@ body[data-workspace="stems"] #body {
 .ssl-add:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .ssl-add svg { width: 16px; height: 16px; }
 .ssl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
-/* Tab de contraer/expandir — MISMO botón que la consola (.stems-console-collapse),
-   pero anclado al centro del borde derecho del sidebar, sobresaliendo a la mitad
-   para no competir con los botones de filtro de arriba. */
-.ssl-collapse {
-  position: absolute;
-  top: 50%;
-  right: -12px;
-  transform: translateY(-50%);
-  z-index: 5;
+
+/* Encabezado del panel (expandido): icono música + título + botón de contraer. */
+.ssl-title-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ssl-title-icon { display: inline-flex; color: var(--accent); flex-shrink: 0; }
+.ssl-title-label {
+  font-size: 12px; font-weight: 800; letter-spacing: 1.4px;
+  text-transform: uppercase; color: var(--text);
+}
+.ssl-collapse-btn {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -259,10 +258,9 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   color: var(--text-muted);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.2s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.ssl-collapse:hover {
+.ssl-collapse-btn:hover {
   color: var(--accent);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
