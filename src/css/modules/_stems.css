@@ -174,16 +174,24 @@ body[data-workspace="stems"] #body {
   align-items: center;
   gap: 12px;
 }
+/* Mismo botón circular que el de contraer (.ssl-collapse-btn), para que el
+   afford de expandir/contraer se vea idéntico en ambos estados. */
 .ssl-rail-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
   color: var(--text-muted);
-  transition: color 0.15s, transform 0.2s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .stems-setlist.collapsed .ssl-rail:hover .ssl-rail-chevron {
   color: var(--accent);
-  transform: translateX(2px);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
 }
 .ssl-rail-icon-chip {
   display: inline-flex;
