@@ -166,6 +166,14 @@ body[data-workspace="stems"] #body {
 .stems-setlist.collapsed .ssl-rail:hover .ssl-rail-icon-chip {
   background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
+/* Chip + texto agrupados ARRIBA (el centro queda libre para la flecha del
+   borde, que antes chocaba con el texto). El contador se queda abajo. */
+.ssl-rail-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
 .ssl-rail-icon-chip {
   display: inline-flex;
   align-items: center;
