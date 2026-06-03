@@ -1,0 +1,12 @@
+Samples de piano — atribución
+==============================
+
+Salamander Grand Piano V3, por Alexander Holm.
+Licencia: Creative Commons Attribution 3.0 (CC BY 3.0).
+Fuente original: https://archive.org/details/SalamanderGrandPianoV3
+
+El subconjunto en formato MP3 incluido aquí (una nota cada ~3 semitonos) proviene
+del set distribuido por el proyecto Tone.js (https://github.com/Tonejs/Tone.js),
+que redistribuye estos samples bajo la misma licencia CC BY 3.0.
+
+Usado en LivePads para el piano virtual del apartado Stems.

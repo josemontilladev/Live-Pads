@@ -18,6 +18,9 @@ import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
+import { mountPianoPanel, togglePiano, closePiano, isPianoOpen, pianoPanic } from './pianoPanel.js';
+import { renderEventsToBuffer } from './pianoSampler.js';
+import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
@@ -176,6 +179,10 @@ let markers = [];        // array of { id, label, atSec, url }
 let nextMarkerId = 1;
 const trackRows = new Map();   // trackId → { strip, lane, canvas }
 const peaksCache = new Map();  // trackId → Float32Array peaks
+// Pistas MIDI (piano): notas editables por pista. La pista mantiene además un
+// audio auto-renderizado (freeze) en el engine para sonar/mezclar/exportar.
+const trackNotes = new Map();  // trackId → [{ midi, velocity, startSec, durationSec }]
+let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
 let pillTimer = null;
@@ -209,6 +216,7 @@ export function toggleStemsPlay() {
 // reproducción del timeline, no solo los pads/secuencia.
 export function stemsPanicStop() {
   try { if (engine.isCurrentlyPlaying()) engine.stop(); } catch (_) {}
+  try { pianoPanic(); } catch (_) {}
 }
 
 // Public: drop a marker at the current playhead using whatever section is
@@ -348,6 +356,7 @@ export async function mount() {
   wireConsoleReorder(root);
   wireTrackSelection(root);
   wireConsoleCollapse(root);
+  wirePiano(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -610,6 +619,9 @@ const SHELL_HTML = `
           <input type="checkbox" id="stems-snap" checked>
           <span>SNAP</span>
         </label>
+        <button class="stems-piano-btn" id="stems-piano-toggle" type="button" title="Piano virtual — toca/graba con tu controlador MIDI" aria-pressed="false" aria-label="Piano virtual">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
+        </button>
         <div class="stems-readout">
           <span class="label">TIMECODE</span>
           <span class="value mono" id="stems-timecode">00:00.000</span>
@@ -672,6 +684,9 @@ const SHELL_HTML = `
       </header>
       <div class="stems-console-strips" id="stems-console-strips"></div>
     </section>
+
+    <!-- Panel del piano virtual (oculto por defecto; lo construye pianoPanel.js). -->
+    <section class="stems-piano" id="stems-piano" hidden></section>
 
     </div><!-- /stems-main -->
 
@@ -1872,7 +1887,11 @@ function buildRowHtml(track) {
         <span class="stems-row-kind">${kindLabel}</span>
         <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
       </div>
-      ${track.kind === 'click' || track.kind === 'guide' ? '' : `
+      ${track.kind === 'click' || track.kind === 'guide' ? '' :
+        track.kind === 'midi' ? `
+      <button class="stems-row-export" data-action="piano-roll" title="Editar notas (piano roll)">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
+      </button>` : `
       <button class="stems-row-export" data-action="separate" title="Separar en voz e instrumental (IA, local)">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
       </button>
@@ -1987,6 +2006,13 @@ function wireStrip(root, id) {
     harmonyBtn.onclick = (e) => {
       e.stopPropagation();
       openHarmonyMenu(harmonyBtn, id);
+    };
+  }
+  const pianoRollBtn = root.querySelector('[data-action="piano-roll"]');
+  if (pianoRollBtn) {
+    pianoRollBtn.onclick = (e) => {
+      e.stopPropagation();
+      openPianoRollForTrack(id);
     };
   }
 
@@ -2627,6 +2653,7 @@ async function removeTrackById(id) {
   trackRows.delete(id);
   peaksCache.delete(id);
   originalBuffers.delete(id);
+  trackNotes.delete(id);
   if (trackRows.size === 0) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
@@ -2700,6 +2727,133 @@ function wireConsoleCollapse(root) {
   toggle.addEventListener('click', () => {
     const section = document.getElementById('stems-console');
     setConsoleCollapsed(!section?.classList.contains('is-collapsed'));
+  });
+}
+
+// ── Piano virtual ─────────────────────────────────────────────────
+function wirePiano(root) {
+  const container = root.querySelector('#stems-piano');
+  if (!container) return;
+  mountPianoPanel(container, {
+    onOpenChange: paintPianoToggle,
+    onRecordStart: onPianoRecordStart,
+    onRecordNote: onPianoRecordNote,
+    onRecordStop: onPianoRecordStop,
+  });
+  const btn = root.querySelector('#stems-piano-toggle');
+  if (btn) btn.onclick = () => togglePiano();
+  // Doble clic en una fila MIDI abre el piano roll.
+  const rows = root.querySelector('#stems-rows');
+  if (rows) rows.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.stems-row-strip')) return;   // no en el strip de controles
+    const row = e.target.closest('.stems-row');
+    const id = row?.dataset.trackId;
+    if (!id) return;
+    const t = engine.getTracks().find(tr => tr.id === id);
+    if (t?.kind === 'midi') { e.preventDefault(); openPianoRollForTrack(id); }
+  });
+}
+
+function paintPianoToggle(open) {
+  const btn = document.getElementById('stems-piano-toggle');
+  if (!btn) return;
+  btn.classList.toggle('is-active', open);
+  btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+}
+
+// ── Pistas MIDI (piano) ───────────────────────────────────────────
+// Buffer de silencio (placeholder mientras la pista MIDI no tiene audio).
+function makeSilentBuffer(sec) {
+  const ctx = engine.getAudioContext();
+  const sr = ctx.sampleRate;
+  return ctx.createBuffer(2, Math.max(1, Math.ceil((sec || 1) * sr)), sr);
+}
+// Notas {startSec,durationSec} → eventos {startSec,endSec} para el sampler.
+function notesToEvents(notes) {
+  return notes.map(n => ({ midi: n.midi, velocity: n.velocity, startSec: n.startSec, endSec: n.startSec + n.durationSec }));
+}
+
+// Grabar: crea la pista MIDI al instante (vacía, con buffer silencioso) para que
+// las notas aparezcan en vivo. El audio real se rinde al parar (re-bounce).
+async function onPianoRecordStart() {
+  try {
+    const id = `t${nextTrackId++}`;
+    const silent = makeSilentBuffer(Math.max(2, projectDurationSec()));
+    await engine.addTrack({ id, name: 'Piano', audioBuffer: silent, kind: 'midi' });
+    engine.setTrackColor(id, nextStemColor());
+    trackNotes.set(id, []);
+    activeRecId = id;
+    appendTrackRow(id, null);
+    refreshTransport();
+  } catch (e) {
+    console.error('No se pudo crear la pista de piano', e);
+    activeRecId = null;
+  }
+}
+
+// Cada nota grabada se agrega en vivo y se repinta la fila.
+function onPianoRecordNote(note) {
+  if (!activeRecId) return;
+  const arr = trackNotes.get(activeRecId);
+  if (!arr) return;
+  arr.push(note);
+  drawTrackWaveform(activeRecId);   // delega a drawMidiRow
+}
+
+// Parar: rinde el audio de la pista a partir de las notas y persiste.
+async function onPianoRecordStop() {
+  const id = activeRecId;
+  activeRecId = null;
+  if (!id) return;
+  const notes = trackNotes.get(id) || [];
+  if (!notes.length) {
+    await removeTrackById(id);
+    showToast('No se grabaron notas.', 'info');
+    return;
+  }
+  await rebounceMidiTrack(id);
+  scheduleSave();
+  showToast('Pista de piano grabada. Doble clic en la fila para editar las notas.', 'success');
+}
+
+// Re-renderiza el audio (freeze) de una pista MIDI desde sus notas y actualiza
+// el stem en disco. Mismo patrón que la regeneración del click.
+async function rebounceMidiTrack(id) {
+  const notes = trackNotes.get(id) || [];
+  let lengthSec = projectDurationSec();
+  for (const n of notes) lengthSec = Math.max(lengthSec, n.startSec + n.durationSec);
+  lengthSec += 0.3;
+  let buffer = notes.length ? await renderEventsToBuffer(notesToEvents(notes), lengthSec) : null;
+  if (!buffer) buffer = makeSilentBuffer(Math.max(1, lengthSec));
+  engine.replaceTrackBuffer(id, buffer);
+  const entry = trackRows.get(id);
+  if (entry) {
+    const oldPath = entry.row.dataset.path;
+    const bytes = audioBufferToMp3(buffer);
+    const savedPath = await projectStore.saveStem(id, 'piano.mp3', bytes);
+    entry.row.dataset.path = savedPath || '';
+    if (oldPath && oldPath !== savedPath) { try { await projectStore.removeStem(oldPath); } catch (_) {} }
+  }
+  peaksCache.delete(id);
+  drawTrackWaveform(id);
+  refreshTransport();
+}
+
+// Abre el piano roll para editar las notas de una pista MIDI. Al guardar,
+// actualiza las notas y re-bouncea el audio.
+function openPianoRollForTrack(id) {
+  const t = engine.getTracks().find(tr => tr.id === id);
+  if (!t || t.kind !== 'midi') return;
+  openPianoRoll({
+    notes: trackNotes.get(id) || [],
+    bpm: bpmFloat || bpm,
+    beatsPerBar,
+    color: t.color || currentAccent(),
+    onSave: async (newNotes) => {
+      trackNotes.set(id, newNotes);
+      try { await rebounceMidiTrack(id); scheduleSave(); }
+      catch (e) { console.error('re-bounce piano roll failed', e); toast('No se pudo re-renderizar la pista MIDI.'); }
+    },
   });
 }
 
@@ -2875,6 +3029,10 @@ function formatBarTime(sec) {
 function drawTrackWaveform(id) {
   const row = trackRows.get(id);
   if (!row) return;
+  // Las pistas MIDI (piano) muestran sus notas en vez del waveform del audio
+  // congelado. Delegamos para que todos los callers (zoom, tema, etc.) sirvan.
+  const tk = engine.getTracks().find(tr => tr.id === id);
+  if (tk?.kind === 'midi') { drawMidiRow(id); return; }
   const buffer = engine.getTrackBuffer(id);
   if (!buffer) return;
   const audioPx = Math.ceil(buffer.duration * PX_PER_SEC);
@@ -2901,6 +3059,46 @@ function drawTrackWaveform(id) {
     : t?.kind === 'guide' ? 'rgba(74, 222, 128, 0.9)'
     : currentAccent();
   drawWaveform(row.canvas, peaks, { color });
+}
+
+// Preview de SOLO LECTURA de las notas de una pista MIDI en su fila (canvas
+// compacto). La edición se hace en el editor grande (piano roll): doble clic en
+// la fila o el botón del strip. Aquí solo se muestra para saber qué hay.
+function drawMidiRow(id) {
+  const entry = trackRows.get(id);
+  if (!entry) return;
+  const notes = trackNotes.get(id) || [];
+  const t = engine.getTracks().find(tr => tr.id === id);
+  const color = t?.color || currentAccent();
+  if (entry.canvas) entry.canvas.style.display = '';
+  let endSec = 0;
+  for (const n of notes) endSec = Math.max(endSec, n.startSec + n.durationSec);
+  const widthPx = Math.max(1, Math.ceil(endSec * PX_PER_SEC));
+  const h = ROW_HEIGHT - 8;
+  entry.lane.style.width = `${projectWidthPx()}px`;
+  entry.canvas.style.width = `${widthPx}px`;
+  entry.canvas.style.height = `${h}px`;
+  entry.canvas.style.transform = `translateX(${(engine.getTrackOffset(id) || 0) * PX_PER_SEC}px)`;
+  const cv = entry.canvas;
+  cv.width = widthPx;
+  cv.height = h;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, widthPx, h);
+  if (!notes.length) return;
+  let lo = Infinity, hi = -Infinity;
+  for (const n of notes) { lo = Math.min(lo, n.midi); hi = Math.max(hi, n.midi); }
+  if (lo === hi) { lo -= 6; hi += 6; } else { lo -= 1; hi += 1; }
+  const span = Math.max(1, hi - lo);
+  const noteH = Math.max(2, Math.min(10, h / (span + 1)));
+  ctx.fillStyle = color;
+  for (const n of notes) {
+    const x = n.startSec * PX_PER_SEC;
+    const w = Math.max(2, n.durationSec * PX_PER_SEC);
+    const y = h - ((n.midi - lo) / span) * (h - noteH) - noteH;
+    ctx.globalAlpha = 0.5 + 0.5 * (Math.max(0, Math.min(127, n.velocity)) / 127);
+    ctx.fillRect(x, y, w, noteH);
+  }
+  ctx.globalAlpha = 1;
 }
 
 // Read the active theme accent at draw time so waveforms inherit the
@@ -4083,7 +4281,9 @@ async function doSave() {
         id: t.id, kind: t.kind, name: t.name,
         volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed,
         color: t.color || null, offsetSec: t.offsetSec || 0,
-        path: entry ? entry.row.dataset.path : null
+        path: entry ? entry.row.dataset.path : null,
+        // Pistas MIDI: guardamos las notas editables (el audio va por `path`).
+        notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
       };
     });
     await projectStore.saveCurrent({
@@ -4190,6 +4390,8 @@ async function rehydrate(state) {
       if (t.muted)  engine.setTrackMuted(t.id, true);
       if (t.soloed) engine.setTrackSoloed(t.id, true);
       if (t.color)  engine.setTrackColor(t.id, t.color);
+      // Pistas MIDI: restaura las notas ANTES de pintar la fila (drawMidiRow las usa).
+      if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
       appendTrackRow(t.id, t.path);
     } catch (e) {
       console.warn('Could not restore stem', t.id, e);

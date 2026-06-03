@@ -1,0 +1,309 @@
+/* ════════════════════════════════════════════════════════════════════
+   Piano roll — editor de notas de las pistas MIDI (piano) en Stems.
+   ════════════════════════════════════════════════════════════════════ */
+/* Ventana flotante única (editor + piano): arrastrable por la cabecera y
+   redimensionable desde la esquina, como el panel del piano suelto. */
+.pr-overlay {
+  position: fixed;
+  left: 8vw;
+  top: 9vh;
+  width: 84vw;
+  height: 80vh;
+  z-index: 2000;   /* por encima del topbar de la app (z-1002) */
+  display: flex;
+  resize: both;
+  overflow: hidden;
+  min-width: 560px;
+  min-height: 380px;
+  max-width: 99vw;
+  max-height: 94vh;
+  border-radius: 14px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+}
+.pr-modal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+/* El teclado del piano, movido dentro del modal, queda como fila inferior. */
+.pr-modal .stems-piano {
+  position: static !important;
+  left: auto !important; right: auto !important;
+  top: auto !important; bottom: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  height: 172px !important;
+  flex-shrink: 0;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0 !important;
+  box-shadow: none;
+  resize: none !important;
+  z-index: auto;
+}
+.pr-modal .stems-piano .pk-bar { cursor: default; }
+/* Rectángulo de selección por área (clic derecho). */
+.pr-marquee {
+  position: absolute;
+  display: none;
+  border: 1px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  z-index: 7;
+  pointer-events: none;
+}
+
+/* Cabecera (también es la zona de arrastre del contenedor). */
+.pr-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: move;
+}
+.pr-head button, .pr-head select, .pr-head label { cursor: pointer; }
+.pr-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.pr-snap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pr-snap select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.pr-spacer { flex: 1; }
+
+/* Hamburguesa + leyenda de comandos */
+.pr-help-wrap { position: relative; display: inline-flex; }
+.pr-help {
+  width: 28px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pr-help:hover { color: var(--accent); border-color: var(--accent); }
+.pr-legend {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  min-width: 248px;
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.pr-legend-title {
+  font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--accent);
+  padding: 2px 4px 6px;
+}
+.pr-legend-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 4px;
+  font-size: 11px; color: var(--text);
+}
+.pr-legend-row kbd {
+  flex-shrink: 0;
+  min-width: 78px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px; font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 6px;
+  text-align: center;
+}
+.pr-legend-row span { color: var(--text-muted); }
+.pr-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.pr-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pr-btn--primary {
+  background: var(--accent-grad);
+  color: #0a0a14;
+  border: none;
+}
+.pr-btn--primary:hover { filter: brightness(1.08); color: #0a0a14; }
+.pr-btn--ghost { background: transparent; }
+
+/* Área scrollable */
+.pr-scroll {
+  flex: 1;
+  overflow: auto;
+  background: #101015;
+}
+.pr-inner { display: flex; align-items: flex-start; }
+
+/* Columna de teclas (fija a la izquierda al hacer scroll horizontal) */
+.pr-keys {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-strong, #000);
+}
+.pr-key {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg, #f6f6f6, #e9e9e9);
+  color: #555;
+}
+.pr-key.is-black {
+  background: linear-gradient(180deg, #2a2a30, #1d1d22);
+  color: #888;
+}
+
+/* Rejilla de notas */
+/* Regla de tiempo (clic para posicionar el playhead y reproducir desde ahí). */
+.pr-ruler {
+  position: sticky;
+  top: 0;
+  left: 0;
+  height: 20px;
+  z-index: 6;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-strong, #000);
+  cursor: pointer;
+}
+.pr-ruler-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.pr-grid {
+  position: relative;
+  z-index: 1;
+  background-color: #15151b;
+  background-repeat: repeat;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.10) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  cursor: crosshair;
+}
+
+/* Pista visual de la esquina redimensionable (la manija nativa es sutil). */
+.pr-overlay::after {
+  content: "";
+  position: absolute;
+  right: 3px; bottom: 3px;
+  width: 12px; height: 12px;
+  pointer-events: none;
+  opacity: 0.5;
+  background: linear-gradient(135deg,
+    transparent 0 55%, var(--text-muted) 55% 64%,
+    transparent 64% 73%, var(--text-muted) 73% 82%,
+    transparent 82%);
+}
+
+.pr-note {
+  position: absolute;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.4);
+  cursor: grab;
+  overflow: hidden;
+}
+.pr-note.is-selected { box-shadow: inset 0 0 0 1px #fff, 0 0 0 1px var(--accent); }
+.pr-note-name {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.pr-note-resize {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  background: rgba(0, 0, 0, 0.25);
+}
+.pr-note-del {
+  position: absolute;
+  left: 1px; top: 50%;
+  transform: translateY(-50%);
+  width: 12px; height: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.pr-note:hover .pr-note-del { display: flex; }
+
+.pr-playhead {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  pointer-events: none;
+  z-index: 4;
+}
