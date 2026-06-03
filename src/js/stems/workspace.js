@@ -405,9 +405,9 @@ const SHELL_HTML = `
            <svg class="ssl-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
          </span>
          <span class="ssl-rail-text">Canciones</span>
-       </span>
-       <span class="ssl-rail-chevron" aria-hidden="true">
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="9 6 15 12 9 18"/></svg>
+         <span class="ssl-rail-chevron" aria-hidden="true">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="9 6 15 12 9 18"/></svg>
+         </span>
        </span>
        <span class="ssl-rail-count" id="stems-setlist-count" title="Canciones en la librería"></span>
      </div>
