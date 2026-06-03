@@ -1222,6 +1222,20 @@ body[data-workspace="stems"] #body {
 .stems-row.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
 .stems-row.is-selected .stems-row-strip { background: var(--glow); }
 
+/* Localizada desde la consola (clic en un strip): subrayado de acento + tinte
+   para identificar de un vistazo qué pista corresponde al canal tocado. Al
+   traerla al tope con scrollIntoView, el scroll-margin la deja bajo la regla
+   pegajosa (.stems-head-tl = 40px) en vez de tapada por ella. */
+.stems-row { scroll-margin-top: 44px; }
+.stems-row.is-located { box-shadow: inset 0 -2px 0 var(--accent); }
+.stems-row.is-located .stems-row-strip {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.stems-console-strip.is-located {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px -2px var(--accent);
+}
+
 /* Barra flotante de selección de pistas. */
 .stems-sel-bar {
   position: fixed;
@@ -1581,15 +1595,27 @@ body[data-workspace="stems"] #body {
   padding: 8px 12px 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  height: 220px;
+  /* +10px sobre la altura útil original: cuando hay muchas pistas y aparece la
+     barra horizontal (8px), ésta se come parte de la altura y el fader (con su
+     min-height) se desbordaba quedando recortado abajo. La holgura absorbe el
+     scrollbar para que el final del volumen siempre sea alcanzable. */
+  height: 230px;
   scrollbar-width: thin;
+  /* Modo estándar (Chromium/Electron reciente): al fijar scrollbar-width se
+     ignoran los pseudo ::-webkit-*, así que el color va por aquí — si no, el
+     canal sale blanco/gris del SO. thumb claro, track sutil oscuro. */
+  scrollbar-color: rgba(255,255,255,0.2) rgba(255,255,255,0.05);
 }
 .stems-console-strips::-webkit-scrollbar { height: 8px; }
-.stems-console-strips::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.12);
+.stems-console-strips::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
   border-radius: 4px;
 }
-.stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+.stems-console-strips::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+.stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 .stems-console-strip {
   flex: 0 0 92px;
@@ -1683,7 +1709,7 @@ body[data-workspace="stems"] #body {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 110px;
+  min-height: 96px;
   cursor: pointer;
   touch-action: none;       /* let pointer events drive the drag */
   outline: none;

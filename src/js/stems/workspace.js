@@ -1625,8 +1625,27 @@ function wireVerticalFader(faderEl, { onInput, onCommit }) {
 
 // Console strip mirrors the row strip — changes here propagate back so
 // both UIs stay in lockstep.
+// Resalta la pista del timeline que corresponde a un strip de la consola y la
+// trae al tope del área de arrastre, para que el usuario vea de inmediato qué
+// pista está tocando en la consola. Capa propia (.is-located) — independiente
+// de la multi-selección (.is-selected) de Ctrl+clic.
+function locateTrackRow(id) {
+  const entry = trackRows.get(id);
+  if (!entry || !entry.row) return;
+  document.querySelectorAll('#stems-rows .stems-row.is-located')
+    .forEach(r => r.classList.remove('is-located'));
+  document.querySelectorAll('#stems-console-strips .stems-console-strip.is-located')
+    .forEach(s => s.classList.remove('is-located'));
+  entry.row.classList.add('is-located');
+  if (entry.console) entry.console.classList.add('is-located');
+  entry.row.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
 function wireConsoleStrip(strip, id) {
   if (!strip) return;
+  // Clic en cualquier parte del strip (en captura, para anteceder al fader)
+  // localiza y resalta su pista en el timeline.
+  strip.addEventListener('pointerdown', () => locateTrackRow(id), true);
   const faderEl = strip.querySelector('.stems-cfader');
   const panInput = strip.querySelector('[data-action="pan"]');
   paintPanFill(panInput);
