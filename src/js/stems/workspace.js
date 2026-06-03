@@ -389,6 +389,12 @@ const SHELL_HTML = `
         destino de la asignación. Clic en una canción → renderiza y asigna la
         mezcla a su slot (Secuencia/Original según el toggle). Colapsable. -->
    <aside class="stems-setlist" id="stems-setlist">
+     <!-- Riel visible SOLO cuando el panel está colapsado: indica que ahí están
+          las canciones. Clic en el riel también expande (además del chevron). -->
+     <div class="ssl-rail" aria-hidden="true" title="Mostrar canciones">
+       <svg class="ssl-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+       <span class="ssl-rail-text">Canciones</span>
+     </div>
      <div class="ssl-head">
        <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
        <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
@@ -3801,10 +3807,14 @@ function bindSetlistPanel() {
   if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
   // Estado colapsado recordado entre sesiones (igual que la consola).
   try { if (localStorage.getItem('stems-setlist-collapsed') === '1') panel.classList.add('collapsed'); } catch {}
-  if (collapseBtn) collapseBtn.onclick = () => {
+  const toggleCollapsed = () => {
     const collapsed = panel.classList.toggle('collapsed');
     try { localStorage.setItem('stems-setlist-collapsed', collapsed ? '1' : '0'); } catch {}
   };
+  if (collapseBtn) collapseBtn.onclick = toggleCollapsed;
+  // El riel "Canciones" (solo visible colapsado) también expande al hacer clic.
+  const rail = panel.querySelector('.ssl-rail');
+  if (rail) rail.onclick = toggleCollapsed;
 
   const addBtn = document.getElementById('stems-setlist-add');
   if (addBtn) addBtn.onclick = addSongFromStems;
