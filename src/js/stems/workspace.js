@@ -401,8 +401,8 @@ const SHELL_HTML = `
           las canciones. Clic en el riel también expande (además del chevron). -->
      <div class="ssl-rail" aria-hidden="true" title="Mostrar canciones">
        <span class="ssl-rail-top">
-         <span class="ssl-rail-icon-chip">
-           <svg class="ssl-rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+         <span class="ssl-title-icon" aria-hidden="true">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
          </span>
          <span class="ssl-rail-text">Canciones</span>
          <span class="ssl-rail-chevron" aria-hidden="true">

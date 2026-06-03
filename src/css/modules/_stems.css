@@ -163,10 +163,7 @@ body[data-workspace="stems"] #body {
   user-select: none;
 }
 .stems-setlist.collapsed .ssl-rail:hover { color: var(--accent); }
-.stems-setlist.collapsed .ssl-rail:hover .ssl-rail-icon-chip {
-  background: color-mix(in srgb, var(--accent) 26%, transparent);
-}
-/* Chip + texto agrupados ARRIBA, chevron al centro (indica "expandir"),
+/* Icono + texto agrupados ARRIBA, chevron al centro (indica "expandir"),
    contador abajo. space-between los reparte a lo largo del riel. */
 .ssl-rail-top {
   display: flex;
@@ -193,26 +190,14 @@ body[data-workspace="stems"] #body {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
 }
-.ssl-rail-icon-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent);
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-.ssl-rail-icon { width: 17px; height: 17px; }
 .ssl-rail-text {
   writing-mode: vertical-rl;
   transform: rotate(180deg);    /* lee de abajo hacia arriba */
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 4px;
+  font-size: 11px;
+  font-weight: 600;             /* mismo estilo discreto/ligero que el expandido */
+  letter-spacing: 1.6px;
   text-transform: uppercase;
+  color: var(--text-muted);
 }
 .ssl-rail-count {
   display: inline-flex;
@@ -246,12 +231,15 @@ body[data-workspace="stems"] #body {
 .ssl-add svg { width: 16px; height: 16px; }
 .ssl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
 
-/* Encabezado del panel (expandido): icono música + título + botón de contraer. */
+/* Encabezado del panel (expandido): icono música plano + título + botón contraer.
+   El icono (.ssl-title-icon) y el título (.ssl-title-label) comparten estilo con
+   el riel colapsado, en su forma discreta (sin chip de fondo). */
 .ssl-title-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.ssl-title-icon { display: inline-flex; color: var(--accent); flex-shrink: 0; }
+.ssl-title-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
+.ssl-title-icon svg { width: 16px; height: 16px; }
 .ssl-title-label {
-  font-size: 12px; font-weight: 800; letter-spacing: 1.4px;
-  text-transform: uppercase; color: var(--text);
+  font-size: 11px; font-weight: 600; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--text-muted);
 }
 .ssl-collapse-btn {
   margin-left: auto;
