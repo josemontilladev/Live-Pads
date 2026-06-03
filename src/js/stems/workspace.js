@@ -363,13 +363,21 @@ export async function mount() {
   // don't burn frames on silence.
   startMasterMeter();
 
+  // Ocultamos el estado "Sin pistas aún" hasta saber si hay proyecto guardado:
+  // así no parpadea mientras se lee/restaura. Solo se muestra si no hay nada.
+  const emptyEl = document.getElementById('stems-empty');
+  if (emptyEl) emptyEl.hidden = true;
   try {
     const restored = await projectStore.loadCurrent();
     if (restored && (restored.tracks?.length || restored.markers?.length)) {
       await rehydrate(restored);
+    } else if (emptyEl) {
+      emptyEl.hidden = false;
     }
   } catch (e) {
     console.warn('Could not restore stem project:', e);
+    hideRestoreOverlay();
+    if (emptyEl) emptyEl.hidden = false;
   }
 
   // Procesa archivos que pidieron importar antes de que el workspace
@@ -1470,6 +1478,41 @@ function updateImportOverlay(done, total, name) {
 }
 function hideImportOverlay() {
   const overlay = document.getElementById('stems-import-overlay');
+  if (overlay) overlay.hidden = true;
+}
+
+// Overlay de "Cargando proyecto…" al reabrir/refrescar con un proyecto guardado.
+// Mismo shell visual que el de importar, con su propio texto y progreso por pista.
+function showRestoreOverlay(total) {
+  let overlay = document.getElementById('stems-restore-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'stems-restore-overlay';
+    overlay.className = 'stems-export-overlay';
+    overlay.innerHTML = `
+      <div class="stems-export-panel">
+        <div class="stems-spinner" aria-hidden="true"></div>
+        <h3>Cargando proyecto…</h3>
+        <p id="stems-restore-stage" class="stems-export-stage">Preparando pistas</p>
+        <div class="stems-export-bar"><div class="stems-export-fill" id="stems-restore-fill"></div></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.hidden = false;
+  updateRestoreOverlay(0, total);
+}
+function updateRestoreOverlay(done, total) {
+  const fill = document.getElementById('stems-restore-fill');
+  const stage = document.getElementById('stems-restore-stage');
+  if (!fill) return;
+  fill.style.width = `${total > 0 ? (done / total) * 100 : 0}%`;
+  if (stage) stage.textContent = total > 0
+    ? (done >= total ? 'Listo' : `Cargando pistas… ${done}/${total}`)
+    : 'Cargando…';
+}
+function hideRestoreOverlay() {
+  const overlay = document.getElementById('stems-restore-overlay');
   if (overlay) overlay.hidden = true;
 }
 
@@ -4105,6 +4148,16 @@ async function rehydrate(state) {
   // the saved order once ready.
   const trackList = (state.tracks || []).filter(t => t.path);
   const ctx = engine.getAudioContext();
+  // Mientras se descargan/decodifican los stems guardados, el timeline está
+  // vacío y parpadeaba el estado "Sin pistas aún". Mostramos un overlay de
+  // "Cargando proyecto…" con progreso para que se entienda que está trabajando.
+  if (trackList.length) {
+    const empty = document.getElementById('stems-empty');
+    if (empty) empty.hidden = true;
+    showRestoreOverlay(trackList.length);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+  let restoreDone = 0;
   const decoded = await Promise.all(trackList.map(async (t) => {
     try {
       const arrayBuffer = await projectStore.fetchStem(t.path);
@@ -4113,6 +4166,8 @@ async function rehydrate(state) {
     } catch (e) {
       console.warn('Could not load stem', t.id, e);
       return null;
+    } finally {
+      if (trackList.length) updateRestoreOverlay(++restoreDone, trackList.length);
     }
   }));
   for (const d of decoded) {
@@ -4158,6 +4213,7 @@ async function rehydrate(state) {
   refreshTransport();
   refreshTimelineWidth();
   reflectSoloHighlights();
+  hideRestoreOverlay();
 }
 
 // ── Save As / Open modals ─────────────────────────────────────────
