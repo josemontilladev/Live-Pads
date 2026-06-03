@@ -345,6 +345,7 @@ export async function mount() {
   wireArrangeEvents(root);
   wireSeekClicks(root);
   wireRowReorder(root);
+  wireConsoleReorder(root);
   wireTrackSelection(root);
   wireConsoleCollapse(root);
   refreshSectionDropdown();
@@ -708,6 +709,58 @@ function wireRowReorder(root) {
       for (const id of newOrder) {
         const c = console.querySelector(`.stems-console-strip[data-track-id="${id}"]`);
         if (c) console.appendChild(c);
+      }
+    }
+    scheduleSave();
+  });
+}
+
+// Drag-and-drop para reordenar los strips de la consola, espejo de wireRowReorder
+// pero en horizontal. El handle es la cabecera del strip (no los controles), para
+// no chocar con el fader/pan/mute/solo. En el drop reordenamos el engine y las
+// filas del timeline para que ambos lados queden en lockstep.
+function wireConsoleReorder(root) {
+  const list = root.querySelector('#stems-console-strips');
+  if (!list) return;
+  let dragging = null;
+
+  list.addEventListener('dragstart', (e) => {
+    const handle = e.target.closest('[data-drag-strip]');
+    if (!handle) return;
+    dragging = handle.closest('.stems-console-strip');
+    if (!dragging) return;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragging.dataset.trackId);
+    requestAnimationFrame(() => dragging.classList.add('is-dragging'));
+  });
+  list.addEventListener('dragend', () => {
+    if (dragging) dragging.classList.remove('is-dragging');
+    dragging = null;
+    qa('.stems-console-strip.is-drop-target', list).forEach(s => s.classList.remove('is-drop-target'));
+  });
+  list.addEventListener('dragover', (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const over = e.target.closest('.stems-console-strip');
+    if (!over || over === dragging) return;
+    const rect = over.getBoundingClientRect();
+    const before = (e.clientX - rect.left) < rect.width / 2;   // horizontal
+    qa('.stems-console-strip.is-drop-target', list).forEach(s => s.classList.remove('is-drop-target'));
+    over.classList.add('is-drop-target');
+    if (before) over.parentNode.insertBefore(dragging, over);
+    else over.parentNode.insertBefore(dragging, over.nextSibling);
+  });
+  list.addEventListener('drop', (e) => {
+    e.preventDefault();
+    qa('.stems-console-strip.is-drop-target', list).forEach(s => s.classList.remove('is-drop-target'));
+    const newOrder = Array.from(list.querySelectorAll('.stems-console-strip')).map(s => s.dataset.trackId);
+    engine.reorderTracks(newOrder);
+    // Espejar el nuevo orden a las filas del timeline.
+    const rows = document.getElementById('stems-rows');
+    if (rows) {
+      for (const id of newOrder) {
+        const r = rows.querySelector(`.stems-row[data-track-id="${id}"]`);
+        if (r) rows.appendChild(r);
       }
     }
     scheduleSave();
@@ -1541,7 +1594,7 @@ function buildConsoleStripHtml(track) {
   const kindLabel = kindLabelFor(track);
   const volPct = Math.round(track.volume * 100);
   return `
-    <header class="stems-console-strip-head">
+    <header class="stems-console-strip-head" draggable="true" data-drag-strip title="Arrastra para reordenar">
       <span class="stems-console-strip-kind">${kindLabel}</span>
       <span class="stems-console-strip-name" title="${escapeAttr(track.name)}">${escapeHtml(track.name)}</span>
     </header>

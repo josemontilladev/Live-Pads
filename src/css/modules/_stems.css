@@ -1706,6 +1706,9 @@ body[data-workspace="stems"] #body {
 .stems-console-strip--guide {
   border-color: rgba(74,222,128,0.4);
 }
+/* Reordenamiento por drag-and-drop (handle = cabecera del strip). */
+.stems-console-strip.is-dragging { opacity: 0.4; }
+.stems-console-strip.is-drop-target { box-shadow: inset 2px 0 0 var(--accent); }
 
 .stems-console-strip-head {
   display: flex;
@@ -1714,7 +1717,9 @@ body[data-workspace="stems"] #body {
   gap: 2px;
   min-width: 0;
   width: 100%;
+  cursor: grab;
 }
+.stems-console-strip-head:active { cursor: grabbing; }
 .stems-console-strip-kind {
   font-size: 8px;
   font-weight: 900;
