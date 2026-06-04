@@ -166,6 +166,27 @@
 .pr-btn--primary:hover { filter: brightness(1.08); color: #0a0a14; }
 .pr-btn--ghost { background: transparent; }
 
+/* Botones-icono compactos (zoom, toggles) */
+.pr-icon {
+  min-width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.pr-icon:hover { color: var(--accent); border-color: var(--accent); }
+.pr-icon.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pr-zoom { display: inline-flex; gap: 3px; }
+
 /* Área scrollable */
 .pr-scroll {
   flex: 1;
@@ -199,6 +220,10 @@
   background: linear-gradient(180deg, #2a2a30, #1d1d22);
   color: #888;
 }
+/* Resaltado de la tonalidad del proyecto: barra de acento en las teclas de la
+   escala; la tónica más intensa. */
+.pr-key.in-scale { box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent); }
+.pr-key.is-root { box-shadow: inset 4px 0 0 var(--accent); }
 
 /* Rejilla de notas */
 /* Regla de tiempo (clic para posicionar el playhead y reproducir desde ahí). */

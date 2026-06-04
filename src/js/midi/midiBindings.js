@@ -99,6 +99,11 @@ export function bindMidiHandlers(deps) {
 
     // Stems workspace owns its own (independent) MIDI map + handling.
     if (getMidiScope() === 'stems') {
+      // Piano activo: pedal de sustain (CC64) → al piano antes que el learn.
+      if (isCC && data1 === 64 && stemsNoteHandler) {
+        stemsNoteHandler('sustain', 64, data2);
+        return;
+      }
       // Piano activo: las notas (on/off, o noteOn velocity 0 = off) van al piano.
       if ((isNoteOn || isNoteOff) && stemsNoteHandler) {
         const type = (isNoteOn && data2 > 0) ? 'on' : 'off';

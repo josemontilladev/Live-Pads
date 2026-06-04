@@ -221,6 +221,7 @@ function emitNote(note) {
 
 // Handler de notas MIDI (registrado mientras el panel está abierto).
 function handleMidiNote(type, midi, velocity) {
+  if (type === 'sustain') { piano.setSustain(velocity >= 64); return; }
   if (type === 'on') play(midi, velocity);
   else release(midi);
 }
