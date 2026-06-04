@@ -118,117 +118,160 @@ export function setVolume(v) {
   if (outputGain) outputGain.gain.value = pianoVolume;
 }
 
-// Toca una nota. Si la misma nota ya sonaba, la suelta antes (sin notas pegadas).
-export function noteOn(midi, velocity = 100) {
-  if (!samples) return;
-  const ctx = engine.getAudioContext();
-  if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
-  if (activeVoices.has(midi)) reallyOff(midi, 0.04);   // retrigger: corta la anterior
-  sustained.delete(midi);
+// ── Instrumentos ──────────────────────────────────────────────────
+// Piano = samples (arriba). El resto son sintéticos (Web Audio) parametrizados.
+const SYNTH = {
+  rhodes: { gain: 0.55, osc: [{ type: 'sine', gain: 1 }, { type: 'sine', ratio: 2, gain: 0.3 }], fm: { ratio: 1, depth: 110, decay: 0.5 }, filter: { base: 2200, vel: 5200, q: 0.6 }, adsr: { a: 0.004, d: 1.6, s: 0.0, r: 0.5 } },
+  pad:    { gain: 0.32, osc: [{ type: 'sawtooth', gain: 0.5, detune: -7 }, { type: 'sawtooth', gain: 0.5, detune: 7 }], filter: { base: 520, vel: 2600, q: 0.5 }, adsr: { a: 0.6, d: 1.0, s: 0.8, r: 1.4 } },
+  lead:   { gain: 0.42, osc: [{ type: 'sawtooth', gain: 0.6 }, { type: 'square', gain: 0.2, detune: 5 }], filter: { base: 1300, vel: 5200, q: 1.1 }, adsr: { a: 0.008, d: 0.25, s: 0.7, r: 0.28 } },
+  bass:   { gain: 0.55, osc: [{ type: 'square', gain: 0.7 }, { type: 'sawtooth', gain: 0.3, octave: -1 }], filter: { base: 450, vel: 2400, q: 0.8 }, adsr: { a: 0.004, d: 0.2, s: 0.55, r: 0.22 } },
+};
+export const INSTRUMENTS = [
+  { id: 'piano', name: 'Piano' },
+  { id: 'rhodes', name: 'Rhodes' },
+  { id: 'pad', name: 'Pad / Strings' },
+  { id: 'lead', name: 'Synth lead' },
+  { id: 'bass', name: 'Synth bass' },
+];
+let currentInstrument = 'piano';
+export function setInstrument(id) { if (id === 'piano' || SYNTH[id]) currentInstrument = id; }
+export function getInstrument() { return currentInstrument; }
+export function instrumentName(id) { return (INSTRUMENTS.find(i => i.id === id) || {}).name || 'Piano'; }
 
-  const out = ensureOutput();
+let sustainOn = false;
+const sustained = new Set();   // midis a soltar cuando se levante el pedal
+
+// Voz de PIANO (sample) con release(at, fast). Vale en vivo y en el offline.
+function buildSampleVoice(ctx, midi, velocity, dest, when) {
+  if (!samples) return null;
   const s = nearestSample(midi);
   const src = ctx.createBufferSource();
   src.buffer = s.buffer;
   src.playbackRate.value = Math.pow(2, (midi - s.midi) / 12);
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = velToCutoff(velocity); filter.Q.value = 0.7;
+  const gain = ctx.createGain(); gain.gain.value = velToGain(velocity);
+  src.connect(filter); filter.connect(gain); gain.connect(dest);
+  src.start(when);
+  return {
+    release(at, fast) {
+      const rel = fast ? 0.03 : RELEASE_SEC;
+      try {
+        gain.gain.cancelScheduledValues(at);
+        gain.gain.setValueAtTime(velToGain(velocity), at);
+        gain.gain.linearRampToValueAtTime(0.0001, at + rel);
+        src.stop(at + rel + 0.05);
+      } catch (_) {}
+    },
+  };
+}
 
-  // Pasa-bajos por velocity: timbre más oscuro al tocar suave, brillante al fuerte.
+// Voz SINTÉTICA según `def` (osciladores + filtro por velocity + ADSR + FM opc).
+function buildSynthVoice(ctx, midi, velocity, dest, def, when) {
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  const peak = Math.max(0.0004, velToGain(velocity) * (def.gain || 0.4));
+  const amp = ctx.createGain(); amp.gain.value = 0.0001;
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
-  filter.frequency.value = velToCutoff(velocity);
-  filter.Q.value = 0.7;
-
-  const gain = ctx.createGain();
-  gain.gain.value = velToGain(velocity);
-  src.connect(filter);
-  filter.connect(gain);
-  gain.connect(out);
-  src.start();
-
-  activeVoices.set(midi, { source: src, gain });
+  filter.frequency.value = def.filter.base + def.filter.vel * (velocity / 127);
+  filter.Q.value = def.filter.q || 0.7;
+  filter.connect(amp); amp.connect(dest);
+  const nodes = [];
+  for (const o of def.osc) {
+    const osc = ctx.createOscillator();
+    osc.type = o.type;
+    osc.frequency.value = freq * (o.ratio || 1) * Math.pow(2, o.octave || 0);
+    if (o.detune) osc.detune.value = o.detune;
+    const g = ctx.createGain(); g.gain.value = o.gain;
+    osc.connect(g); g.connect(filter);
+    osc.start(when); nodes.push(osc);
+  }
+  if (def.fm) {
+    const mod = ctx.createOscillator(); mod.frequency.value = freq * def.fm.ratio;
+    const mg = ctx.createGain();
+    mg.gain.setValueAtTime(def.fm.depth, when);
+    mg.gain.exponentialRampToValueAtTime(Math.max(1, def.fm.depth * 0.05), when + (def.fm.decay || 0.4));
+    mod.connect(mg); mg.connect(nodes[0].frequency);
+    mod.start(when); nodes.push(mod);
+  }
+  const { a, d, s } = def.adsr;
+  amp.gain.setValueAtTime(0.0001, when);
+  amp.gain.exponentialRampToValueAtTime(peak, when + Math.max(0.002, a));
+  amp.gain.exponentialRampToValueAtTime(Math.max(0.0004, peak * (s > 0 ? s : 0.0004)), when + a + Math.max(0.01, d));
+  return {
+    release(at, fast) {
+      const r = fast ? 0.03 : (def.adsr.r || 0.3);
+      try {
+        amp.gain.cancelScheduledValues(at);
+        amp.gain.setValueAtTime(Math.max(0.0004, peak * (s > 0 ? s : 0.02)), at);
+        amp.gain.exponentialRampToValueAtTime(0.0001, at + r);
+        for (const node of nodes) node.stop(at + r + 0.05);
+      } catch (_) {}
+    },
+  };
 }
 
-// Pedal de sustain (CC64): mientras está abajo, las notas no se sueltan.
-let sustainOn = false;
-const sustained = new Set();   // midis a soltar cuando se levante el pedal
+function makeVoice(ctx, midi, velocity, dest, when, instrumentId) {
+  return (instrumentId === 'piano')
+    ? buildSampleVoice(ctx, midi, velocity, dest, when)
+    : buildSynthVoice(ctx, midi, velocity, dest, SYNTH[instrumentId] || SYNTH.rhodes, when);
+}
+
+// Toca una nota con el instrumento actual (o el indicado). Retrigger = corta la
+// anterior; con el pedal abajo, el release se difiere.
+export function noteOn(midi, velocity = 100, instrumentId = currentInstrument) {
+  const ctx = engine.getAudioContext();
+  if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
+  const prev = activeVoices.get(midi);
+  if (prev) { prev.release(ctx.currentTime, true); activeVoices.delete(midi); }
+  sustained.delete(midi);
+  const voice = makeVoice(ctx, midi, velocity, ensureOutput(), ctx.currentTime, instrumentId);
+  if (voice) activeVoices.set(midi, voice);
+}
+
 export function setSustain(on) {
   sustainOn = !!on;
-  if (!sustainOn) { for (const m of sustained) reallyOff(m); sustained.clear(); }
-}
-
-function reallyOff(midi, release = RELEASE_SEC) {
-  const voice = activeVoices.get(midi);
-  if (!voice) return;
-  activeVoices.delete(midi);
-  const ctx = engine.getAudioContext();
-  const now = ctx.currentTime;
-  try {
-    voice.gain.gain.cancelScheduledValues(now);
-    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-    voice.gain.gain.linearRampToValueAtTime(0.0001, now + release);
-    voice.source.stop(now + release + 0.02);
-  } catch (_) {}
+  if (!sustainOn) {
+    const at = engine.getAudioContext().currentTime;
+    for (const m of sustained) { const v = activeVoices.get(m); if (v) { v.release(at); activeVoices.delete(m); } }
+    sustained.clear();
+  }
 }
 
 // Suelta una nota (o la difiere si el pedal de sustain está abajo).
-export function noteOff(midi, release = RELEASE_SEC) {
+export function noteOff(midi) {
   if (sustainOn) { sustained.add(midi); return; }
-  reallyOff(midi, release);
+  const voice = activeVoices.get(midi);
+  if (!voice) return;
+  activeVoices.delete(midi);
+  voice.release(engine.getAudioContext().currentTime);
 }
 
-// Corta TODO el piano de inmediato (pánico / cierre del panel).
+// Corta TODO de inmediato (pánico / cierre del panel).
 export function panic() {
-  const ctx = engine.getAudioContext();
-  const now = ctx.currentTime;
-  for (const voice of activeVoices.values()) {
-    try {
-      voice.gain.gain.cancelScheduledValues(now);
-      voice.gain.gain.setValueAtTime(0.0001, now);
-      voice.source.stop(now + 0.03);
-    } catch (_) {}
-  }
+  const at = engine.getAudioContext().currentTime;
+  for (const voice of activeVoices.values()) voice.release(at, true);
   activeVoices.clear();
   sustained.clear();
   sustainOn = false;
 }
 
-// Renderiza una lista de eventos a un AudioBuffer (bounce offline para volcar la
-// grabación como pista). events: [{ midi, velocity, startSec, endSec }].
-export async function renderEventsToBuffer(events, durationSec) {
+// Renderiza eventos a un AudioBuffer (bounce offline) con el instrumento dado.
+// events: [{ midi, velocity, startSec, endSec | durationSec }].
+export async function renderEventsToBuffer(events, durationSec, instrumentId = currentInstrument) {
   if (!events.length) return null;
-  if (!samples) { try { await loadSamples(); } catch (_) {} }   // robustez: editar tras recargar
-  if (!samples) return null;
-  // Cola extra al final para que el reverb no quede recortado.
+  if (instrumentId === 'piano') { if (!samples) { try { await loadSamples(); } catch (_) {} } if (!samples) return null; }
   const length = Math.max(1, Math.ceil((durationSec + REVERB_SEC) * SAMPLE_RATE));
   const offline = new OfflineAudioContext(2, length, SAMPLE_RATE);
-
-  // Bus con dry + reverb (mismo sonido que en vivo). pianoVolume va en el bus.
   const bus = offline.createGain();
   bus.gain.value = pianoVolume;
   wireReverb(offline, bus, offline.destination);
-
   for (const ev of events) {
-    const s = nearestSample(ev.midi);
-    const src = offline.createBufferSource();
-    src.buffer = s.buffer;                 // los AudioBuffer son independientes del contexto
-    src.playbackRate.value = Math.pow(2, (ev.midi - s.midi) / 12);
-    const gain = offline.createGain();
-    const g = velToGain(ev.velocity);
     const start = Math.max(0, ev.startSec);
     const evEnd = (ev.endSec != null) ? ev.endSec : start + (ev.durationSec || 0);
     const end = Math.max(start + 0.02, evEnd);
-    gain.gain.setValueAtTime(g, start);
-    gain.gain.setValueAtTime(g, end);
-    gain.gain.linearRampToValueAtTime(0.0001, end + RELEASE_SEC);
-    const filter = offline.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = velToCutoff(ev.velocity);
-    filter.Q.value = 0.7;
-    src.connect(filter);
-    filter.connect(gain);
-    gain.connect(bus);
-    src.start(start);
-    try { src.stop(end + RELEASE_SEC + 0.05); } catch (_) {}
+    const voice = makeVoice(offline, ev.midi, ev.velocity, bus, start, instrumentId);
+    if (voice) voice.release(end);
   }
   return await offline.startRendering();
 }

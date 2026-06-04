@@ -18,8 +18,8 @@ import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
 import { setStemsMidiHandler } from '../midi/midiBindings.js';
-import { mountPianoPanel, togglePiano, closePiano, isPianoOpen, pianoPanic } from './pianoPanel.js';
-import { renderEventsToBuffer } from './pianoSampler.js';
+import { mountPianoPanel, togglePiano, closePiano, isPianoOpen, pianoPanic, setInstrumentUI } from './pianoPanel.js';
+import { renderEventsToBuffer, getInstrument, instrumentName as instLabel } from './pianoSampler.js';
 import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
@@ -182,6 +182,7 @@ const peaksCache = new Map();  // trackId → Float32Array peaks
 // Pistas MIDI (piano): notas editables por pista. La pista mantiene además un
 // audio auto-renderizado (freeze) en el engine para sonar/mezclar/exportar.
 const trackNotes = new Map();  // trackId → [{ midi, velocity, startSec, durationSec }]
+const trackInstrument = new Map(); // trackId → instrumento (piano/rhodes/pad/lead/bass)
 let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
@@ -2655,6 +2656,7 @@ async function removeTrackById(id) {
   peaksCache.delete(id);
   originalBuffers.delete(id);
   trackNotes.delete(id);
+  trackInstrument.delete(id);
   if (trackRows.size === 0) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
@@ -2779,10 +2781,12 @@ function notesToEvents(notes) {
 async function onPianoRecordStart() {
   try {
     const id = `t${nextTrackId++}`;
+    const inst = getInstrument();
     const silent = makeSilentBuffer(Math.max(2, projectDurationSec()));
-    await engine.addTrack({ id, name: 'Piano', audioBuffer: silent, kind: 'midi' });
+    await engine.addTrack({ id, name: instLabel(inst), audioBuffer: silent, kind: 'midi' });
     engine.setTrackColor(id, nextStemColor());
     trackNotes.set(id, []);
+    trackInstrument.set(id, inst);
     activeRecId = id;
     appendTrackRow(id, null);
     refreshTransport();
@@ -2824,7 +2828,8 @@ async function rebounceMidiTrack(id) {
   let lengthSec = projectDurationSec();
   for (const n of notes) lengthSec = Math.max(lengthSec, n.startSec + n.durationSec);
   lengthSec += 0.3;
-  let buffer = notes.length ? await renderEventsToBuffer(notesToEvents(notes), lengthSec) : null;
+  const inst = trackInstrument.get(id) || 'piano';
+  let buffer = notes.length ? await renderEventsToBuffer(notesToEvents(notes), lengthSec, inst) : null;
   if (!buffer) buffer = makeSilentBuffer(Math.max(1, lengthSec));
   engine.replaceTrackBuffer(id, buffer);
   const entry = trackRows.get(id);
@@ -2845,6 +2850,8 @@ async function rebounceMidiTrack(id) {
 function openPianoRollForTrack(id) {
   const t = engine.getTracks().find(tr => tr.id === id);
   if (!t || t.kind !== 'midi') return;
+  // El piano (acoplado en el editor) usa el instrumento de ESTA pista.
+  setInstrumentUI(trackInstrument.get(id) || 'piano');
   openPianoRoll({
     notes: trackNotes.get(id) || [],
     bpm: bpmFloat || bpm,
@@ -2853,6 +2860,7 @@ function openPianoRollForTrack(id) {
     projectKey,
     onSave: async (newNotes) => {
       trackNotes.set(id, newNotes);
+      trackInstrument.set(id, getInstrument());   // adopta el instrumento elegido
       try { await rebounceMidiTrack(id); scheduleSave(); }
       catch (e) { console.error('re-bounce piano roll failed', e); toast('No se pudo re-renderizar la pista MIDI.'); }
     },
@@ -4286,6 +4294,7 @@ async function doSave() {
         path: entry ? entry.row.dataset.path : null,
         // Pistas MIDI: guardamos las notas editables (el audio va por `path`).
         notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
+        instrument: t.kind === 'midi' ? (trackInstrument.get(t.id) || 'piano') : undefined,
       };
     });
     await projectStore.saveCurrent({
@@ -4394,6 +4403,7 @@ async function rehydrate(state) {
       if (t.color)  engine.setTrackColor(t.id, t.color);
       // Pistas MIDI: restaura las notas ANTES de pintar la fila (drawMidiRow las usa).
       if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
+      if (t.kind === 'midi') trackInstrument.set(t.id, t.instrument || 'piano');
       appendTrackRow(t.id, t.path);
     } catch (e) {
       console.warn('Could not restore stem', t.id, e);

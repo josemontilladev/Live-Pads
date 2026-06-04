@@ -50,6 +50,14 @@ let recStartTransport = 0;    // posición del transporte al iniciar
 let liveRec = null;
 export function setLiveNoteSink(ctl) { liveRec = ctl; }
 
+// Fija el instrumento activo y refleja el selector (lo usa el editor al abrir
+// una pista MIDI con su instrumento).
+export function setInstrumentUI(id) {
+  piano.setInstrument(id);
+  const sel = panelEl?.querySelector('#pk-inst');
+  if (sel) sel.value = piano.getInstrument();
+}
+
 // Tiempo de grabación = posición del transporte al empezar + lo transcurrido
 // según el reloj de audio. Se mantiene alineado con el transporte y además
 // avanza aunque no haya pistas de fondo (play() es no-op sin pistas).
@@ -70,6 +78,9 @@ export function mountPianoPanel(container, depsIn) {
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
         Piano
       </span>
+      <select class="pk-inst" id="pk-inst" title="Instrumento" aria-label="Instrumento">
+        ${piano.INSTRUMENTS.map(i => `<option value="${i.id}">${i.name}</option>`).join('')}
+      </select>
       <div class="pk-octave">
         <button class="pk-oct-btn" id="pk-oct-down" type="button" title="Bajar octava" aria-label="Bajar octava">−</button>
         <span class="pk-oct-label" id="pk-oct-label">C3–C6</span>
@@ -98,6 +109,9 @@ export function mountPianoPanel(container, depsIn) {
   panelEl.querySelector('#pk-close').onclick = () => closePiano();
   panelEl.querySelector('#pk-vol').oninput = (e) => piano.setVolume(parseInt(e.target.value, 10) / 100);
   recBtn.onclick = () => recording ? stopRecording() : startRecording();
+  const instSel = panelEl.querySelector('#pk-inst');
+  instSel.value = piano.getInstrument();
+  instSel.onchange = (e) => piano.setInstrument(e.target.value);
 
   wireMouse();
   wireComputerKeyboard();
