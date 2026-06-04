@@ -1343,9 +1343,15 @@ body[data-workspace="stems"] #body {
    traerla al tope con scrollIntoView, el scroll-margin la deja bajo la regla
    pegajosa (.stems-head-tl = 40px) en vez de tapada por ella. */
 .stems-row { scroll-margin-top: 44px; }
-.stems-row.is-located { box-shadow: inset 0 -2px 0 var(--accent); }
+/* Pista localizada (clic en su strip de consola): se resalta TODA la fila a lo
+   ancho del timeline —no solo la tira izquierda— para verla de un vistazo aunque
+   la canción esté avanzando. El canvas es transparente, así que el fondo se ve. */
+.stems-row.is-located {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
 .stems-row.is-located .stems-row-strip {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .stems-console-strip.is-located {
   border-color: var(--accent);
