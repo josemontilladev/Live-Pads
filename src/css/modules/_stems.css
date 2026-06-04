@@ -353,16 +353,25 @@ body[data-workspace="stems"] #body {
 }
 .stems-console { overflow: hidden; }
 
-#workspace-stems.is-dragover .stems-shell::after {
+/* Resaltado de arrastre: solo el área del timeline (no toda la pantalla).
+   El borde + tinte van como inset box-shadow sobre el viewport del scroller,
+   así se pintan en el área visible y NO se desplazan con el scroll. */
+#workspace-stems.is-dragover .stems-arrange {
+  box-shadow: inset 0 0 0 2px var(--accent),
+              inset 0 0 0 9999px color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: 12px;
+}
+/* Rótulo centrado en el alto VISIBLE del área de pistas. Va sobre el scroller
+   (no sobre el contenido, que con pocas pistas es corto y lo dejaba pegado
+   arriba). Con el timeline sin scrollear queda centrado en el espacio negro. */
+#workspace-stems.is-dragover .stems-arrange::after {
   content: "Suelta los archivos para importar";
-  position: absolute; inset: 12px;
+  position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border: 2px dashed var(--accent);
-  border-radius: 16px;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--accent);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   z-index: 100;
 }
@@ -2650,6 +2659,24 @@ body[data-workspace="stems"] #body {
   background: linear-gradient(90deg, var(--accent), var(--accent2, var(--accent)));
   box-shadow: 0 0 14px var(--glow);
   transition: width 0.18s ease;
+}
+/* Botón para cancelar una importación que se quedó colgada (también Esc). */
+.stems-import-cancel {
+  margin-top: 16px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.stems-import-cancel:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent);
 }
 
 /* ── Modal "Asignar mezcla a una canción" (Exportar → asignar) ───────────── */
