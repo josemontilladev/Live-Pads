@@ -15,11 +15,14 @@ const WHITE_PC = new Set([0, 2, 4, 5, 7, 9, 11]);
 const OCTAVES_VISIBLE = 3;
 const MIN_OCTAVE = 0, MAX_OCTAVE = 6;
 
-// Teclado de la PC (layout tipo DAW): fila inferior = blancas (A S D F G H J K),
-// fila superior = negras (W E T Y U). Z/X bajan/suben octava. El semitono es
+// Teclado de la PC, layout de 2 octavas (tipo FL Studio). El semitono es
 // relativo a la C más grave visible, así que sigue el desplazamiento de octava.
+//   Octava base  (fila inferior):  Z S X D C V G B H N J M
+//   Octava +1    (fila QWERTY/nº): Q 2 W 3 E R 5 T 6 Y 7 U  (+ I = C de la +2)
+// Las octavas se cambian con los botones − / + del panel.
 const KEY_SEMITONE = {
-  a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12,
+  z: 0, s: 1, x: 2, d: 3, c: 4, v: 5, g: 6, b: 7, h: 8, n: 9, j: 10, m: 11,
+  q: 12, '2': 13, w: 14, '3': 15, e: 16, r: 17, '5': 18, t: 19, '6': 20, y: 21, '7': 22, u: 23, i: 24,
 };
 // Reverso: semitono (desde la C más grave visible) → letra de la PC, para
 // rotular cada tecla con su atajo del teclado.
@@ -113,8 +116,8 @@ function wireComputerKeyboard() {
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
     const k = e.key.toLowerCase();
-    if (k === 'z') { e.preventDefault(); e.stopImmediatePropagation(); shiftOctave(-1); return; }
-    if (k === 'x') { e.preventDefault(); e.stopImmediatePropagation(); shiftOctave(1); return; }
+    if (k === '-') { e.preventDefault(); e.stopImmediatePropagation(); shiftOctave(-1); return; }
+    if (k === '=' || k === '+') { e.preventDefault(); e.stopImmediatePropagation(); shiftOctave(1); return; }
     if (!(k in KEY_SEMITONE)) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.repeat || heldKeys.has(k)) return;
