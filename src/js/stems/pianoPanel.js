@@ -21,6 +21,10 @@ const MIN_OCTAVE = 0, MAX_OCTAVE = 6;
 const KEY_SEMITONE = {
   a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12,
 };
+// Reverso: semitono (desde la C más grave visible) → letra de la PC, para
+// rotular cada tecla con su atajo del teclado.
+const PC_KEY_BY_OFFSET = {};
+for (const [k, off] of Object.entries(KEY_SEMITONE)) PC_KEY_BY_OFFSET[off] = k.toUpperCase();
 const heldKeys = new Map();   // tecla PC → midi en curso (para soltar la nota correcta)
 
 let panelEl = null;
@@ -172,13 +176,21 @@ function renderKeyboard() {
   const whiteIndex = new Map(whites.map((m, i) => [m, i]));
   const n = whites.length;
 
-  const whiteHtml = whites.map(m =>
-    `<div class="pk-key pk-white" data-midi="${m}"><span class="pk-name">${noteLabel(m)}</span></div>`
-  ).join('');
+  // Letra del teclado de la PC que dispara cada nota (solo la octava base).
+  const pcKey = (m) => PC_KEY_BY_OFFSET[m - low] || '';
+
+  const whiteHtml = whites.map(m => {
+    const pk = pcKey(m);
+    return `<div class="pk-key pk-white" data-midi="${m}">` +
+      (pk ? `<span class="pk-pckey">${pk}</span>` : '') +
+      `<span class="pk-name">${noteLabel(m)}</span></div>`;
+  }).join('');
 
   const blackHtml = blacks.map(m => {
     const leftPct = ((whiteIndex.get(m - 1) + 1) / n) * 100;
-    return `<div class="pk-key pk-black" data-midi="${m}" style="left:${leftPct.toFixed(4)}%"></div>`;
+    const pk = pcKey(m);
+    return `<div class="pk-key pk-black" data-midi="${m}" style="left:${leftPct.toFixed(4)}%">` +
+      (pk ? `<span class="pk-pckey">${pk}</span>` : '') + `</div>`;
   }).join('');
 
   kbEl.style.setProperty('--pk-nwhite', n);

@@ -198,6 +198,25 @@
   color: #8a8a93;
   pointer-events: none;
 }
+/* Letra del teclado de la PC sobre cada tecla (octava base). */
+.pk-pckey {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 3px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+.pk-black .pk-pckey {
+  bottom: 7px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
 .pk-white.is-active {
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--accent) 55%, #fff),
