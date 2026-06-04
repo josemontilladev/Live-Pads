@@ -10,26 +10,39 @@
 
 import * as engine from './engine.js';
 
-// Mapa sample → nota MIDI (set por defecto de Salamander que hostea Tone.js).
-// Nombres de archivo: 's' = sostenido (Ds = D#, Fs = F#).
-const SAMPLE_MAP = [
-  ['A0', 21], ['C1', 24], ['Ds1', 27], ['Fs1', 30],
-  ['A1', 33], ['C2', 36], ['Ds2', 39], ['Fs2', 42],
-  ['A2', 45], ['C3', 48], ['Ds3', 51], ['Fs3', 54],
-  ['A3', 57], ['C4', 60], ['Ds4', 63], ['Fs4', 66],
-  ['A4', 69], ['C5', 72], ['Ds5', 75], ['Fs5', 78],
-  ['A5', 81], ['C6', 84], ['Ds6', 87], ['Fs6', 90],
-  ['A6', 93], ['C7', 96], ['Ds7', 99], ['Fs7', 102],
-  ['A7', 105], ['C8', 108],
-];
+// Bancos de samples por instrumento. name → midi ('s' = sostenido). Piano =
+// Salamander (Tone.js); strings = cello y bass = bajo eléctrico (VCSL/CC0,
+// tonejs-instruments). Las notas intermedias se interpolan con playbackRate.
+const SAMPLE_BANKS = {
+  piano: {
+    folder: 'Piano',
+    map: [
+      ['A0', 21], ['C1', 24], ['Ds1', 27], ['Fs1', 30],
+      ['A1', 33], ['C2', 36], ['Ds2', 39], ['Fs2', 42],
+      ['A2', 45], ['C3', 48], ['Ds3', 51], ['Fs3', 54],
+      ['A3', 57], ['C4', 60], ['Ds4', 63], ['Fs4', 66],
+      ['A4', 69], ['C5', 72], ['Ds5', 75], ['Fs5', 78],
+      ['A5', 81], ['C6', 84], ['Ds6', 87], ['Fs6', 90],
+      ['A6', 93], ['C7', 96], ['Ds7', 99], ['Fs7', 102],
+      ['A7', 105], ['C8', 108],
+    ],
+  },
+  strings: {
+    folder: 'Strings',
+    map: [['C2', 36], ['D2', 38], ['F2', 41], ['A2', 45], ['C3', 48], ['D3', 50], ['F3', 53], ['A3', 57], ['C4', 60], ['D4', 62], ['F4', 65], ['A4', 69], ['C5', 72]],
+  },
+  bass: {
+    folder: 'Bass',
+    map: [['As1', 34], ['Cs2', 37], ['E2', 40], ['G2', 43], ['As2', 46], ['Cs3', 49], ['E3', 52], ['G3', 55], ['As3', 58], ['Cs4', 61]],
+  },
+};
 
 const RELEASE_SEC = 0.32;     // cola al soltar la tecla (curva de piano)
 const SAMPLE_RATE = 44100;    // para el render offline
 const REVERB_WET = 0.34;      // mezcla del reverb (profundidad)
 const REVERB_SEC = 2.6;       // largo de la cola del reverb
 
-let samples = null;           // [{ midi, buffer }] ordenado por midi
-let loadPromise = null;
+const banks = new Map();      // id → { samples: [{midi,buffer}], promise }
 let outputGain = null;        // bus del piano (pre-reverb) → master del engine
 let pianoVolume = 0.9;        // 0..1, ajustable por el usuario
 let reverbWet = REVERB_WET;   // mezcla de reverb actual (toggle = más profundidad)
@@ -71,24 +84,37 @@ export function setReverbDeep(on) {
 }
 export function isReverbDeep() { return reverbWet > REVERB_WET + 0.001; }
 
-// Carga + decodifica todos los samples una sola vez (idempotente).
-export function loadSamples() {
-  if (loadPromise) return loadPromise;
+// ¿El instrumento usa samples (vs sintetizado)?
+export function isSampled(id) { return !!SAMPLE_BANKS[id]; }
+
+// Carga + decodifica el banco de un instrumento (idempotente). Para sintéticos
+// resuelve de inmediato. `loadSamples()` sin args carga el instrumento actual.
+export function loadSamples(id = currentInstrument) {
+  const def = SAMPLE_BANKS[id];
+  if (!def) return Promise.resolve();
+  let bank = banks.get(id);
+  if (bank && bank.promise) return bank.promise;
   const ctx = engine.getAudioContext();
-  loadPromise = (async () => {
-    const loaded = await Promise.all(SAMPLE_MAP.map(async ([name, midi]) => {
-      const resp = await fetch(`assets/Piano/${name}.mp3`);
+  bank = bank || {};
+  banks.set(id, bank);
+  bank.promise = (async () => {
+    const loaded = await Promise.all(def.map.map(async ([name, midi]) => {
+      const resp = await fetch(`assets/${def.folder}/${name}.mp3`);
       const ab = await resp.arrayBuffer();
       const buffer = await ctx.decodeAudioData(ab);
       return { midi, buffer };
     }));
-    samples = loaded.sort((a, b) => a.midi - b.midi);
-    return samples;
+    bank.samples = loaded.sort((a, b) => a.midi - b.midi);
+    return bank.samples;
   })();
-  return loadPromise;
+  return bank.promise;
 }
 
-export function isLoaded() { return !!samples; }
+// ¿Listo para sonar? Los sintéticos siempre lo están.
+export function isLoaded(id = currentInstrument) {
+  if (!SAMPLE_BANKS[id]) return true;
+  return !!banks.get(id)?.samples;
+}
 
 function ensureOutput() {
   const ctx = engine.getAudioContext();
@@ -101,10 +127,10 @@ function ensureOutput() {
   return outputGain;
 }
 
-// Sample más cercano a la nota pedida (menor distancia en semitonos).
-function nearestSample(midi) {
-  let best = samples[0], bestDist = Infinity;
-  for (const s of samples) {
+// Sample más cercano (menor distancia en semitonos) dentro de un banco.
+function nearestSample(bankSamples, midi) {
+  let best = bankSamples[0], bestDist = Infinity;
+  for (const s of bankSamples) {
     const d = Math.abs(s.midi - midi);
     if (d < bestDist) { bestDist = d; best = s; }
   }
@@ -137,24 +163,30 @@ const SYNTH = {
   bass:   { gain: 0.55, osc: [{ type: 'square', gain: 0.7 }, { type: 'sawtooth', gain: 0.3, octave: -1 }], filter: { base: 450, vel: 2400, q: 0.8 }, adsr: { a: 0.004, d: 0.2, s: 0.55, r: 0.22 } },
 };
 export const INSTRUMENTS = [
-  { id: 'piano', name: 'Piano' },
-  { id: 'rhodes', name: 'Rhodes' },
-  { id: 'pad', name: 'Pad / Strings' },
-  { id: 'lead', name: 'Synth lead' },
-  { id: 'bass', name: 'Synth bass' },
+  { id: 'piano', name: 'Piano' },          // samples (Salamander)
+  { id: 'rhodes', name: 'Rhodes' },        // sintético (FM)
+  { id: 'strings', name: 'Strings' },      // samples (cello)
+  { id: 'pad', name: 'Pad' },              // sintético
+  { id: 'lead', name: 'Synth lead' },      // sintético
+  { id: 'bass', name: 'Bass' },            // samples (bajo eléctrico)
 ];
 let currentInstrument = 'piano';
-export function setInstrument(id) { if (id === 'piano' || SYNTH[id]) currentInstrument = id; }
+export function setInstrument(id) {
+  if (!(SAMPLE_BANKS[id] || SYNTH[id])) return;
+  currentInstrument = id;
+  if (SAMPLE_BANKS[id]) loadSamples(id);   // precarga el banco de samples
+}
 export function getInstrument() { return currentInstrument; }
 export function instrumentName(id) { return (INSTRUMENTS.find(i => i.id === id) || {}).name || 'Piano'; }
 
 let sustainOn = false;
 const sustained = new Set();   // midis a soltar cuando se levante el pedal
 
-// Voz de PIANO (sample) con release(at, fast). Vale en vivo y en el offline.
-function buildSampleVoice(ctx, midi, velocity, dest, when) {
-  if (!samples) return null;
-  const s = nearestSample(midi);
+// Voz por SAMPLES (piano/strings/bass) con release(at, fast). Vivo y offline.
+function buildSampleVoice(ctx, midi, velocity, dest, when, instrumentId) {
+  const bank = banks.get(instrumentId);
+  if (!bank || !bank.samples) return null;
+  const s = nearestSample(bank.samples, midi);
   const src = ctx.createBufferSource();
   src.buffer = s.buffer;
   src.playbackRate.value = Math.pow(2, (midi - s.midi) / 12);
@@ -222,8 +254,8 @@ function buildSynthVoice(ctx, midi, velocity, dest, def, when) {
 }
 
 function makeVoice(ctx, midi, velocity, dest, when, instrumentId) {
-  return (instrumentId === 'piano')
-    ? buildSampleVoice(ctx, midi, velocity, dest, when)
+  return SAMPLE_BANKS[instrumentId]
+    ? buildSampleVoice(ctx, midi, velocity, dest, when, instrumentId)
     : buildSynthVoice(ctx, midi, velocity, dest, SYNTH[instrumentId] || SYNTH.rhodes, when);
 }
 
@@ -270,7 +302,7 @@ export function panic() {
 // events: [{ midi, velocity, startSec, endSec | durationSec }].
 export async function renderEventsToBuffer(events, durationSec, instrumentId = currentInstrument) {
   if (!events.length) return null;
-  if (instrumentId === 'piano') { if (!samples) { try { await loadSamples(); } catch (_) {} } if (!samples) return null; }
+  if (SAMPLE_BANKS[instrumentId]) { try { await loadSamples(instrumentId); } catch (_) {} if (!isLoaded(instrumentId)) return null; }
   const length = Math.max(1, Math.ceil((durationSec + REVERB_SEC) * SAMPLE_RATE));
   const offline = new OfflineAudioContext(2, length, SAMPLE_RATE);
   const bus = offline.createGain();
