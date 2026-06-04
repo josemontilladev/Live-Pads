@@ -1666,6 +1666,7 @@ function appendConsoleStrip(track) {
 function kindLabelFor(track) {
   return track.kind === 'click' ? 'CLICK'
        : track.kind === 'guide' ? 'GUÍA'
+       : track.kind === 'midi'  ? 'MIDI'
        : 'AUDIO';
 }
 
@@ -2849,6 +2850,7 @@ function openPianoRollForTrack(id) {
     bpm: bpmFloat || bpm,
     beatsPerBar,
     color: t.color || currentAccent(),
+    projectKey,
     onSave: async (newNotes) => {
       trackNotes.set(id, newNotes);
       try { await rebounceMidiTrack(id); scheduleSave(); }

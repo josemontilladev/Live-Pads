@@ -117,7 +117,8 @@ export function noteOn(midi, velocity = 100) {
   if (!samples) return;
   const ctx = engine.getAudioContext();
   if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
-  if (activeVoices.has(midi)) noteOff(midi, 0.04);
+  if (activeVoices.has(midi)) reallyOff(midi, 0.04);   // retrigger: corta la anterior
+  sustained.delete(midi);
 
   const out = ensureOutput();
   const s = nearestSample(midi);
@@ -134,8 +135,15 @@ export function noteOn(midi, velocity = 100) {
   activeVoices.set(midi, { source: src, gain });
 }
 
-// Suelta una nota con una pequeña cola de release.
-export function noteOff(midi, release = RELEASE_SEC) {
+// Pedal de sustain (CC64): mientras está abajo, las notas no se sueltan.
+let sustainOn = false;
+const sustained = new Set();   // midis a soltar cuando se levante el pedal
+export function setSustain(on) {
+  sustainOn = !!on;
+  if (!sustainOn) { for (const m of sustained) reallyOff(m); sustained.clear(); }
+}
+
+function reallyOff(midi, release = RELEASE_SEC) {
   const voice = activeVoices.get(midi);
   if (!voice) return;
   activeVoices.delete(midi);
@@ -147,6 +155,12 @@ export function noteOff(midi, release = RELEASE_SEC) {
     voice.gain.gain.linearRampToValueAtTime(0.0001, now + release);
     voice.source.stop(now + release + 0.02);
   } catch (_) {}
+}
+
+// Suelta una nota (o la difiere si el pedal de sustain está abajo).
+export function noteOff(midi, release = RELEASE_SEC) {
+  if (sustainOn) { sustained.add(midi); return; }
+  reallyOff(midi, release);
 }
 
 // Corta TODO el piano de inmediato (pánico / cierre del panel).
@@ -161,6 +175,8 @@ export function panic() {
     } catch (_) {}
   }
   activeVoices.clear();
+  sustained.clear();
+  sustainOn = false;
 }
 
 // Renderiza una lista de eventos a un AudioBuffer (bounce offline para volcar la
