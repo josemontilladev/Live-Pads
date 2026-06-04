@@ -1343,15 +1343,17 @@ body[data-workspace="stems"] #body {
    traerla al tope con scrollIntoView, el scroll-margin la deja bajo la regla
    pegajosa (.stems-head-tl = 40px) en vez de tapada por ella. */
 .stems-row { scroll-margin-top: 44px; }
-/* Pista localizada (clic en su strip de consola): se resalta TODA la fila a lo
-   ancho del timeline —no solo la tira izquierda— para verla de un vistazo aunque
-   la canción esté avanzando. El canvas es transparente, así que el fondo se ve. */
-.stems-row.is-located {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
-}
+/* Pista localizada (clic en su strip de consola): el LANE se tiñe a lo ancho
+   (= todo el largo del track) para verla de un vistazo aunque la canción avance.
+   La tira izquierda solo lleva una barra de acento, así no tapa los controles.
+   El tinte del lane se define más abajo (tras el hover, para ganarle). */
 .stems-row.is-located .stems-row-strip {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-card));
+  box-shadow: inset 3px 0 0 var(--accent);
+  /* Por encima del overlay del lane (z-index 2): si no, al desplazar la pista
+     el overlay tapaba el strip y "rellenaba" los controles de forma despareja.
+     Así el strip queda relleno parejo siempre, con los controles legibles. */
+  z-index: 4;
 }
 .stems-console-strip.is-located {
   border-color: var(--accent);
@@ -1645,6 +1647,25 @@ body[data-workspace="stems"] #body {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.025), transparent),
     var(--bg);
+}
+/* Lane de la pista localizada: tinte de acento a lo ANCHO (todo el largo del
+   track; el lane mide lo que el canvas). Definido tras el hover para que gane
+   aunque se pase el mouse por encima. */
+.stems-row.is-located .stems-row-lane,
+.stems-row.is-located:hover .stems-row-lane {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+}
+/* Overlay translúcido POR ENCIMA de la grilla y el waveform (z-index 2 > grid
+   z-index 1) para que la pista seleccionada resalte de verdad y no se pierda
+   entre las líneas del compás. Lleva también las líneas de foco arriba/abajo. */
+.stems-row.is-located .stems-row-lane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
 }
 .stems-row-canvas {
   display: block;

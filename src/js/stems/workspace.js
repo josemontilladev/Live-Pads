@@ -858,13 +858,26 @@ function startMasterMeter() {
 // closest() check below scopes it to lanes / head-tl only.
 function wireSeekClicks(root) {
   root.addEventListener('click', (e) => {
-    if (e.target.closest('.stems-row-strip')) return;
+    // Clic en los controles de la fila (timeline) → enfocar/resaltar la pista
+    // también, no solo al clickear el lane. Sin scroll (la fila ya está a la
+    // vista) y sin seek (no es una zona de tiempo). Los controles siguen
+    // funcionando: solo agregamos el resaltado.
+    const stripEl = e.target.closest('.stems-row-strip');
+    if (stripEl) {
+      const rowS = stripEl.closest('.stems-row');
+      if (rowS?.dataset.trackId) locateTrackRow(rowS.dataset.trackId, { scroll: false });
+      return;
+    }
     if (e.target.closest('.stems-row-remove')) return; // remove button bubbles
     if (e.target.closest('.stems-marker-remove')) return;
     if (e.target.closest('input, select, button')) return;
     const lane = e.target.closest('.stems-row-lane') ||
                  e.target.closest('.stems-head-tl');
     if (!lane) return;
+    // Clic en una pista del timeline → también la enfoca/resalta, igual que al
+    // hacer clic en su strip de la consola. (El ruler/head-tl no es una pista.)
+    const rowEl = lane.closest('.stems-row');
+    if (rowEl?.dataset.trackId) locateTrackRow(rowEl.dataset.trackId, { scroll: false });
     const rect = lane.getBoundingClientRect();
     const x = e.clientX - rect.left;
     if (x < 0) return;
@@ -1832,7 +1845,7 @@ function wireVerticalFader(faderEl, { onInput, onCommit }) {
 // trae al tope del área de arrastre, para que el usuario vea de inmediato qué
 // pista está tocando en la consola. Capa propia (.is-located) — independiente
 // de la multi-selección (.is-selected) de Ctrl+clic.
-function locateTrackRow(id) {
+function locateTrackRow(id, { scroll = true } = {}) {
   const entry = trackRows.get(id);
   if (!entry || !entry.row) return;
   document.querySelectorAll('#stems-rows .stems-row.is-located')
@@ -1841,20 +1854,54 @@ function locateTrackRow(id) {
     .forEach(s => s.classList.remove('is-located'));
   entry.row.classList.add('is-located');
   if (entry.console) entry.console.classList.add('is-located');
-  // Durante la reproducción el auto-follow reescribe scrollLeft cada frame, lo
-  // que CANCELA un scroll suave en curso → la fila no subía al tope. Con scroll
-  // instantáneo (behavior:'auto') el salto es sincrónico y persiste (el follow
-  // solo toca scrollLeft). Fuera de reproducción dejamos el suave, más prolijo.
+  // Desde la consola (scroll:true) traemos la fila al tope para ubicarla. Desde
+  // un clic en el propio timeline (scroll:false) NO scrolleamos: la fila ya está
+  // a la vista y saltarla sería molesto. Durante la reproducción tampoco se sube
+  // al tope (el auto-follow reescribe scrollLeft y producía un pestañeo).
   let playing = false;
   try { playing = engine.isCurrentlyPlaying(); } catch (_) {}
-  entry.row.scrollIntoView({ block: 'start', behavior: playing ? 'auto' : 'smooth' });
+  if (scroll && !playing) entry.row.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+// Iconos del menú contextual del strip (los mismos que las acciones de la fila).
+const ICON_MENU_PR   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>';
+const ICON_MENU_SEP  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
+const ICON_MENU_HARM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+const ICON_MENU_EXP  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+
+// Menú contextual (clic derecho) de un strip de la consola: ofrece las mismas
+// acciones que la fila de la pista (separar, armónica, exportar, eliminar, o
+// editar notas si es MIDI), en el dropdown discreto de las tarjetas. Cada item
+// dispara el botón real de la fila para reusar toda su lógica (confirmaciones,
+// re-bounce, etc.).
+function openStripContextMenu(anchorEl, id) {
+  const entry = trackRows.get(id);
+  if (!entry || !entry.row) return;
+  locateTrackRow(id, { scroll: false });
+  const row = entry.row;
+  const btn = (a) => row.querySelector(`[data-action="${a}"]`);
+  // (locate sin scroll arriba: un scrollIntoView dispara eventos de scroll que
+  //  cerrarían el menú recién abierto → hacía falta un segundo clic.)
+  const items = [];
+  if (btn('piano-roll')) items.push({ icon: ICON_MENU_PR,   label: 'Editar notas (piano roll)', onSelect: () => btn('piano-roll').click() });
+  if (btn('separate'))   items.push({ icon: ICON_MENU_SEP,  label: 'Separar voz e instrumental', onSelect: () => btn('separate').click() });
+  if (btn('harmony'))    items.push({ icon: ICON_MENU_HARM, label: 'Referencia armónica',        onSelect: () => btn('harmony').click() });
+  if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export').click() });
+  if (btn('remove'))     items.push({ icon: SVG_TRASH,      label: 'Eliminar pista', danger: true, onSelect: () => btn('remove').click() });
+  if (items.length) openCardMoreMenu(anchorEl, items);
 }
 
 function wireConsoleStrip(strip, id) {
   if (!strip) return;
   // Clic en cualquier parte del strip (en captura, para anteceder al fader)
-  // localiza y resalta su pista en el timeline.
-  strip.addEventListener('pointerdown', () => locateTrackRow(id), true);
+  // localiza y resalta su pista en el timeline. En clic DERECHO no scrolleamos:
+  // el scroll dispararía el cierre del menú contextual (ver openStripContextMenu).
+  strip.addEventListener('pointerdown', (e) => locateTrackRow(id, { scroll: e.button !== 2 }), true);
+  // Clic derecho → menú con las acciones de la pista (mismo dropdown discreto).
+  strip.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    openStripContextMenu(strip, id);
+  });
   const faderEl = strip.querySelector('.stems-cfader');
   const panInput = strip.querySelector('[data-action="pan"]');
   paintPanFill(panInput);
@@ -2722,6 +2769,16 @@ async function removeTrackById(id) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
     document.getElementById('workspace-stems')?.classList.remove('has-tracks');
+    // Volver al estado "sin pistas" limpio. Sin esto, el timeline quedaba
+    // alargado: el playhead conserva su transform en la posición vieja y eso
+    // genera overflow scrollable. Paramos, reseteamos zoom/playhead a 0 y
+    // llevamos el scroll al inicio.
+    try { engine.stop(); } catch (_) {}
+    applyPlayingState(false);
+    setZoom(40); // zoom por defecto → ancho del timeline vuelve al del estado vacío
+    applyTimeUpdate(0); // playhead a 0 (elimina el overflow)
+    const arrange = document.getElementById('stems-arrange');
+    if (arrange) arrange.scrollLeft = 0;
   }
   selectedTrackIds.delete(id);
   refreshTransport();
