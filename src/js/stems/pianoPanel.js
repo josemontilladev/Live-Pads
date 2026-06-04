@@ -90,6 +90,7 @@ export function mountPianoPanel(container, depsIn) {
         <span>VOL</span>
         <input type="range" id="pk-vol" min="0" max="100" value="90" class="stems-range stems-range--fill" aria-label="Volumen del piano">
       </label>
+      <button class="pk-reverb" id="pk-reverb" type="button" title="Reverb (más profundidad)" aria-pressed="false">Reverb</button>
       <button class="pk-rec" id="pk-rec" type="button" title="Grabar la melodía en sincronía con el transporte">
         <span class="pk-rec-dot" aria-hidden="true"></span>
         <span class="pk-rec-label">Grabar</span>
@@ -112,6 +113,21 @@ export function mountPianoPanel(container, depsIn) {
   const instSel = panelEl.querySelector('#pk-inst');
   instSel.value = piano.getInstrument();
   instSel.onchange = (e) => piano.setInstrument(e.target.value);
+  // Toggle de reverb (más profundidad), recordado entre sesiones.
+  const reverbBtn = panelEl.querySelector('#pk-reverb');
+  let reverbOn = false;
+  try { reverbOn = localStorage.getItem('piano-reverb-deep') === '1'; } catch {}
+  const applyReverb = () => {
+    piano.setReverbDeep(reverbOn);
+    reverbBtn.classList.toggle('is-on', reverbOn);
+    reverbBtn.setAttribute('aria-pressed', reverbOn ? 'true' : 'false');
+  };
+  applyReverb();
+  reverbBtn.onclick = () => {
+    reverbOn = !reverbOn;
+    try { localStorage.setItem('piano-reverb-deep', reverbOn ? '1' : '0'); } catch {}
+    applyReverb();
+  };
 
   wireMouse();
   wireComputerKeyboard();

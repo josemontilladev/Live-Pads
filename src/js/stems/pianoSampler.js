@@ -32,6 +32,8 @@ let samples = null;           // [{ midi, buffer }] ordenado por midi
 let loadPromise = null;
 let outputGain = null;        // bus del piano (pre-reverb) → master del engine
 let pianoVolume = 0.9;        // 0..1, ajustable por el usuario
+let reverbWet = REVERB_WET;   // mezcla de reverb actual (toggle = más profundidad)
+let liveWet = null;           // nodo wet del reverb en vivo (para ajustarlo)
 const activeVoices = new Map(); // midi → { source, gain }
 const irCache = new Map();      // sampleRate → AudioBuffer (impulso del reverb)
 
@@ -53,13 +55,21 @@ function getImpulse(ctx) {
 }
 
 // Conecta una fuente de mezcla `bus` a `destination` con dry + wet (reverb).
+// Devuelve el nodo wet para poder ajustar la profundidad después.
 function wireReverb(ctx, bus, destination) {
   const dry = ctx.createGain(); dry.gain.value = 1;
-  const wet = ctx.createGain(); wet.gain.value = REVERB_WET;
+  const wet = ctx.createGain(); wet.gain.value = reverbWet;
   const conv = ctx.createConvolver(); conv.buffer = getImpulse(ctx);
   bus.connect(dry); dry.connect(destination);
   bus.connect(conv); conv.connect(wet); wet.connect(destination);
+  return wet;
 }
+// Toggle de profundidad de reverb (afecta el sonido en vivo y los bounces nuevos).
+export function setReverbDeep(on) {
+  reverbWet = on ? 0.62 : REVERB_WET;
+  if (liveWet) liveWet.gain.value = reverbWet;
+}
+export function isReverbDeep() { return reverbWet > REVERB_WET + 0.001; }
 
 // Carga + decodifica todos los samples una sola vez (idempotente).
 export function loadSamples() {
@@ -86,7 +96,7 @@ function ensureOutput() {
     outputGain = ctx.createGain();
     outputGain.gain.value = pianoVolume;
     // Dry + reverb hacia el master del engine, para un sonido más profundo.
-    wireReverb(ctx, outputGain, engine.getMasterGain());
+    liveWet = wireReverb(ctx, outputGain, engine.getMasterGain());
   }
   return outputGain;
 }
