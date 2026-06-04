@@ -21,6 +21,84 @@ function isChordLine(line) {
   return chordCount > 0 && wordCount === 0;
 }
 
+// Sinónimos de sección (ES/EN, sin tildes ni separadores) → etiqueta canónica.
+// La clave es solo-letras en mayúscula, así "PRE-CORO" / "PRE CORO" / "PRECORO"
+// caen todos en la misma entrada.
+const SECTION_SYNONYMS = {
+  INTRO: 'INTRO', INTRODUCCION: 'INTRO',
+  VERSO: 'VERSO', VERSE: 'VERSO', ESTROFA: 'VERSO',
+  PRECORO: 'PRE-CORO', PRECHORUS: 'PRE-CORO',
+  CORO: 'CORO', CHORUS: 'CORO', ESTRIBILLO: 'CORO',
+  PUENTE: 'PUENTE', BRIDGE: 'PUENTE',
+  INSTRUMENTAL: 'INSTRUMENTAL', INTERLUDIO: 'INTERLUDIO', INTERLUDE: 'INTERLUDIO',
+  SOLO: 'SOLO',
+  FINAL: 'FINAL', OUTRO: 'FINAL', ENDING: 'FINAL', CODA: 'FINAL',
+  TAG: 'TAG', PRE: 'PRE-CORO',
+};
+
+// ¿Esta línea es un encabezado de sección "suelto" (p. ej. "CORO:", "Verso 2",
+// "[Pre-Coro]")? Devuelve { canon, num } o null. No toca líneas largas ni de
+// acordes (para no confundir una letra que empiece con una palabra clave).
+function detectSectionHeader(line) {
+  let s = (line || '').trim();
+  if (!s || s.length > 26) return null;
+  if (isChordLine(s)) return null;
+  // Quita corchetes/paréntesis externos y puntuación de borde (":", "-", "—"…).
+  s = s.replace(/^[\[\(\{]+/, '').replace(/[\]\)\}]+$/, '').trim();
+  s = s.replace(/[\s:：.\-–—_]+$/, '').replace(/^[\s:：.\-–—_]+/, '').trim();
+  if (!s) return null;
+  const upper = s.toUpperCase();
+  const numMatch = upper.match(/(\d+)\s*$/);
+  const num = numMatch ? numMatch[1] : '';
+  const wordPart = upper.replace(/\d+\s*$/, '');
+  const lettersKey = wordPart.replace(/[^A-ZÁÉÍÓÚÑ]/g, '');
+  const canon = SECTION_SYNONYMS[lettersKey];
+  return canon ? { canon, num } : null;
+}
+
+// Envuelve cada acorde de una línea de solo-acordes en corchetes ([F] [Am]…),
+// conservando los espacios (la alineación sobre la letra se mantiene; en la
+// vista previa los corchetes se quitan). No re-bracketea lo que ya lo tiene ni
+// las marcas de repetición tipo "x2".
+function bracketChordLine(line) {
+  return line.replace(/\S+/g, (tok) => {
+    if (tok.startsWith('[')) return tok;
+    if (/^x\d+$/i.test(tok)) return tok;
+    const core = tok.replace(/[()]/g, '');
+    return CHORD_REGEX.test(core) ? `[${tok}]` : tok;
+  });
+}
+
+// Auto-formatea letra pegada en crudo: (1) convierte los encabezados de sección
+// al formato canónico [SECCIÓN] (con auto-numeración de versos) separándolos con
+// una línea en blanco, y (2) envuelve los acordes de las líneas de solo-acordes
+// en corchetes para que se resalten. Las líneas de letra no se tocan.
+export function autoFormatLyrics(text) {
+  if (!text) return text;
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out = [];
+  let versoAuto = 0;
+  for (const raw of lines) {
+    const sec = detectSectionHeader(raw);
+    if (sec) {
+      let label = sec.canon;
+      if (sec.canon === 'VERSO') {
+        if (sec.num) { versoAuto = Math.max(versoAuto, parseInt(sec.num, 10)); label = `VERSO ${sec.num}`; }
+        else { versoAuto += 1; label = `VERSO ${versoAuto}`; }
+      } else if (sec.num) {
+        label = `${sec.canon} ${sec.num}`;
+      }
+      if (out.length && out[out.length - 1].trim() !== '') out.push(''); // aire antes
+      out.push(`[${label}]`);
+    } else if (isChordLine(raw)) {
+      out.push(bracketChordLine(raw));
+    } else {
+      out.push(raw);
+    }
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
 export function formatLyrics(lyrics) {
   if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
 
@@ -38,11 +116,10 @@ export function formatLyrics(lyrics) {
     }
 
     const isBracketedHeader = trimmed.startsWith('[') && trimmed.endsWith(']') && !isChordLine(trimmed);
-    // A bare keyword header must BE the keyword (optionally + a number), e.g.
-    // "VERSO 2" or "CORO" — not just any lyric line that happens to start with
-    // one ("Verso favorito mío" must stay a lyric, not become a header).
-    const headerCandidate = trimmed.toUpperCase().replace(/\s+\d+$/, '').trim();
-    const isKeywordHeader = SECTION_KEYWORDS.includes(headerCandidate);
+    // Encabezado "suelto" (sin corchetes): "CORO", "CORO:", "Verso 2", "Pre-Coro"…
+    // detectSectionHeader ya descarta líneas largas, de acordes, o letras que
+    // solo empiezan con una palabra clave ("Verso favorito mío" sigue siendo letra).
+    const isKeywordHeader = !!detectSectionHeader(trimmed);
 
     if (isBracketedHeader || isKeywordHeader) {
       const headerText = trimmed.replace(/\[|\]/g, '');

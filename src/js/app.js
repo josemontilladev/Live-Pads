@@ -703,6 +703,14 @@ function bindRestOfApp() {
     loadGiSetlistFromFile(true);
   });
 
+  // Cambio EN MEMORIA de la lista (crear/asignar canción desde Stems u otra
+  // pantalla): re-render SIN recargar de disco. getSongs() es el mismo array
+  // compartido, así que la canción nueva ya está; aparece al instante sin Ctrl+R.
+  window.addEventListener('livepads:songs-changed', () => {
+    updateFilterCounts();
+    renderGiList(q('#gi-search')?.value || '');
+  });
+
   // Borrado propagado: al eliminar una canción que está en la nube, la quita
   // también de la librería compartida (silencioso sin red / sin permiso).
   window.addEventListener('livepads:song-deleted', (ev) => {

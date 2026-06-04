@@ -30,6 +30,7 @@ const ICON_TRASH  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width
 const ICON_MORE   = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 const ICON_PLAY   = '<svg class="gi-row-num-play" viewBox="0 0 24 24" fill="var(--blue)" width="12" height="12" style="filter:drop-shadow(0 0 3px var(--blue));margin-right:1px;"><polygon points="5,3 19,12 5,21"/></svg>';
 const ICON_PENCIL = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const ICON_CHORDS = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 const ICON_STAR_OUTLINE = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
@@ -136,9 +137,7 @@ export function songCardInnerHTML(song, opts) {
     <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">
       <div class="lyrics-accordion-header">
         <button class="lyrics-edit-btn" data-action="edit-lyrics" title="Editar letra y acordes">${ICON_PENCIL}</button>
-        <button class="chord-toggle-btn lyrics-chord-pill ${showChords ? 'active' : ''}" data-action="toggle-chords" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}">
-          ${showChords ? 'Con acordes' : 'Solo letra'}
-        </button>
+        <button class="chord-toggle-btn ${showChords ? 'active' : ''}" data-action="toggle-chords" title="${showChords ? 'Ocultar acordes' : 'Mostrar acordes'}" aria-label="Mostrar u ocultar acordes">${ICON_CHORDS}</button>
         <button class="lyrics-fs-btn" data-action="lyrics-fullscreen" title="Pantalla completa (uso en vivo)" aria-label="Pantalla completa">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="4 14 4 20 10 20"/><polyline points="20 10 20 4 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
         </button>

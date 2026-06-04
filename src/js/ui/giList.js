@@ -5,7 +5,7 @@
 
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML } from './songCard.js';
-import { songEditFormHTML } from './songEditForm.js';
+import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
@@ -533,11 +533,18 @@ function initDelegation() {
         if (tagsEl) {
           song.tags = tagsEl.value.split(',').map(t => t.trim()).filter(Boolean);
         }
+        const libChanged = applyLibrarySelection(card, song);
         deps.persist();
         deps.updateFilterCounts();
         const sortChanged = oldTitle !== song.title;
         const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
-        if (sortChanged || filterChanged) {
+        if (libChanged) {
+          // La canción pudo cambiar de repertorio: re-render acá (para que salga
+          // o desaparezca del filtro actual) y avisar a Stems para que se sincronice.
+          const searchInput = q('#gi-search');
+          renderGiList(searchInput ? searchInput.value : '');
+          window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+        } else if (sortChanged || filterChanged) {
           const searchInput = q('#gi-search');
           renderGiList(searchInput ? searchInput.value : '');
         } else {

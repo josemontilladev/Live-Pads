@@ -178,7 +178,7 @@ function openServiceCardMenu(anchorEl, song, card) {
     {
       label: 'Editar',
       icon: ICON_EDIT_SM,
-      onSelect: () => { card.innerHTML = songEditFormHTML(song); }
+      onSelect: () => { card.innerHTML = songEditFormHTML(song, { showLibrary: false }); }
     },
     {
       label: 'Quitar del servicio',
@@ -253,7 +253,7 @@ function initDelegation() {
         return;
       }
       case 'edit':
-        card.innerHTML = songEditFormHTML(song);
+        card.innerHTML = songEditFormHTML(song, { showLibrary: false });
         return;
       case 'edit-save': {
         // The library is matched by title+artist; if either was renamed in

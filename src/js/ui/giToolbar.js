@@ -212,6 +212,8 @@ function bindSearchAndAdd(deps) {
       const searchEl = q('#gi-search');
       if (searchEl) searchEl.value = '';
       renderGiList('', newSong.id);
+      // Avisar a otras pantallas (panel de Stems) para que aparezca sin Ctrl+R.
+      window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     };
   }
 }

@@ -831,6 +831,17 @@ input.pan-slider {
 }
 .gi-edit-row     { display: flex; gap: 8px; }
 .gi-edit-actions { display: flex; gap: 8px; margin-top: 6px; }
+/* Fila "Guardar en [biblioteca]" (crear/editar canción, Pads y Stems). */
+.gi-edit-lib-row {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.gi-edit-lib-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.gi-edit-lib-row .edit-library { flex: 1; width: 0; }
 .gi-edit-input {
   width: 100%;
   padding: 9px 11px;
