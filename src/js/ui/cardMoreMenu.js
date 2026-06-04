@@ -39,8 +39,16 @@ function onDocDown(e) {
 }
 
 function onScroll(e) {
-  // Cierra al hacer scroll en cualquier ancestro (lista de canciones).
-  if (currentMenu && !currentMenu.contains(e.target)) close();
+  if (!currentMenu) return;
+  if (currentMenu.contains(e.target)) return;
+  // Cerrar solo si el contenedor que scrollea CONTIENE al ancla (el menú se
+  // despega de su botón). Un scroll de otro panel —p. ej. el timeline de Stems
+  // auto-siguiendo el playhead en reproducción— no debe cerrar un menú anclado
+  // en la consola. Sin esto, el menú se cerraba al instante durante el play.
+  const t = e.target;
+  const scrolledHoldsAnchor = !!(currentAnchor && t && typeof t.contains === 'function' && t !== document && t.contains(currentAnchor));
+  const isDocScroll = !t || typeof t.contains !== 'function' || t === document;
+  if (scrolledHoldsAnchor || isDocScroll) close();
 }
 
 export function openCardMoreMenu(anchorBtn, items) {
