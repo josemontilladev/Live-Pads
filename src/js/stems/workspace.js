@@ -1471,33 +1471,58 @@ async function importFiles(fileList) {
   // synchronous-heavy decode work (decodeAudioData can briefly block).
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  let done = 0;
   try {
-   for (const file of files) {
-    if (importAbort) break;   // Esc canceló: no procesar más archivos
-    try {
-      updateImportOverlay(done, files.length, file.name);
-      await new Promise(r => requestAnimationFrame(r)); // let the name paint
-      const arrayBuffer = await file.arrayBuffer();
-      const id = `t${nextTrackId++}`;
-      const name = file.name.replace(/\.[^.]+$/, '');
-      await engine.addTrack({ id, name, arrayBuffer });
-      engine.setTrackColor(id, nextStemColor());
-      const savedPath = await projectStore.saveStem(id, file.name, arrayBuffer);
-      appendTrackRow(id, savedPath);
-    } catch (err) {
-      console.error('Failed to import', file.name, err);
-      const raw = String(err && err.message || err);
-      // El error nativo de decode ("Unable to decode audio data") no le dice
-      // nada al usuario; lo traducimos a algo accionable.
-      const msg = /decode/i.test(raw)
-        ? `No se pudo importar "${file.name}": formato de audio no soportado o archivo dañado. Probá reexportarlo como WAV 16-bit o MP3.`
-        : `No se pudo importar "${file.name}": ${raw}`;
-      toast(msg);
+    // FASE 1 — leer los BYTES de todos los archivos cuanto antes, mientras las
+    // referencias del drag/drop siguen frescas. Si se intercala el trabajo
+    // pesado (decodificar + guardar) entre lecturas, las referencias de los
+    // últimos archivos expiran y file.arrayBuffer() falla con NotReadableError
+    // ("...permission problems after a reference to a file was acquired").
+    // EN PARALELO: leer es I/O, en serie agregaba demora; así la fase es casi
+    // instantánea y las pistas empiezan a aparecer enseguida en la fase 2.
+    updateImportOverlay(0, files.length, 'Leyendo archivos…');
+    await new Promise(r => requestAnimationFrame(r)); // que pinte el overlay
+    const settled = await Promise.all(files.map(async (file) => {
+      try {
+        return { name: file.name, arrayBuffer: await file.arrayBuffer() };
+      } catch (err) {
+        console.error('Failed to read', file.name, err);
+        const raw = String(err && err.message || err);
+        toast(/could not be read|NotReadable|permission|reference to a file/i.test(raw)
+          ? `No se pudo leer "${file.name}": el archivo dejó de ser accesible durante la importación (pudo moverse, renombrarse o bloquearse). Volvé a arrastrarlo e intentá de nuevo.`
+          : `No se pudo leer "${file.name}": ${raw}`);
+        return null;
+      }
+    }));
+    const loaded = settled.filter(Boolean);
+
+    // FASE 2 — decodificar + guardar + agregar pista. Ya no se tocan los File,
+    // así que no importa cuánto tarde. Liberamos cada buffer al terminarlo.
+    let done = 0;
+    for (const item of loaded) {
+      if (importAbort) break;
+      try {
+        updateImportOverlay(done, loaded.length, item.name);
+        await new Promise(r => requestAnimationFrame(r));
+        const id = `t${nextTrackId++}`;
+        const name = item.name.replace(/\.[^.]+$/, '');
+        await engine.addTrack({ id, name, arrayBuffer: item.arrayBuffer });
+        engine.setTrackColor(id, nextStemColor());
+        const savedPath = await projectStore.saveStem(id, item.name, item.arrayBuffer);
+        appendTrackRow(id, savedPath);
+      } catch (err) {
+        console.error('Failed to import', item.name, err);
+        const raw = String(err && err.message || err);
+        // El error nativo de decode ("Unable to decode audio data") no le dice
+        // nada al usuario; lo traducimos a algo accionable.
+        const msg = /decode/i.test(raw)
+          ? `No se pudo importar "${item.name}": formato de audio no soportado o archivo dañado. Probá reexportarlo como WAV 16-bit o MP3.`
+          : `No se pudo importar "${item.name}": ${raw}`;
+        toast(msg);
+      }
+      item.arrayBuffer = null; // liberar memoria a medida que avanzamos
+      done++;
+      updateImportOverlay(done, loaded.length, '');
     }
-    done++;
-    updateImportOverlay(done, files.length, '');
-   }
   } finally {
     importInProgress = false;
   }
