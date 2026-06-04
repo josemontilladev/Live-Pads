@@ -18,11 +18,19 @@ let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSem
 let currentType = null;
 let currentSong = null;
 
-// Web Audio graph: PitchAudio (fuente con pitch-shift) → pannerNode → destino.
-// audioCtx es singleton; pannerNode se reconstruye por carga.
+// Web Audio graph: PitchAudio → makeupNode → limiterNode → pannerNode → destino.
+// audioCtx es singleton; los nodos se reconstruyen por carga.
 let audioCtx = null;
 let pannerNode = null;
+let makeupNode = null;       // ganancia de compensación (nivela la Pista con pads/batería)
+let trackLimiter = null;     // limitador de seguridad para que el makeup no sature
 let currentPitch = 0;        // semitonos aplicados al audio cargado
+
+// La Pista vive en su propio AudioContext (sin el master/limiter del SynthEngine),
+// así que sale "en crudo" mientras pads/batería/click pasan por un limiter
+// maximizador y suenan mucho más fuerte. Esta ganancia de compensación sube la
+// Pista a un nivel comparable; el trackLimiter de abajo evita que sature.
+const TRACK_MAKEUP = 1.9;    // ≈ +5.6 dB
 
 // Loop/repeat is a persistent transport mode, not per-track. Held here so the
 // button works whether or not a track is loaded, and every freshly loaded
@@ -94,19 +102,38 @@ function ensureAudioCtx() {
   return audioCtx;
 }
 
-// Inserta el panner entre la fuente (audio.output) y el destino.
-// audio.output es el nodo de ganancia de PitchAudio; pan no afecta el volumen.
+// Inserta makeup → limiter → panner entre la fuente (audio.output) y el destino.
+// audio.output es el nodo de ganancia de PitchAudio; el makeup nivela la Pista
+// con los demás canales y el limiter la protege de saturar. El pan no afecta el
+// volumen.
 function connectPanGraph() {
   if (!audio || !audioCtx) return;
   try {
+    makeupNode = audioCtx.createGain();
+    makeupNode.gain.value = TRACK_MAKEUP;
+
+    // Limitador de seguridad: solo actúa en los picos que el makeup empuja
+    // por encima de ~-1 dB, así sube el cuerpo de la Pista sin clipear.
+    trackLimiter = audioCtx.createDynamicsCompressor();
+    trackLimiter.threshold.value = -1;
+    trackLimiter.knee.value = 0;
+    trackLimiter.ratio.value = 20;
+    trackLimiter.attack.value = 0.003;
+    trackLimiter.release.value = 0.1;
+
     pannerNode = audioCtx.createStereoPanner();
     const panEl = els.panSlider;
     pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
-    audio.output.connect(pannerNode);
+
+    audio.output.connect(makeupNode);
+    makeupNode.connect(trackLimiter);
+    trackLimiter.connect(pannerNode);
     pannerNode.connect(audioCtx.destination);
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
     pannerNode = null;
+    makeupNode = null;
+    trackLimiter = null;
   }
 }
 
@@ -115,6 +142,8 @@ export function cleanupTrackAudio() {
   if (audio) {
     try { audio.output && audio.output.disconnect(); } catch (e) {}
   }
+  if (makeupNode) { try { makeupNode.disconnect(); } catch (e) {} makeupNode = null; }
+  if (trackLimiter) { try { trackLimiter.disconnect(); } catch (e) {} trackLimiter = null; }
   if (pannerNode) { try { pannerNode.disconnect(); } catch (e) {} pannerNode = null; }
   if (audio) {
     try {
