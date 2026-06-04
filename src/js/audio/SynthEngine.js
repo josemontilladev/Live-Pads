@@ -10,6 +10,7 @@ export class SynthEngine {
     this.activePadNodes = [];
     this.customPads = {};
     this.customDrums = {};
+    this.customDrumOffsets = {};   // padId → segundos de silencio inicial a saltar
     this.drumVolumes = {};
     this.currentBankSynth = null;
     this.currentDrumPack = null;
@@ -875,8 +876,33 @@ export class SynthEngine {
     try { this.customPads[key] = await this.ctx.decodeAudioData(arrayBuffer); } catch(e) { console.error(e); }
   }
 
+  // Detecta el silencio inicial de un sample (primer pico por encima de un
+  // umbral relativo al pico) para reproducir DESDE ahí y eliminar la latencia
+  // entre el pad y el golpe. No destructivo: solo calcula un offset.
+  _detectOnset(buffer) {
+    try {
+      const data = buffer.getChannelData(0);
+      const sr = buffer.sampleRate;
+      const maxScan = Math.min(data.length, Math.floor(sr * 0.5)); // hasta 500 ms
+      let peak = 0;
+      for (let i = 0; i < maxScan; i++) { const a = Math.abs(data[i]); if (a > peak) peak = a; }
+      if (peak < 0.0008) return 0;                  // sample en silencio
+      const thresh = Math.max(0.01, peak * 0.04);
+      let onset = 0;
+      for (let i = 0; i < maxScan; i++) { if (Math.abs(data[i]) > thresh) { onset = i; break; } }
+      const preRoll = Math.floor(sr * 0.003);        // 3 ms de respiro antes del transitorio
+      return Math.max(0, onset - preRoll) / sr;
+    } catch (_) { return 0; }
+  }
+
+  // Guarda el buffer + su offset de onset.
+  _setDrumBuffer(id, buffer) {
+    this.customDrums[id] = buffer;
+    this.customDrumOffsets[id] = this._detectOnset(buffer);
+  }
+
   async loadCustomDrum(id, arrayBuffer) {
-    try { this.customDrums[id] = await this.ctx.decodeAudioData(arrayBuffer); } catch(e) { console.error(e); }
+    try { this._setDrumBuffer(id, await this.ctx.decodeAudioData(arrayBuffer)); } catch(e) { console.error(e); }
   }
 
   async loadSingleDrum(id, url) {
@@ -884,7 +910,7 @@ export class SynthEngine {
       const resp = await fetch(url);
       if (!resp.ok && resp.status !== 0) throw new Error(`HTTP ${resp.status}`);
       const ab = await resp.arrayBuffer();
-      this.customDrums[id] = await this.ctx.decodeAudioData(ab);
+      this._setDrumBuffer(id, await this.ctx.decodeAudioData(ab));
       console.log('Single drum sample loaded:', id, url);
       return true;
     } catch(e) {
@@ -901,7 +927,8 @@ export class SynthEngine {
     const now = this.ctx.currentTime;
     const src = this.ctx.createBufferSource(); src.buffer = this.customDrums[id];
     const dest = this._getDrumDest(padId);
-    src.connect(dest); src.start(now);
+    // Arranca desde el onset detectado para que el golpe suene al instante.
+    src.connect(dest); src.start(now, this.customDrumOffsets[id] || 0);
     return true;
   }
 
@@ -918,6 +945,7 @@ export class SynthEngine {
   /* ── Load real WAV samples for a kit — returns list of loaded IDs ── */
   async loadKitSamples(pads) {
     this.customDrums = {};
+    this.customDrumOffsets = {};
     const successfulIds = [];
     const loads = pads
       .filter(p => p.sample)
@@ -926,7 +954,7 @@ export class SynthEngine {
           const resp = await fetch(p.sample);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const ab  = await resp.arrayBuffer();
-          this.customDrums[p.id] = await this.ctx.decodeAudioData(ab);
+          this._setDrumBuffer(p.id, await this.ctx.decodeAudioData(ab));
           successfulIds.push(p.id);
           console.log('Drum sample loaded:', p.id, p.sample);
         } catch(e) {
