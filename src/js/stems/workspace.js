@@ -216,6 +216,7 @@ export function toggleStemsPlay() {
 // módulo de Stems si está montado, para que un Esc detenga TAMBIÉN la
 // reproducción del timeline, no solo los pads/secuencia.
 export function stemsPanicStop() {
+  try { cancelImport(); } catch (_) {}
   try { if (engine.isCurrentlyPlaying()) engine.stop(); } catch (_) {}
   try { pianoPanic(); } catch (_) {}
 }
@@ -1427,6 +1428,22 @@ function renderAccentChips() {
 }
 
 // ── Import + track strip rendering ────────────────────────────────
+// Estado de la importación en curso, para poder cancelarla con Esc si se
+// queda colgada (antes había que recargar toda la interfaz con Ctrl+R).
+let importInProgress = false;
+let importAbort = false;
+
+// Cancela la importación en curso: oculta el overlay al instante y marca el
+// abort para que el bucle corte en el próximo archivo. La invoca el pánico de
+// Esc (stemsPanicStop). No-op si no hay importación activa.
+export function cancelImport() {
+  if (!importInProgress) return false;
+  importAbort = true;
+  hideImportOverlay();
+  toast('Importación cancelada');
+  return true;
+}
+
 async function importFiles(fileList) {
   if (!fileList || !fileList.length) return;
   const files = Array.from(fileList).filter(f =>
@@ -1434,13 +1451,17 @@ async function importFiles(fileList) {
   );
   if (!files.length) return;
 
+  importInProgress = true;
+  importAbort = false;
   showImportOverlay(files.length);
   // Yield two frames so the overlay actually paints before we hit the
   // synchronous-heavy decode work (decodeAudioData can briefly block).
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   let done = 0;
-  for (const file of files) {
+  try {
+   for (const file of files) {
+    if (importAbort) break;   // Esc canceló: no procesar más archivos
     try {
       updateImportOverlay(done, files.length, file.name);
       await new Promise(r => requestAnimationFrame(r)); // let the name paint
@@ -1453,15 +1474,27 @@ async function importFiles(fileList) {
       appendTrackRow(id, savedPath);
     } catch (err) {
       console.error('Failed to import', file.name, err);
-      toast(`No se pudo importar "${file.name}": ${err.message || err}`);
+      const raw = String(err && err.message || err);
+      // El error nativo de decode ("Unable to decode audio data") no le dice
+      // nada al usuario; lo traducimos a algo accionable.
+      const msg = /decode/i.test(raw)
+        ? `No se pudo importar "${file.name}": formato de audio no soportado o archivo dañado. Probá reexportarlo como WAV 16-bit o MP3.`
+        : `No se pudo importar "${file.name}": ${raw}`;
+      toast(msg);
     }
     done++;
     updateImportOverlay(done, files.length, '');
+   }
+  } finally {
+    importInProgress = false;
   }
-  // Keep the "Listo" state on screen briefly so a fast import still
-  // registers visually instead of just flashing.
-  await new Promise(r => setTimeout(r, 350));
-  hideImportOverlay();
+  // Si Esc canceló, el overlay ya se ocultó; si no, dejamos el estado "Listo"
+  // un instante para que un import rápido no sea solo un parpadeo.
+  if (!importAbort) {
+    await new Promise(r => setTimeout(r, 350));
+    hideImportOverlay();
+  }
+  // Conservamos lo que SÍ se importó (incluso tras un abort) y lo guardamos.
   refreshTransport();
   // La consola ya está visible y con layout: repinta los faders por si alguno
   // se creó sin alto (import en lote) y se quedó sin el relleno amarillo.
@@ -1484,8 +1517,10 @@ function showImportOverlay(total) {
         <h3 id="stems-import-title">Importando stems…</h3>
         <p id="stems-import-stage" class="stems-export-stage"></p>
         <div class="stems-export-bar"><div class="stems-export-fill" id="stems-import-fill"></div></div>
+        <button type="button" class="stems-import-cancel" id="stems-import-cancel">Cancelar (Esc)</button>
       </div>
     `;
+    overlay.querySelector('#stems-import-cancel').addEventListener('click', () => cancelImport());
     // Append to body (not .stems-shell) so position:fixed always centres
     // on the viewport, regardless of any transform on workspace ancestors.
     document.body.appendChild(overlay);
@@ -2507,7 +2542,7 @@ async function onSeparateTrack(id, mode = '2stem') {
       if (bytes) {
         const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
         const ab = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-        const decoded = await engine.getAudioContext().decodeAudioData(ab);
+        const decoded = await engine.decodeAudio(ab);
         const ch = [decoded.getChannelData(0), decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : decoded.getChannelData(0)];
         await addSeparatedTrack(`${baseName} — ${res.name || 'Otros'}`, ch, decoded.sampleRate, res.kind || 'other');
         toast.done(`✓ ${baseName}: ${res.name || 'Otros'} (nube)`);
@@ -4405,7 +4440,7 @@ async function rehydrate(state) {
   const decoded = await Promise.all(trackList.map(async (t) => {
     try {
       const arrayBuffer = await projectStore.fetchStem(t.path);
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      const audioBuffer = await engine.decodeAudio(arrayBuffer);
       return { t, audioBuffer };
     } catch (e) {
       console.warn('Could not load stem', t.id, e);

@@ -89,13 +89,105 @@ export function setMasterVolume(v) {
 // Returns the new track id so the UI can wire its strip immediately.
 // `kind` is metadata: 'stem' (default), 'click', or 'guide'. The engine
 // treats them identically — kind only affects how the UI styles + saves
+// Decodifica audio con tolerancia: primero el decoder nativo (rápido, cubre
+// MP3/AAC/OGG y la mayoría de WAV); si falla y el archivo es WAV/RIFF, lo
+// parsea a mano. Chromium rechaza algunos WAV perfectamente válidos (24-bit,
+// 32-bit float, o con chunks extra antes de `data`), muy comunes en stems
+// exportados por separadores y DAWs.
+export async function decodeAudio(arrayBuffer) {
+  ensureCtx();
+  return decodeFlexible(arrayBuffer);
+}
+async function decodeFlexible(arrayBuffer) {
+  try {
+    return await ctx.decodeAudioData(arrayBuffer.slice(0));
+  } catch (nativeErr) {
+    const wav = decodeWav(arrayBuffer);
+    if (wav) return wav;
+    throw nativeErr; // no es WAV o no lo pudimos parsear: error original
+  }
+}
+
+// Parser mínimo de RIFF/WAVE. Soporta PCM entero 8/16/24/32-bit y float 32-bit,
+// incluido el formato WAVE_FORMAT_EXTENSIBLE (0xFFFE). Devuelve un AudioBuffer
+// o null si no es un WAV reconocible.
+function decodeWav(arrayBuffer) {
+  try {
+    const dv = new DataView(arrayBuffer);
+    if (dv.byteLength < 44) return null;
+    const tag = (o) => String.fromCharCode(dv.getUint8(o), dv.getUint8(o + 1), dv.getUint8(o + 2), dv.getUint8(o + 3));
+    if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+
+    let fmt = null, dataOffset = -1, dataLen = 0;
+    let off = 12;
+    while (off + 8 <= dv.byteLength) {
+      const id = tag(off);
+      const size = dv.getUint32(off + 4, true);
+      const body = off + 8;
+      if (id === 'fmt ') {
+        let format = dv.getUint16(body, true);
+        const channels = dv.getUint16(body + 2, true);
+        const sampleRate = dv.getUint32(body + 4, true);
+        const bits = dv.getUint16(body + 14, true);
+        // WAVE_FORMAT_EXTENSIBLE: el formato real está en el sub-GUID (primeros 2 bytes).
+        if (format === 0xfffe && size >= 26) format = dv.getUint16(body + 24, true);
+        fmt = { format, channels, sampleRate, bits };
+      } else if (id === 'data') {
+        dataOffset = body;
+        // Algunos encoders ponen size=0 o 0xFFFFFFFF: usa lo que reste del archivo.
+        dataLen = (size > 0 && body + size <= dv.byteLength) ? size : dv.byteLength - body;
+      }
+      off = body + size + (size & 1); // los chunks se alinean a 2 bytes
+      if (fmt && dataOffset >= 0 && off >= dv.byteLength) break;
+    }
+    if (!fmt || dataOffset < 0 || !fmt.channels || !fmt.sampleRate) return null;
+
+    const { format, channels, sampleRate, bits } = fmt;
+    const bytesPerSample = bits >> 3;
+    const frameSize = bytesPerSample * channels;
+    if (!frameSize) return null;
+    const frames = Math.floor(dataLen / frameSize);
+    if (frames <= 0) return null;
+
+    const out = ctx.createBuffer(channels, frames, sampleRate);
+    const isFloat = format === 3;
+    for (let ch = 0; ch < channels; ch++) {
+      const chData = out.getChannelData(ch);
+      let p = dataOffset + ch * bytesPerSample;
+      for (let i = 0; i < frames; i++, p += frameSize) {
+        let s;
+        if (isFloat) {
+          s = bits === 64 ? dv.getFloat64(p, true) : dv.getFloat32(p, true);
+        } else if (bits === 8) {
+          s = (dv.getUint8(p) - 128) / 128;               // 8-bit es unsigned
+        } else if (bits === 16) {
+          s = dv.getInt16(p, true) / 32768;
+        } else if (bits === 24) {
+          const b0 = dv.getUint8(p), b1 = dv.getUint8(p + 1), b2 = dv.getUint8(p + 2);
+          let v = (b2 << 16) | (b1 << 8) | b0;
+          if (v & 0x800000) v -= 0x1000000;               // sign-extend 24→32
+          s = v / 8388608;
+        } else if (bits === 32) {
+          s = dv.getInt32(p, true) / 2147483648;
+        } else {
+          return null;                                    // bit-depth no soportado
+        }
+        chData[i] = s < -1 ? -1 : s > 1 ? 1 : s;
+      }
+    }
+    return out;
+  } catch (_) {
+    return null;
+  }
+}
+
 // the track. Pass a pre-decoded AudioBuffer instead of arrayBuffer to
 // register synthesised tracks (click, guide) without re-decoding.
 export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offsetSec }) {
   ensureCtx();
   const buffer = audioBuffer
     ? audioBuffer
-    : await ctx.decodeAudioData(arrayBuffer.slice(0));
+    : await decodeFlexible(arrayBuffer);
   const gainNode = ctx.createGain();
   gainNode.gain.value = 0.85;
   const panNode = ctx.createStereoPanner();
