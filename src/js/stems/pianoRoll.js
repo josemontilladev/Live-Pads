@@ -512,7 +512,7 @@ export function openPianoRoll(opts) {
   }
   async function startPlayback(isRecord = false) {
     if (playing) { stopPlayback(); return; }
-    if (piano.getInstrument() === 'piano' && !piano.isLoaded()) { playBtn.textContent = 'Cargando…'; await piano.loadSamples(); }
+    if (!piano.isLoaded()) { playBtn.textContent = 'Cargando…'; await piano.loadSamples(); }
     playing = true;
     recordMode = isRecord;
     lastBeat = -1;
