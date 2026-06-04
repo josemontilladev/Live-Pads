@@ -94,6 +94,23 @@
   font-weight: 700;
   cursor: pointer;
 }
+.pk-reverb {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.pk-reverb:hover { color: var(--accent); border-color: var(--accent); }
+.pk-reverb.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
 .pk-octave {
   display: inline-flex;
   align-items: center;
