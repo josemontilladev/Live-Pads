@@ -26,7 +26,7 @@ import { confirmDialogAsync } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { audioMenuItems } from '../ui/songMenu.js';
-import { songEditFormHTML } from '../ui/songEditForm.js';
+import { songEditFormHTML, applyLibrarySelection } from '../ui/songEditForm.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
 import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
@@ -3951,7 +3951,7 @@ async function assignMixToSong(mp3Bytes, suggestedName, preChosen) {
     if (!song.audio) song.audio = {};
     song.audio[slot] = url;
     if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     const slotLabel = slot === 'original' ? 'Original' : 'Secuencia';
     showToast(`✓ Mezcla asignada a "${song.title}" (${slotLabel}).`, 'success');
     // Refrescar el panel para que la fila muestre el nuevo badge Sec/Orig.
@@ -4189,9 +4189,11 @@ function bindSetlistPanel() {
   };
 
   // Si la librería cambia por fuera (otra pantalla, sync), refrescar la lista.
-  window.addEventListener('livepads:library-reload', () => {
-    renderSetlistPanel(searchEl ? searchEl.value : '');
-  });
+  // `library-reload` = recarga de disco (orphan linker, settings); `songs-changed`
+  // = cambio en memoria (crear/asignar desde Pads) — re-render al instante.
+  const refreshFromExternal = () => renderSetlistPanel(searchEl ? searchEl.value : '');
+  window.addEventListener('livepads:library-reload', refreshFromExternal);
+  window.addEventListener('livepads:songs-changed', refreshFromExternal);
 }
 
 // Menú contextual del panel: cargar audio a una canción desde Stems. Secuencia
@@ -4202,7 +4204,7 @@ function openSongAudioMenu(anchorEl, song) {
   // subir/reemplazar secuencia, original, original desde YouTube, carátula.
   const onAssigned = () => {
     if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     refreshSetlistPanelKeepingSearch();
   };
   openCardMoreMenu(anchorEl, audioMenuItems(song, onAssigned));
@@ -4313,9 +4315,12 @@ function addSongFromStems() {
     newSong.genre = modal.querySelector('.edit-genre').value;
     const tagsEl = modal.querySelector('.edit-tags');
     newSong.tags = tagsEl ? tagsEl.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+    // Biblioteca elegida en el form (si hay selector): así la canción aparece en
+    // esa librería de Pads, no solo en "Todas".
+    applyLibrarySelection(modal, newSong);
     getSongs().push(newSong);
     if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-    window.dispatchEvent(new CustomEvent('livepads:library-reload'));
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     refreshSetlistPanelKeepingSearch();
     showToast(`✓ «${t}» agregada. Clic derecho para cargarle secuencia u original.`, 'success');
     close();

@@ -1,6 +1,6 @@
 import { esc } from '../utils/dom.js';
 import { wrapTextareaSelection, insertTextAtCursor } from '../utils/text.js';
-import { formatLyrics, highlightSyntax } from './lyricsFormat.js';
+import { formatLyrics, highlightSyntax, autoFormatLyrics } from './lyricsFormat.js';
 import { transposeAll, keyPrefersFlats } from './chordTransposer.js';
 import { parseChordPage } from '../data/chordImporter.js';
 import { showDialog, confirmDialog, confirmDialogAsync } from './dialog.js';
@@ -52,6 +52,7 @@ function modalHTML(song) {
         <div class="toolbar-sep"></div>
         <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Envolver selección en [ ]   ·   Ctrl+[">[ ]</button>
         <button type="button" class="format-tool-btn" data-action="clear" title="Limpiar formato de selección">Tx</button>
+        <button type="button" class="format-tool-btn autoformat-btn" data-action="autoformat" title="Auto-formato: detecta y marca las secciones (CORO, VERSO…) del texto pegado. Los acordes se reconocen solos.">✨ Auto</button>
         <div class="toolbar-sep"></div>
         <div class="transpose-group" title="Transponer todos los acordes ±1 semitono">
           <button type="button" class="format-tool-btn transpose-btn" data-action="transpose-down" title="Bajar medio tono">▼</button>
@@ -173,6 +174,24 @@ export function openLyricsEditorModal(song, onSaveCallback) {
       const action = btn.getAttribute('data-action');
       if (action === 'chord') {
         wrapTextareaSelection(textarea, '[', ']');
+      } else if (action === 'autoformat') {
+        const formatted = autoFormatLyrics(textarea.value);
+        if (formatted === textarea.value) {
+          window.showToast?.('No se encontraron secciones nuevas para marcar.', 'info');
+          return;
+        }
+        // Reemplaza TODO conservando el deshacer nativo (Ctrl+Z) vía execCommand.
+        const savedScrollTop = textarea.scrollTop;
+        textarea.focus();
+        textarea.select();
+        let ok = false;
+        try { ok = document.execCommand('insertText', false, formatted); } catch (_) { ok = false; }
+        if (!ok) textarea.value = formatted; // fallback (sin undo nativo)
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+        textarea.scrollTop = savedScrollTop;
+        refreshHighlight();
+        textarea.dispatchEvent(new Event('input'));
+        window.showToast?.('✓ Secciones marcadas. Revisa la vista previa (👁).', 'success');
       } else if (action === 'clear') {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;

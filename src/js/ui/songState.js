@@ -210,7 +210,6 @@ export function paintChordVisibility(card, showChords) {
   if (textContent) textContent.classList.toggle('hide-chords', !showChords);
   if (toggleBtn) {
     toggleBtn.classList.toggle('active', showChords);
-    toggleBtn.textContent = showChords ? 'Con acordes' : 'Solo letra';
     toggleBtn.title = showChords ? 'Ocultar acordes' : 'Mostrar acordes';
   }
 }

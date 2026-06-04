@@ -1,4 +1,39 @@
 import { esc } from '../utils/dom.js';
+import { getCachedLibraries, getActiveLibraryId } from '../cloud/libraries.js';
+import { isCloudEnabled, isLoggedIn } from '../cloud/supabase.js';
+
+// Fila "Guardar en [biblioteca]" para el form. Solo con nube + sesión + al menos
+// una librería conocida. Para canción nueva sin libraryId, preselecciona la
+// activa; al editar, preselecciona la suya (así no se mueve sola).
+function libraryRowHTML(song, placeholderForNewSong) {
+  if (!isCloudEnabled() || !isLoggedIn()) return '';
+  const libs = getCachedLibraries();
+  if (!libs || !libs.length) return '';
+  const current = song.libraryId
+    ? song.libraryId
+    : (placeholderForNewSong ? (getActiveLibraryId() || 'all') : 'all');
+  const opts = [`<option value="all" ${current === 'all' ? 'selected' : ''}>Todas (sin librería)</option>`]
+    .concat(libs.map(l =>
+      `<option value="${esc(l.id)}" ${l.id === current ? 'selected' : ''}>${esc(l.name)}</option>`
+    )).join('');
+  return `
+      <div class="gi-edit-lib-row">
+        <span class="gi-edit-lib-label">Guardar en</span>
+        <select class="gi-edit-input edit-library">${opts}</select>
+      </div>`;
+}
+
+// Lee el selector de biblioteca de un form ya renderizado y lo aplica a la
+// canción. Si no hay selector (sin nube/sesión), no toca libraryId (preserva el
+// existente). "Todas" = quitar de toda librería.
+export function applyLibrarySelection(formEl, song) {
+  const sel = formEl && formEl.querySelector('.edit-library');
+  if (!sel) return false;
+  const prev = song.libraryId || null;
+  if (!sel.value || sel.value === 'all') delete song.libraryId;
+  else song.libraryId = sel.value;
+  return (song.libraryId || null) !== prev; // ¿cambió?
+}
 
 const KEYS_WITH_LABELS = [
   ['C', 'C (Do)'], ['C#', 'C# (Do#)'], ['Db', 'Db (Reb)'],
@@ -13,9 +48,10 @@ const KEYS_WITH_LABELS = [
 // blanks out the title field when the song is the special "Nueva Canción"
 // placeholder so the user starts with an empty input. Styling lives in
 // _setlist.css (.gi-edit-form, .gi-edit-input, .gi-edit-btn).
-export function songEditFormHTML(song, { placeholderForNewSong = false } = {}) {
+export function songEditFormHTML(song, { placeholderForNewSong = false, showLibrary = true } = {}) {
   const titleValue = placeholderForNewSong && song.title === 'Nueva Canción' ? '' : (song.title || '');
   const titlePlaceholder = placeholderForNewSong ? 'Título (Requerido)' : 'Título';
+  const libraryRow = showLibrary ? libraryRowHTML(song, placeholderForNewSong) : '';
 
   const keyOptions = ['<option value="" ' + (!song.key ? 'selected' : '') + '>-- Tono --</option>']
     .concat(KEYS_WITH_LABELS.map(([k, label]) =>
@@ -61,6 +97,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false } = {}) {
 
   return `
     <div class="gi-edit-form" data-action="edit-form-shell">
+      ${libraryRow}
       <input type="text" class="gi-edit-input gi-edit-input--title edit-title" value="${esc(titleValue)}" placeholder="${titlePlaceholder}">
       <input type="text" class="gi-edit-input edit-artist" value="${esc(song.artist || '')}" placeholder="Artista">
       <div class="gi-edit-row">

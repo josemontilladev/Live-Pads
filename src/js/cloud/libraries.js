@@ -10,9 +10,17 @@ const ACTIVE_LIB_KEY = 'livepads-active-library';
 
 // ── Librerías ─────────────────────────────────────────────────────────────
 
+// Última lista conocida de librerías, para consultas SÍNCRONAS (p. ej. al pintar
+// el form de editar/crear canción, que no puede await-ear). Se refresca sola en
+// cada `listLibraries()` (lo llaman el selector, ensureActiveLibrary, etc.).
+let _librariesCache = [];
+export function getCachedLibraries() { return _librariesCache; }
+
 // Todas las librerías donde el usuario es miembro (suyas + invitadas).
-export function listLibraries() {
-  return rest('/libraries?select=id,name,owner_id,created_at&order=created_at.asc');
+export async function listLibraries() {
+  const rows = await rest('/libraries?select=id,name,owner_id,created_at&order=created_at.asc');
+  if (Array.isArray(rows)) _librariesCache = rows;
+  return rows;
 }
 
 export async function createLibrary(name) {
