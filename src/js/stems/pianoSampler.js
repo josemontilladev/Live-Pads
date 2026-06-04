@@ -106,6 +106,12 @@ function velToGain(velocity) {
   const v = Math.max(0, Math.min(127, velocity)) / 127;
   return Math.pow(v, 1.5);
 }
+// Velocity → frecuencia de corte del pasa-bajos (capas de velocity emuladas):
+// suave = más oscuro/apagado, fuerte = más brillante. 700 Hz → 16 kHz.
+function velToCutoff(velocity) {
+  const v = Math.max(0, Math.min(127, velocity)) / 127;
+  return 700 * Math.pow(16000 / 700, v);
+}
 
 export function setVolume(v) {
   pianoVolume = Math.max(0, Math.min(1, v));
@@ -126,9 +132,16 @@ export function noteOn(midi, velocity = 100) {
   src.buffer = s.buffer;
   src.playbackRate.value = Math.pow(2, (midi - s.midi) / 12);
 
+  // Pasa-bajos por velocity: timbre más oscuro al tocar suave, brillante al fuerte.
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = velToCutoff(velocity);
+  filter.Q.value = 0.7;
+
   const gain = ctx.createGain();
   gain.gain.value = velToGain(velocity);
-  src.connect(gain);
+  src.connect(filter);
+  filter.connect(gain);
   gain.connect(out);
   src.start();
 
@@ -207,7 +220,12 @@ export async function renderEventsToBuffer(events, durationSec) {
     gain.gain.setValueAtTime(g, start);
     gain.gain.setValueAtTime(g, end);
     gain.gain.linearRampToValueAtTime(0.0001, end + RELEASE_SEC);
-    src.connect(gain);
+    const filter = offline.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = velToCutoff(ev.velocity);
+    filter.Q.value = 0.7;
+    src.connect(filter);
+    filter.connect(gain);
     gain.connect(bus);
     src.start(start);
     try { src.stop(end + RELEASE_SEC + 0.05); } catch (_) {}
