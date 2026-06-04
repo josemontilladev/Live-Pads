@@ -1463,6 +1463,9 @@ async function importFiles(fileList) {
   await new Promise(r => setTimeout(r, 350));
   hideImportOverlay();
   refreshTransport();
+  // La consola ya está visible y con layout: repinta los faders por si alguno
+  // se creó sin alto (import en lote) y se quedó sin el relleno amarillo.
+  requestAnimationFrame(repaintAllFaders);
   scheduleSave();
 }
 
@@ -1706,9 +1709,16 @@ function buildConsoleStripHtml(track) {
 const FADER_PAD = 8;     // top/bottom inset matching CSS
 const FADER_HANDLE = 18; // handle height
 
-function paintFader(faderEl, v) {
+function paintFader(faderEl, v, _tries = 0) {
   const h = faderEl.clientHeight;
-  if (h === 0) return;
+  if (h === 0) {
+    // Layout aún no listo (típico al importar varios stems de golpe: el rAF
+    // corre mientras el overlay cubre la consola y la tira no tiene alto).
+    // Reintenta unos frames en vez de abandonar, si no el relleno amarillo
+    // nunca se pinta aunque el valor (data-value) sí quede en 85.
+    if (_tries < 60) requestAnimationFrame(() => paintFader(faderEl, v, _tries + 1));
+    return;
+  }
   const travel = h - FADER_PAD * 2 - FADER_HANDLE;
   const handle = faderEl.querySelector('.stems-cfader-handle');
   const fill = faderEl.querySelector('.stems-cfader-fill');
@@ -1717,6 +1727,16 @@ function paintFader(faderEl, v) {
   if (fill) fill.style.height = `${(handleBottom - FADER_PAD) + FADER_HANDLE / 2}px`;
   faderEl.dataset.value = v;
   faderEl.setAttribute('aria-valuenow', v);
+}
+
+// Repinta TODOS los faders de la consola desde su data-value. Se llama cuando
+// el layout pudo no estar listo al crearlos (import en lote) o al volver a
+// mostrarse la consola (expandir), para que el relleno amarillo quede correcto.
+function repaintAllFaders() {
+  document.querySelectorAll('#stems-console-strips .stems-cfader').forEach((faderEl) => {
+    const v = parseInt(faderEl.dataset.value, 10);
+    if (!Number.isNaN(v)) paintFader(faderEl, v);
+  });
 }
 
 function faderValueFromPointer(faderEl, clientY) {
@@ -2720,6 +2740,9 @@ function setConsoleCollapsed(collapsed) {
   try { localStorage.setItem(CONSOLE_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {}
   // El alto del área de pistas cambió: redibuja la regla/timeline.
   refreshTimelineWidth();
+  // Al expandir, los faders recuperan alto: repíntalos por si alguno se creó
+  // colapsado/sin layout y quedó sin el relleno.
+  if (!collapsed) requestAnimationFrame(repaintAllFaders);
 }
 function wireConsoleCollapse(root) {
   const toggle = root.querySelector('#stems-console-toggle');
@@ -4438,6 +4461,7 @@ async function rehydrate(state) {
   refreshTimelineWidth();
   reflectSoloHighlights();
   hideRestoreOverlay();
+  requestAnimationFrame(repaintAllFaders);
 }
 
 // ── Save As / Open modals ─────────────────────────────────────────
