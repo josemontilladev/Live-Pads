@@ -10,9 +10,10 @@
 
 import * as engine from './engine.js';
 
-// Bancos de samples por instrumento. name → midi ('s' = sostenido). Piano =
-// Salamander (Tone.js); strings = cello y bass = bajo eléctrico (VCSL/CC0,
-// tonejs-instruments). Las notas intermedias se interpolan con playbackRate.
+// Bancos de samples por instrumento. name → midi ('s' = sostenido, 'b' = bemol).
+// Piano = Salamander (Tone.js); strings = cello y bass = bajo eléctrico (VCSL/CC0,
+// tonejs-instruments); rhodes = Electric Piano 1 de FluidR3_GM (MIT, Frank Wen).
+// Las notas intermedias se interpolan con playbackRate.
 const SAMPLE_BANKS = {
   piano: {
     folder: 'Piano',
@@ -25,6 +26,16 @@ const SAMPLE_BANKS = {
       ['A5', 81], ['C6', 84], ['Ds6', 87], ['Fs6', 90],
       ['A6', 93], ['C7', 96], ['Ds7', 99], ['Fs7', 102],
       ['A7', 105], ['C8', 108],
+    ],
+  },
+  rhodes: {
+    folder: 'Rhodes',
+    map: [
+      ['C2', 36], ['Eb2', 39], ['Gb2', 42], ['A2', 45],
+      ['C3', 48], ['Eb3', 51], ['Gb3', 54], ['A3', 57],
+      ['C4', 60], ['Eb4', 63], ['Gb4', 66], ['A4', 69],
+      ['C5', 72], ['Eb5', 75], ['Gb5', 78], ['A5', 81],
+      ['C6', 84],
     ],
   },
   strings: {
@@ -164,7 +175,7 @@ const SYNTH = {
 };
 export const INSTRUMENTS = [
   { id: 'piano', name: 'Piano' },          // samples (Salamander)
-  { id: 'rhodes', name: 'Rhodes' },        // sintético (FM)
+  { id: 'rhodes', name: 'Rhodes' },        // samples (Electric Piano 1, FluidR3_GM)
   { id: 'strings', name: 'Strings' },      // samples (cello)
   { id: 'pad', name: 'Pad' },              // sintético
   { id: 'lead', name: 'Synth lead' },      // sintético
