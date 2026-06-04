@@ -2444,7 +2444,11 @@ async function setStemsPitchShift(semitones) {
     if (wasPlaying) engine.seek(curSec);
   } catch (err) {
     console.error('Stems pitch shift failed:', err);
-    toastUi.error(err.message || String(err));
+    const raw = err && err.message || String(err);
+    const msg = /startRendering|createAudioBuffer|AudioBuffer\(/i.test(raw)
+      ? 'No hay memoria suficiente para transponer una pista tan larga. Cerrá otros proyectos/pistas o probá con pistas más cortas.'
+      : raw;
+    toastUi.error(msg);
   } finally {
     pitchApplying = false;
   }
