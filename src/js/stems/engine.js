@@ -34,7 +34,16 @@ let analyserBuf = null;
 
 function ensureCtx() {
   if (ctx) return ctx;
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  ctx = new AC();
+  // Tope de 48 kHz. Con interfaces a 96 kHz, cada buffer decodificado ocupa el
+  // DOBLE de RAM; proyectos con muchas pistas largas se quedaban sin memoria al
+  // transponer/exportar ("startRendering failed to create AudioBuffer"). 48 kHz
+  // es indistinguible para reproducir/exportar y reduce la memoria a la mitad.
+  if (ctx.sampleRate > 48000) {
+    try { ctx.close(); } catch (_) {}
+    try { ctx = new AC({ sampleRate: 48000 }); } catch (_) { ctx = new AC(); }
+  }
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.85;
   masterAnalyser = ctx.createAnalyser();
@@ -100,12 +109,30 @@ export async function decodeAudio(arrayBuffer) {
 }
 async function decodeFlexible(arrayBuffer) {
   try {
+    // decodeAudioData ya resamplea al rate del contexto (≤48 kHz).
     return await ctx.decodeAudioData(arrayBuffer.slice(0));
   } catch (nativeErr) {
     const wav = decodeWav(arrayBuffer);
-    if (wav) return wav;
+    // El parser crea el buffer al rate NATIVO del WAV (p. ej. 96 kHz); lo
+    // bajamos al rate del contexto para no duplicar memoria como en el camino
+    // nativo.
+    if (wav) return await resampleToCtxRate(wav);
     throw nativeErr; // no es WAV o no lo pudimos parsear: error original
   }
+}
+
+// Resamplea un AudioBuffer al rate del contexto si lo supera (vía render
+// offline). Devuelve el mismo buffer si ya está en (o por debajo de) ese rate.
+async function resampleToCtxRate(buffer) {
+  if (!buffer || buffer.sampleRate <= ctx.sampleRate) return buffer;
+  const channels = buffer.numberOfChannels;
+  const outLen = Math.max(1, Math.ceil(buffer.duration * ctx.sampleRate));
+  const off = new OfflineAudioContext(channels, outLen, ctx.sampleRate);
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.connect(off.destination);
+  src.start();
+  return await off.startRendering();
 }
 
 // Parser mínimo de RIFF/WAVE. Soporta PCM entero 8/16/24/32-bit y float 32-bit,
