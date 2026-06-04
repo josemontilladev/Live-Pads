@@ -3016,10 +3016,10 @@ async function rebounceMidiTrack(id) {
 
 // ── Cortar pistas en el cursor (Ctrl+X) ───────────────────────────
 // Recorta el audio ANTES del playhead de las pistas seleccionadas (multi-
-// selección con Ctrl+clic; si no hay, la pista enfocada) y corre el resto a la
-// izquierda (ripple): así un intro que no se quiere queda fuera y la canción
-// arranca en 0. Es destructivo y se persiste (re-guarda el stem recortado);
-// para recuperar el audio completo hay que reimportarlo.
+// selección con Ctrl+clic; si no hay, la pista enfocada). El resto se queda EN
+// SU LUGAR (empieza en el cursor); el usuario lo reubica arrastrando (en grupo
+// si hay varias seleccionadas). Es destructivo y se persiste (re-guarda el stem
+// recortado); para recuperar el audio completo hay que reimportarlo.
 function makeTrimmedBuffer(buffer, removeSec) {
   const ctx = engine.getAudioContext();
   const sr = buffer.sampleRate;
@@ -3055,7 +3055,9 @@ async function cutSelectedAtPlayhead() {
     if (!buf) continue;
     const O = engine.getTrackOffset(id);
     const trimSec = Math.max(0, P - O);
-    const newOffset = Math.max(0, O - P);
+    // El resto se queda en su lugar: lo que sonaba en el cursor sigue en el
+    // cursor (offset = P). Sin trim (P<=O) la pista no se mueve (offset = O).
+    const newOffset = Math.max(O, P);
     if (trimSec > 0) {
       const trimmed = makeTrimmedBuffer(buf, trimSec);
       if (!trimmed) continue; // el corte se come toda la pista → la dejamos igual
@@ -3076,12 +3078,10 @@ async function cutSelectedAtPlayhead() {
     cut++;
   }
   if (cut) {
-    engine.seek(0);
-    applyTimeUpdate(0);
     refreshTimelineWidth();
     refreshTransport();
     scheduleSave();
-    showToast(`✂️ Recortado el inicio de ${cut} pista${cut > 1 ? 's' : ''}. Arrastrá para reposicionar.`, 'success');
+    showToast(`✂️ Recortado ${cut} pista${cut > 1 ? 's' : ''} en el cursor. Arrastrá para moverlas a su lugar.`, 'success');
   } else {
     showToast('No hay audio que recortar antes del cursor en la selección.', 'info');
   }
