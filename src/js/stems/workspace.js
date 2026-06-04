@@ -1682,34 +1682,53 @@ function wireLaneDrag(lane, id) {
     if (e.button !== 0) return;
     if (e.target.closest('input, select, button')) return;
     const startX = e.clientX;
-    const startOffset = engine.getTrackOffset(id);
+    // Grupo: si la pista arrastrada está en la multi-selección, se mueven TODAS
+    // las seleccionadas con el MISMO delta (preservando la sincronía relativa),
+    // para reubicar varias pistas de una tras un corte, sin arrastrar una a una.
+    const group = (selectedTrackIds.has(id) && selectedTrackIds.size > 1)
+      ? [...selectedTrackIds].filter(g => trackRows.has(g))
+      : [id];
+    const starts = new Map(group.map(g => [g, engine.getTrackOffset(g)]));
+    const minStart = Math.min(...starts.values());
     let dragging = false;
 
     const onMove = (ev) => {
       const dx = ev.clientX - startX;
       if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
       dragging = true;
-      lane.classList.add('is-shifting');
-      let newOffset = startOffset + dx / PX_PER_SEC;
-      if (snapToBeat) newOffset = Math.round(newOffset / (60 / bpmFloat)) * (60 / bpmFloat);
-      newOffset = Math.max(0, newOffset);
-      // Live visual: shift only this row's canvas; commit to engine on up.
-      const row = trackRows.get(id);
-      if (row) row.canvas.style.transform = `translateX(${newOffset * PX_PER_SEC}px)`;
-      lane.dataset.pendingOffset = String(newOffset);
+      // Delta a partir de la pista arrastrada (con snap al beat si está activo).
+      let refNew = starts.get(id) + dx / PX_PER_SEC;
+      if (snapToBeat) refNew = Math.round(refNew / (60 / bpmFloat)) * (60 / bpmFloat);
+      let delta = refNew - starts.get(id);
+      if (minStart + delta < 0) delta = -minStart; // que ninguna quede negativa
+      for (const g of group) {
+        const row = trackRows.get(g);
+        if (!row) continue;
+        row.lane.classList.add('is-shifting');
+        const off = Math.max(0, starts.get(g) + delta);
+        row.canvas.style.transform = `translateX(${off * PX_PER_SEC}px)`;
+        row.lane.dataset.pendingOffset = String(off);
+      }
     };
     const onUp = () => {
       lane.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      lane.classList.remove('is-shifting');
+      for (const g of group) trackRows.get(g)?.lane.classList.remove('is-shifting');
       if (!dragging) return;
-      const newOffset = parseFloat(lane.dataset.pendingOffset || String(startOffset));
-      delete lane.dataset.pendingOffset;
-      if (Math.abs(newOffset - startOffset) < 1e-4) return;
-      applyTrackOffset(id, newOffset);
-      pushHistory('Alinear pista',
-        () => { applyTrackOffset(id, startOffset); scheduleSave(); },
-        () => { applyTrackOffset(id, newOffset); scheduleSave(); }
+      const news = new Map();
+      let changed = false;
+      for (const g of group) {
+        const row = trackRows.get(g);
+        const nv = parseFloat((row && row.lane.dataset.pendingOffset) ?? String(starts.get(g)));
+        if (row) delete row.lane.dataset.pendingOffset;
+        news.set(g, nv);
+        if (Math.abs(nv - starts.get(g)) > 1e-4) changed = true;
+      }
+      if (!changed) return;
+      for (const g of group) applyTrackOffset(g, news.get(g));
+      pushHistory(group.length > 1 ? 'Mover pistas' : 'Alinear pista',
+        () => { for (const g of group) applyTrackOffset(g, starts.get(g)); scheduleSave(); },
+        () => { for (const g of group) applyTrackOffset(g, news.get(g)); scheduleSave(); }
       );
       scheduleSave();
       // Swallow the click that fires right after a drag so it doesn't seek.
@@ -2995,6 +3014,79 @@ async function rebounceMidiTrack(id) {
   refreshTransport();
 }
 
+// ── Cortar pistas en el cursor (Ctrl+X) ───────────────────────────
+// Recorta el audio ANTES del playhead de las pistas seleccionadas (multi-
+// selección con Ctrl+clic; si no hay, la pista enfocada) y corre el resto a la
+// izquierda (ripple): así un intro que no se quiere queda fuera y la canción
+// arranca en 0. Es destructivo y se persiste (re-guarda el stem recortado);
+// para recuperar el audio completo hay que reimportarlo.
+function makeTrimmedBuffer(buffer, removeSec) {
+  const ctx = engine.getAudioContext();
+  const sr = buffer.sampleRate;
+  const start = Math.min(buffer.length, Math.max(0, Math.round(removeSec * sr)));
+  const len = buffer.length - start;
+  if (len <= 0) return null;
+  const out = ctx.createBuffer(buffer.numberOfChannels, len, sr);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    out.getChannelData(ch).set(buffer.getChannelData(ch).subarray(start, start + len));
+  }
+  return out;
+}
+
+async function cutSelectedAtPlayhead() {
+  if (pitchApplying) return;
+  // Objetivo: multi-selección (Ctrl+clic) si hay; si no, la pista enfocada.
+  let ids = [...selectedTrackIds];
+  if (!ids.length) {
+    const loc = document.querySelector('#stems-rows .stems-row.is-located');
+    if (loc?.dataset.trackId) ids = [loc.dataset.trackId];
+  }
+  if (!ids.length) { showToast('Seleccioná una pista (Ctrl+clic) o hacé clic en una para cortar.', 'info'); return; }
+  const P = engine.getCurrentSec();
+  if (P <= 0.02) { showToast('Mové el cursor (clic en el timeline) al punto de corte.', 'info'); return; }
+
+  const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  let cut = 0;
+  for (const id of ids) {
+    const entry = trackRows.get(id);
+    const track = trackById.get(id);
+    if (!entry || !track || track.kind !== 'audio') continue; // solo pistas de audio
+    const buf = engine.getTrackBuffer(id);
+    if (!buf) continue;
+    const O = engine.getTrackOffset(id);
+    const trimSec = Math.max(0, P - O);
+    const newOffset = Math.max(0, O - P);
+    if (trimSec > 0) {
+      const trimmed = makeTrimmedBuffer(buf, trimSec);
+      if (!trimmed) continue; // el corte se come toda la pista → la dejamos igual
+      engine.replaceTrackBuffer(id, trimmed);
+      if (originalBuffers.has(id)) originalBuffers.set(id, trimmed);
+      // Persistir el recorte a disco; si no, al recargar volvería el original.
+      try {
+        const oldPath = entry.row.dataset.path;
+        const wav = audioBufferToWav(trimmed);
+        const savedPath = await projectStore.saveStem(id, 'cut.wav', wav);
+        entry.row.dataset.path = savedPath || '';
+        if (oldPath && oldPath !== savedPath) { try { await projectStore.removeStem(oldPath); } catch (_) {} }
+      } catch (e) { console.warn('No se pudo guardar el recorte de la pista:', e); }
+    }
+    engine.setTrackOffset(id, newOffset);
+    peaksCache.delete(id);
+    drawTrackWaveform(id);
+    cut++;
+  }
+  if (cut) {
+    engine.seek(0);
+    applyTimeUpdate(0);
+    refreshTimelineWidth();
+    refreshTransport();
+    scheduleSave();
+    showToast(`✂️ Recortado el inicio de ${cut} pista${cut > 1 ? 's' : ''}. Arrastrá para reposicionar.`, 'success');
+  } else {
+    showToast('No hay audio que recortar antes del cursor en la selección.', 'info');
+  }
+}
+
 // Abre el piano roll para editar las notas de una pista MIDI. Al guardar,
 // actualiza las notas y re-bouncea el audio.
 function openPianoRollForTrack(id) {
@@ -3057,6 +3149,14 @@ function wireTrackSelection(root) {
       if (!trackRows.size) return;
       e.preventDefault();
       selectAllTracks();
+      return;
+    }
+    // Ctrl/Cmd+X → recortar el inicio (antes del cursor) de la(s) pista(s).
+    // Funciona con multi-selección o con la pista enfocada (clic).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'X')) {
+      if (!trackRows.size) return;
+      e.preventDefault();
+      cutSelectedAtPlayhead();
       return;
     }
     if (!selectedTrackIds.size) return;
