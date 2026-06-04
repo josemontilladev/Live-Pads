@@ -1841,7 +1841,13 @@ function locateTrackRow(id) {
     .forEach(s => s.classList.remove('is-located'));
   entry.row.classList.add('is-located');
   if (entry.console) entry.console.classList.add('is-located');
-  entry.row.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  // Durante la reproducción el auto-follow reescribe scrollLeft cada frame, lo
+  // que CANCELA un scroll suave en curso → la fila no subía al tope. Con scroll
+  // instantáneo (behavior:'auto') el salto es sincrónico y persiste (el follow
+  // solo toca scrollLeft). Fuera de reproducción dejamos el suave, más prolijo.
+  let playing = false;
+  try { playing = engine.isCurrentlyPlaying(); } catch (_) {}
+  entry.row.scrollIntoView({ block: 'start', behavior: playing ? 'auto' : 'smooth' });
 }
 
 function wireConsoleStrip(strip, id) {
