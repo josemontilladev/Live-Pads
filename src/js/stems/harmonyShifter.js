@@ -17,6 +17,26 @@
 
 import { PitchShifter } from '../../vendor/soundtouchjs.js';
 
+// Tope de sample rate para el render de referencia armónica. Con audio a 96 kHz
+// (interfaces pro), un track largo genera un AudioBuffer que Chromium no puede
+// asignar (startRendering falla: "failed to create AudioBuffer(2, N, 96000)").
+// Una pista de referencia no necesita >48 kHz, así que resampleamos primero.
+const MAX_RENDER_RATE = 48000;
+
+// Resamplea un AudioBuffer a `maxRate` si supera ese valor (vía un render
+// offline al rate destino). Devuelve el mismo buffer si ya está por debajo.
+async function capSampleRate(buffer, maxRate) {
+  if (buffer.sampleRate <= maxRate) return buffer;
+  const channels = Math.min(2, buffer.numberOfChannels);
+  const outLen = Math.max(1, Math.ceil((buffer.duration || buffer.length / buffer.sampleRate) * maxRate));
+  const off = new OfflineAudioContext(channels, outLen, maxRate);
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.connect(off.destination);
+  src.start();
+  return await off.startRendering();
+}
+
 /**
  * @param {AudioBuffer} buffer
  * @param {number} semitones  -12..+12 (típicamente)
@@ -26,6 +46,9 @@ import { PitchShifter } from '../../vendor/soundtouchjs.js';
  */
 export async function pitchShiftBuffer(buffer, semitones, opts = {}) {
   if (!buffer) throw new Error('Falta el AudioBuffer fuente.');
+  // Bajar a ≤48 kHz si hace falta: el PitchShifter recibe un buffer cuyo rate
+  // coincide con el del contexto offline, y el buffer de salida cabe en memoria.
+  try { buffer = await capSampleRate(buffer, MAX_RENDER_RATE); } catch (_) {}
   const sr = buffer.sampleRate;
   const len = buffer.length;
   const channels = Math.min(2, buffer.numberOfChannels);
