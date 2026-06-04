@@ -478,9 +478,9 @@ export function openPianoRoll(opts) {
     renderNotes(); record();
   };
 
-  // Suena brevemente una nota mientras se edita (audición).
+  // Suena brevemente una nota mientras se edita (audición). Los instrumentos
+  // sintéticos no necesitan samples; noteOn no hace nada si el piano no cargó.
   function audition(midi) {
-    if (!piano.isLoaded()) return;
     try { piano.noteOn(midi, 100); setTimeout(() => piano.noteOff(midi), 230); } catch (_) {}
   }
 
@@ -512,7 +512,7 @@ export function openPianoRoll(opts) {
   }
   async function startPlayback(isRecord = false) {
     if (playing) { stopPlayback(); return; }
-    if (!piano.isLoaded()) { playBtn.textContent = 'Cargando…'; await piano.loadSamples(); }
+    if (piano.getInstrument() === 'piano' && !piano.isLoaded()) { playBtn.textContent = 'Cargando…'; await piano.loadSamples(); }
     playing = true;
     recordMode = isRecord;
     lastBeat = -1;
