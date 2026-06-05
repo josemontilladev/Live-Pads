@@ -552,6 +552,7 @@ function bindAll() {
   window.addEventListener('error', (e) => { try { console.error('[LivePads] error:', e.message); } catch (_) {} });
   window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
+  bindCountInToggle();
   // Refresh the on-pad key hints whenever mappings are cleared/changed.
   document.addEventListener('livepads:mappings-changed', () => {
     if (typeof updateKeyHints === 'function') updateKeyHints();
@@ -966,6 +967,7 @@ function triggerMasterPlayPause() {
   const now = Date.now();
   if (now - lastMasterToggle < 250) return;
   lastMasterToggle = now;
+  if (countingIn) return; // ya hay una cuenta de entrada en curso
 
   // "Activo" = la secuencia maestra está sonando, o —sin secuencia— el
   //  metrónomo corre. La original NO cuenta como fuente maestra.
@@ -988,6 +990,16 @@ function triggerMasterPlayPause() {
     //    salvo que "Click con secuencia" esté activo. Sin secuencia (haya o no
     //    una original cargada), el metrónomo es la fuente de tiempo.
     if (isSequenceLoaded()) {
+      // Cuenta de entrada (si está activa): un compás de clicks y luego arranca
+      // la secuencia justo en el "1".
+      if (!isTrackPlaying() && countInEnabled()) {
+        doCountIn(() => {
+          if (!isTrackPlaying()) clickPlayPause();
+          if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
+          refreshNowPlayingLiveState();
+        });
+        return;
+      }
       if (!isTrackPlaying()) clickPlayPause();
       if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
     } else if (!getMetroRunning()) {
@@ -999,6 +1011,38 @@ function triggerMasterPlayPause() {
 
 function clickWithSequenceEnabled() {
   return localStorage.getItem('livepads-click-with-seq') === '1';
+}
+
+function countInEnabled() {
+  return localStorage.getItem('livepads-countin') === '1';
+}
+function bindCountInToggle() {
+  const cb = q('#countin-toggle');
+  if (!cb) return;
+  cb.checked = countInEnabled();
+  cb.onchange = () => localStorage.setItem('livepads-countin', cb.checked ? '1' : '0');
+}
+
+// Cuenta de entrada: agenda un compás de clicks (al BPM/compás del metrónomo) y
+// llama onDone() al terminar, para arrancar la secuencia justo en el "1".
+let countingIn = false;
+function doCountIn(onDone) {
+  if (countingIn || !engine || !engine.ctx) { onDone(); return; }
+  const beats = metro.beats || 4;
+  const interval = 60 / (metro.bpm || 120);
+  const t0 = engine.ctx.currentTime + 0.06;
+  for (let i = 0; i < beats; i++) {
+    const accent = i === 0 || (Array.isArray(metro.accents) && metro.accents.includes(i));
+    engine.playClick(accent, metro.sound, metro.volume, metro.pan, t0 + i * interval);
+  }
+  countingIn = true;
+  const btn = q('#tp-play-btn');
+  if (btn) btn.classList.add('counting-in');
+  setTimeout(() => {
+    countingIn = false;
+    if (btn) btn.classList.remove('counting-in');
+    onDone();
+  }, Math.round(beats * interval * 1000));
 }
 
 function bindClickWithSeqToggle() {
@@ -1146,7 +1190,7 @@ function onKey(e) {
     if (e.code === 'Space') {
       e.preventDefault();
       stemsWS?.toggleStemsPlay();
-    } else if (e.key === 'm' || e.key === 'M') {
+    } else if ((e.key === 'm' || e.key === 'M') && !e.altKey) {
       e.preventDefault();
       stemsWS?.addStemsMarker();
     }

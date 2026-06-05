@@ -41,7 +41,11 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
 
   const sampleRate = 44100;
   const channels = 2;
-  const lengthSamples = Math.ceil(durationSec * sampleRate);
+  // Rango opcional: renderizamos hasta rangeEnd y luego recortamos desde
+  // rangeStart, para exportar solo ese tramo de la mezcla.
+  const hasRange = typeof opts.rangeStart === 'number' && typeof opts.rangeEnd === 'number' && opts.rangeEnd > opts.rangeStart;
+  const renderSec = hasRange ? Math.min(opts.rangeEnd, durationSec) : durationSec;
+  const lengthSamples = Math.ceil(renderSec * sampleRate);
 
   onProgress(0, 'render');
 
@@ -80,8 +84,14 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
 
   // Encode — pull 1152-sample blocks out of the rendered buffer and feed
   // them to lamejs. Yield periodically so the UI can paint progress.
-  const left  = rendered.getChannelData(0);
-  const right = rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : rendered.getChannelData(0);
+  let left  = rendered.getChannelData(0);
+  let right = rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : rendered.getChannelData(0);
+  // Si hay rango, recortamos desde rangeStart (el render ya terminó en rangeEnd).
+  if (hasRange) {
+    const s0 = Math.min(left.length, Math.max(0, Math.floor(opts.rangeStart * sampleRate)));
+    left = left.subarray(s0);
+    right = right.subarray(s0);
+  }
 
   const encoder = new Mp3Encoder(channels, sampleRate, MP3_BITRATE);
   const total = left.length;

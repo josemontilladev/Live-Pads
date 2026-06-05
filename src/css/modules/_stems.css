@@ -782,6 +782,14 @@ body[data-workspace="stems"] #body {
 }
 .stems-snap-toggle input { accent-color: var(--accent); }
 .stems-snap-toggle:has(input:checked) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+/* Select de subdivisión de snap (Off / 1/16 / 1/8 / 1/4 / Compás). */
+.stems-snap-select {
+  appearance: none;
+  background: var(--bg-hover); color: var(--text);
+  border: 1px solid var(--border); border-radius: 5px;
+  font: 700 10px/1 inherit; letter-spacing: 0.5px;
+  padding: 3px 6px; cursor: pointer;
+}
 
 .stems-state-pill {
   display: inline-flex;
@@ -1276,6 +1284,9 @@ body[data-workspace="stems"] #body {
   margin-left: 2px;
 }
 .stems-marker-remove:hover { color: #ff5f57; }
+/* Marcador seleccionado (clic): se mueve con ← →. */
+.stems-marker.is-sel { outline: 1px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.stems-marker.is-sel .stems-marker-flag { color: var(--accent); }
 /* Resaltar el × al pasar por el marcador, para que se note que se puede quitar. */
 .stems-marker:hover .stems-marker-remove { color: rgba(255,95,87,0.85); }
 .stems-marker:hover .stems-marker-remove:hover { background: rgba(255,95,87,0.15); border-radius: 50%; }
@@ -2213,6 +2224,36 @@ body[data-workspace="stems"] #body {
   z-index: 0;
 }
 .stems-loop-overlay[hidden] { display: none; }
+
+/* Selección de rango de tiempo (arrastrar sobre la regla). */
+.stems-range-overlay {
+  position: absolute;
+  top: 40px; bottom: 0; height: auto;
+  background: color-mix(in srgb, #60a5fa 16%, transparent);
+  border-left: 2px solid #60a5fa;
+  border-right: 2px solid #60a5fa;
+  pointer-events: none;
+  z-index: 1;
+}
+.stems-range-overlay[hidden] { display: none; }
+/* Barra flotante de acciones del rango. */
+.stems-range-bar {
+  position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%);
+  z-index: 220;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 9px;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.stems-range-bar .srb-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+.stems-range-bar button {
+  font-size: 11px; font-weight: 700; color: var(--text);
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stems-range-bar button:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+.stems-range-bar .srb-close { padding: 5px 9px; color: var(--text-muted); }
 
 /* Loop endpoints in markers — coloured pill so the user can spot them */
 .stems-marker--loop-start .stems-marker-flag,

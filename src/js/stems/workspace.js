@@ -355,6 +355,7 @@ export async function mount() {
   wireTopbarEvents(root);
   wireArrangeEvents(root);
   wireSeekClicks(root);
+  wireRangeSelect(root);
   wireRowReorder(root);
   wireConsoleReorder(root);
   wireTrackSelection(root);
@@ -620,9 +621,15 @@ const SHELL_HTML = `
           <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
         </div>
         <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?)" aria-label="Atajos de teclado">?</button>
-        <label class="stems-snap-toggle" title="Marcadores se ajustan al beat más cercano">
-          <input type="checkbox" id="stems-snap" checked>
+        <label class="stems-snap-toggle" title="Imán: al arrastrar/marcar, ajusta a la subdivisión elegida">
           <span>SNAP</span>
+          <select id="stems-snap" class="stems-snap-select">
+            <option value="off">Off</option>
+            <option value="0.25">1/16</option>
+            <option value="0.5">1/8</option>
+            <option value="1" selected>1/4</option>
+            <option value="bar">Compás</option>
+          </select>
         </label>
         <button class="stems-piano-btn" id="stems-piano-toggle" type="button" title="Piano virtual — toca/graba con tu controlador MIDI" aria-pressed="false" aria-label="Piano virtual">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
@@ -859,6 +866,35 @@ function startMasterMeter() {
 // Click on any timeline area (ruler, marker layer, or a lane) jumps the
 // transport to that time. The sticky-left strip column is excluded — the
 // closest() check below scopes it to lanes / head-tl only.
+// Arrastrar sobre la REGLA de tiempo crea un rango (silenciar/fade/exportar).
+function wireRangeSelect(root) {
+  const tl = root.querySelector('.stems-head-tl');
+  if (!tl) return;
+  tl.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('.stems-marker')) return; // no encima de un marcador
+    const rect = tl.getBoundingClientRect();
+    const t0 = Math.max(0, (e.clientX - rect.left) / PX_PER_SEC);
+    let dragging = false;
+    const onMove = (ev) => {
+      const t = Math.max(0, (ev.clientX - rect.left) / PX_PER_SEC);
+      if (!dragging && Math.abs(t - t0) * PX_PER_SEC < 4) return;
+      dragging = true;
+      rangeStart = t0; rangeEnd = t;
+      drawRange();
+    };
+    const onUp = () => {
+      tl.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      if (!dragging) return; // fue un clic → que lo maneje el seek
+      // Tragar el click posterior al drag para que no haga seek.
+      tl.addEventListener('click', (ce) => { ce.stopImmediatePropagation(); ce.preventDefault(); }, { capture: true, once: true });
+    };
+    tl.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
 function wireSeekClicks(root) {
   root.addEventListener('click', (e) => {
     // Clic en los controles de la fila (timeline) → enfocar/resaltar la pista
@@ -1004,7 +1040,7 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-row-taller').onclick   = () => setRowHeight(ROW_HEIGHT + 14);
   root.querySelector('#stems-row-shorter').onclick  = () => setRowHeight(ROW_HEIGHT - 14);
   root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
-  root.querySelector('#stems-snap').onchange = (e) => { snapToBeat = e.target.checked; scheduleSave(); };
+  root.querySelector('#stems-snap').onchange = (e) => { snapDivision = e.target.value; scheduleSave(); };
 
   // Alt+wheel  → horizontal zoom (anchored on the cursor X for natural feel)
   // Ctrl+wheel → row height (stack tighter / stretch taller)
@@ -1704,7 +1740,7 @@ function wireLaneDrag(lane, id) {
       dragging = true;
       // Delta a partir de la pista arrastrada (con snap al beat si está activo).
       let refNew = starts.get(id) + dx / PX_PER_SEC;
-      if (snapToBeat) refNew = Math.round(refNew / (60 / bpmFloat)) * (60 / bpmFloat);
+      { const u = snapUnitSec(); if (u > 0) refNew = Math.round(refNew / u) * u; }
       let delta = refNew - starts.get(id);
       if (minStart + delta < 0) delta = -minStart; // que ninguna quede negativa
       for (const g of group) {
@@ -3043,14 +3079,19 @@ const STEMS_SHORTCUTS = [
   ['Ctrl + clic en pista', 'Seleccionar varias'],
   ['Ctrl + A', 'Seleccionar todas las pistas'],
   ['Arrastrar la onda', 'Mover la pista (en grupo si hay selección)'],
+  ['Arrastrar la regla', 'Seleccionar un rango (silenciar / fade / exportar el tramo)'],
   ['Ctrl + X', 'Recortar el inicio (antes del cursor)'],
   ['Ctrl + E', 'Dividir la pista en el cursor'],
   ['Ctrl + C / Ctrl + V', 'Copiar / pegar pista(s) en el cursor'],
   ['Supr / Retroceso', 'Eliminar la(s) pista(s) seleccionada(s)'],
   ['Ctrl + Z / Ctrl + Y', 'Deshacer / rehacer'],
+  ['Alt + S / Alt + M', 'Solo / silenciar la pista enfocada'],
+  ['M', 'Añadir un marcador en el cursor'],
+  ['Marcador enfocado + ← →', 'Mover el marcador (Shift = más fino)'],
   ['Alt + rueda', 'Zoom horizontal del timeline'],
   ['Ctrl + rueda', 'Altura de las pistas'],
   ['Clic derecho en la consola', 'Menú de la pista (dividir, normalizar, separar, exportar…)'],
+  ['?', 'Mostrar esta ayuda'],
   ['Esc', 'Parar todo / limpiar selección'],
 ];
 function openShortcutsCheatSheet() {
@@ -3168,6 +3209,128 @@ async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan
   catch (e) { console.warn('No se pudo guardar la pista nueva:', e); }
   appendTrackRow(id, savedPath);
   return id;
+}
+
+// ── Selección de un RANGO de tiempo (silenciar / fade / exportar el tramo) ──
+let rangeStart = null, rangeEnd = null;
+function rangeActive() { return rangeStart != null && rangeEnd != null && rangeEnd > rangeStart + 0.01; }
+function clearRange() { rangeStart = rangeEnd = null; drawRange(); }
+
+function ensureRangeOverlay() {
+  let ov = document.getElementById('stems-range-overlay');
+  if (!ov) {
+    const inner = document.getElementById('stems-arrange-inner');
+    ov = document.createElement('div');
+    ov.id = 'stems-range-overlay';
+    ov.className = 'stems-range-overlay';
+    ov.hidden = true;
+    inner?.appendChild(ov);
+  }
+  return ov;
+}
+function drawRange() {
+  const ov = ensureRangeOverlay();
+  if (!rangeActive()) { ov.hidden = true; updateRangeBar(); return; }
+  const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
+  ov.hidden = false;
+  ov.style.left = `${STRIP_WIDTH + a * PX_PER_SEC}px`;
+  ov.style.width = `${(b - a) * PX_PER_SEC}px`;
+  updateRangeBar();
+}
+function updateRangeBar() {
+  let bar = document.getElementById('stems-range-bar');
+  if (!rangeActive()) { bar?.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'stems-range-bar';
+    bar.className = 'stems-range-bar';
+    bar.innerHTML = `<span class="srb-label"></span>
+      <button data-act="silence">Silenciar</button>
+      <button data-act="fadein">Fade in</button>
+      <button data-act="fadeout">Fade out</button>
+      <button data-act="export">Exportar tramo</button>
+      <button data-act="close" class="srb-close" title="Cerrar (Esc)">×</button>`;
+    document.body.appendChild(bar);
+    bar.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'silence' || act === 'fadein' || act === 'fadeout') applyRange(act);
+      else if (act === 'export') exportRange();
+      else if (act === 'close') clearRange();
+    });
+  }
+  const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
+  bar.querySelector('.srb-label').textContent = `Tramo ${formatTime(a)}–${formatTime(b)} · ${selectedTrackIds.size ? 'pistas seleccionadas' : 'todas'}`;
+}
+
+// Aplica una operación al rango en las pistas objetivo (o todas las de audio si
+// no hay selección). op: 'silence' | 'fadein' | 'fadeout'. Con undo.
+async function applyRange(op) {
+  if (pitchApplying || !rangeActive()) return;
+  const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
+  // Multi-selección si la hay; si no, TODAS las pistas de audio (un tramo suele
+  // silenciarse/fundirse en toda la mezcla).
+  const ids = selectedTrackIds.size ? [...selectedTrackIds]
+    : engine.getTracks().filter(t => isEditableAudio(t)).map(t => t.id);
+  const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  const ctx = engine.getAudioContext();
+  const undos = [], redos = [];
+  let n = 0;
+  for (const id of ids) {
+    const track = trackById.get(id);
+    const buf = engine.getTrackBuffer(id);
+    if (!track || !buf || !isEditableAudio(track)) continue;
+    const O = engine.getTrackOffset(id);
+    const sr = buf.sampleRate;
+    const s = Math.max(0, Math.round((a - O) * sr));
+    const e = Math.min(buf.length, Math.round((b - O) * sr));
+    if (e - s <= 0) continue; // el rango no cae sobre esta pista
+    const span = e - s;
+    const out = ctx.createBuffer(buf.numberOfChannels, buf.length, sr);
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const src = buf.getChannelData(ch), dst = out.getChannelData(ch);
+      dst.set(src);
+      for (let i = s; i < e; i++) {
+        if (op === 'silence') dst[i] = 0;
+        else if (op === 'fadein') dst[i] = src[i] * ((i - s) / span);
+        else dst[i] = src[i] * (1 - (i - s) / span); // fadeout
+      }
+    }
+    undos.push({ id, buffer: buf });
+    redos.push({ id, buffer: out });
+    await setTrackBufferPersist(id, out);
+    n++;
+  }
+  if (n) {
+    scheduleSave();
+    const label = op === 'silence' ? 'Silenciar tramo' : op === 'fadein' ? 'Fade in' : 'Fade out';
+    pushHistory(label,
+      () => { undos.forEach(s => setTrackBufferPersist(s.id, s.buffer)); scheduleSave(); },
+      () => { redos.forEach(s => setTrackBufferPersist(s.id, s.buffer)); scheduleSave(); });
+    showToast(`✓ ${label} en el tramo (${n} pista${n > 1 ? 's' : ''}). Ctrl+Z para deshacer.`, 'success');
+  } else {
+    showToast('El tramo no cae sobre ninguna pista.', 'info');
+  }
+}
+
+// Exporta SOLO el tramo seleccionado de la mezcla a MP3 (reusa exportMix con
+// rango). Si hay pistas seleccionadas, exporta esas; si no, toda la mezcla.
+async function exportRange() {
+  if (!rangeActive()) return;
+  const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
+  const onlyTrackIds = selectedTrackIds.size ? [...selectedTrackIds] : null;
+  const toastUi = showSepToast(`Exportando tramo ${formatTime(a)}–${formatTime(b)}`);
+  try {
+    const bytes = await exportMix((f, phase) => toastUi.update(Math.max(0, Math.min(1, f)), phase === 'encode' ? 'Codificando…' : 'Renderizando…'),
+      { rangeStart: a, rangeEnd: b, onlyTrackIds });
+    const savedPath = await window.electronAPI.stemsExportMp3({
+      suggestedName: `${projectName || 'mezcla'} ${Math.round(a)}-${Math.round(b)}s`,
+      buffer: bytes.buffer,
+    });
+    if (savedPath) toastUi.done('✓ Tramo exportado'); else toastUi.done('Cancelado');
+  } catch (err) {
+    console.error('Export range failed:', err);
+    toastUi.error(err.message || String(err));
+  }
 }
 
 // Resuelve las pistas objetivo: multi-selección si hay; si no, la enfocada.
@@ -3398,18 +3561,77 @@ function openPianoRollForTrack(id) {
   });
 }
 
+// Snapshot completo de una pista para poder restaurarla (undo de eliminar).
+function snapshotTrackForDelete(id) {
+  const t = engine.getTracks().find(tr => tr.id === id);
+  const entry = trackRows.get(id);
+  if (!t || !entry) return null;
+  return {
+    id, name: t.name, kind: t.kind, color: t.color,
+    pan: t.pan, volume: t.volume, muted: t.muted, soloed: t.soloed,
+    offsetSec: t.offsetSec || 0,
+    buffer: engine.getTrackBuffer(id),
+    notes: trackNotes.get(id) ? trackNotes.get(id).slice() : null,
+    instrument: trackInstrument.get(id) || null,
+  };
+}
+
+// Re-crea una pista desde su snapshot (con su mismo id, knobs, notas y audio).
+async function recreateTrack(snap) {
+  if (!snap || !snap.buffer) return;
+  await engine.addTrack({ id: snap.id, name: snap.name, audioBuffer: snap.buffer, kind: snap.kind, offsetSec: snap.offsetSec });
+  if (snap.color) engine.setTrackColor(snap.id, snap.color);
+  engine.setTrackPan(snap.id, snap.pan);
+  engine.setTrackVolume(snap.id, snap.volume);
+  engine.setTrackMuted(snap.id, snap.muted);
+  engine.setTrackSoloed(snap.id, snap.soloed);
+  if (snap.notes) trackNotes.set(snap.id, snap.notes);
+  if (snap.instrument) trackInstrument.set(snap.id, snap.instrument);
+  let savedPath = '';
+  try { savedPath = (await projectStore.saveStem(snap.id, 'restore.wav', audioBufferToWav(snap.buffer))) || ''; } catch (_) {}
+  appendTrackRow(snap.id, savedPath);
+}
+
+// Reordena las filas + strips del DOM para que coincidan con el orden del engine.
+function reorderDomToEngine() {
+  const rowsHost = document.getElementById('stems-rows');
+  const conHost = document.getElementById('stems-console-strips');
+  for (const t of engine.getTracks()) {
+    const e = trackRows.get(t.id);
+    if (!e) continue;
+    if (rowsHost) rowsHost.appendChild(e.row);
+    if (e.console && conHost) conHost.appendChild(e.console);
+  }
+}
+
 async function deleteSelectedTracks() {
   const ids = [...selectedTrackIds];
   if (!ids.length) return;
   const ok = await confirmDialogAsync({
     title: 'Eliminar pistas',
-    message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'} del proyecto? Esta acción no se puede deshacer.`,
+    message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Podés deshacer con Ctrl+Z.`,
     confirmLabel: 'Eliminar', danger: true,
   });
   if (!ok) return;
+  const order = engine.getTracks().map(t => t.id); // orden original (para restaurar)
+  const snaps = ids.map(snapshotTrackForDelete).filter(Boolean);
   selectedTrackIds.clear();
   for (const id of ids) await removeTrackById(id);
   updateTrackSelectionUI();
+  if (snaps.length) {
+    pushHistory('Eliminar pista',
+      async () => { // deshacer: re-crear en su orden original
+        for (const s of snaps) await recreateTrack(s);
+        engine.reorderTracks(order);
+        reorderDomToEngine();
+        reflectSoloHighlights();
+        refreshTimelineWidth(); refreshTransport(); scheduleSave();
+      },
+      async () => { // rehacer: volver a borrar
+        for (const s of snaps) await removeTrackById(s.id);
+        refreshTimelineWidth(); refreshTransport(); scheduleSave();
+      });
+  }
 }
 
 function wireTrackSelection(root) {
@@ -3470,6 +3692,17 @@ function wireTrackSelection(root) {
       pasteTracks();
       return;
     }
+    // Alt+S / Alt+M → solo / silenciar la(s) pista(s) enfocada(s).
+    if (e.altKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); toggleStripActionFocused('solo'); return; }
+    if (e.altKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); toggleStripActionFocused('mute'); return; }
+    // ← → mueven el marcador seleccionado (Shift = más fino).
+    if (selectedMarkerId && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      nudgeSelectedMarker(e.key === 'ArrowRight' ? 1 : -1, e.shiftKey);
+      return;
+    }
+    if (e.key === 'Escape' && rangeActive()) { clearRange(); return; }
+    if (e.key === 'Escape' && selectedMarkerId) { setSelectedMarker(null); return; }
     if (!selectedTrackIds.size) return;
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedTracks(); }
     else if (e.key === 'Escape') { clearTrackSelection(); }
@@ -3535,6 +3768,7 @@ function refreshTimelineWidth({ coalesceWaveforms = false } = {}) {
   drawRuler();
   redrawMarkers();
   syncLoopRegion();
+  if (rangeActive()) drawRange();
   if (coalesceWaveforms) {
     if (!waveformRedrawRAF) {
       waveformRedrawRAF = requestAnimationFrame(() => { waveformRedrawRAF = 0; redrawAllWaveforms(); });
@@ -3688,7 +3922,8 @@ function redrawAllWaveforms() {
 // Snap-to-beat: when ON (default), marker time is rounded to the nearest
 // beat at the current BPM. Visually cleaner, easier to make rhythmic
 // sections line up. The toggle lives in the topbar.
-let snapToBeat = true;
+// Snap configurable: 'off' | '0.25' (1/16) | '0.5' (1/8) | '1' (1/4·beat) | 'bar'.
+let snapDivision = '1';
 let clickSoundId = 'cowbell';
 // Loop region — ids of the two markers that bound the loop. Null when
 // no loop is set. The actual numeric region is computed on toggle from
@@ -3703,10 +3938,18 @@ let loopEnabled = false;
 let freeLoopA = null;
 let freeLoopB = null;
 
-function snapTimeIfEnabled(sec) {
-  if (!snapToBeat) return sec;
+// Tamaño del paso de snap en segundos (0 = sin snap), según snapDivision + BPM.
+function snapUnitSec() {
   const beatSec = 60 / bpmFloat;
-  return Math.round(sec / beatSec) * beatSec;
+  if (snapDivision === 'off') return 0;
+  if (snapDivision === 'bar') return beatSec * beatsPerBar;
+  const b = parseFloat(snapDivision);
+  return b > 0 ? beatSec * b : 0;
+}
+
+function snapTimeIfEnabled(sec) {
+  const u = snapUnitSec();
+  return u > 0 ? Math.round(sec / u) * u : sec;
 }
 
 function onAddMarker() {
@@ -3727,7 +3970,34 @@ function onAddMarker() {
   scheduleGuideSync();
 }
 
+// Marcador "seleccionado" (clic) — para moverlo con las flechas del teclado.
+let selectedMarkerId = null;
+function setSelectedMarker(id) {
+  selectedMarkerId = id;
+  document.querySelectorAll('#stems-marker-layer .stems-marker.is-sel').forEach(el => el.classList.remove('is-sel'));
+  if (id) document.querySelector(`#stems-marker-layer .stems-marker[data-marker-id="${id}"]`)?.classList.add('is-sel');
+}
+function nudgeSelectedMarker(dir, fine) {
+  const m = markers.find(mm => mm.id === selectedMarkerId);
+  if (!m) return;
+  const beatSec = 60 / bpmFloat;
+  const step = fine ? beatSec / 4 : (snapUnitSec() || beatSec);
+  m.atSec = Math.max(0, m.atSec + dir * step);
+  redrawMarkers();
+  setSelectedMarker(selectedMarkerId); // re-aplica el highlight tras el redraw
+  syncLoopRegion();
+  scheduleSave();
+  scheduleGuideSync();
+}
+// Dispara mute/solo de la(s) pista(s) enfocada(s) (clic en el botón real).
+function toggleStripActionFocused(action) {
+  for (const id of targetTrackIds()) {
+    trackRows.get(id)?.console?.querySelector(`[data-action="${action}"]`)?.click();
+  }
+}
+
 function removeMarker(markerId) {
+  if (markerId === selectedMarkerId) selectedMarkerId = null;
   const idx = markers.findIndex(m => m.id === markerId);
   if (idx < 0) return;
   const removed = markers[idx];
@@ -3847,6 +4117,7 @@ function redrawMarkers() {
     let role = '';
     if (m.id === loopStartMarkerId) role = ' stems-marker--loop-start';
     if (m.id === loopEndMarkerId)   role += ' stems-marker--loop-end';
+    if (m.id === selectedMarkerId)  role += ' is-sel';
     el.className = 'stems-marker' + role;
     el.style.left = `${x}px`;
     el.dataset.markerId = m.id;
@@ -3863,6 +4134,11 @@ function redrawMarkers() {
       e.stopPropagation();
       removeMarker(m.id);
     };
+    // Clic en el marcador (no en ×) → seleccionarlo para moverlo con ← →.
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.stems-marker-remove')) return;
+      setSelectedMarker(m.id);
+    });
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -4837,7 +5113,7 @@ async function doSave() {
       // View / preferences — persisted so a reopen restores the exact state.
       pxPerSec: PX_PER_SEC,
       rowHeight: ROW_HEIGHT,
-      snapToBeat,
+      snapDivision,
       clickSoundId,
       loopEnabled,
       loopStartMarkerId,
@@ -4863,6 +5139,7 @@ function flashSavedPill() {
 }
 
 async function rehydrate(state) {
+  clearHistory(); // un proyecto recién cargado arranca sin historial cruzado
   projectName = state.projectName || 'Mi proyecto';
   document.getElementById('stems-project-name').value = projectName;
 
@@ -4945,11 +5222,11 @@ async function rehydrate(state) {
   if (typeof state.nextMarkerId === 'number') nextMarkerId = state.nextMarkerId;
   if (typeof state.pxPerSec === 'number') setZoom(state.pxPerSec);
   if (typeof state.rowHeight === 'number') setRowHeight(state.rowHeight);
-  if (typeof state.snapToBeat === 'boolean') {
-    snapToBeat = state.snapToBeat;
-    const snap = document.getElementById('stems-snap');
-    if (snap) snap.checked = snapToBeat;
-  }
+  // Snap: nuevo formato (snapDivision) o el viejo booleano (snapToBeat).
+  if (typeof state.snapDivision === 'string') snapDivision = state.snapDivision;
+  else if (typeof state.snapToBeat === 'boolean') snapDivision = state.snapToBeat ? '1' : 'off';
+  const snapSel = document.getElementById('stems-snap');
+  if (snapSel) snapSel.value = snapDivision;
   if (typeof state.clickSoundId === 'string') {
     const valid = getClickSounds().some(s => s.id === state.clickSoundId);
     clickSoundId = valid ? state.clickSoundId : 'cowbell';
@@ -5115,6 +5392,16 @@ async function resetProject() {
   trackRows.clear();
   peaksCache.clear();
   originalBuffers.clear();
+  trackNotes.clear();
+  trackInstrument.clear();
+  // Limpiar el historial: si no, un Ctrl+Z tras "Nuevo" intentaría restaurar
+  // pistas del proyecto anterior (ids viejos / stems ya borrados) → roto.
+  clearHistory();
+  freeLoopA = null; freeLoopB = null;
+  loopStartMarkerId = null; loopEndMarkerId = null; loopEnabled = false;
+  syncLoopRegion();
+  clearRange();
+  selectedMarkerId = null;
   currentStemsPitch = 0;
   paintStemsPitchUI();
   projectKey = null;
