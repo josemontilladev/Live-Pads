@@ -1378,3 +1378,52 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-filter-action:hover { background: var(--bg-hover); }
 .gi-filter-action .gi-filter-option-label { color: var(--text-muted); font-size: 13px; }
 .gi-filter-action:hover .gi-filter-option-label { color: #fca5a5; }
+
+/* ── Modal "Setlists guardados" (nombre + fecha) ──────────────────────────── */
+.setlists-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 20, 0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.setlists-modal {
+  width: 440px; max-width: 92vw; max-height: 82vh; overflow: auto;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 18px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.setlists-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.setlists-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.setlists-x {
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.setlists-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.setlists-save {
+  width: 100%; margin-bottom: 14px; padding: 10px;
+  font-size: 12.5px; font-weight: 700; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 9px; cursor: pointer; transition: background 0.15s;
+}
+.setlists-save:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.setlists-list { display: flex; flex-direction: column; gap: 6px; }
+.setlists-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 11px; border-radius: 9px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+}
+.setlists-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.setlists-row-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.setlists-row-meta { font-size: 11px; color: var(--text-muted); }
+.setlists-load {
+  font-size: 11.5px; font-weight: 700; color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 12px; cursor: pointer; transition: all 0.15s;
+}
+.setlists-load:hover { color: #fff; background: rgba(255,255,255,0.12); border-color: var(--accent); }
+.setlists-del {
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 7px; border-radius: 6px;
+}
+.setlists-del:hover { color: #ff5f57; background: rgba(255,95,87,0.12); }
+.setlists-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px 8px; line-height: 1.5; }

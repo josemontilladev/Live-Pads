@@ -57,8 +57,15 @@ export function bindMidiHandlers(deps) {
 
   // Render the device-name pill in the topbar. Hidden when no MIDI device
   // is connected (or before MIDI access resolves on app boot).
-  const renderDevicePill = (names) => {
+  const renderDevicePill = (names, evt) => {
     const pill = q('#midi-status-pill');
+    // Aviso de conexión/desconexión de un controlador (no en el arranque, solo
+    // en cambios reales mientras se usa la app).
+    const port = evt && evt.port;
+    if (port && port.type === 'input') {
+      if (port.state === 'disconnected') window.showToast?.(`⚠️ MIDI desconectado: ${port.name || 'controlador'}`, 'warning');
+      else if (port.state === 'connected') window.showToast?.(`🎹 MIDI conectado: ${port.name || 'controlador'}`, 'success');
+    }
     if (!pill) return;
     if (!names || names.length === 0) {
       pill.classList.add('hidden');

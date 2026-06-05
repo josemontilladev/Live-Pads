@@ -1122,12 +1122,13 @@ export class SynthEngine {
         for (const input of ma.inputs.values()) names.push(input.name || 'MIDI input');
         return names;
       };
-      const bindInputs = (ma) => {
+      const bindInputs = (ma, evt) => {
         for (const input of ma.inputs.values()) input.onmidimessage = onMidiMessage;
-        if (typeof onDevicesChanged === 'function') onDevicesChanged(collectNames(ma));
+        if (typeof onDevicesChanged === 'function') onDevicesChanged(collectNames(ma), evt);
       };
       bindInputs(midiAccess);
-      midiAccess.onstatechange = (e) => bindInputs(e.target);
+      // Pasa el evento (port + state) para que la UI avise conexión/desconexión.
+      midiAccess.onstatechange = (e) => bindInputs(e.target, e);
     } catch (err) { console.warn('MIDI Access failed:', err); }
   }
 

@@ -107,6 +107,49 @@ export function reorderService(fromIdx, toIdx) {
   saveServiceSongs();
 }
 
+// ── Setlists guardados (con nombre + fecha) ───────────────────────────────
+// El "Servicio" es la lista de trabajo actual; estos son snapshots con nombre
+// que el usuario guarda para reusar (Domingo AM, Jóvenes, etc.). Solo locales.
+const SAVED_KEY = 'livepads-saved-setlists';
+
+export function listSavedSetlists() {
+  try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch (_) { return []; }
+}
+function writeSavedSetlists(arr) {
+  localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
+}
+// Guarda el servicio ACTUAL como un setlist con nombre. Devuelve la entrada.
+export function saveCurrentAsSetlist(name) {
+  if (!serviceSongs.length) return null;
+  const arr = listSavedSetlists();
+  const entry = {
+    id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
+    name: String(name || 'Servicio').trim() || 'Servicio',
+    savedAt: Date.now(),
+    songs: serviceSongs.map(({ serviceId, ...s }) => s), // serviceId se re-genera al cargar
+  };
+  arr.unshift(entry);
+  writeSavedSetlists(arr);
+  return entry;
+}
+// Carga un setlist guardado → reemplaza el servicio actual.
+export function loadSavedSetlist(id) {
+  const entry = listSavedSetlists().find(s => s.id === id);
+  if (!entry) return false;
+  replaceService(entry.songs || []);
+  return true;
+}
+export function deleteSavedSetlist(id) {
+  writeSavedSetlists(listSavedSetlists().filter(s => s.id !== id));
+}
+export function renameSavedSetlist(id, name) {
+  const arr = listSavedSetlists();
+  const e = arr.find(s => s.id === id);
+  if (!e) return;
+  e.name = String(name || '').trim() || e.name;
+  writeSavedSetlists(arr);
+}
+
 // Used by applyGiSong: find the matching service entry by title+artist and
 // update the active pointer. Returns the matched index (-1 if not found).
 export function syncActiveByTitleArtist(song) {
