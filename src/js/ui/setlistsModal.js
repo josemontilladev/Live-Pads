@@ -1,24 +1,29 @@
-// Modal de "Setlists guardados": guardar el servicio actual con un nombre + fecha
-// (ej. "Servicio Domingo 10/11/26") y cargar/eliminar los guardados. Solo locales.
+// Modal de "Setlists guardados": guardar el servicio actual con TÍTULO + FECHA
+// (con calendario) y cargar/eliminar los guardados. Solo locales.
 
-import { q, esc } from '../utils/dom.js';
-import { showDialog } from './dialog.js';
+import { esc } from '../utils/dom.js';
 import {
   listSavedSetlists, saveCurrentAsSetlist, loadSavedSetlist, deleteSavedSetlist,
   getServiceSongs,
 } from '../data/service.js';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-function fmtDate(ts) {
-  const d = new Date(ts);
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${DAYS[d.getDay()]} ${dd}/${mm}/${yy}`;
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-// Nombre sugerido al guardar: "Servicio <Día> <dd/mm/yy>".
-function suggestedName() {
-  return `Servicio ${fmtDate(Date.now())}`;
+// Fecha del servicio (YYYY-MM-DD) → "Día dd/mm/yy".
+function fmtDateStr(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, dd] = dateStr.split('-').map(Number);
+  if (!y || !m || !dd) return dateStr;
+  const d = new Date(y, m - 1, dd);
+  return `${DAYS[d.getDay()]} ${String(dd).padStart(2, '0')}/${String(m).padStart(2, '0')}/${String(y).slice(-2)}`;
+}
+// Fallback: fecha de guardado (timestamp).
+function fmtSavedAt(ts) {
+  const d = new Date(ts);
+  return `${DAYS[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 }
 
 export function openSetlistsModal() {
@@ -27,7 +32,10 @@ export function openSetlistsModal() {
   overlay.id = 'setlists-overlay';
   overlay.className = 'setlists-overlay';
   document.body.appendChild(overlay);
-  const close = () => overlay.remove();
+
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+  const close = () => { window.removeEventListener('keydown', onKey, true); overlay.remove(); };
+  window.addEventListener('keydown', onKey, true);
 
   function render() {
     const list = listSavedSetlists();
@@ -37,18 +45,28 @@ export function openSetlistsModal() {
           <h3>📋 Setlists guardados</h3>
           <button class="setlists-x" data-act="close" aria-label="Cerrar">×</button>
         </div>
-        <button class="setlists-save" data-act="save">＋ Guardar el servicio actual…</button>
+        <div class="setlists-save-form">
+          <div class="sl-field sl-field--title">
+            <label>Título</label>
+            <input type="text" class="sl-title" placeholder="Ej. Servicio Domingo" value="Servicio">
+          </div>
+          <div class="sl-field sl-field--date">
+            <label>Fecha</label>
+            <input type="date" class="sl-date" value="${todayISO()}">
+          </div>
+          <button class="sl-save-btn" data-act="save">Guardar</button>
+        </div>
         <div class="setlists-list">
           ${list.length ? list.map(s => `
             <div class="setlists-row" data-id="${esc(s.id)}">
               <div class="setlists-row-info">
                 <span class="setlists-row-name">${esc(s.name)}</span>
-                <span class="setlists-row-meta">${fmtDate(s.savedAt)} · ${(s.songs || []).length} canción(es)</span>
+                <span class="setlists-row-meta">${s.date ? fmtDateStr(s.date) : fmtSavedAt(s.savedAt)} · ${(s.songs || []).length} canción(es)</span>
               </div>
               <button class="setlists-load" data-act="load">Cargar</button>
               <button class="setlists-del" data-act="del" title="Eliminar">×</button>
             </div>`).join('')
-            : `<p class="setlists-empty">Todavía no guardaste setlists. Armá tu servicio (abajo) y guardalo acá con un nombre.</p>`}
+            : `<p class="setlists-empty">Todavía no guardaste setlists. Armá tu servicio (abajo) y guardalo acá con su título y fecha.</p>`}
         </div>
       </div>`;
   }
@@ -64,14 +82,11 @@ export function openSetlistsModal() {
         window.showToast?.('El servicio está vacío: agregá canciones antes de guardar el setlist.', 'info');
         return;
       }
-      showDialog('Guardar setlist', 'Ej. Servicio Domingo 10/11/26', (name) => {
-        const entry = saveCurrentAsSetlist(name || suggestedName());
-        if (entry) window.showToast?.(`✓ Setlist "${entry.name}" guardado.`, 'success');
-        render();
-      });
-      // Pre-rellenar con el nombre sugerido (fecha de hoy) para que lo edite.
-      const input = q('#dialog-name');
-      if (input) { input.value = suggestedName(); setTimeout(() => input.select(), 60); }
+      const title = overlay.querySelector('.sl-title')?.value.trim() || 'Servicio';
+      const date = overlay.querySelector('.sl-date')?.value || '';
+      const entry = saveCurrentAsSetlist(title, date);
+      if (entry) window.showToast?.(`✓ Setlist "${entry.name}" guardado.`, 'success');
+      render();
       return;
     }
     const row = e.target.closest('.setlists-row');
@@ -87,8 +102,4 @@ export function openSetlistsModal() {
       render();
     }
   });
-
-  // Esc cierra.
-  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); window.removeEventListener('keydown', onKey, true); } };
-  window.addEventListener('keydown', onKey, true);
 }

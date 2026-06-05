@@ -118,13 +118,15 @@ export function listSavedSetlists() {
 function writeSavedSetlists(arr) {
   localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
 }
-// Guarda el servicio ACTUAL como un setlist con nombre. Devuelve la entrada.
-export function saveCurrentAsSetlist(name) {
+// Guarda el servicio ACTUAL como un setlist con nombre + fecha (YYYY-MM-DD).
+// Devuelve la entrada.
+export function saveCurrentAsSetlist(name, date) {
   if (!serviceSongs.length) return null;
   const arr = listSavedSetlists();
   const entry = {
     id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
     name: String(name || 'Servicio').trim() || 'Servicio',
+    date: (typeof date === 'string' && date) ? date : null, // fecha del servicio
     savedAt: Date.now(),
     songs: serviceSongs.map(({ serviceId, ...s }) => s), // serviceId se re-genera al cargar
   };
