@@ -275,3 +275,7 @@
     color-mix(in srgb, var(--accent) 70%, #000),
     color-mix(in srgb, var(--accent) 92%, #000));
 }
+
+/* El botón de piano del topbar es de Pads: ocultarlo en el workspace de Stems
+   (que tiene su propio piano). */
+body[data-workspace="stems"] #btn-piano-pads { display: none; }

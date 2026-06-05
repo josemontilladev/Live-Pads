@@ -25,6 +25,7 @@ const ACTION_LABELS = {
   close_seq: 'Cerrar pista',
   prev_song: 'Canción anterior',
   next_song: 'Canción siguiente',
+  toggle_piano: 'Mostrar/ocultar piano',
   slider:    'Slider',
   // Stems workspace (independent map)
   st_play:       'Stems · Play/Pausa',

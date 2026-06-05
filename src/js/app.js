@@ -9,6 +9,7 @@ import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
 import { openPreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel } from './ui/companionPanel.js';
+import { togglePadsPiano, closePadsPiano, isPadsPianoOpen, padsPianoPanic } from './ui/padsPiano.js';
 // The Stems workspace pulls in heavy deps (audio engine, exporter, waveform
 // renderer, lamejs, ONNX-backed separation IPC glue…) yet the app boots into
 // Pads. Lazy-load it on first entry to the Stems tab so initial load stays fast.
@@ -553,6 +554,7 @@ function bindAll() {
   window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
   bindCountInToggle();
+  bindPadsPianoToggle();
   // Refresh the on-pad key hints whenever mappings are cleared/changed.
   document.addEventListener('livepads:mappings-changed', () => {
     if (typeof updateKeyHints === 'function') updateKeyHints();
@@ -751,6 +753,7 @@ function bindRestOfApp() {
     triggerMasterPlayPause,
     triggerMasterStop,
     selectSource,
+    togglePadsPiano: () => togglePadsPiano(reflectPadsPianoBtn),
   });
   bindSourceControl();
   bindGlobalHandlers();
@@ -796,6 +799,8 @@ function applyWorkspace(name) {
   if (stems) stems.classList.remove('ws-entering');
 
   document.body.dataset.workspace = valid;
+  // El piano de Pads no aplica en Stems (que tiene el suyo) → cerrarlo al cambiar.
+  if (valid === 'stems' && isPadsPianoOpen()) closePadsPiano();
   // Switch the active MIDI map so Pads and Stems use fully independent
   // mappings (a control mapped in one never fires in the other).
   setMidiScope(valid);
@@ -1023,6 +1028,19 @@ function bindCountInToggle() {
   cb.onchange = () => localStorage.setItem('livepads-countin', cb.checked ? '1' : '0');
 }
 
+// Piano de Pads: el botón del topbar lo muestra/oculta. Suena con mouse, teclado
+// de PC y controlador MIDI (igual que el de Stems, pero sin grabar).
+function reflectPadsPianoBtn(open) {
+  const btn = q('#btn-piano-pads');
+  if (!btn) return;
+  btn.classList.toggle('is-active', open);
+  btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+}
+function bindPadsPianoToggle() {
+  const btn = q('#btn-piano-pads');
+  if (btn) btn.onclick = () => togglePadsPiano(reflectPadsPianoBtn);
+}
+
 // Cuenta de entrada: agenda un compás de clicks (al BPM/compás del metrónomo) y
 // llama onDone() al terminar, para arrancar la secuencia justo en el "1".
 let countingIn = false;
@@ -1123,6 +1141,7 @@ function panicStopAll() {
   if (stemsWS && stemsWS.stemsPanicStop) {
     try { stemsWS.stemsPanicStop(); } catch (_) {}
   }
+  try { padsPianoPanic(); } catch (_) {} // soltar notas sostenidas del piano
   // Limpiar el marcador "PRÓXIMA": tras el pánico no hay nada pre-armado, así
   // que la card no debe seguir diciendo que sonará algo al pulsar Espacio.
   qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
