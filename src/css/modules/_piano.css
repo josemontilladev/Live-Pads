@@ -47,6 +47,11 @@
 }
 /* display:flex de la clase pisaba el atributo hidden → forzar oculto. */
 .stems-piano[hidden] { display: none; }
+
+/* El piano de PADS arranca más arriba que el de Stems: en Pads hay una barra de
+   reproductor abajo (#track-player-bar ≈ 88px) que, con bottom:22px, lo tapaba.
+   Solo afecta la posición inicial — al arrastrarlo queda donde lo dejes. */
+#pads-piano { bottom: 100px; }
 /* Pista visual de la esquina redimensionable (la manija nativa es sutil). */
 .stems-piano::after {
   content: "";
