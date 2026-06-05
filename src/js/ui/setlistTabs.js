@@ -44,6 +44,12 @@ export function bindSetlistTabs() {
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
 
+  // Setlists guardados (nombre + fecha): guardar/cargar varios servicios.
+  const btnSetlists = q('#btn-setlists');
+  if (btnSetlists) btnSetlists.onclick = () => {
+    import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {});
+  };
+
   // Empty-state CTA — switches to the Library tab so the user can add songs.
   const btnGoLib = q('#btn-service-go-library');
   if (btnGoLib) {

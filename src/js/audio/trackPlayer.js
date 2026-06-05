@@ -279,6 +279,8 @@ async function startTrackPlayback(url, title, type) {
   audio.onerror = (e) => {
     console.error('Error loading audio:', safeUrl, e);
     if (els.title) els.title.textContent = 'Error al cargar audio';
+    // Aviso claro: si no, el director ve el título raro y cree que es un bug.
+    window.showToast?.(`No se pudo cargar el audio de "${title}". El archivo puede faltar, estar movido o dañado. Reasignalo desde la canción.`, 'error');
   };
 
   if (els.title) els.title.textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');

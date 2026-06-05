@@ -96,14 +96,24 @@ export async function hitDrum(id, type, btn) {
     const kitId = currentKit ? currentKit.id : 'unknown';
 
     const onUploadNew = async () => {
-      const fileData = await window.electronAPI.openAudioFile();
-      if (!fileData || !fileData.path) return;
-      const resPath = await window.electronAPI.assignDrumSample({
-        sourcePath: fileData.path,
-        padName: id,
-        kitId: kitId
-      });
-      if (resPath) assignSampleToPad(id, resPath, btn);
+      try {
+        const fileData = await window.electronAPI.openAudioFile();
+        if (!fileData || !fileData.path) return;
+        if (!/\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(fileData.path)) {
+          window.showToast?.('Ese archivo no es de audio. Usá WAV, MP3, OGG, M4A o FLAC.', 'error');
+          return;
+        }
+        const resPath = await window.electronAPI.assignDrumSample({
+          sourcePath: fileData.path,
+          padName: id,
+          kitId: kitId
+        });
+        if (resPath) assignSampleToPad(id, resPath, btn);
+        else window.showToast?.('No se pudo cargar el sample (¿archivo dañado?).', 'error');
+      } catch (err) {
+        console.error('Drum sample load failed:', err);
+        window.showToast?.('No se pudo cargar el sample: ' + (err.message || err), 'error');
+      }
     };
 
     const onAssignPool = (resPath) => assignSampleToPad(id, resPath, btn);
