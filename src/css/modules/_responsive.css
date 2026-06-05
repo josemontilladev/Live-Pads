@@ -191,6 +191,16 @@
   #panel-setlist {
     padding: 12px;
   }
+  /* En laptop (columna angosta) el header del servicio se apila: el texto
+     "Tu lista de hoy" + meta arriba en una línea, y los botones de navegación
+     repartidos abajo. Antes el texto se cortaba en dos líneas y se veía mal. */
+  #service-setlist-list .service-actions {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 8px;
+  }
+  #service-setlist-list .service-actions-text { flex: 1 1 100%; }
+  #service-setlist-list .service-actions-nav { flex: 1 1 100%; justify-content: space-between; gap: 4px; }
   .setlist-header {
     margin-bottom: 10px;
   }

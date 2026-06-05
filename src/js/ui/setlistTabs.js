@@ -14,6 +14,8 @@ import {
 } from '../data/service.js';
 import { showDialog } from './dialog.js';
 import { isLoggedIn } from '../cloud/supabase.js';
+import { maybeShowChooserOnServiceOpen, showServiceChooser } from './serviceListView.js';
+import { listSavedSetlists } from '../data/service.js';
 
 export function bindSetlistTabs() {
   const panelSetlist = q('#panel-setlist');
@@ -26,6 +28,8 @@ export function bindSetlistTabs() {
       q('#service-setlist-list').classList.add('hidden');
       q('#' + btn.dataset.target).classList.remove('hidden');
       if (panelSetlist) panelSetlist.dataset.activeTab = btn.dataset.target;
+      // Al abrir Servicio: mostrar el selector de setlists (una vez por sesión).
+      if (btn.dataset.target === 'service-setlist-list') maybeShowChooserOnServiceOpen();
     };
   });
 
@@ -44,10 +48,12 @@ export function bindSetlistTabs() {
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
 
-  // Setlists guardados (nombre + fecha): guardar/cargar varios servicios.
+  // Setlists guardados: si hay guardados, muestra el selector inline (elegir
+  // lista); si no hay ninguno, abre el modal directo para guardar el primero.
   const btnSetlists = q('#btn-setlists');
   if (btnSetlists) btnSetlists.onclick = () => {
-    import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {});
+    if (listSavedSetlists().length) showServiceChooser();
+    else import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {});
   };
 
   // Empty-state CTA — switches to the Library tab so the user can add songs.
