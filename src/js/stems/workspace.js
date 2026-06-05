@@ -1913,6 +1913,10 @@ const ICON_MENU_PR   = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-wi
 const ICON_MENU_SEP  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>';
 const ICON_MENU_HARM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 const ICON_MENU_EXP  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+const ICON_MENU_CUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>';
+const ICON_MENU_SPLIT= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="3" x2="12" y2="21"/><rect x="3" y="8" width="6" height="8" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/></svg>';
+const ICON_MENU_COPY = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_MENU_PASTE= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>';
 
 // Menú contextual (clic derecho) de un strip de la consola: ofrece las mismas
 // acciones que la fila de la pista (separar, armónica, exportar, eliminar, o
@@ -1927,7 +1931,17 @@ function openStripContextMenu(anchorEl, id) {
   const btn = (a) => row.querySelector(`[data-action="${a}"]`);
   // (locate sin scroll arriba: un scrollIntoView dispara eventos de scroll que
   //  cerrarían el menú recién abierto → hacía falta un segundo clic.)
+  const track = engine.getTracks().find(t => t.id === id);
   const items = [];
+  // Edición en el cursor (solo pistas de audio).
+  if (isEditableAudio(track)) {
+    items.push({ icon: ICON_MENU_SPLIT, label: 'Dividir en el cursor (Ctrl+E)', onSelect: () => splitSelectedAtPlayhead() });
+    items.push({ icon: ICON_MENU_CUT,   label: 'Recortar inicio (Ctrl+X)',      onSelect: () => cutSelectedAtPlayhead() });
+    items.push({ icon: ICON_MENU_COPY,  label: 'Copiar pista (Ctrl+C)',         onSelect: () => copySelectedTracks() });
+  }
+  if (stemsClipboard.length) {
+    items.push({ icon: ICON_MENU_PASTE, label: 'Pegar en el cursor (Ctrl+V)', onSelect: () => pasteTracks() });
+  }
   if (btn('piano-roll')) items.push({ icon: ICON_MENU_PR,   label: 'Editar notas (piano roll)', onSelect: () => btn('piano-roll').click() });
   if (btn('separate'))   items.push({ icon: ICON_MENU_SEP,  label: 'Separar voz e instrumental', onSelect: () => btn('separate').click() });
   if (btn('harmony'))    items.push({ icon: ICON_MENU_HARM, label: 'Referencia armónica',        onSelect: () => btn('harmony').click() });
@@ -3051,7 +3065,7 @@ async function cutSelectedAtPlayhead() {
   for (const id of ids) {
     const entry = trackRows.get(id);
     const track = trackById.get(id);
-    if (!entry || !track || track.kind !== 'audio') continue; // solo pistas de audio
+    if (!entry || !track || !isEditableAudio(track)) continue; // no click/guía/midi
     const buf = engine.getTrackBuffer(id);
     if (!buf) continue;
     const O = engine.getTrackOffset(id);
@@ -3085,6 +3099,135 @@ async function cutSelectedAtPlayhead() {
     showToast(`✂️ Recortado ${cut} pista${cut > 1 ? 's' : ''} en el cursor. Arrastrá para moverlas a su lugar.`, 'success');
   } else {
     showToast('No hay audio que recortar antes del cursor en la selección.', 'info');
+  }
+}
+
+// ── Dividir / copiar / pegar pistas ───────────────────────────────
+// Pista de audio editable = cualquiera que no sea click/guía/MIDI (las
+// importadas son kind 'stem', mostradas como "AUDIO").
+function isEditableAudio(track) {
+  return !!track && track.kind !== 'click' && track.kind !== 'guide' && track.kind !== 'midi';
+}
+
+// Devuelve un AudioBuffer con el rango [startSec, endSec) del original.
+function sliceBuffer(buffer, startSec, endSec) {
+  const ctx = engine.getAudioContext();
+  const sr = buffer.sampleRate;
+  const s = Math.max(0, Math.round(startSec * sr));
+  const e = Math.min(buffer.length, Math.round(endSec * sr));
+  if (e - s <= 0) return null;
+  const out = ctx.createBuffer(buffer.numberOfChannels, e - s, sr);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    out.getChannelData(ch).set(buffer.getChannelData(ch).subarray(s, e));
+  }
+  return out;
+}
+
+// Crea una pista de audio NUEVA desde un buffer (al final de la lista) y la
+// persiste. Hereda color/pan/volumen si se pasan. Usado por dividir y pegar.
+async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume }) {
+  const id = `t${nextTrackId++}`;
+  await engine.addTrack({ id, name: name || 'Pista', audioBuffer: buffer, kind: 'stem', offsetSec });
+  engine.setTrackColor(id, color || nextStemColor());
+  if (typeof pan === 'number') engine.setTrackPan(id, pan);
+  if (typeof volume === 'number') engine.setTrackVolume(id, volume);
+  let savedPath = '';
+  try { savedPath = (await projectStore.saveStem(id, 'clip.wav', audioBufferToWav(buffer))) || ''; }
+  catch (e) { console.warn('No se pudo guardar la pista nueva:', e); }
+  appendTrackRow(id, savedPath);
+  return id;
+}
+
+// Resuelve las pistas objetivo: multi-selección si hay; si no, la enfocada.
+function targetTrackIds() {
+  let ids = [...selectedTrackIds];
+  if (!ids.length) {
+    const loc = document.querySelector('#stems-rows .stems-row.is-located');
+    if (loc?.dataset.trackId) ids = [loc.dataset.trackId];
+  }
+  return ids;
+}
+
+// Divide la(s) pista(s) en el cursor: la existente conserva el audio ANTES del
+// cursor; una pista NUEVA (en el cursor) lleva el audio DESPUÉS. Cada una queda
+// arrastrable por separado.
+async function splitSelectedAtPlayhead() {
+  if (pitchApplying) return;
+  const ids = targetTrackIds();
+  if (!ids.length) { showToast('Seleccioná una pista para dividir.', 'info'); return; }
+  const P = engine.getCurrentSec();
+  const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  let done = 0;
+  for (const id of ids) {
+    const entry = trackRows.get(id);
+    const track = trackById.get(id);
+    if (!entry || !track || !isEditableAudio(track)) continue;
+    const buf = engine.getTrackBuffer(id);
+    if (!buf) continue;
+    const O = engine.getTrackOffset(id);
+    const D = buf.duration;
+    if (P <= O + 0.02 || P >= O + D - 0.02) continue; // el cursor debe caer dentro
+    const headSec = P - O;
+    const head = sliceBuffer(buf, 0, headSec);
+    const tail = sliceBuffer(buf, headSec, D);
+    if (!head || !tail) continue;
+    // Existente = mitad antes (mismo offset); re-guardar.
+    engine.replaceTrackBuffer(id, head);
+    if (originalBuffers.has(id)) originalBuffers.set(id, head);
+    try {
+      const oldPath = entry.row.dataset.path;
+      const savedPath = await projectStore.saveStem(id, 'split.wav', audioBufferToWav(head));
+      entry.row.dataset.path = savedPath || '';
+      if (oldPath && oldPath !== savedPath) { try { await projectStore.removeStem(oldPath); } catch (_) {} }
+    } catch (e) { console.warn('No se pudo guardar la división:', e); }
+    peaksCache.delete(id);
+    drawTrackWaveform(id);
+    // Nueva = mitad después, anclada al cursor, heredando knobs.
+    await addAudioTrackFromBuffer({ buffer: tail, name: `${track.name} (2)`, color: track.color, offsetSec: P, pan: track.pan, volume: track.volume });
+    done++;
+  }
+  if (done) {
+    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    showToast(`✂️ Dividida${done > 1 ? 's' : ''} ${done} pista${done > 1 ? 's' : ''} en el cursor.`, 'success');
+  } else {
+    showToast('Poné el cursor DENTRO del audio de la pista para dividir.', 'info');
+  }
+}
+
+// Portapapeles de pistas (snapshot de buffers + knobs).
+let stemsClipboard = [];
+function copySelectedTracks() {
+  const ids = targetTrackIds();
+  const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  stemsClipboard = [];
+  for (const id of ids) {
+    const track = trackById.get(id);
+    const buf = engine.getTrackBuffer(id);
+    if (!track || !buf || !isEditableAudio(track)) continue;
+    stemsClipboard.push({ buffer: buf, name: track.name, color: track.color, offsetSec: engine.getTrackOffset(id), pan: track.pan, volume: track.volume });
+  }
+  if (stemsClipboard.length) {
+    showToast(`📋 ${stemsClipboard.length} pista${stemsClipboard.length > 1 ? 's' : ''} copiada${stemsClipboard.length > 1 ? 's' : ''}. Ctrl+V para pegar en el cursor.`, 'info');
+  } else {
+    showToast('Seleccioná una pista de audio para copiar.', 'info');
+  }
+}
+
+// Pega las pistas copiadas como pistas NUEVAS, ancladas al cursor (preservando
+// la sincronía relativa entre ellas).
+async function pasteTracks() {
+  if (!stemsClipboard.length) { showToast('No hay nada copiado (Ctrl+C primero).', 'info'); return; }
+  const P = engine.getCurrentSec();
+  const minOff = Math.min(...stemsClipboard.map(c => c.offsetSec));
+  const delta = P - minOff;
+  let n = 0;
+  for (const c of stemsClipboard) {
+    await addAudioTrackFromBuffer({ buffer: c.buffer, name: `${c.name} (copia)`, color: c.color, offsetSec: Math.max(0, c.offsetSec + delta), pan: c.pan, volume: c.volume });
+    n++;
+  }
+  if (n) {
+    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    showToast(`📋 ${n} pista${n > 1 ? 's' : ''} pegada${n > 1 ? 's' : ''} en el cursor.`, 'success');
   }
 }
 
@@ -3158,6 +3301,26 @@ function wireTrackSelection(root) {
       if (!trackRows.size) return;
       e.preventDefault();
       cutSelectedAtPlayhead();
+      return;
+    }
+    // Ctrl/Cmd+E → dividir en el cursor (la existente queda con el audio antes,
+    // una pista nueva con el de después).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'e' || e.key === 'E')) {
+      if (!trackRows.size) return;
+      e.preventDefault();
+      splitSelectedAtPlayhead();
+      return;
+    }
+    // Ctrl/Cmd+C / Ctrl/Cmd+V → copiar / pegar pistas (pega en el cursor).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+      if (!trackRows.size) return;
+      e.preventDefault();
+      copySelectedTracks();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault();
+      pasteTracks();
       return;
     }
     if (!selectedTrackIds.size) return;
