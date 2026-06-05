@@ -1243,16 +1243,27 @@ body[data-workspace="stems"] #body {
   transform: translateX(-2px);
   pointer-events: auto;
 }
-.stems-marker::before {
-  content: "";
+/* Líneas verticales de los marcadores — capa propia en .stems-arrange-inner,
+   debajo del strip izquierdo (que es z-index 2) para que NUNCA lo tapen. Igual
+   patrón que el overlay de loop/rango. */
+.stems-marker-lines {
   position: absolute;
-  top: 40px;
+  top: 40px;            /* debajo de la regla */
+  bottom: 0;
   left: 0;
-  width: 2px;
-  height: 9999px;
-  background: rgba(74,222,128,0.55);
+  right: 0;
   pointer-events: none;
+  z-index: 1;
 }
+.stems-marker-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-1px);
+  background: rgba(74,222,128,0.55);
+}
+.stems-marker-line.is-sel { background: var(--accent); }
 .stems-marker-flag {
   background: #4ade80;
   color: var(--on-accent);
@@ -2809,3 +2820,37 @@ body[data-workspace="stems"] #body {
 .sam-row-meta { font-size: 11px; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sam-row-has { font-size: 9px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
 .sam-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
+
+/* ── Modal de transpose selectivo (elegir qué pistas transponer) ──────────── */
+.stt-overlay {
+  position: fixed; inset: 0; z-index: 4100;
+  background: rgba(10,10,20,0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.stt-modal {
+  width: 460px; max-width: 92vw; max-height: 82vh; display: flex; flex-direction: column;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: 14px; padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+}
+.stt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.stt-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.stt-x { background: transparent; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.stt-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.stt-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0 0 12px; }
+.stt-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.stt-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: 9px; cursor: pointer;
+}
+.stt-row:hover { border-color: var(--border-strong); }
+.stt-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.stt-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stt-kind { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.stt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.stt-btn {
+  padding: 9px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); border-radius: 8px; transition: all 0.15s;
+}
+.stt-btn:hover { background: rgba(255,255,255,0.12); }
+.stt-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
+.stt-btn--primary:hover { filter: brightness(1.08); background: var(--accent); }

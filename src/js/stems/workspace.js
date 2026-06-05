@@ -646,6 +646,10 @@ const SHELL_HTML = `
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
         <div class="stems-loop-overlay" id="stems-loop-overlay" hidden></div>
+        <!-- Líneas verticales de los marcadores: viven aquí (z-index 1, como el
+             overlay de rango) en vez de colgar del header, así el strip izquierdo
+             (z-index 2) las tapa y NO se solapan con la pista a la izquierda. -->
+        <div class="stems-marker-lines" id="stems-marker-lines"></div>
         <header class="stems-head-row">
           <div class="stems-head-spacer">
             <span class="stems-head-spacer-label">PISTAS</span>
@@ -933,23 +937,27 @@ function wireSeekClicks(root) {
 // the cursor stays anchored ~30% from the left of the lane area. Always
 // follows while playing (clamped to the scrollable range) so the vertical
 // playback bar is never lost off-screen.
-let _lastFollowTs = 0;
+// Métricas de layout cacheadas: leer clientWidth/scrollWidth fuerza reflow, así
+// que las refrescamos solo cada 250ms (o al cambiar zoom/pistas) en vez de cada
+// frame. Esto permite hacer el auto-scroll CADA frame (fluido, en sync con el
+// playhead a 60fps) sin el coste de reflow. Antes el scroll iba throttled a
+// 30fps y el timeline avanzaba a saltos → se percibía como un parpadeo al ritmo
+// del compás (las líneas de grilla "saltaban" cada ~33ms).
+let _laneMetrics = { t: -1e9, clientW: 0, scrollW: 0 };
+function invalidateLaneMetrics() { _laneMetrics.t = -1e9; }
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
-  // The playhead bar itself moves every frame (cheap GPU transform); the
-  // timeline auto-scroll reads layout (clientWidth/scrollWidth = reflow), so
-  // we throttle it to ~30fps — plenty for follow, half the reflows.
-  const now = performance.now();
-  if (now - _lastFollowTs < 33) return;
-  _lastFollowTs = now;
   const arrange = document.getElementById('stems-arrange');
   if (!arrange) return;
-
-  const headX = STRIP_WIDTH + sec * PX_PER_SEC;
-  const laneW = arrange.clientWidth - STRIP_WIDTH;
+  const now = performance.now();
+  if (now - _laneMetrics.t > 250) {
+    _laneMetrics = { t: now, clientW: arrange.clientWidth, scrollW: arrange.scrollWidth };
+  }
+  const laneW = _laneMetrics.clientW - STRIP_WIDTH;
   if (laneW <= 0) return;
+  const headX = STRIP_WIDTH + sec * PX_PER_SEC;
   const anchor = STRIP_WIDTH + laneW * 0.3;
-  const maxScroll = Math.max(0, arrange.scrollWidth - arrange.clientWidth);
+  const maxScroll = Math.max(0, _laneMetrics.scrollW - _laneMetrics.clientW);
   const target = Math.max(0, Math.min(headX - anchor, maxScroll));
   if (Math.abs(arrange.scrollLeft - target) > 0.5) arrange.scrollLeft = target;
 }
@@ -1334,7 +1342,14 @@ function wireArrangeEvents(root) {
   if (pitchDown) pitchDown.onclick = () => adjustPendingPitch(-1);
   if (pitchVal)  pitchVal.ondblclick = () => { pendingPitch = 0; setStemsPitchShift(0); };
   const pitchApply = root.querySelector('#stems-pitch-apply');
-  if (pitchApply) pitchApply.onclick = () => setStemsPitchShift(pendingPitch);
+  if (pitchApply) pitchApply.onclick = () => {
+    if (pendingPitch === 0) { setStemsPitchShift(0); return; }
+    // Modal: elegir qué pistas transponer (deja fuera click/guía por defecto).
+    openTransposeSelectModal(pendingPitch, (onlyIds) => {
+      if (!onlyIds) return; // cancelado
+      setStemsPitchShift(pendingPitch, { onlyIds });
+    });
+  };
 
   // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
   const genTrigger = root.querySelector('#stems-generators-trigger');
@@ -1673,7 +1688,7 @@ function appendTrackRow(id, savedPath) {
   // Si hay un pitch master activo, la pista recién añadida debe quedar al
   // mismo tono que las demás. Se hace en background para no bloquear la
   // adición; el usuario verá el toast de "Procesando…".
-  if (currentStemsPitch !== 0) {
+  if (currentStemsPitch !== 0 && track.kind !== 'click' && track.kind !== 'guide') {
     const buf = engine.getTrackBuffer(id);
     if (buf) {
       originalBuffers.set(id, buf);
@@ -2451,9 +2466,66 @@ function paintStemsPitchUI() {
   if (applyBtn) applyBtn.hidden = !dirty;
 }
 
-async function setStemsPitchShift(semitones) {
+// Modal de selección de pistas a transponer. Por defecto deja FUERA el click y
+// la guía (percusión/voces habladas suenan feo al cambiarles el tono); el
+// usuario puede ajustar (p.ej. también desmarcar un click/guía que subió como
+// audio). onConfirm(Set<id> | null) — null si cancela.
+const STEMS_KIND_LABEL = {
+  stem: 'Audio', vocals: 'Voces', drums: 'Batería', bass: 'Bajo', other: 'Otros',
+  instrumental: 'Instrumental', click: 'Click', guide: 'Guía', midi: 'MIDI',
+};
+function openTransposeSelectModal(semitones, onConfirm) {
+  const tracks = engine.getTracks();
+  if (!tracks.length) { onConfirm(null); return; }
+  document.getElementById('stems-transpose-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'stems-transpose-overlay';
+  overlay.className = 'stt-overlay';
+  const sign = semitones > 0 ? '+' : '';
+  const rows = tracks.map(t => {
+    const off = (t.kind === 'click' || t.kind === 'guide'); // desmarcadas por defecto
+    return `<label class="stt-row">
+      <input type="checkbox" data-id="${escapeHtml(t.id)}" ${off ? '' : 'checked'}>
+      <span class="stt-name">${escapeHtml(t.name)}</span>
+      <span class="stt-kind">${STEMS_KIND_LABEL[t.kind] || t.kind}</span>
+    </label>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="stt-modal">
+      <div class="stt-head">
+        <h3>Transponer ${sign}${semitones} st</h3>
+        <button class="stt-x" data-act="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <p class="stt-hint">Elegí qué pistas transponer. El <b>click</b> y la <b>guía</b> van desmarcados (suenan feo al cambiarles el tono). Desmarcá también cualquier click/guía que hayas subido como audio.</p>
+      <div class="stt-list">${rows}</div>
+      <div class="stt-actions">
+        <button class="stt-btn" data-act="cancel">Cancelar</button>
+        <button class="stt-btn stt-btn--primary" data-act="apply">Aplicar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => { window.removeEventListener('keydown', onKey, true); overlay.remove(); };
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { close(); return; }
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'cancel') { close(); return; }
+    if (act === 'apply') {
+      const ids = new Set([...overlay.querySelectorAll('.stt-row input:checked')].map(i => i.dataset.id));
+      if (!ids.size) { toast('Marcá al menos una pista para transponer.', 'warning'); return; }
+      close();
+      onConfirm(ids);
+    }
+  });
+}
+
+async function setStemsPitchShift(semitones, opts = {}) {
   semitones = Math.max(-12, Math.min(12, semitones | 0));
-  if (semitones === currentStemsPitch) return;
+  // onlyIds (opcional): Set de ids de pista a transponer. Las demás se dejan
+  // intactas (p.ej. click/guía que el usuario subió y suenan feo al transponer).
+  const onlyIds = opts.onlyIds || null;
+  if (semitones === currentStemsPitch && !onlyIds) return;
   if (pitchApplying) { toast('Espera a que termine la aplicación anterior.', 'warning'); return; }
   const trackList = engine.getTracks();
   if (!trackList.length) {
@@ -2501,6 +2573,13 @@ async function setStemsPitchShift(semitones) {
     const { pitchShiftBuffer } = await import('./harmonyShifter.js');
     let i = 0;
     for (const t of trackList) {
+      // Saltea las pistas excluidas: se quedan en su tono original.
+      if (onlyIds && !onlyIds.has(t.id)) {
+        const orig = originalBuffers.get(t.id);
+        if (orig) engine.replaceTrackBuffer(t.id, orig); // por si tenían un shift previo
+        i++;
+        continue;
+      }
       const orig = originalBuffers.get(t.id);
       if (!orig) continue;
       const base = i / trackList.length;
@@ -3773,6 +3852,7 @@ let waveformRedrawRAF = 0;
 function refreshTimelineWidth({ coalesceWaveforms = false } = {}) {
   const inner = document.getElementById('stems-arrange-inner');
   if (!inner) return;
+  invalidateLaneMetrics(); // el ancho/scroll cambió → recachear en el próximo follow
   const w = projectWidthPx();
   // The ruler container, every lane, and the marker layer must all share
   // the same width so columns align vertically. The strip column adds a
@@ -4128,6 +4208,15 @@ function redrawMarkers() {
   if (!layer) return;
   // Marker layer inherits width from .stems-head-tl (parent).
   layer.innerHTML = '';
+  // Capa de LÍNEAS verticales (debajo del strip izquierdo, z-index 1): se pinta
+  // con offset STRIP_WIDTH para alinear con la lane, y el strip sticky la tapa.
+  const lines = document.getElementById('stems-marker-lines');
+  if (lines) {
+    lines.innerHTML = markers.map(m => {
+      const sel = (m.id === selectedMarkerId) ? ' is-sel' : '';
+      return `<div class="stems-marker-line${sel}" style="left:${(STRIP_WIDTH + m.atSec * PX_PER_SEC).toFixed(2)}px"></div>`;
+    }).join('');
+  }
   for (const m of markers) {
     const x = m.atSec * PX_PER_SEC;
     const el = document.createElement('div');
@@ -4438,6 +4527,10 @@ async function onDetectSections() {
   if (!stem) { toast('Sube una canción primero para detectar sus secciones.', 'warning'); return; }
   const buf = engine.getTrackBuffer(stem.id);
   if (!buf) { toast('No se pudo leer el audio de la canción.'); return; }
+  // Si la canción fue separada, el stem de VOCES ayuda a marcar instrumentales
+  // (tramos sin canto) y a reforzar verso/coro. Opcional: si no hay, va por energía.
+  const vocalTrack = engine.getTracks().find(t => t.kind === 'vocals');
+  const vocalBuffer = vocalTrack ? engine.getTrackBuffer(vocalTrack.id) : null;
 
   const btn = document.getElementById('stems-detect-sections');
   const prevHtml = btn ? btn.innerHTML : '';
@@ -4446,7 +4539,7 @@ async function onDetectSections() {
   try {
     await new Promise(r => setTimeout(r, 20)); // let the button repaint first
     // Pass the precise project tempo so boundaries snap to exact bar lines.
-    sections = detectSections(buf, { bpm: bpmFloat, beatsPerBar });
+    sections = detectSections(buf, { bpm: bpmFloat, beatsPerBar, vocalBuffer });
   } catch (e) {
     console.warn('Section detection failed:', e);
   } finally {

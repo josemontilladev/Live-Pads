@@ -116,6 +116,24 @@ function extractFeatures(mono, sr) {
   return feats;
 }
 
+// RMS de energía por frame, alineada al MISMO grid que extractFeatures (mismo
+// hop/ventana). Captura la DINÁMICA: el coro suele tener más energía (banda
+// llena) que el verso (más despojado). Es la clave para distinguirlos cuando el
+// timbre/armonía es homogéneo de principio a fin — el caso típico en worship,
+// donde la textura sola colapsa todo en un único "coro".
+function frameEnergy(mono, sr, nFrames) {
+  const hop = Math.max(1, Math.round(sr * HOP_SEC));
+  const n = (nFrames != null) ? nFrames : Math.floor((mono.length - FFT_SIZE) / hop);
+  const out = new Float32Array(Math.max(0, n));
+  for (let f = 0; f < out.length; f++) {
+    const base = f * hop;
+    let sum = 0;
+    for (let i = 0; i < FFT_SIZE; i++) { const x = mono[base + i] || 0; sum += x * x; }
+    out[f] = Math.sqrt(sum / FFT_SIZE);
+  }
+  return out;
+}
+
 function makeCheckerboard() {
   const N = 2 * KERNEL_HALF;
   const K = new Float32Array(N * N);
@@ -142,6 +160,17 @@ export function detectSections(audioBuffer, opts = {}) {
   const feats = extractFeatures(mono, sr);
   if (!feats) return [];
   const n = feats.length;
+
+  // Energía por frame del MIX (dinámica) y, si se pasó el stem de voces,
+  // energía de la voz (para detectar instrumentales = tramos sin canto).
+  const energy = frameEnergy(mono, sr, n);
+  let vocalEnergy = null;
+  if (opts.vocalBuffer) {
+    try {
+      const dv = downmixDownsample(opts.vocalBuffer);
+      vocalEnergy = frameEnergy(dv.mono, dv.sr, n);
+    } catch (_) { vocalEnergy = null; }
+  }
 
   // Novelty curve along the SSM diagonal (computed on the fly, no full SSM).
   const K = makeCheckerboard();
@@ -266,14 +295,25 @@ export function detectSections(audioBuffer, opts = {}) {
     return b - a;
   });
 
-  const labels = labelSegments(segMeans, segLengths);
+  // Energía media (y voz media) por segmento — promedio de los frames del tramo.
+  const segMean = (arr, a, i) => {
+    const b = (i + 1 < boundaryFrames.length) ? boundaryFrames[i + 1] : n;
+    let s = 0, c = 0;
+    for (let f = a; f < b && f < arr.length; f++) { s += arr[f]; c++; }
+    return c ? s / c : 0;
+  };
+  const segEnergy = boundaryFrames.map((a, i) => segMean(energy, a, i));
+  const segVocal = vocalEnergy ? boundaryFrames.map((a, i) => segMean(vocalEnergy, a, i)) : null;
+
+  const labels = labelSegments(segMeans, segLengths, segEnergy, segVocal);
   const CUE = {
-    intro:    { cueId: 'intro',    label: 'Intro' },
-    verso:    { cueId: 'verso',    label: 'Verso' },
-    precoro:  { cueId: 'pre-coro', label: 'Pre-Coro' },
-    coro:     { cueId: 'coro',     label: 'Coro' },
-    puente:   { cueId: 'puente',   label: 'Puente' },
-    outro:    { cueId: 'outro',    label: 'Outro' },
+    intro:        { cueId: 'intro',        label: 'Intro' },
+    verso:        { cueId: 'verso',        label: 'Verso' },
+    precoro:      { cueId: 'pre-coro',     label: 'Pre-Coro' },
+    coro:         { cueId: 'coro',         label: 'Coro' },
+    puente:       { cueId: 'puente',       label: 'Puente' },
+    instrumental: { cueId: 'instrumental', label: 'Instrumental' },
+    outro:        { cueId: 'outro',        label: 'Outro' },
   };
   return boundaryFrames.map((f, i) => {
     const c = CUE[labels[i]] || CUE.verso;
@@ -281,27 +321,28 @@ export function detectSections(audioBuffer, opts = {}) {
   });
 }
 
-// Heurística de estructura:
-//   1. Cluster por textura (greedy con umbral de similitud).
-//   2. El cluster más repetido = CORO.
-//   3. PRECORO: segmento corto (<= 60% de la longitud promedio) que aparece
-//      INMEDIATAMENTE ANTES de un coro de forma consistente (más de una vez
-//      o, si solo aparece una vez, justo antes del primer coro).
-//   4. PUENTE: segmento único (counts === 1) que NO es el coro y aparece en
-//      la segunda mitad del tema. Si hay varios candidatos, el más distinto
-//      al coro (menor similitud) gana.
-//   5. INTRO siempre va en la primera posición; OUTRO en la última si es
-//      única y el tema tiene ≥4 secciones.
+// Heurística de estructura — ENERGÍA-first (mejor para worship, donde el timbre
+// es homogéneo y la textura sola colapsaba todo en "coro"):
+//   1. Cluster por textura → identifica repeticiones.
+//   2. CORO = el cluster repetido con MÁS ENERGÍA (no solo el más repetido); y
+//      cualquier tramo claramente fuerte + repetido. El verso (más suave) ya no
+//      se confunde con el coro aunque suene parecido.
+//   3. INSTRUMENTAL = tramo con muy poca VOZ (si hay stem de voces separado).
+//   4. PRECORO = tramo corto y suave justo antes de un coro.
+//   5. PUENTE = tramo único en la 2da mitad, no coro.
+//   6. INTRO = primera posición; OUTRO = última si es única y suave.
 //
 // Best-effort — el usuario afina con el menú de marcadores.
-function labelSegments(segMeans, segLengths) {
+function labelSegments(segMeans, segLengths, segEnergy, segVocal) {
   const N = segMeans.length;
+  if (!N) return [];
   const sim = (a, b) => { let d = 0; for (let i = 0; i < a.length; i++) d += a[i] * b[i]; return d; };
 
+  // 1) Cluster por textura (umbral 0.86 — algo más estricto para no fusionar de más).
   const cluster = new Array(N).fill(-1);
   const reps = [];
   for (let i = 0; i < N; i++) {
-    let best = -1, bestS = 0.85;
+    let best = -1, bestS = 0.86;
     for (let c = 0; c < reps.length; c++) {
       const s = sim(segMeans[i], reps[c]);
       if (s > bestS) { bestS = s; best = c; }
@@ -309,58 +350,61 @@ function labelSegments(segMeans, segLengths) {
     if (best >= 0) cluster[i] = best;
     else { cluster[i] = reps.length; reps.push(segMeans[i]); }
   }
-
   const counts = {};
   for (const c of cluster) counts[c] = (counts[c] || 0) + 1;
-  let chorusCluster = -1, bestCount = 1;
-  for (const c in counts) { if (counts[c] > bestCount) { bestCount = counts[c]; chorusCluster = +c; } }
 
-  // Longitud promedio de los segmentos "no únicos" (para detectar el corto).
-  const reasonableLens = segLengths.filter((_, i) => (counts[cluster[i]] || 0) > 1);
-  const avgLen = reasonableLens.length
-    ? reasonableLens.reduce((s, x) => s + x, 0) / reasonableLens.length
-    : (segLengths.reduce((s, x) => s + x, 0) / Math.max(1, N));
+  // 2) Energía relativa (0..1) + umbral "fuerte" adaptativo (sobre la mediana).
+  const energies = (segEnergy && segEnergy.length === N) ? segEnergy : segLengths.map(() => 1);
+  const eMax = Math.max(...energies, 1e-9);
+  const eRel = energies.map(e => e / eMax);
+  const eSorted = [...eRel].sort((a, b) => a - b);
+  const eMed = eSorted[Math.floor(N / 2)] || 0;
+  const loudThresh = eMed + 0.30 * (1 - eMed);   // claramente más fuerte que la mediana
+  const isLoud = (i) => eRel[i] >= loudThresh;
 
-  // ── Pre-coro: marca clústers que sean cortos Y aparezcan justo antes
-  // de un coro consistentemente. Si el mismo clúster aparece varias veces
-  // y todas sus apariciones (o ≥2) preceden a un coro, lo etiquetamos.
-  const precorusClusters = new Set();
-  const clusterToIndices = new Map();
-  cluster.forEach((c, i) => {
-    if (c === chorusCluster) return;
-    if (!clusterToIndices.has(c)) clusterToIndices.set(c, []);
-    clusterToIndices.get(c).push(i);
-  });
-  for (const [c, indices] of clusterToIndices) {
-    if (chorusCluster < 0) break;
-    // Longitud típica de este clúster: media de sus segmentos.
-    const lens = indices.map(i => segLengths[i]);
-    const meanLen = lens.reduce((s, x) => s + x, 0) / lens.length;
-    if (meanLen > avgLen * 0.6) continue; // demasiado largo, no es pre-coro
-    // ¿Cuántas veces este clúster va seguido de un coro?
-    let beforeChorus = 0;
-    for (const i of indices) {
-      if (i + 1 < N && cluster[i + 1] === chorusCluster) beforeChorus++;
-    }
-    // Reglas:
-    //   - Si aparece ≥2 veces y mitad o más son ante-coro → es pre-coro.
-    //   - Si aparece solo 1 vez Y es ante-coro Y está antes del segundo
-    //     coro → también lo aceptamos (canciones que solo tienen pre-coro
-    //     antes del bridge-coro final son válidas).
-    if (indices.length >= 2 && beforeChorus >= Math.ceil(indices.length / 2)) {
-      precorusClusters.add(c);
-    } else if (indices.length === 1 && beforeChorus === 1) {
-      precorusClusters.add(c);
-    }
+  // 3) Presencia de voz (si hay stem de voces): umbral relativo a la mediana
+  //    de los tramos cantados → muy poca voz = instrumental.
+  let vocalLow = () => false;
+  if (segVocal && segVocal.length === N) {
+    const vMax = Math.max(...segVocal, 1e-9);
+    const vRel = segVocal.map(v => v / vMax);
+    const vNonZero = [...vRel].filter(v => v > 0.02).sort((a, b) => a - b);
+    const vMed = vNonZero.length ? vNonZero[Math.floor(vNonZero.length / 2)] : 0;
+    vocalLow = (i) => vRel[i] < Math.max(0.22, vMed * 0.4);
   }
 
+  // 4) Coro = cluster repetido (count≥2) de mayor energía media.
+  const clusterE = {};
+  cluster.forEach((c, i) => { (clusterE[c] = clusterE[c] || []).push(eRel[i]); });
+  let chorusCluster = -1, bestScore = -1;
+  for (const c in counts) {
+    if (counts[c] < 2) continue;
+    const arr = clusterE[c];
+    const meanE = arr.reduce((s, x) => s + x, 0) / arr.length;
+    if (meanE > bestScore) { bestScore = meanE; chorusCluster = +c; }
+  }
+
+  const avgLen = segLengths.reduce((s, x) => s + x, 0) / Math.max(1, N);
+  const nextIsChorusLike = (i) => i + 1 < N &&
+    (cluster[i + 1] === chorusCluster || (isLoud(i + 1) && counts[cluster[i + 1]] >= 2));
+
   return cluster.map((c, i) => {
+    const last = i === N - 1;
+    // Instrumental: tramo sin voz (solo si tenemos el stem de voces).
+    if (segVocal && vocalLow(i)) {
+      if (i === 0) return 'intro';
+      if (last && counts[c] === 1 && N >= 4) return 'outro';
+      return 'instrumental';
+    }
     if (i === 0) return 'intro';
-    if (i === N - 1 && counts[c] === 1 && N >= 4) return 'outro';
+    if (last && counts[c] === 1 && N >= 4 && !isLoud(i)) return 'outro';
+    // Coro: el cluster-coro, o un tramo claramente fuerte y repetido.
     if (c === chorusCluster) return 'coro';
-    if (precorusClusters.has(c)) return 'precoro';
-    // Puente: segmento único en la segunda mitad, no coro, no pre-coro.
-    if (counts[c] === 1 && chorusCluster >= 0 && i >= Math.floor(N * 0.5)) return 'puente';
+    if (isLoud(i) && counts[c] >= 2) return 'coro';
+    // Pre-coro: tramo corto y suave justo antes de un coro.
+    if (segLengths[i] <= avgLen * 0.7 && !isLoud(i) && nextIsChorusLike(i)) return 'precoro';
+    // Puente: tramo único en la 2da mitad, no coro.
+    if (counts[c] === 1 && i >= Math.floor(N * 0.5)) return 'puente';
     return 'verso';
   });
 }
