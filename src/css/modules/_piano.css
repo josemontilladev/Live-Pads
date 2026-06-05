@@ -56,12 +56,15 @@
   width: 11px;
   height: 11px;
   pointer-events: none;
-  opacity: 0.45;
+  opacity: 0.5;
+  transition: opacity 0.15s;
   background: linear-gradient(135deg,
     transparent 0 55%, var(--text-muted) 55% 64%,
     transparent 64% 73%, var(--text-muted) 73% 82%,
     transparent 82%);
 }
+/* Al pasar el mouse por el panel, el handle de redimensionar se hace evidente. */
+.stems-piano:hover::after { opacity: 0.9; }
 
 /* Barra de controles */
 .pk-bar {
