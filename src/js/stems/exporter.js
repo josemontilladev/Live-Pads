@@ -74,7 +74,10 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
     src.connect(gain); gain.connect(pan); pan.connect(offlineMaster);
     // Honour the per-track timeline offset. Individual exports normalise to
     // the track's own start (offset 0) so the stem isn't padded with silence.
-    const off = opts.onlyTrackIds ? 0 : (t.offsetSec || 0);
+    // PERO con rango (rangeStart/End son coords absolutas del timeline) hay que
+    // respetar el offset real aunque sea export individual, o el tramo sale
+    // corrido por el valor del offset.
+    const off = (opts.onlyTrackIds && !hasRange) ? 0 : (t.offsetSec || 0);
     if (off >= 0) src.start(off);
     else src.start(0, -off);
   }

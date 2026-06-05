@@ -1044,6 +1044,15 @@ function bindPadsPianoToggle() {
 // Cuenta de entrada: agenda un compás de clicks (al BPM/compás del metrónomo) y
 // llama onDone() al terminar, para arrancar la secuencia justo en el "1".
 let countingIn = false;
+let countInTimer = null;
+// Aborta una cuenta de entrada en curso (lo llaman Stop y el pánico): cancela el
+// timer para que la secuencia NO arranque al final del conteo.
+function cancelCountIn() {
+  if (countInTimer) { clearTimeout(countInTimer); countInTimer = null; }
+  countingIn = false;
+  const btn = q('#tp-play-btn');
+  if (btn) btn.classList.remove('counting-in');
+}
 function doCountIn(onDone) {
   if (countingIn || !engine || !engine.ctx) { onDone(); return; }
   const beats = metro.beats || 4;
@@ -1056,7 +1065,8 @@ function doCountIn(onDone) {
   countingIn = true;
   const btn = q('#tp-play-btn');
   if (btn) btn.classList.add('counting-in');
-  setTimeout(() => {
+  countInTimer = setTimeout(() => {
+    countInTimer = null;
     countingIn = false;
     if (btn) btn.classList.remove('counting-in');
     onDone();
@@ -1071,6 +1081,7 @@ function bindClickWithSeqToggle() {
 }
 
 function triggerMasterStop() {
+  cancelCountIn(); // si había una cuenta de entrada, abortarla (no arrancar)
   if (getActiveKey()) onKeyClick(getActiveKey());
   if (getMetroRunning()) toggleMetro();
   if (isTrackPlaying()) clickPlayPause();
@@ -1142,6 +1153,7 @@ function panicStopAll() {
     try { stemsWS.stemsPanicStop(); } catch (_) {}
   }
   try { padsPianoPanic(); } catch (_) {} // soltar notas sostenidas del piano
+  cancelCountIn(); // abortar la cuenta de entrada si estaba en curso
   // Limpiar el marcador "PRÓXIMA": tras el pánico no hay nada pre-armado, así
   // que la card no debe seguir diciendo que sonará algo al pulsar Espacio.
   qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));

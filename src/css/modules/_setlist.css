@@ -1398,14 +1398,31 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
 }
 .setlists-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.setlists-save {
-  width: 100%; margin-bottom: 14px; padding: 10px;
-  font-size: 12.5px; font-weight: 700; color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 9px; cursor: pointer; transition: background 0.15s;
+/* Formulario de guardado: título + fecha (calendario) + botón. */
+.setlists-save-form {
+  display: flex; align-items: flex-end; gap: 8px;
+  margin-bottom: 14px; padding: 12px;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: 10px;
 }
-.setlists-save:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.setlists-save-form .sl-field { display: flex; flex-direction: column; gap: 4px; }
+.setlists-save-form .sl-field--title { flex: 1; min-width: 0; }
+.setlists-save-form label {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.setlists-save-form input {
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 12.5px; font-family: inherit; outline: none;
+}
+.setlists-save-form input:focus { border-color: var(--accent); }
+.setlists-save-form .sl-date { color-scheme: dark; cursor: pointer; }
+.setlists-save-form .sl-save-btn {
+  padding: 9px 16px; font-size: 12.5px; font-weight: 800; color: #000;
+  background: var(--accent); border: none; border-radius: 8px; cursor: pointer;
+  white-space: nowrap; transition: filter 0.15s;
+}
+.setlists-save-form .sl-save-btn:hover { filter: brightness(1.08); }
 .setlists-list { display: flex; flex-direction: column; gap: 6px; }
 .setlists-row {
   display: flex; align-items: center; gap: 8px;
