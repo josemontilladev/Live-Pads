@@ -5,7 +5,7 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, getServiceSongs } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, getServiceSongs, getCurrentSetlistName } from '../data/service.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -65,8 +65,10 @@ export function showServiceChooser() {
   const curN = getServiceSongs().length;
   chooser.innerHTML = `
     <div class="svc-chooser-head">
-      <h4>Elegí un setlist</h4>
-      <button class="svc-chooser-manage" data-act="manage" title="Guardar la lista actual o gestionar">＋ Guardar / gestionar</button>
+      <h4>Elegir un setlist</h4>
+      <button class="svc-chooser-manage icon-btn" data-act="manage" title="Guardar la lista actual / gestionar setlists" aria-label="Guardar o gestionar setlists">
+        <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
+      </button>
     </div>
     <div class="svc-chooser-list">
       ${list.length ? list.map(s => `
@@ -152,33 +154,28 @@ export function refreshServiceMeta() {
 }
 
 function updateServiceMeta(songs) {
-  const el = q('#service-meta');
-  if (!el) return;
-  const n = songs.length;
-  if (n === 0) { el.textContent = ''; return; }
+  // El título del servicio = nombre del setlist cargado (ej. "Servicio Domingo")
+  // o "Tu lista de hoy" si es la lista de trabajo sin nombre. La cantidad de
+  // canciones / duración va como tooltip para no ocupar otra línea (en laptop se
+  // veía muy espacioso). La línea de meta queda vacía (se oculta con :empty).
+  const labelEl = q('.service-actions-label');
+  const metaEl = q('#service-meta');
+  if (metaEl) metaEl.textContent = '';
+  if (!labelEl) return;
+  const name = getCurrentSetlistName();
+  labelEl.textContent = name || 'Tu lista de hoy';
 
-  // Sum durationSec when known (cached on first play by trackPlayer);
-  // fall back to 240s (4 min) per unknown song. The ~ prefix signals
-  // "still estimating" when at least one song hasn't been timed yet.
-  let totalSec = 0;
-  let unknownCount = 0;
+  const n = songs.length;
+  if (n === 0) { labelEl.title = ''; return; }
+  let totalSec = 0, unknown = 0;
   for (const s of songs) {
-    if (typeof s.durationSec === 'number' && s.durationSec > 0) {
-      totalSec += s.durationSec;
-    } else {
-      totalSec += 240;
-      unknownCount++;
-    }
+    if (typeof s.durationSec === 'number' && s.durationSec > 0) totalSec += s.durationSec;
+    else { totalSec += 240; unknown++; }
   }
   const minutes = Math.max(1, Math.round(totalSec / 60));
-  const prefix = unknownCount > 0 ? '~' : '';
-
+  const prefix = unknown > 0 ? '~' : '';
   const songLabel = n === 1 ? 'canción' : 'canciones';
-  const activeIdx = deps.getActiveIndex();
-  const positionPart = (activeIdx >= 0 && activeIdx < n)
-    ? `${activeIdx + 1} / ${n} · `
-    : '';
-  el.textContent = `${positionPart}${n} ${songLabel} · ${prefix}${minutes} min`;
+  labelEl.title = `${n} ${songLabel} · ${prefix}${minutes} min`;
 }
 
 function buildCard(song, index, activeIdx) {

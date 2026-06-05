@@ -9,6 +9,11 @@ import { confirmDialog } from '../ui/dialog.js';
 
 let serviceSongs = [];
 let activeServiceIndex = -1;
+// Nombre del setlist cargado (para mostrarlo como título del servicio). Vacío =
+// lista de trabajo sin nombre ("Tu lista de hoy").
+let currentSetlistName = '';
+export const getCurrentSetlistName = () => currentSetlistName;
+export const setCurrentSetlistName = (n) => { currentSetlistName = n || ''; };
 
 let renderFn = null;
 let applyGiSongFn = null;
@@ -26,6 +31,7 @@ export const getActiveServiceIndex = () => activeServiceIndex;
 export const setActiveServiceIndex = (n) => { activeServiceIndex = n; };
 
 export function loadServiceSongs() {
+  currentSetlistName = localStorage.getItem('serviceName') || '';
   const saved = localStorage.getItem('serviceSongs');
   if (saved) {
     try {
@@ -39,6 +45,7 @@ export function loadServiceSongs() {
 
 export function saveServiceSongs() {
   localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
+  localStorage.setItem('serviceName', currentSetlistName || '');
   try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
@@ -55,6 +62,7 @@ export function addToService(song) {
 export function replaceService(songs) {
   serviceSongs = (songs || []).map((s, i) => ({ ...s, serviceId: Date.now() + i + Math.random() }));
   activeServiceIndex = -1;
+  currentSetlistName = ''; // por defecto sin nombre; loadSavedSetlist lo fija después
   saveServiceSongs();
   triggerRender();
 }
@@ -74,6 +82,7 @@ export function clearServiceList() {
     danger: true,
     onConfirm: () => {
       serviceSongs = [];
+      currentSetlistName = '';
       saveServiceSongs();
       triggerRender();
     }
@@ -132,13 +141,17 @@ export function saveCurrentAsSetlist(name, date) {
   };
   arr.unshift(entry);
   writeSavedSetlists(arr);
+  currentSetlistName = entry.name; // el servicio actual pasa a llamarse así
+  saveServiceSongs();              // persistir el nombre
   return entry;
 }
 // Carga un setlist guardado → reemplaza el servicio actual.
 export function loadSavedSetlist(id) {
   const entry = listSavedSetlists().find(s => s.id === id);
   if (!entry) return false;
-  replaceService(entry.songs || []);
+  replaceService(entry.songs || []);   // limpia currentSetlistName…
+  currentSetlistName = entry.name || ''; // …y acá ponemos el nombre del setlist
+  saveServiceSongs();                    // re-persistir con el nombre
   return true;
 }
 export function deleteSavedSetlist(id) {
