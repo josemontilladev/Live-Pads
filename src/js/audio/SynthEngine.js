@@ -1117,18 +1117,45 @@ export class SynthEngine {
     if (!navigator.requestMIDIAccess) return;
     try {
       const midiAccess = await navigator.requestMIDIAccess();
-      const collectNames = (ma) => {
-        const names = [];
-        for (const input of ma.inputs.values()) names.push(input.name || 'MIDI input');
-        return names;
+      this._midiAccess = midiAccess;
+      const inputs = () => [...midiAccess.inputs.values()];
+      const namesOf = () => inputs().map(i => i.name || 'MIDI input');
+      const idsOf = () => inputs().map(i => i.id).sort();
+      const bindAll = () => { for (const i of midiAccess.inputs.values()) i.onmidimessage = onMidiMessage; };
+      let lastIds = [];
+
+      // Re-liga las entradas y avisa SOLO si el set de dispositivos cambió.
+      // initial=true fija la línea base sin lanzar el toast de "conectado" por
+      // los controladores que ya estaban enchufados al abrir la app.
+      const sync = (evt, initial = false) => {
+        bindAll();
+        const ids = idsOf();
+        const changed = ids.length !== lastIds.length || ids.some((x, k) => x !== lastIds[k]);
+        let useEvt = evt;
+        if (!useEvt && changed && !initial) {
+          // El poll detectó el cambio (statechange no disparó): inferir conexión
+          // o desconexión comparando con el set anterior, para mostrar el aviso.
+          const added = ids.find(id => !lastIds.includes(id));
+          const removed = lastIds.find(id => !ids.includes(id));
+          if (added) {
+            const name = inputs().find(i => i.id === added)?.name || 'controlador';
+            useEvt = { port: { type: 'input', state: 'connected', name } };
+          } else if (removed) {
+            useEvt = { port: { type: 'input', state: 'disconnected', name: 'controlador' } };
+          }
+        }
+        lastIds = ids;
+        if (typeof onDevicesChanged === 'function') onDevicesChanged(namesOf(), useEvt);
       };
-      const bindInputs = (ma, evt) => {
-        for (const input of ma.inputs.values()) input.onmidimessage = onMidiMessage;
-        if (typeof onDevicesChanged === 'function') onDevicesChanged(collectNames(ma), evt);
-      };
-      bindInputs(midiAccess);
-      // Pasa el evento (port + state) para que la UI avise conexión/desconexión.
-      midiAccess.onstatechange = (e) => bindInputs(e.target, e);
+
+      sync(null, true); // línea base, sin toast
+      // Inmediato: conexión/desconexión vía el evento del navegador.
+      midiAccess.onstatechange = (e) => sync(e);
+      // Respaldo de hot-plug: en Windows el statechange a veces NO dispara al
+      // enchufar el controlador con la app abierta. Re-escaneamos cada 2 s para
+      // detectarlo igual (y avisar) sin tener que reiniciar la app.
+      if (this._midiPollTimer) clearInterval(this._midiPollTimer);
+      this._midiPollTimer = setInterval(() => sync(null), 2000);
     } catch (err) { console.warn('MIDI Access failed:', err); }
   }
 
