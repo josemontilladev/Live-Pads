@@ -333,6 +333,26 @@ body[data-workspace="stems"] #body {
   border-radius: 14px; padding: 20px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
+/* Cheat-sheet de atajos del timeline */
+.stems-newsong-modal.stems-shortcuts { width: 460px; }
+.stems-shortcuts-title { margin: 0 0 14px; font-size: 15px; font-weight: 800; color: var(--text); }
+.stems-shortcuts-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.stems-shortcut-row {
+  display: grid; grid-template-columns: 175px 1fr; align-items: center; gap: 12px;
+  padding: 6px 8px; border-radius: 7px;
+}
+.stems-shortcut-row:nth-child(odd) { background: rgba(255,255,255,0.025); }
+.stems-shortcut-row kbd {
+  justify-self: start;
+  font: 600 11px/1.4 'Consolas', monospace;
+  color: var(--accent);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 2px 7px; white-space: nowrap;
+}
+.stems-shortcut-row span { font-size: 12.5px; color: var(--text-muted); }
+.stems-help-btn { font-weight: 800; }
+.stems-help-btn:hover { color: var(--accent); }
 
 /* Card shell shared by the bento blocks. Overflow is set per-component
    below (arrange needs auto for scroll; deck/console/footer hidden). */
@@ -1256,6 +1276,9 @@ body[data-workspace="stems"] #body {
   margin-left: 2px;
 }
 .stems-marker-remove:hover { color: #ff5f57; }
+/* Resaltar el × al pasar por el marcador, para que se note que se puede quitar. */
+.stems-marker:hover .stems-marker-remove { color: rgba(255,95,87,0.85); }
+.stems-marker:hover .stems-marker-remove:hover { background: rgba(255,95,87,0.15); border-radius: 50%; }
 
 /* ── Track rows (each = sticky strip + lane) ─────────────────────── */
 .stems-rows {
