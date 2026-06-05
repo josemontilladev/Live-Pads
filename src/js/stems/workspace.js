@@ -616,8 +616,10 @@ const SHELL_HTML = `
         </div>
         <div class="stems-zoom-group" title="Altura de las pistas (Ctrl + rueda del ratón)">
           <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
+          <span class="stems-zoom-readout" id="stems-rowh-readout">100%</span>
           <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
         </div>
+        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?)" aria-label="Atajos de teclado">?</button>
         <label class="stems-snap-toggle" title="Marcadores se ajustan al beat más cercano">
           <input type="checkbox" id="stems-snap" checked>
           <span>SNAP</span>
@@ -1001,6 +1003,7 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-zoom-out').onclick = () => stepZoom(1 / 1.5);
   root.querySelector('#stems-row-taller').onclick   = () => setRowHeight(ROW_HEIGHT + 14);
   root.querySelector('#stems-row-shorter').onclick  = () => setRowHeight(ROW_HEIGHT - 14);
+  root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
   root.querySelector('#stems-snap').onchange = (e) => { snapToBeat = e.target.checked; scheduleSave(); };
 
   // Alt+wheel  → horizontal zoom (anchored on the cursor X for natural feel)
@@ -1169,6 +1172,8 @@ function setRowHeight(next) {
   ROW_HEIGHT = Math.max(ROW_HEIGHT_MIN, Math.min(ROW_HEIGHT_MAX, next));
   // Update CSS variable so every row + its canvas pick up the new height.
   document.documentElement.style.setProperty('--stems-row-height', `${ROW_HEIGHT}px`);
+  const rh = document.getElementById('stems-rowh-readout');
+  if (rh) rh.textContent = `${Math.round((ROW_HEIGHT / 64) * 100)}%`; // 64px = 100%
   redrawAllWaveforms();
   scheduleSave();
 }
@@ -1917,6 +1922,7 @@ const ICON_MENU_CUT  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-wi
 const ICON_MENU_SPLIT= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="3" x2="12" y2="21"/><rect x="3" y="8" width="6" height="8" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/></svg>';
 const ICON_MENU_COPY = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const ICON_MENU_PASTE= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>';
+const ICON_MENU_NORM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="14" height="14"><line x1="4" y1="20" x2="4" y2="12"/><line x1="9" y1="20" x2="9" y2="4"/><line x1="14" y1="20" x2="14" y2="9"/><line x1="19" y1="20" x2="19" y2="14"/></svg>';
 
 // Menú contextual (clic derecho) de un strip de la consola: ofrece las mismas
 // acciones que la fila de la pista (separar, armónica, exportar, eliminar, o
@@ -1938,6 +1944,7 @@ function openStripContextMenu(anchorEl, id) {
     items.push({ icon: ICON_MENU_SPLIT, label: 'Dividir en el cursor (Ctrl+E)', onSelect: () => splitSelectedAtPlayhead() });
     items.push({ icon: ICON_MENU_CUT,   label: 'Recortar inicio (Ctrl+X)',      onSelect: () => cutSelectedAtPlayhead() });
     items.push({ icon: ICON_MENU_COPY,  label: 'Copiar pista (Ctrl+C)',         onSelect: () => copySelectedTracks() });
+    items.push({ icon: ICON_MENU_NORM,  label: 'Normalizar pista',              onSelect: () => normalizeSelectedTracks() });
   }
   if (stemsClipboard.length) {
     items.push({ icon: ICON_MENU_PASTE, label: 'Pegar en el cursor (Ctrl+V)', onSelect: () => pasteTracks() });
@@ -2613,7 +2620,7 @@ async function onSeparateTrack(id, mode = '2stem') {
   const modeLabel = mode === '2stem' ? 'Voz / Instrumental'
                   : mode === '4stem' ? 'Voz · Batería · Bajo · Otros'
                   : 'Solo "Otros"';
-  const reuseCached = lastSeparation && lastSeparation.cacheKey === cacheKey;
+  const reuseCached = lastSeparation && lastSeparation.key === cacheKey;
   if (!reuseCached) {
     const ok = await confirmDialogAsync({
       title: 'Separar pista con IA',
@@ -3029,6 +3036,44 @@ async function rebounceMidiTrack(id) {
   refreshTransport();
 }
 
+// ── Cheat-sheet de atajos del timeline ────────────────────────────
+const STEMS_SHORTCUTS = [
+  ['Espacio', 'Reproducir / pausar'],
+  ['Clic en el timeline', 'Mover el cursor y enfocar la pista'],
+  ['Ctrl + clic en pista', 'Seleccionar varias'],
+  ['Ctrl + A', 'Seleccionar todas las pistas'],
+  ['Arrastrar la onda', 'Mover la pista (en grupo si hay selección)'],
+  ['Ctrl + X', 'Recortar el inicio (antes del cursor)'],
+  ['Ctrl + E', 'Dividir la pista en el cursor'],
+  ['Ctrl + C / Ctrl + V', 'Copiar / pegar pista(s) en el cursor'],
+  ['Supr / Retroceso', 'Eliminar la(s) pista(s) seleccionada(s)'],
+  ['Ctrl + Z / Ctrl + Y', 'Deshacer / rehacer'],
+  ['Alt + rueda', 'Zoom horizontal del timeline'],
+  ['Ctrl + rueda', 'Altura de las pistas'],
+  ['Clic derecho en la consola', 'Menú de la pista (dividir, normalizar, separar, exportar…)'],
+  ['Esc', 'Parar todo / limpiar selección'],
+];
+function openShortcutsCheatSheet() {
+  document.getElementById('stems-shortcuts-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'stems-shortcuts-overlay';
+  overlay.className = 'stems-newsong-overlay';
+  overlay.innerHTML = `<div class="stems-newsong-modal stems-shortcuts">
+    <h3 class="stems-shortcuts-title">⌨️ Atajos del timeline</h3>
+    <div class="stems-shortcuts-list">
+      ${STEMS_SHORTCUTS.map(([k, d]) => `<div class="stems-shortcut-row"><kbd>${escapeHtml(k)}</kbd><span>${escapeHtml(d)}</span></div>`).join('')}
+    </div>
+    <button class="gi-edit-btn cancel" data-action="close" type="button">Cerrar</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  const modal = overlay.querySelector('.stems-newsong-modal');
+  const pop = pushModal(() => close(), modal);
+  const close = () => { try { pop(); } catch (_) {} overlay.remove(); };
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.closest('[data-action="close"]')) close();
+  });
+}
+
 // ── Cortar pistas en el cursor (Ctrl+X) ───────────────────────────
 // Recorta el audio ANTES del playhead de las pistas seleccionadas (multi-
 // selección con Ctrl+clic; si no hay, la pista enfocada). El resto se queda EN
@@ -3045,22 +3090,19 @@ function makeTrimmedBuffer(buffer, removeSec) {
   for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
     out.getChannelData(ch).set(buffer.getChannelData(ch).subarray(start, start + len));
   }
+  fadeIn(out); // suaviza el nuevo inicio (anti-click)
   return out;
 }
 
 async function cutSelectedAtPlayhead() {
   if (pitchApplying) return;
-  // Objetivo: multi-selección (Ctrl+clic) si hay; si no, la pista enfocada.
-  let ids = [...selectedTrackIds];
-  if (!ids.length) {
-    const loc = document.querySelector('#stems-rows .stems-row.is-located');
-    if (loc?.dataset.trackId) ids = [loc.dataset.trackId];
-  }
+  const ids = targetTrackIds();
   if (!ids.length) { showToast('Seleccioná una pista (Ctrl+clic) o hacé clic en una para cortar.', 'info'); return; }
   const P = engine.getCurrentSec();
   if (P <= 0.02) { showToast('Mové el cursor (clic en el timeline) al punto de corte.', 'info'); return; }
 
   const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  const undos = [], redos = [];
   let cut = 0;
   for (const id of ids) {
     const entry = trackRows.get(id);
@@ -3073,30 +3115,20 @@ async function cutSelectedAtPlayhead() {
     // El resto se queda en su lugar: lo que sonaba en el cursor sigue en el
     // cursor (offset = P). Sin trim (P<=O) la pista no se mueve (offset = O).
     const newOffset = Math.max(O, P);
-    if (trimSec > 0) {
-      const trimmed = makeTrimmedBuffer(buf, trimSec);
-      if (!trimmed) continue; // el corte se come toda la pista → la dejamos igual
-      engine.replaceTrackBuffer(id, trimmed);
-      if (originalBuffers.has(id)) originalBuffers.set(id, trimmed);
-      // Persistir el recorte a disco; si no, al recargar volvería el original.
-      try {
-        const oldPath = entry.row.dataset.path;
-        const wav = audioBufferToWav(trimmed);
-        const savedPath = await projectStore.saveStem(id, 'cut.wav', wav);
-        entry.row.dataset.path = savedPath || '';
-        if (oldPath && oldPath !== savedPath) { try { await projectStore.removeStem(oldPath); } catch (_) {} }
-      } catch (e) { console.warn('No se pudo guardar el recorte de la pista:', e); }
-    }
-    engine.setTrackOffset(id, newOffset);
-    peaksCache.delete(id);
-    drawTrackWaveform(id);
+    if (trimSec <= 0) continue;
+    const trimmed = makeTrimmedBuffer(buf, trimSec);
+    if (!trimmed) continue; // el corte se come toda la pista → la dejamos igual
+    undos.push({ id, buffer: buf, offset: O });
+    redos.push({ id, buffer: trimmed, offset: newOffset });
+    await setTrackBufferPersist(id, trimmed, newOffset);
     cut++;
   }
   if (cut) {
-    refreshTimelineWidth();
-    refreshTransport();
     scheduleSave();
-    showToast(`✂️ Recortado ${cut} pista${cut > 1 ? 's' : ''} en el cursor. Arrastrá para moverlas a su lugar.`, 'success');
+    pushHistory('Recortar',
+      () => { undos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); scheduleSave(); },
+      () => { redos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); scheduleSave(); });
+    showToast(`✂️ Recortado ${cut} pista${cut > 1 ? 's' : ''} en el cursor. Ctrl+Z para deshacer.`, 'success');
   } else {
     showToast('No hay audio que recortar antes del cursor en la selección.', 'info');
   }
@@ -3148,6 +3180,102 @@ function targetTrackIds() {
   return ids;
 }
 
+// Micro-fades anti-click en los bordes nuevos de un corte/división (5 ms). Sin
+// esto, el transiente abrupto del borde produce un "click" audible.
+const EDGE_FADE_SEC = 0.005;
+function fadeIn(buffer, sec = EDGE_FADE_SEC) {
+  const n = Math.min(buffer.length, Math.round(sec * buffer.sampleRate));
+  if (n <= 1) return;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < n; i++) d[i] *= i / n;
+  }
+}
+function fadeOut(buffer, sec = EDGE_FADE_SEC) {
+  const n = Math.min(buffer.length, Math.round(sec * buffer.sampleRate));
+  if (n <= 1) return;
+  const L = buffer.length;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const d = buffer.getChannelData(ch);
+    for (let i = 0; i < n; i++) d[L - 1 - i] *= i / n;
+  }
+}
+
+// Aplica buffer (+ offset opcional) a una pista y lo persiste a disco. Base para
+// rehacer/deshacer ediciones destructivas sin perder el cambio al recargar.
+async function setTrackBufferPersist(id, buffer, offset) {
+  const entry = trackRows.get(id);
+  if (!entry) return;
+  engine.replaceTrackBuffer(id, buffer);
+  if (typeof offset === 'number') engine.setTrackOffset(id, offset);
+  if (originalBuffers.has(id)) originalBuffers.set(id, buffer);
+  try {
+    const cur = entry.row.dataset.path;
+    const savedPath = await projectStore.saveStem(id, 'edit.wav', audioBufferToWav(buffer));
+    entry.row.dataset.path = savedPath || '';
+    if (cur && cur !== savedPath) { try { await projectStore.removeStem(cur); } catch (_) {} }
+  } catch (_) {}
+  peaksCache.delete(id);
+  drawTrackWaveform(id);
+  refreshTimelineWidth();
+  refreshTransport();
+}
+
+// Reubica una pista (fila + strip de consola + orden del engine) justo después
+// de otra. Usado por "dividir" para que la mitad nueva quede pegada a su pista.
+function placeTrackAfter(newId, afterId) {
+  const a = trackRows.get(afterId), b = trackRows.get(newId);
+  if (!a || !b) return;
+  a.row.after(b.row);
+  if (a.console && b.console) a.console.after(b.console);
+  const order = [...document.querySelectorAll('#stems-rows .stems-row')].map(r => r.dataset.trackId);
+  engine.reorderTracks(order);
+}
+
+// Normaliza la(s) pista(s) seleccionada(s): escala el audio para que el pico
+// llegue a ~-0.3 dBFS. Útil tras separar con IA o crear una armonía (que pueden
+// quedar bajas). Con undo.
+async function normalizeSelectedTracks() {
+  if (pitchApplying) return;
+  const ids = targetTrackIds();
+  const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  const TARGET = 0.97;
+  const undos = [], redos = [];
+  let n = 0;
+  for (const id of ids) {
+    const track = trackById.get(id);
+    const buf = engine.getTrackBuffer(id);
+    if (!track || !buf || !isEditableAudio(track)) continue;
+    let peak = 0;
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+    }
+    if (peak <= 0.0001) continue;            // silencio → nada que normalizar
+    const gain = TARGET / peak;
+    if (gain > 0.98 && gain < 1.02) continue; // ya está al nivel → no tocar
+    const ctx = engine.getAudioContext();
+    const out = ctx.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+      const src = buf.getChannelData(ch), dst = out.getChannelData(ch);
+      for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain;
+    }
+    undos.push({ id, buffer: buf });
+    redos.push({ id, buffer: out });
+    await setTrackBufferPersist(id, out);
+    n++;
+  }
+  if (n) {
+    scheduleSave();
+    pushHistory('Normalizar',
+      () => { undos.forEach(s => setTrackBufferPersist(s.id, s.buffer)); scheduleSave(); },
+      () => { redos.forEach(s => setTrackBufferPersist(s.id, s.buffer)); scheduleSave(); });
+    showToast(`🔊 Normalizada${n > 1 ? 's' : ''} ${n} pista${n > 1 ? 's' : ''}.`, 'success');
+  } else {
+    showToast('Nada para normalizar (ya está al nivel o es silencio).', 'info');
+  }
+}
+
 // Divide la(s) pista(s) en el cursor: la existente conserva el audio ANTES del
 // cursor; una pista NUEVA (en el cursor) lleva el audio DESPUÉS. Cada una queda
 // arrastrable por separado.
@@ -3157,6 +3285,7 @@ async function splitSelectedAtPlayhead() {
   if (!ids.length) { showToast('Seleccioná una pista para dividir.', 'info'); return; }
   const P = engine.getCurrentSec();
   const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
+  const ops = []; // por pista: { id, fullBuffer, headBuffer, offset, tailSpec, created }
   let done = 0;
   for (const id of ids) {
     const entry = trackRows.get(id);
@@ -3167,28 +3296,40 @@ async function splitSelectedAtPlayhead() {
     const O = engine.getTrackOffset(id);
     const D = buf.duration;
     if (P <= O + 0.02 || P >= O + D - 0.02) continue; // el cursor debe caer dentro
-    const headSec = P - O;
-    const head = sliceBuffer(buf, 0, headSec);
-    const tail = sliceBuffer(buf, headSec, D);
+    const head = sliceBuffer(buf, 0, P - O);
+    const tail = sliceBuffer(buf, P - O, D);
     if (!head || !tail) continue;
-    // Existente = mitad antes (mismo offset); re-guardar.
-    engine.replaceTrackBuffer(id, head);
-    if (originalBuffers.has(id)) originalBuffers.set(id, head);
-    try {
-      const oldPath = entry.row.dataset.path;
-      const savedPath = await projectStore.saveStem(id, 'split.wav', audioBufferToWav(head));
-      entry.row.dataset.path = savedPath || '';
-      if (oldPath && oldPath !== savedPath) { try { await projectStore.removeStem(oldPath); } catch (_) {} }
-    } catch (e) { console.warn('No se pudo guardar la división:', e); }
-    peaksCache.delete(id);
-    drawTrackWaveform(id);
-    // Nueva = mitad después, anclada al cursor, heredando knobs.
-    await addAudioTrackFromBuffer({ buffer: tail, name: `${track.name} (2)`, color: track.color, offsetSec: P, pan: track.pan, volume: track.volume });
+    fadeOut(head); fadeIn(tail); // anti-click en el punto de corte
+    // Existente = mitad antes (mismo offset).
+    await setTrackBufferPersist(id, head, O);
+    // Nueva = mitad después, anclada al cursor, heredando knobs, pegada a su pista.
+    const tailSpec = { buffer: tail, name: `${track.name} (2)`, color: track.color, offsetSec: P, pan: track.pan, volume: track.volume };
+    const createdId = await addAudioTrackFromBuffer(tailSpec);
+    placeTrackAfter(createdId, id);
+    ops.push({ id, fullBuffer: buf, headBuffer: head, offset: O, tailSpec, created: [createdId] });
     done++;
   }
   if (done) {
     refreshTimelineWidth(); refreshTransport(); scheduleSave();
-    showToast(`✂️ Dividida${done > 1 ? 's' : ''} ${done} pista${done > 1 ? 's' : ''} en el cursor.`, 'success');
+    pushHistory('Dividir',
+      async () => { // deshacer: restaurar el audio completo + borrar las creadas
+        for (const op of ops) {
+          await setTrackBufferPersist(op.id, op.fullBuffer, op.offset);
+          for (const cid of op.created) { try { await removeTrackById(cid); } catch (_) {} }
+          op.created = [];
+        }
+        scheduleSave();
+      },
+      async () => { // rehacer: re-cortar + re-crear la mitad nueva
+        for (const op of ops) {
+          await setTrackBufferPersist(op.id, op.headBuffer, op.offset);
+          const cid = await addAudioTrackFromBuffer(op.tailSpec);
+          placeTrackAfter(cid, op.id);
+          op.created = [cid];
+        }
+        scheduleSave();
+      });
+    showToast(`✂️ Dividida${done > 1 ? 's' : ''} ${done} pista${done > 1 ? 's' : ''}. Ctrl+Z para deshacer.`, 'success');
   } else {
     showToast('Poné el cursor DENTRO del audio de la pista para dividir.', 'info');
   }
@@ -3220,14 +3361,18 @@ async function pasteTracks() {
   const P = engine.getCurrentSec();
   const minOff = Math.min(...stemsClipboard.map(c => c.offsetSec));
   const delta = P - minOff;
-  let n = 0;
-  for (const c of stemsClipboard) {
-    await addAudioTrackFromBuffer({ buffer: c.buffer, name: `${c.name} (copia)`, color: c.color, offsetSec: Math.max(0, c.offsetSec + delta), pan: c.pan, volume: c.volume });
-    n++;
-  }
-  if (n) {
+  const specs = stemsClipboard.map(c => ({
+    buffer: c.buffer, name: `${c.name} (copia)`, color: c.color,
+    offsetSec: Math.max(0, c.offsetSec + delta), pan: c.pan, volume: c.volume,
+  }));
+  let created = [];
+  for (const spec of specs) created.push(await addAudioTrackFromBuffer(spec));
+  if (created.length) {
     refreshTimelineWidth(); refreshTransport(); scheduleSave();
-    showToast(`📋 ${n} pista${n > 1 ? 's' : ''} pegada${n > 1 ? 's' : ''} en el cursor.`, 'success');
+    pushHistory('Pegar',
+      async () => { for (const cid of created) { try { await removeTrackById(cid); } catch (_) {} } created = []; scheduleSave(); },
+      async () => { created = []; for (const spec of specs) created.push(await addAudioTrackFromBuffer(spec)); scheduleSave(); });
+    showToast(`📋 ${created.length} pista${created.length > 1 ? 's' : ''} pegada${created.length > 1 ? 's' : ''}. Ctrl+Z para deshacer.`, 'success');
   }
 }
 
@@ -3288,6 +3433,8 @@ function wireTrackSelection(root) {
     if (!ws || ws.offsetParent === null) return;   // Stems no visible
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+    // "?" abre la lista de atajos del timeline.
+    if (e.key === '?') { e.preventDefault(); openShortcutsCheatSheet(); return; }
     // Ctrl/Cmd+A selecciona todas las pistas (si hay alguna cargada).
     if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
       if (!trackRows.size) return;
@@ -4694,7 +4841,9 @@ async function doSave() {
       clickSoundId,
       loopEnabled,
       loopStartMarkerId,
-      loopEndMarkerId
+      loopEndMarkerId,
+      freeLoopA,
+      freeLoopB
     });
     flashSavedPill();
   } catch (e) {
@@ -4809,12 +4958,14 @@ async function rehydrate(state) {
   }
   if (state.loopStartMarkerId) loopStartMarkerId = state.loopStartMarkerId;
   if (state.loopEndMarkerId)   loopEndMarkerId = state.loopEndMarkerId;
+  if (typeof state.freeLoopA === 'number') freeLoopA = state.freeLoopA;
+  if (typeof state.freeLoopB === 'number') freeLoopB = state.freeLoopB;
   if (typeof state.loopEnabled === 'boolean') {
     loopEnabled = state.loopEnabled;
     const btn = document.getElementById('stems-loop-toggle');
     if (btn) btn.classList.toggle('is-on', loopEnabled);
-    syncLoopRegion();
   }
+  syncLoopRegion(); // pinta el loop (libre o por marcadores) al recargar
   refreshTransport();
   refreshTimelineWidth();
   reflectSoloHighlights();
