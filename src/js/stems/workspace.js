@@ -2166,11 +2166,11 @@ function wireStrip(root, id) {
   root.querySelector('[data-action="remove"]').onclick = async () => {
     const ok = await confirmDialogAsync({
       title: 'Eliminar pista',
-      message: '¿Eliminar esta pista del proyecto?',
+      message: '¿Eliminar esta pista? Podés deshacer con Ctrl+Z.',
       confirmLabel: 'Eliminar', danger: true,
     });
     if (!ok) return;
-    await removeTrackById(id);
+    await deleteTracksWithUndo([id]);
   };
 
   const colorInput = root.querySelector('[data-action="color"]');
@@ -2305,11 +2305,11 @@ function openRowContextMenu(x, y, id) {
     close();
     const ok = await confirmDialogAsync({
       title: 'Eliminar pista',
-      message: '¿Eliminar esta pista del proyecto?',
+      message: '¿Eliminar esta pista? Podés deshacer con Ctrl+Z.',
       confirmLabel: 'Eliminar', danger: true,
     });
     if (!ok) return;
-    await removeTrackById(id);
+    await deleteTracksWithUndo([id]);
   };
 }
 
@@ -3604,6 +3604,30 @@ function reorderDomToEngine() {
   }
 }
 
+// Borra una o varias pistas CON undo (Ctrl+Z las restaura). Lo usan el ícono de
+// basura de la fila, el menú de la consola y la tecla Supr.
+async function deleteTracksWithUndo(ids) {
+  ids = (ids || []).filter(id => trackRows.has(id));
+  if (!ids.length) return;
+  const order = engine.getTracks().map(t => t.id); // orden original (para restaurar)
+  const snaps = ids.map(snapshotTrackForDelete).filter(Boolean);
+  for (const id of ids) { selectedTrackIds.delete(id); await removeTrackById(id); }
+  updateTrackSelectionUI();
+  if (!snaps.length) return;
+  pushHistory('Eliminar pista',
+    async () => { // deshacer: re-crear en su orden original
+      for (const s of snaps) await recreateTrack(s);
+      engine.reorderTracks(order);
+      reorderDomToEngine();
+      reflectSoloHighlights();
+      refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    },
+    async () => { // rehacer: volver a borrar
+      for (const s of snaps) await removeTrackById(s.id);
+      refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    });
+}
+
 async function deleteSelectedTracks() {
   const ids = [...selectedTrackIds];
   if (!ids.length) return;
@@ -3613,25 +3637,7 @@ async function deleteSelectedTracks() {
     confirmLabel: 'Eliminar', danger: true,
   });
   if (!ok) return;
-  const order = engine.getTracks().map(t => t.id); // orden original (para restaurar)
-  const snaps = ids.map(snapshotTrackForDelete).filter(Boolean);
-  selectedTrackIds.clear();
-  for (const id of ids) await removeTrackById(id);
-  updateTrackSelectionUI();
-  if (snaps.length) {
-    pushHistory('Eliminar pista',
-      async () => { // deshacer: re-crear en su orden original
-        for (const s of snaps) await recreateTrack(s);
-        engine.reorderTracks(order);
-        reorderDomToEngine();
-        reflectSoloHighlights();
-        refreshTimelineWidth(); refreshTransport(); scheduleSave();
-      },
-      async () => { // rehacer: volver a borrar
-        for (const s of snaps) await removeTrackById(s.id);
-        refreshTimelineWidth(); refreshTransport(); scheduleSave();
-      });
-  }
+  await deleteTracksWithUndo(ids);
 }
 
 function wireTrackSelection(root) {
@@ -3703,9 +3709,20 @@ function wireTrackSelection(root) {
     }
     if (e.key === 'Escape' && rangeActive()) { clearRange(); return; }
     if (e.key === 'Escape' && selectedMarkerId) { setSelectedMarker(null); return; }
-    if (!selectedTrackIds.size) return;
-    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedTracks(); }
-    else if (e.key === 'Escape') { clearTrackSelection(); }
+    // Supr / Backspace → eliminar la(s) pista(s) seleccionada(s) o, si no hay
+    // multi-selección, la pista enfocada (la que clickeaste). Con confirm + undo.
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const ids = targetTrackIds();
+      if (!ids.length) return;
+      e.preventDefault();
+      confirmDialogAsync({
+        title: ids.length > 1 ? 'Eliminar pistas' : 'Eliminar pista',
+        message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Podés deshacer con Ctrl+Z.`,
+        confirmLabel: 'Eliminar', danger: true,
+      }).then(ok => { if (ok) deleteTracksWithUndo(ids); });
+      return;
+    }
+    if (e.key === 'Escape' && selectedTrackIds.size) { clearTrackSelection(); }
   });
 }
 
