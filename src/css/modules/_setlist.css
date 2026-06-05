@@ -778,6 +778,9 @@ input.pan-slider {
   font-size: 11px;
   color: var(--text-muted);
   font-weight: 700;
+  white-space: nowrap;            /* "Tu lista de hoy" en una sola línea */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .service-actions-meta {
   font-size: 10px;
@@ -785,6 +788,7 @@ input.pan-slider {
   opacity: 0.7;
   letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .service-actions-meta:empty { display: none; }
 .service-actions-nav {
@@ -1450,3 +1454,37 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .setlists-del:hover { color: #ff5f57; background: rgba(255,95,87,0.12); }
 .setlists-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px 8px; line-height: 1.5; }
+
+/* ── Selector de setlist (chooser) en la pestaña Servicio ─────────────────── */
+.service-chooser { display: none; }
+/* Cuando se está eligiendo: ocultar la vista de canciones y mostrar el chooser. */
+#service-setlist-list.choosing .service-actions,
+#service-setlist-list.choosing .svc-search-row,
+#service-setlist-list.choosing #service-songs-container,
+#service-setlist-list.choosing #service-empty-msg { display: none !important; }
+#service-setlist-list.choosing .service-chooser { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.svc-chooser-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.svc-chooser-head h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.svc-chooser-manage {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  font-size: 11px; font-weight: 700; border-radius: 8px; padding: 5px 10px; cursor: pointer; white-space: nowrap;
+}
+.svc-chooser-manage:hover { color: var(--accent); border-color: var(--accent); }
+.svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
+.svc-chooser-item {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 13px; cursor: pointer; transition: all 0.15s; width: 100%;
+}
+.svc-chooser-item:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateX(2px); }
+.svc-chooser-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.svc-chooser-meta { font-size: 11px; color: var(--text-muted); }
+.svc-chooser-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px 8px; }
+.svc-chooser-current {
+  margin-top: 12px; flex-shrink: 0; width: 100%; padding: 11px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent); font-size: 12.5px; font-weight: 800; border-radius: 10px; cursor: pointer; transition: background 0.15s;
+}
+.svc-chooser-current:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }

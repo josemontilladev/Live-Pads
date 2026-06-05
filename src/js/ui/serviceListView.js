@@ -4,7 +4,8 @@
 // in app.js (and partially in data/service.js); we read it via the deps
 // getters passed to initServiceList().
 
-import { q } from '../utils/dom.js';
+import { q, esc } from '../utils/dom.js';
+import { listSavedSetlists, loadSavedSetlist, getServiceSongs } from '../data/service.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -17,13 +18,91 @@ import { bindTouchReorder } from '../utils/touchReorder.js';
 let deps = null;
 let svcSearchTerm = '';
 
+// Al abrir la app, si hay setlists guardados, la pestaña Servicio muestra
+// primero el selector de listas (chooser) en vez de las canciones. Flag de
+// "pendiente de elegir esta sesión" — se consume la primera vez que se abre
+// la pestaña Servicio.
+let chooserPending = false;
+
 export function initServiceList(_deps) {
   deps = _deps;
   initDelegation();
+  initChooserDelegation();
+  chooserPending = listSavedSetlists().length > 0;
   // Listener de búsqueda dentro del Servicio (input #svc-search en setlistTabs).
   window.addEventListener('livepads:service-search', (ev) => {
     svcSearchTerm = (ev?.detail?.q || '').trim().toLowerCase();
     renderServiceList();
+  });
+}
+
+// ── Selector de setlist (chooser) ─────────────────────────────────────────
+const CHOOSER_DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+function fmtChooserDate(s) {
+  let d = null;
+  if (s.date) {
+    const [y, m, dd] = String(s.date).split('-').map(Number);
+    if (y && m && dd) d = new Date(y, m - 1, dd);
+  }
+  if (!d && s.savedAt) d = new Date(s.savedAt);
+  if (!d) return '';
+  return `${CHOOSER_DAYS[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+}
+
+// Se llama cuando se abre la pestaña Servicio: muestra el chooser una sola vez
+// por sesión si hay setlists guardados.
+export function maybeShowChooserOnServiceOpen() {
+  if (!chooserPending) return;
+  chooserPending = false;
+  if (listSavedSetlists().length) showServiceChooser();
+}
+
+export function showServiceChooser() {
+  const panel = q('#service-setlist-list');
+  const chooser = q('#service-chooser');
+  if (!panel || !chooser) return;
+  const list = listSavedSetlists();
+  const curN = getServiceSongs().length;
+  chooser.innerHTML = `
+    <div class="svc-chooser-head">
+      <h4>Elegí un setlist</h4>
+      <button class="svc-chooser-manage" data-act="manage" title="Guardar la lista actual o gestionar">＋ Guardar / gestionar</button>
+    </div>
+    <div class="svc-chooser-list">
+      ${list.length ? list.map(s => `
+        <button class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
+          <span class="svc-chooser-name">${esc(s.name)}</span>
+          <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
+        </button>`).join('')
+        : '<p class="svc-chooser-empty">No hay setlists guardados todavía.</p>'}
+    </div>
+    <button class="svc-chooser-current" data-act="current">
+      ${curN ? `Usar la lista actual (${curN} canción${curN === 1 ? '' : 'es'}) →` : 'Empezar una lista nueva →'}
+    </button>`;
+  panel.classList.add('choosing');
+}
+
+export function hideServiceChooser() {
+  q('#service-setlist-list')?.classList.remove('choosing');
+}
+
+function initChooserDelegation() {
+  const chooser = q('#service-chooser');
+  if (!chooser) return;
+  chooser.addEventListener('click', (e) => {
+    const actEl = e.target.closest('[data-act]');
+    if (!actEl) return;
+    const act = actEl.dataset.act;
+    if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
+    if (act === 'manage') { import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {}); return; }
+    if (act === 'load') {
+      const id = actEl.dataset.id;
+      if (loadSavedSetlist(id)) {           // replaceService → re-render del servicio
+        window.showToast?.('✓ Setlist cargado.', 'success');
+        hideServiceChooser();
+        renderServiceList();
+      }
+    }
   });
 }
 
