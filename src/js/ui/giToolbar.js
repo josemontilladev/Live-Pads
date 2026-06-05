@@ -14,6 +14,7 @@ import {
 } from '../state/store.js';
 import { exportGiSetlistToFile } from '../data/giSetlistLoader.js';
 import { renderGiList, getLibraryScope } from './giList.js';
+import { openNewSongModal } from './newSongModal.js';
 
 /**
  * @param {Object} deps
@@ -184,36 +185,27 @@ function bindSearchAndAdd(deps) {
     btnAddGiSong.onclick = () => {
       const scope = getLibraryScope();
       const genre = getCurrentGenre();
-      const newSong = {
-        id: 'song_' + Date.now(),
-        addedAt: Date.now(),
-        title: 'Nueva Canción',
-        artist: '',
-        bpm: '',
-        key: '',
-        // Si hay un género filtrado (no especiales), la nueva canción lo hereda
-        // para que aparezca en esa vista; si no, default 'adoracion'.
-        genre: (genre && !['all', 'favoritos', 'recientes'].includes(genre)) ? genre : 'adoracion',
-        tags: [],
-        audio: { sequence: null, original: null }
-      };
-      // La nueva canción debe aparecer SIEMPRE en la vista actual (antes el form
-      // quedaba invisible si había un repertorio/filtro/búsqueda activos):
-      //  · hereda el ámbito de repertorio (libraryId) si hay uno seleccionado,
-      //  · se marca favorita si ese es el filtro.
-      if (scope && scope !== 'all' && scope !== 'local') newSong.libraryId = scope;
-      if (genre === 'favoritos') newSong.favorite = true;
-      getSongs().push(newSong);
-      if (window.electronAPI && window.electronAPI.saveGiSetlist) {
-        window.electronAPI.saveGiSetlist(getSongs());
-      }
-      deps.updateFilterCounts();
-      // Limpiamos la búsqueda para que el texto no oculte la canción nueva.
-      const searchEl = q('#gi-search');
-      if (searchEl) searchEl.value = '';
-      renderGiList('', newSong.id);
-      // Avisar a otras pantallas (panel de Stems) para que aparezca sin Ctrl+R.
-      window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+      // Modal popup centrado (igual que en Stems); antes el form se abría inline
+      // en el sidebar y se "perdía". Hereda el repertorio/género/favorito actual.
+      openNewSongModal({
+        defaults: {
+          genre: (genre && !['all', 'favoritos', 'recientes'].includes(genre)) ? genre : 'adoracion',
+          favorite: genre === 'favoritos',
+          libraryId: (scope && scope !== 'all' && scope !== 'local') ? scope : undefined,
+        },
+        onSaved: (newSong) => {
+          getSongs().push(newSong);
+          if (window.electronAPI && window.electronAPI.saveGiSetlist) {
+            window.electronAPI.saveGiSetlist(getSongs());
+          }
+          deps.updateFilterCounts();
+          const searchEl = q('#gi-search');
+          if (searchEl) searchEl.value = '';   // que no oculte la canción nueva
+          renderGiList('');
+          // Otras pantallas (panel de Stems) + auto-sync a la nube.
+          window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+        },
+      });
     };
   }
 }

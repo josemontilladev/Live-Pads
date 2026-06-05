@@ -364,6 +364,8 @@ export function openLyricsEditorModal(song, onSaveCallback) {
     onSaveCallback(textarea.value);
     savedLyrics = textarea.value;
     setIndicator('saved', 'Guardado');
+    // La letra cambió → sincronizar a la nube (best-effort, debounced en app.js).
+    try { window.dispatchEvent(new CustomEvent('livepads:cloud-dirty')); } catch (_) {}
   };
 
   // Debounced autosave: 1.5s after the last keystroke. Also fires on blur

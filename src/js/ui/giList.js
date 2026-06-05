@@ -93,20 +93,26 @@ function wireDedupe() {
 // (assignFromYoutube + showLoadAudioMenu se movieron a ./audioLoadMenu.js para
 //  compartirlos con el Servicio.)
 
-// Puntúa cuán "fuerte" matchea una canción contra el término libre.
+// Normaliza texto para búsqueda: minúsculas + sin acentos/diacríticos. Así
+// "Alabaré" y "alabare" matchean igual.
+function normText(v) {
+  return String(v || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// Puntúa cuán "fuerte" matchea una canción contra el término libre (normalizado).
 // Mayor score = más arriba en la lista. Coincidencia exacta de título gana
 // siempre; luego prefijo de título, luego substring de título, artista,
 // tags y por último letra (que es la fuente de más ruido).
 function matchScore(s, term) {
-  const t = (s.title || '').toLowerCase();
+  const t = normText(s.title);
   if (t === term) return 100;
   if (t.startsWith(term)) return 90;
   // Match de inicio de palabra dentro del título (ej. "Cristo" en "Aleluya Cristo Vive").
   if (new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(t)) return 75;
   if (t.includes(term)) return 60;
-  const ar = (s.artist || '').toLowerCase();
+  const ar = normText(s.artist);
   if (ar.includes(term)) return 45;
-  const tags = Array.isArray(s.tags) ? s.tags.join(' ').toLowerCase() : '';
+  const tags = normText(Array.isArray(s.tags) ? s.tags.join(' ') : '');
   if (tags.includes(term)) return 30;
   return 10; // solo letra
 }
@@ -160,7 +166,7 @@ export function renderGiList(filter = '', editSongId = null) {
   const tagPrefix = (keyPrefix === null && (lower.startsWith('tag:') || lower.startsWith('etiqueta:')))
     ? lower.replace(/^(tag|etiqueta):\s*/, '').trim()
     : null;
-  const textTerm = (keyPrefix === null && tagPrefix === null) ? lower : '';
+  const textTerm = (keyPrefix === null && tagPrefix === null) ? normText(filter) : '';
 
   const currentGenre = getCurrentGenre() || 'all';
   const filtered = songs.filter(s => {
@@ -173,14 +179,18 @@ export function renderGiList(filter = '', editSongId = null) {
       const tags = Array.isArray(s.tags) ? s.tags : [];
       if (!tags.some(t => String(t).toLowerCase().includes(tagPrefix))) return false;
     } else {
-      // Global free-text: title, artist, tags AND lyrics (HTML stripped).
-      const tagsText = Array.isArray(s.tags) ? s.tags.join(' ').toLowerCase() : '';
-      const lyricsText = s.lyrics ? String(s.lyrics).replace(/<[^>]*>/g, ' ').toLowerCase() : '';
-      const matchText = s.title.toLowerCase().includes(textTerm) ||
-                        (s.artist && s.artist.toLowerCase().includes(textTerm)) ||
-                        tagsText.includes(textTerm) ||
-                        lyricsText.includes(textTerm);
-      if (!matchText) return false;
+      // Búsqueda libre tolerante: normaliza acentos/mayúsculas y exige que TODAS
+      // las palabras del término aparezcan (en cualquier orden) en título /
+      // artista / tags / letra. Así "alabare" encuentra "Alabaré" y
+      // "santo siempre" encuentra "Santo Por Siempre".
+      const hay = normText([
+        s.title,
+        s.artist || '',
+        Array.isArray(s.tags) ? s.tags.join(' ') : '',
+        s.lyrics ? String(s.lyrics).replace(/<[^>]*>/g, ' ') : '',
+      ].join(' · '));
+      const words = textTerm.split(/\s+/).filter(Boolean);
+      if (!words.every(w => hay.includes(w))) return false;
     }
     if (currentGenre === 'all') return true;
     if (currentGenre === 'favoritos') return !!s.favorite;
@@ -536,6 +546,8 @@ function initDelegation() {
         const libChanged = applyLibrarySelection(card, song);
         deps.persist();
         deps.updateFilterCounts();
+        // Toda edición guardada → sincronizar a la nube (sin re-render extra).
+        window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
         const sortChanged = oldTitle !== song.title;
         const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
         if (libChanged) {

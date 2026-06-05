@@ -27,6 +27,7 @@ import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { audioMenuItems } from '../ui/songMenu.js';
 import { songEditFormHTML, applyLibrarySelection } from '../ui/songEditForm.js';
+import { openNewSongModal } from '../ui/newSongModal.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
 import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
@@ -4470,52 +4471,14 @@ function refreshSetlistPanelKeepingSearch() {
 // Crea una canción nueva desde el panel de Stems usando EL MISMO formulario que
 // Pads (songEditFormHTML), dentro de un modal. Al guardar, persiste y refresca.
 function addSongFromStems() {
-  const newSong = {
-    id: 'song_' + Date.now(),
-    addedAt: Date.now(),
-    title: 'Nueva Canción',
-    artist: '',
-    bpm: '',
-    key: '',
-    genre: 'adoracion',
-    tags: [],
-    audio: { sequence: null, original: null },
-  };
-  const overlay = document.createElement('div');
-  overlay.className = 'stems-newsong-overlay';
-  overlay.innerHTML = `<div class="stems-newsong-modal">${songEditFormHTML(newSong, { placeholderForNewSong: true })}</div>`;
-  document.body.appendChild(overlay);
-  const modal = overlay.querySelector('.stems-newsong-modal');
-
-  const pop = pushModal(() => close(), modal);
-  const close = () => { try { pop(); } catch (_) {} overlay.remove(); };
-
-  setTimeout(() => { try { modal.querySelector('.edit-title').focus(); } catch (_) {} }, 40);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-  modal.addEventListener('click', (e) => {
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    if (action === 'edit-cancel') { close(); return; }
-    if (action !== 'edit-save') return;
-    const titleEl = modal.querySelector('.edit-title');
-    const t = titleEl.value.trim();
-    if (!t) { titleEl.focus(); return; }
-    newSong.title = t;
-    newSong.artist = modal.querySelector('.edit-artist').value.trim();
-    newSong.bpm = modal.querySelector('.edit-bpm').value.trim();
-    newSong.key = modal.querySelector('.edit-key').value;
-    newSong.genre = modal.querySelector('.edit-genre').value;
-    const tagsEl = modal.querySelector('.edit-tags');
-    newSong.tags = tagsEl ? tagsEl.value.split(',').map(s => s.trim()).filter(Boolean) : [];
-    // Biblioteca elegida en el form (si hay selector): así la canción aparece en
-    // esa librería de Pads, no solo en "Todas".
-    applyLibrarySelection(modal, newSong);
-    getSongs().push(newSong);
-    if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
-    window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
-    refreshSetlistPanelKeepingSearch();
-    showToast(`✓ «${t}» agregada. Clic derecho para cargarle secuencia u original.`, 'success');
-    close();
+  openNewSongModal({
+    onSaved: (newSong) => {
+      getSongs().push(newSong);
+      if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
+      window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+      refreshSetlistPanelKeepingSearch();
+      showToast(`✓ «${newSong.title}» agregada. Clic derecho para cargarle secuencia u original.`, 'success');
+    },
   });
 }
 

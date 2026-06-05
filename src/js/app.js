@@ -709,7 +709,32 @@ function bindRestOfApp() {
   window.addEventListener('livepads:songs-changed', () => {
     updateFilterCounts();
     renderGiList(q('#gi-search')?.value || '');
+    scheduleCloudAutoSync();
   });
+
+  // Auto-sync a la nube (Supabase) tras crear/editar: empuja la librería activa
+  // en background para que la otra app (misma BD) lo vea sin pulsar "Subir".
+  // Debounced para agrupar ráfagas de ediciones; best-effort (silencioso si no
+  // hay sesión/red). Avisa con un toast sutil solo cuando SUBE canciones nuevas.
+  let cloudSyncTimer = null;
+  function scheduleCloudAutoSync() {
+    if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(async () => {
+      cloudSyncTimer = null;
+      try {
+        const { autoPushActiveLibrary } = await import('./cloud/songSync.js');
+        const r = await autoPushActiveLibrary();
+        if (r && r.created > 0) {
+          showToast(`☁️ ${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
+        }
+      } catch (_) { /* sin sesión/red: se reintenta en el próximo cambio */ }
+    }, 2000);
+  }
+  // Señal genérica "cambió data de canciones, sincronizá" — NO re-renderiza la
+  // lista (a diferencia de songs-changed), para editar metadatos/letra sin
+  // reconstruir la vista en cada cambio. La disparan giList al guardar una
+  // edición y el editor de letra al autoguardar.
+  window.addEventListener('livepads:cloud-dirty', scheduleCloudAutoSync);
 
   // Borrado propagado: al eliminar una canción que está en la nube, la quita
   // también de la librería compartida (silencioso sin red / sin permiso).
