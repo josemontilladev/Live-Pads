@@ -31,6 +31,12 @@ export function setStemsMidiHandler(fn) { stemsMidiHandler = fn; }
 // grabar) en vez del learn/mapeo; los CC (faders, etc.) siguen su curso normal.
 let stemsNoteHandler = null;
 export function setStemsNoteHandler(fn) { stemsNoteHandler = fn; }
+
+// Igual pero para el piano de la pantalla de PADS: cuando está abierto, las
+// notas (y el sustain CC64) del controlador van al piano en vez de a los
+// pads/mapeos. null = piano cerrado.
+let padsNoteHandler = null;
+export function setPadsNoteHandler(fn) { padsNoteHandler = fn; }
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
 import { resolveDrumPad } from '../ui/drumGrid.js';
 import {
@@ -124,6 +130,22 @@ export function bindMidiHandlers(deps) {
       return;
     }
 
+    // Piano de Pads abierto (y NO en modo learn): las notas y el sustain van al
+    // piano. Excepción: el control mapeado a "mostrar/ocultar piano" cae al flujo
+    // de mapeo (así una nota/botón asignada para abrir el piano también lo cierra
+    // estando abierto, en vez de tocar una nota).
+    if (padsNoteHandler && !getIsMidiLearnMode()) {
+      const mk = isCC ? `cc_${data1}` : `note_${data1}`;
+      const isToggle = (() => { const m = getMapping(mk, data1); return m && m.action === 'toggle_piano'; })();
+      if (!isToggle) {
+        if (isCC && data1 === 64) { padsNoteHandler('sustain', 64, data2); return; }
+        if (isNoteOn || isNoteOff) {
+          padsNoteHandler((isNoteOn && data2 > 0) ? 'on' : 'off', data1, data2);
+          return;
+        }
+      }
+    }
+
     if (!isNoteOn && !isCC) return;
     const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
 
@@ -192,6 +214,8 @@ export function bindMidiHandlers(deps) {
         } else if (mapping.action === 'source') {
           // Selector de fuente del banner: sequence / click / reference.
           if (deps.selectSource) deps.selectSource(mapping.id);
+        } else if (mapping.action === 'toggle_piano') {
+          deps.togglePadsPiano?.();
         }
       }
       return;
@@ -231,6 +255,7 @@ export function bindMidiHandlers(deps) {
     const prevBtn   = e.target.closest('#btn-service-prev');
     const nextBtn   = e.target.closest('#btn-service-next');
     const sourceBtn = e.target.closest('.source-seg-btn');
+    const pianoBtn  = e.target.closest('#btn-piano-pads');
     const slider    = e.target.closest('input[type="range"]');
 
     let target = null;
@@ -246,6 +271,7 @@ export function bindMidiHandlers(deps) {
     else if (prevBtn)  target = { action: 'prev_song' };
     else if (nextBtn)  target = { action: 'next_song' };
     else if (sourceBtn) target = { action: 'source', id: sourceBtn.dataset.source };
+    else if (pianoBtn) target = { action: 'toggle_piano' };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };
     else return; // unmappable
 
