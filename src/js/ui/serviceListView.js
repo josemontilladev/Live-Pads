@@ -118,6 +118,7 @@ function buildCard(song, index, activeIdx) {
     isLyricsOpen,
     showChords: !!song.showChords,
     includeAdd: false,
+    includeReorder: true,
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -136,6 +137,7 @@ export function repaintServiceCard(card, song) {
     isLyricsOpen,
     showChords: !!song.showChords,
     includeAdd: false,
+    includeReorder: true,
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -222,6 +224,16 @@ function initDelegation() {
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;
       case 'remove':    deps.removeFromService(song.serviceId); return;
+      case 'move-up': {
+        const idx = parseInt(card.dataset.index, 10);
+        if (idx > 0) { deps.reorderService(idx, idx - 1); renderServiceList(); }
+        return;
+      }
+      case 'move-down': {
+        const idx = parseInt(card.dataset.index, 10);
+        if (idx < deps.getSongs().length - 1) { deps.reorderService(idx, idx + 1); renderServiceList(); }
+        return;
+      }
       case 'toggle-lyrics':
         // Sin letra → editor directo para agregarla; con letra → acordeón.
         if (!song.lyrics) {
