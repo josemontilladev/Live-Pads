@@ -674,7 +674,7 @@ function bindHamburgerMenu() {
       closeMenu();
       setIsMidiLearnMode(true);
       setMidiLearnTarget(null);
-      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: Haz clic en un botón de la app. (Clic aquí para salir)';
+      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: hacé clic en un control <b>resaltado</b> y tocá tu controlador. Podés mapear varios seguidos. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
       // Body-level flag → CSS dims the whole UI to emphasize learn-mode
       // is modal. Exit (in midiBindings.js) removes the class.

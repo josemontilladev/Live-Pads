@@ -35,6 +35,10 @@ const ICON_STAR_OUTLINE = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke
 const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
 const ADD_BTN_HTML = `<button class="action-btn btn-add" data-action="add" title="Añadir al servicio">${ICON_ADD}</button>`;
+// Botones ↑↓ para reordenar el servicio de a un puesto (además del drag).
+const MOVE_BTNS_HTML =
+  `<button class="action-btn btn-move-up" data-action="move-up" title="Subir en la lista" aria-label="Subir"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="13" height="13"><polyline points="18 15 12 9 6 15"/></svg></button>` +
+  `<button class="action-btn btn-move-down" data-action="move-down" title="Bajar en la lista" aria-label="Bajar"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="13" height="13"><polyline points="6 9 12 15 18 9"/></svg></button>`;
 
 // Tono de acento estable por canción (barrita lateral de la carátula). Hash
 // determinista del id/título — mismo color en cada render y entre máquinas.
@@ -82,6 +86,7 @@ export function songCardInnerHTML(song, opts) {
     isLyricsOpen,
     showChords,
     includeAdd,
+    includeReorder,
     removeBtnClass = 'btn-remove',
     removeBtnTitle = 'Quitar de la lista',
     searchTerm = ''
@@ -129,9 +134,11 @@ export function songCardInnerHTML(song, opts) {
       </div>
     </div>
     <div class="gi-song-actions">
+      ${includeReorder ? MOVE_BTNS_HTML : ''}
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="${lyricsTitle}">${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>
+      ${includeAdd ? ADD_BTN_HTML : ''}
     </div>
 
     <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">

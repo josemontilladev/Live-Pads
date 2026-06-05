@@ -26,6 +26,8 @@ const ACTION_LABELS = {
   prev_song: 'Canción anterior',
   next_song: 'Canción siguiente',
   toggle_piano: 'Mostrar/ocultar piano',
+  pitch_up:   'Transponer +1 semitono',
+  pitch_down: 'Transponer −1 semitono',
   slider:    'Slider',
   // Stems workspace (independent map)
   st_play:       'Stems · Play/Pausa',

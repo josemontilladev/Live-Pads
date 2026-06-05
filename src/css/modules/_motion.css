@@ -198,6 +198,35 @@ body.midi-learning #app {
 body.midi-learning #midi-learn-overlay {
   filter: none !important;
 }
+/* En modo mapeo, resaltar TODOS los controles mapeables con un anillo pulsante
+   para no clickear a ciegas (antes el usuario adivinaba qué reaccionaba). */
+body.midi-learning .key-btn,
+body.midi-learning .drum-btn,
+body.midi-learning #btn-metro-main,
+body.midi-learning #tp-play-btn,
+body.midi-learning #tp-stop-btn,
+body.midi-learning #tp-restart-btn,
+body.midi-learning #tp-loop-btn,
+body.midi-learning #tp-autoadvance-btn,
+body.midi-learning #tp-close-btn,
+body.midi-learning #tp-pitch-up,
+body.midi-learning #tp-pitch-down,
+body.midi-learning #btn-service-prev,
+body.midi-learning #btn-service-next,
+body.midi-learning .source-seg-btn,
+body.midi-learning #btn-piano-pads,
+body.midi-learning input[type="range"] {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent),
+              0 0 14px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  animation: midi-mappable-pulse 1.3s ease-in-out infinite;
+}
+@keyframes midi-mappable-pulse {
+  0%, 100% { outline-color: var(--accent); }
+  50%      { outline-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+}
 
 /* Cuenta de entrada: el botón de play pulsa mientras suena el conteo. */
 @keyframes countin-pulse {

@@ -497,8 +497,14 @@ input.pan-slider {
 
 /* Action buttons — hidden until hover */
 .gi-song-actions { display: flex; gap: 4px; align-items: center; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
-/* El ⋮ se empuja al extremo derecho; los 3 iconos de uso en vivo quedan a la izquierda. */
+/* El ⋮ se empuja al extremo derecho; los iconos de uso en vivo quedan a la izquierda. */
 .gi-song-actions .btn-more { margin-left: auto; }
+/* "+" para añadir al servicio (un clic) — acento al pasar el mouse. */
+.action-btn.btn-add { color: var(--accent); }
+.action-btn.btn-add:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+/* ↑↓ reordenar el servicio — discretos. */
+.action-btn.btn-move-up, .action-btn.btn-move-down { color: var(--text-muted); }
+.action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); }
 
 .action-btn {
   width: 26px; height: 22px; border-radius: 6px;
