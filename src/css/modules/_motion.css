@@ -198,3 +198,13 @@ body.midi-learning #app {
 body.midi-learning #midi-learn-overlay {
   filter: none !important;
 }
+
+/* Cuenta de entrada: el botón de play pulsa mientras suena el conteo. */
+@keyframes countin-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,174,0,0.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(251,174,0,0.45); }
+}
+#tp-play-btn.counting-in {
+  animation: countin-pulse 0.5s ease-in-out infinite;
+  color: var(--accent, #fbae00);
+}
