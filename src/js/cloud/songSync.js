@@ -88,8 +88,26 @@ function requireContext() {
 // Devuelve { created, updated }. Sella el cloudId en las canciones nuevas.
 export async function pushLibrarySongs() {
   const libId = requireContext();
-  const songs = getSongs();
+  return pushSongsToLibrary(getSongs(), libId);
+}
 
+// Auto-sync en background: sube/actualiza SOLO las canciones de la librería
+// ACTIVA (las del repertorio que el usuario ve y edita), para que la otra app
+// (misma BD de Supabase) las vea sin pulsar "Subir". Best-effort: sin sesión ni
+// librería activa, no hace nada (no lanza). Idempotente (dedup + upsert).
+export async function autoPushActiveLibrary() {
+  if (!isLoggedIn()) return { created: 0, updated: 0, linked: 0 };
+  const libId = getActiveLibraryId();
+  if (!libId) return { created: 0, updated: 0, linked: 0 };
+  // Solo las de esta librería (las sin asignar se consideran de la activa: es la
+  // que el usuario está viendo al crearlas).
+  const songs = getSongs().filter(s => (s.libraryId || libId) === libId);
+  if (!songs.length) return { created: 0, updated: 0, linked: 0 };
+  return pushSongsToLibrary(songs, libId);
+}
+
+// Núcleo del push: sube/actualiza `songs` a la librería `libId`. Sella cloudId.
+async function pushSongsToLibrary(songs, libId) {
   let created = 0, updated = 0, linked = 0;
 
   // Dedup: antes de crear, vincula las locales sin cloudId que YA existen en la
