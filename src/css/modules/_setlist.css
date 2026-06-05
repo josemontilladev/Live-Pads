@@ -502,9 +502,9 @@ input.pan-slider {
 /* "+" para añadir al servicio (un clic) — acento al pasar el mouse. */
 .action-btn.btn-add { color: var(--accent); }
 .action-btn.btn-add:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
-/* ↑↓ reordenar el servicio — discretos. */
-.action-btn.btn-move-up, .action-btn.btn-move-down { color: var(--text-muted); }
-.action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); }
+/* ↑↓ reordenar el servicio — visibles pero secundarios. */
+.action-btn.btn-move-up, .action-btn.btn-move-down { color: color-mix(in srgb, var(--text) 62%, transparent); }
+.action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
 
 .action-btn {
   width: 26px; height: 22px; border-radius: 6px;

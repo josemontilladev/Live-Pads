@@ -127,6 +127,10 @@
 .metro-main-btn:focus-visible,
 .d-ok:focus-visible,
 .d-cancel:focus-visible,
+.gi-search-input:focus-visible,
+.gi-lib-select:focus-visible,
+.setlists-save-form input:focus-visible,
+.setlists-load:focus-visible,
 .empty-cta:focus-visible {
   outline: none;
   box-shadow:
