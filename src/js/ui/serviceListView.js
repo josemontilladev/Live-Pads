@@ -13,6 +13,7 @@ import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { getOpenAccordionServiceId, getSongs as getLibrarySongs } from '../state/store.js';
+import { getLibraryScope } from './giList.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 
 let deps = null;
@@ -110,6 +111,17 @@ export function showServiceCreate() {
   const lib = getLibrarySongs() || [];
   const selected = new Set(); // ids tildados (orden de la librería)
 
+  // Opciones de librería: espejamos el selector de la pestaña Librería
+  // (#gi-lib-select), sin la acción "+ Crear". Arrancamos en la librería ACTIVA.
+  const libSel = q('#gi-lib-select');
+  const libOptions = libSel
+    ? [...libSel.options].filter(o => o.value !== '__create').map(o => ({ value: o.value, label: o.textContent }))
+    : [];
+  let curScope = getLibraryScope() || 'all';
+  if (!libOptions.some(o => o.value === curScope)) curScope = libOptions[0]?.value || 'all';
+  const showLibPicker = libOptions.length > 1; // solo si hay varias librerías
+  const inScope = (s) => curScope === 'all' ? true : curScope === 'local' ? !s.libraryId : s.libraryId === curScope;
+
   el.innerHTML = `
     <div class="svc-create-head">
       <button class="svc-create-back" data-act="back" aria-label="Volver">‹</button>
@@ -121,6 +133,10 @@ export function showServiceCreate() {
       <label class="svc-create-field svc-create-date"><span>Fecha</span>
         <input type="date" class="nsl-date" value="${todayISO()}"></label>
     </div>
+    ${showLibPicker ? `<label class="svc-create-field"><span>Repertorio</span>
+      <select class="svc-create-lib">
+        ${libOptions.map(o => `<option value="${esc(o.value)}"${o.value === curScope ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}
+      </select></label>` : ''}
     <div class="svc-create-songs-head">
       <span>Añadir canciones <span class="nsl-count"></span></span>
     </div>
@@ -137,6 +153,7 @@ export function showServiceCreate() {
   const renderSongs = (term = '') => {
     const t = term.trim().toLowerCase();
     listEl.innerHTML = lib
+      .filter(inScope)
       .filter(s => !t || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(t))
       .map(s => {
         const id = String(s.id);
@@ -153,7 +170,10 @@ export function showServiceCreate() {
   renderSongs();
   updateCount();
 
-  el.querySelector('.nsl-search').oninput = (e) => renderSongs(e.target.value);
+  const searchEl = el.querySelector('.nsl-search');
+  searchEl.oninput = (e) => renderSongs(e.target.value);
+  const libSelEl = el.querySelector('.svc-create-lib');
+  if (libSelEl) libSelEl.onchange = () => { curScope = libSelEl.value; renderSongs(searchEl.value); };
   listEl.onchange = (e) => {
     const row = e.target.closest('.svc-pick');
     if (!row) return;
