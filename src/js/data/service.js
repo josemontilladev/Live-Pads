@@ -173,20 +173,22 @@ export function saveCurrentAsSetlist(name, date) {
   saveServiceSongs();
   return entry;
 }
-// Crea un setlist NUEVO y vacío, y lo deja ACTIVO (para empezar a agregarle
-// canciones desde la Librería). Devuelve la entrada.
-export function createNewSetlist(name, date) {
+// Crea un setlist NUEVO (con canciones iniciales opcionales) y lo deja ACTIVO.
+// songs = array de canciones de la librería a incluir de una. Devuelve la entrada.
+export function createNewSetlist(name, date, songs, description) {
+  const initial = Array.isArray(songs) ? songs : [];
   const arr = listSavedSetlists();
   const entry = {
     id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
     name: String(name || 'Servicio').trim() || 'Servicio',
     date: (typeof date === 'string' && date) ? date : null,
+    description: (description || '').trim() || undefined,
     savedAt: Date.now(),
-    songs: [],
+    songs: initial.map(({ serviceId, ...s }) => s),
   };
   arr.unshift(entry);
   writeSavedSetlists(arr);
-  serviceSongs = [];
+  serviceSongs = initial.map((s, i) => ({ ...s, serviceId: Date.now() + i + Math.random() }));
   activeServiceIndex = -1;
   currentSetlistId = entry.id;
   currentSetlistName = entry.name;
