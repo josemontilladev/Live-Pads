@@ -613,17 +613,9 @@ const SHELL_HTML = `
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tb-right">
-        <div class="stems-zoom-group" title="Zoom del timeline (Alt + rueda del ratón)">
-          <button class="stems-zoom-btn" id="stems-zoom-out" aria-label="Reducir zoom">−</button>
-          <span class="stems-zoom-readout" id="stems-zoom-readout">100%</span>
-          <button class="stems-zoom-btn" id="stems-zoom-in" aria-label="Aumentar zoom">+</button>
-        </div>
-        <div class="stems-zoom-group" title="Altura de las pistas (Ctrl + rueda del ratón)">
-          <button class="stems-zoom-btn" id="stems-row-shorter" aria-label="Pistas más pequeñas">▼</button>
-          <span class="stems-zoom-readout" id="stems-rowh-readout">100%</span>
-          <button class="stems-zoom-btn" id="stems-row-taller" aria-label="Pistas más grandes">▲</button>
-        </div>
-        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?)" aria-label="Atajos de teclado">?</button>
+        <!-- Zoom del timeline (Alt+rueda) y altura de pistas (Ctrl+rueda) se
+             manejan con rueda/teclado, así que no llevan botones. -->
+        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
         <label class="stems-snap-toggle" title="Imán: al arrastrar/marcar, ajusta a la subdivisión elegida">
           <span>SNAP</span>
           <select id="stems-snap" class="stems-snap-select">
@@ -1046,10 +1038,12 @@ function wireTopbarEvents(root) {
     const base = zoomRAF ? zoomTarget : PX_PER_SEC;
     animateZoomTo(base * mult, zoomBtnAnchorX());
   };
-  root.querySelector('#stems-zoom-in').onclick  = () => stepZoom(1.5);
-  root.querySelector('#stems-zoom-out').onclick = () => stepZoom(1 / 1.5);
-  root.querySelector('#stems-row-taller').onclick   = () => setRowHeight(ROW_HEIGHT + 14);
-  root.querySelector('#stems-row-shorter').onclick  = () => setRowHeight(ROW_HEIGHT - 14);
+  // (Los botones de zoom/altura se quitaron; el control va por rueda+teclado.
+  //  stepZoom queda para Alt+rueda y los atajos.)
+  root.querySelector('#stems-zoom-in')?.addEventListener('click', () => stepZoom(1.5));
+  root.querySelector('#stems-zoom-out')?.addEventListener('click', () => stepZoom(1 / 1.5));
+  root.querySelector('#stems-row-taller')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT + 14));
+  root.querySelector('#stems-row-shorter')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT - 14));
   root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
   root.querySelector('#stems-snap').onchange = (e) => { snapDivision = e.target.value; scheduleSave(); };
 
