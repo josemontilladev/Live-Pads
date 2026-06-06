@@ -14,7 +14,8 @@ import {
 } from '../data/service.js';
 import { showDialog } from './dialog.js';
 import { isLoggedIn } from '../cloud/supabase.js';
-import { maybeShowChooserOnServiceOpen, showServiceChooser } from './serviceListView.js';
+import { maybeShowChooserOnServiceOpen, showServiceChooser, showServiceCreate } from './serviceListView.js';
+import { getServiceSongs } from '../data/service.js';
 
 export function bindSetlistTabs() {
   const panelSetlist = q('#panel-setlist');
@@ -51,6 +52,16 @@ export function bindSetlistTabs() {
   // todo dentro del panel de Servicio (sin modal centrado).
   const btnSetlists = q('#btn-setlists');
   if (btnSetlists) btnSetlists.onclick = () => showServiceChooser();
+
+  // Guardar la lista actual como setlist (con las canciones ya elegidas).
+  const btnSave = q('#btn-service-save');
+  if (btnSave) btnSave.onclick = () => {
+    if (!getServiceSongs().length) {
+      window.showToast?.('Agregá canciones al servicio antes de guardarlo como setlist.', 'info');
+      return;
+    }
+    showServiceCreate({ prefillCurrent: true });
+  };
 
   // Empty-state CTA — switches to the Library tab so the user can add songs.
   const btnGoLib = q('#btn-service-go-library');

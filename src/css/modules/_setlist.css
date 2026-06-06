@@ -1667,3 +1667,15 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-pick-title { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .svc-pick-artist { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .svc-pick-meta { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* Crear librería INLINE (en el contenedor de la Librería, no modal). */
+.gi-create-lib { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+.gi-create-lib h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.gi-create-lib-name {
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none;
+}
+.gi-create-lib-name:focus { border-color: var(--accent); }
+.gi-create-lib-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.gi-create-lib-actions .nsl-btn { padding: 8px 16px; font-size: 12.5px; border: 1px solid var(--border); }
+.gi-create-lib-actions .nsl-btn--primary { border-color: var(--accent); }

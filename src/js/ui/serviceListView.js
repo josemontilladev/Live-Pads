@@ -73,15 +73,11 @@ export function showServiceChooser() {
   if (!panel || !chooser) return;
   const list = listSavedSetlists();
   const curN = getServiceSongs().length;
-  // Si la lista de trabajo tiene canciones y NO es un setlist guardado todavía,
-  // ofrecemos guardarla con nombre (sin tener que re-elegir las canciones).
-  const canSaveCurrent = curN > 0 && !getCurrentSetlistId();
   chooser.innerHTML = `
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
     </div>
     <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
-    ${canSaveCurrent ? `<button class="svc-chooser-save" data-act="save-current">💾 Guardar la lista actual (${curN}) como setlist</button>` : ''}
     <div class="svc-chooser-list">
       ${list.length ? list.map(s => `
         <div class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
@@ -222,7 +218,6 @@ function initChooserDelegation() {
     const act = actEl.dataset.act;
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
     if (act === 'new') { showServiceCreate(); return; }   // vista inline de creación
-    if (act === 'save-current') { showServiceCreate({ prefillCurrent: true }); return; } // guardar la lista de hoy
     if (act === 'del') {
       e.stopPropagation();
       const id = actEl.dataset.id;

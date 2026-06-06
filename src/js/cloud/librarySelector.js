@@ -8,7 +8,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { q } from '../utils/dom.js';
-import { showDialog } from '../ui/dialog.js';
 import { isCloudEnabled, isLoggedIn, onAuthChange } from './supabase.js';
 import { listLibraries, getActiveLibraryId, setActiveLibraryId, createLibrary } from './libraries.js';
 import { setLibraryScope, renderGiList } from '../ui/giList.js';
@@ -20,13 +19,30 @@ function repaint() {
   renderGiList(q('#gi-search')?.value || '');
 }
 
-// Abre el diálogo para crear una librería nueva y la deja activa. Pensado para
-// quien instala limpio: arranca con "Mi librería" y desde acá crea las que
-// quiera.
+// Crea una librería nueva con un formulario INLINE dentro del contenedor de la
+// Librería (no un modal centrado). La deja activa al crearla.
 function promptCreateLibrary() {
-  showDialog('Nueva librería', 'Nombre de la librería…', async (name) => {
-    const n = (name || '').trim();
-    if (!n) return;
+  const container = q('#gi-songs-container');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="gi-create-lib">
+      <h4>Nueva librería</h4>
+      <input type="text" class="gi-create-lib-name" placeholder="Nombre de la librería…" spellcheck="false">
+      <div class="gi-create-lib-actions">
+        <button class="nsl-btn" data-act="cancel">Cancelar</button>
+        <button class="nsl-btn nsl-btn--primary" data-act="create">Crear</button>
+      </div>
+    </div>`;
+  const input = container.querySelector('.gi-create-lib-name');
+  setTimeout(() => input?.focus(), 50);
+  const restore = () => {
+    const sel = q('#gi-lib-select');
+    if (sel) sel.value = activeScope;
+    repaint();
+  };
+  const create = async () => {
+    const n = (input.value || '').trim();
+    if (!n) { input.focus(); return; }
     try {
       const lib = await createLibrary(n);
       if (lib && lib.id) setActiveLibraryId(lib.id);
@@ -34,8 +50,15 @@ function promptCreateLibrary() {
       window.showToast?.(`Librería "${n}" creada.`, 'success');
     } catch (e) {
       window.showToast?.('No se pudo crear la librería: ' + (e.message || e), 'error');
+      restore();
     }
-  });
+  };
+  container.querySelector('[data-act="cancel"]').onclick = restore;
+  container.querySelector('[data-act="create"]').onclick = create;
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); create(); }
+    else if (e.key === 'Escape') { e.preventDefault(); restore(); }
+  };
 }
 
 export async function refreshLibrarySelector() {
