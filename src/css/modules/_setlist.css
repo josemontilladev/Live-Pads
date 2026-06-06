@@ -1715,5 +1715,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-edit-btn--ok { background: var(--accent); color: #000; border-color: var(--accent); }
 .svc-edit-btn--ok:hover { color: #000; filter: brightness(1.08); }
 
-/* Separación del selector de fuente respecto a los controles de transporte. */
-#track-player-bar .source-seg { margin-left: 8px; }
+/* Separación del selector de fuente respecto a los controles de transporte.
+   En la barra van algo más compactos para no robar ancho a la pista/progreso. */
+#track-player-bar .source-seg { margin-left: 8px; flex-shrink: 0; }
+#track-player-bar .source-seg-btn { padding: 5px 10px; font-size: 10.5px; }
