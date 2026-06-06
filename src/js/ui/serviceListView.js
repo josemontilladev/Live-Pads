@@ -5,14 +5,14 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
-import { getOpenAccordionServiceId } from '../state/store.js';
+import { getOpenAccordionServiceId, getSongs as getLibrarySongs } from '../state/store.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 
 let deps = null;
@@ -75,17 +75,17 @@ export function showServiceChooser() {
   chooser.innerHTML = `
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
-      <button class="svc-chooser-manage icon-btn" data-act="manage" title="Gestionar setlists (guardar la actual, borrar)" aria-label="Gestionar setlists">
-        <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
-      </button>
     </div>
     <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
     <div class="svc-chooser-list">
       ${list.length ? list.map(s => `
-        <button class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
-          <span class="svc-chooser-name">${esc(s.name)}</span>
-          <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
-        </button>`).join('')
+        <div class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
+          <span class="svc-chooser-info">
+            <span class="svc-chooser-name">${esc(s.name)}</span>
+            <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
+          </span>
+          <button class="svc-chooser-del" data-act="del" data-id="${esc(s.id)}" title="Eliminar este setlist" aria-label="Eliminar">×</button>
+        </div>`).join('')
         : '<p class="svc-chooser-empty">No hay setlists guardados todavía.</p>'}
     </div>
     <button class="svc-chooser-current" data-act="current">
@@ -98,49 +98,91 @@ export function hideServiceChooser() {
   q('#service-setlist-list')?.classList.remove('choosing');
 }
 
-// Modal para crear una lista nueva: título + fecha (con calendario). onCreate(title, date).
-function openNewSetlistModal(onCreate) {
-  document.getElementById('new-setlist-overlay')?.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'new-setlist-overlay';
-  overlay.className = 'setlists-overlay';
-  overlay.innerHTML = `
-    <div class="setlists-modal">
-      <div class="setlists-head">
-        <h3>Nueva lista de servicio</h3>
-        <button class="setlists-x" data-act="cancel" aria-label="Cerrar">×</button>
-      </div>
-      <div class="setlists-save-form">
-        <div class="sl-field sl-field--title">
-          <label>Título</label>
-          <input type="text" class="sl-title" placeholder="Ej. Servicio Domingo" value="Servicio">
-        </div>
-        <div class="sl-field sl-field--date">
-          <label>Fecha</label>
-          <input type="date" class="sl-date" value="${todayISO()}">
-        </div>
-      </div>
-      <div class="new-setlist-actions">
-        <button class="stt-btn" data-act="cancel">Cancelar</button>
-        <button class="stt-btn stt-btn--primary" data-act="create">Crear</button>
-      </div>
+// Vista INLINE (dentro del panel de Servicio, no modal centrado) para crear un
+// setlist: título + fecha + descripción + selector de canciones de la librería.
+export function hideServiceCreate() {
+  q('#service-setlist-list')?.classList.remove('creating');
+}
+export function showServiceCreate() {
+  const panel = q('#service-setlist-list');
+  const el = q('#service-create');
+  if (!panel || !el) return;
+  const lib = getLibrarySongs() || [];
+  const selected = new Set(); // ids tildados (orden de la librería)
+
+  el.innerHTML = `
+    <div class="svc-create-head">
+      <button class="svc-create-back" data-act="back" aria-label="Volver">‹</button>
+      <h4>Nuevo setlist</h4>
+    </div>
+    <label class="svc-create-field"><span>Nombre</span>
+      <input type="text" class="nsl-title" placeholder="Ej. Domingo de Alabanza"></label>
+    <label class="svc-create-field"><span>Fecha</span>
+      <input type="date" class="nsl-date" value="${todayISO()}"></label>
+    <label class="svc-create-field"><span>Descripción</span>
+      <textarea class="nsl-desc" rows="2" placeholder="Notas para este setlist…"></textarea></label>
+    <div class="svc-create-songs-head">
+      <span>Añadir canciones <span class="nsl-count"></span></span>
+    </div>
+    <input type="text" class="nsl-search" placeholder="Buscar repertorio…">
+    <div class="nsl-songs-list svc-create-list"></div>
+    <div class="svc-create-foot">
+      <button class="nsl-btn" data-act="back">Cancelar</button>
+      <button class="nsl-btn nsl-btn--primary" data-act="create">Crear setlist</button>
     </div>`;
-  document.body.appendChild(overlay);
-  const close = () => { window.removeEventListener('keydown', onKey, true); overlay.remove(); };
-  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
-  window.addEventListener('keydown', onKey, true);
-  setTimeout(() => overlay.querySelector('.sl-title')?.select(), 60);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) { close(); return; }
+
+  const listEl = el.querySelector('.nsl-songs-list');
+  const countEl = el.querySelector('.nsl-count');
+  const updateCount = () => { countEl.textContent = selected.size ? `(${selected.size})` : ''; };
+  const renderSongs = (term = '') => {
+    const t = term.trim().toLowerCase();
+    listEl.innerHTML = lib
+      .filter(s => !t || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(t))
+      .map(s => {
+        const id = String(s.id);
+        const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : ''].filter(Boolean).join(' · ');
+        const on = selected.has(id);
+        return `<label class="nsl-song${on ? ' is-on' : ''}" data-id="${esc(id)}">
+          <input type="checkbox" ${on ? 'checked' : ''}>
+          <span class="nsl-song-info"><span class="nsl-song-title">${esc(s.title || '(sin título)')}</span><span class="nsl-song-artist">${esc(s.artist || '')}</span></span>
+          <span class="nsl-song-meta">${esc(music)}</span>
+        </label>`;
+      }).join('') || '<p class="nsl-empty">No hay canciones en la librería.</p>';
+  };
+  renderSongs();
+  updateCount();
+
+  el.querySelector('.nsl-search').oninput = (e) => renderSongs(e.target.value);
+  listEl.onchange = (e) => {
+    const row = e.target.closest('.nsl-song');
+    if (!row) return;
+    if (e.target.checked) selected.add(row.dataset.id); else selected.delete(row.dataset.id);
+    row.classList.toggle('is-on', e.target.checked);
+    updateCount();
+  };
+  el.onclick = (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'cancel') { close(); return; }
+    if (act === 'back') { hideServiceCreate(); showServiceChooser(); return; }
     if (act === 'create') {
-      const title = overlay.querySelector('.sl-title')?.value.trim() || 'Servicio';
-      const date = overlay.querySelector('.sl-date')?.value || '';
-      close();
-      onCreate(title, date);
+      const title = el.querySelector('.nsl-title')?.value.trim() || 'Servicio';
+      const date = el.querySelector('.nsl-date')?.value || '';
+      const desc = el.querySelector('.nsl-desc')?.value || '';
+      const songs = lib.filter(s => selected.has(String(s.id)));
+      const entry = createNewSetlist(title, date, songs, desc);
+      if (entry) {
+        const n = songs.length;
+        window.showToast?.(n
+          ? `✓ "${entry.name}" creado con ${n} canción${n === 1 ? '' : 'es'}.`
+          : `✓ Lista "${entry.name}" creada. Agregá canciones con el botón + de la Librería.`, 'success');
+        hideServiceCreate();
+        renderServiceList();
+      }
     }
-  });
+  };
+
+  panel.classList.remove('choosing');
+  panel.classList.add('creating');
+  setTimeout(() => el.querySelector('.nsl-title')?.focus(), 60);
 }
 
 function initChooserDelegation() {
@@ -151,16 +193,12 @@ function initChooserDelegation() {
     if (!actEl) return;
     const act = actEl.dataset.act;
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
-    if (act === 'manage') { import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {}); return; }
-    if (act === 'new') {
-      openNewSetlistModal((title, date) => {
-        const entry = createNewSetlist(title || 'Servicio', date);
-        if (entry) {
-          window.showToast?.(`✓ Lista "${entry.name}" creada. Agregá canciones desde la Librería con el botón +.`, 'success');
-          hideServiceChooser();
-          renderServiceList();
-        }
-      });
+    if (act === 'new') { showServiceCreate(); return; }   // vista inline de creación
+    if (act === 'del') {
+      e.stopPropagation();
+      const id = actEl.dataset.id;
+      deleteSavedSetlist(id);
+      showServiceChooser(); // re-render del chooser
       return;
     }
     if (act === 'load') {

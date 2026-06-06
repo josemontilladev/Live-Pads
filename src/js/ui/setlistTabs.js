@@ -15,7 +15,6 @@ import {
 import { showDialog } from './dialog.js';
 import { isLoggedIn } from '../cloud/supabase.js';
 import { maybeShowChooserOnServiceOpen, showServiceChooser } from './serviceListView.js';
-import { listSavedSetlists } from '../data/service.js';
 
 export function bindSetlistTabs() {
   const panelSetlist = q('#panel-setlist');
@@ -48,13 +47,10 @@ export function bindSetlistTabs() {
   const btnNext = q('#btn-service-next');
   if (btnNext) btnNext.onclick = serviceNextSong;
 
-  // Setlists guardados: si hay guardados, muestra el selector inline (elegir
-  // lista); si no hay ninguno, abre el modal directo para guardar el primero.
+  // Setlists guardados: abre el selector INLINE (elegir / crear / borrar lista),
+  // todo dentro del panel de Servicio (sin modal centrado).
   const btnSetlists = q('#btn-setlists');
-  if (btnSetlists) btnSetlists.onclick = () => {
-    if (listSavedSetlists().length) showServiceChooser();
-    else import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {});
-  };
+  if (btnSetlists) btnSetlists.onclick = () => showServiceChooser();
 
   // Empty-state CTA — switches to the Library tab so the user can add songs.
   const btnGoLib = q('#btn-service-go-library');

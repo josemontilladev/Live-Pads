@@ -1495,13 +1495,20 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-chooser-new:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
 .svc-chooser-item {
-  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  display: flex; align-items: center; gap: 8px; text-align: left;
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
-  padding: 11px 13px; cursor: pointer; transition: all 0.15s; width: 100%;
+  padding: 9px 10px 9px 13px; transition: all 0.15s; width: 100%;
 }
 .svc-chooser-item:hover { border-color: var(--accent); background: var(--bg-hover); }
-.svc-chooser-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.svc-chooser-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.svc-chooser-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .svc-chooser-meta { font-size: 11px; color: var(--text-muted); }
+.svc-chooser-del {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 17px; line-height: 1; cursor: pointer; transition: all 0.15s;
+}
+.svc-chooser-del:hover { color: #ff5f57; background: rgba(255,95,87,0.12); }
 .svc-chooser-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px 8px; }
 .svc-chooser-current {
   margin-top: 12px; flex-shrink: 0; width: 100%; padding: 11px;
@@ -1513,3 +1520,104 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 
 /* Acciones del modal "Nueva lista de servicio" (reusa .setlists-* y .stt-btn) */
 .new-setlist-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+/* ── Modal "Nuevo Setlist" (título + fecha + descripción + selector de canciones) ── */
+.nsl-overlay {
+  position: fixed; inset: 0; z-index: 4200;
+  background: rgba(8,8,16,0.75);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.nsl-modal {
+  width: 780px; max-width: 94vw; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.55); overflow: hidden;
+}
+.nsl-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.nsl-head h3 { margin: 0; font-size: 20px; font-weight: 800; color: var(--text); }
+.nsl-sub { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+.nsl-x { background: transparent; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.nsl-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.nsl-body { padding: 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.nsl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.nsl-field { display: flex; flex-direction: column; gap: 6px; }
+.nsl-field > label {
+  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+}
+.nsl-field input, .nsl-field textarea {
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+}
+.nsl-field input:focus, .nsl-field textarea:focus { border-color: var(--accent); }
+.nsl-field input[type="date"] { color-scheme: dark; cursor: pointer; }
+.nsl-songs {
+  border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--bg-card) 50%, transparent);
+}
+.nsl-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nsl-songs-title { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.nsl-count { color: var(--accent); }
+.nsl-search {
+  flex: 0 0 240px; max-width: 50%;
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 8px 12px; font-size: 12.5px; outline: none;
+}
+.nsl-search:focus { border-color: var(--accent); }
+.nsl-songs-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.nsl-song {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color 0.15s;
+}
+.nsl-song:hover { border-color: var(--border-strong); }
+.nsl-song.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+.nsl-song input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.nsl-song-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.nsl-song-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nsl-song-artist { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nsl-song-meta { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.nsl-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px; }
+.nsl-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+.nsl-btn {
+  padding: 11px 20px; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: transparent; color: var(--text-muted); border: none; border-radius: 10px; transition: color 0.15s;
+}
+.nsl-btn:hover { color: var(--text); }
+.nsl-btn--primary { background: var(--accent); color: #000; }
+.nsl-btn--primary:hover { color: #000; filter: brightness(1.08); }
+@media (max-width: 640px) { .nsl-fields { grid-template-columns: 1fr; } .nsl-search { flex-basis: 140px; } }
+
+/* ── Crear setlist INLINE (dentro del panel de Servicio, no modal) ─────────── */
+.service-create { display: none; }
+#service-setlist-list.creating .service-actions,
+#service-setlist-list.creating .svc-search-row,
+#service-setlist-list.creating #service-songs-container,
+#service-setlist-list.creating #service-empty-msg,
+#service-setlist-list.creating #service-chooser { display: none !important; }
+#service-setlist-list.creating .service-create { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.svc-create-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.svc-create-back {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  width: 28px; height: 28px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.svc-create-back:hover { color: var(--text); border-color: var(--text-muted); }
+.svc-create-head h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.svc-create-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.svc-create-field > span { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.svc-create-field input, .svc-create-field textarea {
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+}
+.svc-create-field input:focus, .svc-create-field textarea:focus { border-color: var(--accent); }
+.svc-create-field input[type="date"] { color-scheme: dark; cursor: pointer; }
+.svc-create-songs-head { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
+.svc-create-songs-head .nsl-count { color: var(--accent); }
+.service-create .nsl-search { width: 100%; max-width: none; flex: none; margin-bottom: 8px; }
+.svc-create-list { flex: 1 1 auto; min-height: 80px; max-height: none; }
+.svc-create-foot { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
+.svc-create-foot .nsl-btn { flex: 1; text-align: center; border: 1px solid var(--border); }
+.svc-create-foot .nsl-btn--primary { border-color: var(--accent); }
