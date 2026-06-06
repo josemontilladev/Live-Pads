@@ -1608,18 +1608,20 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-create-head h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
 .svc-create-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .svc-create-field > span { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
-.svc-create-field input, .svc-create-field textarea {
+.svc-create-field input, .svc-create-field textarea, .svc-create-field select {
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
   border-radius: 9px; padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
 }
-.svc-create-field input:focus, .svc-create-field textarea:focus { border-color: var(--accent); }
+.svc-create-field input:focus, .svc-create-field textarea:focus, .svc-create-field select:focus { border-color: var(--accent); }
+.svc-create-field select { cursor: pointer; }
 .svc-create-field input[type="date"] { color-scheme: dark; cursor: pointer; }
 .svc-create-songs-head { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
 .svc-create-songs-head .nsl-count { color: var(--accent); }
 .service-create .nsl-search { width: 100%; max-width: none; flex: none; margin-bottom: 8px; }
 .svc-create-list { flex: 1 1 auto; min-height: 80px; max-height: none; }
-.svc-create-foot { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
-.svc-create-foot .nsl-btn { flex: 1; text-align: center; border: 1px solid var(--border); }
+.svc-create-foot { display: flex; gap: 8px; margin-top: 10px; flex-shrink: 0; }
+/* Botones compactos para darle más alto a la lista de canciones. */
+.svc-create-foot .nsl-btn { flex: 1; text-align: center; border: 1px solid var(--border); padding: 8px 12px; font-size: 12px; }
 .svc-create-foot .nsl-btn--primary { border-color: var(--accent); }
 
 /* Nombre + fecha en una sola línea en la creación inline. */
