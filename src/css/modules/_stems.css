@@ -1143,8 +1143,13 @@ body[data-workspace="stems"] #body {
 /* Sin pistas cargadas: no tiene sentido scrollear vertical (la timeline está
    vacía debajo de la regla). Ocultamos el scroll-y para que el área negra
    no se sienta "rota". Cuando hay pistas, vuelve overflow:auto normal. */
-#workspace-stems:not(.has-tracks) .stems-arrange { overflow-y: hidden; }
-#workspace-stems:not(.has-tracks) .stems-arrange-inner { min-height: 100%; }
+/* Sin pistas no hay nada que recorrer: ocultamos AMBOS scrolls (no solo el
+   vertical). Antes quedaba un scroll horizontal por el ancho de la regla, y al
+   desplazarte el "Sin pistas aún" se iba de vista. Sin scroll, queda fijo. */
+#workspace-stems:not(.has-tracks) .stems-arrange { overflow: hidden; }
+#workspace-stems:not(.has-tracks) .stems-arrange-inner { min-height: 100%; width: 100%; min-width: 0; }
+/* La regla del timeline no debe forzar ancho cuando no hay pistas. */
+#workspace-stems:not(.has-tracks) .stems-head-tl { width: 100% !important; }
 .stems-arrange-inner {
   display: flex;
   flex-direction: column;
