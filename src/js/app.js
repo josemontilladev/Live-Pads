@@ -1133,7 +1133,21 @@ function selectSource(which) {
     if (getMetroRunning()) toggleMetro();
     loadAndPlayTrack(song, 'original');            // referencia (sin forzar el pad)
   }
+  paintSourceSegs();                               // ilumina la fuente elegida
   refreshNowPlayingLiveState();                    // feedback inmediato del segmento
+}
+
+// Ilumina el botón de la fuente SELECCIONADA (masterSource), suene o no — así se
+// ve cuál disparará el Play sin tener que darle primero.
+function paintSourceSegs() {
+  const map = { sequence: 'src-seq', click: 'src-click', reference: 'src-ref' };
+  for (const [src, id] of Object.entries(map)) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    const on = masterSource === src;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
 }
 
 function bindSourceControl() {
@@ -1142,6 +1156,7 @@ function bindSourceControl() {
     const b = q('#' + id);
     if (b) b.onclick = () => selectSource(which);
   }
+  paintSourceSegs(); // estado inicial (Secuencia por defecto)
 }
 
 // PÁNICO: corta absolutamente todo y cierra cualquier overlay/ayuda, pase lo que
@@ -1433,6 +1448,7 @@ function applyGiSong(song) {
 
   // Nueva canción → la fuente del Play maestro vuelve a "Secuencia" por defecto.
   masterSource = 'sequence';
+  paintSourceSegs();
 
   // Sync active service-list pointer by matching title+artist.
   syncActiveByTitleArtist(song);
