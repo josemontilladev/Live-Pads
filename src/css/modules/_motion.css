@@ -231,6 +231,15 @@ body.midi-learning input[type="range"] {
   0%, 100% { outline-color: var(--accent); }
   50%      { outline-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 }
+/* Pads/drums: el grid está MUY justo, así que el resaltado va por DENTRO del
+   borde (outline-offset negativo + glow inset). Así no se recorta contra el
+   contenedor ni se solapa con los pads vecinos como pasaba con el glow externo. */
+body.midi-learning .key-btn,
+body.midi-learning .drum-btn {
+  outline-offset: -2px !important;
+  box-shadow: inset 0 0 0 2px var(--accent),
+              inset 0 0 16px color-mix(in srgb, var(--accent) 42%, transparent) !important;
+}
 
 /* Cuenta de entrada: el botón de play pulsa mientras suena el conteo. */
 @keyframes countin-pulse {

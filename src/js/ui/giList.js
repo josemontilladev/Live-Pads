@@ -12,6 +12,7 @@ import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { confirmDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
+import { getCurrentSetlistName } from '../data/service.js';
 import {
   getSongs, setSongs,
   getCurrentGenre,
@@ -669,7 +670,8 @@ function handleAddToService(song, card, btn) {
   btn.style.color = '#4ade80';
   const popup = document.createElement('div');
   popup.className = 'added-popup';
-  popup.textContent = '¡Añadida al servicio!';
+  const name = getCurrentSetlistName();
+  popup.textContent = name ? `Añadida a “${name}”` : 'Añadida a tu lista de hoy';
   card.classList.add('has-popup');
   card.appendChild(popup);
   setTimeout(() => popup.classList.add('leaving'), 800);
