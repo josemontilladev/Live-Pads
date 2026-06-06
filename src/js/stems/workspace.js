@@ -187,6 +187,7 @@ const trackInstrument = new Map(); // trackId → instrumento (piano/rhodes/pad/
 let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
+let saveDeferred = false; // hay un guardado pendiente que se pospuso por estar reproduciendo
 let pillTimer = null;
 
 function formatTime(sec) {
@@ -4717,6 +4718,8 @@ function applyPlayingState(playing) {
     pill.textContent = playing ? 'REPRODUCIENDO' : 'DETENIDO';
     pill.dataset.state = playing ? 'play' : 'stop';
   }
+  // Al PARAR, volcar cualquier guardado que quedó pendiente durante el play.
+  if (!playing && saveDeferred) { saveDeferred = false; scheduleSave(); }
 }
 
 function applyTimeUpdate(sec) {
@@ -5162,6 +5165,11 @@ function scheduleSave() {
 
 async function doSave() {
   saveTimer = null;
+  // No guardar DURANTE la reproducción: serializar el estado para el IPC compite
+  // con el RAF del playhead y producía un "freeze" al hacer zoom/scroll. Lo
+  // diferimos: el pill queda "Pendiente…" y se vuelca al parar (applyPlayingState).
+  if (engine.isCurrentlyPlaying()) { saveDeferred = true; return; }
+  saveDeferred = false;
   const pill = document.getElementById('stems-save-pill');
   if (pill) { pill.dataset.state = 'saving'; pill.textContent = 'Guardando…'; }
   try {
