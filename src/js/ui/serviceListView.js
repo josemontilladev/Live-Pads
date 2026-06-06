@@ -6,7 +6,6 @@
 
 import { q, esc } from '../utils/dom.js';
 import { listSavedSetlists, loadSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
-import { showDialog } from './dialog.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -99,6 +98,51 @@ export function hideServiceChooser() {
   q('#service-setlist-list')?.classList.remove('choosing');
 }
 
+// Modal para crear una lista nueva: título + fecha (con calendario). onCreate(title, date).
+function openNewSetlistModal(onCreate) {
+  document.getElementById('new-setlist-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'new-setlist-overlay';
+  overlay.className = 'setlists-overlay';
+  overlay.innerHTML = `
+    <div class="setlists-modal">
+      <div class="setlists-head">
+        <h3>Nueva lista de servicio</h3>
+        <button class="setlists-x" data-act="cancel" aria-label="Cerrar">×</button>
+      </div>
+      <div class="setlists-save-form">
+        <div class="sl-field sl-field--title">
+          <label>Título</label>
+          <input type="text" class="sl-title" placeholder="Ej. Servicio Domingo" value="Servicio">
+        </div>
+        <div class="sl-field sl-field--date">
+          <label>Fecha</label>
+          <input type="date" class="sl-date" value="${todayISO()}">
+        </div>
+      </div>
+      <div class="new-setlist-actions">
+        <button class="stt-btn" data-act="cancel">Cancelar</button>
+        <button class="stt-btn stt-btn--primary" data-act="create">Crear</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => { window.removeEventListener('keydown', onKey, true); overlay.remove(); };
+  const onKey = (ev) => { if (ev.key === 'Escape') { ev.stopPropagation(); close(); } };
+  window.addEventListener('keydown', onKey, true);
+  setTimeout(() => overlay.querySelector('.sl-title')?.select(), 60);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) { close(); return; }
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'cancel') { close(); return; }
+    if (act === 'create') {
+      const title = overlay.querySelector('.sl-title')?.value.trim() || 'Servicio';
+      const date = overlay.querySelector('.sl-date')?.value || '';
+      close();
+      onCreate(title, date);
+    }
+  });
+}
+
 function initChooserDelegation() {
   const chooser = q('#service-chooser');
   if (!chooser) return;
@@ -109,16 +153,14 @@ function initChooserDelegation() {
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
     if (act === 'manage') { import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {}); return; }
     if (act === 'new') {
-      showDialog('Nueva lista de servicio', 'Ej. Servicio Domingo', (name) => {
-        const entry = createNewSetlist(name || 'Servicio', todayISO());
+      openNewSetlistModal((title, date) => {
+        const entry = createNewSetlist(title || 'Servicio', date);
         if (entry) {
           window.showToast?.(`✓ Lista "${entry.name}" creada. Agregá canciones desde la Librería con el botón +.`, 'success');
           hideServiceChooser();
           renderServiceList();
         }
       });
-      const input = q('#dialog-name');     // pre-rellenar con la fecha de hoy
-      if (input) { input.value = `Servicio ${fmtChooserDate({ date: todayISO() })}`; setTimeout(() => input.select(), 60); }
       return;
     }
     if (act === 'load') {
