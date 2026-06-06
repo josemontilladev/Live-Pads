@@ -58,7 +58,7 @@ import {
   initService, getServiceSongs, getActiveServiceIndex, setActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
-  serviceNextSong, servicePrevSong
+  serviceNextSong, servicePrevSong, syncServiceWithLibrary
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
@@ -712,6 +712,10 @@ function bindRestOfApp() {
   window.addEventListener('livepads:songs-changed', () => {
     updateFilterCounts();
     renderGiList(q('#gi-search')?.value || '');
+    // Las listas/setlists guardan una COPIA de la canción; al crear la secuencia
+    // (u otra edición) en Stems, re-sincronizamos esas copias con la librería
+    // para que el setlist refleje el cambio (badge de secuencia, reproducción…).
+    if (syncServiceWithLibrary()) renderServiceList();
     scheduleCloudAutoSync();
   });
 

@@ -6,6 +6,7 @@
 // so they are injected once at boot via initService(deps).
 
 import { confirmDialog } from '../ui/dialog.js';
+import { getSongs as getLibrarySongs } from '../state/store.js';
 
 let serviceSongs = [];
 let activeServiceIndex = -1;
@@ -229,6 +230,39 @@ export function updateSetlistMeta(id, name, date) {
   writeSavedSetlists(arr);
   if (currentSetlistId === id) { currentSetlistName = e.name; saveServiceSongs(); }
 }
+// Re-sincroniza las copias del service y de los setlists guardados con la
+// canción VIVA de la librería (por id): audio (secuencia/original), tonalidad,
+// BPM, carátula, letra, etc. Necesario porque al agregar una canción se copia su
+// estado del momento; si luego en Stems se le crea la secuencia (u otra edición),
+// la copia del setlist quedaba vieja y no reflejaba el cambio.
+const SYNC_FIELDS = ['title', 'artist', 'key', 'bpm', 'cover', 'coverUrl', 'durationSec', 'lyrics', 'tags', 'genre', 'showChords', 'audio'];
+export function syncServiceWithLibrary() {
+  const lib = getLibrarySongs() || [];
+  if (!lib.length) return false;
+  const byId = new Map(lib.map(s => [String(s.id), s]));
+  let changed = false;
+  const clone = (v) => (v && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
+  const refresh = (entry) => {
+    if (!entry || entry.id == null) return;
+    const live = byId.get(String(entry.id));
+    if (!live) return;
+    for (const f of SYNC_FIELDS) {
+      if (JSON.stringify(live[f]) !== JSON.stringify(entry[f])) {
+        entry[f] = clone(live[f]);
+        changed = true;
+      }
+    }
+  };
+  serviceSongs.forEach(refresh);
+  const saved = listSavedSetlists();
+  saved.forEach(set => (set.songs || []).forEach(refresh));
+  if (changed) {
+    writeSavedSetlists(saved);   // persiste TODOS los setlists guardados sincronizados
+    saveServiceSongs();          // persiste la lista de trabajo (+ re-sync del activo)
+  }
+  return changed;
+}
+
 // Duplica un setlist guardado (para servicios recurrentes con variantes).
 export function duplicateSetlist(id) {
   const arr = listSavedSetlists();
