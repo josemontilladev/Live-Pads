@@ -51,15 +51,12 @@ function onScroll(e) {
   if (scrolledHoldsAnchor || isDocScroll) close();
 }
 
-export function openCardMoreMenu(anchorBtn, items) {
-  // Toggle si se vuelve a clickear el mismo ancla.
-  if (currentAnchor === anchorBtn) { close(); return; }
-  close();
-
+// Construye el menú (mismo markup/estilo para anclado y contextual) y suscribe
+// los cierres. No lo posiciona — eso lo hace cada caller.
+function buildMenu(items) {
   const menu = document.createElement('div');
   menu.className = 'card-more-menu';
   menu.setAttribute('role', 'menu');
-
   items.forEach(it => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -73,31 +70,47 @@ export function openCardMoreMenu(anchorBtn, items) {
     };
     menu.appendChild(btn);
   });
-
   document.body.appendChild(menu);
+  window.addEventListener('keydown', onKey, true);
+  window.addEventListener('mousedown', onDocDown, true);
+  window.addEventListener('resize', close, true);
+  window.addEventListener('scroll', onScroll, true);
+  return menu;
+}
 
+export function openCardMoreMenu(anchorBtn, items) {
+  // Toggle si se vuelve a clickear el mismo ancla.
+  if (currentAnchor === anchorBtn) { close(); return; }
+  close();
+
+  const menu = buildMenu(items);
   const r = anchorBtn.getBoundingClientRect();
-  const mw = menu.offsetWidth;
-  const mh = menu.offsetHeight;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
   let left = Math.min(Math.max(8, r.right - mw), vw - mw - 8);
   let top = r.bottom + 4;
   if (top + mh + 8 > vh) top = Math.max(8, r.top - mh - 4);
-
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
 
   currentMenu = menu;
   currentAnchor = anchorBtn;
   anchorBtn.setAttribute('aria-expanded', 'true');
+}
 
-  // Suscripciones; scroll en capture para detectar cualquier ancestro.
-  window.addEventListener('keydown', onKey, true);
-  window.addEventListener('mousedown', onDocDown, true);
-  window.addEventListener('resize', close, true);
-  window.addEventListener('scroll', onScroll, true);
+// Menú contextual (click derecho): mismo estilo, posicionado en el cursor.
+export function openContextMenu(x, y, items) {
+  close();
+  if (!items || !items.length) return;
+  const menu = buildMenu(items);
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const left = Math.min(Math.max(8, x), vw - mw - 8);
+  const top = Math.min(Math.max(8, y), vh - mh - 8);
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  currentMenu = menu;
+  currentAnchor = null;
 }
 
 export function closeCardMoreMenu() { close(); }
