@@ -965,6 +965,10 @@ function isSequenceLoaded() {
 }
 
 let lastMasterToggle = 0;
+// Fuente que dispara el Play maestro (Space / botón): 'sequence' (default),
+// 'click' o 'reference'. La fija el selector de fuente; se resetea a 'sequence'
+// al elegir otra canción.
+let masterSource = 'sequence';
 function triggerMasterPlayPause() {
   // Debounce: una doble-pulsación nerviosa de Espacio (o key-repeat) lanzaba y
   // cortaba al instante, dejando todo en silencio cuando el director creía
@@ -974,42 +978,50 @@ function triggerMasterPlayPause() {
   lastMasterToggle = now;
   if (countingIn) return; // ya hay una cuenta de entrada en curso
 
-  // "Activo" = la secuencia maestra está sonando, o —sin secuencia— el
-  //  metrónomo corre. La original NO cuenta como fuente maestra.
-  const isCurrentlyActive = isSequenceLoaded() ? isTrackPlaying() : getMetroRunning();
+  // "Activo" = suena CUALQUIER fuente (pista —secuencia u original— o metrónomo).
+  // Así el Space/Play pausa lo que esté sonando, sea cual sea la fuente.
+  const isCurrentlyActive = (isTrackLoaded() && isTrackPlaying()) || getMetroRunning();
 
   if (isCurrentlyActive) {
     triggerMasterStop();
-  } else {
-    // Si hay una ORIGINAL cargada (referencia), detenela antes de lanzar: nunca
-    // es la fuente maestra y no debe sonar encima de lo que se dispara.
-    if (isTrackLoaded() && getCurrentType() === 'original' && isTrackPlaying()) {
-      clickPlayPause();
-    }
+    refreshNowPlayingLiveState();
+    return;
+  }
 
-    // 1. Play the pad if not already active (if it crossfaded, it's already active!)
-    if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
-
-    // 2. Play the SEQUENCE or the metronome. One timing source by default: una
-    //    secuencia lleva su propio click, así que el metrónomo queda OFF —
-    //    salvo que "Click con secuencia" esté activo. Sin secuencia (haya o no
-    //    una original cargada), el metrónomo es la fuente de tiempo.
-    if (isSequenceLoaded()) {
-      // Cuenta de entrada (si está activa): un compás de clicks y luego arranca
-      // la secuencia justo en el "1".
-      if (!isTrackPlaying() && countInEnabled()) {
-        doCountIn(() => {
-          if (!isTrackPlaying()) clickPlayPause();
-          if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
-          refreshNowPlayingLiveState();
-        });
-        return;
-      }
-      if (!isTrackPlaying()) clickPlayPause();
-      if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
-    } else if (!getMetroRunning()) {
-      toggleMetro();
+  // Nada sonando → reproducir la FUENTE SELECCIONADA (no siempre la secuencia).
+  if (masterSource === 'reference') {
+    if (isTrackLoaded() && getCurrentType() === 'original') {
+      if (getMetroRunning()) toggleMetro();
+      if (!isTrackPlaying()) clickPlayPause();   // reanuda donde quedó
+    } else {
+      selectSource('reference');                  // carga + reproduce la original
     }
+    refreshNowPlayingLiveState();
+    return;
+  }
+  if (masterSource === 'click') {
+    selectSource('click');       // pad + metrónomo
+    refreshNowPlayingLiveState();
+    return;
+  }
+
+  // Secuencia (por defecto): pad + secuencia (con cuenta de entrada) o metrónomo.
+  if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
+  if (isSequenceLoaded()) {
+    // Cuenta de entrada (si está activa): un compás de clicks y luego arranca
+    // la secuencia justo en el "1".
+    if (!isTrackPlaying() && countInEnabled()) {
+      doCountIn(() => {
+        if (!isTrackPlaying()) clickPlayPause();
+        if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
+        refreshNowPlayingLiveState();
+      });
+      return;
+    }
+    if (!isTrackPlaying()) clickPlayPause();
+    if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
+  } else if (!getMetroRunning()) {
+    toggleMetro();
   }
   refreshNowPlayingLiveState();
 }
@@ -1105,6 +1117,7 @@ function ensurePadPlaying() {
 }
 
 function selectSource(which) {
+  masterSource = which;   // el Play maestro (Space) respeta esta fuente
   const song = getActiveSongForSource();
   if (which === 'sequence') {
     if (!song || !(song.audio && song.audio.sequence)) { showToast('Esta canción no tiene secuencia asignada.', 'info'); return; }
@@ -1417,6 +1430,9 @@ function applyGiSong(song) {
 
   // Sync active library song id in the store.
   setActiveSongId(song.id);
+
+  // Nueva canción → la fuente del Play maestro vuelve a "Secuencia" por defecto.
+  masterSource = 'sequence';
 
   // Sync active service-list pointer by matching title+artist.
   syncActiveByTitleArtist(song);
