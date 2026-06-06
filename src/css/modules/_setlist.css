@@ -775,13 +775,26 @@ input.pan-slider {
   min-width: 0;
 }
 .service-actions-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 700;
-  white-space: nowrap;            /* "Tu lista de hoy" en una sola línea */
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 800;
+  white-space: nowrap;            /* el nombre del setlist en una sola línea */
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;                /* es un selector: clic → elegir/crear lista */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
 }
+.service-actions-label::after {
+  content: "▾";
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.service-actions-label:hover { color: var(--accent); }
+.service-actions-label:hover::after { color: var(--accent); }
 .service-actions-meta {
   font-size: 10px;
   color: var(--text-muted);
@@ -1473,6 +1486,12 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   border-radius: 8px; cursor: pointer; transition: all 0.15s;
 }
 .svc-chooser-manage:hover { color: var(--accent); border-color: var(--accent); }
+.svc-chooser-new {
+  width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 11px;
+  background: var(--accent); color: #000; border: none; border-radius: 10px;
+  font-size: 12.5px; font-weight: 800; cursor: pointer; transition: filter 0.15s;
+}
+.svc-chooser-new:hover { filter: brightness(1.08); }
 .svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
 .svc-chooser-item {
   display: flex; flex-direction: column; gap: 2px; text-align: left;

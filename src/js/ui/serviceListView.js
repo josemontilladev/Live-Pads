@@ -5,7 +5,8 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, getServiceSongs, getCurrentSetlistName } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
+import { showDialog } from './dialog.js';
 import { songCardInnerHTML } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -28,6 +29,11 @@ export function initServiceList(_deps) {
   deps = _deps;
   initDelegation();
   initChooserDelegation();
+  // El nombre del servicio en el header funciona como selector: clic → chooser
+  // (elegir/crear lista). El elemento persiste (updateServiceMeta solo cambia su
+  // texto), así que un solo listener alcanza.
+  const label = q('.service-actions-label');
+  if (label) label.addEventListener('click', () => showServiceChooser());
   chooserPending = listSavedSetlists().length > 0;
   // Listener de búsqueda dentro del Servicio (input #svc-search en setlistTabs).
   window.addEventListener('livepads:service-search', (ev) => {
@@ -37,6 +43,10 @@ export function initServiceList(_deps) {
 }
 
 // ── Selector de setlist (chooser) ─────────────────────────────────────────
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 const CHOOSER_DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 function fmtChooserDate(s) {
   let d = null;
@@ -66,10 +76,11 @@ export function showServiceChooser() {
   chooser.innerHTML = `
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
-      <button class="svc-chooser-manage icon-btn" data-act="manage" title="Guardar la lista actual / gestionar setlists" aria-label="Guardar o gestionar setlists">
+      <button class="svc-chooser-manage icon-btn" data-act="manage" title="Gestionar setlists (guardar la actual, borrar)" aria-label="Gestionar setlists">
         <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>
       </button>
     </div>
+    <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
     <div class="svc-chooser-list">
       ${list.length ? list.map(s => `
         <button class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
@@ -97,6 +108,19 @@ function initChooserDelegation() {
     const act = actEl.dataset.act;
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
     if (act === 'manage') { import('./setlistsModal.js').then(m => m.openSetlistsModal()).catch(() => {}); return; }
+    if (act === 'new') {
+      showDialog('Nueva lista de servicio', 'Ej. Servicio Domingo', (name) => {
+        const entry = createNewSetlist(name || 'Servicio', todayISO());
+        if (entry) {
+          window.showToast?.(`✓ Lista "${entry.name}" creada. Agregá canciones desde la Librería con el botón +.`, 'success');
+          hideServiceChooser();
+          renderServiceList();
+        }
+      });
+      const input = q('#dialog-name');     // pre-rellenar con la fecha de hoy
+      if (input) { input.value = `Servicio ${fmtChooserDate({ date: todayISO() })}`; setTimeout(() => input.select(), 60); }
+      return;
+    }
     if (act === 'load') {
       const id = actEl.dataset.id;
       if (loadSavedSetlist(id)) {           // replaceService → re-render del servicio

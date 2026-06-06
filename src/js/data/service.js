@@ -14,6 +14,23 @@ let activeServiceIndex = -1;
 let currentSetlistName = '';
 export const getCurrentSetlistName = () => currentSetlistName;
 export const setCurrentSetlistName = (n) => { currentSetlistName = n || ''; };
+// Id del setlist guardado que está ACTIVO (la lista de trabajo ES ese setlist y
+// se auto-guarda al editar). null = lista de hoy sin nombre (no persistida como
+// setlist; se agrega igual, pero no aparece en el selector hasta nombrarla).
+let currentSetlistId = null;
+export const getCurrentSetlistId = () => currentSetlistId;
+
+// Vuelca la lista de trabajo al setlist guardado activo (si hay), para que
+// agregar/quitar/reordenar se persista en vivo en ese setlist.
+function syncActiveSetlist() {
+  if (!currentSetlistId) return;
+  const arr = listSavedSetlists();
+  const e = arr.find(s => s.id === currentSetlistId);
+  if (!e) { currentSetlistId = null; return; }
+  e.songs = serviceSongs.map(({ serviceId, ...s }) => s);
+  if (currentSetlistName) e.name = currentSetlistName;
+  writeSavedSetlists(arr);
+}
 
 let renderFn = null;
 let applyGiSongFn = null;
@@ -32,6 +49,7 @@ export const setActiveServiceIndex = (n) => { activeServiceIndex = n; };
 
 export function loadServiceSongs() {
   currentSetlistName = localStorage.getItem('serviceName') || '';
+  currentSetlistId = localStorage.getItem('serviceSetlistId') || null;
   const saved = localStorage.getItem('serviceSongs');
   if (saved) {
     try {
@@ -46,6 +64,8 @@ export function loadServiceSongs() {
 export function saveServiceSongs() {
   localStorage.setItem('serviceSongs', JSON.stringify(serviceSongs));
   localStorage.setItem('serviceName', currentSetlistName || '');
+  localStorage.setItem('serviceSetlistId', currentSetlistId || '');
+  syncActiveSetlist(); // mantener el setlist guardado activo en sync
   try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
 }
 
@@ -62,7 +82,8 @@ export function addToService(song) {
 export function replaceService(songs) {
   serviceSongs = (songs || []).map((s, i) => ({ ...s, serviceId: Date.now() + i + Math.random() }));
   activeServiceIndex = -1;
-  currentSetlistName = ''; // por defecto sin nombre; loadSavedSetlist lo fija después
+  currentSetlistName = ''; // por defecto sin nombre/id; loadSavedSetlist los fija después
+  currentSetlistId = null;
   saveServiceSongs();
   triggerRender();
 }
@@ -81,8 +102,12 @@ export function clearServiceList() {
     confirmLabel: 'Vaciar',
     danger: true,
     onConfirm: () => {
+      // Vaciar = empezar una lista de hoy vacía SIN tocar el setlist guardado
+      // (se "desengancha" poniendo id=null). Lo guardado conserva sus canciones.
       serviceSongs = [];
       currentSetlistName = '';
+      currentSetlistId = null;
+      activeServiceIndex = -1;
       saveServiceSongs();
       triggerRender();
     }
@@ -141,21 +166,52 @@ export function saveCurrentAsSetlist(name, date) {
   };
   arr.unshift(entry);
   writeSavedSetlists(arr);
-  currentSetlistName = entry.name; // el servicio actual pasa a llamarse así
-  saveServiceSongs();              // persistir el nombre
+  // La lista de trabajo PASA A SER este setlist (activo): futuras ediciones se
+  // auto-guardan en él.
+  currentSetlistId = entry.id;
+  currentSetlistName = entry.name;
+  saveServiceSongs();
   return entry;
 }
-// Carga un setlist guardado → reemplaza el servicio actual.
+// Crea un setlist NUEVO y vacío, y lo deja ACTIVO (para empezar a agregarle
+// canciones desde la Librería). Devuelve la entrada.
+export function createNewSetlist(name, date) {
+  const arr = listSavedSetlists();
+  const entry = {
+    id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
+    name: String(name || 'Servicio').trim() || 'Servicio',
+    date: (typeof date === 'string' && date) ? date : null,
+    savedAt: Date.now(),
+    songs: [],
+  };
+  arr.unshift(entry);
+  writeSavedSetlists(arr);
+  serviceSongs = [];
+  activeServiceIndex = -1;
+  currentSetlistId = entry.id;
+  currentSetlistName = entry.name;
+  saveServiceSongs();
+  triggerRender();
+  return entry;
+}
+// Carga un setlist guardado → pasa a ser la lista activa (se edita en vivo).
 export function loadSavedSetlist(id) {
   const entry = listSavedSetlists().find(s => s.id === id);
   if (!entry) return false;
-  replaceService(entry.songs || []);   // limpia currentSetlistName…
-  currentSetlistName = entry.name || ''; // …y acá ponemos el nombre del setlist
-  saveServiceSongs();                    // re-persistir con el nombre
+  replaceService(entry.songs || []);     // setea songs, limpia name/id
+  currentSetlistId = entry.id;           // …y acá enganchamos el setlist activo
+  currentSetlistName = entry.name || '';
+  saveServiceSongs();                    // re-persistir name/id (sync = no-op)
   return true;
 }
 export function deleteSavedSetlist(id) {
   writeSavedSetlists(listSavedSetlists().filter(s => s.id !== id));
+  // Si borramos el setlist activo, la lista de trabajo se "desengancha".
+  if (currentSetlistId === id) {
+    currentSetlistId = null;
+    currentSetlistName = '';
+    saveServiceSongs();
+  }
 }
 export function renameSavedSetlist(id, name) {
   const arr = listSavedSetlists();
