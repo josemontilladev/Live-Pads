@@ -122,6 +122,11 @@ export function renderGiList(filter = '', editSongId = null) {
   const container = q('#gi-songs-container');
   if (!container) return;
   container.innerHTML = '';
+  // Invalida CUALQUIER render por chunks en vuelo. Sin esto, si un render largo
+  // (scope "Todas") seguía agregando tarjetas por idle-callback y luego se
+  // cambiaba a un repertorio sin canciones (que muestra el CTA "Bajar canciones"
+  // y retorna sin tocar el token), las tarjetas viejas se colaban DEBAJO del CTA.
+  ++renderToken;
 
   const songs = getSongs();
   if (!songs.length) {

@@ -5,7 +5,7 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist } from '../data/service.js';
 import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -73,11 +73,15 @@ export function showServiceChooser() {
   if (!panel || !chooser) return;
   const list = listSavedSetlists();
   const curN = getServiceSongs().length;
+  // Si la lista de trabajo tiene canciones y NO es un setlist guardado todavía,
+  // ofrecemos guardarla con nombre (sin tener que re-elegir las canciones).
+  const canSaveCurrent = curN > 0 && !getCurrentSetlistId();
   chooser.innerHTML = `
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
     </div>
     <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
+    ${canSaveCurrent ? `<button class="svc-chooser-save" data-act="save-current">💾 Guardar la lista actual (${curN}) como setlist</button>` : ''}
     <div class="svc-chooser-list">
       ${list.length ? list.map(s => `
         <div class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
@@ -104,12 +108,16 @@ export function hideServiceChooser() {
 export function hideServiceCreate() {
   q('#service-setlist-list')?.classList.remove('creating');
 }
-export function showServiceCreate() {
+export function showServiceCreate(opts = {}) {
   const panel = q('#service-setlist-list');
   const el = q('#service-create');
   if (!panel || !el) return;
   const lib = getLibrarySongs() || [];
-  const selected = new Set(); // ids tildados (orden de la librería)
+  // prefillCurrent: pre-tilda las canciones de la lista actual (para GUARDAR la
+  // "lista de hoy" como setlist sin volver a elegirlas).
+  const selected = new Set(opts.prefillCurrent ? getServiceSongs().map(s => String(s.id)) : []);
+  const headTitle = opts.prefillCurrent ? 'Guardar como setlist' : 'Nuevo setlist';
+  const initialName = opts.prefillCurrent ? (getCurrentSetlistName() || '') : '';
 
   // Opciones de librería: espejamos el selector de la pestaña Librería
   // (#gi-lib-select), sin la acción "+ Crear". Arrancamos en la librería ACTIVA.
@@ -125,11 +133,11 @@ export function showServiceCreate() {
   el.innerHTML = `
     <div class="svc-create-head">
       <button class="svc-create-back" data-act="back" aria-label="Volver">‹</button>
-      <h4>Nuevo setlist</h4>
+      <h4>${headTitle}</h4>
     </div>
     <div class="svc-create-row2">
       <label class="svc-create-field"><span>Nombre</span>
-        <input type="text" class="nsl-title" placeholder="Ej. Domingo de Alabanza"></label>
+        <input type="text" class="nsl-title" placeholder="Ej. Domingo de Alabanza" value="${esc(initialName)}"></label>
       <label class="svc-create-field svc-create-date"><span>Fecha</span>
         <input type="date" class="nsl-date" value="${todayISO()}"></label>
     </div>
@@ -144,7 +152,7 @@ export function showServiceCreate() {
     <div class="nsl-songs-list svc-create-list"></div>
     <div class="svc-create-foot">
       <button class="nsl-btn" data-act="back">Cancelar</button>
-      <button class="nsl-btn nsl-btn--primary" data-act="create">Crear setlist</button>
+      <button class="nsl-btn nsl-btn--primary" data-act="create">${opts.prefillCurrent ? 'Guardar setlist' : 'Crear setlist'}</button>
     </div>`;
 
   const listEl = el.querySelector('.nsl-songs-list');
@@ -214,6 +222,7 @@ function initChooserDelegation() {
     const act = actEl.dataset.act;
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
     if (act === 'new') { showServiceCreate(); return; }   // vista inline de creación
+    if (act === 'save-current') { showServiceCreate({ prefillCurrent: true }); return; } // guardar la lista de hoy
     if (act === 'del') {
       e.stopPropagation();
       const id = actEl.dataset.id;
