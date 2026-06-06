@@ -1636,7 +1636,24 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .svc-pick:hover { border-color: var(--border-strong); }
 .svc-pick.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
-.svc-pick input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+/* Checkbox custom igual al de "Click + secuencia": caja redondeada que se llena
+   con el gradiente de acento y muestra un check al activarse. */
+.svc-pick input {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0; flex-shrink: 0;
+  border: 1.5px solid var(--border-strong); border-radius: 5px;
+  background: var(--bg-hover); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.svc-pick input:hover { border-color: var(--accent); }
+.svc-pick input:checked { background: var(--accent-grad); border-color: transparent; }
+.svc-pick input:checked::after {
+  content: ''; width: 4px; height: 8px;
+  border: solid #0a0a14; border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.svc-pick input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .svc-pick .gi-song-cover { width: 38px; height: 38px; min-width: 38px; flex-shrink: 0; border-radius: 7px; }
 .svc-pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .svc-pick-title { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
