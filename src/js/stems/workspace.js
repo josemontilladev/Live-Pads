@@ -2125,27 +2125,31 @@ function buildRowHtml(track) {
   // duplicate the same four controls on every row.
   return `
     <aside class="stems-row-strip" draggable="true" data-drag-row>
-      <span class="stems-row-grip" title="Arrastra para reordenar" aria-hidden="true">⋮⋮</span>
-      <input type="color" class="stems-row-color" data-action="color" value="${track.color || '#FBAE00'}" title="Color de la pista">
-      <div class="stems-row-meta">
-        <span class="stems-row-kind">${kindLabel}</span>
-        <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false">
+      <div class="stems-row-top">
+        <span class="stems-row-grip" title="Arrastra para reordenar" aria-hidden="true">⋮⋮</span>
+        <input type="color" class="stems-row-color" data-action="color" value="${track.color || '#FBAE00'}" title="Color de la pista">
+        <div class="stems-row-meta">
+          <span class="stems-row-kind">${kindLabel}</span>
+          <input class="stems-row-name" value="${escapeAttr(track.name)}" spellcheck="false" title="${escapeAttr(track.name)}">
+        </div>
       </div>
-      ${track.kind === 'click' || track.kind === 'guide' ? '' :
-        track.kind === 'midi' ? `
-      <button class="stems-row-export" data-action="piano-roll" title="Editar notas (piano roll)">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
-      </button>` : `
-      <button class="stems-row-export" data-action="separate" title="Separar en voz e instrumental (IA, local)">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-      </button>
-      <button class="stems-row-export" data-action="harmony" title="Crear referencia armónica (pitch ±semitonos)">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      </button>`}
-      <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </button>
-      <button class="stems-row-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
+      <div class="stems-row-actions">
+        ${track.kind === 'click' || track.kind === 'guide' ? '' :
+          track.kind === 'midi' ? `
+        <button class="stems-row-export" data-action="piano-roll" title="Editar notas (piano roll)">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
+        </button>` : `
+        <button class="stems-row-export" data-action="separate" title="Separar en voz e instrumental (IA, local)">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        </button>
+        <button class="stems-row-export" data-action="harmony" title="Crear referencia armónica (pitch ±semitonos)">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </button>`}
+        <button class="stems-row-export" data-action="export" title="Exportar esta pista a MP3">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="stems-row-remove" data-action="remove" title="Eliminar">${SVG_TRASH}</button>
+      </div>
     </aside>
     <div class="stems-row-lane">
       <canvas class="stems-row-canvas"></canvas>
