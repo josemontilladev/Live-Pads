@@ -216,11 +216,35 @@ export function deleteSavedSetlist(id) {
   }
 }
 export function renameSavedSetlist(id, name) {
+  updateSetlistMeta(id, name);
+}
+// Actualiza nombre y/o fecha de un setlist guardado. Si es el activo, refleja el
+// nombre en la lista de trabajo.
+export function updateSetlistMeta(id, name, date) {
   const arr = listSavedSetlists();
   const e = arr.find(s => s.id === id);
   if (!e) return;
-  e.name = String(name || '').trim() || e.name;
+  if (name != null) e.name = String(name || '').trim() || e.name;
+  if (typeof date === 'string') e.date = date || null;
   writeSavedSetlists(arr);
+  if (currentSetlistId === id) { currentSetlistName = e.name; saveServiceSongs(); }
+}
+// Duplica un setlist guardado (para servicios recurrentes con variantes).
+export function duplicateSetlist(id) {
+  const arr = listSavedSetlists();
+  const e = arr.find(s => s.id === id);
+  if (!e) return null;
+  const copy = {
+    id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
+    name: `${e.name || 'Servicio'} (copia)`,
+    date: e.date || null,
+    description: e.description,
+    savedAt: Date.now(),
+    songs: (e.songs || []).map(s => ({ ...s })),
+  };
+  arr.unshift(copy);
+  writeSavedSetlists(arr);
+  return copy;
 }
 
 // Used by applyGiSong: find the matching service entry by title+artist and

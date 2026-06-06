@@ -502,6 +502,9 @@ input.pan-slider {
 /* "+" para añadir al servicio (un clic) — acento al pasar el mouse. */
 .action-btn.btn-add { color: var(--accent); }
 .action-btn.btn-add:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+/* Ya está en la lista activa → ✓ verde (evita agregarla dos veces). */
+.action-btn.btn-add.is-added { color: #4ade80; }
+.action-btn.btn-add.is-added:hover { background: color-mix(in srgb, #4ade80 16%, transparent); border-color: #4ade80; }
 /* ↑↓ reordenar el servicio — visibles pero secundarios. */
 .action-btn.btn-move-up, .action-btn.btn-move-down { color: color-mix(in srgb, var(--text) 62%, transparent); }
 .action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
@@ -1679,3 +1682,33 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-create-lib-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .gi-create-lib-actions .nsl-btn { padding: 8px 16px; font-size: 12.5px; border: 1px solid var(--border); }
 .gi-create-lib-actions .nsl-btn--primary { border-color: var(--accent); }
+
+/* Chooser: botón ⋯ por setlist, buscador y edición inline (renombrar+fecha). */
+.svc-chooser-more {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 18px; line-height: 1; cursor: pointer; transition: all 0.15s;
+}
+.svc-chooser-more:hover { color: var(--text); background: var(--bg-hover); }
+.svc-chooser-search {
+  width: 100%; margin-bottom: 8px; flex-shrink: 0;
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: 9px; padding: 8px 12px; font-size: 12.5px; outline: none;
+}
+.svc-chooser-search:focus { border-color: var(--accent); }
+.svc-chooser-item.is-editing { display: block; padding: 10px 12px; cursor: default; }
+.svc-chooser-edit { display: flex; flex-direction: column; gap: 6px; }
+.svc-chooser-edit input {
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 12.5px; outline: none; font-family: inherit;
+}
+.svc-chooser-edit input:focus { border-color: var(--accent); }
+.svc-chooser-edit input[type="date"] { color-scheme: dark; cursor: pointer; }
+.svc-edit-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
+.svc-edit-btn {
+  padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 7px; cursor: pointer;
+  background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+}
+.svc-edit-btn:hover { color: var(--text); }
+.svc-edit-btn--ok { background: var(--accent); color: #000; border-color: var(--accent); }
+.svc-edit-btn--ok:hover { color: #000; filter: brightness(1.08); }

@@ -5,10 +5,11 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist, updateSetlistMeta, duplicateSetlist } from '../data/service.js';
 import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { confirmDialog } from './dialog.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
@@ -67,32 +68,67 @@ export function maybeShowChooserOnServiceOpen() {
   if (listSavedSetlists().length) showServiceChooser();
 }
 
+let chooserSearch = '';   // filtro del buscador del chooser
+let chooserEditId = null; // setlist en edición inline (renombrar)
+
 export function showServiceChooser() {
   const panel = q('#service-setlist-list');
   const chooser = q('#service-chooser');
   if (!panel || !chooser) return;
-  const list = listSavedSetlists();
+  const all = listSavedSetlists();
   const curN = getServiceSongs().length;
+  const showSearch = all.length > 6;
+  const t = chooserSearch.trim().toLowerCase();
+  const list = t ? all.filter(s => (s.name || '').toLowerCase().includes(t)) : all;
+
+  const itemHtml = (s) => {
+    if (s.id === chooserEditId) {
+      // Edición inline: renombrar + fecha.
+      return `<div class="svc-chooser-item is-editing" data-id="${esc(s.id)}">
+        <div class="svc-chooser-edit">
+          <input type="text" class="svc-edit-name" value="${esc(s.name)}" placeholder="Nombre">
+          <input type="date" class="svc-edit-date" value="${esc(s.date || '')}">
+          <div class="svc-edit-actions">
+            <button class="svc-edit-btn" data-act="edit-cancel">Cancelar</button>
+            <button class="svc-edit-btn svc-edit-btn--ok" data-act="edit-save" data-id="${esc(s.id)}">Guardar</button>
+          </div>
+        </div>
+      </div>`;
+    }
+    return `<div class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
+      <span class="svc-chooser-info">
+        <span class="svc-chooser-name">${esc(s.name)}</span>
+        <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
+      </span>
+      <button class="svc-chooser-more" data-act="menu" data-id="${esc(s.id)}" title="Opciones" aria-label="Opciones">⋯</button>
+    </div>`;
+  };
+
   chooser.innerHTML = `
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
     </div>
     <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
+    ${showSearch ? `<input type="text" class="svc-chooser-search" placeholder="Buscar setlist…" value="${esc(chooserSearch)}">` : ''}
     <div class="svc-chooser-list">
-      ${list.length ? list.map(s => `
-        <div class="svc-chooser-item" data-act="load" data-id="${esc(s.id)}">
-          <span class="svc-chooser-info">
-            <span class="svc-chooser-name">${esc(s.name)}</span>
-            <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
-          </span>
-          <button class="svc-chooser-del" data-act="del" data-id="${esc(s.id)}" title="Eliminar este setlist" aria-label="Eliminar">×</button>
-        </div>`).join('')
+      ${all.length
+        ? (list.length ? list.map(itemHtml).join('') : '<p class="svc-chooser-empty">Sin coincidencias.</p>')
         : '<p class="svc-chooser-empty">No hay setlists guardados todavía.</p>'}
     </div>
     <button class="svc-chooser-current" data-act="current">
       ${curN ? `Usar la lista actual (${curN} canción${curN === 1 ? '' : 'es'}) →` : 'Empezar una lista nueva →'}
     </button>`;
   panel.classList.add('choosing');
+
+  const searchEl = chooser.querySelector('.svc-chooser-search');
+  if (searchEl) searchEl.oninput = () => { chooserSearch = searchEl.value; showServiceChooser(); searchEl2Focus(); };
+  // Si estamos editando, foco al nombre.
+  if (chooserEditId) setTimeout(() => chooser.querySelector('.svc-edit-name')?.focus(), 40);
+}
+// Mantener el foco/caret en el buscador tras re-render (oninput → re-render).
+function searchEl2Focus() {
+  const s = q('#service-chooser .svc-chooser-search');
+  if (s) { s.focus(); const v = s.value; s.setSelectionRange(v.length, v.length); }
 }
 
 export function hideServiceChooser() {
@@ -191,7 +227,10 @@ export function showServiceCreate(opts = {}) {
     if (act === 'create') {
       const title = el.querySelector('.nsl-title')?.value.trim() || 'Servicio';
       const date = el.querySelector('.nsl-date')?.value || '';
-      const songs = lib.filter(s => selected.has(String(s.id)));
+      // En el ORDEN en que se tildaron (Set conserva el orden de inserción), no
+      // en el orden de la librería.
+      const byId = new Map(lib.map(s => [String(s.id), s]));
+      const songs = [...selected].map(id => byId.get(id)).filter(Boolean);
       const entry = createNewSetlist(title, date, songs);
       if (entry) {
         const n = songs.length;
@@ -218,11 +257,23 @@ function initChooserDelegation() {
     const act = actEl.dataset.act;
     if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
     if (act === 'new') { showServiceCreate(); return; }   // vista inline de creación
-    if (act === 'del') {
+    if (act === 'menu') {
       e.stopPropagation();
-      const id = actEl.dataset.id;
-      deleteSavedSetlist(id);
-      showServiceChooser(); // re-render del chooser
+      openSetlistItemMenu(actEl, actEl.dataset.id);
+      return;
+    }
+    if (act === 'edit-cancel') { e.stopPropagation(); chooserEditId = null; showServiceChooser(); return; }
+    if (act === 'edit-save') {
+      e.stopPropagation();
+      const wrap = actEl.closest('.svc-chooser-item');
+      const name = wrap?.querySelector('.svc-edit-name')?.value || '';
+      const date = wrap?.querySelector('.svc-edit-date')?.value || '';
+      updateSetlistMeta(actEl.dataset.id, name, date);
+      chooserEditId = null;
+      showServiceChooser();
+      window.showToast?.('✓ Setlist actualizado.', 'success');
+      // Si era el activo, refrescar el header del servicio.
+      refreshServiceMeta();
       return;
     }
     if (act === 'load') {
@@ -234,6 +285,30 @@ function initChooserDelegation() {
       }
     }
   });
+}
+
+// Menú ⋯ por setlist (estilo card unificado): cargar / renombrar / duplicar / eliminar.
+function openSetlistItemMenu(anchor, id) {
+  const s = listSavedSetlists().find(x => x.id === id);
+  if (!s) return;
+  openCardMoreMenu(anchor, [
+    { label: 'Cargar', onSelect: () => {
+        if (loadSavedSetlist(id)) { window.showToast?.('✓ Setlist cargado.', 'success'); hideServiceChooser(); renderServiceList(); }
+      } },
+    { label: 'Renombrar / fecha', onSelect: () => { chooserEditId = id; showServiceChooser(); } },
+    { label: 'Duplicar', onSelect: () => {
+        const c = duplicateSetlist(id);
+        if (c) { window.showToast?.(`✓ Duplicado como "${c.name}".`, 'success'); showServiceChooser(); }
+      } },
+    { label: 'Eliminar', danger: true, onSelect: () => {
+        confirmDialog({
+          title: 'Eliminar setlist',
+          message: `¿Eliminar "${s.name}"? Esto no borra las canciones de tu librería.`,
+          confirmLabel: 'Eliminar', danger: true,
+          onConfirm: () => { deleteSavedSetlist(id); showServiceChooser(); },
+        });
+      } },
+  ]);
 }
 
 export function renderServiceList() {

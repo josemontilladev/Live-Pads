@@ -4,7 +4,7 @@
 // module reads it via the deps getters passed to initGiList().
 
 import { q } from '../utils/dom.js';
-import { songCardInnerHTML } from './songCard.js';
+import { songCardInnerHTML, ICON_ADD_CHECK } from './songCard.js';
 import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
@@ -12,7 +12,7 @@ import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { confirmDialog } from './dialog.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
-import { getCurrentSetlistName } from '../data/service.js';
+import { getCurrentSetlistName, getServiceSongs } from '../data/service.js';
 import {
   getSongs, setSongs,
   getCurrentGenre,
@@ -314,6 +314,7 @@ function buildCard(song, idx, editSongId, searchTerm = '') {
     isLyricsOpen,
     showChords: !!song.showChords,
     includeAdd: true,
+    inService: songInService(song),
     removeBtnClass: 'btn-remove-lib',
     removeBtnTitle: 'Eliminar de la librería',
     searchTerm
@@ -670,9 +671,22 @@ function initDelegation() {
   });
 }
 
+function songInService(song) {
+  if (!song || song.id == null) return false;
+  return getServiceSongs().some(s => String(s.id) === String(song.id));
+}
+
 function handleAddToService(song, card, btn) {
+  // Evitar duplicados: si ya está en la lista activa, avisar y no agregar de nuevo.
+  if (songInService(song)) {
+    window.showToast?.(`“${song.title || 'La canción'}” ya está en la lista.`, 'info');
+    return;
+  }
   deps.addToService(song);
-  btn.style.color = '#4ade80';
+  // El "+" pasa a ✓ de forma persistente (queda marcada como añadida).
+  btn.classList.add('is-added');
+  btn.title = 'Ya está en la lista';
+  btn.innerHTML = ICON_ADD_CHECK;
   const popup = document.createElement('div');
   popup.className = 'added-popup';
   const name = getCurrentSetlistName();
@@ -683,6 +697,5 @@ function handleAddToService(song, card, btn) {
   setTimeout(() => {
     popup.remove();
     card.classList.remove('has-popup');
-    btn.style.color = '';
   }, 1200);
 }
