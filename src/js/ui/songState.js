@@ -50,15 +50,9 @@ export function refreshNowPlayingLiveState() {
   banner.classList.toggle('is-src-ref', refOn);
   const label = banner.querySelector('.np-label');
   if (label) label.textContent = refOn ? 'Referencia' : (live ? 'Sonando' : 'Preparada');
-
-  // Iluminar el segmento activo del selector de fuente.
-  const setSeg = (id, on) => {
-    const b = banner.querySelector('#' + id);
-    if (b) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); }
-  };
-  setSeg('src-seq', seqOn);
-  setSeg('src-click', clickOn);
-  setSeg('src-ref', refOn);
+  // El resaltado de los botones de fuente (Secuencia/Click/Original) lo maneja
+  // app.js según la fuente SELECCIONADA (masterSource), no solo la que suena —
+  // y los botones ahora viven en la barra del reproductor, no en el banner.
 }
 
 // ¿La card ya está completamente visible dentro de su contenedor scrolleable?
