@@ -4490,13 +4490,21 @@ function openChangeCueMenu(x, y, markerId) {
 // reverts the whole batch. If detection finds nothing, the user just adds
 // markers by hand as before.
 async function onDetectSections() {
-  const stem = engine.getTracks().find(t => t.kind === 'stem');
-  if (!stem) { toast('Sube una canción primero para detectar sus secciones.', 'warning'); return; }
-  const buf = engine.getTrackBuffer(stem.id);
+  // Mejor pista para analizar la ESTRUCTURA: la mezcla completa si está; si la
+  // canción fue separada (y quizá se borró el original), caemos al instrumental
+  // u otra pista de audio. Antes exigía kind==='stem' y fallaba al quedar solo
+  // Voces/Instrumental.
+  const tracks = engine.getTracks();
+  const priority = ['stem', 'instrumental', 'other', 'drums', 'bass', 'vocals'];
+  let analysis = null;
+  for (const kind of priority) { analysis = tracks.find(t => t.kind === kind); if (analysis) break; }
+  if (!analysis) analysis = tracks.find(t => isEditableAudio(t)); // cualquier audio editable
+  if (!analysis) { toast('Sube una canción primero para detectar sus secciones.', 'warning'); return; }
+  const buf = engine.getTrackBuffer(analysis.id);
   if (!buf) { toast('No se pudo leer el audio de la canción.'); return; }
-  // Si la canción fue separada, el stem de VOCES ayuda a marcar instrumentales
-  // (tramos sin canto) y a reforzar verso/coro. Opcional: si no hay, va por energía.
-  const vocalTrack = engine.getTracks().find(t => t.kind === 'vocals');
+  // Si hay stem de VOCES, ayuda a marcar instrumentales (tramos sin canto) y a
+  // reforzar verso/coro. Si no, el detector va por energía.
+  const vocalTrack = tracks.find(t => t.kind === 'vocals');
   const vocalBuffer = vocalTrack ? engine.getTrackBuffer(vocalTrack.id) : null;
 
   const btn = document.getElementById('stems-detect-sections');
