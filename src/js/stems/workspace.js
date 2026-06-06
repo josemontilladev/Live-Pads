@@ -24,7 +24,7 @@ import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
-import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
+import { openCardMoreMenu, openContextMenu } from '../ui/cardMoreMenu.js';
 import { audioMenuItems } from '../ui/songMenu.js';
 import { songEditFormHTML, applyLibrarySelection } from '../ui/songEditForm.js';
 import { openNewSongModal } from '../ui/newSongModal.js';
@@ -596,6 +596,9 @@ const SHELL_HTML = `
         <button class="stems-btn stems-btn--subtle" id="stems-detect-sections" title="Analiza la canción y coloca marcadores en los cambios de sección (puedes editarlos a mano)">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/></svg>
           Detectar secciones
+        </button>
+        <button class="stems-btn stems-btn--subtle" id="stems-clear-markers" title="Eliminar todos los marcadores">
+          ${SVG_TRASH} Limpiar
         </button>
         <div class="stems-loop-group" title="Loop A-B: marca un punto A y un punto B en el tiempo actual, luego activa Loop">
           <button class="stems-btn stems-btn--subtle stems-loop-ab" id="stems-loop-a" type="button" title="Marcar punto A en el tiempo actual (vacío)">A</button>
@@ -1390,6 +1393,7 @@ function wireArrangeEvents(root) {
   root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
   root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
   root.querySelector('#stems-detect-sections').onclick = () => onDetectSections();
+  root.querySelector('#stems-clear-markers').onclick = () => onClearMarkers();
   root.querySelector('#stems-rebuild-guide').onclick = () => onRebuildGuide();
   root.querySelector('#stems-loop-toggle').onclick = () => toggleLoop();
 
@@ -1974,20 +1978,21 @@ const ICON_MENU_SPLIT= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-wi
 const ICON_MENU_COPY = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const ICON_MENU_PASTE= '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>';
 const ICON_MENU_NORM = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="14" height="14"><line x1="4" y1="20" x2="4" y2="12"/><line x1="9" y1="20" x2="9" y2="4"/><line x1="14" y1="20" x2="14" y2="9"/><line x1="19" y1="20" x2="19" y2="14"/></svg>';
+const ICON_MENU_RENAME = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+const ICON_MENU_COLOR = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125 0-.927.746-1.688 1.688-1.688H16c3.314 0 6-2.686 6-6 0-4.971-4.5-8.563-10-8.563z"/></svg>';
 
 // Menú contextual (clic derecho) de un strip de la consola: ofrece las mismas
 // acciones que la fila de la pista (separar, armónica, exportar, eliminar, o
 // editar notas si es MIDI), en el dropdown discreto de las tarjetas. Cada item
 // dispara el botón real de la fila para reusar toda su lógica (confirmaciones,
 // re-bounce, etc.).
-function openStripContextMenu(anchorEl, id) {
+// Acciones de una pista — MISMA lista para el menú de la consola y el del
+// timeline (clic derecho), así son idénticos en opciones y estilo.
+function buildTrackMenuItems(id) {
   const entry = trackRows.get(id);
-  if (!entry || !entry.row) return;
-  locateTrackRow(id, { scroll: false });
+  if (!entry || !entry.row) return [];
   const row = entry.row;
   const btn = (a) => row.querySelector(`[data-action="${a}"]`);
-  // (locate sin scroll arriba: un scrollIntoView dispara eventos de scroll que
-  //  cerrarían el menú recién abierto → hacía falta un segundo clic.)
   const track = engine.getTracks().find(t => t.id === id);
   const items = [];
   // Edición en el cursor (solo pistas de audio).
@@ -2001,10 +2006,22 @@ function openStripContextMenu(anchorEl, id) {
     items.push({ icon: ICON_MENU_PASTE, label: 'Pegar en el cursor (Ctrl+V)', onSelect: () => pasteTracks() });
   }
   if (btn('piano-roll')) items.push({ icon: ICON_MENU_PR,   label: 'Editar notas (piano roll)', onSelect: () => btn('piano-roll').click() });
-  if (btn('separate'))   items.push({ icon: ICON_MENU_SEP,  label: 'Separar voz e instrumental', onSelect: () => btn('separate').click() });
-  if (btn('harmony'))    items.push({ icon: ICON_MENU_HARM, label: 'Referencia armónica',        onSelect: () => btn('harmony').click() });
-  if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export').click() });
+  if (btn('separate'))   items.push({ icon: ICON_MENU_SEP,  label: 'Separar voz e instrumental', onSelect: () => btn('separate')?.click() });
+  if (btn('harmony'))    items.push({ icon: ICON_MENU_HARM, label: 'Referencia armónica',        onSelect: () => btn('harmony')?.click() });
+  if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export')?.click() });
+  items.push({ icon: ICON_MENU_RENAME, label: 'Renombrar pista', onSelect: () => { const inp = row.querySelector('.stems-row-name'); if (inp) { inp.focus(); inp.select(); } } });
+  items.push({ icon: ICON_MENU_COLOR,  label: 'Cambiar color…',  onSelect: () => btn('color')?.click() });
   if (btn('remove'))     items.push({ icon: SVG_TRASH,      label: 'Eliminar pista', danger: true, onSelect: () => btn('remove').click() });
+  return items;
+}
+
+function openStripContextMenu(anchorEl, id) {
+  const entry = trackRows.get(id);
+  if (!entry || !entry.row) return;
+  locateTrackRow(id, { scroll: false });
+  // (locate sin scroll: un scrollIntoView dispara eventos de scroll que cerrarían
+  //  el menú recién abierto → hacía falta un segundo clic.)
+  const items = buildTrackMenuItems(id);
   if (items.length) openCardMoreMenu(anchorEl, items);
 }
 
@@ -2255,77 +2272,13 @@ function wireStrip(root, id) {
   });
 }
 
-// Menú contextual de pista (click derecho en la row). Centraliza
-// acciones que también viven en botones-icono, útil cuando la fila está
-// estrecha o cuando el usuario prefiere "right-click for everything".
+// Menú contextual de pista (click derecho en la row) — usa EXACTAMENTE el mismo
+// menú (opciones + estilo) que el clic derecho en la consola: cortar, dividir,
+// copiar, normalizar, separar, armonía, exportar, renombrar, color, eliminar.
 function openRowContextMenu(x, y, id) {
-  document.getElementById('stems-row-ctx')?.remove();
-  const track = engine.getTracks().find(t => t.id === id);
-  if (!track) return;
-  const isCueTrack = track.kind === 'click' || track.kind === 'guide';
-  const menu = document.createElement('div');
-  menu.id = 'stems-row-ctx';
-  menu.className = 'stems-context-menu';
-  menu.innerHTML = `
-    <button data-cmd="export">Exportar esta pista a MP3</button>
-    ${isCueTrack ? '' : '<button data-cmd="separate">Separar con IA…</button>'}
-    ${isCueTrack ? '' : '<button data-cmd="harmony">Referencia armónica…</button>'}
-    <div class="smc-sep"></div>
-    <button data-cmd="rename">Renombrar pista</button>
-    <button data-cmd="color">Cambiar color…</button>
-    <div class="smc-sep"></div>
-    <button data-cmd="remove" class="danger">Eliminar pista</button>
-  `;
-  document.body.appendChild(menu);
-  menu.style.left = `${x}px`;
-  menu.style.top  = `${y}px`;
-  requestAnimationFrame(() => {
-    const r = menu.getBoundingClientRect();
-    if (r.right > window.innerWidth)  menu.style.left = `${window.innerWidth - r.width - 8}px`;
-    if (r.bottom > window.innerHeight) menu.style.top  = `${window.innerHeight - r.height - 8}px`;
-  });
-  const close = () => { menu.remove(); document.removeEventListener('mousedown', onDoc, true); };
-  const onDoc = (ev) => { if (!menu.contains(ev.target)) close(); };
-  setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
-
-  menu.querySelector('[data-cmd="export"]').onclick = async () => {
-    close();
-    const t = engine.getTracks().find(tr => tr.id === id);
-    if (!t) return;
-    await runExport({ onlyTrackIds: [id], suggestedName: `${projectName} - ${t.name}` });
-  };
-  menu.querySelector('[data-cmd="separate"]')?.addEventListener('click', () => {
-    close();
-    const row = trackRows.get(id)?.row;
-    const anchor = row?.querySelector('[data-action="separate"]');
-    if (anchor) openSeparateMenu(anchor, id);
-  });
-  menu.querySelector('[data-cmd="harmony"]')?.addEventListener('click', () => {
-    close();
-    const row = trackRows.get(id)?.row;
-    const anchor = row?.querySelector('[data-action="harmony"]');
-    if (anchor) openHarmonyMenu(anchor, id);
-  });
-  menu.querySelector('[data-cmd="rename"]').onclick = () => {
-    close();
-    const input = trackRows.get(id)?.row?.querySelector('.stems-row-name');
-    if (input) { input.focus(); input.select(); }
-  };
-  menu.querySelector('[data-cmd="color"]').onclick = () => {
-    close();
-    const colorInput = trackRows.get(id)?.row?.querySelector('[data-action="color"]');
-    if (colorInput) colorInput.click();
-  };
-  menu.querySelector('[data-cmd="remove"]').onclick = async () => {
-    close();
-    const ok = await confirmDialogAsync({
-      title: 'Eliminar pista',
-      message: '¿Eliminar esta pista? Podés deshacer con Ctrl+Z.',
-      confirmLabel: 'Eliminar', danger: true,
-    });
-    if (!ok) return;
-    await deleteTracksWithUndo([id]);
-  };
+  locateTrackRow(id, { scroll: false });
+  const items = buildTrackMenuItems(id);
+  if (items.length) openContextMenu(x, y, items);
 }
 
 // Small popup to choose separation mode before running.
@@ -2622,7 +2575,7 @@ async function openHarmonyMenu(anchor, id) {
   document.getElementById('stems-harmony-menu')?.remove();
   const menu = document.createElement('div');
   menu.id = 'stems-harmony-menu';
-  menu.className = 'stems-ctx-menu';
+  menu.className = 'stems-context-menu stems-context-menu--scroll';
 
   // Sección diatónica — usa la tonalidad EN EL PLAYHEAD (con prioridad
   // al marker más reciente con key seteado, fallback al projectKey). Así
@@ -4065,6 +4018,21 @@ function onAddMarker() {
   );
   scheduleSave();
   scheduleGuideSync();
+}
+
+// Elimina TODOS los marcadores de un golpe (con undo). Útil tras borrar las
+// pistas: los marcadores quedaban huérfanos sobre el timeline vacío.
+function onClearMarkers() {
+  if (!markers.length) { toast('No hay marcadores que limpiar.', 'info'); return; }
+  const prev = markers.slice();
+  const apply = (arr) => {
+    markers = arr.slice();
+    setSelectedMarker(null);
+    redrawMarkers(); syncLoopRegion(); scheduleSave(); scheduleGuideSync();
+  };
+  apply([]);
+  pushHistory('Limpiar marcadores', () => apply(prev), () => apply([]));
+  toast('Marcadores eliminados (Ctrl+Z para deshacer).', 'success');
 }
 
 // Marcador "seleccionado" (clic) — para moverlo con las flechas del teclado.

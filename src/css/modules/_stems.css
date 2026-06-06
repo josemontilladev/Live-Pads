@@ -2317,46 +2317,45 @@ body[data-workspace="stems"] #body {
 }
 
 /* ── Right-click context menus (markers, etc.) ─────────────────── */
+/* Mismo estilo que .card-more-menu (tarjetas/consola) para que TODOS los menús
+   desplegables de la app sean iguales. */
 .stems-context-menu {
   position: fixed;
   z-index: 9999;
   min-width: 180px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 4px;
-  box-shadow:
-    0 20px 60px rgba(0,0,0,0.55),
-    0 0 0 1px rgba(255,255,255,0.04),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  animation: ctxMenuIn 0.12s ease-out;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: ctxMenuIn 0.1s ease-out;
 }
 @keyframes ctxMenuIn {
   from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .stems-context-menu button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   appearance: none;
-  background: transparent;
+  background: none;
   border: none;
-  color: var(--text);
+  color: var(--text-muted);
   font-size: 12.5px;
+  font-weight: 500;
   padding: 7px 10px;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
 }
-.stems-context-menu button:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent);
-}
-.stems-context-menu button.danger { color: #ff5f57; }
-.stems-context-menu button.danger:hover {
-  background: rgba(255, 95, 87, 0.14);
-  color: #ff5f57;
-}
+.stems-context-menu button:hover { background: var(--bg-hover); color: var(--text); }
+.stems-context-menu button.danger { color: var(--text-muted); }
+.stems-context-menu button.danger:hover { background: var(--bg-hover); color: #ff7a7a; }
 .stems-context-menu--scroll {
   max-height: 320px;
   overflow-y: auto;
