@@ -295,9 +295,34 @@
   }
   #tp-title {
     font-size: 12px !important;
+    max-width: 160px !important;
   }
   #tp-vol {
     width: 60px !important;
   }
+  /* Selector de fuente (Secuencia/Click/Original) en la barra: compacto en
+     laptop para que entre junto al transporte sin desbordar. */
+  #track-player-bar .source-seg { margin-left: 4px; }
+  #track-player-bar .source-seg-btn { padding: 4px 8px !important; font-size: 10px; }
+  .tp-transport { gap: 6px; flex-shrink: 0; }
+  .tp-info { gap: 8px; }
+}
+
+/* ── RESPONSIVE por ANCHO ── Pantallas/ventanas angostas (laptop chico o ventana
+   reducida): compacta la barra del reproductor y el stage para que nada se
+   desborde aunque la altura no sea baja. */
+@media (max-width: 1180px) {
+  #stage { grid-template-columns: 290px 1fr 280px; gap: 10px; }
+  #top-modules-grid { grid-template-columns: 290px 1fr; gap: 10px; }
+  #track-player-bar { gap: 12px; padding: 10px 16px; }
+  #track-player-bar .source-seg-btn { padding: 4px 8px; font-size: 10px; }
+  #track-player-bar .source-seg { margin-left: 4px; }
+  #tp-title { max-width: 140px; }
+}
+@media (max-width: 1000px) {
+  #stage { grid-template-columns: 260px 1fr 260px; }
+  /* En la barra, dejar que la info (título/progreso) se encoja primero. */
+  .tp-info { min-width: 0; }
+  #tp-vol { width: 56px !important; }
 }
 
