@@ -53,7 +53,7 @@ function songAccentHue(song) {
 // una URL manual) si existe; si no, un placeholder con la inicial del título
 // sobre un tinte del color de acento. Mantener el markup en sync con el panel
 // de Stems (renderSetlistPanel en stems/workspace.js).
-function songCoverHtml(song) {
+export function songCoverHtml(song) {
   const hue = songAccentHue(song);
   const initial = esc((String(song.title || '?').trim().charAt(0) || '?').toUpperCase());
   if (song.cover) {

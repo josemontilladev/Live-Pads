@@ -1621,3 +1621,24 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-create-foot { display: flex; gap: 8px; margin-top: 12px; flex-shrink: 0; }
 .svc-create-foot .nsl-btn { flex: 1; text-align: center; border: 1px solid var(--border); }
 .svc-create-foot .nsl-btn--primary { border-color: var(--accent); }
+
+/* Nombre + fecha en una sola línea en la creación inline. */
+.svc-create-row2 { display: flex; gap: 8px; }
+.svc-create-row2 .svc-create-field { flex: 1; min-width: 0; }
+.svc-create-row2 .svc-create-date { flex: 0 0 128px; }
+
+/* Tarjetas del selector de canciones: estilo Librería (carátula + info + meta)
+   con checkbox de acento para tildar. */
+.svc-pick {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.svc-pick:hover { border-color: var(--border-strong); }
+.svc-pick.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+.svc-pick input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.svc-pick .gi-song-cover { width: 38px; height: 38px; min-width: 38px; flex-shrink: 0; border-radius: 7px; }
+.svc-pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.svc-pick-title { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-pick-artist { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-pick-meta { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }

@@ -6,7 +6,7 @@
 
 import { q, esc } from '../utils/dom.js';
 import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, createNewSetlist } from '../data/service.js';
-import { songCardInnerHTML } from './songCard.js';
+import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
@@ -115,12 +115,12 @@ export function showServiceCreate() {
       <button class="svc-create-back" data-act="back" aria-label="Volver">‹</button>
       <h4>Nuevo setlist</h4>
     </div>
-    <label class="svc-create-field"><span>Nombre</span>
-      <input type="text" class="nsl-title" placeholder="Ej. Domingo de Alabanza"></label>
-    <label class="svc-create-field"><span>Fecha</span>
-      <input type="date" class="nsl-date" value="${todayISO()}"></label>
-    <label class="svc-create-field"><span>Descripción</span>
-      <textarea class="nsl-desc" rows="2" placeholder="Notas para este setlist…"></textarea></label>
+    <div class="svc-create-row2">
+      <label class="svc-create-field"><span>Nombre</span>
+        <input type="text" class="nsl-title" placeholder="Ej. Domingo de Alabanza"></label>
+      <label class="svc-create-field svc-create-date"><span>Fecha</span>
+        <input type="date" class="nsl-date" value="${todayISO()}"></label>
+    </div>
     <div class="svc-create-songs-head">
       <span>Añadir canciones <span class="nsl-count"></span></span>
     </div>
@@ -142,10 +142,11 @@ export function showServiceCreate() {
         const id = String(s.id);
         const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : ''].filter(Boolean).join(' · ');
         const on = selected.has(id);
-        return `<label class="nsl-song${on ? ' is-on' : ''}" data-id="${esc(id)}">
+        return `<label class="svc-pick${on ? ' is-on' : ''}" data-id="${esc(id)}">
           <input type="checkbox" ${on ? 'checked' : ''}>
-          <span class="nsl-song-info"><span class="nsl-song-title">${esc(s.title || '(sin título)')}</span><span class="nsl-song-artist">${esc(s.artist || '')}</span></span>
-          <span class="nsl-song-meta">${esc(music)}</span>
+          ${songCoverHtml(s)}
+          <span class="svc-pick-info"><span class="svc-pick-title">${esc(s.title || '(sin título)')}</span><span class="svc-pick-artist">${esc(s.artist || '')}</span></span>
+          <span class="svc-pick-meta">${esc(music)}</span>
         </label>`;
       }).join('') || '<p class="nsl-empty">No hay canciones en la librería.</p>';
   };
@@ -154,7 +155,7 @@ export function showServiceCreate() {
 
   el.querySelector('.nsl-search').oninput = (e) => renderSongs(e.target.value);
   listEl.onchange = (e) => {
-    const row = e.target.closest('.nsl-song');
+    const row = e.target.closest('.svc-pick');
     if (!row) return;
     if (e.target.checked) selected.add(row.dataset.id); else selected.delete(row.dataset.id);
     row.classList.toggle('is-on', e.target.checked);
@@ -166,9 +167,8 @@ export function showServiceCreate() {
     if (act === 'create') {
       const title = el.querySelector('.nsl-title')?.value.trim() || 'Servicio';
       const date = el.querySelector('.nsl-date')?.value || '';
-      const desc = el.querySelector('.nsl-desc')?.value || '';
       const songs = lib.filter(s => selected.has(String(s.id)));
-      const entry = createNewSetlist(title, date, songs, desc);
+      const entry = createNewSetlist(title, date, songs);
       if (entry) {
         const n = songs.length;
         window.showToast?.(n
