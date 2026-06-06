@@ -373,16 +373,22 @@ function labelSegments(segMeans, segLengths, segEnergy, segVocal) {
     vocalLow = (i) => vRel[i] < Math.max(0.22, vMed * 0.4);
   }
 
-  // 4) Coro = cluster repetido (count≥2) de mayor energía media.
+  // 4) Coro candidato = cluster repetido (count≥2) de mayor energía media.
+  //    Y detectamos COLAPSO: en worship la textura suele ser homogénea, así que
+  //    casi todo cae en un único cluster → ese cluster NO es "el coro", es que
+  //    el clustering no distinguió nada. En ese caso etiquetamos por ENERGÍA.
   const clusterE = {};
   cluster.forEach((c, i) => { (clusterE[c] = clusterE[c] || []).push(eRel[i]); });
-  let chorusCluster = -1, bestScore = -1;
+  let chorusCluster = -1, bestScore = -1, topCount = 0;
   for (const c in counts) {
+    topCount = Math.max(topCount, counts[c]);
     if (counts[c] < 2) continue;
     const arr = clusterE[c];
     const meanE = arr.reduce((s, x) => s + x, 0) / arr.length;
     if (meanE > bestScore) { bestScore = meanE; chorusCluster = +c; }
   }
+  const distinct = Object.keys(counts).length;
+  const collapsed = chorusCluster < 0 || topCount >= Math.ceil((N - 1) * 0.6) || distinct <= 2;
 
   const avgLen = segLengths.reduce((s, x) => s + x, 0) / Math.max(1, N);
   const nextIsChorusLike = (i) => i + 1 < N &&
@@ -393,18 +399,26 @@ function labelSegments(segMeans, segLengths, segEnergy, segVocal) {
     // Instrumental: tramo sin voz (solo si tenemos el stem de voces).
     if (segVocal && vocalLow(i)) {
       if (i === 0) return 'intro';
-      if (last && counts[c] === 1 && N >= 4) return 'outro';
+      if (last && N >= 4) return 'outro';
       return 'instrumental';
     }
     if (i === 0) return 'intro';
-    if (last && counts[c] === 1 && N >= 4 && !isLoud(i)) return 'outro';
-    // Coro: el cluster-coro, o un tramo claramente fuerte y repetido.
-    if (c === chorusCluster) return 'coro';
-    if (isLoud(i) && counts[c] >= 2) return 'coro';
-    // Pre-coro: tramo corto y suave justo antes de un coro.
-    if (segLengths[i] <= avgLen * 0.7 && !isLoud(i) && nextIsChorusLike(i)) return 'precoro';
-    // Puente: tramo único en la 2da mitad, no coro.
-    if (counts[c] === 1 && i >= Math.floor(N * 0.5)) return 'puente';
+
+    if (!collapsed) {
+      // El clustering SÍ separó secciones: coro = cluster-coro; resto verso/etc.
+      if (last && counts[c] === 1 && N >= 4 && !isLoud(i)) return 'outro';
+      if (c === chorusCluster) return 'coro';
+      if (segLengths[i] <= avgLen * 0.7 && !isLoud(i) && nextIsChorusLike(i)) return 'precoro';
+      if (counts[c] === 1 && i >= Math.floor(N * 0.5)) return 'puente';
+      return 'verso';
+    }
+
+    // COLAPSADO (audio homogéneo): la textura no sirve. Etiquetamos por ENERGÍA
+    // relativa — el coro suele ser más lleno/fuerte que el verso. Así dejamos de
+    // marcar todo como "Coro 1,2,3…" y alternamos verso/coro de forma plausible.
+    if (last && eRel[i] < eMed && N >= 4) return 'outro';
+    if (segLengths[i] <= avgLen * 0.6 && eRel[i] < eMed && i + 1 < N && eRel[i + 1] >= eMed) return 'precoro';
+    if (eRel[i] >= eMed) return 'coro';
     return 'verso';
   });
 }
