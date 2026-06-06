@@ -1150,6 +1150,10 @@ body[data-workspace="stems"] #body {
 #workspace-stems:not(.has-tracks) .stems-arrange-inner { min-height: 100%; width: 100%; min-width: 0; }
 /* La regla del timeline no debe forzar ancho cuando no hay pistas. */
 #workspace-stems:not(.has-tracks) .stems-head-tl { width: 100% !important; }
+/* Centrar el "Sin pistas aún" también en VERTICAL: las filas ocupan el alto
+   disponible (bajo la regla) y centran su contenido; sin el margin-top fijo. */
+#workspace-stems:not(.has-tracks) .stems-rows { flex: 1; justify-content: center; }
+#workspace-stems:not(.has-tracks) .stems-empty { margin-top: 0; }
 .stems-arrange-inner {
   display: flex;
   flex-direction: column;
