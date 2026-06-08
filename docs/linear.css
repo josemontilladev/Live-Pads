@@ -1,0 +1,135 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Live Pads — Landing · Capa de modernización "Linear"
+   Se carga DESPUÉS de styles.css. Aplica el lenguaje visual de Linear
+   (precisión, densidad, esquinas chicas ≤8px, hovers sutiles 3-5% blanco,
+   animaciones ≤200ms, glow restringido) conservando los COLORES del theme
+   (ámbar #FBAE00 sobre dark). Reversible: basta quitar el <link>.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Radios estilo Linear (nunca > 8px). */
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  /* Glow muy contenido: el acento se reserva para acciones, no decoración. */
+  --glow: rgba(251, 174, 0, 0.06);
+  --glow-strong: rgba(251, 174, 0, 0.12);
+  /* Easing estándar (decisivo, sin overshoot). */
+  --ease-spring: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Sombras Linear. */
+  --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.5);
+  /* Hover sutil reutilizable. */
+  --hover-white: rgba(255, 255, 255, 0.03);
+}
+
+body { font-size: 15px; letter-spacing: -0.01em; }
+
+/* ─── NAV ─── densa, borde sutil siempre, blur permanente ─────────────── */
+.nav { padding: 0; height: 52px; display: flex; align-items: center;
+  background: rgba(7, 7, 13, 0.72);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease, border-color 0.15s ease; }
+.nav.scrolled { background: rgba(7, 7, 13, 0.85); }
+.nav-inner { gap: 28px; }
+.nav-brand { font-size: 14px; font-weight: 700; }
+.nav-logo { width: 22px; height: 22px; }
+.nav-links { gap: 22px; }
+.nav-links a { font-size: 13px; font-weight: 500; transition: color 0.12s ease; }
+.nav-cta { padding: 6px 13px; border-radius: var(--r-md); font-size: 13px; font-weight: 600;
+  letter-spacing: 0; transition: background 0.12s ease, filter 0.12s ease; }
+.nav-cta:hover { filter: none; background: color-mix(in srgb, var(--accent) 88%, #fff); }
+
+/* ─── HERO ─── plano, denso, glow casi imperceptible ──────────────────── */
+.hero { padding: 132px 0 64px; }
+.hero-glow { opacity: 0.4; filter: blur(90px); height: 520px; }
+.hero-halo { display: none; }   /* decorativo → fuera (Do/Don't de Linear) */
+.hero-badge { padding: 4px 10px; border-radius: var(--r-sm); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.4px; margin-bottom: 22px;
+  background: var(--bg-surface); border-color: var(--border-strong); color: var(--text-muted); }
+.hero-badge-dot { box-shadow: none; animation: none; }
+.hero-title { font-size: clamp(34px, 5.2vw, 56px); font-weight: 700; letter-spacing: -2px; line-height: 1.07; }
+.hero-title .accent { background: none; -webkit-text-fill-color: var(--accent); color: var(--accent); }
+.hero-sub { font-size: 16px; max-width: 600px; margin: 22px auto 30px; line-height: 1.6; }
+
+/* ─── BOTONES ─── radio 6, sin glow, hover sutil ─────────────────────── */
+.cta { padding: 9px 16px; border-radius: var(--r-md); font-size: 14px; font-weight: 600; letter-spacing: 0;
+  transition: background 0.12s ease, border-color 0.12s ease, filter 0.12s ease; }
+.cta:active { transform: none; }
+.cta-primary { box-shadow: none; }
+.cta-primary:hover { filter: none; box-shadow: none; background: color-mix(in srgb, var(--accent) 88%, #fff); }
+.cta-ghost { background: var(--bg-surface); }
+.cta-ghost:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text); }
+.cta-large { padding: 11px 20px; font-size: 14px; border-radius: var(--r-md); }
+
+/* ─── MAC WINDOW / SCREENSHOT ─── plano, sombra Linear, sin glow ──────── */
+.hero-screenshot { margin-top: 52px; perspective: none; }
+.hero-mac-window { transform: none; box-shadow: var(--shadow-modal); }
+.hero-mac-window:hover { transform: translateY(-2px); box-shadow: var(--shadow-modal); }
+.mac-window { border-radius: var(--r-lg); box-shadow: var(--shadow-modal); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.mac-window:hover { transform: translateY(-2px); box-shadow: var(--shadow-modal); }
+.mac-chrome { padding: 8px 12px; }
+.mac-chrome span { width: 10px; height: 10px; }
+
+/* ─── SECCIONES ─── más densas + título preciso ──────────────────────── */
+.section { padding: 72px 0; }
+.section-alt { background: rgba(255, 255, 255, 0.012); }
+.section-title { font-size: clamp(24px, 3vw, 34px); font-weight: 700; letter-spacing: -1px; margin-bottom: 12px; }
+.section-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 1.4px; margin-bottom: 10px; }
+.section-sub { font-size: 15px; margin-bottom: 44px; line-height: 1.6; }
+
+/* ─── FEATURES ─── densas, radio 8, hover = 3% blanco, sin "lift" ─────── */
+.features-grid { gap: 10px; margin-top: 36px; }
+.feature-card { padding: 18px 18px; border-radius: var(--r-lg);
+  transition: background 0.12s ease, border-color 0.12s ease; }
+.feature-card:hover { transform: none; background: var(--hover-white); border-color: var(--border-strong); }
+.feature-card--highlight { background: color-mix(in srgb, var(--accent) 5%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.feature-card--highlight:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+.feature-card--highlight .feature-icon { background: var(--accent); color: #0a0a14; }
+.feature-icon { width: 34px; height: 34px; border-radius: var(--r-md); margin-bottom: 14px; }
+.feature-icon svg { width: 18px; height: 18px; }
+.feature-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 6px; letter-spacing: -0.2px; }
+.feature-card p { font-size: 13px; line-height: 1.55; }
+.feature-tag { margin-left: 6px; padding: 1px 6px; font-size: 9px; font-weight: 600; letter-spacing: 0.4px;
+  border-radius: var(--r-sm); }
+
+/* ─── TOUR ─── ──────────────────────────────────────────────────────── */
+.tour-row { gap: 56px; padding: 56px 0; }
+.tour-num { font-size: 12px; font-weight: 700; letter-spacing: 1.4px; padding: 3px 8px; border-radius: var(--r-sm);
+  border-color: var(--border-strong); color: var(--accent); background: var(--bg-surface); }
+.tour-copy h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.6px; margin-bottom: 14px; }
+.tour-copy p { font-size: 14px; line-height: 1.6; margin-bottom: 18px; }
+.tour-bullets li { font-size: 13px; }
+
+/* ─── PERSONAS ─── ──────────────────────────────────────────────────── */
+.persona-grid { gap: 12px; margin-top: 36px; }
+.persona-card { padding: 22px 20px; border-radius: var(--r-lg); background: var(--bg-card);
+  transition: background 0.12s ease, border-color 0.12s ease; }
+.persona-card:hover { transform: none; background: var(--hover-white); border-color: var(--border-strong); }
+.persona-emoji { font-size: 28px; margin-bottom: 12px; }
+.persona-card h3 { font-size: 16px; font-weight: 600; }
+.persona-card > p { font-size: 13.5px; }
+
+/* ─── SHORTCUTS ─── ─────────────────────────────────────────────────── */
+.shortcuts-grid { gap: 10px; margin-top: 36px; }
+.shortcut-card { padding: 16px 16px; border-radius: var(--r-lg); }
+.shortcut-card--feature { background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent); }
+.kbd-big { border-radius: var(--r-sm); border-bottom-width: 1px; font-size: 12px; padding: 5px 10px;
+  font-family: 'JetBrains Mono', 'Inter', monospace; }
+.shortcut-card h3 { font-size: 15px; font-weight: 600; }
+.shortcut-card h4 { font-size: 13px; font-weight: 600; }
+
+/* ─── FAQ ─── ───────────────────────────────────────────────────────── */
+.faq-item { border-radius: var(--r-md); margin-bottom: 8px; }
+.faq-item summary { padding: 14px 18px; font-size: 14px; font-weight: 600; }
+.faq-item p { font-size: 13.5px; }
+
+/* ─── DOWNLOAD + FOOTER ─── ─────────────────────────────────────────── */
+.download-card { border-radius: var(--r-lg); }
+.footer { border-top: 1px solid var(--border); }
+
+/* ─── MODAL ─── radio Linear + sombra modal ─────────────────────────── */
+.soon-panel { border-radius: var(--r-lg); box-shadow: var(--shadow-modal); }
