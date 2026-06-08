@@ -2,9 +2,10 @@
    Slide-in uses transform: translateX() (GPU composite) instead of animating
    `right` (which triggers layout on every frame). 60fps friendly. */
 #sidebar {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 400px;
+  position: fixed; top: 0; left: 0; bottom: 0; width: 540px;
+  max-width: 94vw;
   z-index: 3000;
-  transform: translateX(100%);
+  transform: translateX(-100%);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
   display: flex;
@@ -18,9 +19,9 @@
 #sidebar.open #sidebar-overlay { opacity: 1; pointer-events: auto; }
 #sidebar-inner {
   width: 100%; height: 100%; background: var(--bg-surface);
-  border-left: 1px solid var(--border-strong);
+  border-right: 1px solid var(--border-strong);
   display: flex; flex-direction: column;
-  box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+  box-shadow: 20px 0 50px rgba(0,0,0,0.5);
   position: relative; /* anchor for .sidebar-close-btn */
 }
 
@@ -49,22 +50,77 @@
   background: var(--glow);
 }
 
-.sidebar-tabs { display: flex; padding: 14px 44px 0 14px; gap: 6px; }
-.stab {
-  flex: 1; padding: 11px; background: transparent; border: none; color: var(--text-muted);
-  font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
-  border-bottom: 2px solid transparent;
-  position: relative; z-index: 1000;
+/* ── Panel de Ajustes en 2 columnas: nav lateral de categorías + contenido ── */
+.sidebar-layout { flex: 1; display: flex; min-height: 0; }
+.sidebar-nav {
+  flex: 0 0 150px;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 46px 8px 12px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
 }
-.stab.active { color: var(--blue); border-bottom-color: var(--blue); }
-.sidebar-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+.sidebar-nav-title {
+  font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-muted); padding: 0 8px 8px;
+}
+.sidebar-nav-sep { height: 1px; background: var(--border); margin: 8px 8px; flex: 0 0 auto; }
+.sidebar-nav .stab {
+  display: flex; align-items: center; gap: 9px; flex: 0 0 auto; width: 100%;
+  padding: 8px 10px; border: none; border-radius: 6px;
+  background: transparent; color: var(--text-muted);
+  font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.sidebar-nav .stab svg { flex: 0 0 auto; opacity: 0.8; }
+.sidebar-nav .stab:hover { background: var(--bg-hover); color: var(--text); }
+.sidebar-nav .stab.active { background: var(--glow); color: var(--accent); }
+.sidebar-nav .stab.active svg { opacity: 1; }
+
+.sidebar-scroll { flex: 1; overflow-y: auto; padding: 24px 20px 20px; min-width: 0; }
+
+/* Tarjetas "launcher" de las secciones que abren un panel (Cuenta/MIDI/Servicio). */
+.set-launch-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.set-launch-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; margin: 0 0 2px; }
+.sb-btn {
+  padding: 10px 14px; border-radius: 6px; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+  font-size: 13px; font-weight: 600; text-align: center;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.sb-btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.sb-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
+.sb-btn--primary:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
+
+/* ── Modal EMBEBIDO dentro del sidebar ──
+   Reparentamos el overlay del modal dentro del panel y lo "aplanamos": sin
+   posición fija, sin fondo de velo, sin sombra — para que se vea como una
+   sección más del sidebar en vez de un modal centrado. */
+.set-embed { margin-top: 12px; }
+.set-embed:empty { display: none; }
+.embedded-in-sidebar {
+  position: static !important; inset: auto !important; z-index: auto !important;
+  display: block !important; background: transparent !important; backdrop-filter: none !important;
+  padding: 0 !important; opacity: 1 !important; transform: none !important; pointer-events: auto !important;
+}
+.embedded-in-sidebar > * {
+  position: static !important; width: 100% !important; max-width: none !important;
+  max-height: none !important; margin: 0 !important; box-shadow: none !important;
+  transform: none !important; border: 1px solid var(--border) !important; border-radius: 8px;
+}
+/* El botón de cerrar del modal se oculta cuando está embebido (la nav manda). */
+.embedded-in-sidebar .cp-close, .embedded-in-sidebar .acc-x,
+.embedded-in-sidebar .pf-close, .embedded-in-sidebar .mp-close,
+.embedded-in-sidebar .preflight-close, .embedded-in-sidebar [aria-label="Cerrar"] { display: none !important; }
+
+.stab-body { display: none; }
+.stab-body.visible { display: block; }
 .stab-body { display: none; }
 .stab-body.visible { display: block; }
 .sb-label { font-size: 10px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
 
 /* ── Biblioteca de audios (sidebar Ajustes) ────────────────────────── */
-.audio-lib-card { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-.audio-lib-desc { font-size: 11.5px; line-height: 1.45; color: var(--text-muted); }
+.audio-lib-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.audio-lib-desc { font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
 .audio-lib-row { display: flex; flex-direction: column; gap: 4px; }
 .audio-lib-label {
   font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
@@ -127,7 +183,7 @@
 .theme-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; transition: all 0.2s; }
 .theme-item:hover { background: var(--bg-hover); border-color: var(--blue); }
 .theme-item.active { border-color: var(--blue); background: rgba(251,174,0,0.05); }
-.theme-swatch { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
+.theme-swatch { width: 40px; height: 40px; border-radius: var(--r-md); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
 .theme-info { flex: 1; }
 .theme-name { font-size: 13px; font-weight: 800; color: var(--text); }
 .theme-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
@@ -257,3 +313,41 @@
   pointer-events: none;
 }
 
+
+/* ── Estándar: títulos de módulo en MAYÚSCULAS pero MENOS pesados ── */
+.sb-label, .sidebar-nav-title,
+#preflight-overlay .pf-header h3, #mappings-overlay .mp-header h3,
+#companion-overlay .cp-header h3, .bank-picker-title {
+  font-weight: 600 !important;
+  letter-spacing: 1.2px;
+}
+
+/* ── Mapeos activos EMBEBIDOS: filas + footer compactos para el ancho del panel ── */
+.embedded-in-sidebar .mp-row { gap: 6px; padding: 7px 9px; align-items: center; }
+.embedded-in-sidebar .mp-key-kind { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
+.embedded-in-sidebar .mp-key { font-size: 10px; padding: 2px 7px; flex-shrink: 0; }
+.embedded-in-sidebar .mp-target { font-size: 11.5px; line-height: 1.3; }
+.embedded-in-sidebar .mp-footer { flex-wrap: wrap; gap: 8px; }
+.embedded-in-sidebar .mp-io,
+.embedded-in-sidebar .mp-clear-all { flex: 1 1 auto; padding: 9px 10px; font-size: 12px; }
+
+/* ── "Mi cuenta y librerías" EMBEBIDA: filas adaptadas al ancho del sidebar ── */
+.embedded-in-sidebar .acc-row { flex-wrap: wrap; gap: 8px; }
+.embedded-in-sidebar .acc-row > input,
+.embedded-in-sidebar .acc-row > select { min-width: 0; }
+/* Inputs de texto/correo → ocupan su propia línea (legibles, no apretados). */
+.embedded-in-sidebar #acc-new-lib,
+.embedded-in-sidebar #acc-join-code,
+.embedded-in-sidebar #acc-inv-email { flex: 1 1 100%; }
+/* Rol + Invitar comparten la línea siguiente. */
+.embedded-in-sidebar #acc-inv-role { flex: 1 1 auto; }
+.embedded-in-sidebar .acc-btn { white-space: nowrap; }
+/* Bajar / Subir / Guardar servicio → botones a ancho completo (sin texto partido). */
+.embedded-in-sidebar [data-act="pull-songs"],
+.embedded-in-sidebar [data-act="push-songs"],
+.embedded-in-sidebar [data-act="save-setlist"] { flex: 1 1 100%; }
+/* Footer (Renombrar / Eliminar librería) se acomoda en fila. */
+.embedded-in-sidebar .acc-foot { flex-wrap: wrap; gap: 8px; }
+.embedded-in-sidebar .acc-foot .acc-btn { flex: 1 1 auto; }
+/* Pestañas Cuenta/Librerías/Equipo: que entren sin apretarse. */
+.embedded-in-sidebar .acc-tab { padding: 7px 8px; font-size: 12px; }

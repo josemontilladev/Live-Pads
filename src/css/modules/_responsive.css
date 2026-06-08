@@ -326,3 +326,19 @@
   #tp-vol { width: 56px !important; }
 }
 
+
+/* ── Panel de Ajustes (sidebar) en pantallas chicas ──
+   La nav lateral + el contenido se compactan; ambos scrollean si no entran,
+   así nada se corta en laptops de poca altura o ventanas angostas. */
+@media (max-height: 850px) {
+  .sidebar-nav { padding: 40px 6px 10px; flex-basis: 142px; }
+  .sidebar-nav-title { padding-bottom: 6px; }
+  .sidebar-nav .stab { padding: 7px 9px; font-size: 12px; gap: 8px; }
+  .sidebar-scroll { padding: 18px 16px 16px; }
+  .set-launch-desc { font-size: 12px; }
+}
+@media (max-width: 560px) {
+  /* Ventana/pantalla muy angosta → el panel casi a pantalla completa. */
+  #sidebar { width: 100vw; max-width: 100vw; }
+  .sidebar-nav { flex-basis: 130px; }
+}

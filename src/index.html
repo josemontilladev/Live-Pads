@@ -13,8 +13,21 @@
   <div id="preloader">
     <img src="assets/logo.png" alt="Live Pads Logo" class="preloader-logo">
     <div class="preloader-title">LIVE PADS</div>
+    <div class="preloader-version" id="preloader-version"></div>
     <div class="preloader-bar"><div class="preloader-fill"></div></div>
   </div>
+  <script>
+    // Mostrar la versión instalada debajo del nombre, apenas carga (antes de app.js).
+    (function () {
+      try {
+        window.electronAPI && window.electronAPI.getAppVersion &&
+        window.electronAPI.getAppVersion().then(function (v) {
+          var el = document.getElementById('preloader-version');
+          if (el && v) el.textContent = 'v' + v;
+        }).catch(function () {});
+      } catch (e) {}
+    })();
+  </script>
 
   <div id="midi-learn-overlay">
     🎹 Modo Mapeo MIDI: Haz clic en un control de la app. (Clic aquí para salir)
@@ -49,15 +62,8 @@
         <button class="icon-btn" id="btn-piano-pads" title="Piano — toca/escuchá notas (también con tu controlador MIDI)" aria-label="Piano" aria-pressed="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
         </button>
-        <button class="icon-btn" id="btn-help" title="Atajos de teclado (?)" aria-label="Mostrar atajos de teclado">
-          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 0.5c0 1.6-2.5 2.1-2.5 3.6"/><line x1="12" y1="16.5" x2="12.01" y2="16.5"/></svg>
-        </button>
-        <button class="icon-btn" id="btn-settings-toggle" title="Ajustes">
-          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+        <!-- Botón "?" retirado: los atajos viven en el panel de Ajustes (sección Atajos). -->
+        <!-- Engranaje retirado: el menú ☰ (izquierda) abre el panel de Ajustes centralizado. -->
         <div class="wm-btns">
           <button class="wm-btn wm-min" id="btn-min" aria-label="Minimizar" title="Minimizar">
             <svg viewBox="0 0 10 1" aria-hidden="true"><rect width="10" height="1" fill="currentColor"/></svg>
@@ -488,16 +494,23 @@
         <button class="sidebar-close-btn" id="btn-sidebar-close" title="Cerrar (Esc)" aria-label="Cerrar panel lateral">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <div class="sidebar-tabs">
-          <button class="stab active" data-tab="settings">Ajustes</button>
-          <button class="stab" data-tab="themes">Temas</button>
-          <button class="stab" data-tab="shortcuts">Atajos</button>
-          <button class="stab" data-tab="about">Info</button>
-        </div>
+        <div class="sidebar-layout">
+        <nav class="sidebar-nav" aria-label="Categorías de ajustes">
+          <div class="sidebar-nav-title">Ajustes</div>
+          <button class="stab active" data-tab="audio"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>Audio</button>
+          <button class="stab" data-tab="library"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Biblioteca</button>
+          <button class="stab" data-tab="midi"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><line x1="9" y1="6" x2="9" y2="14"/><line x1="15" y1="6" x2="15" y2="14"/></svg>MIDI / Teclado</button>
+          <button class="stab" data-tab="themes"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>Temas</button>
+          <button class="stab" data-tab="service"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>Servicio</button>
+          <button class="stab" data-tab="account"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Cuenta</button>
+          <div class="sidebar-nav-sep"></div>
+          <button class="stab" data-tab="shortcuts"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>Atajos</button>
+          <button class="stab" data-tab="about"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Acerca</button>
+        </nav>
         <div class="sidebar-scroll">
 
-          <!-- TAB: SETTINGS -->
-          <div id="tab-settings" class="stab-body visible">
+          <!-- SECCIÓN: AUDIO -->
+          <div id="tab-audio" class="stab-body visible">
             <div class="sb-label mx-relocated">Ajustes generales</div>
             <div class="sb-card mx-relocated">
               <div class="sb-row">
@@ -537,7 +550,10 @@
               </div>
             </div>
             <div class="sb-card" id="sidebar-drum-volumes"></div>
+          </div>
 
+          <!-- SECCIÓN: BIBLIOTECA -->
+          <div id="tab-library" class="stab-body">
             <!-- Biblioteca de audios — carpeta personalizada que sincroniza
                  entre máquinas vía OneDrive/Dropbox/etc. -->
             <div class="sb-label">Biblioteca de audios</div>
@@ -556,6 +572,38 @@
             </div>
           </div>
 
+          <!-- SECCIÓN: MIDI / TECLADO -->
+          <div id="tab-midi" class="stab-body">
+            <div class="sb-label">MIDI / Teclado</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Asigná cualquier control de la app (pads, drums, transporte, volúmenes) a tu teclado o controlador MIDI con el modo Learn.</p>
+              <button class="sb-btn sb-btn--primary" id="set-midi-learn">Mapeo MIDI / Teclado (Learn)</button>
+              <button class="sb-btn" id="set-mappings">Ver mapeos activos</button>
+            </div>
+            <div class="set-embed" id="embed-midi"></div>
+          </div>
+
+          <!-- SECCIÓN: SERVICIO -->
+          <div id="tab-service" class="stab-body">
+            <div class="sb-label">Servicio</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Verificá que todo esté listo antes de empezar, y mostrá letras y acordes en el teléfono de tu banda por WiFi.</p>
+              <button class="sb-btn" id="set-preflight">Pre-vuelo del servicio</button>
+              <button class="sb-btn" id="set-companion">Companion (móvil)</button>
+            </div>
+            <div class="set-embed" id="embed-preflight"></div>
+            <div class="set-embed" id="embed-companion"></div>
+          </div>
+
+          <!-- SECCIÓN: CUENTA -->
+          <div id="tab-account" class="stab-body">
+            <div class="sb-label">Cuenta y librerías</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Tu sesión, las librerías compartidas con tu equipo y la configuración que te sigue a cualquier equipo.</p>
+              <button class="sb-btn sb-btn--primary" id="set-account">Abrir Mi cuenta y librerías</button>
+            </div>
+            <div class="set-embed" id="embed-account"></div>
+          </div>
 
           <!-- TAB: THEMES -->
           <div id="tab-themes" class="stab-body">
@@ -604,6 +652,7 @@
             </div>
           </div>
 
+        </div>
         </div>
       </div>
     </aside>

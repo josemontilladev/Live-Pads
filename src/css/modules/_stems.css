@@ -35,7 +35,7 @@ body[data-workspace="stems"] #body {
     linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.1)),
     var(--bg-card);
   border: 1px solid var(--border-strong);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow:
     inset 0 1px 2px rgba(0,0,0,0.25),
     inset 0 0 0 1px rgba(255,255,255,0.025);
@@ -206,7 +206,7 @@ body[data-workspace="stems"] #body {
   min-width: 24px;
   height: 24px;
   padding: 0 5px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--bg-card);
   border: 1px solid var(--border);
   font-size: 11px;
@@ -276,7 +276,7 @@ body[data-workspace="stems"] #body {
 .ssl-search:focus { border-color: var(--accent); }
 .ssl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ssl-row {
-  text-align: left; border: none; background: transparent; border-radius: 9px;
+  text-align: left; border: none; background: transparent; border-radius: var(--r-md);
   padding: 7px 8px; cursor: pointer; width: 100%;
   display: flex; align-items: center; gap: 11px;
 }
@@ -293,7 +293,7 @@ body[data-workspace="stems"] #body {
 .ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
 .ssl-cover {
   position: relative; flex-shrink: 0;
-  width: 52px; height: 52px; border-radius: 9px; overflow: hidden;
+  width: 52px; height: 52px; border-radius: var(--r-md); overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border-left: 3px solid var(--song-accent, var(--accent));
   display: flex; align-items: center; justify-content: center;
@@ -330,7 +330,7 @@ body[data-workspace="stems"] #body {
 .stems-newsong-modal {
   width: 380px; max-width: 92vw;
   background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 20px;
+  border-radius: var(--r-lg); padding: 20px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 /* Cheat-sheet de atajos del timeline */
@@ -379,7 +379,7 @@ body[data-workspace="stems"] #body {
 #workspace-stems.is-dragover .stems-arrange {
   box-shadow: inset 0 0 0 2px var(--accent),
               inset 0 0 0 9999px color-mix(in srgb, var(--accent) 8%, transparent);
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }
 /* Rótulo centrado en el alto VISIBLE del área de pistas. Va sobre el scroller
    (no sobre el contenido, que con pocas pistas es corto y lo dejaba pegado
@@ -587,7 +587,7 @@ body[data-workspace="stems"] #body {
   padding: 0 4px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   transition: border-color 0.15s;
 }
 .stems-pitch-group.shifted { border-color: var(--accent); }
@@ -1058,7 +1058,7 @@ body[data-workspace="stems"] #body {
 .stems-cloud-panel {
   width: min(440px, 92vw);
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 14px; padding: 22px 24px;
+  border-radius: var(--r-lg); padding: 22px 24px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.6);
   animation: stems-cloud-pop .18s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1423,7 +1423,7 @@ body[data-workspace="stems"] #body {
   padding: 8px 10px 8px 16px;
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 .stems-sel-bar[hidden] { display: none; }
@@ -2269,7 +2269,7 @@ body[data-workspace="stems"] #body {
   display: flex; align-items: center; gap: 6px;
   padding: 7px 9px;
   background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  border-radius: var(--r-md); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
 }
 .stems-range-bar .srb-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
 .stems-range-bar button {
@@ -2548,7 +2548,7 @@ body[data-workspace="stems"] #body {
 .stems-modal-card {
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   padding: 24px 28px;
   width: 420px;
   max-width: 92vw;
@@ -2660,7 +2660,7 @@ body[data-workspace="stems"] #body {
 .stems-export-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   padding: 26px 32px;
   min-width: 380px;
   max-width: 80%;
@@ -2805,7 +2805,7 @@ body[data-workspace="stems"] #body {
   width: min(440px, 92vw); max-height: 80vh;
   display: flex; flex-direction: column;
   background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  border-radius: var(--r-md); box-shadow: 0 20px 60px rgba(0,0,0,0.5);
   overflow: hidden;
 }
 .sam-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
@@ -2844,7 +2844,7 @@ body[data-workspace="stems"] #body {
 .stt-modal {
   width: 460px; max-width: 92vw; max-height: 82vh; display: flex; flex-direction: column;
   background: var(--bg-surface); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+  border-radius: var(--r-lg); padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
 }
 .stt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .stt-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
@@ -2854,7 +2854,7 @@ body[data-workspace="stems"] #body {
 .stt-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
 .stt-row {
   display: flex; align-items: center; gap: 10px; padding: 9px 11px;
-  background: var(--bg-hover); border: 1px solid var(--border); border-radius: 9px; cursor: pointer;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer;
 }
 .stt-row:hover { border-color: var(--border-strong); }
 .stt-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }

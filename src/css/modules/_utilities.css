@@ -60,7 +60,7 @@
 .gi-search-row .accent-btn {
   width: 32px !important;
   height: 32px !important;
-  border-radius: 16px !important;
+  border-radius: var(--r-lg) !important;
 }
 .gi-search-row .icon-btn svg { width: 14px; height: 14px; }
 .gi-search-row .accent-btn svg { width: 14px !important; height: 14px !important; }
@@ -163,7 +163,7 @@
   padding: 10px 12px 10px 16px;
   background: var(--bg-card, #141414);
   border: 1px solid var(--border-strong, rgba(255,255,255,0.15));
-  border-radius: 12px;
+  border-radius: var(--r-md);
   box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   color: var(--text, #fff);
   font-size: 13px;
