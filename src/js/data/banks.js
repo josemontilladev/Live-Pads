@@ -73,6 +73,30 @@ const THEMES = {
     glow: 'rgba(167,139,250,0.24)',
     gradient: 'radial-gradient(at 100% 0%, rgba(196,181,253,0.10) 0%, transparent 50%), linear-gradient(155deg, #0c0a1f 0%, #1a163a 50%, #0c0a1f 100%)',
     swatch: 'linear-gradient(135deg,#c4b5fd,#a78bfa 50%,#1a163a)'
+  },
+  linear: {
+    name: 'Linear', desc: 'Violeta técnico · estilo Linear.app',
+    bg1: '#16161e', bg2: '#1f1f2b', bg3: '#2c2c35',
+    bgHover: '#363643',
+    blue: '#5E6AD2', accent2: '#8b93e8',
+    text: '#ffffff', textMuted: '#8a8f98',
+    border: 'rgba(255,255,255,0.08)',
+    borderStrong: 'rgba(94,106,210,0.34)',
+    glow: 'rgba(94,106,210,0.22)',
+    gradient: 'radial-gradient(at 18% 0%, rgba(94,106,210,0.08) 0%, transparent 45%), linear-gradient(155deg, #16161e 0%, #1f1f2b 50%, #16161e 100%)',
+    swatch: 'linear-gradient(135deg,#8b93e8,#5E6AD2 50%,#1f1f2b)'
+  },
+  code: {
+    name: 'Code', desc: 'Acid lime · estilo terminal',
+    bg1: '#0a0a0b', bg2: '#121214', bg3: '#1b1b1f',
+    bgHover: '#26262b',
+    blue: '#c5fb3a', accent2: '#defe8a',
+    text: '#ffffff', textMuted: '#9aa0a6',
+    border: 'rgba(255,255,255,0.08)',
+    borderStrong: 'rgba(197,251,58,0.34)',
+    glow: 'rgba(197,251,58,0.20)',
+    gradient: 'radial-gradient(at 18% 0%, rgba(197,251,58,0.07) 0%, transparent 45%), linear-gradient(155deg, #0a0a0b 0%, #121214 50%, #0a0a0b 100%)',
+    swatch: 'linear-gradient(135deg,#defe8a,#c5fb3a 50%,#121214)'
   }
 };
 

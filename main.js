@@ -320,6 +320,9 @@ function createWindow() {
       webSecurity: true
     },
   });
+  // Arrancar maximizada (pantalla completa con la barra de título custom
+  // visible) — la cabina aprovecha todo el monitor por defecto.
+  mainWindow.maximize();
   // Clear Chromium's HTTP cache on every boot so a freshly-installed build
   // never serves stale CSS/HTML/JS that the previous version compiled into
   // `%APPDATA%\LivePads\Cache\`. Without this, NSIS upgrades can render the

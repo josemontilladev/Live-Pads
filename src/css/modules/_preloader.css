@@ -25,6 +25,14 @@
   color: #fff;
   letter-spacing: 2px;
 }
+.preloader-version {
+  margin-top: 7px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--text-muted, #a3a3a3);
+}
 .preloader-bar {
   margin-top: 15px;
   width: 60px;

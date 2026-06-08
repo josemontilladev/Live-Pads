@@ -65,7 +65,7 @@
   width: 50px;
   height: 50px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }
 
 /* Start button */
@@ -121,7 +121,7 @@
 .metro-adj {
   width: 36px; height: 36px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); cursor: pointer;
+  border-radius: var(--r-md); color: var(--text); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s; flex-shrink: 0;
 }
@@ -138,7 +138,7 @@
 .tap-btn {
   width: 100%; padding: 12px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); font-weight: 800; font-size: 12px;
+  border-radius: var(--r-md); color: var(--text); font-weight: 800; font-size: 12px;
   cursor: pointer; letter-spacing: 1px; transition: all 0.15s;
 }
 .tap-btn:active { background: var(--accent-grad); color: #000; border-color: var(--blue); transform: scale(0.97); }
@@ -201,7 +201,7 @@ input.pan-slider {
 
 /* Toggle */
 .toggle-sw {
-  width: 42px; height: 22px; background: var(--bg-hover); border-radius: 11px;
+  width: 42px; height: 22px; background: var(--bg-hover); border-radius: var(--r-md);
   position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
 }
 .toggle-sw.on { background: var(--blue); }
@@ -213,7 +213,7 @@ input.pan-slider {
 .toggle-sw.on::after { transform: translateX(20px); background: #000; }
 
 /* ── GI-SETLIST ── */
-.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: 9px; }
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
 .s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
@@ -253,7 +253,7 @@ input.pan-slider {
 .gi-filter-toggle {
   position: relative;
   width: 32px; height: 32px;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   background: var(--bg-hover);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -278,7 +278,7 @@ input.pan-slider {
   min-width: 170px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 6px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
   z-index: 50;
@@ -310,7 +310,7 @@ input.pan-slider {
   color: var(--text-muted);
   background: var(--bg-hover);
   padding: 2px 7px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   min-width: 22px; text-align: center;
 }
 .gi-filter-option.active .gi-filter-option-count {
@@ -365,7 +365,7 @@ input.pan-slider {
   padding-right: 2px;
 }
 
-.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: 9px; }
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
 .s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
@@ -373,7 +373,7 @@ input.pan-slider {
 .gi-search-input {
   width: 100%; padding: 6px 12px 6px 32px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 16px; color: #fff; margin-bottom: 10px;
+  border-radius: var(--r-lg); color: #fff; margin-bottom: 10px;
   font-size: 12px; outline: none; transition: border-color 0.2s;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -418,7 +418,7 @@ input.pan-slider {
   position: relative;
   width: 52px; height: 52px;
   flex-shrink: 0;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border-left: 3px solid var(--song-accent, var(--accent));
@@ -472,7 +472,7 @@ input.pan-slider {
   display: flex; gap: 5px; align-items: center;
 }
 .gi-badge {
-  padding: 2px 7px; border-radius: 20px;
+  padding: 2px 7px; border-radius: var(--r-lg);
   background: rgba(255,255,255,0.07); color: var(--text-muted);
   font-size: 9px; font-weight: 700; white-space: nowrap;
   letter-spacing: 0.3px;
@@ -486,7 +486,7 @@ input.pan-slider {
   align-self: center;
 }
 .gi-badge.bpm { color: var(--text-muted); }
-.gi-badge.key { background: rgba(251,174,0,0.12); color: var(--blue); }
+.gi-badge.key { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--blue); }
 .gi-badge.genre { display: none; } /* Hide genre — too long for compact layout */
 .gi-badge.tag {
   background: rgba(255,255,255,0.06);
@@ -643,11 +643,11 @@ input.pan-slider {
   opacity: 0.55;
 }
 .action-btn.btn-lyrics.has-lyrics {
-  color: #fbae00;
-  border-color: #fbae00;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .action-btn.btn-lyrics.has-lyrics.lyrics-open {
-  background: rgba(251, 174, 0, 0.06);
+  background: var(--glow);
 }
 .action-btn.btn-seq.has-audio,
 .action-btn.btn-orig.has-audio {
@@ -840,7 +840,7 @@ input.pan-slider {
   color: var(--text-muted);
   font-size: 12px;
   border: 2px dashed var(--border);
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }
 
 
@@ -873,7 +873,7 @@ input.pan-slider {
   padding: 9px 11px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   color: #fff;
   font-size: 12px;
   outline: none;
@@ -893,7 +893,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-edit-btn {
   flex: 1;
   padding: 9px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -1127,7 +1127,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   font-weight: 900;
   letter-spacing: 1.2px;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow: 0 0 8px var(--glow);
   pointer-events: none;
   z-index: 2;
@@ -1368,22 +1368,30 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .gi-lib-row.hidden { display: none; }
 .gi-lib-icon { color: var(--text-muted); flex: 0 0 auto; }
+/* Mismo estilo moderno que los dropdowns de Pad/Kit (.metro-dropdown):
+   sin la flecha nativa, con chevron custom y hover/focus de acento. */
 .gi-lib-select {
   flex: 1;
   min-width: 0;
   background: var(--bg-card);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 8px 10px;
-  font-size: 12.5px;
+  border-radius: var(--r-md);
+  padding: 7px 24px 7px 10px;
+  font-size: 11.5px;
   font-weight: 600;
+  font-family: var(--font);
   cursor: pointer;
   outline: none;
-  transition: border-color .15s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.2s, background 0.2s;
 }
-.gi-lib-select:hover { border-color: var(--border-strong); }
-.gi-lib-select:focus { border-color: var(--accent); }
+.gi-lib-select:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.gi-lib-select:focus, .gi-lib-select:focus-visible { border-color: var(--border-strong); box-shadow: none; outline: none; }
 
 /* ── Acción "Eliminar duplicados" en el menú del filtro de Librería ── */
 .gi-filter-sep {
@@ -1416,7 +1424,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlists-modal {
   width: 440px; max-width: 92vw; max-height: 82vh; overflow: auto;
   background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: 14px; padding: 18px;
+  border-radius: var(--r-lg); padding: 18px;
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 .setlists-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
@@ -1430,7 +1438,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlists-save-form {
   display: flex; align-items: flex-end; gap: 8px;
   margin-bottom: 14px; padding: 12px;
-  background: var(--bg-hover); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md);
 }
 .setlists-save-form .sl-field { display: flex; flex-direction: column; gap: 4px; }
 .setlists-save-form .sl-field--title { flex: 1; min-width: 0; }
@@ -1454,7 +1462,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlists-list { display: flex; flex-direction: column; gap: 6px; }
 .setlists-row {
   display: flex; align-items: center; gap: 8px;
-  padding: 9px 11px; border-radius: 9px;
+  padding: 9px 11px; border-radius: var(--r-md);
   background: var(--bg-hover); border: 1px solid var(--border);
 }
 .setlists-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -1495,19 +1503,19 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+  border-radius: var(--r-md); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background 0.15s;
 }
 .svc-chooser-new:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .svc-chooser-save {
   width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  border-radius: var(--r-md); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .svc-chooser-save:hover { border-color: var(--accent); color: var(--accent); }
 .svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
 .svc-chooser-item {
   display: flex; align-items: center; gap: 8px; text-align: left;
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md);
   padding: 9px 10px 9px 13px; transition: all 0.15s; width: 100%;
 }
 .svc-chooser-item:hover { border-color: var(--accent); background: var(--bg-hover); }
@@ -1525,7 +1533,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   margin-top: 12px; flex-shrink: 0; width: 100%; padding: 11px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--accent); font-size: 12.5px; font-weight: 800; border-radius: 10px; cursor: pointer; transition: background 0.15s;
+  color: var(--accent); font-size: 12.5px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; transition: background 0.15s;
 }
 .svc-chooser-current:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
@@ -1542,7 +1550,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   width: 780px; max-width: 94vw; max-height: 88vh;
   display: flex; flex-direction: column;
   background: var(--bg-surface); border: 1px solid var(--border-strong);
-  border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.55); overflow: hidden;
+  border-radius: var(--r-lg); box-shadow: 0 30px 80px rgba(0,0,0,0.55); overflow: hidden;
 }
 .nsl-head {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -1560,13 +1568,13 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .nsl-field input, .nsl-field textarea {
   background: var(--bg-card); color: var(--text);
-  border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px;
   font-size: 13px; font-family: inherit; outline: none; resize: vertical;
 }
 .nsl-field input:focus, .nsl-field textarea:focus { border-color: var(--accent); }
 .nsl-field input[type="date"] { color-scheme: dark; cursor: pointer; }
 .nsl-songs {
-  border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 14px;
   display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--bg-card) 50%, transparent);
 }
 .nsl-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1575,13 +1583,13 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .nsl-search {
   flex: 0 0 240px; max-width: 50%;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: 9px; padding: 8px 12px; font-size: 12.5px; outline: none;
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 12.5px; outline: none;
 }
 .nsl-search:focus { border-color: var(--accent); }
 .nsl-songs-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
 .nsl-song {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color 0.15s;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; transition: border-color 0.15s;
 }
 .nsl-song:hover { border-color: var(--border-strong); }
 .nsl-song.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
@@ -1594,7 +1602,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .nsl-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
 .nsl-btn {
   padding: 11px 20px; font-size: 13px; font-weight: 700; cursor: pointer;
-  background: transparent; color: var(--text-muted); border: none; border-radius: 10px; transition: color 0.15s;
+  background: transparent; color: var(--text-muted); border: none; border-radius: var(--r-md); transition: color 0.15s;
 }
 .nsl-btn:hover { color: var(--text); }
 .nsl-btn--primary { background: var(--accent); color: #000; }
@@ -1621,7 +1629,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-create-field > span { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .svc-create-field input, .svc-create-field textarea, .svc-create-field select {
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: 9px; padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+  border-radius: var(--r-md); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
 }
 .svc-create-field input:focus, .svc-create-field textarea:focus, .svc-create-field select:focus { border-color: var(--accent); }
 .svc-create-field select { cursor: pointer; }
@@ -1644,7 +1652,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
    con checkbox de acento para tildar. */
 .svc-pick {
   display: flex; align-items: center; gap: 10px; padding: 7px 10px;
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md);
   cursor: pointer; transition: border-color 0.15s;
 }
 .svc-pick:hover { border-color: var(--border-strong); }
@@ -1674,11 +1682,11 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-pick-meta { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* Crear librería INLINE (en el contenedor de la Librería, no modal). */
-.gi-create-lib { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; }
+.gi-create-lib { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); }
 .gi-create-lib h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
 .gi-create-lib-name {
   background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
-  border-radius: 9px; padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none;
+  border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none;
 }
 .gi-create-lib-name:focus { border-color: var(--accent); }
 .gi-create-lib-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -1695,7 +1703,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-chooser-search {
   width: 100%; margin-bottom: 8px; flex-shrink: 0;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: 9px; padding: 8px 12px; font-size: 12.5px; outline: none;
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 12.5px; outline: none;
 }
 .svc-chooser-search:focus { border-color: var(--accent); }
 .svc-chooser-item.is-editing { display: block; padding: 10px 12px; cursor: default; }

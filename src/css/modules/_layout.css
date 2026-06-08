@@ -22,7 +22,7 @@
   width: 40px; height: 40px;
   display: flex; align-items: center; justify-content: center;
   background: transparent; border: none;
-  border-radius: 10px; color: var(--text-muted);
+  border-radius: var(--r-md); color: var(--text-muted);
   cursor: pointer; transition: all 0.2s ease;
   -webkit-app-region: no-drag;
 }
@@ -225,7 +225,7 @@
 }
 .drum-btn {
   background: var(--bg-surface);
-  border: 1px solid var(--border); border-radius: 12px;
+  border: 1px solid var(--border); border-radius: var(--r-md);
   position: relative; cursor: pointer; outline: none;
   transition: all 0.15s; display: flex; flex-direction: column;
   padding: 14px; width: 100%; height: 100%;
@@ -254,7 +254,7 @@
 
 #drum-volume-tray { padding: 18px; flex-shrink: 0; }
 .drum-volumes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.drum-vol-item { background: var(--bg-surface); padding: 10px; border-radius: 10px; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); }
+.drum-vol-item { background: var(--bg-surface); padding: 10px; border-radius: var(--r-md); display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); }
 .drum-vol-header { display: flex; align-items: center; justify-content: space-between; }
 .drum-vol-item label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
 .drum-vol-pct { font-size: 10px; color: var(--text-muted); font-weight: 700; font-variant-numeric: tabular-nums; }

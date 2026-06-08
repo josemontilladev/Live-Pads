@@ -46,7 +46,7 @@
   width: min(420px, 92vw);
   background: var(--panel, #16181f);
   border: 1px solid var(--border, #262a35);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   padding: 32px 28px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   text-align: center;
@@ -57,7 +57,7 @@
   margin: 0 auto 12px;
   width: 64px;
   height: 64px;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
 }
 .auth-logo {
   font-size: 26px;
@@ -86,7 +86,7 @@
   width: 100%;
   box-sizing: border-box;
   padding: 11px 12px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   border: 1px solid var(--border, #2a2f3c);
   background: var(--input-bg, #0f1117);
   color: var(--text, #e8eaf0);
@@ -100,7 +100,7 @@
   -webkit-app-region: no-drag;
   width: 100%;
   padding: 12px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   border: none;
   font-size: 14px;
   font-weight: 700;
@@ -109,7 +109,7 @@
   transition: transform .08s, filter .15s, background .15s;
 }
 .auth-btn:active { transform: translateY(1px); }
-.auth-btn.primary { background: var(--accent, #FBAE00); color: #fff; }
+.auth-btn.primary { background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14); }
 .auth-btn.primary:hover { filter: brightness(1.08); }
 .auth-btn.ghost {
   background: transparent;
@@ -163,7 +163,7 @@
 
 .auth-msg {
   font-size: 13px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   padding: 10px 12px;
   margin-bottom: 14px;
   text-align: left;
@@ -202,7 +202,7 @@
   max-height: 88vh; overflow-y: auto;
   background: var(--panel, #16181f);
   border: 1px solid var(--border, #262a35);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   padding: 22px 22px 26px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
@@ -211,8 +211,8 @@
 .acc-x { background: none; border: none; color: var(--text-dim, #9aa0ad); font-size: 22px; cursor: pointer; line-height: 1; }
 .acc-x:hover { color: var(--text, #e8eaf0); }
 
-.acc-user { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--input-bg, #0f1117); border-radius: 10px; margin-bottom: 18px; }
-.acc-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent, #FBAE00); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; flex: 0 0 auto; }
+.acc-user { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--input-bg, #0f1117); border-radius: var(--r-md); margin-bottom: 18px; }
+.acc-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14); display: flex; align-items: center; justify-content: center; font-weight: 700; flex: 0 0 auto; }
 .acc-user-info { flex: 1; min-width: 0; }
 .acc-user-info .name { font-weight: 600; font-size: 14px; }
 .acc-user-info .email { font-size: 12px; color: var(--text-dim, #9aa0ad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -223,7 +223,7 @@
 .acc-lib-list { display: flex; flex-direction: column; gap: 8px; }
 .acc-lib {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: 9px;
+  padding: 10px 12px; border-radius: var(--r-md);
   border: 1px solid var(--border, #262a35);
   background: var(--input-bg, #0f1117);
   cursor: pointer;
@@ -246,7 +246,7 @@
 .acc-row select { flex: 0 0 auto; }
 .acc-btn {
   padding: 9px 14px; border-radius: 8px; border: none;
-  background: var(--accent, #FBAE00); color: #fff;
+  background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14);
   font-size: 13px; font-weight: 700; cursor: pointer; flex: 0 0 auto;
 }
 .acc-btn.sm { padding: 6px 10px; font-size: 12px; }
@@ -288,7 +288,7 @@
   margin: 4px 0 16px;
   padding: 3px;
   background: var(--input-bg, #0f1117);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   border: 1px solid var(--border, #262a35);
 }
 .acc-tab {
@@ -347,4 +347,4 @@
 .acc-row select:focus-visible,
 .acc-row input:focus,
 .acc-row select:focus { outline: none; border-color: var(--accent, #FBAE00); }
-.gi-lib-select:focus-visible { outline: 2px solid var(--accent, #FBAE00); outline-offset: 1px; }
+.gi-lib-select:focus-visible { outline: none; }

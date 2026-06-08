@@ -17,7 +17,7 @@
   min-height: 380px;
   max-width: 99vw;
   max-height: 94vh;
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
 }
 .pr-modal {
@@ -27,7 +27,7 @@
   flex-direction: column;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 /* El teclado del piano, movido dentro del modal, queda como fila inferior. */
@@ -120,7 +120,7 @@
   padding: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 .pr-legend-title {

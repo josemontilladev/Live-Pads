@@ -38,7 +38,7 @@
 .tp-play svg { width: 16px; height: 16px; }
 .tp-stop, .tp-restart, .tp-loop, .tp-autoadvance {
   width: 32px; height: 32px;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
@@ -64,7 +64,7 @@
   height: 32px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   transition: border-color 0.15s;
 }
 .tp-pitch-group.shifted { border-color: var(--blue); }

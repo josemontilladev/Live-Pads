@@ -20,4 +20,8 @@
 @import url('./modules/_preloader.css');
 @import url('./modules/_utilities.css');
 @import url('./modules/_motion.css');
+/* Capa experimental estilo Linear (esquinas chicas, glow sutil, densidad).
+   Antes de _responsive para que el layout responsive siga ganando. Reversible:
+   quitar esta línea vuelve al diseño original. */
+@import url('./modules/_linear.css');
 @import url('./modules/_responsive.css');

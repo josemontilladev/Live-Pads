@@ -6,9 +6,9 @@ import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
-import { openPreflight } from './ui/preflight.js';
+import { openPreflight, closePreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
-import { openCompanionPanel } from './ui/companionPanel.js';
+import { openCompanionPanel, closeCompanionPanel } from './ui/companionPanel.js';
 import { togglePadsPiano, closePadsPiano, isPadsPianoOpen, padsPianoPanic } from './ui/padsPiano.js';
 // The Stems workspace pulls in heavy deps (audio engine, exporter, waveform
 // renderer, lamejs, ONNX-backed separation IPC glue…) yet the app boots into
@@ -593,7 +593,9 @@ function bindWindowControls() {
 // and the document-level keyboard / click handlers. Kept as one block for
 // now because all sections share module-scope state (engine, metro, etc.).
 function bindSidebarAndTabs() {
-  q('#btn-settings-toggle').onclick = () => q('#sidebar').classList.toggle('open');
+  // (El engranaje se retiró; el panel de Ajustes se abre con el menú ☰.)
+  const gear = q('#btn-settings-toggle');
+  if (gear) gear.onclick = () => q('#sidebar').classList.toggle('open');
   q('#sidebar-overlay').onclick = () => q('#sidebar').classList.remove('open');
   const btnClose = q('#btn-sidebar-close');
   if (btnClose) btnClose.onclick = () => q('#sidebar').classList.remove('open');
@@ -609,14 +611,13 @@ function bindSidebarAndTabs() {
 }
 
 function bindHamburgerMenu() {
-  q('#btn-menu').onclick = () => {
-    const pop = q('#menu-popover'), ov = q('#menu-overlay');
-    const vis = !pop.classList.contains('hidden');
-    pop.classList.toggle('hidden', vis); ov.classList.toggle('hidden', vis);
-  };
+  // El botón ☰ ahora ABRE el panel de Ajustes centralizado (antes mostraba un
+  // popover). El #menu-popover sigue en el DOM (oculto) solo para reutilizar sus
+  // handlers desde los launchers del sidebar.
+  q('#btn-menu').onclick = () => q('#sidebar').classList.add('open');
   window.closeMenu = closeAllOverlays;
 
-  q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('settings'); };
+  q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('audio'); };
   q('#menu-open-themes').onclick   = () => { closeMenu(); openSidebarTab('themes'); };
   q('#menu-fullscreen').onclick = () => {
     closeMenu();
@@ -681,6 +682,45 @@ function bindHamburgerMenu() {
       document.body.classList.add('midi-learning');
     };
   }
+
+  // ── Launchers del panel de Ajustes centralizado (nav lateral) ──────────
+  // En vez de abrir un modal centrado, EMBEBEN el panel dentro del sidebar:
+  // se llama a la misma función "open" del modal (crea su overlay en el body)
+  // y de inmediato se reparenta ese overlay dentro de la sección, aplanándolo
+  // vía CSS (.embedded-in-sidebar). Reutiliza toda la lógica del modal intacta.
+  const embedNow = (containerId, overlaySel) => {
+    const pane = q('#' + containerId);
+    const overlay = document.querySelector(overlaySel);
+    if (!pane || !overlay) return;
+    overlay.onclick = null;                 // sin cierre por clic en el velo
+    overlay.classList.remove('hidden');     // (la cuenta arranca oculta)
+    overlay.classList.add('embedded-in-sidebar');
+    if (overlay.parentElement !== pane) { pane.innerHTML = ''; pane.appendChild(overlay); }
+  };
+  const embedModal = (containerId, openFn, overlaySel) => {
+    const pane = q('#' + containerId);
+    if (pane && pane.querySelector(overlaySel)) return; // ya embebido
+    openFn();
+    embedNow(containerId, overlaySel);
+  };
+  const wire = (id, fn) => { const b = q(id); if (b) b.onclick = fn; };
+  const closeSidebar = () => q('#sidebar')?.classList.remove('open');
+
+  // MIDI Learn es una ACCIÓN (resalta la app) → cierra el panel.
+  wire('#set-midi-learn', () => { closeSidebar(); q('#menu-midi-learn')?.click(); });
+  // El resto se EMBEBE dentro de su sección del sidebar.
+  wire('#set-mappings',  () => embedModal('embed-midi',       () => openMappingsList(),                     '#mappings-overlay'));
+  // Servicio: Pre-vuelo y Companion son MUTUAMENTE EXCLUSIVOS (uno u otro).
+  wire('#set-preflight', () => {
+    closeCompanionPanel(); const c = q('#embed-companion'); if (c) c.innerHTML = '';
+    embedModal('embed-preflight', () => openPreflight({ getEngine: () => engine }), '#preflight-overlay');
+  });
+  wire('#set-companion', () => {
+    closePreflight(); const p = q('#embed-preflight'); if (p) p.innerHTML = '';
+    embedModal('embed-companion', () => openCompanionPanel(), '#companion-overlay');
+  });
+  wire('#set-account',   () => import('./cloud/accountPanel.js')
+        .then(m => { m.openAccountPanel(); embedNow('embed-account', '#account-overlay'); }).catch(() => {}));
 }
 
 

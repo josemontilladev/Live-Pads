@@ -128,15 +128,13 @@
 .d-ok:focus-visible,
 .d-cancel:focus-visible,
 .gi-search-input:focus-visible,
-.gi-lib-select:focus-visible,
 .setlists-save-form input:focus-visible,
 .setlists-load:focus-visible,
 .empty-cta:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 2px var(--bg),
-    0 0 0 4px var(--accent),
-    0 0 16px var(--glow);
+  /* Anillo de focus ÚNICO y tenue para toda la app (antes era un glow ámbar
+     fuerte). Borde de acento fino, sin resplandor — consistente en Pads y Stems. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 /* Window-management buttons (min/max/close) keep flat focus — they sit

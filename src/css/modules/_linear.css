@@ -1,0 +1,192 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Capa de modernización "Linear" (EXPERIMENTAL, reversible)
+   Se importa antes de _responsive. Aplica el lenguaje de Linear (precisión,
+   densidad, esquinas ≤8px, hovers sutiles, glow contenido) SIN tocar los
+   colores de los temas (--accent, --bg-*, etc. siguen mandando). Para volver:
+   quitar el @import en index.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Radios estilo Linear — nunca > 8px (de 6/12/16 a 5/6/8). */
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  /* Glow contenido: el acento se reserva para acciones, no decoración. */
+  --glow: rgba(251, 174, 0, 0.12);
+  /* Acento PLANO en botones (sin degradado) — más Linear. */
+  --accent-grad: var(--accent);
+  /* Densidad: gaps un punto más ajustados. */
+  --gap-lg: 20px;
+  --gap-md: 14px;
+  --gap-sm: 8px;
+  /* Variables que el panel de cuenta/equipo (portado de la otra app) usaba con
+     fallbacks azulados (#0f1117 / #9aa0ad) → las atamos al tema para que se vea
+     igual que el resto de la app. */
+  --input-bg: var(--bg-surface);
+  --text-dim: var(--text-muted);
+  /* El panel de cuenta usa var(--panel) y var(--bg) (no definidos en la app →
+     caían a azulados #16181f / #0f1117). Los atamos al tema para que el modal
+     tenga EXACTAMENTE el mismo fondo que el resto de la app. */
+  --panel: var(--bg-card);
+  --bg: var(--bg-main);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ESTÁNDAR CENTRALIZADO DE CONTROLES — Pads + Stems comparten UN diseño
+   ─────────────────────────────────────────────────────────────────────
+   Todos los campos, selects y dropdowns de la app usan EXACTAMENTE el mismo
+   tratamiento: borde base sutil, hover con acento tenue y focus con acento
+   (sin glow ni outline). Así Stems y Pads se ven idénticos y consistentes.
+   El acento "lleno" (fills) se reserva para estados activos/primarios.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Conjunto de controles tipo "campo / select / dropdown" de toda la app. */
+.metro-dropdown, .gi-lib-select, .gi-search-input, .ssl-search,
+.stems-mini-select, .stems-snap-select, .stems-field, .stems-pitch-group,
+.stems-project-name, .stems-modal-input, .acc-input, .nsl-input,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+select, textarea {
+  transition: border-color 0.12s ease, background 0.12s ease !important;
+}
+
+/* HOVER → acento TENUE (50% transparencia). */
+.metro-dropdown:hover, .gi-lib-select:hover, .stems-mini-select:hover,
+.stems-snap-select:hover, .stems-field:hover, .stems-pitch-group:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent) !important;
+}
+
+/* FOCUS / estado activo de campo → borde de acento, SIN glow ni outline.
+   (.stems-pitch-group.shifted = transpose ≠ 0 → mismo borde de acento.) */
+.metro-dropdown:focus, .gi-lib-select:focus, .gi-search-input:focus,
+.ssl-search:focus, .stems-mini-select:focus, .stems-snap-select:focus,
+.stems-project-name:focus, .stems-field:focus-within,
+.stems-pitch-group.shifted,
+.stems-modal-input:focus, .acc-input:focus, .nsl-input:focus,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
+select:focus, textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--accent) !important;
+}
+
+/* Botones de Stems → hover sutil (3-5% blanco), transición rápida. */
+.stems-btn, .stems-tb-btn, .stems-zoom-btn, .stems-piano-btn {
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.stems-btn--subtle:hover, .stems-tb-btn:hover, .stems-zoom-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* Dropdowns/mini-selects de Stems → chevron custom como Pad/Kit. */
+.stems-mini-select, .stems-snap-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  padding-right: 22px;
+}
+
+/* ── Pads (teclas + drums): el control más grande → esquinas Linear (8px). ── */
+.key-btn, .drum-btn { border-radius: 8px !important; }
+
+/* ── "Pills" y toggles → radios chicos (sin cápsulas grandes). ── */
+.s-toggle, .stab, .metro-mult-btn, .tap-btn,
+.kit-action-btn, .source-seg, .source-seg-btn,
+.hero-badge, .feature-tag { border-radius: 6px !important; }
+.nav-cta { border-radius: 6px !important; }
+
+/* ── Tarjetas de canción: radio 8 + hover sutil (3-5% blanco), sin "lift". ── */
+.gi-song-item { border-radius: 8px; transition: background 0.12s ease, border-color 0.12s ease; }
+.gi-song-item:hover { transform: none; background: rgba(255, 255, 255, 0.03); }
+
+/* ── Botones-icono y de acción: hover sutil, transición rápida. ── */
+.icon-btn, .action-btn { transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease; }
+
+/* ── Inputs / selects: radio Linear. ── */
+input:not([type="range"]), select, textarea { border-radius: 6px; }
+
+/* ── Menús desplegables: radio 8 + sombra Linear (popup). ── */
+.card-more-menu, .stems-context-menu, .orig-src-menu {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Modales / diálogos: radio 8 + sombra modal. ── */
+.dialog-panel, .modal-card, .lyrics-modal, .setlists-modal, .soon-panel,
+.transpose-select-modal, .dialog {
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Strip de pista en Stems / canales del mixer: radio Linear. ── */
+.mx-channel, .stems-mixer-strip { border-radius: 8px; }
+
+/* ═══ CONSISTENCIA GLOBAL: modales, menús, dropdowns, toasts ═══
+   Todos al mismo radio (8px ya por los tokens) + la MISMA familia de sombra,
+   para que ningún apartado se sienta distinto. */
+
+/* Modales / paneles flotantes → sombra modal Linear, borde sutil. */
+.d-modal, .dialog, .acc-panel, .cp-panel, .sp-panel, .mp-panel, .pf-panel,
+.pr-modal, .stt-modal, .nsl-modal, .setlists-modal, .soon-panel,
+.lyrics-modal-panel, .modal-preview-panel, .lyrics-preview-panel,
+.stems-modal-card, .stems-newsong-modal,
+.stems-assign-modal, .stems-cloud-panel, .stems-export-panel,
+.transpose-select-modal, .pr-panel, .spotlight-panel, .spotlight {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5) !important;
+  border: 1px solid var(--border-strong);
+}
+
+/* Menús / dropdowns / popovers → sombra popup más liviana. */
+.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu,
+.metro-dropdown, .stems-proj-dropdown, .stems-generators-pop,
+.audio-load-menu, .song-menu, .harmony-menu, .marker-menu {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Toasts → radio + sombra popup consistentes. */
+.toast, .toast-container .toast, .stems-sep-toast {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Backdrops de modal → mismo velo en toda la app. */
+.d-backdrop, .modal-backdrop, .soon-backdrop, .lyrics-modal-overlay,
+.spotlight-backdrop, .stems-modal-backdrop {
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* Inputs / selects / filas dentro de modales → radio chico uniforme. */
+.stems-modal-input, .stems-modal-row, .acc-user, .acc-input,
+.nsl-input, .setlists-input { border-radius: 6px; }
+
+/* Tabs (segmented) en modales/paneles → radio Linear, sin cápsula. */
+.acc-tab, .acc-tabs, .stems-modal-tabs, .setlist-tabs-toggle, .s-toggle {
+  border-radius: 6px;
+}
+
+/* Tags / chips redondos grandes → radio Linear (sin pills). */
+.acc-role-tag, .companion-chip, .feature-tag, .stems-row-kind { border-radius: 5px !important; }
+
+/* ═══ MODALES RESPONSIVE ═══
+   Ningún modal se corta arriba/abajo: se limita al alto del viewport y, si su
+   contenido no entra, scrollea verticalmente dentro del panel. */
+.d-modal, .acc-panel, .cp-panel, .mp-panel, .pf-panel, .sp-panel, .stt-modal,
+.nsl-modal, .setlists-modal, .pr-modal, .pr-panel, .soon-panel,
+.lyrics-modal-panel, .modal-preview-panel, .lyrics-preview-panel,
+.stems-modal-card, .stems-newsong-modal, .stems-assign-modal,
+.stems-cloud-panel, .stems-export-panel, .transpose-select-modal,
+.about-sidebar-panel {
+  max-height: calc(100vh - 32px) !important;
+  overflow-y: auto !important;
+}
+
+/* Padding en los overlays que YA centran (display:flex) — sin forzar display
+   para no romper los que se ocultan con [hidden]/display:none (ej. el overlay
+   de "Cargando proyecto…" de Stems, que reusa .stems-export-overlay). */
+.d-overlay:not([hidden]), .acc-overlay:not([hidden]),
+.lyrics-modal-overlay:not([hidden]) {
+  padding: 16px;
+}
