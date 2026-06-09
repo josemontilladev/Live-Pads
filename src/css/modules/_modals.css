@@ -1684,41 +1684,43 @@ body.lyrics-fs-open { overflow: hidden; }
 .mtm-panel {
   position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
   pointer-events: auto;
-  width: 340px; min-width: 248px; max-width: 96vw;
-  height: auto; min-height: 300px; max-height: calc(100vh - 16px);
-  overflow: auto; resize: both;            /* grip ↘ para redimensionar */
+  -webkit-app-region: no-drag;             /* clickeable aun sobre el topbar (drag region) */
+  width: 332px; min-width: 244px; max-width: min(96vw, 480px);
+  height: auto; max-height: calc(100vh - 12px);   /* alto SIEMPRE se ajusta al contenido (sin huecos) */
+  overflow: auto; resize: horizontal;      /* solo ancho: escala el disco, el alto sigue solo */
   background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  padding: 0 18px 20px; display: flex; flex-direction: column; gap: 13px;
+  padding: 0 16px 14px; display: flex; flex-direction: column; gap: 9px;
 }
 .mtm-head {
   display: flex; align-items: center; gap: 8px; cursor: move;
-  margin: 0 -18px 4px; padding: 13px 14px 12px;
+  margin: 0 -16px 2px; padding: 10px 14px 9px;
   border-bottom: 1px solid var(--border); user-select: none;
 }
 .mtm-drag-dots { color: var(--text-muted); opacity: 0.5; letter-spacing: -2px; font-size: 14px; }
-.mtm-head h3 { margin: 0; flex: 1; font-size: 15px; font-weight: 700; }
+.mtm-head h3 { margin: 0; flex: 1; font-size: 14px; font-weight: 700; }
 .mtm-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; line-height: 1; }
 .mtm-close:hover { color: var(--text); }
 .mtm-bpm { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.mtm-bpm-main { display: flex; flex-direction: column; align-items: center; min-width: 110px; }
+.mtm-bpm-main { display: flex; flex-direction: column; align-items: center; min-width: 104px; }
 .mtm-bpm-input {
   width: 100%; text-align: center; background: transparent; border: none;
-  color: var(--accent); font-size: 42px; font-weight: 800; line-height: 1; padding: 0;
+  color: var(--accent); font-size: 34px; font-weight: 800; line-height: 1; padding: 0;
   font-family: inherit; outline: none; -moz-appearance: textfield;
 }
 .mtm-bpm-input::-webkit-outer-spin-button, .mtm-bpm-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .mtm-bpm-input:focus { color: var(--text); }
 .mtm-bpm-unit { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); }
-.mtm-step { width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 20px; cursor: pointer; flex-shrink: 0; }
+.mtm-step { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 19px; cursor: pointer; flex-shrink: 0; }
 .mtm-step:hover { border-color: var(--border-strong); background: var(--bg-hover); }
-.mtm-bpm-slider { width: 100%; }
-.mtm-tap { align-self: center; padding: 6px 24px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-weight: 700; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+.mtm-bpm-slider-row { display: flex; align-items: center; gap: 10px; }
+.mtm-bpm-slider { flex: 1; min-width: 0; }
+.mtm-tap { flex-shrink: 0; padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-weight: 700; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
 .mtm-tap:hover { border-color: var(--accent); color: var(--accent); }
 .mtm-tap:active { background: var(--accent); color: var(--on-accent, #0a0a14); }
 
 /* Visualización radial (segmentos por tiempo + pulso de subdivisión). */
-.mtm-radial { width: 100%; max-width: 168px; height: auto; aspect-ratio: 1 / 1; align-self: center; display: block; flex-shrink: 0; }
+.mtm-radial { width: 46%; max-width: 188px; height: auto; aspect-ratio: 1 / 1; align-self: center; display: block; flex-shrink: 0; }
 .mtm-seg { fill: var(--bg-hover); stroke: var(--bg-card); stroke-width: 2; transition: fill 0.04s ease; }
 .mtm-seg.is-on { fill: var(--accent); }
 .mtm-seg.is-on.is-accent { fill: #ef4444; }        /* tiempo 1 (acento) = rojo */
@@ -1730,27 +1732,27 @@ body.lyrics-fs-open { overflow: hidden; }
   100% { stroke-width: 0; opacity: 0;    r: 50; }
 }
 .mtm-radial-num { fill: var(--text); font-size: 30px; font-weight: 800; }
-.mtm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.mtm-field { display: flex; flex-direction: column; gap: 5px; }
-.mtm-field > span { font-size: 9.5px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
-.mtm-field select { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 13px; cursor: pointer; }
-.mtm-sub { display: flex; flex-direction: column; gap: 7px; }
-.mtm-sub-label { font-size: 9.5px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
-.mtm-sub-opts { display: flex; gap: 6px; }
-.mtm-sub-btn { flex: 1; padding: 9px 0; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted); font-size: 14px; font-weight: 700; cursor: pointer; }
+.mtm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mtm-field { display: flex; flex-direction: column; gap: 4px; }
+.mtm-field > span { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
+.mtm-field select { padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 12.5px; cursor: pointer; }
+.mtm-sub { display: flex; flex-direction: column; gap: 5px; }
+.mtm-sub-label { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
+.mtm-sub-opts { display: flex; gap: 5px; }
+.mtm-sub-btn { flex: 1; padding: 7px 0; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: pointer; }
 .mtm-sub-btn:hover { color: var(--text); border-color: var(--border-strong); }
 .mtm-sub-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a14); border-color: var(--accent); }
-.mtm-sub-name { font-size: 11px; color: var(--text-muted); text-align: center; }
+.mtm-sub-name { font-size: 10.5px; color: var(--text-muted); text-align: center; }
 .mtm-vol { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
 .mtm-vol-slider { flex: 1; }
-.mtm-play { align-self: center; width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--accent); color: var(--on-accent, #0a0a14); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent); transition: transform 0.1s, filter 0.1s; }
+.mtm-play { align-self: center; width: 50px; height: 50px; margin-top: 2px; border-radius: 50%; border: none; background: var(--accent); color: var(--on-accent, #0a0a14); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent); transition: transform 0.1s, filter 0.1s; }
 .mtm-play:hover { filter: brightness(1.06); }
 .mtm-play:active { transform: scale(0.95); }
 .mtm-play.is-playing { background: #ef4444; box-shadow: 0 4px 14px rgba(239,68,68,0.4); color: #fff; }
 
-/* Metrónomo — extras: nombre de tempo, acentos/silencios por tiempo, presets. */
-.mtm-tempo-name { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 3px; }
-.mtm-radial-hint { font-size: 10.5px; color: var(--text-muted); text-align: center; margin: -6px 0 0; }
+/* Metrónomo — extras: nombre de tempo, acentos/silencios por tiempo. */
+.mtm-tempo-name { font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 1px; }
+.mtm-radial-hint { font-size: 10px; color: var(--text-muted); text-align: center; margin: -3px 0 -2px; }
 .mtm-radial-hint b { color: var(--text); font-weight: 600; }
 .mtm-seg.beat-accent { fill: color-mix(in srgb, #ef4444 24%, var(--bg-hover)); }
 .mtm-seg.beat-rest { fill: var(--bg-surface); opacity: 0.4; }

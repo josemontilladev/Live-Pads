@@ -13,7 +13,8 @@ const LS_POS = 'livepads.metronome.pos';
 function saveGeom(panel) {
   try {
     const r = panel.getBoundingClientRect();
-    localStorage.setItem(LS_POS, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }));
+    // Solo ancho + posición: el alto es automático (el panel se ajusta al contenido).
+    localStorage.setItem(LS_POS, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width) }));
   } catch (_) {}
 }
 function loadGeom() { try { return JSON.parse(localStorage.getItem(LS_POS) || 'null'); } catch (_) { return null; } }
@@ -272,11 +273,13 @@ export function openMetronomeModal() {
         </div>
         <button class="mtm-step" data-bpm="1" type="button" aria-label="Más BPM">+</button>
       </div>
-      <input type="range" class="mtm-bpm-slider" min="30" max="300" value="${bpm}" aria-label="BPM">
-      <button class="mtm-tap" type="button">TAP</button>
+      <div class="mtm-bpm-slider-row">
+        <input type="range" class="mtm-bpm-slider" min="30" max="300" value="${bpm}" aria-label="BPM">
+        <button class="mtm-tap" type="button">TAP</button>
+      </div>
 
       <svg class="mtm-radial" viewBox="0 0 200 200" role="img" aria-label="Compás (toca un segmento: normal · acento · silencio)"></svg>
-      <p class="mtm-radial-hint">Tocá un segmento para alternar <b>normal → acento → silencio</b></p>
+      <p class="mtm-radial-hint">Tocá un segmento: <b>normal → acento → silencio</b></p>
 
       <div class="mtm-grid">
         <label class="mtm-field">
@@ -319,8 +322,7 @@ export function openMetronomeModal() {
   const geom = loadGeom();
   if (geom && typeof geom.x === 'number') {
     if (geom.w) panel.style.width = `${Math.min(geom.w, Math.round(window.innerWidth * 0.96))}px`;
-    if (geom.h) panel.style.height = `${Math.min(geom.h, window.innerHeight - 16)}px`;
-    const W = geom.w || 340;
+    const W = geom.w || 332;
     panel.style.left = `${Math.max(8, Math.min(window.innerWidth - W - 8, geom.x))}px`;
     panel.style.top = `${Math.max(8, Math.min(window.innerHeight - 60, geom.y))}px`;
     panel.style.transform = 'none';
