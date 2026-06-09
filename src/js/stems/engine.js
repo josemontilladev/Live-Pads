@@ -88,6 +88,20 @@ export function setLoopRegion(startSec, endSec) {
 export function clearLoopRegion() { loopStart = loopEnd = null; }
 export function getLoopRegion() { return { start: loopStart, end: loopEnd }; }
 
+// Nivel de pico (0..1) de UNA pista, leído de su analyser post-fader. Para los
+// VU por canal de la consola.
+let trackMeterBuf = null;
+export function getTrackLevel(id) {
+  const t = tracks.get(id);
+  if (!t || !t.meterAnalyser) return 0;
+  const n = t.meterAnalyser.fftSize;
+  if (!trackMeterBuf || trackMeterBuf.length !== n) trackMeterBuf = new Float32Array(n);
+  t.meterAnalyser.getFloatTimeDomainData(trackMeterBuf);
+  let peak = 0;
+  for (let i = 0; i < n; i++) { const a = trackMeterBuf[i] < 0 ? -trackMeterBuf[i] : trackMeterBuf[i]; if (a > peak) peak = a; }
+  return peak;
+}
+
 export function getMasterVolume() { return masterGain ? masterGain.gain.value : 0.85; }
 export function setMasterVolume(v) {
   ensureCtx();
@@ -221,6 +235,12 @@ export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offse
   panNode.pan.value = 0;
   gainNode.connect(panNode);
   panNode.connect(masterGain);
+  // Tap post-fader/pan para el VU por pista (no altera el audio: el analyser es
+  // solo una derivación de lectura). fftSize chico = barato con muchas pistas.
+  const meterAnalyser = ctx.createAnalyser();
+  meterAnalyser.fftSize = 256;
+  meterAnalyser.smoothingTimeConstant = 0.4;
+  panNode.connect(meterAnalyser);
 
   tracks.set(id, {
     id,
@@ -229,6 +249,7 @@ export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offse
     buffer,
     gainNode,
     panNode,
+    meterAnalyser,
     sourceNode: null,
     volume: gainNode.gain.value,
     pan: 0,

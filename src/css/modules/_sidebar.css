@@ -30,25 +30,22 @@
    without disturbing the tab layout. */
 .sidebar-close-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: transparent;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: none;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 2px;
+  font-size: 18px;
+  line-height: 1;
   z-index: 2;
+  transition: color 0.15s;
 }
-.sidebar-close-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--glow);
-}
+.sidebar-close-btn:hover { color: var(--text); }
 
 /* ── Panel de Ajustes en 2 columnas: nav lateral de categorías + contenido ── */
 .sidebar-layout { flex: 1; display: flex; min-height: 0; }
@@ -318,9 +315,11 @@
 .sb-label, .sidebar-nav-title,
 #preflight-overlay .pf-header h3, #mappings-overlay .mp-header h3,
 #companion-overlay .cp-header h3, .bank-picker-title {
-  font-weight: 600 !important;
+  font-weight: 500 !important;
   letter-spacing: 1.2px;
 }
+/* Items de la navegación lateral, un poco más livianos. */
+.sidebar-nav .stab { font-weight: 500; }
 
 /* ── Mapeos activos EMBEBIDOS: filas + footer compactos para el ancho del panel ── */
 .embedded-in-sidebar .mp-row { gap: 6px; padding: 7px 9px; align-items: center; }

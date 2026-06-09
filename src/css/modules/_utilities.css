@@ -4,7 +4,7 @@
 
 /* Topbar */
 .topbar-logo-text { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; }
-.topbar-logo-img { height: 34px; }
+.topbar-logo-img { height: 34px; width: 34px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 
 /* Body root flex direction (was inline) */

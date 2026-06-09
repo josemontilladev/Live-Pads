@@ -3,6 +3,7 @@ import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
+import { openMetronomeModal } from './ui/metronomeModal.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
@@ -555,6 +556,7 @@ function bindAll() {
   bindClickWithSeqToggle();
   bindCountInToggle();
   bindPadsPianoToggle();
+  q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   // Refresh the on-pad key hints whenever mappings are cleared/changed.
   document.addEventListener('livepads:mappings-changed', () => {
     if (typeof updateKeyHints === 'function') updateKeyHints();
@@ -1094,7 +1096,16 @@ function reflectPadsPianoBtn(open) {
 }
 function bindPadsPianoToggle() {
   const btn = q('#btn-piano-pads');
-  if (btn) btn.onclick = () => togglePadsPiano(reflectPadsPianoBtn);
+  if (!btn) return;
+  // Mismo botón del topbar en ambas pantallas: en Stems togglea el piano de
+  // Stems (que graba/edita MIDI); en Pads, el piano de Pads.
+  btn.onclick = () => {
+    if (document.body.dataset.workspace === 'stems') {
+      import('./stems/pianoPanel.js').then(m => m.togglePiano()).catch(() => {});
+    } else {
+      togglePadsPiano(reflectPadsPianoBtn);
+    }
+  };
 }
 
 // Cuenta de entrada: agenda un compás de clicks (al BPM/compás del metrónomo) y

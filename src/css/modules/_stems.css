@@ -572,6 +572,7 @@ body[data-workspace="stems"] #body {
   cursor: pointer;
   padding: 0 4px;
   outline: none;
+  color-scheme: dark;
 }
 .stems-field--select option { background: var(--bg-card); color: var(--text); }
 
@@ -783,13 +784,22 @@ body[data-workspace="stems"] #body {
 .stems-snap-toggle input { accent-color: var(--accent); }
 .stems-snap-toggle:has(input:checked) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 /* Select de subdivisión de snap (Off / 1/16 / 1/8 / 1/4 / Compás). */
+/* Mismo lenguaje visual que los dropdown de Pads (.metro-dropdown / .stems-mini-select). */
 .stems-snap-select {
   appearance: none;
-  background: var(--bg-hover); color: var(--text);
-  border: 1px solid var(--border); border-radius: 5px;
-  font: 700 10px/1 inherit; letter-spacing: 0.5px;
-  padding: 3px 6px; cursor: pointer;
+  -webkit-appearance: none;
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  font: 600 11px/1 var(--font-main); letter-spacing: 0.3px;
+  padding: 6px 24px 6px 10px; cursor: pointer; outline: none;
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color 0.2s;
 }
+.stems-snap-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
+.stems-snap-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.stems-snap-select option { background: var(--bg-card); color: var(--text); }
 
 .stems-state-pill {
   display: inline-flex;
@@ -1390,7 +1400,7 @@ body[data-workspace="stems"] #body {
 .stems-row.is-dragging { opacity: 0.4; background: rgba(255,255,255,0.04); }
 /* Multi-selección (Ctrl/Cmd + clic): fila resaltada. */
 .stems-row.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
-.stems-row.is-selected .stems-row-strip { background: var(--glow); }
+.stems-row.is-selected .stems-row-strip { background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); }
 
 /* Localizada desde la consola (clic en un strip): subrayado de acento + tinte
    para identificar de un vistazo qué pista corresponde al canal tocado. Al
@@ -2868,3 +2878,60 @@ body[data-workspace="stems"] #body {
 .stt-btn:hover { background: rgba(255,255,255,0.12); }
 .stt-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
 .stt-btn--primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* ── VU por pista en la consola — barrita vertical junto al fader (look master) ── */
+.stems-cfader-row { display: flex; gap: 4px; align-items: stretch; width: 100%; height: 100%; min-height: 48px; }
+.stems-cfader-row .stems-cfader { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.stems-cmeter {
+  flex: 0 0 5px; width: 5px; align-self: stretch;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.stems-cmeter-fill {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
+  clip-path: inset(100% 0 0 0);
+  background: linear-gradient(180deg,
+    #ff5f57 0%,
+    color-mix(in srgb, var(--accent), white 18%) 28%,
+    var(--accent) 70%,
+    color-mix(in srgb, var(--accent), black 25%) 100%);
+  transition: clip-path 0.05s linear;
+}
+
+/* ── Multiplicador del click 1x / 2x (junto a Detectar BPM) ── */
+.stems-click-mult { display: inline-flex; gap: 2px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.stems-mult-btn {
+  border: none; background: transparent; color: var(--text-muted);
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stems-mult-btn:hover { color: var(--text); }
+.stems-mult-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a14); }
+
+/* ── Metrónomo con subdivisiones (popover junto al piano) ── */
+.stems-metro-wrap { position: relative; display: inline-flex; }
+#stems-metro-toggle.is-on { color: var(--accent); border-color: var(--accent); }
+.stems-metro-pop {
+  position: fixed; z-index: 9500;
+  min-width: 184px; padding: 6px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  display: flex; flex-direction: column; gap: 1px;
+}
+.stems-metro-pop.hidden { display: none; }
+.stems-metro-pop-title {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-muted); padding: 4px 8px 6px;
+}
+.stems-metro-opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 9px; border: none; border-radius: 6px; background: none;
+  color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-align: left; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stems-metro-opt:hover { background: var(--bg-hover); color: var(--text); }
+.stems-metro-opt.is-on { color: var(--accent); }
+.stems-metro-opt.is-on::after { content: '✓'; font-weight: 700; }
