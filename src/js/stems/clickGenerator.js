@@ -35,6 +35,17 @@ export function getClickSounds() {
   return Object.keys(CLICK_FILE_MAP).map(id => ({ id, label: CLICK_LABELS[id] }));
 }
 
+// Carga (y cachea) los buffers accent/normal de un sonido — para metrónomos en
+// vivo (modal) que reproducen sample por sample en vez de generar una pista.
+export async function loadClickBuffers(ctx, sound = 'cowbell') {
+  const map = CLICK_FILE_MAP[sound] || CLICK_FILE_MAP.cowbell;
+  const [accent, normal] = await Promise.all([
+    decodeSample(ctx, map.accent),
+    decodeSample(ctx, map.normal),
+  ]);
+  return { accent, normal };
+}
+
 // Decoded-sample cache keyed by file path. Buffers are bound to the context
 // that decoded them; since we always pass the live engine AudioContext this
 // stays valid across regenerations.
@@ -61,7 +72,7 @@ async function decodeSample(ctx, path) {
 // which beats of the bar get the ACCENT sample. When omitted, only beat 1 is
 // accented (classic behaviour). Indexed by beat-in-bar after applying
 // accentBeatOffset, so it stays phase-locked to the detected downbeat.
-export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell', accentBeatOffset = 0, accentPattern = null } = {}) {
+export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell', accentBeatOffset = 0, accentPattern = null, subdivision = 1 } = {}) {
   const map = CLICK_FILE_MAP[sound] || CLICK_FILE_MAP.cowbell;
   const audioCtx = ctx || new OfflineAudioContext(2, Math.ceil(durationSec * SAMPLE_RATE), SAMPLE_RATE);
   const sampleRate = audioCtx.sampleRate;
@@ -74,7 +85,7 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
     ]);
   } catch (e) {
     console.warn('Click samples not loaded, using synth fallback:', e.message);
-    return synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset, accentPattern });
+    return synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset, accentPattern, subdivision });
   }
 
   const isAccentBeat = (b) => {
@@ -88,23 +99,30 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
 
   const beatIntervalSec = 60 / bpm;
   const beats = Math.floor(durationSec / beatIntervalSec) + 1;
+  const subdiv = Math.max(1, Math.round(subdivision || 1));
 
   for (let b = 0; b < beats; b++) {
-    const startIdx = Math.floor(b * beatIntervalSec * sampleRate);
-    if (startIdx >= length) break;
-    const src = isAccentBeat(b) ? accentBuf : normalBuf;
-    for (let ch = 0; ch < channels; ch++) {
-      const dst = out.getChannelData(ch);
-      const srcData = src.getChannelData(Math.min(ch, src.numberOfChannels - 1));
-      const n = Math.min(srcData.length, length - startIdx);
-      for (let s = 0; s < n; s++) dst[startIdx + s] += srcData[s];
+    const beatStartSec = b * beatIntervalSec;
+    // k=0 es el pulso (accent/normal); k>0 son las subdivisiones (más suaves).
+    for (let k = 0; k < subdiv; k++) {
+      const startIdx = Math.floor((beatStartSec + (k / subdiv) * beatIntervalSec) * sampleRate);
+      if (startIdx >= length) continue;
+      const isMain = k === 0;
+      const src = (isMain && isAccentBeat(b)) ? accentBuf : normalBuf;
+      const gain = isMain ? 1 : 0.45;
+      for (let ch = 0; ch < channels; ch++) {
+        const dst = out.getChannelData(ch);
+        const srcData = src.getChannelData(Math.min(ch, src.numberOfChannels - 1));
+        const n = Math.min(srcData.length, length - startIdx);
+        for (let s = 0; s < n; s++) dst[startIdx + s] += srcData[s] * gain;
+      }
     }
   }
   return out;
 }
 
 // Synthesized beep fallback (used only if the real samples fail to load).
-function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset = 0, accentPattern = null }) {
+function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accentBeatOffset = 0, accentPattern = null, subdivision = 1 }) {
   const length = Math.ceil(durationSec * sampleRate);
   const buffer = (audioCtx || new OfflineAudioContext(1, length, sampleRate)).createBuffer(1, length, sampleRate);
   const data = buffer.getChannelData(0);
@@ -113,21 +131,26 @@ function synthClick({ bpm, beatsPerBar, durationSec, sampleRate, audioCtx, accen
   const beats = Math.floor(durationSec / beatIntervalSec) + 1;
   const clickSamples = Math.floor(0.025 * sampleRate);
   const envSamples = Math.floor(0.004 * sampleRate);
+  const subdiv = Math.max(1, Math.round(subdivision || 1));
 
   for (let b = 0; b < beats; b++) {
-    const startIdx = Math.floor(b * beatIntervalSec * sampleRate);
-    if (startIdx >= length) break;
-    const idx = ((b + accentBeatOffset) % beatsPerBar + beatsPerBar) % beatsPerBar;
-    const isAccent = accentPattern ? !!accentPattern[idx] : (idx === 0);
-    const freq = isAccent ? 1500 : 1000;
-    const amp = isAccent ? 0.85 : 0.55;
-    for (let s = 0; s < clickSamples; s++) {
-      const idx = startIdx + s;
-      if (idx >= length) break;
-      let env = 1;
-      if (s < envSamples) env = s / envSamples;
-      else if (s > clickSamples - envSamples) env = (clickSamples - s) / envSamples;
-      data[idx] = Math.sin(2 * Math.PI * freq * s / sampleRate) * amp * env;
+    const beatStartSec = b * beatIntervalSec;
+    const bIdx = ((b + accentBeatOffset) % beatsPerBar + beatsPerBar) % beatsPerBar;
+    const isAccent = accentPattern ? !!accentPattern[bIdx] : (bIdx === 0);
+    for (let k = 0; k < subdiv; k++) {
+      const startIdx = Math.floor((beatStartSec + (k / subdiv) * beatIntervalSec) * sampleRate);
+      if (startIdx >= length) continue;
+      const isMain = k === 0;
+      const freq = (isMain && isAccent) ? 1500 : (isMain ? 1000 : 1200);
+      const amp = isMain ? (isAccent ? 0.85 : 0.55) : 0.28;
+      for (let s = 0; s < clickSamples; s++) {
+        const idx = startIdx + s;
+        if (idx >= length) break;
+        let env = 1;
+        if (s < envSamples) env = s / envSamples;
+        else if (s > clickSamples - envSamples) env = (clickSamples - s) / envSamples;
+        data[idx] += Math.sin(2 * Math.PI * freq * s / sampleRate) * amp * env;
+      }
     }
   }
   return buffer;

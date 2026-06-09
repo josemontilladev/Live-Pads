@@ -187,16 +187,12 @@
 }
 .pk-close {
   margin-left: auto;
-  width: 24px; height: 24px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-card);
+  background: none; border: none; padding: 0 2px;
   color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  font-size: 18px; line-height: 1; cursor: pointer;
+  transition: color 0.15s;
 }
-.pk-close:hover { color: var(--accent); border-color: var(--accent); }
+.pk-close:hover { color: var(--text); }
 
 /* ── Teclado ──────────────────────────────────────────────────────── */
 .pk-keys {
@@ -284,6 +280,5 @@
     color-mix(in srgb, var(--accent) 92%, #000));
 }
 
-/* El botón de piano del topbar es de Pads: ocultarlo en el workspace de Stems
-   (que tiene su propio piano). */
-body[data-workspace="stems"] #btn-piano-pads { display: none; }
+/* El botón de piano del topbar sirve en ambas pantallas: en Pads togglea el
+   piano de Pads, en Stems el piano de Stems (lógica context-aware en app.js). */

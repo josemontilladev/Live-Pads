@@ -102,6 +102,8 @@ let bpmFloat = 120;       // precise tempo used for click, alignment + grid so
                           // nothing drifts across a long track
 let beatsPerBar = 4;
 let beatValue = 4;
+let clickMultiplier = 1;  // 1x o 2x — 2x dobla el tiempo del click (corcheas)
+let clickSubdivision = 1; // notas por tiempo (1 = sin subdivisión, 2 = corcheas, 3 = tresillos…)
 // Tonalidad ORIGINAL del audio cargado (ej. "C", "Am", "F#m"). El selector
 // del topbar muestra la tonalidad EFECTIVA = projectKey transpuesta por
 // currentStemsPitch — si el usuario baja 1 semitono al transpose, ve la
@@ -459,6 +461,10 @@ const SHELL_HTML = `
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
             Detectar
           </button>
+          <div class="stems-click-mult" role="group" aria-label="Multiplicador del click" title="Multiplicador del click: 2x dobla el tiempo (corcheas)">
+            <button class="stems-mult-btn is-on" id="stems-click-1x" data-mult="1" type="button">1x</button>
+            <button class="stems-mult-btn" id="stems-click-2x" data-mult="2" type="button">2x</button>
+          </div>
         </div>
         <div class="stems-field stems-field--select">
           <label>COMPÁS</label>
@@ -627,9 +633,6 @@ const SHELL_HTML = `
             <option value="bar">Compás</option>
           </select>
         </label>
-        <button class="stems-piano-btn" id="stems-piano-toggle" type="button" title="Piano virtual — toca/graba con tu controlador MIDI" aria-pressed="false" aria-label="Piano virtual">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
-        </button>
         <div class="stems-readout">
           <span class="label">TIMECODE</span>
           <span class="value mono" id="stems-timecode">00:00.000</span>
@@ -830,6 +833,24 @@ function qa(sel, root) { return Array.from((root || document).querySelectorAll(s
 let meterRAF = null;
 let meterLastDecay = 0;
 let meterPeakSmoothed = 0;
+// VU por pista — pinta el meter de cada strip de la consola (mismo clip-path que
+// el master) con ataque rápido / release lento. Se llama desde el loop del master.
+const trackMeterSmoothed = new Map();
+function paintTrackMeters(playing) {
+  const strips = document.querySelectorAll('#stems-console-strips .stems-console-strip');
+  strips.forEach((strip) => {
+    const id = strip.dataset.trackId;
+    const fill = strip.querySelector('.stems-cmeter-fill');
+    if (!id || !fill) return;
+    let prev = trackMeterSmoothed.get(id) || 0;
+    const lvl = playing ? engine.getTrackLevel(id) : 0;
+    prev = lvl > prev ? lvl : prev * 0.85 + lvl * 0.15;
+    if (prev < 0.005) prev = 0;
+    trackMeterSmoothed.set(id, prev);
+    fill.style.clipPath = `inset(${(100 - Math.min(100, prev * 100)).toFixed(1)}% 0 0 0)`;
+  });
+}
+
 function startMasterMeter() {
   if (meterRAF) return; // already running
   const el = document.getElementById('stems-master-meter');
@@ -846,9 +867,11 @@ function startMasterMeter() {
       if (meterPeakSmoothed > 0.02) {
         meterPeakSmoothed *= 0.9;
         setLevel(meterPeakSmoothed);
+        paintTrackMeters(false);
         meterRAF = requestAnimationFrame(tick);
       } else {
         setLevel(0);
+        paintTrackMeters(false);
         meterRAF = null; // idle → stop until playback resumes
       }
       return;
@@ -858,6 +881,7 @@ function startMasterMeter() {
     if (peak > meterPeakSmoothed) meterPeakSmoothed = peak;
     else meterPeakSmoothed = meterPeakSmoothed * 0.85 + peak * 0.15;
     setLevel(meterPeakSmoothed);
+    paintTrackMeters(true);
     meterRAF = requestAnimationFrame(tick);
   };
   meterRAF = requestAnimationFrame(tick);
@@ -1027,6 +1051,21 @@ function wireTopbarEvents(root) {
   // pausa, queda en 0. (Stop, en cambio, detiene.)
   root.querySelector('#stems-restart').onclick = () => { resumeAutoFollow(); engine.seek(0); };
   root.querySelector('#stems-bpm-detect').onclick = onDetectBpm;
+  // Multiplicador del click (1x / 2x): 2x dobla el tiempo (corcheas). Si ya hay
+  // click generado, se regenera al nuevo tiempo al instante.
+  root.querySelectorAll('.stems-mult-btn').forEach((btn) => {
+    btn.onclick = () => {
+      const m = parseInt(btn.dataset.mult, 10) || 1;
+      if (m === clickMultiplier) return;
+      clickMultiplier = m;
+      root.querySelectorAll('.stems-mult-btn').forEach(b => b.classList.toggle('is-on', b === btn));
+      const clickId = engine.findTrackByKind('click');
+      if (clickId) regenerateClickTrack(clickId);
+      scheduleSave();
+    };
+  });
+
+  // El metrónomo vive en el topbar global (#btn-metro-pads, vía app.js).
 
   // Buttons animate too, anchored to the centre of the visible lane area.
   const zoomBtnAnchorX = () => {
@@ -1840,12 +1879,15 @@ function buildConsoleStripHtml(track) {
       <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="mute" title="Silenciar">M</button>
       <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="solo" title="Solo">S</button>
     </div>
-    <div class="stems-cfader" data-action="vol" role="slider"
-         aria-label="Volumen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${volPct}"
-         tabindex="0" data-value="${volPct}">
-      <div class="stems-cfader-track" aria-hidden="true"></div>
-      <div class="stems-cfader-fill" aria-hidden="true"></div>
-      <div class="stems-cfader-handle" aria-hidden="true"></div>
+    <div class="stems-cfader-row">
+      <div class="stems-cfader" data-action="vol" role="slider"
+           aria-label="Volumen" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${volPct}"
+           tabindex="0" data-value="${volPct}">
+        <div class="stems-cfader-track" aria-hidden="true"></div>
+        <div class="stems-cfader-fill" aria-hidden="true"></div>
+        <div class="stems-cfader-handle" aria-hidden="true"></div>
+      </div>
+      <div class="stems-cmeter" aria-hidden="true"><div class="stems-cmeter-fill"></div></div>
     </div>
     <span class="stems-console-strip-readout">${volPct}</span>
   `;
@@ -3001,8 +3043,8 @@ function wirePiano(root) {
     onRecordNote: onPianoRecordNote,
     onRecordStop: onPianoRecordStop,
   });
-  const btn = root.querySelector('#stems-piano-toggle');
-  if (btn) btn.onclick = () => togglePiano();
+  // El botón de piano vive en el topbar global (#btn-piano-pads); en Stems
+  // dispara togglePiano() vía app.js. Acá solo queda el doble-clic del piano roll.
   // Doble clic en una fila MIDI abre el piano roll.
   const rows = root.querySelector('#stems-rows');
   if (rows) rows.addEventListener('dblclick', (e) => {
@@ -3016,7 +3058,8 @@ function wirePiano(root) {
 }
 
 function paintPianoToggle(open) {
-  const btn = document.getElementById('stems-piano-toggle');
+  // El botón del piano de Stems ahora vive en el topbar global.
+  const btn = document.getElementById('btn-piano-pads');
   if (!btn) return;
   btn.classList.toggle('is-active', open);
   btn.setAttribute('aria-pressed', open ? 'true' : 'false');
@@ -4594,7 +4637,7 @@ function computeClickAlignment() {
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm: bpmFloat, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
+  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
   await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
@@ -4608,7 +4651,7 @@ async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
   const { offsetSec, accentBeatOffset } = computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm: bpmFloat, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern });
+  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);
   engine.setTrackOffset(existingId, offsetSec);
@@ -5207,6 +5250,8 @@ async function doSave() {
       rowHeight: ROW_HEIGHT,
       snapDivision,
       clickSoundId,
+      clickMultiplier,
+      clickSubdivision,
       loopEnabled,
       loopStartMarkerId,
       loopEndMarkerId,
@@ -5324,6 +5369,17 @@ async function rehydrate(state) {
     clickSoundId = valid ? state.clickSoundId : 'cowbell';
     const sel = document.getElementById('stems-click-sound');
     if (sel) sel.value = clickSoundId;
+  }
+  if (state.clickMultiplier === 2 || state.clickMultiplier === 1) {
+    clickMultiplier = state.clickMultiplier;
+    document.querySelectorAll('.stems-mult-btn').forEach(b =>
+      b.classList.toggle('is-on', (parseInt(b.dataset.mult, 10) || 1) === clickMultiplier));
+  }
+  if (typeof state.clickSubdivision === 'number' && state.clickSubdivision >= 1) {
+    clickSubdivision = Math.round(state.clickSubdivision);
+    document.querySelectorAll('.stems-metro-opt').forEach(o =>
+      o.classList.toggle('is-on', (parseInt(o.dataset.sub, 10) || 1) === clickSubdivision));
+    document.getElementById('stems-metro-toggle')?.classList.toggle('is-on', clickSubdivision > 1);
   }
   if (state.loopStartMarkerId) loopStartMarkerId = state.loopStartMarkerId;
   if (state.loopEndMarkerId)   loopEndMarkerId = state.loopEndMarkerId;
