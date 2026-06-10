@@ -62,6 +62,13 @@ function transposeChordToken(token, semitones, preferFlats) {
 export function transposeBracketedChords(text, semitones, preferFlats = null) {
   if (!text || semitones === 0) return text;
   return text.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    // Solo es un corchete de ACORDES si TODOS sus tokens parsean como acorde.
+    // "[CORO]"/"[PUENTE]" son encabezados de sección: sin esta guarda, la "C"
+    // de CORO se trataba como Do y +4 la convertía en "EORO".
+    const tokens = inner.trim().split(/\s+/);
+    const allChords = tokens.length > 0 && tokens.every(t =>
+      /^x\d+$/i.test(t) || CHORD_TOKEN_RE.test(t.replace(/[()]/g, '')));
+    if (!allChords) return match;
     // A bracket may contain multiple chord tokens separated by whitespace:
     // "[C  G  Am  F]" -> transpose each.
     const transposed = inner.split(/(\s+)/).map(piece => {

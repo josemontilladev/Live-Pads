@@ -53,9 +53,11 @@
   min-width: 0;
 }
 
-/* Top modules: Bank + Metro in 2-col grid spanning full width */
+/* Top modules: Bank + Metro — solo columnas 1-2: la columna 3 es del setlist,
+   que ocupa TODO el lado derecho (filas 1-2). El metrónomo queda centrado
+   sobre la zona de pads. */
 #top-modules-grid {
-  grid-column: 1 / -1;
+  grid-column: 1 / 3;
   grid-row: 1;
   display: grid;
   grid-template-columns: 350px 1fr;

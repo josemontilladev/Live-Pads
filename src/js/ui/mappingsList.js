@@ -26,6 +26,7 @@ const ACTION_LABELS = {
   prev_song: 'Canción anterior',
   next_song: 'Canción siguiente',
   toggle_piano: 'Mostrar/ocultar piano',
+  toggle_metronome: 'Mostrar/ocultar metrónomo',
   pitch_up:   'Transponer +1 semitono',
   pitch_down: 'Transponer −1 semitono',
   slider:    'Slider',

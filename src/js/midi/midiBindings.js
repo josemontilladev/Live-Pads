@@ -216,6 +216,11 @@ export function bindMidiHandlers(deps) {
           if (deps.selectSource) deps.selectSource(mapping.id);
         } else if (mapping.action === 'toggle_piano') {
           deps.togglePadsPiano?.();
+        } else if (mapping.action === 'toggle_metronome') {
+          // Import dinámico para no acoplar el módulo MIDI al metrónomo.
+          import('../ui/metronomeModal.js')
+            .then(m => m.isMetronomeModalOpen() ? m.closeMetronomeModal() : m.openMetronomeModal())
+            .catch(() => {});
         } else if (mapping.action === 'pitch_up') {
           q('#tp-pitch-up')?.click();   // transponer la pista +1 semitono
         } else if (mapping.action === 'pitch_down') {
@@ -260,6 +265,7 @@ export function bindMidiHandlers(deps) {
     const nextBtn   = e.target.closest('#btn-service-next');
     const sourceBtn = e.target.closest('.source-seg-btn');
     const pianoBtn  = e.target.closest('#btn-piano-pads');
+    const metroModalBtn = e.target.closest('#btn-metro-pads');
     const pitchUpBtn   = e.target.closest('#tp-pitch-up');
     const pitchDownBtn = e.target.closest('#tp-pitch-down');
     const slider    = e.target.closest('input[type="range"]');
@@ -278,6 +284,7 @@ export function bindMidiHandlers(deps) {
     else if (nextBtn)  target = { action: 'next_song' };
     else if (sourceBtn) target = { action: 'source', id: sourceBtn.dataset.source };
     else if (pianoBtn) target = { action: 'toggle_piano' };
+    else if (metroModalBtn) target = { action: 'toggle_metronome' };
     else if (pitchUpBtn) target = { action: 'pitch_up' };
     else if (pitchDownBtn) target = { action: 'pitch_down' };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };

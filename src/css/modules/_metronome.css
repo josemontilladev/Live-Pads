@@ -14,11 +14,17 @@
   gap: 24px;
   z-index: 1;
   min-height: 60px;
+  /* En ventanas chicas las secciones NO entran en una fila: sin esto la
+     última (sonidos/checkboxes) desbordaba el panel y se montaba sobre el
+     setlist. wrap solo actúa cuando hace falta. */
+  flex-wrap: wrap;
+  row-gap: 10px;
 }
 .hm-section {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-width: 0;   /* permite encoger en vez de desbordar */
 }
 .hm-play {
   flex: 0 0 160px;
