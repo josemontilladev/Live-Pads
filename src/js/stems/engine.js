@@ -35,11 +35,13 @@ let analyserBuf = null;
 function ensureCtx() {
   if (ctx) return ctx;
   const AC = window.AudioContext || window.webkitAudioContext;
-  ctx = new AC();
+  ctx = new AC({ latencyHint: 'interactive' });
   // Tope de 48 kHz. Con interfaces a 96 kHz, cada buffer decodificado ocupa el
   // DOBLE de RAM; proyectos con muchas pistas largas se quedaban sin memoria al
   // transponer/exportar ("startRendering failed to create AudioBuffer"). 48 kHz
   // es indistinguible para reproducir/exportar y reduce la memoria a la mitad.
+  // NOTA: el close() de abajo es seguro — el contexto recién nació y no tiene
+  // ningún nodo ni playback; solo se usó para sondear el sampleRate del hardware.
   if (ctx.sampleRate > 48000) {
     try { ctx.close(); } catch (_) {}
     try { ctx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); } catch (_) { ctx = new AC({ latencyHint: 'interactive' }); }
