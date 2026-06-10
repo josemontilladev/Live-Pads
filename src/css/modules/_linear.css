@@ -155,7 +155,6 @@ input:not([type="range"]), select, textarea { border-radius: 6px; }
 .d-backdrop, .modal-backdrop, .soon-backdrop, .lyrics-modal-overlay,
 .spotlight-backdrop, .stems-modal-backdrop {
   background: rgba(0, 0, 0, 0.55) !important;
-  backdrop-filter: blur(2px);
 }
 
 /* Inputs / selects / filas dentro de modales → radio chico uniforme. */
@@ -169,6 +168,12 @@ input:not([type="range"]), select, textarea { border-radius: 6px; }
 
 /* Tags / chips redondos grandes → radio Linear (sin pills). */
 .acc-role-tag, .companion-chip, .feature-tag, .stems-row-kind { border-radius: 5px !important; }
+/* Chips/badges: misma caja en Librería (Pads) y Stems. */
+.gi-badge, .stems-row-kind {
+  padding: 2px 7px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+  border-radius: 5px;
+}
 
 /* ═══ MODALES RESPONSIVE ═══
    Ningún modal se corta arriba/abajo: se limita al alto del viewport y, si su
@@ -190,3 +195,14 @@ input:not([type="range"]), select, textarea { border-radius: 6px; }
 .lyrics-modal-overlay:not([hidden]) {
   padding: 16px;
 }
+
+/* ── Estados disabled estandarizados (guía Linear: todo control los tiene) ── */
+.icon-btn:disabled, .tap-btn:disabled, .sb-btn:disabled, .acc-btn:disabled,
+.stems-btn:disabled, .mtm-step:disabled, .mtm-tap:disabled, .mtm-sub-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Inputs: altura/padding unificados entre Pads, modales y Stems ── */
+.dialog-input { padding: 12px 14px; }

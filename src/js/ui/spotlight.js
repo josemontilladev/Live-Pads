@@ -130,7 +130,9 @@ function paintResults() {
   }
   resultsEl.innerHTML = lastResults.map((item, idx) => `
     <button class="sp-row ${idx === activeIndex ? 'is-active' : ''}" data-idx="${idx}" type="button">
-      <span class="sp-row-kind ${item.kind}">${item.kind === 'song' ? '🎵' : '⚡'}</span>
+      <span class="sp-row-kind ${item.kind}">${item.kind === 'song'
+        ? '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
+        : '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/></svg>'}</span>
       <div class="sp-row-text">
         <span class="sp-row-label">${escapeHtml(item.label)}</span>
         ${item.sub ? `<span class="sp-row-sub">${escapeHtml(item.sub)}</span>` : ''}

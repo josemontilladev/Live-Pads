@@ -281,7 +281,7 @@ function stemsLearnClick(e) {
   e.stopPropagation(); e.preventDefault();
   setMidiLearnTarget(target);
   const ov = document.getElementById('midi-learn-overlay');
-  if (ov) ov.innerHTML = `🎹 <b>Stems</b> — esperando MIDI para: <b>${target.action}${target.id != null ? ' ' + (target.id + 1) : ''}</b>… Toca tu controlador.`;
+  if (ov) ov.innerHTML = `<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg><b>Stems</b> — esperando MIDI para: <b>${target.action}${target.id != null ? ' ' + (target.id + 1) : ''}</b>… Toca tu controlador.`;
 }
 
 function handleStemsMidi(cmd, data1, data2) {
@@ -835,20 +835,35 @@ let meterLastDecay = 0;
 let meterPeakSmoothed = 0;
 // VU por pista — pinta el meter de cada strip de la consola (mismo clip-path que
 // el master) con ataque rápido / release lento. Se llama desde el loop del master.
+// Los elementos van CACHEADOS: querySelectorAll por frame con 10 pistas eran
+// ~600 queries DOM/seg. El cache se auto-invalida si cambia el número de strips
+// o si algún fill quedó desconectado (strip re-renderizado).
 const trackMeterSmoothed = new Map();
+let meterEls = null, meterContainer = null;
+function getMeterEls() {
+  const cont = document.getElementById('stems-console-strips');
+  if (!cont) return [];
+  const stale = !meterEls || meterContainer !== cont ||
+    meterEls.length !== cont.childElementCount ||
+    meterEls.some(m => !m.fill.isConnected);
+  if (stale) {
+    meterContainer = cont;
+    meterEls = [...cont.querySelectorAll('.stems-console-strip')].map(strip => ({
+      id: strip.dataset.trackId,
+      fill: strip.querySelector('.stems-cmeter-fill'),
+    })).filter(m => m.id && m.fill);
+  }
+  return meterEls;
+}
 function paintTrackMeters(playing) {
-  const strips = document.querySelectorAll('#stems-console-strips .stems-console-strip');
-  strips.forEach((strip) => {
-    const id = strip.dataset.trackId;
-    const fill = strip.querySelector('.stems-cmeter-fill');
-    if (!id || !fill) return;
+  for (const { id, fill } of getMeterEls()) {
     let prev = trackMeterSmoothed.get(id) || 0;
     const lvl = playing ? engine.getTrackLevel(id) : 0;
     prev = lvl > prev ? lvl : prev * 0.85 + lvl * 0.15;
     if (prev < 0.005) prev = 0;
     trackMeterSmoothed.set(id, prev);
     fill.style.clipPath = `inset(${(100 - Math.min(100, prev * 100)).toFixed(1)}% 0 0 0)`;
-  });
+  }
 }
 
 function startMasterMeter() {
@@ -1112,6 +1127,25 @@ function wireTopbarEvents(root) {
 }
 
 // Auto-detect BPM from the first imported (non-click, non-guide) track.
+// Corre detectTempoMeter en un Web Worker (la STFT congela el UI ~100-300ms
+// en el hilo principal). Los canales se COPIAN antes de transferir: transferir
+// el Float32Array original detacharía el buffer del engine y rompería el audio.
+// Si el worker no levanta, cae al camino síncrono de siempre.
+function detectTempoMeterAsync(buf) {
+  return new Promise((resolve) => {
+    let worker;
+    try {
+      worker = new Worker(new URL('./bpmWorker.js', import.meta.url), { type: 'module' });
+    } catch (_) { resolve(detectTempoMeter(buf)); return; }
+    const left = buf.getChannelData(0).slice();
+    const right = buf.numberOfChannels > 1 ? buf.getChannelData(1).slice() : null;
+    const transfers = [left.buffer]; if (right) transfers.push(right.buffer);
+    worker.onmessage = (e) => { resolve(e.data); worker.terminate(); };
+    worker.onerror = () => { try { worker.terminate(); } catch (_) {} resolve(detectTempoMeter(buf)); };
+    worker.postMessage({ left, right, sampleRate: buf.sampleRate }, transfers);
+  });
+}
+
 // Cheap autocorrelation under the hood — see bpmDetector.js. The user
 // confirms the detected value before we overwrite the current BPM,
 // since the algorithm can land on the wrong octave for sparse material.
@@ -1128,7 +1162,7 @@ function onDetectBpm() {
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     try {
       const buf = engine.getTrackBuffer(stemTrack.id);
-      const result = detectTempoMeter(buf);
+      const result = await detectTempoMeterAsync(buf);
       if (!result || !result.bpm) {
         toast('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).', 'warning');
         return;
@@ -1929,8 +1963,10 @@ function repaintAllFaders() {
   });
 }
 
-function faderValueFromPointer(faderEl, clientY) {
-  const rect = faderEl.getBoundingClientRect();
+// `rect` viene cacheado desde pointerdown: leer getBoundingClientRect en cada
+// pointermove (60-120 Hz) forzaba un layout read por evento durante el drag.
+function faderValueFromPointer(faderEl, clientY, rect) {
+  if (!rect) rect = faderEl.getBoundingClientRect();
   const h = rect.height;
   const travel = h - FADER_PAD * 2 - FADER_HANDLE;
   const y = clientY - rect.top;
@@ -1944,6 +1980,7 @@ function faderValueFromPointer(faderEl, clientY) {
 function wireVerticalFader(faderEl, { onInput, onCommit }) {
   let dragging = false;
   let startValue = parseInt(faderEl.dataset.value, 10);
+  let dragRect = null;
 
   const apply = (v) => { paintFader(faderEl, v); onInput?.(v); };
 
@@ -1951,12 +1988,13 @@ function wireVerticalFader(faderEl, { onInput, onCommit }) {
     e.preventDefault();
     dragging = true;
     startValue = parseInt(faderEl.dataset.value, 10);
+    dragRect = faderEl.getBoundingClientRect();
     faderEl.setPointerCapture(e.pointerId);
-    apply(faderValueFromPointer(faderEl, e.clientY));
+    apply(faderValueFromPointer(faderEl, e.clientY, dragRect));
   });
   faderEl.addEventListener('pointermove', (e) => {
     if (!dragging) return;
-    apply(faderValueFromPointer(faderEl, e.clientY));
+    apply(faderValueFromPointer(faderEl, e.clientY, dragRect));
   });
   const end = () => {
     if (!dragging) return;
@@ -2335,7 +2373,7 @@ function openSeparateMenu(anchor, id) {
     <button data-mode="otros">Solo "Otros" (teclados, guitarras…) <span class="stems-ctx-hint">medio</span></button>
     <div class="stems-ctx-sep"></div>
     <button data-toggle="cpu" class="stems-ctx-toggle">${forceCpu ? '☑' : '☐'} Forzar CPU (sin GPU)</button>
-    <button data-action="cloud" class="stems-ctx-toggle">☁ Separación en la nube${getCloudConfig() ? ' ✓' : '…'}</button>
+    <button data-action="cloud" class="stems-ctx-toggle"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" style="vertical-align:-2px;margin-right:4px"><path d="M17.5 19a4.5 4.5 0 1 0-.42-8.98 6 6 0 1 0-11.06 3.1A3.5 3.5 0 0 0 6.5 19h11z"/></svg>Separación en la nube${getCloudConfig() ? ' ✓' : '…'}</button>
   `;
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
@@ -3945,9 +3983,12 @@ function drawTrackWaveform(id) {
   let peaks = peaksCache.get(id);
   if (!peaks || peaks.length / 2 !== audioPx) {
     peaks = computePeaks(buffer, audioPx);
+    // Tope del cache (sesiones largas importando/cancelando proyectos): si se
+    // pasa, suelta la entrada más vieja (Map itera en orden de inserción).
+    if (peaksCache.size >= 200) peaksCache.delete(peaksCache.keys().next().value);
     peaksCache.set(id, peaks);
   }
-  const t = engine.getTracks().find(tr => tr.id === id);
+  const t = tk;  // ya resuelto arriba — evita un segundo .find() O(n)
   // Per-track override wins over kind defaults; only fall back to the
   // theme accent when neither has been set.
   const color = t?.color

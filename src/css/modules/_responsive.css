@@ -1,4 +1,9 @@
 /* ── RESPONSIVE LAPTOP / SMALL SCREEN HEIGHTS ── */
+/* Laptops 1600x900 / 1440x900: densidad apenas más ajustada (el grueso vive en
+   el bloque de 850px; los modales ya se capan al viewport en _linear.css). */
+@media (max-height: 900px) {
+  #stage { padding: 14px; gap: 14px; }
+}
 @media (max-height: 850px) {
   /* stage adjustments */
   #stage {
@@ -123,7 +128,7 @@
   .kbd-hint {
     top: 3px;
     right: 3px;
-    font-size: 8px;
+    font-size: 9px;
     padding: 1px 3px;
   }
 
@@ -230,13 +235,13 @@
     border-radius: 8px;
   }
   .gi-song-title {
-    font-size: 13.5px;
+    font-size: 14px;
   }
   .gi-song-artist {
     font-size: 10px;
   }
   .gi-song-meta-line {
-    font-size: 10.5px;
+    font-size: 11px;
   }
   .action-btn {
     width: 24px;

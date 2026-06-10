@@ -31,13 +31,23 @@
   /* Texto/icono que va encima del accent (azul/ámbar). Negro azulado para
      conservar el contraste de marca consistente en toda la app. */
   --on-accent: #0a0a14;
-  --r-sm: 6px;
+  --r-sm: 5px;
   --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --gap-lg: 28px;
   --gap-md: 18px;
   --gap-sm: 10px;
-  --r-lg: 16px;
-  --r-md: 12px;
+  /* Radios alineados a la guía Linear (≤8px). _linear.css declara los mismos
+     valores; mantenerlos idénticos aquí evita que un cambio de orden de
+     imports devuelva los radios grandes viejos. */
+  --r-lg: 8px;
+  --r-md: 6px;
+  /* Tokens semánticos: éxito y peligro. TODO color de estado en la app debe
+     usar estos (no #4ade80 / #ff4747 / #ff5f57 hardcodeados) para que los
+     themes puedan re-skinnearlos. */
+  --ok: #4ade80;
+  --warn: #f59e0b;
+  --danger: #ff4747;
+  --danger-soft: #ff5f57;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-h: rgba(255, 255, 255, 0.07);
   --glass-a: rgba(255, 255, 255, 0.12);

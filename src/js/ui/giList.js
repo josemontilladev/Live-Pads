@@ -282,9 +282,17 @@ export function renderGiList(filter = '', editSongId = null) {
   let cursor = firstCount;
   const schedule = window.requestIdleCallback || (cb => setTimeout(() => cb({ timeRemaining: () => 8 }), 16));
 
+  // Mientras el usuario scrollea, pausamos el streaming de tarjetas: appendear
+  // chunks en pleno scroll compite con el frame y se siente como tirones.
+  if (!container.__giScrollWatch) {
+    container.__giScrollWatch = true;
+    container.addEventListener('scroll', () => { container.__giLastScroll = performance.now(); }, { passive: true });
+  }
+
   const streamNext = () => {
     if (token !== renderToken) return; // aborted by a newer render
     if (cursor >= filtered.length) return;
+    if (performance.now() - (container.__giLastScroll || 0) < 200) { schedule(streamNext); return; }
     const frag = document.createDocumentFragment();
     const end = Math.min(cursor + CHUNK_SIZE, filtered.length);
     for (let i = cursor; i < end; i++) frag.appendChild(buildCard(filtered[i], i, editSongId, highlightTerm));

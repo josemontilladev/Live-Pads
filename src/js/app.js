@@ -135,7 +135,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
   authGateReady = initAuthGate().catch(() => {});
 
+  // Feedback de arranque: el preloader muestra QUÉ se está cargando (antes la
+  // barra corría a ciegas y en boots lentos no se sabía si estaba colgado).
+  const bootStatus = (t) => { const el = q('#preloader-status'); if (el) el.textContent = t; };
+
   engine = new SynthEngine();
+  bootStatus('Iniciando audio…');
 
   // Boot phase 1: kick off everything that can run in parallel.
   //   - Engine init (must complete before we touch audio nodes)
@@ -156,6 +161,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   metro.onBeat = onMetroBeat;
   metro.sound = 'cowbell';
 
+  bootStatus('Cargando sonidos y configuración…');
   const [, rawDrums, rawMidi] = await Promise.all([clickWarmup, userDrumsP, midiMapP]);
 
   // Prepend custom drum kits (loaded from disk or one empty default) into KIT_BANKS.
@@ -165,12 +171,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   setMidiMap(rawMidi);
 
   applyTheme(getCurrentTheme());
+  bootStatus('Cargando librería…');
   initService({ render: renderServiceList, applyGiSong });
+  // Persistencia de la librería con debounce: cada edición disparaba un
+  // JSON.stringify de TODAS las canciones + IPC (editando rápido, 10+/seg).
+  // 800ms agrupa las ráfagas; beforeunload hace flush para no perder nada.
+  window.addEventListener('beforeunload', () => {
+    if (giSaveTimer) {
+      clearTimeout(giSaveTimer); giSaveTimer = null;
+      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());  // flush inmediato
+    }
+  });
   // Note: GI library state (songs, genre, active id, accordion ids) lives
   // in src/js/state/store.js. The modules below read/write it directly —
   // we only inject side-effectful callbacks they can't supply themselves.
   initGiList({
-    persist: () => { if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs()); },
+    persist: persistGiSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
     addToService,
@@ -195,7 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (!giSong) return;
       giSong.lyrics = song.lyrics;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
       const giCard = getGiCardBySongId(giSong.id);
       if (giCard) repaintGiCard(giCard, giSong);
     },
@@ -203,7 +219,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (!giSong) return;
       giSong.favorite = !!song.favorite;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
       updateFilterCounts();
       const giCard = getGiCardBySongId(giSong.id);
       if (giCard) repaintGiCard(giCard, giSong);
@@ -216,7 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       giSong.bpm = song.bpm;
       giSong.key = song.key;
       giSong.genre = song.genre;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
       // Title/artist may have moved the library card in sort order → full re-render.
       renderGiList(q('#gi-search').value);
     },
@@ -229,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       Object.assign(giSong.audio, song.audio || {});
       if (song.youtubeUrl) giSong.youtubeUrl = song.youtubeUrl;
       if (song.cover && !giSong.cover) giSong.cover = song.cover;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
       const giCard = getGiCardBySongId(giSong.id);
       if (giCard) repaintGiCard(giCard, giSong);
     },
@@ -252,7 +268,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!giSong.audio) giSong.audio = {};
         Object.assign(giSong.audio, song.audio || {});
       }
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
     },
     onAudioPathAssigned: (song, type, newPath) => {
       // Sync the new file path back into the library + persist + refresh views.
@@ -261,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!giSong.audio) giSong.audio = {};
         giSong.audio[type] = newPath;
       }
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+      persistGiSongs();
       saveServiceSongs();
       const searchInput = q('#gi-search');
       if (searchInput) renderGiList(searchInput.value);
@@ -274,7 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (giSong && (!giSong.durationSec || giSong.durationSec !== song.durationSec)) {
         giSong.durationSec = song.durationSec;
-        if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+        persistGiSongs();
         renderServiceList();
       }
     },
@@ -677,7 +693,7 @@ function bindHamburgerMenu() {
       closeMenu();
       setIsMidiLearnMode(true);
       setMidiLearnTarget(null);
-      q('#midi-learn-overlay').innerHTML = '🎹 Modo Mapeo: hacé clic en un control <b>resaltado</b> y tocá tu controlador. Podés mapear varios seguidos. (Clic aquí para salir)';
+      q('#midi-learn-overlay').innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo: hacé clic en un control <b>resaltado</b> y tocá tu controlador. Podés mapear varios seguidos. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
       // Body-level flag → CSS dims the whole UI to emphasize learn-mode
       // is modal. Exit (in midiBindings.js) removes the class.
@@ -736,7 +752,7 @@ function bindRestOfApp() {
   // La sincronización con la librería de la nube (cloud/songSync.js) actualiza
   // la lista en memoria y avisa por este evento para refrescar disco + UI.
   window.addEventListener('livepads:library-synced', () => {
-    if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());
+    persistGiSongs();
     renderGiList(q('#gi-search')?.value || '');
     updateFilterCounts();
   });
@@ -774,7 +790,7 @@ function bindRestOfApp() {
         const { autoPushActiveLibrary } = await import('./cloud/songSync.js');
         const r = await autoPushActiveLibrary();
         if (r && r.created > 0) {
-          showToast(`☁️ ${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
+          showToast(`${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
         }
       } catch (_) { /* sin sesión/red: se reintenta en el próximo cambio */ }
     }, 2000);
@@ -1084,6 +1100,17 @@ function bindCountInToggle() {
   if (!cb) return;
   cb.checked = countInEnabled();
   cb.onchange = () => localStorage.setItem('livepads-countin', cb.checked ? '1' : '0');
+}
+
+// Guardado de la librería GI con debounce (ver comentario en boot).
+let giSaveTimer = null;
+function persistGiSongs() {
+  if (!window.electronAPI) return;
+  if (giSaveTimer) clearTimeout(giSaveTimer);
+  giSaveTimer = setTimeout(() => {
+    giSaveTimer = null;
+    window.electronAPI.saveGiSetlist(getSongs());
+  }, 800);
 }
 
 // Piano de Pads: el botón del topbar lo muestra/oculta. Suena con mouse, teclado

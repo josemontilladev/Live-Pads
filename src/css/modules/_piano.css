@@ -87,8 +87,8 @@
   align-items: center;
   gap: 7px;
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -131,7 +131,7 @@
   border-radius: 7px;
   background: var(--bg-card);
   color: var(--text-muted);
-  font-size: 15px; line-height: 1;
+  font-size: 14px; line-height: 1;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
@@ -147,7 +147,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
   color: var(--text-muted);
 }
 .pk-vol .stems-range { width: 110px; }
@@ -166,22 +166,22 @@
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.pk-rec:hover { border-color: #ff5f57; }
+.pk-rec:hover { border-color: var(--danger-soft); }
 .pk-rec-dot {
   width: 10px; height: 10px;
   border-radius: 50%;
-  background: #ff5f57;
+  background: var(--danger-soft);
   flex-shrink: 0;
 }
 .pk-rec.is-recording {
-  border-color: #ff5f57;
-  background: color-mix(in srgb, #ff5f57 18%, transparent);
+  border-color: var(--danger-soft);
+  background: color-mix(in srgb, var(--danger-soft) 18%, transparent);
 }
 .pk-rec.is-recording .pk-rec-dot { animation: pk-rec-pulse 1s ease-in-out infinite; }
 @keyframes pk-rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 .pk-status {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
   font-style: italic;
 }
@@ -236,7 +236,7 @@
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--accent);
   background: rgba(0, 0, 0, 0.07);
   border-radius: 3px;

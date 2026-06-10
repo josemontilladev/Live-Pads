@@ -845,9 +845,15 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
     const env = denoDir ? { ...process.env, PATH: denoDir + path.delimiter + (process.env.PATH || '') } : process.env;
     let stderr = '';
     const child = spawn(exe, [...baseArgs, ...extraArgs], { windowsHide: true, env });
+    // Sin timeout, un yt-dlp colgado (YouTube bloqueando) quedaba como proceso
+    // zombie horas. 5 min alcanza de sobra para bajar un audio.
+    const killer = setTimeout(() => {
+      try { child.kill('SIGTERM'); } catch (_) {}
+      reject(new Error('yt-dlp timeout (5 min) — descarga cancelada'));
+    }, 5 * 60 * 1000);
     child.stderr.on('data', (d) => { stderr += d.toString(); });
-    child.on('error', reject);
-    child.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr.slice(-400))));
+    child.on('error', (e) => { clearTimeout(killer); reject(e); });
+    child.on('close', (code) => { clearTimeout(killer); code === 0 ? resolve() : reject(new Error(stderr.slice(-400))); });
   });
 
   // Baja Deno solo cuando hace falta (cacheado dentro de esta invocación).

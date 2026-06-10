@@ -1,12 +1,5 @@
 import { q, esc } from '../utils/dom.js';
 
-const STYLES = {
-  info:    { bg: 'rgba(0, 170, 255, 0.9)',  color: '#000', border: '1px solid var(--blue)' },
-  success: { bg: 'rgba(16, 185, 129, 0.95)', color: '#fff', border: '1px solid #10b981' },
-  error:   { bg: 'rgba(239, 68, 68, 0.95)',  color: '#fff', border: '1px solid #ef4444' },
-  warning: { bg: 'rgba(245, 158, 11, 0.95)', color: '#000', border: '1px solid #f59e0b' },
-};
-
 const ICONS = {
   info:    '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
   success: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><polyline points="20,6 9,17 4,12"/></svg>',
@@ -31,17 +24,13 @@ export function showToast(message, type = 'info') {
     document.body.appendChild(container);
   }
 
-  const style = STYLES[type] || STYLES.info;
   const icon = ICONS[type] || ICONS.info;
 
   const toast = document.createElement('div');
+  // El estilo por tipo vive en CSS (.toast--info/success/error/warning en
+  // _modals.css) con los tokens del theme — nada de colores inline.
   toast.className = `toast toast--${type}`;
   if (type === 'error' || type === 'warning') toast.setAttribute('role', 'alert');
-  // Per-type colour still set inline since it's a small finite set and
-  // keeps the global stylesheet from having to know every variant.
-  toast.style.background = style.bg;
-  toast.style.color = style.color;
-  toast.style.border = style.border;
   toast.innerHTML = `${icon}<span>${esc(message)}</span><button class="toast-close" aria-label="Cerrar" title="Cerrar">×</button>`;
   container.appendChild(toast);
 

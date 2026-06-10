@@ -193,13 +193,19 @@
    whole UI 30% so the user sees they're in a modal interaction
    waiting for a click target. The pulsing #midi-learn-overlay chip
    on top is excluded so it stays at full intensity. */
-body.midi-learning #app {
-  filter: saturate(0.55) brightness(0.7);
-  transition: filter 0.25s ease;
+/* Velo oscuro en vez de filter saturate/brightness sobre TODO #app: el filter
+   obligaba a Chromium a re-rasterizar la app entera; un overlay compositado
+   cuesta casi nada y el efecto (UI atenuada, chip a plena intensidad) es el
+   mismo — el chip vive en z-index 10000, por encima del velo. */
+body.midi-learning #app::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.34);
+  pointer-events: none;
+  z-index: 2999;
+  animation: midi-dim-fade 0.25s ease;
 }
-body.midi-learning #midi-learn-overlay {
-  filter: none !important;
-}
+@keyframes midi-dim-fade { from { opacity: 0; } to { opacity: 1; } }
 /* En modo mapeo, resaltar TODOS los controles mapeables con un anillo pulsante
    para no clickear a ciegas (antes el usuario adivinaba qué reaccionaba). */
 body.midi-learning .key-btn,

@@ -57,7 +57,7 @@
   overflow-y: auto;
 }
 .sidebar-nav-title {
-  font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--text-muted); padding: 0 8px 8px;
 }
 .sidebar-nav-sep { height: 1px; background: var(--border); margin: 8px 8px; flex: 0 0 auto; }
@@ -65,7 +65,7 @@
   display: flex; align-items: center; gap: 9px; flex: 0 0 auto; width: 100%;
   padding: 8px 10px; border: none; border-radius: 6px;
   background: transparent; color: var(--text-muted);
-  font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
+  font-size: 13px; font-weight: 600; text-align: left; cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
 .sidebar-nav .stab svg { flex: 0 0 auto; opacity: 0.8; }
@@ -77,7 +77,7 @@
 
 /* Tarjetas "launcher" de las secciones que abren un panel (Cuenta/MIDI/Servicio). */
 .set-launch-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
-.set-launch-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; margin: 0 0 2px; }
+.set-launch-desc { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 0 0 2px; }
 .sb-btn {
   padding: 10px 14px; border-radius: 6px; cursor: pointer;
   background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
@@ -113,14 +113,14 @@
 .stab-body.visible { display: block; }
 .stab-body { display: none; }
 .stab-body.visible { display: block; }
-.sb-label { font-size: 10px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
+.sb-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; margin: 20px 0 10px; }
 
 /* ── Biblioteca de audios (sidebar Ajustes) ────────────────────────── */
 .audio-lib-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.audio-lib-desc { font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+.audio-lib-desc { font-size: 13px; line-height: 1.55; color: var(--text-muted); }
 .audio-lib-row { display: flex; flex-direction: column; gap: 4px; }
 .audio-lib-label {
-  font-size: 9.5px; font-weight: 800; letter-spacing: 1px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
   color: var(--text-muted); text-transform: uppercase;
 }
 .audio-lib-path {
@@ -135,17 +135,17 @@
 }
 .audio-lib-path.is-custom { border-color: var(--accent); color: var(--accent); }
 .audio-lib-path.is-unavailable {
-  border-color: #ef4444; color: #fca5a5;
-  background: rgba(239,68,68,.10);
+  border-color: var(--danger); color: #fca5a5;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 .audio-lib-actions { display: flex; gap: 6px; }
 .audio-lib-actions .acc-btn { flex: 1; }
 .audio-lib-audit-btn { width: 100%; margin-top: 6px; }
 .audio-lib-msg {
-  font-size: 11.5px; padding: 7px 9px; border-radius: 6px;
+  font-size: 12px; padding: 7px 9px; border-radius: 6px;
   background: rgba(34,197,94,.12); color: #86efac;
 }
-.audio-lib-msg.error { background: rgba(239,68,68,.12); color: #fca5a5; }
+.audio-lib-msg.error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: #fca5a5; }
 .audio-lib-msg.info  { background: rgba(99,102,241,.12); color: #a5b4fc; }
 .sb-label:first-child { margin-top: 0; }
 
@@ -154,11 +154,11 @@
    "Setlist" queda a la MISMA altura en Librería y en Servicio, aunque en
    Servicio se oculten los botones de importar/exportar y la fila se encogería. */
 .setlist-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; min-height: 34px; }
-.setlist-title { font-size: 15px; font-weight: 800; }
+.setlist-title { font-size: 14px; font-weight: 600; }
 .accent-btn { background: var(--accent-grad) !important; color: #000 !important; width: 34px !important; height: 34px !important; border-radius: 8px !important; display: flex; align-items: center; justify-content: center; }
 .accent-btn svg { width: 16px !important; height: 16px !important; }
 .setlist-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 32px 0; }
-.preset-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; margin-bottom: 8px; transition: all 0.2s; }
+.preset-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; margin-bottom: 8px; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
 .preset-item:hover { border-color: var(--blue); }
 .preset-info { flex: 1; }
 .preset-item-name { font-size: 14px; font-weight: 700; }
@@ -171,18 +171,18 @@
   cursor: pointer; padding: 6px; display: flex; align-items: center;
   transition: color 0.2s;
 }
-.pi-delete:hover { color: #ef4444; }
+.pi-delete:hover { color: var(--danger); }
 
 /* Themes */
 .themes-header { margin-bottom: 16px; }
-.themes-title { font-size: 16px; font-weight: 800; }
+.themes-title { font-size: 16px; font-weight: 600; }
 .theme-div { height: 1px; background: var(--border); margin: 4px 0; }
-.theme-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; transition: all 0.2s; }
+.theme-item { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
 .theme-item:hover { background: var(--bg-hover); border-color: var(--blue); }
 .theme-item.active { border-color: var(--blue); background: rgba(251,174,0,0.05); }
 .theme-swatch { width: 40px; height: 40px; border-radius: var(--r-md); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.1); }
 .theme-info { flex: 1; }
-.theme-name { font-size: 13px; font-weight: 800; color: var(--text); }
+.theme-name { font-size: 13px; font-weight: 600; color: var(--text); }
 .theme-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .theme-check { color: var(--blue); }
 
@@ -202,8 +202,8 @@
 .about-title {
   margin: 0;
   font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: #fff;
 }
 .about-version {
@@ -236,7 +236,7 @@
 .about-update .sb-btn:disabled { opacity: 0.5; cursor: default; }
 .about-update-status { font-size: 11px; color: var(--text-muted); min-height: 14px; }
 .about-update-status.is-error { color: #ff8a84; }
-.about-update-status b { color: var(--accent); font-weight: 800; }
+.about-update-status b { color: var(--accent); font-weight: 600; }
 .about-update-notes {
   margin-top: 8px; padding: 8px 10px; border-radius: 8px;
   background: var(--bg-hover); border: 1px solid var(--border);
@@ -263,12 +263,12 @@
 }
 .about-features { text-align: left; margin-bottom: 18px; }
 .about-feat-title {
-  font-size: 10px; font-weight: 800; letter-spacing: 1.2px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
   text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
 }
 .about-feat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .about-feat-list li {
-  font-size: 11.5px; color: var(--text-muted); line-height: 1.45; padding-left: 16px; position: relative;
+  font-size: 12px; color: var(--text-muted); line-height: 1.45; padding-left: 16px; position: relative;
 }
 .about-feat-list li::before {
   content: ""; position: absolute; left: 2px; top: 7px;
@@ -297,7 +297,7 @@
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,7 +325,7 @@
 .embedded-in-sidebar .mp-row { gap: 6px; padding: 7px 9px; align-items: center; }
 .embedded-in-sidebar .mp-key-kind { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
 .embedded-in-sidebar .mp-key { font-size: 10px; padding: 2px 7px; flex-shrink: 0; }
-.embedded-in-sidebar .mp-target { font-size: 11.5px; line-height: 1.3; }
+.embedded-in-sidebar .mp-target { font-size: 12px; line-height: 1.3; }
 .embedded-in-sidebar .mp-footer { flex-wrap: wrap; gap: 8px; }
 .embedded-in-sidebar .mp-io,
 .embedded-in-sidebar .mp-clear-all { flex: 1 1 auto; padding: 9px 10px; font-size: 12px; }
