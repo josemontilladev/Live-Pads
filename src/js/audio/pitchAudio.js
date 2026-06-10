@@ -163,8 +163,30 @@ export class PitchAudio extends EventTarget {
       try { this._stNode.pitchSemitones.value = s; } catch (_) {}
       return;
     }
-    // Cruza el 0 (inserta/quita el SoundTouchNode) → re-rutear.
-    this._routeOutput();
+    // Cruza el 0 (inserta/quita el SoundTouchNode) → re-rutear. El cambio de
+    // topología en seco metía un click audible: micro-fade del gain (~12ms)
+    // a ambos lados del re-ruteo — inaudible como fade, mata el pop.
+    const g = this._gain && this._gain.gain;
+    if (g && this._ctx) {
+      const now = this._ctx.currentTime;
+      const v = g.value;
+      try {
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(v, now);
+        g.linearRampToValueAtTime(0.0001, now + 0.012);
+      } catch (_) {}
+      setTimeout(() => {
+        this._routeOutput();
+        try {
+          const t = this._ctx.currentTime;
+          g.cancelScheduledValues(t);
+          g.setValueAtTime(0.0001, t);
+          g.linearRampToValueAtTime(v, t + 0.012);
+        } catch (_) {}
+      }, 15);
+    } else {
+      this._routeOutput();
+    }
   }
 
   async play() {

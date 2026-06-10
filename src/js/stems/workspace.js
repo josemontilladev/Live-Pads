@@ -979,6 +979,7 @@ function wireSeekClicks(root) {
 // 30fps y el timeline avanzaba a saltos → se percibía como un parpadeo al ritmo
 // del compás (las líneas de grilla "saltaban" cada ~33ms).
 let _laneMetrics = { t: -1e9, clientW: 0, scrollW: 0 };
+let _lastScrollTarget = -1;   // último scrollLeft que ESCRIBIMOS (evita leerlo por frame)
 function invalidateLaneMetrics() { _laneMetrics.t = -1e9; }
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
@@ -987,6 +988,7 @@ function autoFollowPlayhead(sec) {
   const now = performance.now();
   if (now - _laneMetrics.t > 250) {
     _laneMetrics = { t: now, clientW: arrange.clientWidth, scrollW: arrange.scrollWidth };
+    _lastScrollTarget = arrange.scrollLeft;   // re-sync con la realidad cada 250ms
   }
   const laneW = _laneMetrics.clientW - STRIP_WIDTH;
   if (laneW <= 0) return;
@@ -994,7 +996,12 @@ function autoFollowPlayhead(sec) {
   const anchor = STRIP_WIDTH + laneW * 0.3;
   const maxScroll = Math.max(0, _laneMetrics.scrollW - _laneMetrics.clientW);
   const target = Math.max(0, Math.min(headX - anchor, maxScroll));
-  if (Math.abs(arrange.scrollLeft - target) > 0.5) arrange.scrollLeft = target;
+  // Comparar contra lo último escrito (no leer scrollLeft cada frame: la
+  // lectura fuerza layout si hay estilos pendientes — 60 lecturas/seg gratis).
+  if (Math.abs(_lastScrollTarget - target) > 0.5) {
+    _lastScrollTarget = target;
+    arrange.scrollLeft = target;
+  }
 }
 
 export function resumeAutoFollow() { /* always-follow now; kept for callers */ }
@@ -2139,6 +2146,11 @@ function wireConsoleStrip(strip, id) {
     const r = strip.querySelector('.stems-console-pan-readout');
     if (r) r.textContent = panLabel(v / 100);
     scheduleSave();
+  };
+  // Doble clic en el pan → centro (mismo gesto que los sliders de Pads).
+  panInput.ondblclick = () => {
+    panInput.value = 0;
+    panInput.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
   const muteBtn = strip.querySelector('[data-action="mute"]');

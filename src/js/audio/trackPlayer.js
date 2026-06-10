@@ -93,9 +93,15 @@ function paintPitchUI() {
   if (group) group.classList.toggle('shifted', shifted);
 }
 
-// Asegura un AudioContext singleton antes de crear cualquier nodo.
+// Asegura un AudioContext antes de crear cualquier nodo. Si el host inyectó
+// deps.getSharedCtx (el contexto del SynthEngine), lo REUSAMOS: un solo hilo
+// de audio para Pads+Pista en vez de dos. La Pista conserva su camino "crudo"
+// (su cadena conecta directo a ctx.destination, sin pasar por el limiter
+// maximizador del engine, que es una cadena de nodos, no el destino).
 function ensureAudioCtx() {
   if (audioCtx) return audioCtx;
+  const shared = typeof deps.getSharedCtx === 'function' ? deps.getSharedCtx() : null;
+  if (shared) { audioCtx = shared; return audioCtx; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   try { audioCtx = new AC({ latencyHint: 'interactive' }); } catch (_) { audioCtx = null; }

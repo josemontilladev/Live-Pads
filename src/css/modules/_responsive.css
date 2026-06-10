@@ -83,8 +83,8 @@
     gap: 4px;
   }
   .horizontal-metro > .hm-section:nth-child(4) {
-    flex: 0 1 90px !important;
-    gap: 4px !important;
+    flex: 0 1 90px;
+    gap: 4px;
   }
   .hm-mix {
     /* Wider than the rest of the metro sections so the vol/pan slider
@@ -106,7 +106,7 @@
     gap: 6px;
   }
   .tray-pan-row {
-    min-width: 0 !important;
+    min-width: 0;
   }
 
   /* panel keys adjustments */
@@ -257,11 +257,11 @@
     height: 48px;
     padding: 0 16px;
   }
-  .topbar-logo img {
-    height: 28px !important;
+  .topbar-logo-img {
+    height: 28px; width: 28px;
   }
   .topbar-logo span {
-    font-size: 14px !important;
+    font-size: 14px;
   }
   .icon-btn {
     width: 32px;
@@ -278,37 +278,37 @@
   }
 
   #track-player-bar {
-    height: 60px !important;
-    padding: 8px 16px !important;
-    gap: 12px !important;
+    height: 60px;
+    padding: 8px 16px;
+    gap: 12px;
   }
   #tp-play-btn {
-    width: 36px !important;
-    height: 36px !important;
+    width: 36px;
+    height: 36px;
   }
   #tp-play-btn svg {
-    width: 14px !important;
-    height: 14px !important;
+    width: 14px;
+    height: 14px;
   }
   #tp-stop-btn, #tp-loop-btn {
-    width: 36px !important;
-    height: 36px !important;
+    width: 36px;
+    height: 36px;
   }
   #tp-stop-btn svg, #tp-loop-btn svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 12px;
+    height: 12px;
   }
   #tp-title {
-    font-size: 12px !important;
-    max-width: 160px !important;
+    font-size: 12px;
+    max-width: 160px;
   }
   #tp-vol {
-    width: 60px !important;
+    width: 60px;
   }
   /* Selector de fuente (Secuencia/Click/Original) en la barra: compacto en
      laptop para que entre junto al transporte sin desbordar. */
   #track-player-bar .source-seg { margin-left: 4px; }
-  #track-player-bar .source-seg-btn { padding: 4px 8px !important; font-size: 10px; }
+  #track-player-bar .source-seg-btn { padding: 4px 8px; font-size: 10px; }
   .tp-transport { gap: 6px; flex-shrink: 0; }
   .tp-info { gap: 8px; }
 }
@@ -328,7 +328,7 @@
   #stage { grid-template-columns: 260px 1fr 260px; }
   /* En la barra, dejar que la info (título/progreso) se encoja primero. */
   .tp-info { min-width: 0; }
-  #tp-vol { width: 56px !important; }
+  #tp-vol { width: 56px; }
 }
 
 

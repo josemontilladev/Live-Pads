@@ -260,6 +260,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Hook the track player to app.js helpers so it stays decoupled.
   initTrackPlayer({
+    // Un solo AudioContext para Pads+Pista (menos hilos de audio y latencia
+    // uniforme). La Pista mantiene su cadena propia directa a destination.
+    getSharedCtx: () => engine?.ctx || null,
     syncSlider,
     // Persiste cualquier cambio en la canción (ej. pitch del track player).
     persistSong: (song) => {
@@ -573,6 +576,16 @@ function bindAll() {
   bindCountInToggle();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
+
+  // Doble clic en CUALQUIER slider de paneo → vuelve al centro (0). Delegado
+  // para cubrir todos (mezclador, metro, pads, batería) sin wiring individual;
+  // el dispatch de 'input' reusa el handler normal (engine + UI + persist).
+  document.addEventListener('dblclick', (e) => {
+    const pan = e.target.closest('input[type="range"].pan-slider');
+    if (!pan) return;
+    pan.value = 0;
+    pan.dispatchEvent(new Event('input', { bubbles: true }));
+  });
   // Refresh the on-pad key hints whenever mappings are cleared/changed.
   document.addEventListener('livepads:mappings-changed', () => {
     if (typeof updateKeyHints === 'function') updateKeyHints();

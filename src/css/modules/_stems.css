@@ -2401,37 +2401,39 @@ body[data-workspace="stems"] #body {
   gap: 3px;
   padding: 0 6px 4px;
 }
-.smc-type-btn {
-  display: flex !important;
+/* Especificidad > ".stems-context-menu button" (la regla genérica del menú)
+   para no necesitar !important. */
+.stems-context-menu .smc-type-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 7px 4px !important;
-  text-align: center !important;
-  background: var(--bg-card) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 6px !important;
-  color: var(--text) !important;
-  font-size: 11px !important;
+  padding: 7px 4px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px;
   font-weight: 600;
   transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
 }
-.smc-type-btn:hover {
-  border-color: var(--accent) !important;
-  color: var(--accent) !important;
-  background: var(--bg-card) !important;
+.stems-context-menu .smc-type-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-card);
 }
-.smc-type-btn.is-active {
-  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
-  border-color: var(--accent) !important;
-  color: var(--accent) !important;
+.stems-context-menu .smc-type-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
 }
-.smc-more {
-  font-size: 11px !important;
-  color: var(--text-muted) !important;
-  padding: 4px 10px 8px !important;
-  text-align: center !important;
+.stems-context-menu .smc-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 10px 8px;
+  text-align: center;
 }
-.smc-more:hover { color: var(--accent) !important; background: transparent !important; }
+.stems-context-menu .smc-more:hover { color: var(--accent); background: transparent; }
 .smc-sep {
   height: 1px;
   background: var(--border);
@@ -2483,14 +2485,14 @@ body[data-workspace="stems"] #body {
 }
 .stems-btn.stems-loop-ab {
   min-width: 26px;
-  padding: 4px 8px !important;
-  font-weight: 600 !important;
-  font-size: 11px !important;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 11px;
 }
 .stems-btn.stems-loop-ab.is-set {
-  color: var(--on-accent) !important;
-  background: var(--accent-grad) !important;
-  border-color: var(--accent) !important;
+  color: var(--on-accent);
+  background: var(--accent-grad);
+  border-color: var(--accent);
 }
 .stems-ctx-hint {
   font-size: 10px;

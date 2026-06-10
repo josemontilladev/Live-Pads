@@ -1770,7 +1770,7 @@ body.lyrics-fs-open { overflow: hidden; }
   border-bottom: 1px solid var(--border); user-select: none;
 }
 .mtm-drag-dots { color: var(--text-muted); opacity: 0.5; letter-spacing: -2px; font-size: 14px; }
-.mtm-head h3 { margin: 0; flex: 1; font-size: 14px; font-weight: 700; }
+.mtm-head h3 { margin: 0; flex: 1; font-size: 14px; font-weight: 600; }
 .mtm-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; line-height: 1; }
 .mtm-close:hover { color: var(--text); }
 .mtm-bpm { display: flex; align-items: center; justify-content: center; gap: 12px; }
