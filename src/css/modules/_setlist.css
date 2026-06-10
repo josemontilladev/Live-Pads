@@ -55,7 +55,7 @@
 .beat-dot.accent.on { background: var(--blue); box-shadow: 0 0 15px var(--blue); }
 .beat-dot:hover { transform: scale(1.2); background: rgba(255,255,255,0.2); }
 #metro-bpm-live {
-  font-size: 13px; font-weight: 800; color: var(--text-muted);
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
   font-variant-numeric: tabular-nums; white-space: nowrap;
   margin-left: auto;
 }
@@ -72,14 +72,14 @@
 .metro-main-btn {
   width: 100%; padding: 14px;
   background: var(--accent-grad); border: none; border-radius: var(--r-md);
-  color: #000; font-size: 14px; font-weight: 900;
+  color: #000; font-size: 14px; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-  transition: all 0.15s; letter-spacing: 0.3px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; letter-spacing: 0.3px;
 }
 .metro-main-btn:hover { filter: brightness(1.1); }
 .metro-main-btn:active { transform: scale(0.97); }
 .metro-main-btn.running {
-  background: #ff4747;
+  background: var(--danger);
   color: #fff;
   position: relative;
 }
@@ -91,7 +91,7 @@
   content: '';
   position: absolute; inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 2px rgba(255, 71, 71, 0.5);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 50%, transparent);
   pointer-events: none;
   animation: metro-running-pulse 1.2s ease-in-out infinite;
   will-change: transform, opacity;
@@ -109,8 +109,8 @@
   padding: 16px;
 }
 .metro-section-label {
-  font-size: 10px; font-weight: 900; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px;
+  font-size: 10px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px;
 }
 
 /* BPM controls */
@@ -123,12 +123,12 @@
   background: var(--bg-hover); border: 1px solid var(--border);
   border-radius: var(--r-md); color: var(--text); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s; flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; flex-shrink: 0;
 }
 .metro-adj:hover { border-color: var(--blue); color: var(--blue); }
 .metro-adj svg { width: 16px; height: 16px; }
 .metro-bpm-big {
-  font-size: 42px; font-weight: 900; color: var(--blue);
+  font-size: 42px; font-weight: 700; color: var(--blue);
   font-variant-numeric: tabular-nums; letter-spacing: -2px;
   text-align: center; flex: 1;
 }
@@ -138,8 +138,8 @@
 .tap-btn {
   width: 100%; padding: 12px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: var(--r-md); color: var(--text); font-weight: 800; font-size: 12px;
-  cursor: pointer; letter-spacing: 1px; transition: all 0.15s;
+  border-radius: var(--r-md); color: var(--text); font-weight: 600; font-size: 12px;
+  cursor: pointer; letter-spacing: 1px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .tap-btn:active { background: var(--accent-grad); color: #000; border-color: var(--blue); transform: scale(0.97); }
 
@@ -150,8 +150,8 @@
 .sig-btn {
   padding: 10px 4px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 800;
-  cursor: pointer; transition: all 0.15s; text-align: center;
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; text-align: center;
 }
 .sig-btn:hover { border-color: var(--blue); color: var(--text); }
 .sig-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
@@ -160,8 +160,8 @@
 .metro-mult-btn {
   flex: 1; padding: 8px;
   background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 800;
-  cursor: pointer; transition: all 0.15s;
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .metro-mult-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
 
@@ -172,7 +172,7 @@
   padding: 10px 6px;
   background: var(--bg-hover); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 700;
-  cursor: pointer; transition: all 0.15s; text-align: center;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; text-align: center;
 }
 .sound-btn:hover { border-color: var(--blue); color: var(--text); }
 .sound-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
@@ -214,7 +214,7 @@ input.pan-slider {
 
 /* ── GI-SETLIST ── */
 .setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
-.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 .gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
 .gi-search-input:focus { border-color: var(--blue); }
@@ -258,7 +258,7 @@ input.pan-slider {
   border: 1px solid var(--border);
   color: var(--text-muted);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: all 0.15s;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .gi-filter-toggle:hover { color: var(--text); border-color: var(--blue); }
 .gi-filter-toggle.active { color: var(--blue); border-color: var(--blue); background: rgba(0, 170, 255, 0.06); }
@@ -303,7 +303,7 @@ input.pan-slider {
 .gi-filter-option.active {
   background: rgba(0, 170, 255, 0.08);
   color: var(--blue);
-  font-weight: 800;
+  font-weight: 600;
 }
 .gi-filter-option-count {
   font-size: 10px;
@@ -366,7 +366,7 @@ input.pan-slider {
 }
 
 .setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
-.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
 .s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
 /* Search */
@@ -388,7 +388,7 @@ input.pan-slider {
     y las cards no tienen header de columnas. Eliminados.) */
 
 /* Song row — Spotify style */
-.gi-song-item { padding: 9px 11px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: all 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
+.gi-song-item { padding: 9px 11px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
   /* Skip rendering offscreen cards — faster initial paint + smoother scroll
      with large libraries. `auto 72px` lets the browser remember each card's
      real height (collapsed ~72px) so the scrollbar doesn't jump. */
@@ -431,7 +431,7 @@ input.pan-slider {
 }
 .gi-song-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
 .gi-cover-fallback {
-  font-size: 21px; font-weight: 800;
+  font-size: 21px; font-weight: 600;
   color: rgba(255, 255, 255, 0.88);
   text-transform: uppercase;
 }
@@ -453,7 +453,7 @@ input.pan-slider {
   cursor: pointer;
 }
 .gi-song-title {
-  font-size: 14px; font-weight: 800; color: var(--text);
+  font-size: 14px; font-weight: 600; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .gi-song-artist {
@@ -503,8 +503,8 @@ input.pan-slider {
 .action-btn.btn-add { color: var(--accent); }
 .action-btn.btn-add:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
 /* Ya está en la lista activa → ✓ verde (evita agregarla dos veces). */
-.action-btn.btn-add.is-added { color: #4ade80; }
-.action-btn.btn-add.is-added:hover { background: color-mix(in srgb, #4ade80 16%, transparent); border-color: #4ade80; }
+.action-btn.btn-add.is-added { color: var(--ok); }
+.action-btn.btn-add.is-added:hover { background: color-mix(in srgb, var(--ok) 16%, transparent); border-color: var(--ok); }
 /* ↑↓ reordenar el servicio — visibles pero secundarios. */
 .action-btn.btn-move-up, .action-btn.btn-move-down { color: color-mix(in srgb, var(--text) 62%, transparent); }
 .action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
@@ -513,7 +513,7 @@ input.pan-slider {
   width: 26px; height: 22px; border-radius: 6px;
   border: none; background: transparent;
   color: var(--text-muted); cursor: pointer; display: flex;
-  align-items: center; justify-content: center; transition: all 0.15s;
+  align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
   flex-shrink: 0;
 }
 .action-btn:hover { color: var(--blue); background: rgba(255,255,255,0.08); }
@@ -552,8 +552,8 @@ input.pan-slider {
 }
 .gi-song-item.active-song .gi-song-title {
   color: var(--accent);
-  font-weight: 800;
-  font-size: 15px;
+  font-weight: 600;
+  font-size: 14px;
 }
 .gi-song-item.active-song .gi-row-num {
   color: var(--accent) !important;
@@ -598,7 +598,7 @@ input.pan-slider {
 }
 .gi-song-item .gi-row-num {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text-muted);
   width: 20px;
   text-align: center;
@@ -616,7 +616,7 @@ input.pan-slider {
   /* Texto a todo el ancho: el título envuelve hasta 2 líneas para que no se
      corte (los títulos largos con "(feat. …)" se leen completos). */
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text);
   white-space: normal;
   line-height: 1.25;
@@ -678,7 +678,7 @@ input.pan-slider {
   text-align: left;
   padding: 7px 10px;
   border-radius: 6px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -703,7 +703,7 @@ input.pan-slider {
 .action-btn.btn-remove:hover { color: var(--text, #e8eaf0); }
 
 /* Eliminar de la LIBRERÍA (irreversible) — rojo + papelera para distinguir */
-.action-btn.btn-remove-lib { color: #ff4747; }
+.action-btn.btn-remove-lib { color: var(--danger); }
 .action-btn.btn-remove-lib:hover { color: #ff7a7a; }
 
 /* "..." — acciones secundarias (editar, eliminar). Tono apagado para no
@@ -736,7 +736,7 @@ input.pan-slider {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
@@ -780,7 +780,7 @@ input.pan-slider {
 .service-actions-label {
   font-size: 12px;
   color: var(--text);
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;            /* el nombre del setlist en una sola línea */
   overflow: hidden;
   text-overflow: ellipsis;
@@ -825,12 +825,12 @@ input.pan-slider {
 .svg-nudge-down { margin-top: 1px; }
 /* Service-list "vaciar" trash icon — destructive accent on hover. */
 .btn-clear-service {
-  color: #ff4747;
+  color: var(--danger);
   margin-left: 8px;
 }
 .btn-clear-service:hover {
-  background: rgba(255, 71, 71, 0.12);
-  color: #ff4747;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
 }
 
 /* Reusable empty-state box (dashed border + muted text) */
@@ -900,11 +900,11 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-muted);
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 .gi-edit-btn.save {
   background: var(--accent-grad);
-  color: #0a0a14; border-color: transparent; font-weight: 800;
+  color: #0a0a14; border-color: transparent; font-weight: 600;
 }
 .gi-edit-btn.save:hover   { filter: brightness(1.08); transform: translateY(-1px); }
 .gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); background: var(--bg-hover); }
@@ -929,7 +929,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   box-shadow: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.2;
   color: var(--text-muted);
   white-space: nowrap;
@@ -985,7 +985,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 #now-playing-banner .np-label {
   flex-shrink: 0;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--accent);
@@ -1065,7 +1065,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 #now-playing-banner .np-close:hover { background: rgba(232,17,35,0.18); color: #ff7a7a; }
 
@@ -1106,7 +1106,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 
 /* "Recientes" row — clock icon inline in HTML; green accent when active so
    it reads as "newly added" and stays distinct from the Favoritos star. */
-.gi-filter-option--recent.active .gi-filter-option-label { color: #4ade80; }
+.gi-filter-option--recent.active .gi-filter-option-label { color: var(--ok); }
 
 /* "Próxima" cue — the service card that's been staged by Tab. Distinct
    from .active-song (which is "currently playing"). Dashed accent border
@@ -1123,8 +1123,8 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   top: 4px; right: 8px;
   background: var(--accent);
   color: #000;
-  font-size: 8px;
-  font-weight: 900;
+  font-size: 9px;
+  font-weight: 700;
   letter-spacing: 1.2px;
   padding: 2px 8px;
   border-radius: var(--r-md);
@@ -1155,7 +1155,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlist-empty--cta h4 {
   margin: 0;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: 0.3px;
 }
@@ -1269,7 +1269,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   font-weight: 700;
 }
 .gi-edit-audio-status.has {
-  color: #4ade80;
+  color: var(--ok);
   font-weight: 700;
   letter-spacing: 0.3px;
 }
@@ -1288,7 +1288,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   line-height: 1;
   padding: 0;
 }
-.gi-edit-audio-clear:hover { border-color: #ff4747; color: #ff4747; }
+.gi-edit-audio-clear:hover { border-color: var(--danger); color: var(--danger); }
 .gi-edit-audio-assign {
   flex: 1;
   padding: 5px 10px;
@@ -1296,7 +1296,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   border: 1px dashed var(--border-strong);
   border-radius: 6px;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.3px;
@@ -1331,7 +1331,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-edit-audio-summary::-webkit-details-marker { display: none; }
 .gi-edit-audio-summary::before {
   content: '▸';
-  font-size: 8px;
+  font-size: 9px;
   transition: transform 0.15s ease;
 }
 .gi-edit-audio-details[open] .gi-edit-audio-summary::before {
@@ -1340,7 +1340,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-edit-audio-summary-badge {
   margin-left: auto;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.4px;
   padding: 2px 6px;
   border-radius: 4px;
@@ -1378,7 +1378,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 7px 24px 7px 10px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   font-family: var(--font);
   cursor: pointer;
@@ -1428,7 +1428,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 .setlists-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.setlists-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.setlists-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .setlists-x {
   background: transparent; border: none; color: var(--text-muted);
   font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
@@ -1443,18 +1443,18 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlists-save-form .sl-field { display: flex; flex-direction: column; gap: 4px; }
 .setlists-save-form .sl-field--title { flex: 1; min-width: 0; }
 .setlists-save-form label {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-muted);
 }
 .setlists-save-form input {
   background: var(--bg-card); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 10px; font-size: 12.5px; font-family: inherit; outline: none;
+  padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
 }
 .setlists-save-form input:focus { border-color: var(--accent); }
 .setlists-save-form .sl-date { color-scheme: dark; cursor: pointer; }
 .setlists-save-form .sl-save-btn {
-  padding: 9px 16px; font-size: 12.5px; font-weight: 800; color: #000;
+  padding: 9px 16px; font-size: 13px; font-weight: 600; color: #000;
   background: var(--accent); border: none; border-radius: 8px; cursor: pointer;
   white-space: nowrap; transition: filter 0.15s;
 }
@@ -1469,16 +1469,16 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .setlists-row-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .setlists-row-meta { font-size: 11px; color: var(--text-muted); }
 .setlists-load {
-  font-size: 11.5px; font-weight: 700; color: var(--text);
+  font-size: 12px; font-weight: 700; color: var(--text);
   background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-  border-radius: 7px; padding: 6px 12px; cursor: pointer; transition: all 0.15s;
+  border-radius: 7px; padding: 6px 12px; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .setlists-load:hover { color: #fff; background: rgba(255,255,255,0.12); border-color: var(--accent); }
 .setlists-del {
   background: transparent; border: none; color: var(--text-muted);
   font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 7px; border-radius: 6px;
 }
-.setlists-del:hover { color: #ff5f57; background: rgba(255,95,87,0.12); }
+.setlists-del:hover { color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 12%, transparent); }
 .setlists-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px 8px; line-height: 1.5; }
 
 /* ── Selector de setlist (chooser) en la pestaña Servicio ─────────────────── */
@@ -1491,32 +1491,32 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 #service-setlist-list.choosing .service-chooser { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
 
 .svc-chooser-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
-.svc-chooser-head h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.svc-chooser-head h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .svc-chooser-manage {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; flex-shrink: 0;
   background: transparent; border: 1px solid var(--border); color: var(--text-muted);
-  border-radius: 8px; cursor: pointer; transition: all 0.15s;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .svc-chooser-manage:hover { color: var(--accent); border-color: var(--accent); }
 .svc-chooser-new {
   width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: var(--r-md); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+  border-radius: var(--r-md); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
 }
 .svc-chooser-new:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .svc-chooser-save {
   width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: var(--r-md); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  border-radius: var(--r-md); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .svc-chooser-save:hover { border-color: var(--accent); color: var(--accent); }
 .svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
 .svc-chooser-item {
   display: flex; align-items: center; gap: 8px; text-align: left;
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md);
-  padding: 9px 10px 9px 13px; transition: all 0.15s; width: 100%;
+  padding: 9px 10px 9px 13px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; width: 100%;
 }
 .svc-chooser-item:hover { border-color: var(--accent); background: var(--bg-hover); }
 .svc-chooser-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
@@ -1525,15 +1525,15 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-chooser-del {
   flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
   background: transparent; border: none; color: var(--text-muted);
-  font-size: 17px; line-height: 1; cursor: pointer; transition: all 0.15s;
+  font-size: 16px; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
-.svc-chooser-del:hover { color: #ff5f57; background: rgba(255,95,87,0.12); }
+.svc-chooser-del:hover { color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 12%, transparent); }
 .svc-chooser-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px 8px; }
 .svc-chooser-current {
   margin-top: 12px; flex-shrink: 0; width: 100%; padding: 11px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--accent); font-size: 12.5px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; transition: background 0.15s;
+  color: var(--accent); font-size: 13px; font-weight: 600; border-radius: var(--r-md); cursor: pointer; transition: background 0.15s;
 }
 .svc-chooser-current:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
@@ -1556,7 +1556,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 20px 24px; border-bottom: 1px solid var(--border);
 }
-.nsl-head h3 { margin: 0; font-size: 20px; font-weight: 800; color: var(--text); }
+.nsl-head h3 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text); }
 .nsl-sub { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
 .nsl-x { background: transparent; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
 .nsl-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
@@ -1564,7 +1564,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .nsl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .nsl-field { display: flex; flex-direction: column; gap: 6px; }
 .nsl-field > label {
-  font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
 }
 .nsl-field input, .nsl-field textarea {
   background: var(--bg-card); color: var(--text);
@@ -1578,12 +1578,12 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--bg-card) 50%, transparent);
 }
 .nsl-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.nsl-songs-title { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.nsl-songs-title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .nsl-count { color: var(--accent); }
 .nsl-search {
   flex: 0 0 240px; max-width: 50%;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: var(--r-md); padding: 8px 12px; font-size: 12.5px; outline: none;
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; outline: none;
 }
 .nsl-search:focus { border-color: var(--accent); }
 .nsl-songs-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
@@ -1596,7 +1596,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .nsl-song input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 .nsl-song-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .nsl-song-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nsl-song-artist { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nsl-song-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nsl-song-meta { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
 .nsl-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px; }
 .nsl-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
@@ -1624,9 +1624,9 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   width: 28px; height: 28px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
 }
 .svc-create-back:hover { color: var(--text); border-color: var(--text-muted); }
-.svc-create-head h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.svc-create-head h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .svc-create-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.svc-create-field > span { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.svc-create-field > span { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .svc-create-field input, .svc-create-field textarea, .svc-create-field select {
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
   border-radius: var(--r-md); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
@@ -1634,7 +1634,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-create-field input:focus, .svc-create-field textarea:focus, .svc-create-field select:focus { border-color: var(--accent); }
 .svc-create-field select { cursor: pointer; }
 .svc-create-field input[type="date"] { color-scheme: dark; cursor: pointer; }
-.svc-create-songs-head { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
+.svc-create-songs-head { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
 .svc-create-songs-head .nsl-count { color: var(--accent); }
 .service-create .nsl-search { width: 100%; max-width: none; flex: none; margin-bottom: 8px; }
 .svc-create-list { flex: 1 1 auto; min-height: 80px; max-height: none; }
@@ -1677,40 +1677,40 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .svc-pick input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .svc-pick .gi-song-cover { width: 38px; height: 38px; min-width: 38px; flex-shrink: 0; border-radius: 7px; }
 .svc-pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.svc-pick-title { font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-pick-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .svc-pick-artist { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.svc-pick-meta { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.svc-pick-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* Crear librería INLINE (en el contenedor de la Librería, no modal). */
 .gi-create-lib { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); }
-.gi-create-lib h4 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text); }
+.gi-create-lib h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .gi-create-lib-name {
   background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
   border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none;
 }
 .gi-create-lib-name:focus { border-color: var(--accent); }
 .gi-create-lib-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.gi-create-lib-actions .nsl-btn { padding: 8px 16px; font-size: 12.5px; border: 1px solid var(--border); }
+.gi-create-lib-actions .nsl-btn { padding: 8px 16px; font-size: 13px; border: 1px solid var(--border); }
 .gi-create-lib-actions .nsl-btn--primary { border-color: var(--accent); }
 
 /* Chooser: botón ⋯ por setlist, buscador y edición inline (renombrar+fecha). */
 .svc-chooser-more {
   flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
   background: transparent; border: none; color: var(--text-muted);
-  font-size: 18px; line-height: 1; cursor: pointer; transition: all 0.15s;
+  font-size: 18px; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .svc-chooser-more:hover { color: var(--text); background: var(--bg-hover); }
 .svc-chooser-search {
   width: 100%; margin-bottom: 8px; flex-shrink: 0;
   background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
-  border-radius: var(--r-md); padding: 8px 12px; font-size: 12.5px; outline: none;
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; outline: none;
 }
 .svc-chooser-search:focus { border-color: var(--accent); }
 .svc-chooser-item.is-editing { display: block; padding: 10px 12px; cursor: default; }
 .svc-chooser-edit { display: flex; flex-direction: column; gap: 6px; }
 .svc-chooser-edit input {
   background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
-  border-radius: 8px; padding: 8px 10px; font-size: 12.5px; outline: none; font-family: inherit;
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit;
 }
 .svc-chooser-edit input:focus { border-color: var(--accent); }
 .svc-chooser-edit input[type="date"] { color-scheme: dark; cursor: pointer; }
@@ -1726,4 +1726,4 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 /* Separación del selector de fuente respecto a los controles de transporte.
    En la barra van algo más compactos para no robar ancho a la pista/progreso. */
 #track-player-bar .source-seg { margin-left: 8px; flex-shrink: 0; }
-#track-player-bar .source-seg-btn { padding: 5px 10px; font-size: 10.5px; }
+#track-player-bar .source-seg-btn { padding: 5px 10px; font-size: 11px; }

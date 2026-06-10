@@ -42,12 +42,12 @@ function ensureCtx() {
   // es indistinguible para reproducir/exportar y reduce la memoria a la mitad.
   if (ctx.sampleRate > 48000) {
     try { ctx.close(); } catch (_) {}
-    try { ctx = new AC({ sampleRate: 48000 }); } catch (_) { ctx = new AC(); }
+    try { ctx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); } catch (_) { ctx = new AC({ latencyHint: 'interactive' }); }
   }
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.85;
   masterAnalyser = ctx.createAnalyser();
-  masterAnalyser.fftSize = 1024;
+  masterAnalyser.fftSize = 512;
   masterAnalyser.smoothingTimeConstant = 0.3;
   analyserBuf = new Float32Array(masterAnalyser.fftSize);
   masterGain.connect(masterAnalyser);

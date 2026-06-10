@@ -70,7 +70,7 @@ export function bindMidiHandlers(deps) {
     const port = evt && evt.port;
     if (port && port.type === 'input') {
       if (port.state === 'disconnected') window.showToast?.(`⚠️ MIDI desconectado: ${port.name || 'controlador'}`, 'warning');
-      else if (port.state === 'connected') window.showToast?.(`🎹 MIDI conectado: ${port.name || 'controlador'}`, 'success');
+      else if (port.state === 'connected') window.showToast?.(`MIDI conectado: ${port.name || 'controlador'}`, 'success');
     }
     if (!pill) return;
     if (!names || names.length === 0) {
@@ -286,6 +286,6 @@ export function bindMidiHandlers(deps) {
     e.stopPropagation();
     e.preventDefault();
     setMidiLearnTarget(target);
-    q('#midi-learn-overlay').innerHTML = `🎹 Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
+    q('#midi-learn-overlay').innerHTML = `Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
   }, true);
 }

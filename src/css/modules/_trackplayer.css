@@ -42,7 +42,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover {
   color: var(--text); border-color: var(--border-strong);
@@ -108,7 +108,7 @@
 #tp-progress { margin: 0; display: block; flex: 1; min-width: 0; }
 #tp-title {
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -165,7 +165,7 @@
 }
 .mx-title {
   display: flex; align-items: center; gap: 8px;
-  color: var(--text); font-size: 13px; font-weight: 800;
+  color: var(--text); font-size: 13px; font-weight: 600;
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
 }
@@ -189,7 +189,7 @@
 }
 .mx-channel--master { justify-content: center; }
 .mx-name {
-  font-size: 11px; font-weight: 800; color: var(--text);
+  font-size: 11px; font-weight: 600; color: var(--text);
   letter-spacing: 0.3px; white-space: nowrap;
 }
 .mx-ctrl { display: flex; align-items: center; gap: 8px; }
@@ -213,7 +213,7 @@
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   pointer-events: none;
   z-index: 100;
   box-shadow: 0 4px 12px var(--glow);
@@ -231,7 +231,7 @@
    in app.js. Same look, but parseable + themable from one place. */
 #bpm-inline-input {
   font-size: 34px;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent);
   background: var(--glow);
   border: 1px solid var(--border-strong);

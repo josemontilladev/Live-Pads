@@ -98,7 +98,7 @@ function ensureAudioCtx() {
   if (audioCtx) return audioCtx;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
-  try { audioCtx = new AC(); } catch (_) { audioCtx = null; }
+  try { audioCtx = new AC({ latencyHint: 'interactive' }); } catch (_) { audioCtx = null; }
   return audioCtx;
 }
 

@@ -68,7 +68,7 @@ function tempoName(b) {
 let ctx = null, masterGain = null, buffers = null, loadedSound = null;
 function ensureCtx() {
   if (!ctx) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
     masterGain = ctx.createGain();
     masterGain.gain.value = volume;
     masterGain.connect(ctx.destination);
@@ -103,6 +103,9 @@ function scheduleStep(s, time) {
     const g = ctx.createGain();
     g.gain.value = isMain ? 1 : 0.38;
     src.connect(g); g.connect(masterGain);
+    // Sin esto, cada click dejaría un nodo muerto en el grafo para siempre
+    // (a 120 BPM × 10 min son 1200 nodos acumulados).
+    src.onended = () => { try { src.disconnect(); g.disconnect(); } catch (_) {} };
     src.start(time);
   } else {
     const osc = ctx.createOscillator(), g = ctx.createGain();
@@ -111,7 +114,11 @@ function scheduleStep(s, time) {
     g.gain.setValueAtTime(amp, time);
     g.gain.exponentialRampToValueAtTime(0.001, time + (isMain ? 0.05 : 0.03));
     osc.connect(g); g.connect(masterGain);
-    osc.start(time); osc.stop(time + 0.06);
+    osc.onended = () => { try { osc.disconnect(); g.disconnect(); } catch (_) {} };
+    osc.start(time);
+    // max() garantiza que el stop quede en el futuro aunque el scheduler venga
+    // lagueado (si quedara en el pasado, el oscilador no se detendría nunca).
+    osc.stop(Math.max(time + 0.06, ctx.currentTime + 0.001));
   }
   if (isMain) flashBeat(beatInBar, state, delay);
   else pulseSub(delay);
@@ -373,6 +380,11 @@ export function closeMetronomeModal() {
   const panel = overlay.querySelector('.mtm-panel');
   if (panel) saveGeom(panel);          // captura tamaño/posición final (incl. redimensionado)
   stop();
+  // Liberar el AudioContext: si quedara vivo consume un hilo de audio del
+  // sistema para nada. Los buffers decodificados sobreviven (cache en
+  // clickGenerator) y son reutilizables en el próximo contexto.
+  try { if (ctx) { ctx.close(); } } catch (_) {}
+  ctx = null; masterGain = null;
   if (popModal) { popModal(); popModal = null; }
   overlay.classList.remove('open');
   const node = overlay; overlay = null;

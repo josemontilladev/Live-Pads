@@ -195,7 +195,7 @@ body[data-workspace="stems"] #body {
   transform: rotate(180deg);    /* lee de abajo hacia arriba */
   font-size: 11px;
   font-weight: 600;             /* mismo estilo discreto/ligero que el expandido */
-  letter-spacing: 1.6px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -210,7 +210,7 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
   flex-shrink: 0;
@@ -225,11 +225,11 @@ body[data-workspace="stems"] #body {
   display: flex; align-items: center; justify-content: center;
   background: var(--accent-grad);
   color: #0a0a14; border: none; cursor: pointer;
-  border-radius: 50%; transition: all 0.2s ease;
+  border-radius: 50%; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 .ssl-add:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .ssl-add svg { width: 16px; height: 16px; }
-.ssl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
+.ssl-title { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
 
 /* Encabezado del panel (expandido): icono música plano + título + botón contraer.
    El icono (.ssl-title-icon) y el título (.ssl-title-label) comparten estilo con
@@ -238,7 +238,7 @@ body[data-workspace="stems"] #body {
 .ssl-title-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
 .ssl-title-icon svg { width: 16px; height: 16px; }
 .ssl-title-label {
-  font-size: 11px; font-weight: 600; letter-spacing: 1.6px;
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
   text-transform: uppercase; color: var(--text-muted);
 }
 .ssl-collapse-btn {
@@ -265,7 +265,7 @@ body[data-workspace="stems"] #body {
 .ssl-slot-btn {
   flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-hover);
   border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .ssl-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
 .ssl-search {
@@ -287,7 +287,7 @@ body[data-workspace="stems"] #body {
   margin-left: auto; flex-shrink: 0;
   width: 19px; height: 19px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; line-height: 1;
+  font-size: 11px; font-weight: 600; line-height: 1;
 }
 .ssl-check.seq  { color: #10b981; background: rgba(16, 185, 129, 0.18); }
 .ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
@@ -300,13 +300,13 @@ body[data-workspace="stems"] #body {
 }
 .ssl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ssl-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
-.ssl-cover-fallback { font-size: 21px; font-weight: 800; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; }
+.ssl-cover-fallback { font-size: 21px; font-weight: 600; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; }
 .ssl-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .ssl-row-title {
-  font-size: 12.5px; font-weight: 600; color: var(--text); line-height: 1.25;
+  font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.ssl-row-artist { font-size: 10.5px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ssl-row-artist { font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ssl-row-meta { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; min-width: 0; }
 .ssl-meta-music { flex-shrink: 0; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* Badges de estado del slot. Verde = Secuencia, Ámbar = Original — mismo
@@ -318,7 +318,7 @@ body[data-workspace="stems"] #body {
 }
 .ssl-tag.seq  { color: #10b981; background: rgba(16, 185, 129, 0.16); }
 .ssl-tag.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
-.ssl-hint { font-size: 9.5px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
+.ssl-hint { font-size: 10px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
 .ssl-empty { padding: 14px 4px; text-align: center; color: var(--text-muted); font-size: 11px; }
 
 /* Modal de "nueva canción" en Stems — reusa el form de Pads (.gi-edit-form). */
@@ -335,7 +335,7 @@ body[data-workspace="stems"] #body {
 }
 /* Cheat-sheet de atajos del timeline */
 .stems-newsong-modal.stems-shortcuts { width: 460px; }
-.stems-shortcuts-title { margin: 0 0 14px; font-size: 15px; font-weight: 800; color: var(--text); }
+.stems-shortcuts-title { margin: 0 0 14px; font-size: 14px; font-weight: 600; color: var(--text); }
 .stems-shortcuts-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
 .stems-shortcut-row {
   display: grid; grid-template-columns: 175px 1fr; align-items: center; gap: 12px;
@@ -350,8 +350,8 @@ body[data-workspace="stems"] #body {
   border: 1px solid var(--border);
   border-radius: 5px; padding: 2px 7px; white-space: nowrap;
 }
-.stems-shortcut-row span { font-size: 12.5px; color: var(--text-muted); }
-.stems-help-btn { font-weight: 800; }
+.stems-shortcut-row span { font-size: 13px; color: var(--text-muted); }
+.stems-help-btn { font-weight: 600; }
 .stems-help-btn:hover { color: var(--accent); }
 
 /* Card shell shared by the bento blocks. Overflow is set per-component
@@ -388,7 +388,7 @@ body[data-workspace="stems"] #body {
   content: "Suelta los archivos para importar";
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--accent);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
@@ -418,7 +418,7 @@ body[data-workspace="stems"] #body {
 
 .stems-brand {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   color: var(--accent);
   letter-spacing: 1.2px;
   white-space: nowrap;
@@ -540,7 +540,7 @@ body[data-workspace="stems"] #body {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   font-family: var(--font-main);
   letter-spacing: 0.3px;
@@ -721,14 +721,14 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
 }
 .stems-readout .label {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
 }
 .stems-readout .value {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--accent);
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -751,7 +751,7 @@ body[data-workspace="stems"] #body {
   color: var(--text);
   width: 22px; height: 22px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   border-radius: 4px;
   display: inline-flex;
@@ -760,7 +760,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-zoom-btn:hover { background: rgba(255,255,255,0.06); color: var(--accent); }
 .stems-zoom-readout {
-  font-size: 10.5px;
+  font-size: 11px;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
   min-width: 38px;
@@ -774,8 +774,8 @@ body[data-workspace="stems"] #body {
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg-card);
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 1.2px;
   color: var(--text-muted);
   cursor: pointer;
@@ -804,8 +804,8 @@ body[data-workspace="stems"] #body {
 .stems-state-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 1.3px;
   padding: 0 12px;            /* height viene de la regla unificada */
   border-radius: 999px;
@@ -815,9 +815,9 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
 }
 .stems-state-pill[data-state="play"] {
-  background: rgba(74,222,128,0.14);
-  border-color: rgba(74,222,128,0.5);
-  color: #4ade80;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+  color: var(--ok);
 }
 /* "DETENIDO" en gris no aporta nada (el play button ya muestra el estado).
    Solo aparece visualmente cuando hay algo distinto a "stop". */
@@ -944,8 +944,8 @@ body[data-workspace="stems"] #body {
 }
 .stems-tools-label {
   font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 1.4px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
   margin-right: 4px;
 }
@@ -955,7 +955,7 @@ body[data-workspace="stems"] #body {
   color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 14px var(--glow);
-  font-weight: 800;
+  font-weight: 600;
 }
 .stems-btn--accent:hover {
   background: var(--accent-grad);
@@ -1059,8 +1059,6 @@ body[data-workspace="stems"] #body {
 .stems-cloud-overlay {
   position: fixed; inset: 0; z-index: 4000;
   background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   animation: stems-cloud-fade .14s ease-out;
 }
@@ -1076,7 +1074,7 @@ body[data-workspace="stems"] #body {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
-.stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 800; color: var(--text); }
+.stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--text); }
 .stems-cloud-panel p { margin: 0 0 16px; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
 .stems-cloud-panel label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 10px 0 5px; letter-spacing: 0.3px; }
 .stems-cloud-panel select, .stems-cloud-panel input {
@@ -1096,9 +1094,9 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   color: var(--text-muted);
   font-family: var(--font-main);
-  font-size: 11px; font-weight: 800;
+  font-size: 11px; font-weight: 600;
   cursor: pointer;
-  transition: all 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
 }
 .stems-accent-chip:hover { border-color: var(--border-strong); color: var(--text); }
 .stems-accent-chip.is-on {
@@ -1112,7 +1110,7 @@ body[data-workspace="stems"] #body {
 /* ── Narrow viewport tuning ─────────────────────────────────────── */
 @media (max-width: 1200px) {
   .stems-readout .value { font-size: 12px; }
-  .stems-readout .label { font-size: 8px; }
+  .stems-readout .label { font-size: 9px; }
   .stems-project-name { font-size: 13px; }
 }
 @media (max-width: 1024px) {
@@ -1198,8 +1196,8 @@ body[data-workspace="stems"] #body {
 }
 .stems-head-spacer-label {
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.6px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: var(--accent);
   text-transform: uppercase;
 }
@@ -1242,8 +1240,8 @@ body[data-workspace="stems"] #body {
   font-family: ui-monospace, Consolas, monospace;
   pointer-events: none;
 }
-.stems-tick-bar { font-size: 10.5px; font-weight: 800; color: var(--text); letter-spacing: 0.2px; }
-.stems-tick-time { font-size: 9.5px; font-weight: 600; color: var(--accent); opacity: 0.8; }
+.stems-tick-bar { font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+.stems-tick-time { font-size: 10px; font-weight: 600; color: var(--accent); opacity: 0.8; }
 
 /* Markers layer — sits inside the head-tl so it scrolls horizontally
    with the ruler. Each marker's vertical line extends down through the
@@ -1280,11 +1278,11 @@ body[data-workspace="stems"] #body {
   bottom: 0;
   width: 2px;
   transform: translateX(-1px);
-  background: rgba(74,222,128,0.55);
+  background: color-mix(in srgb, var(--ok) 55%, transparent);
 }
 .stems-marker-line.is-sel { background: var(--accent); }
 .stems-marker-flag {
-  background: #4ade80;
+  background: var(--ok);
   color: var(--on-accent);
   padding: 2px 4px;
   border-radius: 3px;
@@ -1292,8 +1290,8 @@ body[data-workspace="stems"] #body {
 }
 .stems-marker-label {
   background: rgba(10,10,20,0.85);
-  border: 1px solid rgba(74,222,128,0.55);
-  color: #4ade80;
+  border: 1px solid color-mix(in srgb, var(--ok) 55%, transparent);
+  color: var(--ok);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -1307,19 +1305,19 @@ body[data-workspace="stems"] #body {
   width: 18px; height: 18px;
   background: transparent;
   border: none;
-  color: rgba(74,222,128,0.7);
+  color: color-mix(in srgb, var(--ok) 70%, transparent);
   cursor: pointer;
   font-size: 14px;
   padding: 0;
   margin-left: 2px;
 }
-.stems-marker-remove:hover { color: #ff5f57; }
+.stems-marker-remove:hover { color: var(--danger-soft); }
 /* Marcador seleccionado (clic): se mueve con ← →. */
 .stems-marker.is-sel { outline: 1px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
 .stems-marker.is-sel .stems-marker-flag { color: var(--accent); }
 /* Resaltar el × al pasar por el marcador, para que se note que se puede quitar. */
-.stems-marker:hover .stems-marker-remove { color: rgba(255,95,87,0.85); }
-.stems-marker:hover .stems-marker-remove:hover { background: rgba(255,95,87,0.15); border-radius: 50%; }
+.stems-marker:hover .stems-marker-remove { color: color-mix(in srgb, var(--danger-soft) 85%, transparent); }
+.stems-marker:hover .stems-marker-remove:hover { background: color-mix(in srgb, var(--danger-soft) 15%, transparent); border-radius: 50%; }
 
 /* ── Track rows (each = sticky strip + lane) ─────────────────────── */
 .stems-rows {
@@ -1365,7 +1363,7 @@ body[data-workspace="stems"] #body {
   padding: 0;
   font: inherit;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1.5px;
@@ -1384,7 +1382,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-empty[hidden] { display: none; }
 .stems-empty-icon { color: var(--accent); opacity: 0.55; margin-bottom: 10px; }
-.stems-empty h3 { margin: 0 0 6px; font-size: 17px; color: var(--text); font-weight: 700; }
+.stems-empty h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); font-weight: 700; }
 .stems-empty p  { margin: 0; font-size: 13px; }
 .stems-empty strong { color: var(--accent); }
 
@@ -1439,8 +1437,8 @@ body[data-workspace="stems"] #body {
 .stems-sel-bar[hidden] { display: none; }
 .stems-sel-count { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
 .stems-sel-del {
-  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%); color: #fff; border: none;
-  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer;
+  background: linear-gradient(135deg, #f87171 0%, var(--danger) 100%); color: #fff; border: none;
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
   transition: filter 0.15s;
 }
 .stems-sel-del:hover { filter: brightness(1.08); }
@@ -1494,7 +1492,7 @@ body[data-workspace="stems"] #body {
   box-shadow: inset 3px 0 0 #60a5fa, 2px 0 4px rgba(0,0,0,0.25);
 }
 .stems-row--guide .stems-row-strip {
-  box-shadow: inset 3px 0 0 #4ade80, 2px 0 4px rgba(0,0,0,0.25);
+  box-shadow: inset 3px 0 0 var(--ok), 2px 0 4px rgba(0,0,0,0.25);
 }
 
 /* Strip head: single horizontal row with the name claiming flex space
@@ -1516,17 +1514,17 @@ body[data-workspace="stems"] #body {
   border: 1px solid var(--border-strong);
   background: var(--bg);
   color: var(--text-muted);
-  font-size: 10.5px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
 }
 .stems-ms:hover { color: var(--text); filter: brightness(1.15); }
 .stems-ms--mute.is-on {
-  background: linear-gradient(180deg, #ff7a73, #ff5f57);
-  border-color: #ff5f57;
+  background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
+  border-color: var(--danger-soft);
   color: var(--on-accent);
-  box-shadow: 0 0 10px rgba(255,95,87,0.55);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger-soft) 55%, transparent);
 }
 .stems-ms--solo.is-on {
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent));
@@ -1546,9 +1544,9 @@ body[data-workspace="stems"] #body {
 .stems-row-kind {
   display: inline-block;
   align-self: flex-start;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 1.4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
   text-transform: uppercase;
   padding: 1px 6px;
@@ -1562,16 +1560,16 @@ body[data-workspace="stems"] #body {
   background: rgba(96,165,250,0.1);
 }
 .stems-row--guide .stems-row-kind {
-  color: #4ade80;
-  border-color: rgba(74,222,128,0.4);
-  background: rgba(74,222,128,0.1);
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
 }
 .stems-row-name {
   appearance: none;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   padding: 1px 4px;
   margin-left: -4px;
@@ -1599,7 +1597,7 @@ body[data-workspace="stems"] #body {
   transition: opacity 0.15s, border-color 0.15s, color 0.15s;
 }
 .stems-row-strip:hover .stems-row-remove { opacity: 1; }
-.stems-row-remove:hover { border-color: rgba(255,95,87,0.5); color: #ff5f57; }
+.stems-row-remove:hover { border-color: color-mix(in srgb, var(--danger-soft) 50%, transparent); color: var(--danger-soft); }
 
 .stems-row-controls { display: flex; flex-direction: column; gap: 4px; }
 .stems-vol-group {
@@ -1673,7 +1671,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-pan-letter {
   font-size: 9px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.5px;
   color: var(--accent);
   opacity: 0.7;
@@ -1808,8 +1806,8 @@ body[data-workspace="stems"] #body {
 .stems-console-toggle:active { transform: translateY(0.5px); }
 .stems-console-title {
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.6px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: var(--accent);
   text-transform: uppercase;
 }
@@ -1904,7 +1902,7 @@ body[data-workspace="stems"] #body {
   border-color: rgba(96,165,250,0.4);
 }
 .stems-console-strip--guide {
-  border-color: rgba(74,222,128,0.4);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
 }
 /* Reordenamiento por drag-and-drop (handle = cabecera del strip). */
 .stems-console-strip.is-dragging { opacity: 0.4; }
@@ -1921,13 +1919,13 @@ body[data-workspace="stems"] #body {
 }
 .stems-console-strip-head:active { cursor: grabbing; }
 .stems-console-strip-kind {
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: 1.4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
 }
 .stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
-.stems-console-strip--guide .stems-console-strip-kind { color: #4ade80; }
+.stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
 .stems-console-strip-name {
   display: block;
   font-size: 11px;
@@ -1951,8 +1949,8 @@ body[data-workspace="stems"] #body {
   gap: 2px;
 }
 .stems-console-pan-label {
-  font-size: 8px;
-  font-weight: 800;
+  font-size: 9px;
+  font-weight: 600;
   letter-spacing: 1.2px;
   color: var(--text-muted);
 }
@@ -2042,8 +2040,8 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-console-strip-readout {
-  font-size: 9.5px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.4px;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
@@ -2064,9 +2062,9 @@ body[data-workspace="stems"] #body {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
 }
 .stems-master .stems-range { width: 150px; }
@@ -2107,7 +2105,7 @@ body[data-workspace="stems"] #body {
      del VU meter (~60fps mientras suena una pista en Stems). */
   clip-path: inset(100% 0 0 0);
   background: linear-gradient(180deg,
-    #ff5f57 0%,
+    var(--danger-soft) 0%,
     color-mix(in srgb, var(--accent), white 18%) 28%,
     var(--accent) 70%,
     color-mix(in srgb, var(--accent), black 25%) 100%);
@@ -2164,8 +2162,8 @@ body[data-workspace="stems"] #body {
 }
 #stems-loop-toggle::after {
   content: "OFF";
-  font-size: 8px;
-  font-weight: 900;
+  font-size: 9px;
+  font-weight: 700;
   letter-spacing: 1.2px;
   color: var(--text-muted);
   margin-left: 2px;
@@ -2203,7 +2201,7 @@ body[data-workspace="stems"] #body {
     0 0 0 2px var(--accent),
     0 0 24px var(--glow);
   pointer-events: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .stems-tour-card {
   position: absolute;
@@ -2214,21 +2212,21 @@ body[data-workspace="stems"] #body {
   border-radius: var(--r-lg);
   padding: 18px 20px 16px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 24px var(--glow);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .stems-tour-step {
   display: inline-block;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: var(--accent);
   text-transform: uppercase;
   margin-bottom: 6px;
 }
 .stems-tour-card h3 {
   margin: 0 0 8px;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text);
 }
 .stems-tour-card p {
@@ -2311,17 +2309,17 @@ body[data-workspace="stems"] #body {
   top: 6px;
   font-size: 12px;
   color: var(--accent);
-  font-weight: 900;
+  font-weight: 700;
 }
 .stems-marker--loop-end::after { content: "⤴"; }
 
 .stems-save-pill {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(74,222,128,0.14);
-  color: #4ade80;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
   opacity: 0;
   transition: opacity 0.25s;
 }
@@ -2337,8 +2335,8 @@ body[data-workspace="stems"] #body {
   opacity: 1;
 }
 .stems-save-pill[data-state="saved"] {
-  background: rgba(74, 222, 128, 0.14);
-  color: #4ade80;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
 }
 
 /* ── Right-click context menus (markers, etc.) ─────────────────── */
@@ -2372,7 +2370,7 @@ body[data-workspace="stems"] #body {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   padding: 7px 10px;
   border-radius: 6px;
@@ -2391,8 +2389,8 @@ body[data-workspace="stems"] #body {
 .stems-marker-ctx { min-width: 230px; }
 .smc-section-label {
   font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 1.4px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   color: var(--text-muted);
   padding: 6px 10px 4px;
   text-transform: uppercase;
@@ -2415,7 +2413,7 @@ body[data-workspace="stems"] #body {
   color: var(--text) !important;
   font-size: 11px !important;
   font-weight: 600;
-  transition: all 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
 }
 .smc-type-btn:hover {
   border-color: var(--accent) !important;
@@ -2468,7 +2466,7 @@ body[data-workspace="stems"] #body {
   padding: 1px 5px;
   margin-left: 4px;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--on-accent);
   background: var(--accent);
@@ -2486,7 +2484,7 @@ body[data-workspace="stems"] #body {
 .stems-btn.stems-loop-ab {
   min-width: 26px;
   padding: 4px 8px !important;
-  font-weight: 800 !important;
+  font-weight: 600 !important;
   font-size: 11px !important;
 }
 .stems-btn.stems-loop-ab.is-set {
@@ -2502,7 +2500,7 @@ body[data-workspace="stems"] #body {
   opacity: 0.8;
 }
 .stems-ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
-.stems-context-menu button.stems-ctx-toggle { font-size: 11.5px; color: var(--text-muted); }
+.stems-context-menu button.stems-ctx-toggle { font-size: 12px; color: var(--text-muted); }
 .stems-context-menu button.stems-ctx-toggle:hover { color: var(--text); background: var(--bg-hover); }
 
 /* ── Project dropdown (Nuevo / Guardar como / Abrir) ───────────── */
@@ -2532,7 +2530,7 @@ body[data-workspace="stems"] #body {
   background: transparent;
   border: none;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   padding: 8px 12px;
   border-radius: 5px;
@@ -2562,18 +2560,18 @@ body[data-workspace="stems"] #body {
   padding: 24px 28px;
   width: 420px;
   max-width: 92vw;
-  box-shadow: 0 40px 100px rgba(0,0,0,0.55), 0 0 60px var(--glow);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 .stems-modal-card--wide { width: 520px; }
 .stems-modal-card h3 {
   margin: 0 0 8px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text);
 }
 .stems-modal-card p {
   margin: 0 0 18px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -2611,7 +2609,7 @@ body[data-workspace="stems"] #body {
   padding: 28px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 .stems-modal-empty strong { color: var(--accent); }
 .stems-modal-row {
@@ -2639,18 +2637,18 @@ body[data-workspace="stems"] #body {
   text-overflow: ellipsis;
 }
 .stems-modal-row-time {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
 }
 .stems-modal-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .stems-btn--danger {
-  border-color: rgba(255, 95, 87, 0.4);
-  color: #ff5f57;
+  border-color: color-mix(in srgb, var(--danger-soft) 40%, transparent);
+  color: var(--danger-soft);
 }
 .stems-btn--danger:hover {
-  background: rgba(255, 95, 87, 0.1);
-  border-color: #ff5f57;
+  background: color-mix(in srgb, var(--danger-soft) 10%, transparent);
+  border-color: var(--danger-soft);
 }
 
 /* ── Export overlay ─────────────────────────────────────────────── */
@@ -2675,7 +2673,7 @@ body[data-workspace="stems"] #body {
   min-width: 380px;
   max-width: 80%;
   text-align: center;
-  box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 60px var(--glow);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 .stems-spinner {
   width: 38px;
@@ -2698,6 +2696,7 @@ body[data-workspace="stems"] #body {
   max-width: calc(100vw - 40px);
   padding: 14px 16px;
   background: var(--bg-card);
+  border-left: 3px solid var(--accent);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
@@ -2708,7 +2707,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-sep-toast.is-in { opacity: 1; transform: translateY(0); }
 .stems-sep-toast.is-done { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
-.stems-sep-toast.is-error { border-color: #ff5f57; }
+.stems-sep-toast.is-error { border-color: var(--danger-soft); }
 .stems-sep-toast-head { display: flex; align-items: center; gap: 10px; }
 .stems-sep-toast-spin {
   width: 16px; height: 16px; flex-shrink: 0;
@@ -2718,9 +2717,9 @@ body[data-workspace="stems"] #body {
   animation: stemsSpin 0.7s linear infinite;
 }
 .stems-sep-toast-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.stems-sep-toast-text strong { font-size: 12px; font-weight: 800; color: var(--text); letter-spacing: 0.3px; }
+.stems-sep-toast-text strong { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.3px; }
 .stems-sep-toast-name {
-  font-size: 10.5px; color: var(--text-muted);
+  font-size: 11px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stems-sep-toast-pct {
@@ -2740,11 +2739,11 @@ body[data-workspace="stems"] #body {
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.stems-sep-toast-cancel:hover { color: #ff5f57; border-color: #ff5f57; background: rgba(255,95,87,0.1); }
+.stems-sep-toast-cancel:hover { color: var(--danger-soft); border-color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 10%, transparent); }
 .stems-sep-toast-cancel:disabled { opacity: 0.4; cursor: default; }
 .stems-sep-toast-stage {
   margin: 9px 0 8px;
-  font-size: 10.5px; color: var(--text-muted);
+  font-size: 11px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stems-sep-toast.is-error .stems-sep-toast-stage { color: #ff8a84; white-space: normal; }
@@ -2762,7 +2761,7 @@ body[data-workspace="stems"] #body {
 .stems-export-panel h3 {
   margin: 0 0 10px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--text);
 }
 .stems-export-stage {
@@ -2808,7 +2807,7 @@ body[data-workspace="stems"] #body {
 /* ── Modal "Asignar mezcla a una canción" (Exportar → asignar) ───────────── */
 .stems-assign-overlay {
   position: fixed; inset: 0; z-index: 10050;
-  background: rgba(0,0,0,0.55); backdrop-filter: blur(2px);
+  background: rgba(0,0,0,0.55);
   display: flex; align-items: center; justify-content: center;
 }
 .stems-assign-modal {
@@ -2819,14 +2818,14 @@ body[data-workspace="stems"] #body {
   overflow: hidden;
 }
 .sam-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
-.sam-title { font-size: 14px; font-weight: 800; color: var(--text); }
+.sam-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .sam-close { background: transparent; border: none; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .sam-close:hover { color: var(--text); }
 .sam-slot { display: flex; gap: 4px; padding: 0 16px 10px; }
 .sam-slot-btn {
   flex: 1; padding: 8px; border: 1px solid var(--border); background: var(--bg-hover);
   border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .sam-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
 .sam-search {
@@ -2842,7 +2841,7 @@ body[data-workspace="stems"] #body {
 .sam-row:hover { background: var(--bg-hover); }
 .sam-row-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 60%; }
 .sam-row-meta { font-size: 11px; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sam-row-has { font-size: 9px; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
+.sam-row-has { font-size: 9px; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
 .sam-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
 
 /* ── Modal de transpose selectivo (elegir qué pistas transponer) ──────────── */
@@ -2857,7 +2856,7 @@ body[data-workspace="stems"] #body {
   border-radius: var(--r-lg); padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
 }
 .stt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.stt-head h3 { margin: 0; font-size: 15px; font-weight: 800; color: var(--text); }
+.stt-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
 .stt-x { background: transparent; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
 .stt-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .stt-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0 0 12px; }
@@ -2869,11 +2868,11 @@ body[data-workspace="stems"] #body {
 .stt-row:hover { border-color: var(--border-strong); }
 .stt-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
 .stt-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stt-kind { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.stt-kind { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
 .stt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .stt-btn {
-  padding: 9px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); border-radius: 8px; transition: all 0.15s;
+  padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); border-radius: 8px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .stt-btn:hover { background: rgba(255,255,255,0.12); }
 .stt-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
@@ -2894,7 +2893,7 @@ body[data-workspace="stems"] #body {
   position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
   clip-path: inset(100% 0 0 0);
   background: linear-gradient(180deg,
-    #ff5f57 0%,
+    var(--danger-soft) 0%,
     color-mix(in srgb, var(--accent), white 18%) 28%,
     var(--accent) 70%,
     color-mix(in srgb, var(--accent), black 25%) 100%);
@@ -2923,13 +2922,13 @@ body[data-workspace="stems"] #body {
 }
 .stems-metro-pop.hidden { display: none; }
 .stems-metro-pop-title {
-  font-size: 9.5px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
   color: var(--text-muted); padding: 4px 8px 6px;
 }
 .stems-metro-opt {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 7px 9px; border: none; border-radius: 6px; background: none;
-  color: var(--text-muted); font-size: 12.5px; font-weight: 500; text-align: left; cursor: pointer;
+  color: var(--text-muted); font-size: 13px; font-weight: 500; text-align: left; cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
 .stems-metro-opt:hover { background: var(--bg-hover); color: var(--text); }

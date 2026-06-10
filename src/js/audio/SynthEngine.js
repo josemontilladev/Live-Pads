@@ -269,27 +269,33 @@ export class SynthEngine {
       return;
     }
 
-    await this._ensurePadAmb(key);
     const bank = this.currentPadBank;
     const cacheKey = bank ? `${bank.id}_${key}` : key;
 
-    if (this._pendingKey !== key) {
-      this._fadeOutNodes(oldNodes, 0.4);
-      return;
-    }
-
-    // SMART ATTACK: 
-    // If nothing is playing, start fast (0.5s). 
+    // SMART ATTACK:
+    // If nothing is playing, start fast (0.5s).
     // If something is already playing, crossfade smoothly (2.0s).
     const isSilent = (oldNodes.length === 0);
     const attackTime = isSilent ? 0.5 : 2.0;
 
     if (this._padAmbBuffers[cacheKey]) {
       this._playBufferPad(this._padAmbBuffers[cacheKey], attackTime);
-      this._fadeOutNodes(oldNodes, attackTime + 0.5); 
+      this._fadeOutNodes(oldNodes, attackTime + 0.5);
     } else {
+      // 0 latencia: el synth suena YA; el MP3 del pad se decodifica en segundo
+      // plano y, cuando llega, crossfade al buffer real si este pad sigue activo.
+      // (Antes se esperaba la decodificación con await → el pad "tardaba".)
       this._playSynthPad(freq, cfg, attackTime);
       this._fadeOutNodes(oldNodes, attackTime + 0.3);
+      this._ensurePadAmb(key).then(() => {
+        if (this._pendingKey !== key) return;
+        const buf = this._padAmbBuffers[cacheKey];
+        if (!buf) return;
+        const synthNodes = this.activePadNodes;
+        this.activePadNodes = [];
+        this._playBufferPad(buf, 2.0);
+        this._fadeOutNodes(synthNodes, 2.5);
+      }).catch(() => {});
     }
   }
 

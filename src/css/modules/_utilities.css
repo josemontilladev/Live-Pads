@@ -3,7 +3,7 @@
    ═══════════════════════════════════════════════════════ */
 
 /* Topbar */
-.topbar-logo-text { font-size: 16px; font-weight: 800; letter-spacing: 0.5px; }
+.topbar-logo-text { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
 .topbar-logo-img { height: 34px; width: 34px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 
@@ -145,8 +145,8 @@
   flex-shrink: 0;
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.55);
+  background: var(--ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 55%, transparent);
 }
 
 /* ── Auto-update banner (bottom-center, non-intrusive) ───────────── */
@@ -176,7 +176,7 @@
   border: 1px solid var(--accent, #FBAE00);
   background: var(--accent, #FBAE00);
   color: #0a0a14;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 12px;
   padding: 7px 12px;
   border-radius: 8px;

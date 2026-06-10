@@ -73,8 +73,8 @@
   align-items: center;
   gap: 7px;
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -124,7 +124,7 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 .pr-legend-title {
-  font-size: 10px; font-weight: 800; letter-spacing: 1px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
   text-transform: uppercase; color: var(--accent);
   padding: 2px 4px 6px;
 }
@@ -293,10 +293,9 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.75);
   pointer-events: none;
   white-space: nowrap;
 }
