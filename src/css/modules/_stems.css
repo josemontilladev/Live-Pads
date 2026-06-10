@@ -515,10 +515,10 @@ body[data-workspace="stems"] #body {
 .stems-field:hover { border-color: var(--accent); }
 .stems-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
 .stems-field label {
-  font-size: 10px;
-  letter-spacing: 1.1px;
+  font-size: 11px;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: 600;
   font-family: var(--font-main);
 }
 .stems-field input {
@@ -721,9 +721,9 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
 }
 .stems-readout .label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
 }
 .stems-readout .value {
@@ -943,9 +943,9 @@ body[data-workspace="stems"] #body {
   background: rgba(0,0,0,0.2);
 }
 .stems-tools-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
   margin-right: 4px;
 }
@@ -1195,11 +1195,10 @@ body[data-workspace="stems"] #body {
   gap: 2px;
 }
 .stems-head-spacer-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.3px;
   color: var(--accent);
-  text-transform: uppercase;
 }
 .stems-head-spacer-count {
   font-size: 10px;
@@ -1805,11 +1804,10 @@ body[data-workspace="stems"] #body {
 }
 .stems-console-toggle:active { transform: translateY(0.5px); }
 .stems-console-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.3px;
   color: var(--accent);
-  text-transform: uppercase;
 }
 .stems-console-count {
   font-size: 10px;

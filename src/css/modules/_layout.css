@@ -202,7 +202,7 @@
   display: flex; align-items: center; gap: 10px; margin-left: auto;
   flex-shrink: 0; min-width: 200px;
 }
-.tray-pan-label { font-size: 11px; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+.tray-pan-label { font-size: 10px; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
 
 .sb-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
 .sb-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; }

@@ -1,21 +1,38 @@
 // Pitch-shift offline de un AudioBuffer para crear pistas de referencia
 // armónica (3ra, 5ta, 4ta abajo, etc.) sin alterar la duración.
 //
-// Usa OfflineAudioContext + PitchShifter (SoundTouchJS) — el mismo motor
-// del track player en tiempo real, pero renderizando al disco para añadir
-// la pista resultante como un track más del proyecto.
+// Motor primario: OfflineAudioContext + SoundTouchNode (AudioWorklet) — el
+// MISMO worklet del track player en tiempo real (vendor/soundtouch-worklet),
+// pero renderizando a disco. El worklet corre en bloques de 128 samples (vs
+// 4096 del ScriptProcessor legado) y no pasa por el hilo principal.
+// Fallback: si el worklet no registra (runtime raro), cae al PitchShifter
+// legado (ScriptProcessor) que era el motor original.
 //
 // API:
 //   await pitchShiftBuffer(sourceBuffer, semitones, { onProgress }) → AudioBuffer
 //
 // Notas:
 //   · El render offline corre lo más rápido posible (no atado a wall-clock).
-//   · PitchShifter procesa en bloques de 4096; usamos ScriptProcessorNode
-//     para alimentar el destino del OfflineAudioContext.
-//   · Para canciones largas (5 min) el render típico es 5-15 s en un PC
-//     modesto. El callback onProgress(0..1) permite mostrar barra.
+//   · onProgress(0..1) se reporta con checkpoints de OfflineAudioContext
+//     .suspend(t) cada ~1s de audio (en el fallback, con el evento 'play').
 
 import { PitchShifter } from '../../vendor/soundtouchjs.js';
+import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
+
+// Código del processor (cargado 1 vez por IPC): cada OfflineAudioContext es
+// nuevo y necesita su propio addModule, así que cacheamos el Blob URL.
+let _workletUrlPromise = null;
+function getWorkletUrl() {
+  if (_workletUrlPromise) return _workletUrlPromise;
+  _workletUrlPromise = (async () => {
+    try {
+      const code = await window.electronAPI?.getSoundtouchWorklet?.();
+      if (code) return URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    } catch (_) {}
+    return 'vendor/soundtouch-worklet/soundtouch-processor.js'; // fallback dev
+  })();
+  return _workletUrlPromise;
+}
 
 // Tope de sample rate para el render de referencia armónica. Con audio a 96 kHz
 // (interfaces pro), un track largo genera un AudioBuffer que Chromium no puede
@@ -46,9 +63,55 @@ async function capSampleRate(buffer, maxRate) {
  */
 export async function pitchShiftBuffer(buffer, semitones, opts = {}) {
   if (!buffer) throw new Error('Falta el AudioBuffer fuente.');
-  // Bajar a ≤48 kHz si hace falta: el PitchShifter recibe un buffer cuyo rate
-  // coincide con el del contexto offline, y el buffer de salida cabe en memoria.
+  // Bajar a ≤48 kHz si hace falta: el buffer de salida debe caber en memoria
+  // y el rate del buffer debe coincidir con el del contexto offline.
   try { buffer = await capSampleRate(buffer, MAX_RENDER_RATE); } catch (_) {}
+  try {
+    return await renderWithWorklet(buffer, semitones, opts);
+  } catch (e) {
+    console.warn('Harmony por AudioWorklet falló — fallback a ScriptProcessor:', e?.message || e);
+    return renderWithScriptProcessor(buffer, semitones, opts);
+  }
+}
+
+// Motor primario: source nativo → SoundTouchNode (worklet) → destination.
+async function renderWithWorklet(buffer, semitones, opts) {
+  const sr = buffer.sampleRate;
+  const len = buffer.length;
+  const channels = Math.min(2, buffer.numberOfChannels);
+  const dur = buffer.duration || (len / sr);
+
+  const offline = new OfflineAudioContext(channels, len, sr);
+  await SoundTouchNode.register(offline, await getWorkletUrl());
+
+  const src = offline.createBufferSource();
+  src.buffer = buffer;
+  const st = new SoundTouchNode({ context: offline });
+  st.pitchSemitones.value = semitones;
+  src.connect(st);
+  st.connect(offline.destination);
+  src.start(0);
+
+  // Progreso por checkpoints: suspend(t) pausa el render en el segundo t de
+  // audio, reportamos y seguimos. Es el único reloj observable de un render
+  // offline (corre más rápido que wall-clock).
+  if (typeof opts.onProgress === 'function' && dur > 2) {
+    const step = Math.max(1, dur / 50);   // ~50 ticks de barra
+    for (let t = step; t < dur; t += step) {
+      offline.suspend(t).then(() => {
+        try { opts.onProgress(Math.min(1, t / dur)); } catch (_) {}
+        offline.resume();
+      }).catch(() => {});
+    }
+  }
+
+  const rendered = await offline.startRendering();
+  try { st.disconnect(); } catch (_) {}
+  return rendered;
+}
+
+// Fallback legado: PitchShifter (SoundTouchJS clásico sobre ScriptProcessor).
+async function renderWithScriptProcessor(buffer, semitones, opts) {
   const sr = buffer.sampleRate;
   const len = buffer.length;
   const channels = Math.min(2, buffer.numberOfChannels);
@@ -59,10 +122,6 @@ export async function pitchShiftBuffer(buffer, semitones, opts = {}) {
   try { shifter.pitchSemitones = semitones; } catch (_) {}
   shifter.connect(offline.destination);
 
-  // El callback 'play' del PitchShifter nos da `timePlayed`, que dividimos
-  // entre la duración total para reportar progreso. El render offline no
-  // emite eventos de scheduling propios, así que el shifter es la única
-  // fuente de avance fiable.
   const dur = buffer.duration || (len / sr);
   if (typeof opts.onProgress === 'function') {
     try {
