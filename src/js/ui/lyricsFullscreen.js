@@ -8,7 +8,23 @@
 
 import { esc } from '../utils/dom.js';
 import { formatLyrics } from './lyricsFormat.js';
+import { transposeAll } from './chordTransposer.js';
 import { pushModal } from './modalStack.js';
+
+// Transpone la ETIQUETA de tonalidad ("F", "C#m", "Bb") N semitonos para que
+// el badge acompañe a los acordes transpuestos.
+const SHARP_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const FLAT2SHARP = { Db: 'C#', Eb: 'D#', Gb: 'F#', Ab: 'G#', Bb: 'A#' };
+function transposeKeyLabel(key, semis) {
+  if (!key) return '';
+  const m = String(key).trim().match(/^([A-G][b#]?)\s*(m|min)?$/i);
+  if (!m) return key;
+  let root = m[1][0].toUpperCase() + (m[1][1] || '');
+  root = FLAT2SHARP[root] || root;
+  const idx = SHARP_NOTES.indexOf(root);
+  if (idx < 0) return key;
+  return SHARP_NOTES[((idx + semis) % 12 + 12) % 12] + (m[2] ? 'm' : '');
+}
 
 let popModal = null;
 
@@ -41,6 +57,7 @@ export function openLyricsFullscreen(song) {
 
   let fontSize = readFont();
   let showChords = readChords(song.showChords);
+  let semitones = 0;   // transposición en vivo (no persiste: cada apertura arranca en 0)
 
   overlay = document.createElement('div');
   overlay.className = 'lyrics-fs-overlay';
@@ -53,7 +70,16 @@ export function openLyricsFullscreen(song) {
         <div class="lfs-title">${esc(song.title || 'Sin título')}</div>
         <div class="lfs-artist">${esc(song.artist || '')}</div>
       </div>
+      <div class="lfs-info">
+        ${song.key ? `<span class="lfs-badge lfs-badge--key" title="Tonalidad">${esc(song.key)}</span>` : ''}
+        ${song.bpm ? `<span class="lfs-badge" title="Tempo">${esc(song.bpm)} BPM</span>` : ''}
+      </div>
       <div class="lfs-controls">
+        <div class="lfs-trans" role="group" aria-label="Transponer acordes" title="Transponer acordes ± semitonos">
+          <button type="button" class="lfs-btn" data-act="trans-down" aria-label="Bajar un semitono">▼</button>
+          <span class="lfs-trans-val" aria-live="polite">0</span>
+          <button type="button" class="lfs-btn" data-act="trans-up" aria-label="Subir un semitono">▲</button>
+        </div>
         <button type="button" class="lfs-btn" data-act="font-down" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
         <span class="lfs-font-val" aria-live="polite">${fontSize}</span>
         <button type="button" class="lfs-btn" data-act="font-up" title="Letra más grande" aria-label="Letra más grande">A+</button>
@@ -87,6 +113,17 @@ export function openLyricsFullscreen(song) {
     chordBtn.textContent = showChords ? 'Con acordes' : 'Solo letra';
     writeChords(showChords);
   };
+  const transVal  = overlay.querySelector('.lfs-trans-val');
+  const keyBadge  = overlay.querySelector('.lfs-badge--key');
+  // Doble clic en el número → volver a 0 (mismo gesto que el transposer de Stems).
+
+  const applyTranspose = () => {
+    content.innerHTML = formatLyrics(semitones === 0 ? song.lyrics : transposeAll(song.lyrics, semitones));
+    transVal.textContent = semitones > 0 ? `+${semitones}` : String(semitones);
+    transVal.classList.toggle('is-shifted', semitones !== 0);
+    if (keyBadge && song.key) keyBadge.textContent = transposeKeyLabel(song.key, semitones);
+  };
+  transVal.addEventListener('dblclick', () => { semitones = 0; applyTranspose(); });
 
   overlay.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
@@ -102,6 +139,10 @@ export function openLyricsFullscreen(song) {
         fontSize = Math.max(FONT_MIN, fontSize - FONT_STEP); applyFont(); return;
       case 'toggle-chords':
         showChords = !showChords; applyChords(); return;
+      case 'trans-up':
+        semitones = Math.min(11, semitones + 1); applyTranspose(); return;
+      case 'trans-down':
+        semitones = Math.max(-11, semitones - 1); applyTranspose(); return;
       case 'close':
         close(); return;
     }

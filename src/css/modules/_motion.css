@@ -223,6 +223,7 @@ body.midi-learning #btn-service-prev,
 body.midi-learning #btn-service-next,
 body.midi-learning .source-seg-btn,
 body.midi-learning #btn-piano-pads,
+body.midi-learning #btn-metro-pads,
 body.midi-learning input[type="range"] {
   outline: 2px solid var(--accent) !important;
   outline-offset: 2px;
