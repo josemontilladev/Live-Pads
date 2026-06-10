@@ -467,7 +467,7 @@ const SHELL_HTML = `
           </div>
         </div>
         <div class="stems-field stems-field--select">
-          <label>COMPÁS</label>
+          <label>Compás</label>
           <select id="stems-sig">
             <option value="2/4">2/4</option>
             <option value="3/4">3/4</option>
@@ -486,7 +486,7 @@ const SHELL_HTML = `
              la tonalidad EFECTIVA (incluyendo el shift de TONO), no la
              original; si subes/bajas semitonos, el selector se actualiza. -->
         <div class="stems-field stems-field--select" title="Tonalidad de la canción (habilita armonías diatónicas)">
-          <label>TONALIDAD</label>
+          <label>Tonalidad</label>
           <select id="stems-key">
             <option value="">—</option>
             <option value="" disabled>── Mayores ──</option>
@@ -512,7 +512,7 @@ const SHELL_HTML = `
              Label "TRANSPONER" en vez de "TONO" porque al lado vive
              "TONALIDAD" (la clave musical) y los dos términos chocaban. -->
         <div class="stems-field stems-field--pitch" title="Transponer: fijá ±N semitonos y tocá Aplicar (el render es offline por pista). Doble clic en el número para resetear.">
-          <label>TRANSPONER</label>
+          <label>Transponer</label>
           <div class="stems-pitch-group" id="stems-pitch-group">
             <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
             <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para resetear)">0</span>
@@ -567,7 +567,7 @@ const SHELL_HTML = `
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tools-group">
-        <span class="stems-tools-label">PISTAS</span>
+        <span class="stems-tools-label">Pistas</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
         <div class="stems-generators-wrap">
@@ -595,7 +595,7 @@ const SHELL_HTML = `
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tools-group">
-        <span class="stems-tools-label">MARCADORES</span>
+        <span class="stems-tools-label">Marcadores</span>
         <select id="stems-section-select" class="stems-mini-select" aria-label="Sección"></select>
         <button class="stems-btn stems-btn--accent" id="stems-add-marker" title="Añadir marcador en el tiempo actual">
           ${SVG_FLAG} Añadir
@@ -624,7 +624,7 @@ const SHELL_HTML = `
              manejan con rueda/teclado, así que no llevan botones. -->
         <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
         <label class="stems-snap-toggle" title="Imán: al arrastrar/marcar, ajusta a la subdivisión elegida">
-          <span>SNAP</span>
+          <span>Snap</span>
           <select id="stems-snap" class="stems-snap-select">
             <option value="off">Off</option>
             <option value="0.25">1/16</option>
@@ -634,7 +634,7 @@ const SHELL_HTML = `
           </select>
         </label>
         <div class="stems-readout">
-          <span class="label">TIMECODE</span>
+          <span class="label">Timecode</span>
           <span class="value mono" id="stems-timecode">00:00.000</span>
         </div>
         <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
@@ -651,7 +651,7 @@ const SHELL_HTML = `
         <div class="stems-marker-lines" id="stems-marker-lines"></div>
         <header class="stems-head-row">
           <div class="stems-head-spacer">
-            <span class="stems-head-spacer-label">PISTAS</span>
+            <span class="stems-head-spacer-label">Pistas</span>
           </div>
           <div class="stems-head-tl">
             <div class="stems-ruler" id="stems-ruler"></div>
@@ -680,7 +680,7 @@ const SHELL_HTML = `
             <span class="stems-console-collapse" id="stems-console-collapse" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><polyline points="6 9 12 15 18 9"/></svg>
             </span>
-            <span class="stems-console-title">CONSOLA</span>
+            <span class="stems-console-title">Consola</span>
             <span class="stems-console-count" id="stems-console-count">0 pistas</span>
           </button>
           <button class="stems-console-selall" id="stems-console-selall" type="button" title="Seleccionar todas las pistas (Ctrl+A)">Seleccionar todas</button>
