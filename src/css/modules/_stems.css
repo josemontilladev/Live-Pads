@@ -1324,6 +1324,15 @@ body[data-workspace="stems"] #body {
   flex-direction: column;
   position: relative;
 }
+/* Las filas (y la fila de la regla) deben medir el ANCHO DEL CONTENIDO, no el
+   del viewport: un sticky solo puede "viajar" dentro de su contenedor — con
+   filas de ancho viewport, al scrollear más de una pantalla los strips de la
+   izquierda (y el spacer "Pistas" de la regla) se salían de vista durante la
+   reproducción. min-width 100% cubre proyectos más cortos que la ventana. */
+.stems-rows, .stems-head-row, .stems-row {
+  width: max-content;
+  min-width: 100%;
+}
 
 /* Beat/bar guide-line metrics — set by drawGrid() from BPM + zoom. */
 :root {
@@ -1417,6 +1426,12 @@ body[data-workspace="stems"] #body {
   z-index: 4;
 }
 .stems-console-strip.is-located {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px -2px var(--accent);
+}
+/* Multi-selección: cada canal seleccionado se ilumina igual que la selección
+   única (antes solo destacaba la última pista clickeada). */
+.stems-console-strip.is-selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 0 12px -2px var(--accent);
 }
@@ -1719,13 +1734,16 @@ body[data-workspace="stems"] #body {
    track; el lane mide lo que el canvas). Definido tras el hover para que gane
    aunque se pase el mouse por encima. */
 .stems-row.is-located .stems-row-lane,
-.stems-row.is-located:hover .stems-row-lane {
+.stems-row.is-located:hover .stems-row-lane,
+.stems-row.is-selected .stems-row-lane,
+.stems-row.is-selected:hover .stems-row-lane {
   background: color-mix(in srgb, var(--accent) 16%, var(--bg));
 }
 /* Overlay translúcido POR ENCIMA de la grilla y el waveform (z-index 2 > grid
    z-index 1) para que la pista seleccionada resalte de verdad y no se pierda
    entre las líneas del compás. Lleva también las líneas de foco arriba/abajo. */
-.stems-row.is-located .stems-row-lane::after {
+.stems-row.is-located .stems-row-lane::after,
+.stems-row.is-selected .stems-row-lane::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -2934,3 +2952,33 @@ body[data-workspace="stems"] #body {
 .stems-metro-opt:hover { background: var(--bg-hover); color: var(--text); }
 .stems-metro-opt.is-on { color: var(--accent); }
 .stems-metro-opt.is-on::after { content: '✓'; font-weight: 700; }
+
+/* M/S del strip de la fila: el par va a la IZQUIERDA de la fila de acciones,
+   los iconos (separar/exportar/eliminar) se quedan a la derecha. */
+.stems-row-actions .stems-row-ms { margin-right: auto; }
+
+/* Identidad de color en la consola: cada canal lleva una barra superior con
+   el COLOR DE SU PISTA (--track-color, seteado por JS) — se ubica el canal de
+   un vistazo, sutil, sin competir con los estados de selección/located. */
+.stems-console-strip {
+  border-top: 3px solid var(--track-color, var(--border));
+}
+/* Con el canal seleccionado/localizado, el borde de acento pintaba TAMBIÉN el
+   borde superior y tapaba la identidad de color: el top conserva el color de
+   la pista (el anillo/box-shadow de acento sigue marcando el estado). */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  border-top-color: var(--track-color, var(--accent));
+}
+/* Sin el anillo de 1px (box-shadow spread) en el estado focus: dibujaba una
+   línea de acento POR ENCIMA de la barra de color. El acento queda en los
+   bordes laterales/inferior + un glow suave; arriba manda el color del track. */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  box-shadow: 0 0 12px -2px var(--accent);
+}
+/* Glow del focus mucho más suave (el anterior se sentía fuerte). */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  box-shadow: 0 0 6px -3px var(--accent);
+}

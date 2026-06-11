@@ -1888,6 +1888,9 @@ function appendConsoleStrip(track) {
   const strip = document.createElement('div');
   strip.className = `stems-console-strip stems-console-strip--${track.kind}`;
   strip.dataset.trackId = track.id;
+  // Identidad de color: el canal lleva el color de su pista (barra superior
+  // vía CSS var) para ubicarlo de un vistazo en la consola.
+  if (track.color) strip.style.setProperty('--track-color', track.color);
   strip.innerHTML = buildConsoleStripHtml(track);
   host.appendChild(strip);
   return strip;
@@ -2158,6 +2161,7 @@ function wireConsoleStrip(strip, id) {
     const next = !muteBtn.classList.contains('is-on');
     engine.setTrackMuted(id, next);
     muteBtn.classList.toggle('is-on', next);
+    syncRowStripMute(id, next);     // espejo en el strip de la fila
     reflectSoloHighlights();
     scheduleSave();
   };
@@ -2167,6 +2171,7 @@ function wireConsoleStrip(strip, id) {
     const next = !soloBtn.classList.contains('is-on');
     engine.setTrackSoloed(id, next);
     soloBtn.classList.toggle('is-on', next);
+    syncRowStripSolo(id, next);     // espejo en el strip de la fila
     reflectSoloHighlights();
     scheduleSave();
   };
@@ -2198,6 +2203,12 @@ function syncConsoleStripSolo(id, on) {
   const c = trackRows.get(id)?.console; if (!c) return;
   c.querySelector('[data-action="solo"]')?.classList.toggle('is-on', on);
 }
+function syncRowStripMute(id, on) {
+  trackRows.get(id)?.row?.querySelector('[data-action="row-mute"]')?.classList.toggle('is-on', on);
+}
+function syncRowStripSolo(id, on) {
+  trackRows.get(id)?.row?.querySelector('[data-action="row-solo"]')?.classList.toggle('is-on', on);
+}
 function syncConsoleStripName(id, name) {
   const c = trackRows.get(id)?.console; if (!c) return;
   const el = c.querySelector('.stems-console-strip-name');
@@ -2221,6 +2232,10 @@ function buildRowHtml(track) {
         </div>
       </div>
       <div class="stems-row-actions">
+        <span class="stems-ms-pair stems-row-ms">
+          <button class="stems-ms stems-ms--mute ${track.muted ? 'is-on' : ''}" data-action="row-mute" title="Silenciar">M</button>
+          <button class="stems-ms stems-ms--solo ${track.soloed ? 'is-on' : ''}" data-action="row-solo" title="Solo">S</button>
+        </span>
         ${track.kind === 'click' || track.kind === 'guide' ? '' :
           track.kind === 'midi' ? `
         <button class="stems-row-export" data-action="piano-roll" title="Editar notas (piano roll)">
@@ -2296,6 +2311,27 @@ function wireStrip(root, id) {
     await deleteTracksWithUndo([id]);
   };
 
+  // M/S en el strip de la fila — espejo de los de la consola (mismo motor,
+  // sincronización en ambas direcciones).
+  const rowMute = root.querySelector('[data-action="row-mute"]');
+  if (rowMute) rowMute.onclick = () => {
+    const next = !rowMute.classList.contains('is-on');
+    engine.setTrackMuted(id, next);
+    rowMute.classList.toggle('is-on', next);
+    syncConsoleStripMute(id, next);
+    reflectSoloHighlights();
+    scheduleSave();
+  };
+  const rowSolo = root.querySelector('[data-action="row-solo"]');
+  if (rowSolo) rowSolo.onclick = () => {
+    const next = !rowSolo.classList.contains('is-on');
+    engine.setTrackSoloed(id, next);
+    rowSolo.classList.toggle('is-on', next);
+    syncConsoleStripSolo(id, next);
+    reflectSoloHighlights();
+    scheduleSave();
+  };
+
   const colorInput = root.querySelector('[data-action="color"]');
   if (colorInput) {
     let colorBefore = colorInput.value;
@@ -2303,15 +2339,19 @@ function wireStrip(root, id) {
     colorInput.oninput = (e) => {
       engine.setTrackColor(id, e.target.value);
       drawTrackWaveform(id);
+      // La barra de color del canal de consola acompaña al instante.
+      trackRows.get(id)?.console?.style.setProperty('--track-color', e.target.value);
       scheduleSave();
     };
     colorInput.addEventListener('change', () => {
       const oldC = colorBefore, newC = colorInput.value;
       if (oldC === newC) return;
-      pushHistory('Cambiar color',
-        () => { engine.setTrackColor(id, oldC); colorInput.value = oldC; drawTrackWaveform(id); scheduleSave(); },
-        () => { engine.setTrackColor(id, newC); colorInput.value = newC; drawTrackWaveform(id); scheduleSave(); }
-      );
+      const applyColor = (c) => {
+        engine.setTrackColor(id, c); colorInput.value = c; drawTrackWaveform(id);
+        trackRows.get(id)?.console?.style.setProperty('--track-color', c);
+        scheduleSave();
+      };
+      pushHistory('Cambiar color', () => applyColor(oldC), () => applyColor(newC));
       colorBefore = newC;
     });
   }
@@ -3022,7 +3062,13 @@ async function removeTrackById(id) {
 const selectedTrackIds = new Set();
 
 function updateTrackSelectionUI() {
-  for (const [id, entry] of trackRows) entry.row.classList.toggle('is-selected', selectedTrackIds.has(id));
+  for (const [id, entry] of trackRows) {
+    const on = selectedTrackIds.has(id);
+    entry.row.classList.toggle('is-selected', on);
+    // La consola se ilumina igual: TODAS las pistas seleccionadas, no solo
+    // la última clickeada.
+    if (entry.console) entry.console.classList.toggle('is-selected', on);
+  }
   const bar = document.getElementById('stems-sel-bar');
   const n = selectedTrackIds.size;
   if (bar) {
@@ -3774,6 +3820,17 @@ function wireTrackSelection(root) {
     if (!row || !row.dataset.trackId) return;
     e.preventDefault(); e.stopPropagation();
     toggleTrackSelection(row.dataset.trackId);
+  }, true);
+
+  // Ctrl/Cmd + clic en un canal de la CONSOLA también (de)selecciona — mismo
+  // gesto en ambas vistas de la pista.
+  const consoleStrips = root.querySelector('#stems-console-strips');
+  if (consoleStrips) consoleStrips.addEventListener('click', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const strip = e.target.closest('.stems-console-strip');
+    if (!strip || !strip.dataset.trackId) return;
+    e.preventDefault(); e.stopPropagation();
+    toggleTrackSelection(strip.dataset.trackId);
   }, true);
 
   root.querySelector('#stems-sel-del')?.addEventListener('click', deleteSelectedTracks);
