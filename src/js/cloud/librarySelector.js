@@ -9,7 +9,7 @@
 
 import { q } from '../utils/dom.js';
 import { isCloudEnabled, isLoggedIn, onAuthChange } from './supabase.js';
-import { listLibraries, getActiveLibraryId, setActiveLibraryId, createLibrary } from './libraries.js';
+import { listLibraries, getCachedLibraries, getActiveLibraryId, setActiveLibraryId, createLibrary } from './libraries.js';
 import { setLibraryScope, renderGiList } from '../ui/giList.js';
 
 let wired = false;
@@ -73,8 +73,20 @@ export async function refreshLibrarySelector() {
     return;
   }
 
+  // Online: lista fresca de Supabase (se cachea en disco). Offline / sin red:
+  // caemos a la última lista cacheada para que el desplegable SIGA disponible
+  // (antes desaparecía al fallar el fetch, aunque las canciones sí cargaban).
   let libs = [];
-  try { libs = (await listLibraries()) || []; } catch (_) { libs = []; }
+  try {
+    libs = (await listLibraries()) || [];
+  } catch (_) {
+    libs = getCachedLibraries() || [];
+  }
+  // Por si el fetch devolvió vacío por un hipo de red pero hay caché previa.
+  if (!libs.length) {
+    const cached = getCachedLibraries();
+    if (cached && cached.length) libs = cached;
+  }
   if (!libs.length) { row.classList.add('hidden'); setLibraryScope('all'); return; }
 
   const active = getActiveLibraryId();

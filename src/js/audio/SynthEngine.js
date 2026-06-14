@@ -1122,12 +1122,32 @@ export class SynthEngine {
   async initMIDI(onMidiMessage, onDevicesChanged) {
     if (!navigator.requestMIDIAccess) return;
     try {
-      const midiAccess = await navigator.requestMIDIAccess();
+      // requestMIDIAccess puede fallar al arrancar (driver MIDI todavía no listo,
+      // permiso que tarda, USB reconectándose). Antes, si fallaba UNA vez, el MIDI
+      // quedaba muerto hasta reiniciar la app. Reintentamos con backoff hasta
+      // engancharlo. Como initMIDI se llama sin await, esto NO bloquea el boot.
+      let midiAccess = null;
+      for (let attempt = 0; attempt < 6 && !midiAccess; attempt++) {
+        try { midiAccess = await navigator.requestMIDIAccess(); }
+        catch (err) {
+          if (attempt === 5) { console.warn('MIDI Access failed (sin más reintentos):', err); return; }
+          await new Promise(r => setTimeout(r, Math.min(8000, 1500 * (attempt + 1))));
+        }
+      }
+      if (!midiAccess) return;
       this._midiAccess = midiAccess;
       const inputs = () => [...midiAccess.inputs.values()];
       const namesOf = () => inputs().map(i => i.name || 'MIDI input');
       const idsOf = () => inputs().map(i => i.id).sort();
-      const bindAll = () => { for (const i of midiAccess.inputs.values()) i.onmidimessage = onMidiMessage; };
+      // Re-liga TODAS las entradas y además abre el puerto explícitamente: en
+      // Windows un puerto puede quedar 'connected' pero no 'open', y entonces no
+      // llegan mensajes. open() es idempotente (no pasa nada si ya está abierto).
+      const bindAll = () => {
+        for (const i of midiAccess.inputs.values()) {
+          i.onmidimessage = onMidiMessage;
+          try { i.open(); } catch (_) {}
+        }
+      };
       let lastIds = [];
 
       // Re-liga las entradas y avisa SOLO si el set de dispositivos cambió.
@@ -1158,10 +1178,11 @@ export class SynthEngine {
       // Inmediato: conexión/desconexión vía el evento del navegador.
       midiAccess.onstatechange = (e) => sync(e);
       // Respaldo de hot-plug: en Windows el statechange a veces NO dispara al
-      // enchufar el controlador con la app abierta. Re-escaneamos cada 2 s para
-      // detectarlo igual (y avisar) sin tener que reiniciar la app.
+      // enchufar el controlador con la app abierta. Re-escaneamos cada 1 s para
+      // detectarlo rápido (y re-abrir/re-ligar el puerto) sin reiniciar la app.
+      // Costo ínfimo: iterar un puñado de entradas una vez por segundo.
       if (this._midiPollTimer) clearInterval(this._midiPollTimer);
-      this._midiPollTimer = setInterval(() => sync(null), 2000);
+      this._midiPollTimer = setInterval(() => sync(null), 1000);
     } catch (err) { console.warn('MIDI Access failed:', err); }
   }
 
