@@ -13,13 +13,33 @@ const ACTIVE_LIB_KEY = 'livepads-active-library';
 // Última lista conocida de librerías, para consultas SÍNCRONAS (p. ej. al pintar
 // el form de editar/crear canción, que no puede await-ear). Se refresca sola en
 // cada `listLibraries()` (lo llaman el selector, ensureActiveLibrary, etc.).
+// Además se PERSISTE en disco (localStorage) por usuario, para que las librerías
+// sigan disponibles SIN internet una vez que se cargaron estando online.
 let _librariesCache = [];
-export function getCachedLibraries() { return _librariesCache; }
+const LIB_CACHE_KEY = 'livepads-libraries-cache';
+function libCacheKey() {
+  const u = getUser();
+  return u && u.id ? `${LIB_CACHE_KEY}::${u.id}` : LIB_CACHE_KEY;
+}
+
+// Última lista conocida — en memoria, o rehidratada del disco (offline). Vacía
+// solo si el usuario nunca cargó sus librerías estando online.
+export function getCachedLibraries() {
+  if (_librariesCache.length) return _librariesCache;
+  try {
+    const raw = localStorage.getItem(libCacheKey());
+    if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) { _librariesCache = arr; return arr; } }
+  } catch (_) {}
+  return _librariesCache;
+}
 
 // Todas las librerías donde el usuario es miembro (suyas + invitadas).
 export async function listLibraries() {
   const rows = await rest('/libraries?select=id,name,owner_id,created_at&order=created_at.asc');
-  if (Array.isArray(rows)) _librariesCache = rows;
+  if (Array.isArray(rows)) {
+    _librariesCache = rows;
+    try { localStorage.setItem(libCacheKey(), JSON.stringify(rows)); } catch (_) {}  // cache offline
+  }
   return rows;
 }
 
