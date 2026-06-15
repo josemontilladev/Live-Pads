@@ -1278,6 +1278,7 @@ function applyZoomFrame(arrange, crisp) {
       if (buffer) {
         entry.canvas.style.width = `${Math.ceil(buffer.duration * PX_PER_SEC)}px`;
         entry.canvas.style.transform = `translateX(${(engine.getTrackOffset(id) || 0) * PX_PER_SEC}px)`;
+        if (entry.clip) layoutClipOverlay(id);
       }
     }
   }
@@ -4091,6 +4092,141 @@ function drawTrackWaveform(id) {
     : t?.kind === 'guide' ? 'rgba(74, 222, 128, 0.9)'
     : currentAccent();
   drawWaveform(row.canvas, peaks, { color });
+  layoutClipOverlay(id);
+}
+
+// ── Recorte (trim) + fades por clip ──────────────────────────────────
+// Overlay sobre la lane con asas estilo DAW: dos asas verticales (recorte
+// inicio/fin) + dos asas en las esquinas superiores (fade in/out). La región
+// recortada del buffer se atenúa con máscaras. Todo NO destructivo: solo
+// cambia qué tramo del buffer suena y la envolvente (engine.setTrackTrim*/Fade*).
+
+function applyTrackTrimStart(id, sec) { engine.setTrackTrimStart(id, sec); afterClipEdit(id); }
+function applyTrackTrimEnd(id, sec)   { engine.setTrackTrimEnd(id, sec);   afterClipEdit(id); }
+function applyTrackFadeIn(id, sec)    { engine.setTrackFadeIn(id, sec);    afterClipEdit(id); }
+function applyTrackFadeOut(id, sec)   { engine.setTrackFadeOut(id, sec);   afterClipEdit(id); }
+function afterClipEdit(id) { layoutClipOverlay(id); refreshTimelineWidth(); refreshTotalTime(); }
+
+function restoreClip(id, s) {
+  engine.setTrackTrimEnd(id, s.trimEnd);
+  engine.setTrackTrimStart(id, s.trimStart);
+  engine.setTrackFadeIn(id, s.fadeIn);
+  engine.setTrackFadeOut(id, s.fadeOut);
+  afterClipEdit(id);
+}
+function clipSnapshot(id) {
+  return {
+    trimStart: engine.getTrackTrimStart(id), trimEnd: engine.getTrackTrimEnd(id),
+    fadeIn: engine.getTrackFadeIn(id), fadeOut: engine.getTrackFadeOut(id),
+  };
+}
+
+function ensureClipOverlay(id) {
+  const row = trackRows.get(id);
+  if (!row) return null;
+  if (row.clip) return row.clip;
+  const box = document.createElement('div');
+  box.className = 'stems-clip';
+  box.innerHTML = `
+    <div class="stems-clip-fade stems-clip-fade--in"></div>
+    <div class="stems-clip-fade stems-clip-fade--out"></div>
+    <div class="stems-clip-h stems-clip-h--trimL" data-clip="trimStart" title="Recortar inicio"></div>
+    <div class="stems-clip-h stems-clip-h--trimR" data-clip="trimEnd" title="Recortar final"></div>
+    <div class="stems-clip-h stems-clip-h--fadeIn" data-clip="fadeIn" title="Fade in"></div>
+    <div class="stems-clip-h stems-clip-h--fadeOut" data-clip="fadeOut" title="Fade out"></div>
+    <div class="stems-clip-tip" hidden></div>`;
+  const maskL = document.createElement('div'); maskL.className = 'stems-clip-mask';
+  const maskR = document.createElement('div'); maskR.className = 'stems-clip-mask';
+  row.lane.appendChild(maskL); row.lane.appendChild(maskR); row.lane.appendChild(box);
+  const clip = {
+    box, maskL, maskR,
+    fadeIn: box.querySelector('.stems-clip-fade--in'),
+    fadeOut: box.querySelector('.stems-clip-fade--out'),
+    tip: box.querySelector('.stems-clip-tip'),
+  };
+  row.clip = clip;
+  wireClipHandle(box.querySelector('.stems-clip-h--trimL'), id, 'trimStart');
+  wireClipHandle(box.querySelector('.stems-clip-h--trimR'), id, 'trimEnd');
+  wireClipHandle(box.querySelector('.stems-clip-h--fadeIn'), id, 'fadeIn');
+  wireClipHandle(box.querySelector('.stems-clip-h--fadeOut'), id, 'fadeOut');
+  return clip;
+}
+
+function layoutClipOverlay(id) {
+  const row = trackRows.get(id);
+  if (!row) return;
+  const t = engine.getTracks().find(tr => tr.id === id);
+  if (!t || t.kind === 'midi') return;   // las MIDI no tienen buffer recortable
+  const clip = ensureClipOverlay(id);
+  if (!clip) return;
+  const px = PX_PER_SEC;
+  const off = engine.getTrackOffset(id) || 0;
+  const dur = t.durationSec || 0;
+  const trimStart = engine.getTrackTrimStart(id);
+  const trimEnd = engine.getTrackTrimEnd(id);
+  const fadeIn = engine.getTrackFadeIn(id);
+  const fadeOut = engine.getTrackFadeOut(id);
+  const clipW = Math.max(2, (trimEnd - trimStart) * px);
+  clip.box.style.left = `${(off + trimStart) * px}px`;
+  clip.box.style.width = `${clipW}px`;
+  // Máscaras: tramos del buffer fuera de [trimStart, trimEnd] (se ven atenuados).
+  clip.maskL.style.left = `${off * px}px`;
+  clip.maskL.style.width = `${Math.max(0, trimStart * px)}px`;
+  clip.maskR.style.left = `${(off + trimEnd) * px}px`;
+  clip.maskR.style.width = `${Math.max(0, (dur - trimEnd) * px)}px`;
+  // Triángulos de fade (ancho en px, acotado al clip).
+  clip.fadeIn.style.width = `${Math.min(clipW, fadeIn * px)}px`;
+  clip.fadeOut.style.width = `${Math.min(clipW, fadeOut * px)}px`;
+}
+
+function clipTipText(id, kind) {
+  if (kind === 'fadeIn')  return `Fade in ${engine.getTrackFadeIn(id).toFixed(2)}s`;
+  if (kind === 'fadeOut') return `Fade out ${engine.getTrackFadeOut(id).toFixed(2)}s`;
+  if (kind === 'trimStart') return `Inicio ${formatTimecode(engine.getTrackTrimStart(id))}`;
+  return `Fin ${formatTimecode(engine.getTrackTrimEnd(id))}`;
+}
+function clipLabel(kind) {
+  return kind === 'fadeIn' ? 'Fade in' : kind === 'fadeOut' ? 'Fade out'
+    : kind === 'trimStart' ? 'Recortar inicio' : 'Recortar final';
+}
+
+function wireClipHandle(handle, id, kind) {
+  if (!handle) return;
+  // Un clic sobre el asa nunca debe propagar a la lane (que haría seek).
+  handle.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); });
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.stopPropagation(); e.preventDefault();   // no disparar drag de offset ni seek
+    const startX = e.clientX;
+    const before = clipSnapshot(id);
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    const clip = trackRows.get(id)?.clip;
+    const onMove = (ev) => {
+      const dSec = (ev.clientX - startX) / PX_PER_SEC;
+      if (kind === 'trimStart')      engine.setTrackTrimStart(id, before.trimStart + dSec);
+      else if (kind === 'trimEnd')   engine.setTrackTrimEnd(id, before.trimEnd + dSec);
+      else if (kind === 'fadeIn')    engine.setTrackFadeIn(id, before.fadeIn + dSec);
+      else /* fadeOut */             engine.setTrackFadeOut(id, before.fadeOut - dSec); // se arrastra hacia la izq
+      layoutClipOverlay(id);
+      if (clip?.tip) { clip.tip.textContent = clipTipText(id, kind); clip.tip.hidden = false; }
+    };
+    const onUp = (ev) => {
+      try { handle.releasePointerCapture(ev.pointerId); } catch (_) {}
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      if (clip?.tip) clip.tip.hidden = true;
+      const after = clipSnapshot(id);
+      afterClipEdit(id);
+      const changed = Object.keys(after).some(k => Math.abs(after[k] - before[k]) > 1e-4);
+      if (!changed) return;
+      pushHistory(clipLabel(kind),
+        () => restoreClip(id, before),
+        () => restoreClip(id, after));
+      scheduleSave();
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  });
 }
 
 // Preview de SOLO LECTURA de las notas de una pista MIDI en su fila (canvas
@@ -5365,6 +5501,10 @@ async function doSave() {
         id: t.id, kind: t.kind, name: t.name,
         volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed,
         color: t.color || null, offsetSec: t.offsetSec || 0,
+        // Recorte (trim) + fades por clip — no destructivo, se reaplica al recargar.
+        trimStartSec: t.trimStartSec || 0,
+        trimEndSec: (t.trimEndSec != null) ? t.trimEndSec : t.durationSec,
+        fadeInSec: t.fadeInSec || 0, fadeOutSec: t.fadeOutSec || 0,
         path: entry ? entry.row.dataset.path : null,
         // Pistas MIDI: guardamos las notas editables (el audio va por `path`).
         notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
@@ -5480,6 +5620,12 @@ async function rehydrate(state) {
       if (t.muted)  engine.setTrackMuted(t.id, true);
       if (t.soloed) engine.setTrackSoloed(t.id, true);
       if (t.color)  engine.setTrackColor(t.id, t.color);
+      // Recorte + fades por clip. El orden importa: primero trimEnd, luego trimStart
+      // (los setters recortan el otro extremo/los fades contra la duración del clip).
+      if (typeof t.trimEndSec === 'number')   engine.setTrackTrimEnd(t.id, t.trimEndSec);
+      if (typeof t.trimStartSec === 'number') engine.setTrackTrimStart(t.id, t.trimStartSec);
+      if (typeof t.fadeInSec === 'number')    engine.setTrackFadeIn(t.id, t.fadeInSec);
+      if (typeof t.fadeOutSec === 'number')   engine.setTrackFadeOut(t.id, t.fadeOutSec);
       // Pistas MIDI: restaura las notas ANTES de pintar la fila (drawMidiRow las usa).
       if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
       if (t.kind === 'midi') trackInstrument.set(t.id, t.instrument || 'piano');

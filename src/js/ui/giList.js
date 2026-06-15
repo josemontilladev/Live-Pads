@@ -316,6 +316,7 @@ function buildCard(song, idx, editSongId, searchTerm = '') {
   const isLyricsOpen = song.id && (song.id === openAccId);
 
   if (isActive) el.classList.add('active-song');
+  if (songInService(song)) el.classList.add('in-service');
 
   el.innerHTML = songCardInnerHTML(song, {
     rowNumber: idx + 1,
@@ -349,11 +350,13 @@ export function repaintGiCard(card, song) {
   const isActive = song.id && activeId && (song.id === activeId);
   const isLyricsOpen = song.id && (song.id === openAccId);
   card.classList.toggle('active-song', !!isActive);
+  card.classList.toggle('in-service', songInService(song));
   card.innerHTML = songCardInnerHTML(song, {
     rowNumber: idx + 1,
     isLyricsOpen,
     showChords: !!song.showChords,
     includeAdd: true,
+    inService: songInService(song),
     removeBtnClass: 'btn-remove-lib',
     removeBtnTitle: 'Eliminar de la librería'
   });

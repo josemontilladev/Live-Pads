@@ -201,3 +201,34 @@
   cursor: pointer;
 }
 .midi-status-pill--alert::before { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+/* ── Mute maestro (sidebar + mixer) ──────────────────────────────────
+   Corta todo el audio sin mover el fader. Rojo encendido cuando está activo;
+   intercambia el icono altavoz ↔ altavoz-tachado. */
+.master-mute-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, box-shadow .2s;
+}
+.master-mute-btn--mx { width: 24px; height: 24px; border-radius: 6px; }
+.master-mute-btn:hover { color: var(--text); border-color: var(--accent); }
+.master-mute-btn .ic-mute { display: none; }
+.master-mute-btn.is-muted .ic-vol { display: none; }
+.master-mute-btn.is-muted .ic-mute { display: inline-flex; }
+.master-mute-btn.is-muted {
+  background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
+  border-color: var(--danger-soft);
+  color: #fff;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger-soft) 55%, transparent);
+}
+/* El fader maestro se atenúa mientras está silenciado, para que se lea el estado. */
+.blue-slider.is-muted { opacity: 0.4; filter: grayscale(0.6); }

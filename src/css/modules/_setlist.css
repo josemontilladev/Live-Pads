@@ -452,6 +452,30 @@ input.pan-slider {
   min-width: 0;
   cursor: pointer;
 }
+
+/* ── "En servicio hoy" ──────────────────────────────────────────────
+   Marca de un vistazo las canciones de la librería que están en el servicio
+   activo. Chip verde bajo los metadatos + un tinte sutil en el borde. */
+.gi-inservice-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #052e1a;
+  background: linear-gradient(180deg, #4ade80, #34d399);
+  box-shadow: 0 0 8px color-mix(in srgb, #34d399 45%, transparent);
+}
+.gi-song-item.in-service {
+  border-color: color-mix(in srgb, #34d399 45%, var(--border));
+}
+/* Cuando además es la canción activa, gana el realce de activa (no duplicar). */
+.gi-song-item.in-service.active-song { border-color: var(--accent); }
 .gi-song-title {
   font-size: 14px; font-weight: 600; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

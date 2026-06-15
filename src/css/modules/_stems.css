@@ -1523,13 +1523,13 @@ body[data-workspace="stems"] #body {
 .stems-ms-pair { display: flex; gap: 3px; }
 .stems-ms {
   appearance: none;
-  width: 22px; height: 22px;
-  border-radius: 5px;
+  width: 26px; height: 26px;
+  border-radius: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg);
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
 }
@@ -1895,15 +1895,15 @@ body[data-workspace="stems"] #body {
 .stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 .stems-console-strip {
-  flex: 0 0 92px;
-  width: 92px;
-  min-width: 92px;
-  max-width: 92px;
+  flex: 0 0 108px;
+  width: 108px;
+  min-width: 108px;
+  max-width: 108px;
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 6px;
-  padding: 8px 8px 6px;
+  gap: 7px;
+  padding: 9px 9px 7px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -1935,8 +1935,8 @@ body[data-workspace="stems"] #body {
 }
 .stems-console-strip-head:active { cursor: grabbing; }
 .stems-console-strip-kind {
-  font-size: 9px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: 1.2px;
   color: var(--text-muted);
 }
@@ -1944,7 +1944,7 @@ body[data-workspace="stems"] #body {
 .stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
 .stems-console-strip-name {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text);
   width: 100%;
@@ -1957,7 +1957,7 @@ body[data-workspace="stems"] #body {
 }
 
 /* Console pan: PAN label + slider + value readout, stacked compact to
-   fit the 92px strip — same slider primitive as Pads (gold left-fill +
+   fit the 108px strip — same slider primitive as Pads (gold left-fill +
    white thumb). */
 .stems-console-pan-row {
   display: flex;
@@ -1965,13 +1965,13 @@ body[data-workspace="stems"] #body {
   gap: 2px;
 }
 .stems-console-pan-label {
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 1.2px;
   color: var(--text-muted);
 }
 .stems-console-pan-readout {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
@@ -1981,7 +1981,8 @@ body[data-workspace="stems"] #body {
 .stems-console-ms-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 3px;
+  gap: 5px;
+  justify-items: center;
 }
 
 /* Custom pointer-driven vertical fader — reliable across Chromium
@@ -2009,10 +2010,10 @@ body[data-workspace="stems"] #body {
   left: 50%;
   transform: translateX(-50%);
   top: 8px; bottom: 8px;
-  width: 6px;
+  width: 8px;
   background: rgba(0,0,0,0.45);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 .stems-cfader-fill {
@@ -2020,9 +2021,9 @@ body[data-workspace="stems"] #body {
   left: 50%;
   transform: translateX(-50%);
   bottom: 8px;
-  width: 6px;
+  width: 8px;
   background: var(--accent);
-  border-radius: 3px;
+  border-radius: 4px;
   box-shadow: 0 0 8px var(--glow);
   pointer-events: none;
 }
@@ -2030,7 +2031,7 @@ body[data-workspace="stems"] #body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 30px;
+  width: 36px;
   height: 18px;
   background: linear-gradient(180deg,
     color-mix(in srgb, var(--accent), white 35%) 0%,
@@ -2056,15 +2057,15 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-console-strip-readout {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.4px;
-  color: var(--text-muted);
+  color: var(--text);
   font-family: ui-monospace, Consolas, monospace;
   text-align: center;
   background: rgba(0,0,0,0.45);
   border-radius: 3px;
-  padding: 1px 0;
+  padding: 2px 0;
 }
 
 /* ── Master (lives in the console header, right side) ───────────── */
@@ -2897,10 +2898,10 @@ body[data-workspace="stems"] #body {
 .stt-btn--primary:hover { filter: brightness(1.08); background: var(--accent); }
 
 /* ── VU por pista en la consola — barrita vertical junto al fader (look master) ── */
-.stems-cfader-row { display: flex; gap: 4px; align-items: stretch; width: 100%; height: 100%; min-height: 48px; }
+.stems-cfader-row { display: flex; gap: 6px; align-items: stretch; width: 100%; height: 100%; min-height: 48px; }
 .stems-cfader-row .stems-cfader { flex: 1 1 auto; min-width: 0; min-height: 0; }
 .stems-cmeter {
-  flex: 0 0 5px; width: 5px; align-self: stretch;
+  flex: 0 0 9px; width: 9px; align-self: stretch;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -2982,3 +2983,108 @@ body[data-workspace="stems"] #body {
 .stems-console-strip.is-selected {
   box-shadow: 0 0 6px -3px var(--accent);
 }
+
+/* ── Recorte (trim) + fades por clip ──────────────────────────────────
+   Overlay sobre la lane: caja del clip con asas estilo DAW. Posicionado en
+   coordenadas absolutas de la lane (left/width en px los fija el JS según
+   PX_PER_SEC + offset + trim). z-index 3 (sobre grid=1 y overlay select=2). */
+.stems-clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  z-index: 3;
+  pointer-events: none;       /* el cuerpo deja pasar el clic (seek); solo asas capturan */
+  border-radius: 4px;
+}
+/* Asas de recorte: barras verticales en los bordes. Ocultas hasta hover. */
+.stems-clip-h {
+  position: absolute;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.stems-row-lane:hover .stems-clip-h { opacity: 1; }
+.stems-clip-h--trimL,
+.stems-clip-h--trimR {
+  top: 0; bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+}
+.stems-clip-h--trimL { left: -1px; }
+.stems-clip-h--trimR { right: -1px; }
+.stems-clip-h--trimL::before,
+.stems-clip-h--trimR::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 6px -1px var(--accent);
+}
+.stems-clip-h--trimL::before { left: 0; border-radius: 3px 0 0 3px; }
+.stems-clip-h--trimR::before { right: 0; border-radius: 0 3px 3px 0; }
+/* Asas de fade: pomos circulares en las esquinas superiores. Levemente
+   visibles siempre (marcan que se puede arrastrar), brillan en hover. */
+.stems-clip-h--fadeIn,
+.stems-clip-h--fadeOut {
+  top: -4px;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  cursor: ew-resize;
+  opacity: 0.55;
+}
+.stems-clip-h--fadeIn  { left: -6px; }
+.stems-clip-h--fadeOut { right: -6px; }
+.stems-row-lane:hover .stems-clip-h--fadeIn,
+.stems-row-lane:hover .stems-clip-h--fadeOut { opacity: 1; }
+/* Triángulos de fade: el área de volumen "quitado" por la rampa. El ancho lo
+   fija el JS; el alto es el del clip. */
+.stems-clip-fade {
+  position: absolute;
+  top: 0; bottom: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: saturate(0.6);
+}
+.stems-clip-fade--in  { left: 0;  clip-path: polygon(0 0, 100% 0, 0 100%); }
+.stems-clip-fade--out { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+/* Línea de la pendiente del fade, para que se lea la rampa con claridad. */
+.stems-clip-fade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.stems-clip-fade--in::after  { border-bottom: 1.5px solid color-mix(in srgb, var(--accent) 70%, white); transform-origin: bottom left; }
+/* Máscaras de la zona recortada del buffer (entre canvas y clip): atenúan el
+   waveform que NO va a sonar. Absolutas en la lane, z bajo las asas. */
+.stems-clip-mask {
+  position: absolute;
+  top: 4px; bottom: 4px;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border-radius: 3px;
+}
+/* Readout flotante durante el arrastre (fade Xs / inicio mm:ss). */
+.stems-clip-tip {
+  position: absolute;
+  top: -22px; left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--bg);
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 4;
+}
+/* Mientras se arrastra el offset (is-shifting), el overlay se oculta para no
+   quedar desfasado del canvas que se mueve en vivo. */
+.stems-row-lane.is-shifting .stems-clip,
+.stems-row-lane.is-shifting .stems-clip-mask { opacity: 0; }

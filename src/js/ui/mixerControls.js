@@ -92,7 +92,19 @@ export function bindMixerControls(deps) {
   // `livepads:master-vol-change` event so Stems' master slider mirrors
   // this one and vice versa.
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
+  // Mute maestro: corta TODO el audio sin perder la posición del fader. Vive en
+  // ambos controles (sidebar + mixer); arrastrar el fader lo des-mutea solo.
+  const muteBtns = Array.from(document.querySelectorAll('.master-mute-btn'));
+  let masterMuted = false;
+  const applyMasterMute = (on) => {
+    masterMuted = on;
+    engine.setMasterVolume(on ? 0 : (mvol.value / 100));
+    mvol.classList.toggle('is-muted', on);
+    muteBtns.forEach(b => { b.classList.toggle('is-muted', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  };
+  muteBtns.forEach(b => b.addEventListener('click', () => applyMasterMute(!masterMuted)));
   mvol.oninput = () => {
+    if (masterMuted) applyMasterMute(false);   // mover el fader restaura el sonido
     engine.setMasterVolume(mvol.value / 100);
     mvolVal.textContent = mvol.value + '%';
     syncSlider(mvol);
@@ -106,7 +118,27 @@ export function bindMixerControls(deps) {
     const pct = Math.round(e.detail.value * 100);
     mvol.value = pct;
     mvolVal.textContent = pct + '%';
+    if (masterMuted) applyMasterMute(false);
     engine.setMasterVolume(e.detail.value);
     syncSlider(mvol);
   });
+
+  // Crossfade de pads: el slider guarda décimas de segundo (5..40 → 0.5..4.0s).
+  // Persistido en localStorage para que la preferencia sobreviva reinicios.
+  const xf = q('#pad-crossfade'), xfVal = q('#pad-crossfade-val');
+  if (xf) {
+    const XF_KEY = 'livepads:pad-crossfade';
+    const applyXf = (tenths, persist) => {
+      const secs = tenths / 10;
+      engine.setCrossfade(secs);
+      xf.value = tenths;
+      if (xfVal) xfVal.textContent = secs.toFixed(1) + ' s';
+      syncSlider(xf);
+      if (persist) { try { localStorage.setItem(XF_KEY, String(tenths)); } catch (_) {} }
+    };
+    let saved = 20;
+    try { const v = parseInt(localStorage.getItem(XF_KEY), 10); if (Number.isFinite(v)) saved = Math.max(5, Math.min(40, v)); } catch (_) {}
+    applyXf(saved, false);
+    xf.oninput = () => applyXf(parseInt(xf.value, 10) || 20, true);
+  }
 }
