@@ -35,6 +35,12 @@ const ICON_STAR_OUTLINE = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke
 const ICON_STAR_FILLED  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
 
 export const ICON_ADD_CHECK = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+// Icono "+" del botón añadir (exportado para que la biblioteca pueda volver a
+// ponerlo al quitar una canción del servicio, sin re-renderizar la card).
+export const ICON_ADD_PLUS = ICON_ADD;
+// Chip "En servicio" — markup único reutilizado por el render inicial de la card
+// y por la actualización en vivo (refreshInServiceState) cuando cambia el set.
+export const INSERVICE_BADGE_HTML = '<span class="gi-inservice-badge" title="Esta canción está en el servicio de hoy"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>En servicio</span>';
 const ADD_BTN_HTML = `<button class="action-btn btn-add" data-action="add" title="Añadir al servicio">${ICON_ADD}</button>`;
 // Botón "+" que pasa a ✓ cuando la canción YA está en la lista activa (evita
 // agregarla dos veces; clic igual avisa).
@@ -139,7 +145,7 @@ export function songCardInnerHTML(song, opts) {
         <div class="gi-song-title">${titleHtml}</div>
         <div class="gi-song-artist">${artistHtml}</div>
         ${metaLine ? `<div class="gi-song-meta-line">${metaLine}</div>` : ''}
-        ${(includeAdd && opts.inService) ? `<span class="gi-inservice-badge" title="Esta canción está en el servicio de hoy"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>En servicio</span>` : ''}
+        ${(includeAdd && opts.inService) ? INSERVICE_BADGE_HTML : ''}
       </div>
     </div>
     <div class="gi-song-actions">
