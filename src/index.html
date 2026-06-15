@@ -281,6 +281,10 @@
             <div class="mx-channel mx-channel--master">
               <span class="mx-name">Maestro</span>
               <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-master-vol" min="0" max="100" value="100" class="blue-slider mx-slider" aria-label="Volumen Maestro"><span class="mx-val" id="mx-master-vol-val">100%</span></div>
+              <button type="button" class="master-mute-btn master-mute-btn--mx" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
+                <svg class="ic-vol" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                <svg class="ic-mute" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+              </button>
             </div>
           </div>
         </div>
@@ -529,8 +533,17 @@
             <div class="sb-card mx-relocated">
               <div class="sb-row">
                 <span class="sr-label sr-label--wide">Maestro</span>
+                <button type="button" class="master-mute-btn" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
+                  <svg class="ic-vol" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                  <svg class="ic-mute" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                </button>
                 <input type="range" id="master-vol" min="0" max="100" value="100" class="blue-slider">
                 <span class="sr-val" id="master-vol-val">100%</span>
+              </div>
+              <div class="sb-row" title="Duración de la transición cruzada al cambiar de tono de pad (sin silencios)">
+                <span class="sr-label sr-label--wide">Crossfade</span>
+                <input type="range" id="pad-crossfade" min="5" max="40" value="20" step="1" class="blue-slider">
+                <span class="sr-val" id="pad-crossfade-val">2.0 s</span>
               </div>
             </div>
 

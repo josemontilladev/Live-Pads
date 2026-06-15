@@ -139,6 +139,7 @@ export function songCardInnerHTML(song, opts) {
         <div class="gi-song-title">${titleHtml}</div>
         <div class="gi-song-artist">${artistHtml}</div>
         ${metaLine ? `<div class="gi-song-meta-line">${metaLine}</div>` : ''}
+        ${(includeAdd && opts.inService) ? `<span class="gi-inservice-badge" title="Esta canción está en el servicio de hoy"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>En servicio</span>` : ''}
       </div>
     </div>
     <div class="gi-song-actions">

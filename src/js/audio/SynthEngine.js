@@ -17,6 +17,7 @@ export class SynthEngine {
     this.currentPadBank = null; // active PAD_BANKS entry
     this._clickBuffers = {};
     this._padAmbBuffers = {};    // bankId_note -> AudioBuffer
+    this._crossfadeDur = 2.0;    // s — duración del crossfade al cambiar de pad (configurable)
   }
 
   async init() {
@@ -95,7 +96,7 @@ export class SynthEngine {
   setDrumVolume(v){ if(this.drumGain) this.drumGain.gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
   setDrumPan(v)   { if(this.drumPanNode) this.drumPanNode.pan.value = v; }
   setDrumPadVolume(id, v) { if(this.drumVolumes[id]) this.drumVolumes[id].gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
-  setCrossfade(s)  { this._crossfadeDur = s; }
+  setCrossfade(s)  { this._crossfadeDur = Math.max(0.3, Math.min(6, s || 2.0)); }
   setPadBank(bank) {
     this.currentPadBank = bank;
     // Free decoded pad buffers from OTHER banks to keep RAM low on weak
@@ -274,9 +275,9 @@ export class SynthEngine {
 
     // SMART ATTACK:
     // If nothing is playing, start fast (0.5s).
-    // If something is already playing, crossfade smoothly (2.0s).
+    // If something is already playing, crossfade smoothly (duración configurable).
     const isSilent = (oldNodes.length === 0);
-    const attackTime = isSilent ? 0.5 : 2.0;
+    const attackTime = isSilent ? 0.5 : this._crossfadeDur;
 
     if (this._padAmbBuffers[cacheKey]) {
       this._playBufferPad(this._padAmbBuffers[cacheKey], attackTime);

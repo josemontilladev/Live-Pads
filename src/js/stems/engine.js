@@ -258,7 +258,14 @@ export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offse
     muted: false,
     soloed: false,
     offsetSec: offsetSec || 0,  // timeline shift: where this track begins
-    color: null   // null → use theme accent; else CSS colour string
+    color: null,  // null → use theme accent; else CSS colour string
+    // Recorte (no destructivo) — qué región del buffer se reproduce/exporta, y
+    // rampas de fade en la entrada/salida del clip. El buffer NUNCA se altera.
+    trimStartSec: 0,
+    trimEndSec: buffer.duration,
+    fadeInSec: 0,
+    fadeOutSec: 0,
+    _prevDur: buffer.duration,  // para detectar "estaba sin recortar" en replaceTrackBuffer
   });
   return id;
 }
@@ -276,6 +283,15 @@ export function replaceTrackBuffer(id, audioBuffer) {
     t.sourceNode = null;
   }
   t.buffer = audioBuffer;
+  // El buffer cambió de duración (re-bounce de click/MIDI): re-encuadra el trim
+  // para que no apunte fuera del nuevo buffer.
+  if (t.trimStartSec === 0 && (t.trimEndSec == null || t.trimEndSec >= (t._prevDur || 0) - 0.001)) {
+    t.trimEndSec = audioBuffer.duration;   // estaba sin recortar → sigue completo
+  } else {
+    t.trimStartSec = Math.min(t.trimStartSec || 0, audioBuffer.duration);
+    t.trimEndSec = Math.min(t.trimEndSec || audioBuffer.duration, audioBuffer.duration);
+  }
+  t._prevDur = audioBuffer.duration;
 }
 
 export function getAudioContext() { ensureCtx(); return ctx; }
@@ -358,6 +374,40 @@ export function setTrackOffset(id, sec) {
   if (isPlaying) seek(getCurrentSec());
 }
 
+// ── Recorte (trim) + fades por pista (no destructivo) ──────────────────────
+export function getTrackTrimStart(id) { return tracks.get(id)?.trimStartSec || 0; }
+export function getTrackTrimEnd(id) { const t = tracks.get(id); return t ? (t.trimEndSec != null ? t.trimEndSec : t.buffer.duration) : 0; }
+export function getTrackFadeIn(id)  { return tracks.get(id)?.fadeInSec || 0; }
+export function getTrackFadeOut(id) { return tracks.get(id)?.fadeOutSec || 0; }
+function _clipDur(t) { return (t.trimEndSec != null ? t.trimEndSec : t.buffer.duration) - (t.trimStartSec || 0); }
+export function setTrackTrimStart(id, sec) {
+  const t = tracks.get(id); if (!t) return;
+  const end = t.trimEndSec != null ? t.trimEndSec : t.buffer.duration;
+  t.trimStartSec = Math.max(0, Math.min(sec || 0, end - 0.02));
+  // Los fades no pueden exceder la nueva duración del clip.
+  const d = _clipDur(t);
+  t.fadeInSec = Math.min(t.fadeInSec || 0, d); t.fadeOutSec = Math.min(t.fadeOutSec || 0, d);
+  if (isPlaying) seek(getCurrentSec());
+}
+export function setTrackTrimEnd(id, sec) {
+  const t = tracks.get(id); if (!t) return;
+  const start = t.trimStartSec || 0;
+  t.trimEndSec = Math.max(start + 0.02, Math.min(sec, t.buffer.duration));
+  const d = _clipDur(t);
+  t.fadeInSec = Math.min(t.fadeInSec || 0, d); t.fadeOutSec = Math.min(t.fadeOutSec || 0, d);
+  if (isPlaying) seek(getCurrentSec());
+}
+export function setTrackFadeIn(id, sec) {
+  const t = tracks.get(id); if (!t) return;
+  t.fadeInSec = Math.max(0, Math.min(sec || 0, _clipDur(t)));
+  if (isPlaying) seek(getCurrentSec());
+}
+export function setTrackFadeOut(id, sec) {
+  const t = tracks.get(id); if (!t) return;
+  t.fadeOutSec = Math.max(0, Math.min(sec || 0, _clipDur(t)));
+  if (isPlaying) seek(getCurrentSec());
+}
+
 // Mute + solo interact: if ANY track is soloed, only soloed tracks are
 // audible (others are forced silent). Manual mute overrides solo for that
 // track. This matches every DAW's standard solo behaviour.
@@ -379,7 +429,10 @@ export function getTracks() {
   return Array.from(tracks.values()).map(t => ({
     id: t.id, kind: t.kind, name: t.name, volume: t.volume, pan: t.pan,
     muted: t.muted, soloed: t.soloed, color: t.color, offsetSec: t.offsetSec || 0,
-    durationSec: t.buffer.duration
+    durationSec: t.buffer.duration,
+    trimStartSec: t.trimStartSec || 0,
+    trimEndSec: (t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration,
+    fadeInSec: t.fadeInSec || 0, fadeOutSec: t.fadeOutSec || 0
   }));
 }
 
@@ -389,7 +442,10 @@ export function getRawTracks() {
   return Array.from(tracks.values()).map(t => ({
     id: t.id, kind: t.kind, name: t.name, buffer: t.buffer,
     volume: t.volume, pan: t.pan, muted: t.muted, soloed: t.soloed, color: t.color,
-    offsetSec: t.offsetSec || 0
+    offsetSec: t.offsetSec || 0,
+    trimStartSec: t.trimStartSec || 0,
+    trimEndSec: (t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration,
+    fadeInSec: t.fadeInSec || 0, fadeOutSec: t.fadeOutSec || 0
   }));
 }
 
@@ -397,7 +453,8 @@ export function getRawTracks() {
 export function getDurationSec() {
   let max = 0;
   for (const t of tracks.values()) {
-    const end = (t.offsetSec || 0) + t.buffer.duration;
+    const trimEnd = (t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration;
+    const end = (t.offsetSec || 0) + trimEnd;
     if (end > max) max = end;
   }
   return max;
@@ -406,6 +463,33 @@ export function getDurationSec() {
 export function getCurrentSec() {
   if (!isPlaying) return pauseOffsetSec;
   return Math.min(pauseOffsetSec + (ctx.currentTime - startedAt), getDurationSec());
+}
+
+// Programa la rampa de fade-in/out de un clip sobre el AudioParam `g`, en
+// tiempo del contexto. `clipStartCtx`/`clipEndCtx` = instantes (ctx time) en
+// que el buffer pasa por trimStart/trimEnd; `when` = ahora (o el inicio del
+// render offline). Maneja arrancar a mitad de un fade (valor parcial en `when`)
+// y sirve igual para playback en vivo y para el render del export.
+export function scheduleFade(g, fadeInSec, fadeOutSec, clipStartCtx, clipEndCtx, when) {
+  const fadeIn = fadeInSec || 0;
+  const fadeOut = fadeOutSec || 0;
+  try {
+    g.cancelScheduledValues(when);
+    if (fadeIn > 0) {
+      const fiEnd = clipStartCtx + fadeIn;
+      if (when <= clipStartCtx) { g.setValueAtTime(0, clipStartCtx); g.linearRampToValueAtTime(1, fiEnd); }
+      else if (when < fiEnd)    { g.setValueAtTime((when - clipStartCtx) / fadeIn, when); g.linearRampToValueAtTime(1, fiEnd); }
+      else                      { g.setValueAtTime(1, when); }
+    } else {
+      g.setValueAtTime(1, Math.max(when, clipStartCtx));
+    }
+    if (fadeOut > 0) {
+      // El fade-out arranca, como muy temprano, cuando termina el fade-in (sin solaparse).
+      const foStart = Math.max(clipEndCtx - fadeOut, clipStartCtx + fadeIn);
+      if (when <= foStart)        { g.setValueAtTime(1, foStart); g.linearRampToValueAtTime(0.0001, clipEndCtx); }
+      else if (when < clipEndCtx) { g.setValueAtTime(Math.max(0, 1 - (when - foStart) / Math.max(0.001, clipEndCtx - foStart)), when); g.linearRampToValueAtTime(0.0001, clipEndCtx); }
+    }
+  } catch (_) {}
 }
 
 export function play() {
@@ -417,18 +501,31 @@ export function play() {
   // 50 ms lookahead so all sources start sample-accurate together.
   const when = ctx.currentTime + 0.05;
   for (const t of tracks.values()) {
-    // Apply the per-track timeline offset: `local` is the position inside
-    // this track's buffer that corresponds to the global playhead.
+    // `local` = posición dentro del buffer que corresponde al playhead global.
     const off = t.offsetSec || 0;
     const local = pauseOffsetSec - off;
-    if (local >= t.buffer.duration) { t.sourceNode = null; continue; } // already ended here
+    const trimStart = t.trimStartSec || 0;
+    const trimEnd = (t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration;
+    if (local >= trimEnd) { t.sourceNode = null; continue; }  // el clip ya terminó aquí
     const src = ctx.createBufferSource();
     src.buffer = t.buffer;
-    src.connect(t.gainNode);
-    if (local >= 0) src.start(when, local);
-    else src.start(when - local, 0); // -local > 0 → starts in the future
+    // Ganancia de fade POR FUENTE (no toca el volumen de la pista): src → fadeGain → gainNode.
+    const fadeGain = ctx.createGain();
+    src.connect(fadeGain);
+    fadeGain.connect(t.gainNode);
+    src.fadeGain = fadeGain;
+    // Arranque: si el playhead está dentro del clip, desde `local`; si está antes,
+    // se agenda para el futuro (cuando el clip entra). Duración acotada a trimEnd.
+    let startWhen, startOffset, dur;
+    if (local >= trimStart) { startWhen = when; startOffset = local; dur = trimEnd - local; }
+    else { startWhen = when + (trimStart - local); startOffset = trimStart; dur = trimEnd - trimStart; }
+    // Envolvente de fade (en tiempo del contexto). clipStart/End = cuándo el buffer
+    // pasa por trimStart/trimEnd respecto al playhead actual.
+    scheduleFade(fadeGain.gain, t.fadeInSec, t.fadeOutSec, when - local + trimStart, when - local + trimEnd, when);
+    src.start(startWhen, startOffset, Math.max(0, dur));
     t.sourceNode = src;
     src.onended = () => {
+      try { src.fadeGain && src.fadeGain.disconnect(); } catch (_) {}  // limpia la ganancia de fade
       // If every track has reached the end (or was stopped), flip the
       // playing flag off so the UI updates.
       if (!isPlaying) return;

@@ -13,6 +13,7 @@ import { q } from '../utils/dom.js';
 import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
 import { PitchAudio } from './pitchAudio.js';
+import { confirmDialogAsync } from '../ui/dialog.js';
 
 let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSemitones)
 let currentType = null;
@@ -177,6 +178,32 @@ export function cleanupTrackAudio() {
   }
 }
 
+// Abre el selector de archivo, copia/asigna el audio a la canción y lo reproduce.
+// Reutilizado tanto al asignar un slot vacío como al REASIGNAR uno cuyo archivo
+// falta o se movió (ver el manejo de onerror en startTrackPlayback).
+function pickAssignAndPlay(song, type) {
+  if (window.electronAPI && window.electronAPI.openAudioFile) {
+    window.electronAPI.openAudioFile().then(async (file) => {
+      if (file && file.path) {
+        const newPath = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type });
+        if (!song.audio) song.audio = {};
+        song.audio[type] = newPath;
+        deps.onAudioPathAssigned(song, type, newPath);
+        startTrackPlayback(newPath, song.title, type);
+      }
+    });
+  } else {
+    const input = q('#tp-file-input');
+    if (!input) return;
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) startTrackPlayback(URL.createObjectURL(file), song.title, type);
+      input.value = '';
+    };
+    input.click();
+  }
+}
+
 export function loadAndPlayTrack(song, type) {
   cleanupTrackAudio();
   currentSong = song;
@@ -184,26 +211,7 @@ export function loadAndPlayTrack(song, type) {
 
   if (!path) {
     // Song has no audio yet for this slot — let the user pick a file.
-    if (window.electronAPI && window.electronAPI.openAudioFile) {
-      window.electronAPI.openAudioFile().then(async (file) => {
-        if (file && file.path) {
-          const newPath = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type });
-          if (!song.audio) song.audio = {};
-          song.audio[type] = newPath;
-          deps.onAudioPathAssigned(song, type, newPath);
-          startTrackPlayback(newPath, song.title, type);
-        }
-      });
-    } else {
-      const input = q('#tp-file-input');
-      if (!input) return;
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) startTrackPlayback(URL.createObjectURL(file), song.title, type);
-        input.value = '';
-      };
-      input.click();
-    }
+    pickAssignAndPlay(song, type);
   } else {
     startTrackPlayback(path, song.title, type);
   }
@@ -294,11 +302,20 @@ async function startTrackPlayback(url, title, type) {
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   });
 
-  audio.onerror = (e) => {
+  audio.onerror = async (e) => {
     console.error('Error loading audio:', safeUrl, e);
-    if (els.title) els.title.textContent = 'Error al cargar audio';
-    // Aviso claro: si no, el director ve el título raro y cree que es un bug.
-    window.showToast?.(`No se pudo cargar el audio de "${title}". El archivo puede faltar, estar movido o dañado. Reasignalo desde la canción.`, 'error');
+    if (els.title) els.title.textContent = 'Audio no encontrado';
+    // El archivo falta/se movió/está dañado: ofrecer REASIGNAR aquí mismo en vez
+    // de mandar al usuario a editar la canción. La canción + slot ya los tenemos.
+    const song = currentSong;
+    const slot = type === 'sequence' ? 'la secuencia' : 'el original';
+    const ok = await confirmDialogAsync({
+      title: 'Audio no encontrado',
+      message: `No se pudo cargar ${slot} de “${title}”. El archivo puede faltar, haberse movido o estar dañado.\n\n¿Reasignar el archivo ahora?`,
+      confirmLabel: 'Reasignar…',
+      danger: false,
+    });
+    if (ok && song) pickAssignAndPlay(song, type);
   };
 
   if (els.title) els.title.textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
