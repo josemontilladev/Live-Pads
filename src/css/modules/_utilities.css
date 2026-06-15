@@ -191,3 +191,13 @@
   font-weight: 700;
   padding: 7px 10px;
 }
+
+/* Estado de ALERTA del pill MIDI: persiste en rojo cuando se desconectó el
+   controlador en vivo (el toast se va, este queda hasta reconectar o clic). */
+.midi-status-pill--alert {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: #fca5a5;
+  cursor: pointer;
+}
+.midi-status-pill--alert::before { background: var(--danger); box-shadow: 0 0 6px var(--danger); }

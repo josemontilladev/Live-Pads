@@ -95,11 +95,14 @@ async function createSession(modelPath, preferred) {
 function cancelledError() { const e = new Error('Separación cancelada'); e.cancelled = true; return e; }
 
 // Run one MDX model over the whole signal, returning the source [L,R].
-async function runModel(L, R, modelPath, cfg, ep, onLocal, shouldCancel) {
+// `onEp` (opcional) se llama con el execution provider real (dml/cpu) APENAS se
+// crea la sesión, para avisar al UI si está usando GPU o CPU desde el principio.
+async function runModel(L, R, modelPath, cfg, ep, onLocal, shouldCancel, onEp) {
   const { nfft, dimF, dimT } = cfg;
   const sL = stft(L, nfft), sR = stft(R, nfft);
   const nF = sL.nF, NB = sL.NB;
   const { session, ep: usedEp } = await createSession(modelPath, ep);
+  if (onEp) { try { onEp(usedEp); } catch (_) {} }
 
   const oReL = new Float32Array(NB * nF), oImL = new Float32Array(NB * nF);
   const oReR = new Float32Array(NB * nF), oImR = new Float32Array(NB * nF);
@@ -151,7 +154,10 @@ const path = require('path');
 
 // mode: '2stem' | '4stem'. modelsDir: absolute path to the models folder.
 async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, ep, onProgress, shouldCancel } = {}) {
-  const report = (frac, stage) => { try { onProgress && onProgress(Math.max(0, Math.min(1, frac)), stage); } catch (_) {} };
+  let curEp = ep || null;   // execution provider real (se completa al crear la 1ª sesión)
+  const report = (frac, stage) => { try { onProgress && onProgress(Math.max(0, Math.min(1, frac)), stage, curEp); } catch (_) {} };
+  // Apenas se sabe si es GPU (dml) o CPU, lo emitimos para que el toast lo muestre.
+  const onEp = (used) => { curEp = used; report(0.02, used === 'dml' ? 'GPU detectada — separando…' : 'CPU — separando…'); };
   let L = Float32Array.from(channels[0]);
   let R = channels[1] ? Float32Array.from(channels[1]) : Float32Array.from(channels[0]);
   if (sampleRate !== SR) { L = resampleLinear(L, sampleRate, SR); R = resampleLinear(R, sampleRate, SR); }
@@ -172,7 +178,7 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
       const p = plan[i];
       report((i) / plan.length, `Separando ${p.name}…`);
       const { channels: ch, ep: used } = await runModel(L, R, mp(p.key), MODELS[p.key], chosenEp,
-        (lf) => report((i + lf) / plan.length, `Separando ${p.name}…`), shouldCancel);
+        (lf) => report((i + lf) / plan.length, `Separando ${p.name}…`), shouldCancel, onEp);
       chosenEp = used; // reuse the EP that worked for the rest
       stems.push({ name: p.name, kind: p.kind, channels: ch });
     }
@@ -186,7 +192,7 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
   if (mode === 'otros') {
     report(0.02, 'Cargando modelo');
     const { channels: ch, ep: used } = await runModel(L, R, mp('k_other'), MODELS.k_other, chosenEp,
-      (lf) => report(0.02 + 0.95 * lf, 'Separando Otros…'), shouldCancel);
+      (lf) => report(0.02 + 0.95 * lf, 'Separando Otros…'), shouldCancel, onEp);
     chosenEp = used;
     report(1, 'Listo');
     return { sampleRate: SR, ep: chosenEp, stems: [{ name: 'Otros', kind: 'other', channels: ch }] };
@@ -195,7 +201,7 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
   // 2-stem: instrumental model predicts the instrumental; vocals = mix - inst.
   report(0.02, 'Cargando modelo');
   const { channels: inst, ep: used } = await runModel(L, R, mp('inst_hq3'), MODELS.inst_hq3, chosenEp,
-    (lf) => report(0.02 + 0.9 * lf, 'Separando'), shouldCancel);
+    (lf) => report(0.02 + 0.9 * lf, 'Separando'), shouldCancel, onEp);
   chosenEp = used;
   report(0.94, 'Reconstruyendo');
   const vocL = new Float32Array(L.length), vocR = new Float32Array(R.length);

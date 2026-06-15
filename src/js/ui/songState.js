@@ -142,6 +142,16 @@ function paintNowPlayingBanner(song) {
   const artistEl = q('#np-artist');
   if (titleEl)  titleEl.textContent  = song.title || 'Sin título';
   if (artistEl) artistEl.textContent = song.artist || '';
+  // Badges de audio disponible: el director ve si hay secuencia/original ANTES
+  // de darle Play (antes no se sabía si había audio para lanzar).
+  const badgesEl = q('#np-badges');
+  if (badgesEl) {
+    const hasSeq  = !!(song.audio && song.audio.sequence);
+    const hasOrig = !!(song.audio && song.audio.original);
+    badgesEl.innerHTML =
+      (hasSeq  ? '<span class="np-badge np-badge--seq" title="Tiene secuencia asignada">SEQ</span>' : '') +
+      (hasOrig ? '<span class="np-badge np-badge--orig" title="Tiene original asignado">ORIG</span>' : '');
+  }
   banner.classList.remove('hidden');
   // "Preparada" (seleccionada, nada suena) vs "Sonando" — coherente con el
   // principio "seleccionar = preparar, nada suena hasta pulsar Play".

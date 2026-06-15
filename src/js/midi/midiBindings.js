@@ -63,6 +63,7 @@ export function bindMidiHandlers(deps) {
 
   // Render the device-name pill in the topbar. Hidden when no MIDI device
   // is connected (or before MIDI access resolves on app boot).
+  let midiEverConnected = false;
   const renderDevicePill = (names, evt) => {
     const pill = q('#midi-status-pill');
     // Aviso de conexión/desconexión de un controlador (no en el arranque, solo
@@ -73,11 +74,26 @@ export function bindMidiHandlers(deps) {
       else if (port.state === 'connected') window.showToast?.(`MIDI conectado: ${port.name || 'controlador'}`, 'success');
     }
     if (!pill) return;
-    if (!names || names.length === 0) {
-      pill.classList.add('hidden');
-      pill.textContent = '';
+    const has = names && names.length > 0;
+    if (has) midiEverConnected = true;
+    pill.classList.remove('midi-status-pill--alert');
+    if (!has) {
+      // Si hubo un controlador y ahora no queda ninguno, dejamos un aviso ROJO
+      // PERSISTENTE en el topbar (el toast se va en segundos; en vivo se perdía).
+      // Clic para descartarlo. Vuelve al estado normal al reconectar.
+      if (midiEverConnected) {
+        pill.classList.add('midi-status-pill--alert');
+        pill.textContent = 'MIDI desconectado';
+        pill.title = 'Se desconectó tu controlador. Reconéctalo (se reconoce solo). Clic para ocultar.';
+        pill.classList.remove('hidden');
+        pill.onclick = () => pill.classList.add('hidden');
+      } else {
+        pill.classList.add('hidden');
+        pill.textContent = '';
+      }
       return;
     }
+    pill.onclick = null;
     const label = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
     pill.textContent = label;
     pill.title = names.join(' • ');

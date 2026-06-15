@@ -123,7 +123,7 @@
     padding: 6px 4px;
     font-size: 14px;
     border-radius: 8px;
-    min-height: 0;
+    min-height: 44px;   /* mínimo táctil (WCAG) para tocar bien en el escenario */
   }
   .kbd-hint {
     top: 3px;
@@ -173,6 +173,7 @@
   .drum-btn {
     padding: 8px 10px;
     border-radius: 8px;
+    min-height: 44px;   /* mínimo táctil (WCAG) */
   }
   .drum-btn .drum-label {
     font-size: 11px;
