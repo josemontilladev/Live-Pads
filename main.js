@@ -1129,6 +1129,17 @@ ipcMain.handle('library-audio-repair', async () => {
 // Reuse one connected MongoClient across syncs (it keeps its own connection
 // pool) instead of opening + closing a fresh client every call. Pings to
 // confirm liveness; reconnects if the cached client is stale or the URI changed.
+// Validación de las URLs de config.json (editables por el usuario): el mongoUri
+// debe ser un esquema de Mongo y el giApiUrl http(s). Evita pasar cadenas
+// arbitrarias al cliente Mongo / fetch.
+function isValidMongoUri(u) {
+  return typeof u === 'string' && /^mongodb(\+srv)?:\/\/[^\s]+$/i.test(u.trim());
+}
+function isValidHttpUrl(u) {
+  try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:'; }
+  catch (_) { return false; }
+}
+
 let _mongoClient = null, _mongoUri = null;
 async function getMongoClient(uri) {
   if (_mongoClient && _mongoUri === uri) {
@@ -1160,8 +1171,13 @@ ipcMain.handle('sync-mongo-setlist', async () => {
   try {
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config && typeof config.mongoUri === 'string') uri = config.mongoUri.trim();
-      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
+      if (config && typeof config.mongoUri === 'string' && isValidMongoUri(config.mongoUri)) {
+        uri = config.mongoUri.trim();
+      } else if (config && config.mongoUri && config.mongoUri.trim()) {
+        console.warn('config.mongoUri ignorado: no es una URI de Mongo válida.');
+      }
+      // Solo aceptamos un giApiUrl http(s) válido; cualquier otra cosa → default.
+      if (config && typeof config.giApiUrl === 'string' && isValidHttpUrl(config.giApiUrl.trim())) {
         apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
       }
     }
@@ -1903,8 +1919,8 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
       throw new Error(`Modelo no encontrado: ${MODELS[k].file}`);
     }
   }
-  const send = (fraction, stage) => {
-    try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage }); } catch (_) {}
+  const send = (fraction, stage, ep) => {
+    try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage, ep }); } catch (_) {}
   };
   separationCancel = false;
   try {

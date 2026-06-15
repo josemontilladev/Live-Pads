@@ -6,7 +6,7 @@
 // a change. Pressing Ctrl+Z pops the top of the undo stack, runs its
 // `undo`, and moves it to the redo stack; Ctrl+Y / Ctrl+Shift+Z reverses.
 
-const MAX_HISTORY = 80;
+const MAX_HISTORY = 200;
 const undoStack = [];
 const redoStack = [];
 

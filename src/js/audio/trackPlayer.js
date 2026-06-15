@@ -143,25 +143,37 @@ function connectPanGraph() {
   }
 }
 
+const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el corte/click seco)
+
 // Libera la fuente actual y el panner para que la siguiente carga arranque limpia.
+// Si la pista estaba SONANDO, hace un fade-out corto antes de desconectar: la
+// siguiente carga arranca de inmediato, así el viejo se desvanece mientras el
+// nuevo entra (mini-crossfade) en vez de cortar en seco.
 export function cleanupTrackAudio() {
-  if (audio) {
-    try { audio.output && audio.output.disconnect(); } catch (e) {}
-  }
-  if (makeupNode) { try { makeupNode.disconnect(); } catch (e) {} makeupNode = null; }
-  if (trackLimiter) { try { trackLimiter.disconnect(); } catch (e) {} trackLimiter = null; }
-  if (pannerNode) { try { pannerNode.disconnect(); } catch (e) {} pannerNode = null; }
-  if (audio) {
+  if (!audio) return;
+  const old = audio;
+  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode;
+  // Liberamos las referencias del módulo YA, para que la próxima carga cree su
+  // propio grafo y los dos puedan sonar a la vez durante el fade.
+  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null;
+
+  const dispose = () => {
+    try { old.output && old.output.disconnect(); } catch (e) {}
+    [oldMakeup, oldLimiter, oldPanner].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
+    try { old.pause(); old.src = ''; old.onerror = null; old.ontimeupdate = null; old.onended = null; } catch (e) {}
+  };
+
+  const g = old.output && old.output.gain;
+  if (!old.paused && g && audioCtx) {
     try {
-      audio.pause();
-      audio.src = '';
-      audio.onerror = null;
-      audio.ontimeupdate = null;
-      audio.onended = null;
-    } catch (e) {
-      console.warn('Error cleaning up audio element:', e);
-    }
-    audio = null;
+      const now = audioCtx.currentTime;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(0.0001, now + TRACK_SWITCH_FADE_S);
+    } catch (e) {}
+    setTimeout(dispose, TRACK_SWITCH_FADE_S * 1000 + 40);
+  } else {
+    dispose();
   }
 }
 

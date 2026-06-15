@@ -1385,7 +1385,11 @@ function wireArrangeEvents(root) {
   };
   root.querySelector('#stems-assign').onclick = async () => {
     if (engine.getTracks().length === 0) return;
-    await runExport({ assign: true });
+    // Elegir la canción + slot ANTES de renderizar: el picker aparece al
+    // instante y, si se cancela, no se desperdicia el render de la mezcla.
+    const choice = await pickSongAndSlot();
+    if (!choice) return;
+    await runExport({ assign: true, target: choice });
   };
 
   // Selector de tonalidad del proyecto. El usuario PICKEA la tonalidad
@@ -2142,6 +2146,10 @@ function wireConsoleStrip(strip, id) {
       );
     }
   });
+  // Pan: oninput aplica en vivo; el undo se registra al SOLTAR (change) o en el
+  // doble-clic de reset, capturando el valor previo (no en cada pixel del drag).
+  let panBefore = parseInt(panInput.value, 10);
+  panInput.addEventListener('pointerdown', () => { panBefore = parseInt(panInput.value, 10); });
   panInput.oninput = (e) => {
     const v = parseInt(e.target.value, 10);
     engine.setTrackPan(id, v / 100);
@@ -2150,29 +2158,28 @@ function wireConsoleStrip(strip, id) {
     if (r) r.textContent = panLabel(v / 100);
     scheduleSave();
   };
-  // Doble clic en el pan → centro (mismo gesto que los sliders de Pads).
-  panInput.ondblclick = () => {
-    panInput.value = 0;
-    panInput.dispatchEvent(new Event('input', { bubbles: true }));
+  const commitPan = () => {
+    const newV = parseInt(panInput.value, 10);
+    if (newV === panBefore) return;
+    const oldV = panBefore; panBefore = newV;
+    pushHistory('Pan', () => applyTrackPan(id, oldV), () => applyTrackPan(id, newV));
   };
+  panInput.addEventListener('change', commitPan);
+  // Doble clic en el pan → centro (mismo gesto que los sliders de Pads), con undo.
+  panInput.ondblclick = () => { applyTrackPan(id, 0); panInput.value = 0; paintPanFill(panInput); commitPan(); };
 
   const muteBtn = strip.querySelector('[data-action="mute"]');
   muteBtn.onclick = () => {
     const next = !muteBtn.classList.contains('is-on');
-    engine.setTrackMuted(id, next);
-    muteBtn.classList.toggle('is-on', next);
-    syncRowStripMute(id, next);     // espejo en el strip de la fila
-    reflectSoloHighlights();
-    scheduleSave();
+    applyTrackMute(id, next);
+    pushHistory('Mute', () => applyTrackMute(id, !next), () => applyTrackMute(id, next));
   };
 
   const soloBtn = strip.querySelector('[data-action="solo"]');
   soloBtn.onclick = () => {
     const next = !soloBtn.classList.contains('is-on');
-    engine.setTrackSoloed(id, next);
-    soloBtn.classList.toggle('is-on', next);
-    syncRowStripSolo(id, next);     // espejo en el strip de la fila
-    reflectSoloHighlights();
+    applyTrackSolo(id, next);
+    pushHistory('Solo', () => applyTrackSolo(id, !next), () => applyTrackSolo(id, next));
     scheduleSave();
   };
 }
@@ -2208,6 +2215,23 @@ function syncRowStripMute(id, on) {
 }
 function syncRowStripSolo(id, on) {
   trackRows.get(id)?.row?.querySelector('[data-action="row-solo"]')?.classList.toggle('is-on', on);
+}
+// Aplicadores canónicos (motor + AMBOS strips + feedback + guardado). Los usan
+// los handlers de clic Y el undo/redo, así un Ctrl+Z restaura el estado completo.
+function applyTrackMute(id, on) {
+  engine.setTrackMuted(id, on);
+  syncConsoleStripMute(id, on); syncRowStripMute(id, on);
+  reflectSoloHighlights(); scheduleSave();
+}
+function applyTrackSolo(id, on) {
+  engine.setTrackSoloed(id, on);
+  syncConsoleStripSolo(id, on); syncRowStripSolo(id, on);
+  reflectSoloHighlights(); scheduleSave();
+}
+function applyTrackPan(id, v) {
+  engine.setTrackPan(id, v / 100);
+  syncConsoleStripPan(id, v);
+  scheduleSave();
 }
 function syncConsoleStripName(id, name) {
   const c = trackRows.get(id)?.console; if (!c) return;
@@ -2316,20 +2340,14 @@ function wireStrip(root, id) {
   const rowMute = root.querySelector('[data-action="row-mute"]');
   if (rowMute) rowMute.onclick = () => {
     const next = !rowMute.classList.contains('is-on');
-    engine.setTrackMuted(id, next);
-    rowMute.classList.toggle('is-on', next);
-    syncConsoleStripMute(id, next);
-    reflectSoloHighlights();
-    scheduleSave();
+    applyTrackMute(id, next);
+    pushHistory('Mute', () => applyTrackMute(id, !next), () => applyTrackMute(id, next));
   };
   const rowSolo = root.querySelector('[data-action="row-solo"]');
   if (rowSolo) rowSolo.onclick = () => {
     const next = !rowSolo.classList.contains('is-on');
-    engine.setTrackSoloed(id, next);
-    rowSolo.classList.toggle('is-on', next);
-    syncConsoleStripSolo(id, next);
-    reflectSoloHighlights();
-    scheduleSave();
+    applyTrackSolo(id, next);
+    pushHistory('Solo', () => applyTrackSolo(id, !next), () => applyTrackSolo(id, next));
   };
 
   const colorInput = root.querySelector('[data-action="color"]');
@@ -2877,14 +2895,17 @@ async function onSeparateTrack(id, mode = '2stem') {
     }
   }
 
-  const unsubscribe = window.electronAPI.onStemsSeparateProgress(({ fraction, stage }) => {
-    toast.update(fraction, stage);
+  const unsubscribe = window.electronAPI.onStemsSeparateProgress(({ fraction, stage, ep }) => {
+    // Mostrar GPU/CPU en el toast apenas el motor lo informa (no solo al final).
+    const epTag = ep ? (ep === 'dml' ? ' · GPU' : ' · CPU') : '';
+    toast.update(fraction, (stage || '') + epTag);
   });
 
   try {
     const ch0 = buffer.getChannelData(0).slice();
     const ch1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1).slice() : ch0;
     const forceCpu = localStorage.getItem('livepads-stems-force-cpu') === '1';
+    toast.update(0.03, forceCpu ? 'Preparando — CPU (forzado)…' : 'Preparando — detectando GPU…');
     const result = await window.electronAPI.stemsSeparate({
       channels: [ch0, ch1],
       sampleRate: buffer.sampleRate,
@@ -2901,7 +2922,7 @@ async function onSeparateTrack(id, mode = '2stem') {
     for (const stem of result.stems) {
       await addSeparatedTrack(`${baseName} — ${stem.name}`, stem.channels, result.sampleRate, stem.kind);
     }
-    const epLabel = result.ep === 'dml' ? ' (GPU)' : '';
+    const epLabel = result.ep === 'dml' ? ' · GPU' : ' · CPU';
     toast.done(`✓ ${baseName}: ${result.stems.length} pistas${epLabel}`);
   } catch (err) {
     console.error('Separation failed:', err);
@@ -2962,11 +2983,15 @@ function showSepToast(trackName) {
       remove(2600);
     },
     error(msg) {
+      // Persistente: el error queda hasta que el usuario lo cierre (antes se
+      // iba en 4.5s y se perdía si estaba mirando otra cosa). El ✕ lo cierra.
       el.classList.add('is-error');
       el.querySelector('.stems-sep-toast-spin')?.remove();
-      cancelBtn.remove();
       stage.textContent = msg;
-      remove(4500);
+      pct.textContent = '⚠';
+      cancelBtn.disabled = false;
+      cancelBtn.title = 'Cerrar'; cancelBtn.setAttribute('aria-label', 'Cerrar');
+      cancelBtn.onclick = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 280); };
     },
     cancelled() {
       el.querySelector('.stems-sep-toast-spin')?.remove();
