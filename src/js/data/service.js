@@ -68,6 +68,9 @@ export function saveServiceSongs() {
   localStorage.setItem('serviceSetlistId', currentSetlistId || '');
   syncActiveSetlist(); // mantener el setlist guardado activo en sync
   try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
+  // La biblioteca escucha esto para repintar el badge "En servicio" + el ✓ del
+  // botón añadir en vivo (antes solo se actualizaba al recargar con Ctrl+R).
+  try { window.dispatchEvent(new Event('livepads:service-changed')); } catch (_) {}
 }
 
 export function addToService(song) {

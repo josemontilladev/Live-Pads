@@ -4,7 +4,7 @@
 // module reads it via the deps getters passed to initGiList().
 
 import { q } from '../utils/dom.js';
-import { songCardInnerHTML, ICON_ADD_CHECK } from './songCard.js';
+import { songCardInnerHTML, ICON_ADD_CHECK, ICON_ADD_PLUS, INSERVICE_BADGE_HTML } from './songCard.js';
 import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
@@ -42,6 +42,38 @@ export function initGiList(_deps) {
   deps = _deps;
   initDelegation();
   wireDedupe();
+  // Mantener el badge "En servicio" + el ✓ del botón añadir en sync con el set,
+  // en vivo (agregar/quitar/cargar/vaciar). Antes solo se veía tras Ctrl+R.
+  window.addEventListener('livepads:service-changed', refreshInServiceState);
+}
+
+// Repinta en sitio el estado "en servicio" de TODAS las cards montadas, sin
+// re-renderizar la lista (barato, conserva scroll/acordeón). Lo dispara el
+// evento livepads:service-changed cada vez que cambia el set.
+export function refreshInServiceState() {
+  const container = q('#gi-songs-container');
+  if (!container) return;
+  const inSvc = new Set(getServiceSongs().map(s => String(s.id)));
+  container.querySelectorAll('.gi-song-item').forEach(card => {
+    const songId = card.dataset.songId;
+    if (songId == null) return;
+    const on = inSvc.has(String(songId));
+    card.classList.toggle('in-service', on);
+    // Badge bajo los metadatos.
+    const existing = card.querySelector('.gi-inservice-badge');
+    if (on && !existing) {
+      card.querySelector('.gi-song-main')?.insertAdjacentHTML('beforeend', INSERVICE_BADGE_HTML);
+    } else if (!on && existing) {
+      existing.remove();
+    }
+    // Botón "+" ↔ "✓" de añadir al servicio.
+    const addBtn = card.querySelector('.btn-add');
+    if (addBtn) {
+      addBtn.classList.toggle('is-added', on);
+      addBtn.title = on ? 'Ya está en la lista' : 'Añadir al servicio';
+      addBtn.innerHTML = on ? ICON_ADD_CHECK : ICON_ADD_PLUS;
+    }
+  });
 }
 
 // Quita canciones repetidas (mismo título + artista + tono, normalizados).
