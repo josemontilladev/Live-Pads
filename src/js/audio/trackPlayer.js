@@ -53,7 +53,10 @@ let isScrubbing = false;
 //                              persist the path and re-render any lists
 let deps = {
   syncSlider: () => {},
-  onAudioPathAssigned: () => {}
+  onAudioPathAssigned: () => {},
+  // Decisión de "qué hace el botón Play" — la define app.js (play según la
+  // fuente seleccionada). Fallback: toggle directo de la pista cargada.
+  onPlayPauseButton: () => { toggleTrackAudio(); },
 };
 
 export function initTrackPlayer(d) {
@@ -248,6 +251,22 @@ async function resolvePlayableUrl(url) {
 const PLAY_ICON  = '<svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>';
 const PAUSE_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
 
+// Fija el icono del botón Play a un estado dado (reproduciendo → pausa, si no →
+// play). Exportado para que app.js lo pinte según la FUENTE: en Click el estado
+// lo da el metrónomo (no hay pista de audio que emita eventos).
+export function setPlayBtnIcon(playing) {
+  const btn = q('#tp-play-btn');
+  if (!btn) return;
+  btn.innerHTML = playing ? PAUSE_ICON : PLAY_ICON;
+  btn.style.transform = playing ? 'scale(0.96)' : 'scale(1)';
+}
+
+// Pinta el icono según el estado REAL de la PISTA (secuencia/original). Lo usan
+// los eventos play/pause/ended del audio y el toggle directo.
+function paintPlayBtn() {
+  setPlayBtnIcon(!!(audio && !audio.paused));
+}
+
 function formatTime(seconds) {
   // !isFinite covers both NaN (no metadata yet) and Infinity (streams whose
   // length the decoder can't determine) so we never render "Infinity:NaN".
@@ -320,31 +339,22 @@ async function startTrackPlayback(url, title, type) {
 
   if (els.title) els.title.textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
 
-  const updatePlayBtn = () => {
-    if (!els.playBtn) return;
-    els.playBtn.innerHTML = audio.paused ? PLAY_ICON : PAUSE_ICON;
-    els.playBtn.style.transform = audio.paused ? 'scale(1)' : 'scale(0.96)';
-  };
   // El icono SIEMPRE refleja el estado real, aunque play/pause venga por otra
-  // vía (fin de pista, auto-avance, atajos): así no queda "pegado" en play.
-  audio.addEventListener('play', updatePlayBtn);
-  audio.addEventListener('pause', updatePlayBtn);
+  // vía (fin de pista, auto-avance, atajos): así no queda "pegado". Incluye
+  // 'ended' (fin natural de la pista) para volver al triángulo de play.
+  audio.addEventListener('play', paintPlayBtn);
+  audio.addEventListener('pause', paintPlayBtn);
+  audio.addEventListener('ended', paintPlayBtn);
 
-  if (els.playBtn) els.playBtn.onclick = () => {
-    if (audio.paused) {
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-      audio.play();
-    } else {
-      audio.pause();
-    }
-    updatePlayBtn();
-  };
+  // El botón #tp-play-btn se cablea UNA sola vez en bindTrackPlayerControls
+  // (delega en la lógica de "play según fuente" de app.js). Aquí solo dejamos
+  // que el icono siga el estado real vía los eventos play/pause de arriba.
 
   // Pause (keeps the playhead where it is). Returning to the start is the
   // restart button's job now.
   if (els.stopBtn) els.stopBtn.onclick = () => {
     audio.pause();
-    updatePlayBtn();
+    paintPlayBtn();
   };
 
   // Restart: jump back to the start while preserving the play/pause state —
@@ -357,7 +367,7 @@ async function startTrackPlayback(url, title, type) {
       if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
       audio.play();
     }
-    updatePlayBtn();
+    paintPlayBtn();
     if (els.progress) { els.progress.value = 0; deps.syncSlider(els.progress); }
     if (els.timeCur) els.timeCur.textContent = '0:00';
   };
@@ -420,13 +430,13 @@ async function startTrackPlayback(url, title, type) {
   };
 
   audio.onended = () => {
-    updatePlayBtn();
+    paintPlayBtn();
     if (els.progress) { els.progress.value = 0; deps.syncSlider(els.progress); }
     if (els.timeCur)  els.timeCur.textContent = '0:00';
     if (deps.onTrackEnded) deps.onTrackEnded();
   };
 
-  updatePlayBtn();
+  paintPlayBtn();
 }
 
 function paintLoopBtn(btn, on) {
@@ -436,6 +446,11 @@ function paintLoopBtn(btn, on) {
 
 // Wire the volume slider and seek bar once at boot.
 export function bindTrackPlayerControls() {
+  // Play/Pause: cableado UNA vez. Delega en app.js (play según la fuente
+  // seleccionada: secuencia/original = solo esa pista; click = metro + pad).
+  const playBtn = q('#tp-play-btn');
+  if (playBtn) playBtn.onclick = () => deps.onPlayPauseButton();
+
   const tpVolSlider = q('#tp-vol');
   const tpVolVal = q('#tp-vol-val');
   if (tpVolSlider && tpVolVal) {
@@ -519,8 +534,23 @@ export function clearTrackUI() {
   if (playBtn) playBtn.innerHTML = PLAY_ICON;
 }
 
-// Programmatic toggle for the master play/stop bindings.
+// Toggle de BAJO NIVEL de la pista cargada (reproduce/pausa el AudioElement).
+// Separado del onclick del botón para que las decisiones de "qué reproducir"
+// (play según fuente, solo-secuencia) vivan en app.js sin bucles de click.
+export function toggleTrackAudio() {
+  if (!audio) return false;
+  if (audio.paused) {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    audio.play();
+  } else {
+    audio.pause();
+  }
+  paintPlayBtn();   // refresco inmediato, sin depender del timing del evento
+  return true;
+}
+
+// Toggle programático usado por la lógica maestra de play/stop. Antes hacía
+// btn.click(); ahora togglea el audio directo (el botón delega en app.js).
 export function clickPlayPause() {
-  const btn = q('#tp-play-btn');
-  if (btn) btn.click();
+  toggleTrackAudio();
 }

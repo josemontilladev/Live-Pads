@@ -204,6 +204,9 @@ export class PitchAudio extends EventTarget {
     if (!this._playing) return;
     this._playing = false;
     this._stop();
+    // Emitir 'pause' como un <audio> real: la UI (icono play/pause) escucha este
+    // evento. Sin esto el botón quedaba "pillado" en el icono de pausa.
+    this.dispatchEvent(new Event('pause'));
   }
 
   // ── Motor de reproducción (source nativo + SoundTouchNode opcional) ────────

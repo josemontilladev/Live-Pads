@@ -1122,6 +1122,9 @@ export class SynthEngine {
 
   async initMIDI(onMidiMessage, onDevicesChanged) {
     if (!navigator.requestMIDIAccess) return;
+    this._onMidiMessage = onMidiMessage;
+    this._onMidiDevices = onDevicesChanged;
+    this._midiLastIds = [];
     try {
       // requestMIDIAccess puede fallar al arrancar (driver MIDI todavía no listo,
       // permiso que tarda, USB reconectándose). Antes, si fallaba UNA vez, el MIDI
@@ -1136,55 +1139,74 @@ export class SynthEngine {
         }
       }
       if (!midiAccess) return;
-      this._midiAccess = midiAccess;
-      const inputs = () => [...midiAccess.inputs.values()];
-      const namesOf = () => inputs().map(i => i.name || 'MIDI input');
-      const idsOf = () => inputs().map(i => i.id).sort();
-      // Re-liga TODAS las entradas y además abre el puerto explícitamente: en
-      // Windows un puerto puede quedar 'connected' pero no 'open', y entonces no
-      // llegan mensajes. open() es idempotente (no pasa nada si ya está abierto).
-      const bindAll = () => {
-        for (const i of midiAccess.inputs.values()) {
-          i.onmidimessage = onMidiMessage;
-          try { i.open(); } catch (_) {}
-        }
-      };
-      let lastIds = [];
-
-      // Re-liga las entradas y avisa SOLO si el set de dispositivos cambió.
-      // initial=true fija la línea base sin lanzar el toast de "conectado" por
-      // los controladores que ya estaban enchufados al abrir la app.
-      const sync = (evt, initial = false) => {
-        bindAll();
-        const ids = idsOf();
-        const changed = ids.length !== lastIds.length || ids.some((x, k) => x !== lastIds[k]);
-        let useEvt = evt;
-        if (!useEvt && changed && !initial) {
-          // El poll detectó el cambio (statechange no disparó): inferir conexión
-          // o desconexión comparando con el set anterior, para mostrar el aviso.
-          const added = ids.find(id => !lastIds.includes(id));
-          const removed = lastIds.find(id => !ids.includes(id));
-          if (added) {
-            const name = inputs().find(i => i.id === added)?.name || 'controlador';
-            useEvt = { port: { type: 'input', state: 'connected', name } };
-          } else if (removed) {
-            useEvt = { port: { type: 'input', state: 'disconnected', name: 'controlador' } };
-          }
-        }
-        lastIds = ids;
-        if (typeof onDevicesChanged === 'function') onDevicesChanged(namesOf(), useEvt);
-      };
-
-      sync(null, true); // línea base, sin toast
-      // Inmediato: conexión/desconexión vía el evento del navegador.
-      midiAccess.onstatechange = (e) => sync(e);
-      // Respaldo de hot-plug: en Windows el statechange a veces NO dispara al
-      // enchufar el controlador con la app abierta. Re-escaneamos cada 1 s para
-      // detectarlo rápido (y re-abrir/re-ligar el puerto) sin reiniciar la app.
-      // Costo ínfimo: iterar un puñado de entradas una vez por segundo.
-      if (this._midiPollTimer) clearInterval(this._midiPollTimer);
-      this._midiPollTimer = setInterval(() => sync(null), 1000);
+      this._bindMidiAccess(midiAccess, true);
     } catch (err) { console.warn('MIDI Access failed:', err); }
+  }
+
+  // (Re)liga un objeto MIDIAccess: abre+escucha cada entrada, fija la línea base
+  // de dispositivos, el statechange y el poll de hot-plug. Reusable por initMIDI
+  // y por rescanMIDI (que pide un MIDIAccess FRESCO).
+  _bindMidiAccess(midiAccess, initial = false) {
+    this._midiAccess = midiAccess;
+    const inputs = () => [...midiAccess.inputs.values()];
+    const namesOf = () => inputs().map(i => i.name || 'MIDI input');
+    const idsOf = () => inputs().map(i => i.id).sort();
+    // Re-liga TODAS las entradas y abre el puerto explícitamente: en Windows un
+    // puerto puede quedar 'connected' pero no 'open' y entonces no llegan
+    // mensajes. open() es idempotente. Si rechaza (puerto tomado por otra app),
+    // lo registramos para poder avisar "ocupado".
+    const bindAll = () => {
+      for (const i of midiAccess.inputs.values()) {
+        i.onmidimessage = this._onMidiMessage;
+        try {
+          const p = i.open && i.open();
+          if (p && typeof p.then === 'function') p.catch(() => {});
+        } catch (_) {}
+      }
+    };
+    const sync = (evt, isInitial = false) => {
+      bindAll();
+      const ids = idsOf();
+      const last = this._midiLastIds || [];
+      const changed = ids.length !== last.length || ids.some((x, k) => x !== last[k]);
+      let useEvt = evt;
+      if (!useEvt && changed && !isInitial) {
+        const added = ids.find(id => !last.includes(id));
+        const removed = last.find(id => !ids.includes(id));
+        if (added) {
+          const name = inputs().find(i => i.id === added)?.name || 'controlador';
+          useEvt = { port: { type: 'input', state: 'connected', name } };
+        } else if (removed) {
+          useEvt = { port: { type: 'input', state: 'disconnected', name: 'controlador' } };
+        }
+      }
+      this._midiLastIds = ids;
+      if (typeof this._onMidiDevices === 'function') this._onMidiDevices(namesOf(), useEvt);
+    };
+    this._midiSync = sync;
+    sync(null, initial);                       // línea base (sin toast si initial)
+    midiAccess.onstatechange = (e) => sync(e); // inmediato vía el navegador
+    // Respaldo de hot-plug (Windows a veces no dispara statechange): re-escaneo
+    // cada 1 s para re-abrir/re-ligar puertos sin reiniciar. Costo ínfimo.
+    if (this._midiPollTimer) clearInterval(this._midiPollTimer);
+    this._midiPollTimer = setInterval(() => sync(null), 1000);
+  }
+
+  // Re-escaneo MANUAL: pide un MIDIAccess FRESCO. Resuelve casos donde el handle
+  // anterior no "ve" el controlador re-enchufado o que otra app liberó (el poll
+  // reusa el handle viejo y no siempre basta). Devuelve un resumen para la UI.
+  async rescanMIDI() {
+    if (!navigator.requestMIDIAccess) return { ok: false, reason: 'unsupported' };
+    if (!this._onMidiMessage) return { ok: false, reason: 'not-initialized' };
+    try {
+      const access = await navigator.requestMIDIAccess();
+      this._midiLastIds = [];                  // re-evaluar contra cero
+      this._bindMidiAccess(access, true);      // initial=true → el caller avisa
+      const count = [...access.inputs.values()].length;
+      return { ok: true, count };
+    } catch (e) {
+      return { ok: false, reason: 'denied', error: String(e) };
+    }
   }
 
   _noteToHz(key) {
