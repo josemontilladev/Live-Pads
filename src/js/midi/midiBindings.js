@@ -61,6 +61,28 @@ export function bindMidiHandlers(deps) {
   // flush on beforeunload writes the final state to disk before exit.
   window.addEventListener('beforeunload', () => { flushMidiSync(); });
 
+  // Re-escaneo manual del MIDI (clic en el pill / botón de ajustes). Pide un
+  // MIDIAccess fresco y re-liga; avisa el resultado. Cubre el "a veces no lo
+  // reconoce" cuando el handle viejo no ve el controlador o lo tenía otra app.
+  let rescanning = false;
+  const rescanMidi = async () => {
+    if (rescanning) return;
+    rescanning = true;
+    window.showToast?.('Buscando controladores MIDI…', 'info');
+    try {
+      const r = await engine.rescanMIDI?.();
+      if (r && r.ok && r.count > 0) {
+        window.showToast?.(`MIDI reconectado: ${r.count} controlador${r.count > 1 ? 'es' : ''}.`, 'success');
+      } else if (r && r.ok) {
+        window.showToast?.('No se detectó ningún controlador. Si está enchufado, ciérralo en otras apps (DAW/utilidad del controlador) y reintenta.', 'warning');
+      } else {
+        window.showToast?.('No se pudo acceder al MIDI. Reintenta o reinicia la app.', 'error');
+      }
+    } finally { rescanning = false; }
+  };
+  // Expuesto para un botón "Reconectar MIDI" en Ajustes (afordancia siempre visible).
+  window.__livepadsRescanMidi = rescanMidi;
+
   // Render the device-name pill in the topbar. Hidden when no MIDI device
   // is connected (or before MIDI access resolves on app boot).
   let midiEverConnected = false;
@@ -84,19 +106,21 @@ export function bindMidiHandlers(deps) {
       if (midiEverConnected) {
         pill.classList.add('midi-status-pill--alert');
         pill.textContent = 'MIDI desconectado';
-        pill.title = 'Se desconectó tu controlador. Reconéctalo (se reconoce solo). Clic para ocultar.';
+        pill.title = 'Se desconectó tu controlador. Clic para reconectar (re-escanea).';
         pill.classList.remove('hidden');
-        pill.onclick = () => pill.classList.add('hidden');
+        pill.style.cursor = 'pointer';
+        pill.onclick = rescanMidi;   // clic → re-escanear (mejor que solo ocultar)
       } else {
         pill.classList.add('hidden');
         pill.textContent = '';
       }
       return;
     }
-    pill.onclick = null;
+    pill.style.cursor = 'pointer';
+    pill.onclick = rescanMidi;        // clic en el pill → re-escanear puertos
     const label = names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`;
     pill.textContent = label;
-    pill.title = names.join(' • ');
+    pill.title = names.join(' • ') + ' — clic para reconectar';
     pill.classList.remove('hidden');
   };
 
@@ -212,7 +236,12 @@ export function bindMidiHandlers(deps) {
         } else if (mapping.action === 'metro') {
           deps.toggleMetro();
         } else if (mapping.action === 'play_seq') {
-          deps.triggerMasterPlayPause();
+          // El botón Play respeta la fuente seleccionada (desacoplado). Cae al
+          // maestro si por alguna razón no llegó la dep nueva.
+          (deps.triggerSourcePlayPause || deps.triggerMasterPlayPause)();
+        } else if (mapping.action === 'toggle_seq_only') {
+          // Botón dedicado: reproduce/pausa SOLO la secuencia (sin tocar pad/click).
+          deps.toggleSequenceOnly && deps.toggleSequenceOnly();
         } else if (mapping.action === 'stop_seq') {
           deps.triggerMasterStop();
         } else if (mapping.action === 'loop_seq') {
@@ -272,6 +301,7 @@ export function bindMidiHandlers(deps) {
     const drumBtn   = e.target.closest('.drum-btn');
     const metroBtn  = e.target.closest('#btn-metro-main');
     const playSeqBtn = e.target.closest('#tp-play-btn');
+    const seqOnlyBtn = e.target.closest('#tp-seqonly-btn');
     const stopSeqBtn = e.target.closest('#tp-stop-btn');
     const restartBtn = e.target.closest('#tp-restart-btn');
     const loopBtn   = e.target.closest('#tp-loop-btn');
@@ -291,6 +321,7 @@ export function bindMidiHandlers(deps) {
     else if (drumBtn)  target = { action: 'drum',      id: drumBtn.dataset.slot };
     else if (metroBtn) target = { action: 'metro' };
     else if (playSeqBtn) target = { action: 'play_seq' };
+    else if (seqOnlyBtn) target = { action: 'toggle_seq_only' };
     else if (stopSeqBtn) target = { action: 'stop_seq' };
     else if (restartBtn) target = { action: 'restart_seq' };
     else if (loopBtn)  target = { action: 'loop_seq' };

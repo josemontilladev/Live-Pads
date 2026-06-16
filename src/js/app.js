@@ -63,7 +63,8 @@ import {
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
-  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType
+  bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
+  setPlayBtnIcon
 } from './audio/trackPlayer.js';
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
@@ -316,7 +317,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         serviceNextSong();
         showToast('Siguiente preparada — pulsá Espacio para lanzar', 'info');
       }
-    }
+    },
+    // El botón Play del reproductor reproduce/pausa SEGÚN LA FUENTE seleccionada
+    // (Secuencia/Click/Original), de forma desacoplada (ver triggerSourcePlayPause).
+    onPlayPauseButton: () => triggerSourcePlayPause(),
   });
 
   buildBankSelects();
@@ -741,6 +745,7 @@ function bindHamburgerMenu() {
   wire('#set-midi-learn', () => { closeSidebar(); q('#menu-midi-learn')?.click(); });
   // El resto se EMBEBE dentro de su sección del sidebar.
   wire('#set-mappings',  () => embedModal('embed-midi',       () => openMappingsList(),                     '#mappings-overlay'));
+  wire('#set-midi-rescan', () => { try { window.__livepadsRescanMidi?.(); } catch (_) {} });
   // Servicio: Pre-vuelo y Companion son MUTUAMENTE EXCLUSIVOS (uno u otro).
   wire('#set-preflight', () => {
     closeCompanionPanel(); const c = q('#embed-companion'); if (c) c.innerHTML = '';
@@ -827,6 +832,8 @@ function bindRestOfApp() {
     toggleMetro,
     triggerMasterPlayPause,
     triggerMasterStop,
+    triggerSourcePlayPause,   // play/pause del reproductor según la fuente
+    toggleSequenceOnly,       // acción dedicada: solo la secuencia
     selectSource,
     togglePadsPiano: () => togglePadsPiano(reflectPadsPianoBtn),
   });
@@ -973,6 +980,16 @@ function toggleMetro() {
   if (!getMetroRunning()) {
     qa('.beat-dot').forEach(d => d.classList.remove('on'));
   }
+  refreshPlayBtnIcon(); // en modo Click, el icono del reproductor sigue al metrónomo
+}
+
+// El icono del botón Play del reproductor según la FUENTE: en Click lo dicta el
+// metrónomo (no hay pista que emita eventos); en Secuencia/Original, la pista.
+function refreshPlayBtnIcon() {
+  const playing = (masterSource === 'click')
+    ? getMetroRunning()
+    : (isTrackLoaded() && isTrackPlaying());
+  setPlayBtnIcon(playing);
 }
 
 // openSidebarTab / closeAllOverlays -> src/js/ui/overlays.js
@@ -1099,6 +1116,62 @@ function triggerMasterPlayPause() {
     toggleMetro();
   }
   refreshNowPlayingLiveState();
+}
+
+// ── Play/Pause del REPRODUCTOR según la fuente seleccionada (desacoplado) ──
+// A diferencia del Play maestro (Espacio), este NO acopla el pad con la
+// secuencia/original: el pad queda independiente. El usuario lo pidió así:
+//   · Secuencia → reproduce/pausa SOLO la secuencia.
+//   · Original  → reproduce/pausa SOLO la original.
+//   · Click     → reproduce/pausa el metrónomo + el pad juntos.
+function triggerSourcePlayPause() {
+  const now = Date.now();
+  if (now - lastMasterToggle < 250) return;   // mismo debounce que el maestro
+  lastMasterToggle = now;
+  if (countingIn) return;
+
+  if (masterSource === 'click') {
+    // Click = metrónomo + pad. Toggle de ambos juntos.
+    if (getMetroRunning()) {
+      toggleMetro();
+      if (getActiveKey()) onKeyClick(getActiveKey()); // apaga el pad
+    } else {
+      ensurePadPlaying();
+      if (!getMetroRunning()) toggleMetro();
+    }
+    refreshNowPlayingLiveState();
+    return;
+  }
+  // Secuencia / Original = solo esa pista.
+  togglePlayPauseTrack(masterSource === 'reference' ? 'original' : 'sequence');
+}
+
+// Reproduce/pausa SOLO la pista del tipo dado (sin tocar pad ni metrónomo). Si
+// la pista cargada ya es de ese tipo, togglea; si no, la carga y arranca.
+function togglePlayPauseTrack(type) {
+  if (isTrackLoaded() && getCurrentType() === type) {
+    clickPlayPause();                              // pausa/reanuda la pista
+  } else {
+    const song = getActiveSongForSource();
+    const slot = type === 'sequence' ? 'secuencia' : 'original';
+    if (!song || !(song.audio && song.audio[type])) {
+      showToast(`Esta canción no tiene ${slot} asignada.`, 'info');
+      return;
+    }
+    loadAndPlayTrack(song, type);
+  }
+  refreshNowPlayingLiveState();
+}
+
+// Acción dedicada (MIDI/botón): reproduce/pausa SOLO la secuencia, sin importar
+// qué fuente esté seleccionada y sin tocar pad/metrónomo. El click del músico ya
+// tiene su botón aparte; con esto puede parar/arrancar la secuencia por separado.
+function toggleSequenceOnly() {
+  const now = Date.now();
+  if (now - lastMasterToggle < 250) return;
+  lastMasterToggle = now;
+  if (countingIn) return;
+  togglePlayPauseTrack('sequence');
 }
 
 function clickWithSequenceEnabled() {
@@ -1230,6 +1303,7 @@ function selectSource(which) {
   }
   paintSourceSegs();                               // ilumina la fuente elegida
   refreshNowPlayingLiveState();                    // feedback inmediato del segmento
+  refreshPlayBtnIcon();                            // el icono del Play sigue a la nueva fuente
 }
 
 // Ilumina el botón de la fuente SELECCIONADA (masterSource), suene o no — así se
@@ -1251,6 +1325,9 @@ function bindSourceControl() {
     const b = q('#' + id);
     if (b) b.onclick = () => selectSource(which);
   }
+  // Botón dedicado "solo secuencia" (play/pause de la secuencia, independiente).
+  const seqOnly = q('#tp-seqonly-btn');
+  if (seqOnly) seqOnly.onclick = () => toggleSequenceOnly();
   paintSourceSegs(); // estado inicial (Secuencia por defecto)
 }
 
@@ -1544,6 +1621,7 @@ function applyGiSong(song) {
   // Nueva canción → la fuente del Play maestro vuelve a "Secuencia" por defecto.
   masterSource = 'sequence';
   paintSourceSegs();
+  refreshPlayBtnIcon();
 
   // Sync active service-list pointer by matching title+artist.
   syncActiveByTitleArtist(song);
