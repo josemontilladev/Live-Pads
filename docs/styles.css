@@ -111,6 +111,36 @@ a { color: inherit; text-decoration: none; }
 .nav-cta:hover { filter: brightness(1.08); }
 .nav-cta:active { transform: scale(0.97); }
 
+/* Acciones del nav (Probar demo + Descargar) agrupadas a la derecha. */
+.nav-actions { display: inline-flex; align-items: center; gap: 10px; }
+/* Botón "Probar demo" del nav — ghost (borde) para no competir con Descargar. */
+.nav-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s var(--ease-spring);
+}
+.nav-demo:hover { border-color: var(--accent); color: var(--accent); }
+.nav-demo:active { transform: scale(0.97); }
+
+/* Nota bajo los CTAs del hero. */
+.hero-demo-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+/* En teléfonos chicos, el botón de demo del nav se oculta para no amontonar
+   (el hero y el CTA de cierre ya invitan a probarlo). */
+@media (max-width: 480px) {
+  .nav-demo { display: none; }
+}
+
 /* ─── HERO ──────────────────────────────────────────────────────────── */
 .hero {
   padding: 160px 0 80px;
