@@ -801,5 +801,26 @@
   gtag('js', new Date());
   gtag('config', 'G-85NZS8LHJK');
 </script>
+<!-- GA4: eventos de CTA (demo / descarga) con la sección de origen. -->
+<script>
+(function () {
+  function track(name, params) { try { gtag('event', name, params || {}); } catch (e) {} }
+  function loc(a) {
+    if (a.closest('nav')) return 'nav';
+    if (a.closest('.hero')) return 'hero';
+    if (a.closest('#download')) return 'final';
+    return 'other';
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a'); if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (a.classList.contains('js-download') || /releases|\.exe/i.test(href)) {
+      track('download_click', { location: loc(a) });
+    } else if (href.indexOf('demo.livepads.online') > -1) {
+      track('demo_click', { location: loc(a) });
+    }
+  }, true);
+})();
+</script>
 </body>
 </html>
