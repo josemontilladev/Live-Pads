@@ -1791,7 +1791,7 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  max-height: 260px;
+  max-height: 285px;   /* un poco más alta → el fader (fila 1fr) gana altura */
 }
 /* Sin pistas: oculta la consola entera para que no aparezca como bloque
    negro vacío de 260px debajo de la timeline. */
@@ -1895,15 +1895,15 @@ body[data-workspace="stems"] #body {
 .stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 .stems-console-strip {
-  flex: 0 0 108px;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  flex: 0 0 88px;
+  width: 88px;
+  min-width: 88px;
+  max-width: 88px;
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 7px;
-  padding: 9px 9px 7px;
+  gap: 5px;
+  padding: 8px 7px 7px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -1984,6 +1984,15 @@ body[data-workspace="stems"] #body {
   gap: 5px;
   justify-items: center;
 }
+/* SOLO en la consola: M/S y el círculo del pan un poco más chicos, para que la
+   tira respire y no se vea saturada (los M/S de las filas del timeline no cambian). */
+.stems-console-ms-row .stems-ms {
+  width: 21px; height: 21px;
+  font-size: 11px;
+  border-radius: 5px;
+}
+.stems-console-pan::-webkit-slider-thumb { width: 11px; height: 11px; }
+.stems-console-pan::-moz-range-thumb { width: 11px; height: 11px; }
 
 /* Custom pointer-driven vertical fader — reliable across Chromium
    versions (native vertical range was ignoring drags). track = the
