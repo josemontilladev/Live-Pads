@@ -57,6 +57,9 @@ let deps = {
   // Decisión de "qué hace el botón Play" — la define app.js (play según la
   // fuente seleccionada). Fallback: toggle directo de la pista cargada.
   onPlayPauseButton: () => { toggleTrackAudio(); },
+  // Notifica a app.js cada cambio de estado play/pause/fin de la pista, para
+  // reflejar controles dependientes (botón "solo secuencia").
+  onPlayState: () => {},
 };
 
 export function initTrackPlayer(d) {
@@ -262,9 +265,11 @@ export function setPlayBtnIcon(playing) {
 }
 
 // Pinta el icono según el estado REAL de la PISTA (secuencia/original). Lo usan
-// los eventos play/pause/ended del audio y el toggle directo.
+// los eventos play/pause/ended del audio y el toggle directo. Además notifica a
+// app.js (onPlayState) para reflejar el botón "solo secuencia".
 function paintPlayBtn() {
   setPlayBtnIcon(!!(audio && !audio.paused));
+  try { deps.onPlayState && deps.onPlayState(); } catch (e) {}
 }
 
 function formatTime(seconds) {
