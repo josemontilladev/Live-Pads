@@ -36,22 +36,30 @@
   transition: transform 0.15s;
 }
 .tp-play svg { width: 16px; height: 16px; }
-.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance {
+.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance, .tp-seqonly {
   width: 32px; height: 32px;
   border-radius: var(--r-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.2s;
 }
-.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover {
+.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover, .tp-seqonly:hover {
   color: var(--text); border-color: var(--border-strong);
 }
-.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg {
+.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg, .tp-seqonly svg {
   width: 14px; height: 14px;
 }
 .tp-loop.active,
 .tp-autoadvance.active { background: var(--accent-grad); border-color: var(--blue); color: #000; }
+/* Solo-secuencia: ENCENDIDO mientras la secuencia está sonando, apagado si no.
+   Verde (identidad de la secuencia/SEQ) para distinguirlo del loop (ámbar). */
+.tp-seqonly.is-running {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ok), white 28%), var(--ok));
+  border-color: var(--ok);
+  color: #052e1a;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ok) 55%, transparent);
+}
 
 /* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS).
    Cápsula con misma altura (32px) que el resto de transport-secundario.

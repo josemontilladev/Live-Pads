@@ -726,19 +726,13 @@ function handleAddToService(song, card, btn) {
     return;
   }
   deps.addToService(song);
-  // El "+" pasa a ✓ de forma persistente (queda marcada como añadida).
+  // El "+" pasa a ✓ de forma persistente (queda marcada como añadida). La
+  // confirmación va por TOAST (abajo) en vez de un popup dentro de la card: el
+  // popup se solapaba con el badge "En servicio" que ahora aparece al instante
+  // y confundía. Badge + ✓ + toast dan feedback claro sin pisarse.
   btn.classList.add('is-added');
   btn.title = 'Ya está en la lista';
   btn.innerHTML = ICON_ADD_CHECK;
-  const popup = document.createElement('div');
-  popup.className = 'added-popup';
   const name = getCurrentSetlistName();
-  popup.textContent = name ? `Añadida a “${name}”` : 'Añadida a tu lista de hoy';
-  card.classList.add('has-popup');
-  card.appendChild(popup);
-  setTimeout(() => popup.classList.add('leaving'), 800);
-  setTimeout(() => {
-    popup.remove();
-    card.classList.remove('has-popup');
-  }, 1200);
+  window.showToast?.(name ? `Añadida a “${name}”` : 'Añadida a tu lista de hoy', 'success');
 }

@@ -321,6 +321,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // El botón Play del reproductor reproduce/pausa SEGÚN LA FUENTE seleccionada
     // (Secuencia/Click/Original), de forma desacoplada (ver triggerSourcePlayPause).
     onPlayPauseButton: () => triggerSourcePlayPause(),
+    // Refleja el botón "solo secuencia" (encendido/apagado) en cada cambio de
+    // estado de la pista (play/pause/fin).
+    onPlayState: () => reflectSeqOnlyBtn(),
   });
 
   buildBankSelects();
@@ -990,6 +993,15 @@ function refreshPlayBtnIcon() {
     ? getMetroRunning()
     : (isTrackLoaded() && isTrackPlaying());
   setPlayBtnIcon(playing);
+  reflectSeqOnlyBtn();
+}
+
+// Botón "solo secuencia": ENCENDIDO solo cuando la SECUENCIA está sonando.
+function reflectSeqOnlyBtn() {
+  const btn = q('#tp-seqonly-btn');
+  if (!btn) return;
+  const running = isTrackLoaded() && getCurrentType() === 'sequence' && isTrackPlaying();
+  btn.classList.toggle('is-running', running);
 }
 
 // openSidebarTab / closeAllOverlays -> src/js/ui/overlays.js
