@@ -41,6 +41,7 @@ function toRow(song, libraryId) {
       addedAt:    song.addedAt || null,
       showChords: !!song.showChords,
       audio:      song.audio || null,
+      timeSig:    song.timeSig || null,
     },
   };
   // Solo se incluye el enlace de YouTube cuando LO HAY: el upsert es
@@ -69,6 +70,7 @@ function fromRow(row) {
     addedAt:    m.addedAt || Date.parse(row.created_at) || Date.now(),
     showChords: !!m.showChords,
     audio:      m.audio || { sequence: null, original: null },
+    timeSig:    m.timeSig || '4/4',
     cloudUpdatedAt: row.updated_at || null,
   };
 }

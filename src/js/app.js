@@ -3,6 +3,7 @@ import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
+import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
 import { openMetronomeModal } from './ui/metronomeModal.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
@@ -1652,7 +1653,17 @@ function applyGiSong(song) {
     const v = parseInt(song.bpm);
     if (!isNaN(v)) applyBpm(v);
   }
-  
+
+  // Update compás (clave del metrónomo): poné el metrónomo en el compás de la
+  // canción (3/4, 6/8, etc.). El value del #metro-sig-select es el numerador.
+  if (song.timeSig && SONG_TIME_SIG_BEATS[song.timeSig]) {
+    const sigSel = q('#metro-sig-select');
+    if (sigSel) {
+      sigSel.value = String(SONG_TIME_SIG_BEATS[song.timeSig]);
+      sigSel.dispatchEvent(new Event('change', { bubbles: true })); // → metro.setBeats + beat dots
+    }
+  }
+
   // Update Key
   if (song.key) {
     let key = song.key.replace('m', '').trim();

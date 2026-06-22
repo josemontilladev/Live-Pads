@@ -588,6 +588,7 @@ function initDelegation() {
         song.artist = card.querySelector('.edit-artist').value.trim();
         song.bpm = card.querySelector('.edit-bpm').value.trim();
         song.key = card.querySelector('.edit-key').value;
+        song.timeSig = card.querySelector('.edit-timesig')?.value || song.timeSig || '4/4';
         song.genre = card.querySelector('.edit-genre').value;
         const tagsEl = card.querySelector('.edit-tags');
         if (tagsEl) {
