@@ -128,9 +128,12 @@ export function songCardInnerHTML(song, opts) {
   // Línea de metadatos estilo PlayWorship: tono · BPM · género. El número de
   // fila se eliminó del modelo (la carátula + la barra de acento del activo
   // dan el anclaje visual). `rowNumber` se conserva en la firma por compat.
+  // El compás (clave del metrónomo) se muestra SIEMPRE en la card, incluso 4/4.
+  const sigMeta = esc(song.timeSig || '4/4');
   const metaLine = [
     song.key   ? esc(song.key)            : '',
     song.bpm   ? `${esc(song.bpm)} BPM`   : '',
+    sigMeta,
     song.genre ? esc(song.genre)          : ''
   ].filter(Boolean).join(' · ');
 

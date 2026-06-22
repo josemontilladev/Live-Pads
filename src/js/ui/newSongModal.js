@@ -21,9 +21,19 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
   if (defaults.favorite) newSong.favorite = true;
   if (defaults.libraryId) newSong.libraryId = defaults.libraryId;
 
+  const headerHTML = `
+    <div class="newsong-head">
+      <span class="newsong-head-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </span>
+      <span class="newsong-head-text">
+        <h3 class="newsong-head-title">Nueva canción</h3>
+        <span class="newsong-head-sub">Tono, BPM y compás se aplican al lanzarla.</span>
+      </span>
+    </div>`;
   const overlay = document.createElement('div');
   overlay.className = 'stems-newsong-overlay';
-  overlay.innerHTML = `<div class="stems-newsong-modal">${songEditFormHTML(newSong, { placeholderForNewSong: true })}</div>`;
+  overlay.innerHTML = `<div class="stems-newsong-modal">${headerHTML}${songEditFormHTML(newSong, { placeholderForNewSong: true })}</div>`;
   document.body.appendChild(overlay);
   const modal = overlay.querySelector('.stems-newsong-modal');
 
@@ -44,6 +54,7 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
     newSong.artist = modal.querySelector('.edit-artist').value.trim();
     newSong.bpm = modal.querySelector('.edit-bpm').value.trim();
     newSong.key = modal.querySelector('.edit-key').value;
+    newSong.timeSig = modal.querySelector('.edit-timesig')?.value || '4/4';
     newSong.genre = modal.querySelector('.edit-genre').value;
     const tagsEl = modal.querySelector('.edit-tags');
     newSong.tags = tagsEl ? tagsEl.value.split(',').map(s => s.trim()).filter(Boolean) : [];
