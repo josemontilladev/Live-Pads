@@ -505,12 +505,12 @@ function initDelegation() {
 
     switch (action) {
       case 'play-seq':
-        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        if (song.audio && song.audio.sequence) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'sequence');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;
       case 'play-orig':
-        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        if (song.audio && song.audio.original) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'original');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;

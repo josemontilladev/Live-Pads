@@ -520,15 +520,16 @@ function initDelegation() {
 
     switch (action) {
       case 'play-seq':
-        // Con audio → reproduce; sin audio → menú "Cargar audio" (sube
-        // archivo o, si hay original, extrae del original vía Stems).
-        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        // Con audio → reproduce Y fija la fuente abajo en "Secuencia"; sin audio →
+        // menú "Cargar audio" (sube archivo o, si hay original, extrae vía Stems).
+        if (song.audio && song.audio.sequence) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'sequence');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
       case 'play-orig':
-        // Con audio → reproduce; sin audio → menú (Subir archivo / YouTube).
-        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        // Con audio → reproduce Y fija la fuente abajo en "Original"; sin audio →
+        // menú (Subir archivo / YouTube).
+        if (song.audio && song.audio.original) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'original');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
