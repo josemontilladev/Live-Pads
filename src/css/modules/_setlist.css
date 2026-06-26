@@ -4,8 +4,8 @@
    while the user scrolls through 80+ cards. The setlist header, the
    now-playing banner and the tab toggle stay above the sticky search. */
 #panel-setlist {
-  grid-column: 3;
-  grid-row: 1 / -1;   /* todo el lado derecho, desde arriba hasta abajo */
+  grid-column: 1;
+  grid-row: 1 / -1;   /* todo el lado IZQUIERDO, desde arriba hasta abajo */
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
