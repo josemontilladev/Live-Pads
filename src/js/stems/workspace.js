@@ -23,6 +23,7 @@ import { renderEventsToBuffer, getInstrument, instrumentName as instLabel } from
 import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { openLyricsFullscreen } from '../ui/lyricsFullscreen.js';
 import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu, openContextMenu } from '../ui/cardMoreMenu.js';
 import { audioMenuItems } from '../ui/songMenu.js';
@@ -5299,6 +5300,9 @@ function renderSetlistPanel(filter = '') {
           ${badges ? `<span class="ssl-tags">${badges}</span>` : ''}
         </span>
       </span>
+      <span class="ssl-lyrics ${s.lyrics ? '' : 'is-empty'}" data-act="lyrics" title="${s.lyrics ? 'Ver letra y acordes' : 'Sin letra'}" role="button" aria-label="Ver letra y acordes">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </span>
       ${check}
     </button>`;
   }).join('');
@@ -5343,6 +5347,13 @@ function bindSetlistPanel() {
     if (!row) return;
     const song = getSongs().find(s => String(s.id) === row.dataset.id);
     if (!song) return;
+    // Icono de letra: abre el visor de letra + acordes (no reproduce ni asigna).
+    if (e.target.closest('.ssl-lyrics')) {
+      e.stopPropagation();
+      if (song.lyrics) openLyricsFullscreen(song);
+      else toast('Esta canción no tiene letra.', 'info');
+      return;
+    }
     if (setlistPanelSlot === 'all') {
       // Clic izquierdo en "Todas": carga el audio ya asignado al timeline y lo
       // reproduce. Si tiene secuencia y original, deja elegir; si no tiene

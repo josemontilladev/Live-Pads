@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     persist: persistGiSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
+    onPlaySongSource: playSongSource,
     addToService,
     openLyricsEditorModal,
     toggleLyricsAccordion,
@@ -206,6 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     persistServiceSongs: saveServiceSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
+    onPlaySongSource: playSongSource,
     removeFromService,
     reorderService,
     openLyricsEditorModal,
@@ -1319,6 +1321,18 @@ function selectSource(which) {
   paintSourceSegs();                               // ilumina la fuente elegida
   refreshNowPlayingLiveState();                    // feedback inmediato del segmento
   refreshPlayBtnIcon();                            // el icono del Play sigue a la nueva fuente
+}
+
+// Reproduce una fuente desde el ICONO de una card (secuencia/original) Y fija la
+// selección de fuente abajo: así los 3 botones (Secuencia/Click/Original) reflejan
+// lo que tocaste en la card. type = 'sequence' | 'original'.
+function playSongSource(song, type) {
+  masterSource = (type === 'original') ? 'reference' : 'sequence';
+  loadAndPlayTrack(song, type);
+  paintSourceSegs();
+  refreshNowPlayingLiveState();
+  refreshPlayBtnIcon();
+  reflectSeqOnlyBtn();
 }
 
 // Ilumina el botón de la fuente SELECCIONADA (masterSource), suene o no — así se
