@@ -154,10 +154,15 @@ export function highlightSyntax(text) {
   html = html.replace(/(\[[^\]\n]+\])/g, (match) => {
     const clean = match.replace(/\[|\]/g, '').toUpperCase().trim();
     const isHeader = HIGHLIGHT_SECTION_KEYWORDS.some(kw => clean.startsWith(kw));
+    // IMPORTANTE: en el resaltado (capa detrás del textarea transparente) los
+    // spans SOLO pueden cambiar color/fondo, NUNCA font-weight/family/size: si
+    // cambian las métricas, el ancho del texto resaltado deja de coincidir con el
+    // del textarea y el CURSOR se desfasa. Color + fondo sin padding mantienen el
+    // ancho idéntico de cada glifo.
     if (isHeader) {
-      return `<span style="color:#60a5fa; font-weight:800; font-family:'Inter', system-ui, sans-serif;">${match}</span>`;
+      return `<span style="color:#60a5fa; background:rgba(96,165,250,0.12); border-radius:3px;">${match}</span>`;
     }
-    return `<span style="color:#fbae00; font-weight:800; font-family:'Consolas', 'Monaco', monospace; font-size: 13px;">${match}</span>`;
+    return `<span style="color:#fbae00; background:rgba(251,174,0,0.12); border-radius:3px;">${match}</span>`;
   });
 
   return html + (html.endsWith('\n') ? ' ' : '');

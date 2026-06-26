@@ -3,7 +3,7 @@
 // so different workspaces (Stems, Pads) each get their own one-time tour.
 // The default steps/key drive the Stems tour (kept for existing callers).
 
-const STORAGE_KEY = 'livepads-stems-tour-seen-v1';
+const STORAGE_KEY = 'livepads-stems-tour-seen-v2';
 
 const STEPS = [
   {
@@ -15,6 +15,11 @@ const STEPS = [
     target: '#stems-import',
     title: 'Importar stems',
     body: 'Arrastra archivos de audio (WAV, MP3, OGG, AAC) o usa este botón. Cada uno se añade como una pista nueva con su waveform.'
+  },
+  {
+    target: '#stems-arrange',
+    title: 'Recorte, fades y consola',
+    body: 'Sobre cada pista de la línea de tiempo: las asas de los <b>bordes</b> recortan inicio/fin y las de las <b>esquinas</b> hacen <b>fade in/out</b> (no destructivo, respetado al exportar). Abajo, la <b>consola</b> mezcla volumen, paneo, mute y solo de cada stem.'
   },
   {
     target: '#stems-add-click',
