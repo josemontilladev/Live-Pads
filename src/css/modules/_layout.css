@@ -45,7 +45,9 @@
   flex: 1;
   padding: 20px;
   display: grid;
-  grid-template-columns: 350px 1fr 340px;
+  /* IZQUIERDA = setlist/librería · CENTRO = metrónomo/batería/mezclador ·
+     DERECHA = selectores + pads de notas. (Intercambiado respecto al original.) */
+  grid-template-columns: 340px 1fr 350px;
   grid-template-rows: auto 1fr;
   gap: 20px;
   overflow-y: auto;
@@ -56,12 +58,21 @@
 /* Top modules: Bank + Metro — solo columnas 1-2: la columna 3 es del setlist,
    que ocupa TODO el lado derecho (filas 1-2). El metrónomo queda centrado
    sobre la zona de pads. */
+/* Ya no es un sub-grid: sus hijos (bank-section + metrónomo) participan
+   directamente en el grid de #stage para poder ubicarlos en columnas distintas
+   (selectores a la DERECHA, metrónomo al CENTRO). */
 #top-modules-grid {
-  grid-column: 1 / 3;
+  display: contents;
+}
+/* Selectores de Pad/Kit → arriba a la DERECHA (sobre los pads de notas). */
+#bank-section {
+  grid-column: 3;
   grid-row: 1;
-  display: grid;
-  grid-template-columns: 350px 1fr;
-  gap: 20px;
+}
+/* Metrónomo → arriba al CENTRO (sobre la batería). */
+#panel-metro {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 /* Bank section (inside top-modules-grid, no longer spans full width) */
@@ -115,7 +126,7 @@
 
 /* ── PANEL KEYS ── */
 #panel-keys {
-  grid-column: 1;
+  grid-column: 3;
   grid-row: 2;
   background: var(--bg-surface);
   border: 1px solid var(--border);
