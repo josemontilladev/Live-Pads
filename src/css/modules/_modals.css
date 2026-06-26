@@ -879,6 +879,8 @@ body.lyrics-fs-open { overflow: hidden; }
   line-height: 1.7;
   white-space: pre-wrap;
   word-wrap: break-word;
+  tab-size: 4;            /* idéntico en ambas capas → el cursor no se desfasa con tabs */
+  letter-spacing: 0;
   margin: 0;
   border: none;
   background: transparent;
