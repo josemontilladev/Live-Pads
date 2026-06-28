@@ -25,7 +25,19 @@ let audioCtx = null;
 let pannerNode = null;
 let makeupNode = null;       // ganancia de compensación (nivela la Pista con pads/batería)
 let trackLimiter = null;     // limitador de seguridad para que el makeup no sature
+let trackMasterGain = null;  // ganancia MAESTRA de la Pista (la controla el fader/mute "Maestro")
+let trackMasterVol = 1;      // 0..1 — recordada para re-aplicarla al recrear el grafo por carga
 let currentPitch = 0;        // semitonos aplicados al audio cargado
+
+// El control "Maestro" del mixer afecta también a la Pista (que vive en su propio
+// AudioContext). Lo aplica al nodo de ganancia maestra de la Pista, y recuerda el
+// valor para los grafos que se recrean por carga. v en 0..1 (0 = mute).
+export function setTrackMasterVolume(v) {
+  trackMasterVol = Math.max(0, Math.min(1, isFinite(v) ? v : 1));
+  if (trackMasterGain && audioCtx) {
+    try { trackMasterGain.gain.setTargetAtTime(trackMasterVol, audioCtx.currentTime, 0.02); } catch (e) { trackMasterGain.gain.value = trackMasterVol; }
+  }
+}
 
 // La Pista vive en su propio AudioContext (sin el master/limiter del SynthEngine),
 // así que sale "en crudo" mientras pads/batería/click pasan por un limiter
@@ -86,6 +98,10 @@ export function setTrackPitch(n) {
     }
   }
   paintPitchUI();
+  // Notifica a app.js para que actualice el pad de notas activo/preparado.
+  if (typeof deps.onPitchChange === 'function') {
+    try { deps.onPitchChange(v, currentSong); } catch (_) {}
+  }
 }
 
 function paintPitchUI() {
@@ -138,15 +154,22 @@ function connectPanGraph() {
     const panEl = els.panSlider;
     pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
 
+    // Ganancia maestra de la Pista: el fader/mute "Maestro" del mixer la controla
+    // (con el valor recordado, para que un master bajo siga aplicando tras recargar).
+    trackMasterGain = audioCtx.createGain();
+    trackMasterGain.gain.value = trackMasterVol;
+
     audio.output.connect(makeupNode);
     makeupNode.connect(trackLimiter);
     trackLimiter.connect(pannerNode);
-    pannerNode.connect(audioCtx.destination);
+    pannerNode.connect(trackMasterGain);
+    trackMasterGain.connect(audioCtx.destination);
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
     pannerNode = null;
     makeupNode = null;
     trackLimiter = null;
+    trackMasterGain = null;
   }
 }
 
@@ -159,14 +182,14 @@ const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el 
 export function cleanupTrackAudio() {
   if (!audio) return;
   const old = audio;
-  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode;
+  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
   // Liberamos las referencias del módulo YA, para que la próxima carga cree su
   // propio grafo y los dos puedan sonar a la vez durante el fade.
-  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null;
+  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null;
 
   const dispose = () => {
     try { old.output && old.output.disconnect(); } catch (e) {}
-    [oldMakeup, oldLimiter, oldPanner].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
+    [oldMakeup, oldLimiter, oldPanner, oldMaster].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
     try { old.pause(); old.src = ''; old.onerror = null; old.ontimeupdate = null; old.onended = null; } catch (e) {}
   };
 

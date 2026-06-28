@@ -121,6 +121,13 @@ import {
 // need them. We could move them to the store too, but they have no
 // "reset" semantics — they're created once and live forever — so keeping
 // them here makes the boot sequence easier to follow.
+
+// Índice de semitono (0-11) de la nota raíz de la canción cargada, sin contar
+// el pitch shift del reproductor. Se fija al aplicar la canción (applyGiSong) y
+// se usa para calcular qué botón del pad de notas resaltar cuando el usuario
+// sube/baja el tono con los botones del reproductor.
+let _songBaseKeySemitone = null; // null = no hay canción con tono conocido
+
 let engine, metro;
 
 /* ── BOOT ── */
@@ -329,6 +336,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refleja el botón "solo secuencia" (encendido/apagado) en cada cambio de
     // estado de la pista (play/pause/fin).
     onPlayState: () => reflectSeqOnlyBtn(),
+    // Al cambiar el tono (+1/-1 semitono), actualiza el pad de notas para que
+    // el botón resaltado refleje la tonalidad real de la canción en ese momento.
+    onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
   });
 
   buildBankSelects();
@@ -487,6 +497,40 @@ function buildKeyGrid() {
     grid.appendChild(btn);
   });
   if (typeof updateKeyHints === 'function') updateKeyHints();
+}
+
+// Transpone el pad de notas activo/preparado `pitchSemitones` semitonos
+// respecto de la nota base de la canción cargada (_songBaseKeySemitone).
+// Se llama cada vez que el usuario ajusta el tono del reproductor.
+function applyNotepadPitchShift(pitchSemitones) {
+  if (_songBaseKeySemitone === null) return; // sin canción con tono conocido
+
+  // Calcular el índice de nota destino (0–11) aplicando el desplazamiento.
+  const targetSemitone = ((_songBaseKeySemitone + pitchSemitones) % 12 + 12) % 12;
+
+  // Obtener la lista de notas según la notación actual (sostenidos/bemoles).
+  const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
+  // Ambas listas tienen exactamente 12 notas en orden cromático, por lo que el
+  // índice coincide directamente con el semitono.
+  const targetKey = keys[targetSemitone];
+  if (!targetKey) return;
+
+  const activeKey   = getActiveKey();
+  const preparedKey = getPreparedPadKey();
+
+  if (activeKey) {
+    // Hay un pad sonando: transicionar suavemente a la nueva nota.
+    if (activeKey !== targetKey) onKeyClick(targetKey);
+  } else if (preparedKey) {
+    // Hay un pad preparado (sin sonar): mover la preparación.
+    if (preparedKey !== targetKey) {
+      setPreparedPadKey(targetKey);
+      qa('.key-btn').forEach(b => {
+        b.classList.remove('prepared');
+        if (b.dataset.key === targetKey) b.classList.add('prepared');
+      });
+    }
+  }
 }
 
 function updateKeyHints() {
@@ -1708,6 +1752,10 @@ function applyGiSong(song) {
     // Smooth transition or prepare the new key
     const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
     if (keys.includes(key)) {
+      // Guardar el semitono base (0-11) de la nota raíz de esta canción para
+      // poder recalcular el pad correcto cuando el usuario transponga el tono
+      // del reproductor con los botones ▲/▼ del track player.
+      _songBaseKeySemitone = keys.indexOf(key);
       if (getActiveKey()) {
         // If a pad is playing, smoothly crossfade to the new key
         onKeyClick(key);
@@ -1723,8 +1771,12 @@ function applyGiSong(song) {
       // Key doesn't map to any of the 12 chromatic pads (e.g. "Em7b5",
       // unusual jazz extensions). Surface a warning so the user knows
       // why the pad didn't auto-prepare instead of silently failing.
+      _songBaseKeySemitone = null;
       showToast(`Tono "${song.key}" no se reconoce — el pad no se preparó automáticamente.`, 'warning');
     }
+  } else {
+    // La canción no tiene tono definido: deshabilitar la transposición del pad.
+    _songBaseKeySemitone = null;
   }
 
   // Auto-load ONLY the sequence (the backing track that master Play drives).
@@ -1738,6 +1790,12 @@ function applyGiSong(song) {
     // previously hand-loaded original) and reset the player UI.
     clearTrackUI();
   }
+
+  // Si la canción tiene un pitch guardado (de una sesión anterior), aplicarlo
+  // también al pad de notas en este momento — el track player lo restaura al
+  // audio en startTrackPlayback, pero no llama onPitchChange automáticamente.
+  const savedPitch = Number((song.audio && song.audio.pitch) || 0) || 0;
+  if (savedPitch !== 0) applyNotepadPitchShift(savedPitch);
 
   // Mirror to the LAN Companion (no-op if server is off).
   if (window.electronAPI && window.electronAPI.companionPublishSong) {
