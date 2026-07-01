@@ -281,6 +281,18 @@
 .acc-hint { font-size: 12px; color: var(--text-dim, #9aa0ad); margin-top: 6px; line-height: 1.4; }
 .acc-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
 
+/* Historial de actividad del equipo */
+.acc-activity-wrap { margin-top: 14px; }
+.acc-activity-wrap > h4 { margin: 0 0 6px; }
+#acc-activity-list { max-height: 168px; overflow-y: auto; }
+.acc-activity-item {
+  display: flex; align-items: baseline; gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.06)); font-size: 12.5px;
+}
+.acc-activity-item:last-child { border-bottom: none; }
+.aa-text { flex: 1; min-width: 0; color: var(--text, #e8e8ee); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-time { flex-shrink: 0; font-size: 11px; color: var(--text-dim, #9aa0ad); }
+
 /* Sub-tabs del panel (Cuenta / Librerías / Equipo) — píldora estilo
    tablist similar a los tabs del setlist, anclados bajo el bloque de usuario. */
 .acc-tabs {

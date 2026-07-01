@@ -644,7 +644,7 @@ function initDelegation() {
             // Si la canción está en la nube, propaga el borrado a la librería
             // (offline-first: el módulo de nube lo ignora sin red o sin permiso).
             if (song.cloudId) {
-              try { window.dispatchEvent(new CustomEvent('livepads:song-deleted', { detail: { cloudId: song.cloudId } })); } catch (_) {}
+              try { window.dispatchEvent(new CustomEvent('livepads:song-deleted', { detail: { cloudId: song.cloudId, title: song.title } })); } catch (_) {}
             }
           }
         });

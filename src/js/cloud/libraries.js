@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { rest, rpc, getUser } from './supabase.js';
+import { logActivity } from './activity.js';
 
 const ACTIVE_LIB_KEY = 'livepads-active-library';
 
@@ -151,7 +152,7 @@ export async function acceptInvite(token) {
   const t = String(token || '').trim();
   if (!t) throw new Error('Pega el código de invitación.');
   const libId = await rpc('accept_invite', { invite_token: t });
-  if (libId) setActiveLibraryId(libId);
+  if (libId) { setActiveLibraryId(libId); logActivity(libId, 'joined', null); }
   return libId;
 }
 
