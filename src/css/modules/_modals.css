@@ -1830,3 +1830,99 @@ body.lyrics-fs-open { overflow: hidden; }
 .mtm-radial-hint b { color: var(--text); font-weight: 600; }
 .mtm-seg.beat-accent { fill: color-mix(in srgb, var(--danger) 24%, var(--bg-hover)); }
 .mtm-seg.beat-rest { fill: var(--bg-surface); opacity: 0.4; }
+
+/* ── Afinador (panel flotante movible) ─────────────────────────────────── */
+#tuner-overlay {
+  position: fixed; inset: 0; z-index: 8600; pointer-events: none;
+  opacity: 0; transition: opacity 0.18s ease;
+}
+#tuner-overlay.open { opacity: 1; }
+.tun-panel {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  pointer-events: auto; -webkit-app-region: no-drag;
+  width: 300px; min-width: 244px; max-width: min(96vw, 420px);
+  height: auto; max-height: calc(100vh - 12px);
+  overflow: auto; resize: horizontal;
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  padding: 0 16px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.tun-head {
+  display: flex; align-items: center; gap: 8px; cursor: move;
+  margin: 0 -16px 2px; padding: 10px 14px 9px;
+  border-bottom: 1px solid var(--border); user-select: none;
+}
+.tun-head h3 { margin: 0; flex: 1; font-size: 14px; font-weight: 600; }
+.tun-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; line-height: 1; }
+.tun-close:hover { color: var(--text); }
+
+/* Nota grande + estado */
+.tun-display { text-align: center; padding: 2px 0; }
+.tun-note { line-height: 1; }
+.tun-note-name {
+  font-size: 60px; font-weight: 700; color: var(--text);
+  transition: color 0.12s ease;
+}
+.tun-note-oct { font-size: 22px; font-weight: 600; color: var(--text-muted); vertical-align: baseline; }
+.tun-cents-label { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--text-muted); min-height: 16px; }
+.tun-panel.in-tune .tun-note-name { color: var(--accent); }
+.tun-panel.in-tune .tun-cents-label { color: var(--accent); }
+.tun-panel.is-idle .tun-note-name { color: var(--text-muted); opacity: 0.55; }
+
+/* Medidor de cents con aguja */
+.tun-meter { position: relative; height: 34px; margin: 2px 2px 0; }
+.tun-meter-track {
+  position: absolute; left: 0; right: 0; top: 50%; height: 6px; transform: translateY(-50%);
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--danger) 60%, transparent),
+    var(--bg-hover) 45%, var(--bg-hover) 55%,
+    color-mix(in srgb, var(--danger) 60%, transparent));
+}
+.tun-center {
+  position: absolute; left: 50%; top: 3px; bottom: 3px; width: 2px; transform: translateX(-50%);
+  background: color-mix(in srgb, var(--accent) 70%, transparent); border-radius: 1px;
+}
+.tun-needle {
+  position: absolute; top: 0; bottom: 0; width: 4px; transform: translateX(-50%);
+  background: var(--text); border-radius: 2px; transition: left 0.09s linear, background 0.12s ease;
+  box-shadow: 0 0 6px rgba(0,0,0,0.4);
+}
+.tun-panel.in-tune .tun-needle { background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent); }
+.tun-panel.is-idle .tun-needle { background: var(--text-muted); opacity: 0.5; }
+.tun-legend { display: flex; justify-content: space-between; font-size: 9px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); margin: -4px 2px 0; }
+
+.tun-readout { text-align: center; }
+.tun-hz { font-size: 13px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Calibración A4 */
+.tun-cal { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
+.tun-cal-lbl { font-weight: 600; }
+.tun-cal-btn { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 15px; cursor: pointer; }
+.tun-cal-btn:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.tun-cal-val { min-width: 30px; text-align: center; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Cuerdas al aire (tono de referencia) */
+.tun-strings-wrap { display: flex; flex-direction: column; gap: 6px; }
+.tun-strings-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tun-strings-lbl { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
+.tun-instrument { padding: 4px 7px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 12px; cursor: pointer; }
+.tun-strings { display: flex; gap: 5px; }
+.tun-string {
+  flex: 1; min-width: 0; padding: 8px 0; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--bg-surface); color: var(--text);
+  cursor: pointer; display: flex; align-items: baseline; justify-content: center; gap: 1px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.tun-string:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.tun-string .ts-name { font-size: 15px; font-weight: 700; }
+.tun-string .ts-oct { font-size: 9px; color: var(--text-muted); }
+.tun-string.is-playing {
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #0a0a14);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.tun-string.is-playing .ts-oct { color: color-mix(in srgb, var(--on-accent, #0a0a14) 70%, transparent); }
+
+.tun-status { font-size: 11.5px; text-align: center; color: var(--text-muted); line-height: 1.35; }
+.tun-status.error { color: var(--danger); }
+.tun-retry { align-self: center; }
