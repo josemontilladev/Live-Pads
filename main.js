@@ -339,19 +339,16 @@ function createWindow() {
       mainWindow.loadFile('src/index.html');
     });
 
-  // Handle MIDI permissions to prevent drops on hot reload (Ctrl+R)
+  // Permisos permitidos: MIDI (controladores) y 'media' (micrófono, para el
+  // Afinador). Todo lo demás se niega. El acceso real al micro lo sigue
+  // gobernando el SO (privacidad de Windows); aquí solo no lo bloqueamos.
+  const ALLOWED = new Set(['midi', 'midiSysex', 'media', 'audioCapture']);
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
-    if (permission === 'midi' || permission === 'midiSysex') {
-      return true;
-    }
-    return false;
+    return ALLOWED.has(permission);
   });
 
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-    if (permission === 'midi' || permission === 'midiSysex') {
-      return callback(true);
-    }
-    return callback(false);
+    return callback(ALLOWED.has(permission));
   });
 }
 

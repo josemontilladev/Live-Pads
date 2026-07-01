@@ -120,6 +120,24 @@ export async function createInvite(libraryId, email, role = 'viewer') {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
+// Crea una invitación "por enlace/código" SIN correo concreto: genera el token
+// (código) para compartir por WhatsApp/chat. Requiere la migración 0007
+// (invites.email nullable). Devuelve la fila con su `token`.
+export async function createShareInvite(libraryId, role = 'viewer') {
+  const u = getUser();
+  const rows = await rest('/invites', {
+    method: 'POST',
+    body: {
+      library_id: libraryId,
+      email: null,
+      role: role === 'editor' ? 'editor' : 'viewer',
+      invited_by: u ? u.id : null,
+    },
+    prefer: 'return=representation',
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
 export async function revokeInvite(inviteId) {
   await rest(`/invites?id=eq.${inviteId}`, {
     method: 'PATCH', body: { status: 'revoked' }, prefer: 'return=minimal',

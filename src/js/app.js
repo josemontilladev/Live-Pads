@@ -5,6 +5,7 @@ import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
 import { openMetronomeModal } from './ui/metronomeModal.js';
+import { openTunerModal } from './ui/tunerModal.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
@@ -632,6 +633,7 @@ function bindAll() {
   bindCountInToggle();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
+  q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
 
   // Doble clic en CUALQUIER slider de paneo → vuelve al centro (0). Delegado
   // para cubrir todos (mezclador, metro, pads, batería) sin wiring individual;
@@ -878,6 +880,42 @@ function bindRestOfApp() {
     if (!cloudId) return;
     import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId)).catch(() => {});
   });
+
+  // ── Sincronización "en vivo": cambios que hacen otros miembros del equipo ──
+  // libraryLive.js baja en background y, cuando OTRO miembro cambió algo, emite
+  // este evento. Avisamos con un toast — pero NO en pleno directo: si hay música
+  // sonando, acumulamos y lo mostramos al parar (no molestar en escenario).
+  let pendingActivity = [];
+  const isPlayingNow = () => (isTrackLoaded() && isTrackPlaying()) || getMetroRunning();
+  function showActivityToast(changes) {
+    const titles = [...new Set(changes.map(c => c.title).filter(Boolean))];
+    const names  = [...new Set(changes.map(c => c.byName).filter(Boolean))];
+    if (!titles.length) return;
+    let text;
+    if (titles.length === 1) {
+      text = names[0] ? `${names[0]} actualizó «${titles[0]}»` : `Se actualizó «${titles[0]}»`;
+    } else {
+      const who = names.length === 1 ? ` por ${names[0]}` : ' por tu equipo';
+      text = `${titles.length} canciones actualizadas${who}`;
+    }
+    showToast(text, 'info');
+  }
+  function flushActivity() {
+    if (!pendingActivity.length || isPlayingNow()) return;
+    const changes = pendingActivity; pendingActivity = [];
+    showActivityToast(changes);
+  }
+  window.addEventListener('livepads:library-activity', (ev) => {
+    const changes = (ev?.detail?.changes) || [];
+    if (changes.length) pendingActivity.push(...changes);
+    flushActivity();
+  });
+  // Reintenta mostrar los avisos pendientes cuando la música pare.
+  setInterval(flushActivity, 15000);
+
+  // Arranca el motor de bajada automática (arranque/focus/intervalo). Se
+  // auto-protege: sin sesión / librería / red no hace nada.
+  import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,

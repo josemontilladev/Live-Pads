@@ -17,7 +17,7 @@ import { openAuthGate } from './authUI.js';
 import {
   listLibraries, createLibrary, renameLibrary, deleteLibrary, leaveLibrary,
   listMembers, removeMember, changeMemberRole,
-  listInvites, createInvite, revokeInvite, acceptInvite,
+  listInvites, createInvite, createShareInvite, revokeInvite, acceptInvite,
   getActiveLibraryId, setActiveLibraryId,
 } from './libraries.js';
 import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
@@ -59,6 +59,21 @@ ${code}
     if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
     else window.location.href = url;
   } catch (_) {}
+}
+
+// Mensaje listo para WhatsApp/chat con el código de invitación y las
+// instrucciones para unirse. Lo usa el botón "Crear enlace para compartir".
+function buildInviteMessage(code) {
+  const active = state.libs.find(l => l.id === state.activeId);
+  const libName = active ? active.name : 'mi librería';
+  return `¡Hola! Te invito a la librería "${libName}" en LivePads.
+
+Para unirte:
+1) Abre LivePads e inicia sesión (o crea tu cuenta).
+2) Menú → "Mi cuenta y librerías" → pestaña "Librerías".
+3) En "Unirme a una librería", pega este código:
+
+${code}`;
 }
 
 // Intenta enviar la invitación por correo automático (Edge Function + Resend).
@@ -273,13 +288,17 @@ async function renderManage() {
     <div id="acc-members"><div class="acc-empty">Cargando miembros…</div></div>
 
     <div class="acc-row">
-      <input id="acc-inv-email" type="email" placeholder="correo@persona.com">
+      <input id="acc-inv-email" type="email" placeholder="correo@persona.com (opcional)">
       <select id="acc-inv-role">
         <option value="viewer">Solo ver</option>
         <option value="editor">Editar</option>
       </select>
       <button class="acc-btn" data-act="invite">Invitar</button>
     </div>
+    <div class="acc-row">
+      <button class="acc-btn ghost acc-btn-wide" data-act="share-link">🔗 Crear enlace para compartir</button>
+    </div>
+    <div class="acc-hint">Genera un código para enviar por WhatsApp; tu amig@ lo pega en “Unirme a una librería”. Usa el rol elegido arriba (Solo ver / Editar).</div>
     <div id="acc-invites"></div>
 
     <div class="acc-foot">
@@ -320,19 +339,28 @@ async function renderInvites(libId) {
   // Cada invitación pendiente: cabecera con email/rol y el código visible en
   // un input readonly + botón "Copiar". Reduce fricción cuando hay que
   // compartirlo manualmente (chat, mensaje de voz, etc.).
-  box.innerHTML = pending.map(i => `
+  box.innerHTML = pending.map(i => {
+    const isLink = !i.email; // invitación por enlace/código (sin correo)
+    const label = isLink ? '🔗 Enlace para compartir' : escapeHtml(i.email);
+    // Con correo: botón "Enviar correo". Por enlace: "Copiar mensaje" (texto
+    // listo para WhatsApp con el código y las instrucciones).
+    const sendBtn = isLink
+      ? `<button class="acc-btn sm" data-act="copy-msg" data-code="${escapeHtml(i.token)}">Copiar mensaje</button>`
+      : `<button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar correo</button>`;
+    return `
     <div class="acc-invite">
       <div class="acc-invite-head">
-        <span class="i-email">${escapeHtml(i.email)}</span>
-        <span class="acc-role-tag ${i.role === 'editor' ? '' : ''}">${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
+        <span class="i-email">${label}</span>
+        <span class="acc-role-tag">${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
         <button class="acc-btn danger sm" data-act="revoke" data-id="${i.id}" title="Anular invitación">Anular</button>
       </div>
       <div class="acc-invite-code">
         <input type="text" readonly value="${escapeHtml(i.token)}" class="acc-code-input" aria-label="Código de invitación" data-act="select-code">
         <button class="acc-btn ghost sm" data-act="copy-code" data-code="${escapeHtml(i.token)}">Copiar</button>
-        <button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar correo</button>
+        ${sendBtn}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Acciones ────────────────────────────────────────────────────────────────
@@ -475,6 +503,20 @@ async function onClick(e) {
           }
           return;
         }
+        case 'share-link': {
+          const role = overlay.querySelector('#acc-inv-role')?.value || 'viewer';
+          const inv = await createShareInvite(state.activeId, role);
+          await renderInvites(state.activeId);
+          if (inv && inv.token) {
+            const text = buildInviteMessage(inv.token);
+            try { await navigator.clipboard.writeText(text); } catch (_) {}
+            msg('Enlace/código creado y copiado. Pégalo en WhatsApp para invitar.', 'ok');
+          }
+          return;
+        }
+        case 'copy-msg':
+          try { await navigator.clipboard.writeText(buildInviteMessage(btn.dataset.code)); msg('Mensaje de invitación copiado.', 'ok'); } catch (_) {}
+          return;
         case 'copy-code':
           try { await navigator.clipboard.writeText(btn.dataset.code); msg('Código copiado al portapapeles.', 'ok'); } catch (_) {}
           return;
@@ -506,8 +548,11 @@ async function onClick(e) {
           if (!code.trim()) return msg('Pega el código de invitación.');
           await acceptInvite(code);
           overlay.querySelector('#acc-join-code').value = '';
-          msg('¡Te uniste a la librería!', 'ok');
-          return refreshLibs();
+          msg('¡Te uniste a la librería! Bajando su repertorio…', 'ok');
+          await refreshLibs();
+          // Trae ya las canciones de la librería recién unida (no esperes al poll).
+          try { const { checkLibraryNow } = await import('./libraryLive.js'); checkLibraryNow(); } catch (_) {}
+          return;
         }
         case 'push-songs': {
           btn.disabled = true; const lbl = btn.textContent;
@@ -544,6 +589,8 @@ async function onClick(e) {
     state.activeId = libRow.dataset.lib;
     setActiveLibraryId(state.activeId);
     refreshLibs();
+    // Baja ya el repertorio de la librería recién activada.
+    import('./libraryLive.js').then(m => m.checkLibraryNow()).catch(() => {});
   }
 }
 
