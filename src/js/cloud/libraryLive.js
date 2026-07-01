@@ -59,6 +59,13 @@ async function pullNow() {
         window.dispatchEvent(new CustomEvent('livepads:library-activity', { detail: { changes: r.byOthers } }));
       } catch (_) {}
     }
+    // Conflictos: otro miembro editó una canción que tú también cambiaste sin
+    // subir. NO se pisó nada; el usuario decide (diálogo mía/de ellos).
+    if (r && Array.isArray(r.conflicts) && r.conflicts.length) {
+      try {
+        window.dispatchEvent(new CustomEvent('livepads:library-conflict', { detail: { conflicts: r.conflicts } }));
+      } catch (_) {}
+    }
   } catch (_) {
     // sin red / sin permiso / sesión expirada: se reintenta en la próxima ronda
   } finally {

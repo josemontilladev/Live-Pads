@@ -6,6 +6,7 @@ import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
 import { openMetronomeModal } from './ui/metronomeModal.js';
 import { openTunerModal } from './ui/tunerModal.js';
+import { initDeepLink } from './cloud/deepLink.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
@@ -133,6 +134,10 @@ let engine, metro;
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Deep-link de invitación: registrar el receptor IPC cuanto antes para no
+  // perder el token si la app se abrió en frío desde un enlace livepads://.
+  try { initDeepLink(); } catch (_) {}
+
   // Configuración personal en la nube (offline-first): si hay sesión + internet,
   // baja la config del usuario a local ANTES de leerla, para que el arranque
   // tome los valores de la nube. Sin red o sin sesión, no bloquea nada.
@@ -878,7 +883,13 @@ function bindRestOfApp() {
   window.addEventListener('livepads:song-deleted', (ev) => {
     const cloudId = ev?.detail?.cloudId;
     if (!cloudId) return;
+    const title = ev?.detail?.title;
     import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId)).catch(() => {});
+    // Registra el borrado en el historial del equipo (best-effort).
+    import('./cloud/libraries.js').then(({ getActiveLibraryId }) => {
+      const libId = getActiveLibraryId();
+      if (libId) import('./cloud/activity.js').then(a => a.logActivity(libId, 'deleted', title)).catch(() => {});
+    }).catch(() => {});
   });
 
   // ── Sincronización "en vivo": cambios que hacen otros miembros del equipo ──
@@ -910,8 +921,23 @@ function bindRestOfApp() {
     if (changes.length) pendingActivity.push(...changes);
     flushActivity();
   });
-  // Reintenta mostrar los avisos pendientes cuando la música pare.
-  setInterval(flushActivity, 15000);
+
+  // Conflictos: se resuelven en un diálogo (mía / de ellos). No interrumpimos un
+  // directo: si hay música sonando, esperan hasta que pare.
+  let pendingConflicts = [];
+  function flushConflicts() {
+    if (!pendingConflicts.length || isPlayingNow()) return;
+    const list = pendingConflicts; pendingConflicts = [];
+    import('./cloud/conflictDialog.js').then(m => m.showConflictsModal(list)).catch(() => {});
+  }
+  window.addEventListener('livepads:library-conflict', (ev) => {
+    const list = (ev?.detail?.conflicts) || [];
+    if (list.length) pendingConflicts.push(...list);
+    flushConflicts();
+  });
+
+  // Reintenta mostrar avisos/conflictos pendientes cuando la música pare.
+  setInterval(() => { flushActivity(); flushConflicts(); }, 15000);
 
   // Arranca el motor de bajada automática (arranque/focus/intervalo). Se
   // auto-protege: sin sesión / librería / red no hace nada.

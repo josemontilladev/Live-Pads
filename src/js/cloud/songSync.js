@@ -10,6 +10,11 @@ import { rest, isLoggedIn, getUser } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
 import { getSongs, setSongs } from '../state/store.js';
 import { htmlToPlainLyrics } from '../utils/text.js';
+import { logActivity } from './activity.js';
+
+// Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
+// canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
+const ACTIVITY_LOG_CAP = 12;
 
 // ── Mapeo entre el objeto local y la fila de Supabase ──────────────────────
 // Clave natural para deduplicar: título + artista + TONO. Incluir el tono es
@@ -25,6 +30,29 @@ function toTags(tags) {
   if (typeof tags === 'string' && tags.trim()) return tags.split(',').map(t => t.trim()).filter(Boolean);
   return [];
 }
+
+// ── Hash de contenido sincronizable ────────────────────────────────────────
+// Firma del contenido COMPARTIDO de la canción (no del audio local, que es por
+// PC). Se "sella" (song.syncHash) cada vez que subimos o bajamos: así sabemos si
+// una canción tiene ediciones locales SIN subir (hash actual ≠ sellado) → sirve
+// para registrar solo ediciones reales (actividad) y detectar conflictos.
+function syncContent(s) {
+  return JSON.stringify([
+    String(s.title || '').trim(), String(s.artist || '').trim(), String(s.lyrics || ''),
+    String(s.bpm || ''), String(s.key || ''), String(s.genre || ''),
+    toTags(s.tags).join(','), !!s.favorite, !!s.showChords,
+    String(s.timeSig || '4/4'), String(s.youtubeUrl || '').trim(),
+  ]);
+}
+function hashOf(s) {
+  const str = syncContent(s);
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return String(h);
+}
+// Dirty = tiene una firma sellada Y el contenido actual difiere (edición local
+// aún no subida). Sin firma previa → NO dirty (baseline desconocido; no bloquea).
+function isDirty(s) { return !!s.syncHash && s.syncHash !== hashOf(s); }
 
 function toRow(song, libraryId) {
   const me = getUser();
@@ -81,6 +109,12 @@ function fromRow(row) {
     // usa para el aviso "quién cambió"; puede faltar en filas antiguas.
     updatedByName:  (row.editor && (row.editor.display_name || row.editor.email)) || null,
   };
+}
+// Como fromRow pero sella la firma de contenido (llegó de la nube = en sync).
+function fromRowSynced(row) {
+  const s = fromRow(row);
+  s.syncHash = hashOf(s);
+  return s;
 }
 
 function notifyUpdated() {
@@ -155,6 +189,11 @@ async function pushSongsToLibraryCore(songs, libId) {
   const toCreate = songs.filter(s => !s.cloudId);
   const toUpdate = songs.filter(s => s.cloudId);
 
+  // Actividad a registrar: nuevas = "added"; existentes REALMENTE editadas
+  // (contenido ≠ firma sellada) = "edited". Se calcula ANTES de sellar la firma.
+  const addedTitles = toCreate.map(s => s.title || 'Sin título');
+  const editedTitles = toUpdate.filter(isDirty).map(s => s.title || 'Sin título');
+
   // Nuevas: inserción en bloque, devuelve filas en orden para sellar el id.
   if (toCreate.length) {
     const rows = await rest('/songs', {
@@ -164,7 +203,7 @@ async function pushSongsToLibraryCore(songs, libId) {
     });
     if (Array.isArray(rows)) {
       rows.forEach((row, i) => {
-        if (toCreate[i]) { toCreate[i].cloudId = row.id; toCreate[i].libraryId = row.library_id || libId; toCreate[i].cloudUpdatedAt = row.updated_at; }
+        if (toCreate[i]) { toCreate[i].cloudId = row.id; toCreate[i].libraryId = row.library_id || libId; toCreate[i].cloudUpdatedAt = row.updated_at; toCreate[i].syncHash = hashOf(toCreate[i]); }
       });
       created = rows.length;
     }
@@ -185,7 +224,15 @@ async function pushSongsToLibraryCore(songs, libId) {
       const byId = new Map(rows.map(r => [r.id, r]));
       toUpdate.forEach(s => { const r = byId.get(s.cloudId); if (r && r.updated_at) s.cloudUpdatedAt = r.updated_at; });
     }
+    toUpdate.forEach(s => { s.syncHash = hashOf(s); }); // sella: local == nube
     updated = toUpdate.length;
+  }
+
+  // Registrar actividad de cambios REALES (best-effort, sin bloquear el push).
+  // Se omite si es una subida masiva (primera sync) para no inundar el historial.
+  const changes = addedTitles.map(t => ['added', t]).concat(editedTitles.map(t => ['edited', t]));
+  if (changes.length && changes.length <= ACTIVITY_LOG_CAP) {
+    changes.forEach(([type, title]) => { logActivity(libId, type, title); });
   }
 
   if (created || linked) { setSongs(getSongs().slice()); notifyUpdated(); } // persiste cloudId sellado
@@ -230,25 +277,33 @@ export async function pullLibrarySongs(opts = {}) {
   };
 
   const consumed = new Set();
-  const byOthers = []; // cambios de OTROS miembros, para el aviso
+  const byOthers = [];  // cambios de OTROS miembros, para el aviso
+  const conflicts = []; // { cloudId, title, byName, theirs } — otro editó Y yo tengo cambios locales sin subir
   let added = 0, refreshed = 0, linked = 0;
+  const applyOnto = (target, incoming) => {
+    const localAudio = target.audio;
+    Object.assign(target, incoming, { id: target.id });
+    if (localAudio && (localAudio.sequence || localAudio.original)) target.audio = localAudio;
+    target.syncHash = hashOf(target); // local == nube
+  };
   for (const row of rows) {
-    const incoming = fromRow(row);
+    const incoming = fromRowSynced(row);
     const fromOther = !!(incoming.updatedBy && incoming.updatedBy !== myId);
     const existing = byCloud.get(row.id);
     if (existing) {
-      // Guarda de conflicto: no pisar una canción protegida (abierta en el
-      // editor ahora mismo). Se sincronizará cuando el usuario la cierre.
+      // Guarda: no pisar una canción protegida (abierta en el editor ahora mismo).
       if (protectIds && protectIds.has(row.id)) continue;
       // Solo aplicamos si la nube trae algo MÁS NUEVO. Así el poller periódico
-      // no re-renderiza ni reescribe a disco cuando no hay cambios, y una
-      // edición local aún sin subir (marca más nueva) no se pisa con datos
-      // viejos de la nube.
+      // no re-renderiza ni reescribe a disco cuando no hay cambios.
       if (!isNewer(incoming, existing)) continue;
-      // Conserva el id local y las asignaciones de audio locales (rutas del PC).
-      const localAudio = existing.audio;
-      Object.assign(existing, incoming, { id: existing.id });
-      if (localAudio && (localAudio.sequence || localAudio.original)) existing.audio = localAudio;
+      // CONFLICTO: otro miembro la cambió (más nueva) y yo tengo ediciones
+      // locales sin subir (contenido ≠ firma sellada). No pisamos: el usuario
+      // decide (mantener la mía / usar la de ellos).
+      if (fromOther && isDirty(existing)) {
+        conflicts.push({ cloudId: row.id, title: existing.title, byName: incoming.updatedByName, theirs: incoming });
+        continue;
+      }
+      applyOnto(existing, incoming);
       refreshed++;
       if (fromOther) byOthers.push({ title: incoming.title, byName: incoming.updatedByName });
       continue;
@@ -258,9 +313,7 @@ export async function pullLibrarySongs(opts = {}) {
     const k = nkey(incoming);
     const adopt = !consumed.has(k) ? localUntagged.get(k) : null;
     if (adopt && !adopt.cloudId) {
-      const localAudio = adopt.audio;
-      Object.assign(adopt, incoming, { id: adopt.id });
-      if (localAudio && (localAudio.sequence || localAudio.original)) adopt.audio = localAudio;
+      applyOnto(adopt, incoming);
       consumed.add(k);
       linked++;
     } else {
@@ -271,7 +324,29 @@ export async function pullLibrarySongs(opts = {}) {
     }
   }
   if (added || refreshed || linked) { setSongs(songs); notifyUpdated(); }
-  return { added, refreshed, linked, byOthers };
+  return { added, refreshed, linked, byOthers, conflicts };
+}
+
+// ── Resolución de conflictos ────────────────────────────────────────────────
+// "Usar la de ellos": aplica la versión de la nube sobre la canción local.
+export function resolveConflictUseTheirs(cloudId, theirs) {
+  const songs = getSongs();
+  const s = songs.find(x => x.cloudId === cloudId);
+  if (!s || !theirs) return false;
+  const localAudio = s.audio;
+  Object.assign(s, theirs, { id: s.id });
+  if (localAudio && (localAudio.sequence || localAudio.original)) s.audio = localAudio;
+  s.syncHash = hashOf(s);
+  setSongs(songs.slice()); notifyUpdated();
+  return true;
+}
+// "Mantener la mía": sube mi versión local, pisando la de la nube.
+export async function resolveConflictKeepMine(cloudId) {
+  const libId = getActiveLibraryId();
+  const s = getSongs().find(x => x.cloudId === cloudId);
+  if (!libId || !s) return false;
+  await pushSongsToLibrary([s], libId);
+  return true;
 }
 
 // Borra una canción de la nube (por cloudId). El borrado local lo hace la UI.

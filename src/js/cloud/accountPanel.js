@@ -21,6 +21,7 @@ import {
   getActiveLibraryId, setActiveLibraryId,
 } from './libraries.js';
 import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
+import { listActivity } from './activity.js';
 
 let overlay = null;
 let popModal = null;
@@ -68,11 +69,10 @@ function buildInviteMessage(code) {
   const libName = active ? active.name : 'mi librería';
   return `¡Hola! Te invito a la librería "${libName}" en LivePads.
 
-Para unirte:
-1) Abre LivePads e inicia sesión (o crea tu cuenta).
-2) Menú → "Mi cuenta y librerías" → pestaña "Librerías".
-3) En "Unirme a una librería", pega este código:
+La forma fácil: abre LivePads (inicia sesión) y haz clic en este enlace:
+livepads://join?token=${code}
 
+O manualmente: Menú → "Mi cuenta y librerías" → "Librerías" → en "Unirme a una librería" pega este código:
 ${code}`;
 }
 
@@ -279,7 +279,12 @@ async function renderManage() {
   if (!isOwner) {
     wrap.innerHTML = `<h4>${escapeHtml(active.name)}</h4>
       <div class="acc-empty">Eres invitado en esta librería. Solo el propietario gestiona miembros.</div>
-      <div class="acc-row"><button class="acc-btn danger acc-btn-flex" data-act="leave-lib" data-lib="${active.id}">Salir de esta librería</button></div>`;
+      <div class="acc-row"><button class="acc-btn danger acc-btn-flex" data-act="leave-lib" data-lib="${active.id}">Salir de esta librería</button></div>
+      <div class="acc-activity-wrap">
+        <h4>Actividad reciente</h4>
+        <div id="acc-activity-list"><div class="acc-empty">Cargando…</div></div>
+      </div>`;
+    renderActivity(active.id);
     return;
   }
 
@@ -301,12 +306,51 @@ async function renderManage() {
     <div class="acc-hint">Genera un código para enviar por WhatsApp; tu amig@ lo pega en “Unirme a una librería”. Usa el rol elegido arriba (Solo ver / Editar).</div>
     <div id="acc-invites"></div>
 
+    <div class="acc-activity-wrap">
+      <h4>Actividad reciente</h4>
+      <div id="acc-activity-list"><div class="acc-empty">Cargando…</div></div>
+    </div>
+
     <div class="acc-foot">
       <button class="acc-btn ghost sm" data-act="rename-lib">Renombrar</button>
       <button class="acc-btn danger sm" data-act="delete-lib">Eliminar librería</button>
     </div>
   `;
-  await Promise.all([renderMembers(active.id), renderInvites(active.id)]);
+  await Promise.all([renderMembers(active.id), renderInvites(active.id), renderActivity(active.id)]);
+}
+
+// Formatea un evento de actividad a texto legible.
+function activityText(a) {
+  const who = (a.actor && (a.actor.display_name || a.actor.email)) || 'Alguien';
+  const title = a.song_title ? `«${a.song_title}»` : '';
+  switch (a.type) {
+    case 'added':   return `${who} añadió ${title}`.trim();
+    case 'edited':  return `${who} editó ${title}`.trim();
+    case 'deleted': return `${who} borró ${title}`.trim();
+    case 'joined':  return `${who} se unió al equipo`;
+    default:        return `${who} hizo un cambio`;
+  }
+}
+function relTime(iso) {
+  const t = Date.parse(iso || ''); if (!t) return '';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return 'hace un momento';
+  const m = Math.floor(s / 60); if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24); return `hace ${d} d`;
+}
+async function renderActivity(libId) {
+  const box = overlay.querySelector('#acc-activity-list');
+  if (!box) return;
+  let rows;
+  try { rows = await listActivity(libId, 15); }
+  catch (e) { box.innerHTML = '<div class="acc-empty">No se pudo cargar la actividad.</div>'; return; }
+  if (!rows || !rows.length) { box.innerHTML = '<div class="acc-empty">Sin actividad todavía.</div>'; return; }
+  box.innerHTML = rows.map(a => `
+    <div class="acc-activity-item">
+      <span class="aa-text">${escapeHtml(activityText(a))}</span>
+      <span class="aa-time">${escapeHtml(relTime(a.created_at))}</span>
+    </div>`).join('');
 }
 
 async function renderMembers(libId) {

@@ -23,6 +23,52 @@ try {
 
 let mainWindow;
 
+/* ── Deep-link (livepads://join?token=…) + instancia única ─────────────
+ * Un enlace de invitación abre/enfoca LA app y la une a la librería. Requiere
+ * instancia única: si ya hay una abierta, la 2da (la que lanza el SO al hacer
+ * clic en el enlace) le pasa su URL y se cierra. */
+let pendingDeepLink = null;   // token a procesar cuando el renderer esté listo
+
+// Parsea un enlace livepads://join?token=XXXX y lo encola/envía al renderer.
+function handleDeepLink(url) {
+  try {
+    const u = new URL(url);
+    const isJoin = u.hostname === 'join' || u.pathname.replace(/\//g, '') === 'join';
+    if (!isJoin) return;
+    const token = u.searchParams.get('token');
+    if (!token) return;
+    pendingDeepLink = token;
+    sendDeepLinkToRenderer();
+  } catch (_) { /* URL inválida: se ignora */ }
+}
+// Envía el token pendiente al renderer si la ventana ya cargó (si no, lo hará
+// el did-finish-load de createWindow).
+function sendDeepLinkToRenderer() {
+  if (!pendingDeepLink) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('deep-link-join', pendingDeepLink);
+      pendingDeepLink = null;
+    } catch (_) {}
+  }
+}
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  // Windows/Linux: el deep-link de la 2da instancia llega en su argv.
+  app.on('second-instance', (_e, argv) => {
+    if (mainWindow) {
+      try { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); } catch (_) {}
+    }
+    const url = argv.find(a => typeof a === 'string' && a.startsWith('livepads://join'));
+    if (url) handleDeepLink(url);
+  });
+  // macOS: los deep-links llegan por este evento.
+  app.on('open-url', (event, url) => { event.preventDefault(); handleDeepLink(url); });
+}
+
 /* ── Portable Defaults Sync & Path-Rewriting Architecture ── */
 
 // Resolve the bundled defaults folder. In dev it sits next to main.js; when
@@ -350,6 +396,10 @@ function createWindow() {
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     return callback(ALLOWED.has(permission));
   });
+
+  // Cuando el renderer termina de cargar, entrega cualquier deep-link pendiente
+  // (arranque en frío por enlace de invitación).
+  mainWindow.webContents.on('did-finish-load', () => sendDeepLinkToRenderer());
 }
 
 /* ── IPC Handlers ──────────────────────────────────── */
@@ -2051,6 +2101,19 @@ function resolveLivepadsUrl(reqUrl) {
 }
 
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return; // 2da instancia: ya reenvió su deep-link y se cierra
+
+  // Registra a LivePads como manejador del esquema livepads:// en el SO (para
+  // que los enlaces de invitación abran la app). En dev (electron .) hay que
+  // pasar la ruta del script; empaquetada basta el nombre.
+  try {
+    if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient('livepads', process.execPath, [path.resolve(process.argv[1])]);
+    } else {
+      app.setAsDefaultProtocolClient('livepads');
+    }
+  } catch (_) {}
+
   protocol.handle('livepads', async (request) => {
     try {
       const filePath = resolveLivepadsUrl(request.url);
@@ -2096,6 +2159,12 @@ app.whenReady().then(() => {
     }
   });
   createWindow();
+
+  // Arranque en frío: si la app se abrió al hacer clic en un enlace de
+  // invitación (Windows/Linux lo pasan en argv), procésalo. El token se envía
+  // al renderer en cuanto la ventana termine de cargar (did-finish-load).
+  const initialUrl = process.argv.find(a => typeof a === 'string' && a.startsWith('livepads://join'));
+  if (initialUrl) handleDeepLink(initialUrl);
 
   // Honour the autostart preference — start the LAN viewer transparently so
   // musicians can scan the QR right after the app opens. Failure is silent;
