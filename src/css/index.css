@@ -25,4 +25,8 @@
    de radio (--r-lg/--r-md) están alineados con _base.css — si cambias uno,
    cambia el otro: la guía de diseño vive en linear.app-DESIGN.md. */
 @import url('./modules/_linear.css');
+/* Skin opcional esqueuomórfico ("hardware"). Todo gated bajo [data-skin="hardware"],
+   así el look por defecto queda intacto. Va tras _linear (para poder sobreescribirlo)
+   y antes de _responsive (que debe seguir ganando en media queries). */
+@import url('./modules/_skin-hardware.css');
 @import url('./modules/_responsive.css');
