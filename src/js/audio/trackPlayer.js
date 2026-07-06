@@ -554,6 +554,11 @@ export function bindTrackPlayerControls() {
 // Used by master play/stop logic for the "Sin pista seleccionada" reset.
 export function clearTrackUI() {
   cleanupTrackAudio();
+  // Sin pista = sin transposición que mostrar. Reseteamos el contador a 0 para
+  // que NO arrastre el ±N de la canción anterior (la transposición es por
+  // canción; una sin pista cargada no hereda la de otra).
+  currentPitch = 0;
+  paintPitchUI();
   const tt = q('#tp-title'); if (tt) tt.textContent = 'Sin pista seleccionada';
   const tc = q('#tp-time-current'); if (tc) tc.textContent = '0:00';
   const tot = q('#tp-time-total'); if (tot) tot.textContent = '0:00';
