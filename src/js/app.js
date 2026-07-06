@@ -1856,10 +1856,16 @@ function applyGiSong(song) {
   }
 
   // Si la canción tiene un pitch guardado (de una sesión anterior), aplicarlo
-  // también al pad de notas en este momento — el track player lo restaura al
-  // audio en startTrackPlayback, pero no llama onPitchChange automáticamente.
+  // también al pad de notas — el track player lo restaura al audio en
+  // startTrackPlayback, pero no llama onPitchChange automáticamente.
+  //
+  // SOLO si hay una SECUENCIA que se auto-carga y va a sonar en ese tono: el pad
+  // debe igualar el tono SONANTE del track. Sin secuencia, el pad refleja el tono
+  // ESCRITO de la canción; aplicar un pitch guardado (p. ej. de un original que
+  // no se auto-carga) desplazaría el pad "en fantasma" — C se prepararía como B
+  // aunque el contador de transposición muestre 0 y nada suene transpuesto.
   const savedPitch = Number((song.audio && song.audio.pitch) || 0) || 0;
-  if (savedPitch !== 0) applyNotepadPitchShift(savedPitch);
+  if (savedPitch !== 0 && song.audio && song.audio.sequence) applyNotepadPitchShift(savedPitch);
 
   // Mirror to the LAN Companion (no-op if server is off).
   if (window.electronAPI && window.electronAPI.companionPublishSong) {
