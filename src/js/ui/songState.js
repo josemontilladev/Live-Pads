@@ -140,7 +140,12 @@ function paintNowPlayingBanner(song) {
   }
   const titleEl  = q('#np-title');
   const artistEl = q('#np-artist');
-  if (titleEl)  titleEl.textContent  = song.title || 'Sin título';
+  const newTitle = song.title || 'Sin título';
+  // ¿Cambió de canción? → animación sutil de entrada del texto (fade+slide),
+  // scoped al banner (nada de View Transitions de página que puedan destellar
+  // en vivo). No anima si es la misma canción (solo se refrescó el estado).
+  const songChanged = titleEl && titleEl.textContent !== newTitle;
+  if (titleEl)  titleEl.textContent  = newTitle;
   if (artistEl) artistEl.textContent = song.artist || '';
   // Badges de audio disponible: el director ve si hay secuencia/original ANTES
   // de darle Play (antes no se sabía si había audio para lanzar).
@@ -153,6 +158,11 @@ function paintNowPlayingBanner(song) {
       (hasOrig ? '<span class="np-badge np-badge--orig" title="Tiene original asignado">ORIG</span>' : '');
   }
   banner.classList.remove('hidden');
+  // Re-dispara la animación de entrada del contenido al cambiar de canción.
+  if (songChanged) {
+    const grp = banner.querySelector('.np-left');
+    if (grp) { grp.classList.remove('np-swap'); void grp.offsetWidth; grp.classList.add('np-swap'); }
+  }
   // "Preparada" (seleccionada, nada suena) vs "Sonando" — coherente con el
   // principio "seleccionar = preparar, nada suena hasta pulsar Play".
   refreshNowPlayingLiveState();

@@ -1002,12 +1002,23 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
    que el segmento seleccionado: verde Secuencia / azul Click / ámbar Referencia.
    (Cuando está PREPARADA gana la regla :not(.is-live) de arriba: punto/etiqueta
    atenuados.) */
-#now-playing-banner.is-src-seq   .np-dot   { background: #10b981; box-shadow: 0 0 7px rgba(16,185,129,0.7); }
-#now-playing-banner.is-src-seq   .np-label { color: #10b981; }
-#now-playing-banner.is-src-click .np-dot   { background: #3b82f6; box-shadow: 0 0 7px rgba(59,130,246,0.7); }
-#now-playing-banner.is-src-click .np-label { color: #3b82f6; }
-#now-playing-banner.is-src-ref   .np-dot   { background: #f59e0b; box-shadow: 0 0 7px rgba(245,158,11,0.7); }
-#now-playing-banner.is-src-ref   .np-label { color: #f59e0b; }
+#now-playing-banner.is-src-seq   .np-dot   { background: var(--src-seq);   box-shadow: 0 0 7px color-mix(in srgb, var(--src-seq) 70%, transparent); }
+#now-playing-banner.is-src-seq   .np-label { color: var(--src-seq); }
+#now-playing-banner.is-src-click .np-dot   { background: var(--src-click); box-shadow: 0 0 7px color-mix(in srgb, var(--src-click) 70%, transparent); }
+#now-playing-banner.is-src-click .np-label { color: var(--src-click); }
+#now-playing-banner.is-src-ref   .np-dot   { background: var(--src-ref);   box-shadow: 0 0 7px color-mix(in srgb, var(--src-ref) 70%, transparent); }
+#now-playing-banner.is-src-ref   .np-label { color: var(--src-ref); }
+
+/* Transición al cambiar de canción: el contenido del banner entra con un fade +
+   leve deslizamiento hacia arriba. Sutil, no distrae en vivo. */
+.np-left.np-swap { animation: np-swap-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes np-swap-in {
+  from { opacity: 0.3; transform: translateY(5px); }
+  to   { opacity: 1;   transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .np-left.np-swap { animation: none; }
+}
 
 #now-playing-banner .np-label {
   flex-shrink: 0;
@@ -1066,9 +1077,9 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 
 /* Cada fuente con su color, para distinguirlas de un vistazo. Inactiva = texto
    tintado; activa = se llena con el color. */
-#src-seq   { color: #34d399; }   /* Secuencia → verde */
-#src-click { color: #60a5fa; }   /* Click → azul */
-#src-ref   { color: #fbbf24; }   /* Original → ámbar */
+#src-seq   { color: var(--src-seq); }   /* Secuencia → verde */
+#src-click { color: var(--src-click); } /* Click → azul */
+#src-ref   { color: var(--src-ref); }   /* Original → ámbar */
 
 #src-seq.active {
   background: #10b981; color: #042016; box-shadow: 0 1px 7px rgba(16, 185, 129, 0.5);
@@ -1762,5 +1773,5 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   padding: 1px 5px; border-radius: 4px; line-height: 1.4;
   border: 1px solid currentColor; opacity: 0.85;
 }
-#now-playing-banner .np-badge--seq  { color: #34d399; }   /* secuencia → verde */
-#now-playing-banner .np-badge--orig { color: #fbbf24; }   /* original → ámbar */
+#now-playing-banner .np-badge--seq  { color: var(--src-seq); }   /* secuencia → verde */
+#now-playing-banner .np-badge--orig { color: var(--src-ref); }   /* original → ámbar */

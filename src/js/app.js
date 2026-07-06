@@ -503,6 +503,7 @@ function buildKeyGrid() {
     grid.appendChild(btn);
   });
   if (typeof updateKeyHints === 'function') updateKeyHints();
+  updateKeyIndicator();
 }
 
 // Transpone el pad de notas activo/preparado `pitchSemitones` semitonos
@@ -537,6 +538,27 @@ function applyNotepadPitchShift(pitchSemitones) {
       });
     }
   }
+  updateKeyIndicator();
+}
+
+// Indicador de tono sonante del pad (arriba del grid). Muestra la nota
+// preparada/activa en grande; si difiere del tono ESCRITO de la canción (porque
+// está transpuesta), muestra "escrito → sonante" (p. ej. C → B).
+function updateKeyIndicator() {
+  const el = q('#key-indicator');
+  if (!el) return;
+  const sounding = getActiveKey() || getPreparedPadKey();
+  if (!sounding) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const active = !!getActiveKey();
+  const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
+  const written = (_songBaseKeySemitone != null) ? keys[_songBaseKeySemitone] : null;
+  const transposed = !!(written && written !== sounding);
+  el.classList.remove('hidden');
+  el.classList.toggle('is-active', active);          // sonando (vs solo preparado)
+  el.classList.toggle('is-transposed', transposed);
+  el.innerHTML = transposed
+    ? `<span class="ki-label">Tono</span><span class="ki-body"><span class="ki-written">${written}</span><span class="ki-arrow">→</span><span class="ki-sounding">${sounding}</span></span>`
+    : `<span class="ki-label">Tono</span><span class="ki-body"><span class="ki-sounding">${sounding}</span></span>`;
 }
 
 function updateKeyHints() {
@@ -598,6 +620,7 @@ function onKeyClick(key) {
       b.classList.toggle('active', b.dataset.key === getActiveKey());
     });
   }
+  updateKeyIndicator();
 }
 
 
@@ -1173,6 +1196,7 @@ function prepareNextSongKey(song) {
     b.classList.remove('prepared');
     if (b.dataset.key === key) b.classList.add('prepared');
   });
+  updateKeyIndicator();
 }
 
 // La ORIGINAL nunca es la fuente maestra: solo cuenta como fuente de tiempo una
@@ -1481,6 +1505,7 @@ function panicStopAll() {
   setActiveKey(null);
   setPreparedPadKey(null);
   buildKeyGrid();
+  updateKeyIndicator();
   if (getMetroRunning()) toggleMetro();
   if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa secuencia/original
   // Detener TAMBIÉN la reproducción del timeline de Stems si está montado: el
@@ -1831,6 +1856,7 @@ function applyGiSong(song) {
           if (b.dataset.key === key) b.classList.add('prepared');
         });
       }
+      updateKeyIndicator();
     } else {
       // Key doesn't map to any of the 12 chromatic pads (e.g. "Em7b5",
       // unusual jazz extensions). Surface a warning so the user knows
@@ -1841,6 +1867,7 @@ function applyGiSong(song) {
   } else {
     // La canción no tiene tono definido: deshabilitar la transposición del pad.
     _songBaseKeySemitone = null;
+    updateKeyIndicator();
   }
 
   // Auto-load ONLY the sequence (the backing track that master Play drives).
