@@ -550,3 +550,96 @@
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent);
 }
+
+/* ═══ Incremento 5: WORKSPACE STEMS ════════════════════════════════
+   Mismo rack: chasis de metal, strips metálicos, faders físicos, regla como
+   rail, LEDs. Respeta el pulido base y los estados encendidos de Mute/Solo. */
+
+/* Chasis: setlist, deck (transporte+acciones) y consola en metal cepillado */
+[data-skin="hardware"] .stems-setlist,
+[data-skin="hardware"] .stems-deck,
+[data-skin="hardware"] .stems-console {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.011) 0 1px, transparent 1px 3px),
+    linear-gradient(176deg, #2a2d32 0%, #1c1e21 100%);
+  border-color: #0e0f11;
+}
+/* Zona del timeline: fondo hundido oscuro (el "foso" del arreglo) */
+[data-skin="hardware"] .stems-arrange {
+  background: linear-gradient(180deg, #121316, #0d0e10);
+}
+
+/* Strips de la consola: módulos metálicos (la barra de color por pista se
+   mantiene desde el pulido base). */
+[data-skin="hardware"] .stems-console-strip {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.01) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2b2e33 0%, #1d1f22 100%);
+  border: 1px solid #0e0f11;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+[data-skin="hardware"] .stems-console-strip-name,
+[data-skin="hardware"] .stems-master { text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7); }
+/* Lectura de volumen del strip como display LED */
+[data-skin="hardware"] .stems-console-strip-readout {
+  color: var(--accent);
+  background: #0a0c0e;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+[data-skin="hardware"] .stems-master-readout {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--accent);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Fader: groove más profundo (el mango ya es metálico) */
+[data-skin="hardware"] .stems-cfader-track {
+  background: linear-gradient(90deg, #0a0b0d, #171a1d);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.8), inset 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+/* Mute/Solo apagados: botón metálico (los encendidos conservan su color) */
+[data-skin="hardware"] .stems-ms:not(.is-on) {
+  background: linear-gradient(180deg, #33363c, #212328);
+  border: 1px solid #0e0f11;
+  color: #c7cad0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 2px 3px rgba(0, 0, 0, 0.45);
+}
+[data-skin="hardware"] .stems-ms:not(.is-on):hover { background: linear-gradient(180deg, #3b3e45, #26282d); color: #fff; }
+
+/* Transporte: Play redondo torneado + tiempos/timecode en LED */
+[data-skin="hardware"] .stems-tb-btn--play {
+  background: radial-gradient(circle at 50% 28%, #4a4e55 0%, #303339 46%, #17181b 100%);
+  border: 1px solid #0d0e10;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), inset 0 -8px 14px rgba(0, 0, 0, 0.6), 0 5px 12px rgba(0, 0, 0, 0.6);
+  color: var(--accent);
+}
+[data-skin="hardware"] .stems-tb-btn--play svg {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 65%, transparent));
+}
+[data-skin="hardware"] .stems-tb-time,
+[data-skin="hardware"] .stems-readout,
+[data-skin="hardware"] #stems-timecode {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: color-mix(in srgb, var(--accent) 80%, #cdd0d6);
+  text-shadow: 0 0 7px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Regla/timeline como rail de metal */
+[data-skin="hardware"] .stems-ruler {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2e3136 0%, #202226 55%, #16171a 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 #000;
+}
+
+/* Filas del timeline: identificación en metal, carril = foso oscuro */
+[data-skin="hardware"] .stems-row-strip {
+  background: linear-gradient(180deg, #24272c, #1a1c1f);
+  border-right: 1px solid #0d0e10;
+}
+[data-skin="hardware"] .stems-row-lane {
+  background: linear-gradient(180deg, #101114, #0c0d0f);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+}
