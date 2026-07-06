@@ -113,7 +113,10 @@
 }
 /* Kill the default vertical margin browsers give range inputs and let the
    scrubber absorb the free space between title and time. */
-#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; }
+/* Barra de progreso más alta (más protagonista y más fácil de arrastrar en
+   cabina táctil). El fondo/gradiente vive en el propio input, así que subir la
+   altura engorda el track de forma segura; el thumb sigue igual. */
+#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; height: 7px; border-radius: 4px; }
 #tp-title {
   font-size: 14px;
   font-weight: 600;
@@ -126,12 +129,21 @@
   max-width: 240px;
 }
 .tp-time {
-  font-size: 11px;
+  display: flex; align-items: baseline; gap: 4px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   white-space: nowrap;
+}
+.tp-time #tp-time-total { color: var(--text-muted); }
+.tp-time-sep { color: var(--text-muted); opacity: 0.55; }
+/* Tiempo restante: lo más glanceable en vivo → pill en color de acento. */
+.tp-remain {
+  margin-left: 8px; padding: 1px 8px; border-radius: 6px;
+  font-size: 13px; font-weight: 800; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .tp-right {
@@ -195,18 +207,27 @@
   display: flex; flex-direction: column; gap: 6px;
   min-width: 0;
 }
-.mx-channel--master { justify-content: center; }
+/* El canal Maestro (control global) se distingue de las fuentes con un borde
+   de acento y su nombre en color, para que se lea de un vistazo cuál es. */
+.mx-channel--master {
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
+}
+.mx-channel--master .mx-name { color: var(--accent); }
 .mx-name {
-  font-size: 11px; font-weight: 600; color: var(--text);
+  font-size: 12.5px; font-weight: 700; color: var(--text);
   letter-spacing: 0.3px; white-space: nowrap;
 }
 .mx-ctrl { display: flex; align-items: center; gap: 8px; }
-.mx-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
+.mx-lbl { font-size: 10.5px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
 .mx-slider { flex: 1; min-width: 0; }
+/* El VALOR es lo que el director lee de reojo: más grande y en color pleno
+   (no apagado), tabular para que no "baile" al cambiar de cifra. */
 .mx-val {
-  font-size: 10px; color: var(--text-muted);
-  min-width: 32px; text-align: right;
-  font-variant-numeric: tabular-nums; font-weight: 600;
+  font-size: 12.5px; color: var(--text);
+  min-width: 38px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 700;
 }
 
 /* Floating "Añadida al servicio" popup over the library card after click.

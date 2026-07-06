@@ -210,6 +210,9 @@
 
       <!-- Keys + Pad controls -->
       <div id="panel-keys">
+        <!-- Indicador de tono sonante del pad. Muestra la nota preparada/activa
+             en grande; si la canción está transpuesta, muestra "escrito → sonante". -->
+        <div id="key-indicator" class="key-indicator hidden" aria-live="polite" title="Tono del pad preparado (→ indica transposición)"></div>
         <div class="key-grid" id="key-grid"></div>
         <div id="pad-volume-tray" class="sb-card mx-relocated">
           <div class="tray-header">Ajustes de pad</div>
@@ -492,7 +495,8 @@
         <div id="tp-title">Ninguna pista cargada</div>
         <input type="range" id="tp-progress" min="0" max="100" value="0" class="blue-slider">
         <div class="tp-time">
-          <span id="tp-time-current">0:00</span> / <span id="tp-time-total">0:00</span>
+          <span id="tp-time-current">0:00</span><span class="tp-time-sep">/</span><span id="tp-time-total">0:00</span>
+          <span id="tp-time-remain" class="tp-remain" title="Tiempo restante">-0:00</span>
         </div>
       </div>
 

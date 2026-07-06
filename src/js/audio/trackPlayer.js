@@ -304,6 +304,15 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Pinta el "tiempo restante" (-m:ss) — lo que el director mira para anticipar el
+// final. cur/dur en segundos.
+function setRemaining(cur, dur) {
+  const el = els.timeRemain;
+  if (!el) return;
+  const remain = (isFinite(dur) && dur > 0) ? Math.max(0, dur - cur) : 0;
+  el.textContent = '-' + formatTime(remain);
+}
+
 // DOM element refs are cached lazily — populated on first track playback and
 // reused across all subsequent renders so ontimeupdate (firing ~4×/sec)
 // doesn't hit querySelector on every tick.
@@ -313,6 +322,7 @@ function cacheTrackPlayerEls() {
   els.title    = q('#tp-title');
   els.timeCur  = q('#tp-time-current');
   els.timeTot  = q('#tp-time-total');
+  els.timeRemain = q('#tp-time-remain');
   els.progress = q('#tp-progress');
   els.playBtn  = q('#tp-play-btn');
   els.stopBtn  = q('#tp-stop-btn');
@@ -415,6 +425,7 @@ async function startTrackPlayback(url, title, type) {
     if (timeCur) timeCur.textContent = formatTime(audio.currentTime);
     if (audio.duration) {
       if (timeTot) timeTot.textContent = formatTime(audio.duration);
+      setRemaining(audio.currentTime, audio.duration);
       if (progress) {
         progress.value = (audio.currentTime / audio.duration) * 100;
         syncSlider(progress);
@@ -436,6 +447,7 @@ async function startTrackPlayback(url, title, type) {
   const stampDuration = () => {
     if (!isFinite(audio.duration) || audio.duration <= 0) return;
     if (timeTot) timeTot.textContent = formatTime(audio.duration);
+    setRemaining(audio.currentTime || 0, audio.duration);
     if (currentSong && (!currentSong.durationSec || currentSong.durationSec !== Math.round(audio.duration))) {
       currentSong.durationSec = Math.round(audio.duration);
       if (typeof deps.onDurationDiscovered === 'function') {
@@ -526,6 +538,7 @@ export function bindTrackPlayerControls() {
         const t = (e.target.value / 100) * audio.duration;
         const tc = q('#tp-time-current');
         if (tc) tc.textContent = formatTime(t);
+        setRemaining(t, audio.duration); // el restante también sigue el arrastre
       }
     };
     // onchange fires once, on drag-release (or click / keyboard) — this is where
@@ -562,6 +575,7 @@ export function clearTrackUI() {
   const tt = q('#tp-title'); if (tt) tt.textContent = 'Sin pista seleccionada';
   const tc = q('#tp-time-current'); if (tc) tc.textContent = '0:00';
   const tot = q('#tp-time-total'); if (tot) tot.textContent = '0:00';
+  const rem = q('#tp-time-remain'); if (rem) rem.textContent = '-0:00';
   const prog = q('#tp-progress'); if (prog) prog.value = 0;
   const playBtn = q('#tp-play-btn');
   if (playBtn) playBtn.innerHTML = PLAY_ICON;

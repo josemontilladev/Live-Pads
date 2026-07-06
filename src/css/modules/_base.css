@@ -48,6 +48,13 @@
   --warn: #f59e0b;
   --danger: #ff4747;
   --danger-soft: #ff5f57;
+  /* Colores semánticos de FUENTE de audio — MISMO color en toda la app (banner,
+     botones de fuente, badges SEQ/ORIG). Secuencia=verde, Click=azul,
+     Referencia/Original=ámbar. Antes cada sitio usaba su propio hex (tonos
+     ligeramente distintos para el mismo concepto). */
+  --src-seq: #34d399;
+  --src-click: #60a5fa;
+  --src-ref: #fbbf24;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-h: rgba(255, 255, 255, 0.07);
   --glass-a: rgba(255, 255, 255, 0.12);

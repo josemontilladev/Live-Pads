@@ -96,6 +96,25 @@
   font-size: 13px;
   width: auto;
 }
+/* Pulso de tempo: el botón de Play late en cada beat mientras el metrónomo
+   corre — referencia visual del tempo en la vista principal, aun con el click en
+   silencio. El tiempo 1 (downbeat) late más fuerte con un glow azul. */
+.metro-main-btn.beat-pulse { animation: metro-beat 170ms ease-out; }
+.metro-main-btn.beat-pulse--down { animation: metro-beat-down 220ms ease-out; }
+@keyframes metro-beat {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+@keyframes metro-beat-down {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 transparent; }
+  35%  { transform: scale(1.12); box-shadow: 0 0 20px 5px color-mix(in srgb, var(--blue) 55%, transparent); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metro-main-btn.beat-pulse,
+  .metro-main-btn.beat-pulse--down { animation: none; }
+}
 .metro-bpm-big {
   font-size: 32px;
 }
