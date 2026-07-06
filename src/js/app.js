@@ -659,6 +659,7 @@ function bindAll() {
   window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
   bindCountInToggle();
+  bindSkinToggle();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
@@ -1335,6 +1336,34 @@ function bindCountInToggle() {
   if (!cb) return;
   cb.checked = countInEnabled();
   cb.onchange = () => localStorage.setItem('livepads-countin', cb.checked ? '1' : '0');
+}
+
+// Toggle del skin esqueuomórfico ("hardware"). Fija/quita data-skin en <html>
+// (el CSS del skin está gated bajo [data-skin]) y lo persiste. El valor se
+// restaura sin parpadeo por un script inline en el <head> de index.html.
+function bindSkinToggle() {
+  const el = q('#skin-hw-toggle');
+  if (!el) return;
+  const isOn = () => document.documentElement.getAttribute('data-skin') === 'hardware';
+  const paint = () => {
+    const on = isOn();
+    el.className = 'toggle-sw ' + (on ? 'on' : '');
+    el.setAttribute('aria-checked', on ? 'true' : 'false');
+  };
+  const toggle = () => {
+    const on = !isOn();
+    if (on) document.documentElement.setAttribute('data-skin', 'hardware');
+    else document.documentElement.removeAttribute('data-skin');
+    try {
+      if (on) localStorage.setItem('livepads.skin', 'hardware');
+      else localStorage.removeItem('livepads.skin');
+    } catch (_) {}
+    paint();
+    try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
+  };
+  paint();
+  el.onclick = toggle;
+  el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
 }
 
 // Guardado de la librería GI con debounce (ver comentario en boot).

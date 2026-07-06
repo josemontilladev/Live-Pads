@@ -6,6 +6,17 @@
   <title>LivePads</title>
   <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
   <link rel="stylesheet" href="css/index.css">
+  <script>
+    // Skin opcional (p. ej. "hardware", esqueuomórfico): fija el atributo ANTES
+    // del primer pintado para que no haya parpadeo default→skin. Todo el CSS del
+    // skin está gated bajo [data-skin="…"]; sin la clave, la app se ve por defecto.
+    (function () {
+      try {
+        var s = localStorage.getItem('livepads.skin');
+        if (s) document.documentElement.setAttribute('data-skin', s);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
 
@@ -647,6 +658,17 @@
           <div id="tab-themes" class="stab-body">
             <div class="themes-header"><span class="themes-title">Temas</span></div>
             <div class="themes-list" id="themes-list"></div>
+
+            <div class="sb-label">Aspecto (skin)</div>
+            <div class="sb-card">
+              <div class="skin-row">
+                <div class="skin-row-info">
+                  <div class="skin-row-title">Skin “Hardware” 🎛️</div>
+                  <div class="skin-row-desc">Look esqueuomórfico: pads de goma retroiluminados, faders y LEDs. Experimental — no cambia el sonido.</div>
+                </div>
+                <div class="toggle-sw" id="skin-hw-toggle" role="switch" aria-checked="false" tabindex="0" aria-label="Activar skin Hardware"></div>
+              </div>
+            </div>
           </div>
 
           <!-- TAB: SHORTCUTS — populated on boot by cheatSheet.js -->
