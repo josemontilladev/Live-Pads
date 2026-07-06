@@ -1246,19 +1246,21 @@ body[data-workspace="stems"] #body {
 .stems-ruler {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, var(--bg-card), var(--bg));
+  /* Rail de transporte: borde superior claro + línea inferior marcada. */
+  background: linear-gradient(180deg, var(--bg-hover) 0%, var(--bg-card) 55%, var(--bg) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 var(--border-strong);
 }
 .stems-tick {
   position: absolute;
   top: 22px;
   width: 1px;
   height: 8px;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.22);
 }
 .stems-tick--bar {
   top: 8px;
   height: 22px;
-  background: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.55);
 }
 .stems-tick-label {
   position: absolute;
@@ -1533,7 +1535,7 @@ body[data-workspace="stems"] #body {
 /* Fila 2: acciones de la pista, alineadas a la derecha. */
 .stems-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
 .stems-row--click .stems-row-strip {
-  box-shadow: inset 3px 0 0 #60a5fa, 2px 0 4px rgba(0,0,0,0.25);
+  box-shadow: inset 3px 0 0 var(--src-click), 2px 0 4px rgba(0,0,0,0.25);
 }
 .stems-row--guide .stems-row-strip {
   box-shadow: inset 3px 0 0 var(--ok), 2px 0 4px rgba(0,0,0,0.25);
@@ -1556,14 +1558,16 @@ body[data-workspace="stems"] #body {
   width: 26px; height: 26px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
-  background: var(--bg);
+  /* Base con leve relieve para que lea como botón físico (antes plano/oscuro). */
+  background: linear-gradient(180deg, var(--bg-hover), var(--bg-surface));
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
 }
-.stems-ms:hover { color: var(--text); filter: brightness(1.15); }
+.stems-ms:hover { color: var(--text); background: linear-gradient(180deg, var(--bg-hover), var(--bg-hover)); border-color: var(--accent); }
 .stems-ms--mute.is-on {
   background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
   border-color: var(--danger-soft);
@@ -1599,9 +1603,9 @@ body[data-workspace="stems"] #body {
   border-radius: 999px;
 }
 .stems-row--click .stems-row-kind {
-  color: #60a5fa;
-  border-color: rgba(96,165,250,0.4);
-  background: rgba(96,165,250,0.1);
+  color: var(--src-click);
+  border-color: color-mix(in srgb, var(--src-click) 40%, transparent);
+  background: color-mix(in srgb, var(--src-click) 10%, transparent);
 }
 .stems-row--guide .stems-row-kind {
   color: var(--ok);
@@ -1737,9 +1741,11 @@ body[data-workspace="stems"] #body {
   align-items: center;
   padding: 4px 0;
   cursor: grab;
+  /* Carril más oscuro/hundido → la onda resalta (antes se veía lavada). */
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
+    linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.30)),
     var(--bg);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
   transition: background 0.15s;
 }
 
@@ -1934,18 +1940,30 @@ body[data-workspace="stems"] #body {
   grid-template-rows: auto auto auto 1fr auto;
   gap: 5px;
   padding: 8px 7px 7px;
-  background: var(--bg-card);
+  /* Relieve: gradiente sutil de arriba-claro + sombra interna, para que el strip
+     tenga volumen (antes era una tarjeta plana). */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-hover) 50%, var(--bg-card)) 0%, var(--bg-card) 100%);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 3px rgba(0,0,0,0.35);
   transition: border-color 0.18s, opacity 0.15s;
+}
+/* Barra de color por pista (usa --track-color inline) → cada strip se distingue
+   de un vistazo, no todos iguales. */
+.stems-console-strip::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--track-color, var(--accent)) 72%, transparent);
 }
 .stems-console-strip:hover {
   border-color: var(--accent);
 }
 .stems-console-strip--click {
-  border-color: rgba(96,165,250,0.4);
+  border-color: color-mix(in srgb, var(--src-click) 40%, transparent);
 }
 .stems-console-strip--guide {
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
@@ -1970,7 +1988,7 @@ body[data-workspace="stems"] #body {
   letter-spacing: 1.2px;
   color: var(--text-muted);
 }
-.stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
+.stems-console-strip--click .stems-console-strip-kind { color: var(--src-click); }
 .stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
 .stems-console-strip-name {
   display: block;
@@ -2001,10 +2019,10 @@ body[data-workspace="stems"] #body {
   color: var(--text-muted);
 }
 .stems-console-pan-readout {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   font-family: ui-monospace, Consolas, monospace;
-  color: var(--text-muted);
+  color: var(--text);
   text-align: right;
 }
 
@@ -2096,15 +2114,15 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-console-strip-readout {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   letter-spacing: 0.4px;
   color: var(--text);
   font-family: ui-monospace, Consolas, monospace;
   text-align: center;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.5);
   border-radius: 3px;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 /* ── Master (lives in the console header, right side) ───────────── */
