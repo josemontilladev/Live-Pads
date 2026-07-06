@@ -212,6 +212,18 @@ input.pan-slider {
 }
 .toggle-sw.on::after { transform: translateX(20px); background: #000; }
 
+/* Card del skin (Ajustes → Temas): info a la izquierda, switch a la derecha. */
+.skin-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.skin-row-info { min-width: 0; }
+.skin-row-title { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700; color: var(--text); }
+.skin-row-desc { margin-top: 4px; font-size: 11.5px; line-height: 1.45; color: var(--text-dim, #9aa0ad); }
+.skin-row .toggle-sw { flex-shrink: 0; }
+/* La card se tiñe en el acento cuando el skin está activo (feedback claro). */
+.sb-card:has(#skin-hw-toggle.on) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 /* ── GI-SETLIST ── */
 .setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
 .s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
