@@ -16,7 +16,6 @@ const STAMP_KEY = 'livepads-settings-stamp';  // updated_at con el que estamos e
 const DIRTY_KEY = 'livepads-settings-dirty';  // hay cambios locales sin subir
 const PREF_KEYS = [
   'livepads.theme',
-  'livepads.skin',
   'livepads:mixer-state',
   'lastPadBankIdx',
   'lastKitBankIdx',

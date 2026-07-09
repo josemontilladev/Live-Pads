@@ -1827,8 +1827,34 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  max-height: 285px;   /* un poco más alta → el fader (fila 1fr) gana altura */
+  position: relative;
+  /* Alto AJUSTABLE por el usuario: arrastra el borde superior (handle) → cambia
+     --stems-console-h. El área del timeline (arrange, flex:1) absorbe el cambio,
+     así el timeline no se deforma. Default alto (faders largos); clamp con max-height. */
+  height: var(--stems-console-h, 360px);
+  max-height: 72vh;
+  min-height: 150px;
 }
+/* Handle de resize en el borde superior de la consola */
+.stems-console-resize {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 10px;
+  cursor: ns-resize;
+  z-index: 5;
+}
+.stems-console-resize::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 3px;
+  width: 42px; height: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 0.15s;
+}
+.stems-console-resize:hover::before { background: var(--accent); }
+.stems-console.is-collapsed .stems-console-resize { display: none; }
 /* Sin pistas: oculta la consola entera para que no aparezca como bloque
    negro vacío de 260px debajo de la timeline. */
 #workspace-stems:not(.has-tracks) .stems-console { display: none; }
@@ -1898,21 +1924,23 @@ body[data-workspace="stems"] #body {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-/* Consola contraída: oculta los strips; el header (con el master) se queda. */
-.stems-console.is-collapsed { max-height: none; }
+/* Consola contraída: oculta los strips; el header (con el master) se queda.
+   height:auto + min-height:0 para que ocupe SOLO el header (el min-height:150px
+   del estado normal dejaba un hueco vacío grande al contraer). */
+.stems-console.is-collapsed { max-height: none; height: auto; min-height: 0; }
 .stems-console.is-collapsed .stems-console-strips { display: none; }
 .stems-console-strips {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 12px 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  /* +10px sobre la altura útil original: cuando hay muchas pistas y aparece la
-     barra horizontal (8px), ésta se come parte de la altura y el fader (con su
-     min-height) se desbordaba quedando recortado abajo. La holgura absorbe el
-     scrollbar para que el final del volumen siempre sea alcanzable. */
-  height: 230px;
+  /* Llena la consola (menos el header): así, al ajustar el alto de la consola,
+     los faders (fila 1fr del strip) crecen/encogen. La barra horizontal (8px)
+     vive dentro; el padding inferior absorbe su altura. */
+  flex: 1 1 auto;
+  min-height: 0;
   scrollbar-width: thin;
   /* Modo estándar (Chromium/Electron reciente): al fijar scrollbar-width se
      ignoran los pseudo ::-webkit-*, así que el color va por aquí — si no, el
@@ -1931,10 +1959,10 @@ body[data-workspace="stems"] #body {
 .stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 .stems-console-strip {
-  flex: 0 0 88px;
-  width: 88px;
-  min-width: 88px;
-  max-width: 88px;
+  flex: 0 0 106px;
+  width: 106px;
+  min-width: 106px;
+  max-width: 106px;
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
@@ -2090,16 +2118,14 @@ body[data-workspace="stems"] #body {
   transform: translateX(-50%);
   width: 36px;
   height: 18px;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent), white 35%) 0%,
-    var(--accent) 55%,
-    color-mix(in srgb, var(--accent), black 35%) 100%);
+  /* Cap BLANCO grooved, igual que los faders del mezclador de Pads. */
+  background: linear-gradient(180deg, #ffffff 0%, #eef0f3 46%, #d7dae0 54%, #c2c6cd 100%);
   border: 1px solid rgba(0,0,0,0.5);
   border-radius: 4px;
   box-shadow:
     0 2px 6px rgba(0,0,0,0.5),
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -1px 0 rgba(0,0,0,0.35);
+    inset 0 1px 0 rgba(255,255,255,0.95),
+    inset 0 -1px 0 rgba(0,0,0,0.2);
   pointer-events: none;
   /* A center grip line for that real-fader look */
 }
