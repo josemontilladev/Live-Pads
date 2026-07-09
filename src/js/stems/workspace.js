@@ -364,6 +364,7 @@ export async function mount() {
   wireConsoleReorder(root);
   wireTrackSelection(root);
   wireConsoleCollapse(root);
+  wireConsoleResize(root);
   wirePiano(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
@@ -675,6 +676,7 @@ const SHELL_HTML = `
     </main>
 
     <section class="stems-console" id="stems-console">
+      <div class="stems-console-resize" id="stems-console-resize" title="Arrastra para ajustar el alto de la consola" aria-hidden="true"></div>
       <header class="stems-console-header">
         <div class="stems-console-header-left">
           <button class="stems-console-toggle" id="stems-console-toggle" type="button" title="Contraer / expandir consola" aria-label="Contraer consola">
@@ -3154,6 +3156,44 @@ function wireConsoleCollapse(root) {
     const section = document.getElementById('stems-console');
     setConsoleCollapsed(!section?.classList.contains('is-collapsed'));
   });
+}
+
+// Alto de la consola AJUSTABLE arrastrando su borde superior. El timeline
+// (arrange, flex:1) absorbe el cambio → no se deforma. Se recuerda en localStorage.
+const CONSOLE_H_KEY = 'stems-console-h';
+function wireConsoleResize(root) {
+  const section = root.querySelector('#stems-console');
+  const handle  = root.querySelector('#stems-console-resize');
+  if (!section || !handle) return;
+  // Restaurar alto guardado.
+  try { const h = parseInt(localStorage.getItem(CONSOLE_H_KEY), 10); if (h) section.style.setProperty('--stems-console-h', h + 'px'); } catch {}
+  const clamp = (h) => Math.max(150, Math.min(Math.round(window.innerHeight * 0.72), h));
+  let dragging = false, startY = 0, startH = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startY = e.clientY;
+    startH = section.getBoundingClientRect().height;
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    document.body.style.cursor = 'ns-resize';
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const h = clamp(startH + (startY - e.clientY)); // arrastrar hacia ARRIBA = más alto
+    section.style.setProperty('--stems-console-h', h + 'px');
+    repaintAllFaders();
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+    try { localStorage.setItem(CONSOLE_H_KEY, String(Math.round(section.getBoundingClientRect().height))); } catch {}
+    refreshTimelineWidth();
+    requestAnimationFrame(repaintAllFaders);
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
 }
 
 // ── Piano virtual ─────────────────────────────────────────────────
