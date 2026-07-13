@@ -6,6 +6,8 @@ import {
   listSavedSetlists, saveCurrentAsSetlist, loadSavedSetlist, deleteSavedSetlist,
   getServiceSongs,
 } from '../data/service.js';
+import { isLoggedIn } from '../cloud/supabase.js';
+import { upsertSharedSetlist, deleteSharedSetlistByName } from '../cloud/setlistSync.js';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 function todayISO() {
@@ -86,6 +88,16 @@ export function openSetlistsModal() {
       const date = overlay.querySelector('.sl-date')?.value || '';
       const entry = saveCurrentAsSetlist(title, date);
       if (entry) window.showToast?.(`✓ Setlist "${entry.name}" guardado.`, 'success');
+      // Además, compartirlo a la nube → aparece en las vistas web de Cantantes
+      // y Producción (misma tabla `setlists`), con su fecha para el badge HOY.
+      if (entry && isLoggedIn()) {
+        upsertSharedSetlist(title, date)
+          .then((r) => {
+            const extra = r.skipped ? ` (${r.skipped} sin subir aún — sube tu librería)` : '';
+            window.showToast?.(`☁ "${title}" disponible para Cantantes y Producción${extra}.`, 'success');
+          })
+          .catch((err) => window.showToast?.(err.message || 'No se pudo compartir el setlist.', 'info'));
+      }
       render();
       return;
     }
@@ -98,7 +110,13 @@ export function openSetlistsModal() {
         close();
       }
     } else if (act === 'del') {
+      const entry = listSavedSetlists().find(s => s.id === id);
       deleteSavedSetlist(id);
+      // Quitarlo también de la nube (por nombre) para no dejarlo huérfano en
+      // las vistas web del equipo.
+      if (entry?.name && isLoggedIn()) {
+        deleteSharedSetlistByName(entry.name).catch(() => {});
+      }
       render();
     }
   });
