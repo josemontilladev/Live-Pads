@@ -892,7 +892,12 @@ function bindRestOfApp() {
         if (r && r.created > 0) {
           showToast(`${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
         }
-      } catch (_) { /* sin sesión/red: se reintenta en el próximo cambio */ }
+      } catch (e) {
+        // Sin sesión/red se reintenta en el próximo cambio — pero DEJAR RASTRO:
+        // un fallo persistente aquí estuvo meses mudo (lotes con claves mixtas
+        // rechazados por PostgREST) y las letras nunca llegaban a GI.Setlist.
+        try { console.warn('[LivePads] auto-push a la nube falló:', e && e.message); } catch (_) {}
+      }
     }, 2000);
   }
   // Señal genérica "cambió data de canciones, sincronizá" — NO re-renderiza la
