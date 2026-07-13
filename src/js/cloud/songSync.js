@@ -63,7 +63,6 @@ function toRow(song, libraryId) {
     updated_by: me ? me.id : null,
     title:  (song.title || 'Sin título').slice(0, 300),
     artist: song.artist || null,
-    lyrics: song.lyrics || null,
     bpm:    song.bpm != null ? String(song.bpm) : null,
     key:    song.key || null,
     genre:  song.genre || null,
@@ -81,6 +80,11 @@ function toRow(song, libraryId) {
   // un youtube_url ya puesto en la web GI.Setlist. La web usa este campo para
   // mostrar la carátula.
   if (song.youtubeUrl && String(song.youtubeUrl).trim()) row.youtube_url = String(song.youtubeUrl).trim();
+  // La LETRA recibe la misma protección: solo viaja cuando la hay. Evita que un
+  // equipo cuya copia local aún no tiene la letra (p. ej. escrita en la web
+  // GI.Setlist y todavía sin bajar) la pise con NULL. Contra: vaciar la letra a
+  // propósito no se propaga (igual que con youtube_url) — caso raro y aceptado.
+  if (song.lyrics && String(song.lyrics).trim()) row.lyrics = song.lyrics;
   return row;
 }
 
@@ -115,6 +119,24 @@ function fromRowSynced(row) {
   const s = fromRow(row);
   s.syncHash = hashOf(s);
   return s;
+}
+
+// ── Lotes con claves uniformes ─────────────────────────────────────────────
+// PostgREST EXIGE que todas las filas de un insert/upsert masivo tengan las
+// MISMAS claves ("All object keys must match"); si no, rechaza TODO el lote con
+// 400. Como toRow omite youtube_url cuando está vacío, una librería mixta (unas
+// canciones con video y otras sin) hacía fallar el update masivo EN SILENCIO:
+// las canciones nuevas llegaban a la nube (lote de 1), pero las LETRAS —que se
+// añaden después de crear y solo viajan en ese update— no llegaban nunca a
+// GI.Setlist. Partimos los pares {canción, fila} en grupos de claves idénticas.
+function batchPairsByRowKeys(pairs) {
+  const groups = new Map();
+  for (const p of pairs) {
+    const k = Object.keys(p.row).sort().join(',');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(p);
+  }
+  return [...groups.values()];
 }
 
 function notifyUpdated() {
@@ -194,38 +216,46 @@ async function pushSongsToLibraryCore(songs, libId) {
   const addedTitles = toCreate.map(s => s.title || 'Sin título');
   const editedTitles = toUpdate.filter(isDirty).map(s => s.title || 'Sin título');
 
-  // Nuevas: inserción en bloque, devuelve filas en orden para sellar el id.
+  // Nuevas: inserción en bloque, por LOTES de claves uniformes; cada lote
+  // devuelve filas en orden para sellar el id.
   if (toCreate.length) {
-    const rows = await rest('/songs', {
-      method: 'POST',
-      body: toCreate.map(s => toRow(s, libId)),
-      prefer: 'return=representation',
-    });
-    if (Array.isArray(rows)) {
-      rows.forEach((row, i) => {
-        if (toCreate[i]) { toCreate[i].cloudId = row.id; toCreate[i].libraryId = row.library_id || libId; toCreate[i].cloudUpdatedAt = row.updated_at; toCreate[i].syncHash = hashOf(toCreate[i]); }
+    const pairs = toCreate.map(s => ({ s, row: toRow(s, libId) }));
+    for (const batch of batchPairsByRowKeys(pairs)) {
+      const rows = await rest('/songs', {
+        method: 'POST',
+        body: batch.map(p => p.row),
+        prefer: 'return=representation',
       });
-      created = rows.length;
+      if (Array.isArray(rows)) {
+        rows.forEach((row, i) => {
+          const s = batch[i] && batch[i].s;
+          if (s) { s.cloudId = row.id; s.libraryId = row.library_id || libId; s.cloudUpdatedAt = row.updated_at; s.syncHash = hashOf(s); }
+        });
+        created += rows.length;
+      }
     }
   }
 
-  // Existentes: upsert por id (merge-duplicates). Pedimos la representación para
-  // SELLAR la marca de tiempo del servidor (updated_at) en la copia local. Sin
-  // esto, la marca local quedaría vieja y una bajada de fondo posterior podría
-  // considerar "más nueva" a la nube y pisar una edición local recién hecha.
+  // Existentes: upsert por id (merge-duplicates), también por LOTES de claves
+  // uniformes. Pedimos la representación para SELLAR la marca de tiempo del
+  // servidor (updated_at) en la copia local. Sin esto, la marca local quedaría
+  // vieja y una bajada de fondo posterior podría considerar "más nueva" a la
+  // nube y pisar una edición local recién hecha.
   if (toUpdate.length) {
-    const body = toUpdate.map(s => Object.assign({ id: s.cloudId }, toRow(s, libId)));
-    const rows = await rest('/songs?on_conflict=id', {
-      method: 'POST',
-      body,
-      prefer: 'resolution=merge-duplicates,return=representation',
-    });
-    if (Array.isArray(rows)) {
-      const byId = new Map(rows.map(r => [r.id, r]));
-      toUpdate.forEach(s => { const r = byId.get(s.cloudId); if (r && r.updated_at) s.cloudUpdatedAt = r.updated_at; });
+    const pairs = toUpdate.map(s => ({ s, row: Object.assign({ id: s.cloudId }, toRow(s, libId)) }));
+    for (const batch of batchPairsByRowKeys(pairs)) {
+      const rows = await rest('/songs?on_conflict=id', {
+        method: 'POST',
+        body: batch.map(p => p.row),
+        prefer: 'resolution=merge-duplicates,return=representation',
+      });
+      if (Array.isArray(rows)) {
+        const byId = new Map(rows.map(r => [r.id, r]));
+        batch.forEach(p => { const r = byId.get(p.s.cloudId); if (r && r.updated_at) p.s.cloudUpdatedAt = r.updated_at; });
+      }
+      batch.forEach(p => { p.s.syncHash = hashOf(p.s); }); // sella: local == nube
+      updated += batch.length;
     }
-    toUpdate.forEach(s => { s.syncHash = hashOf(s); }); // sella: local == nube
-    updated = toUpdate.length;
   }
 
   // Registrar actividad de cambios REALES (best-effort, sin bloquear el push).
@@ -282,8 +312,14 @@ export async function pullLibrarySongs(opts = {}) {
   let added = 0, refreshed = 0, linked = 0;
   const applyOnto = (target, incoming) => {
     const localAudio = target.audio;
+    const localLyrics = target.lyrics;
     Object.assign(target, incoming, { id: target.id });
     if (localAudio && (localAudio.sequence || localAudio.original)) target.audio = localAudio;
+    // Espejo de la protección del push: una fila de la nube SIN letra no borra
+    // una letra local. (Meses de updates fallidos dejaron filas sin letra en la
+    // nube; sin esta guarda, una bajada "más nueva" —p. ej. tras el PATCH del
+    // video— vaciaría la letra local antes de que el push la subiera.)
+    if ((!incoming.lyrics || !String(incoming.lyrics).trim()) && localLyrics) target.lyrics = localLyrics;
     target.syncHash = hashOf(target); // local == nube
   };
   for (const row of rows) {
