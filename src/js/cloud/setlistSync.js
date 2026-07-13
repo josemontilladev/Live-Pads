@@ -18,6 +18,17 @@ function requireContext() {
 
 // Guarda el servicio actual como un setlist compartido en la librería activa.
 export async function saveServiceAsSetlist(name) {
+  const { id, saved, skipped } = await upsertSharedSetlist(name);
+  return { id, saved, skipped };
+}
+
+// Sube (o actualiza) el servicio actual como setlist compartido de la librería
+// activa, con su FECHA en meta.date. Dedupe por NOMBRE dentro de la librería:
+// re-guardar "Servicio Domingo" actualiza el mismo setlist en vez de duplicar.
+// Con esto los setlists creados en LivePads aparecen en las vistas web de
+// Cantantes y Producción (que leen la misma tabla `setlists`), y el badge HOY
+// funciona gracias a meta.date. Solo se comparten canciones ya en la nube.
+export async function upsertSharedSetlist(name, date) {
   const libId = requireContext();
   const songs = getServiceSongs();
   const song_ids = songs.map(s => s.cloudId).filter(Boolean);
@@ -25,12 +36,41 @@ export async function saveServiceAsSetlist(name) {
   if (!song_ids.length) {
     throw new Error('Las canciones del servicio aún no están en la nube. Sube tu librería primero (⬆ Subir mis canciones).');
   }
-  await rest('/setlists', {
-    method: 'POST',
-    body: { library_id: libId, name: (name || 'Servicio').slice(0, 120), song_ids, meta: {} },
-    prefer: 'return=minimal',
-  });
-  return { saved: song_ids.length, skipped };
+  const cleanName = (name || 'Servicio').slice(0, 120).trim() || 'Servicio';
+  const meta = { date: (typeof date === 'string' && date) ? date : null };
+
+  const existing = await rest(
+    `/setlists?library_id=eq.${libId}&name=eq.${encodeURIComponent(cleanName)}&select=id`
+  );
+  let id;
+  if (Array.isArray(existing) && existing.length) {
+    id = existing[0].id;
+    await rest(`/setlists?id=eq.${id}`, {
+      method: 'PATCH',
+      body: { song_ids, meta },
+      prefer: 'return=minimal',
+    });
+  } else {
+    const created = await rest('/setlists', {
+      method: 'POST',
+      body: { library_id: libId, name: cleanName, song_ids, meta },
+      prefer: 'return=representation',
+    });
+    id = Array.isArray(created) ? created[0]?.id : created?.id;
+  }
+  return { id, saved: song_ids.length, skipped };
+}
+
+// Borra de la nube el setlist compartido con ese nombre (dedupe por nombre).
+export async function deleteSharedSetlistByName(name) {
+  const libId = requireContext();
+  const cleanName = (name || '').slice(0, 120).trim();
+  if (!cleanName) return false;
+  await rest(
+    `/setlists?library_id=eq.${libId}&name=eq.${encodeURIComponent(cleanName)}`,
+    { method: 'DELETE', prefer: 'return=minimal' }
+  );
+  return true;
 }
 
 // Lista los setlists compartidos de la librería activa.
