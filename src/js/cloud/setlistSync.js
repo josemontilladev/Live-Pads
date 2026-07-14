@@ -6,7 +6,9 @@
 
 import { rest, isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
-import { getServiceSongs, replaceService, upsertSavedSetlistFromCloud } from '../data/service.js';
+import {
+  getServiceSongs, replaceService, upsertSavedSetlistFromCloud, listSavedSetlists,
+} from '../data/service.js';
 import { getSongs } from '../state/store.js';
 
 function requireContext() {
@@ -28,9 +30,11 @@ export async function saveServiceAsSetlist(name) {
 // Con esto los setlists creados en LivePads aparecen en las vistas web de
 // Cantantes y Producción (que leen la misma tabla `setlists`), y el badge HOY
 // funciona gracias a meta.date. Solo se comparten canciones ya en la nube.
-export async function upsertSharedSetlist(name, date) {
+export async function upsertSharedSetlist(name, date, songsArg) {
   const libId = requireContext();
-  const songs = getServiceSongs();
+  // Por defecto, el servicio que está montado ahora; o una lista concreta (para
+  // subir de golpe los setlists ya guardados).
+  const songs = Array.isArray(songsArg) ? songsArg : getServiceSongs();
   const song_ids = songs.map(s => s.cloudId).filter(Boolean);
   const skipped = songs.length - song_ids.length;
   if (!song_ids.length) {
@@ -102,6 +106,24 @@ export async function deleteSharedSetlist(id) {
   requireContext();
   await rest(`/setlists?id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
   return true;
+}
+
+// Sube TODOS los setlists guardados localmente a la nube (dedupe por nombre).
+// Los que aún no tienen ninguna canción en la nube se saltan (no se puede
+// referenciar lo que no existe allí).
+export async function pushSavedSetlists() {
+  requireContext();
+  const all = listSavedSetlists();
+  let pushed = 0, skipped = 0;
+  for (const s of all) {
+    try {
+      await upsertSharedSetlist(s.name, s.date, s.songs || []);
+      pushed++;
+    } catch (_) {
+      skipped++;
+    }
+  }
+  return { pushed, skipped };
 }
 
 // Materializa TODOS los setlists de la nube en los guardados locales. Es lo que
