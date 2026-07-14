@@ -744,6 +744,9 @@ async function onClick(e) {
                 const { pushLibrarySongs } = await import('./songSync.js');
                 const r = await pushLibrarySongs();
                 partes.push(`${r.created + r.updated} canción(es)`);
+                if (r.dupes) {
+                  partes.push(`${r.dupes} duplicada(s) omitida(s)`);
+                }
               }
               if (doSetlists) {
                 btn.textContent = '⟳ Subiendo servicios…';

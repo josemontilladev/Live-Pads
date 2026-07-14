@@ -143,6 +143,21 @@ function batchPairsByRowKeys(pairs) {
   return [...groups.values()];
 }
 
+// Un mismo cloudId NO puede aparecer dos veces en el mismo upsert: Postgres
+// aborta la sentencia entera con "ON CONFLICT DO UPDATE command cannot affect
+// row a second time". Pasa cuando dos canciones locales duplicadas acabaron
+// apuntando al mismo registro de la nube. Nos quedamos con una por registro
+// (preferimos la que tenga cambios sin subir) para que el push no reviente.
+function dedupePairsByCloudId(pairs) {
+  const byId = new Map();
+  for (const p of pairs) {
+    const prev = byId.get(p.s.cloudId);
+    if (!prev) { byId.set(p.s.cloudId, p); continue; }
+    if (!isDirty(prev.s) && isDirty(p.s)) byId.set(p.s.cloudId, p);
+  }
+  return [...byId.values()];
+}
+
 function notifyUpdated() {
   try { window.dispatchEvent(new CustomEvent('livepads:library-synced')); } catch (_) {}
 }
@@ -194,7 +209,7 @@ async function pushSongsToLibrary(songs, libId) {
 }
 
 async function pushSongsToLibraryCore(songs, libId) {
-  let created = 0, updated = 0, linked = 0;
+  let created = 0, updated = 0, linked = 0, dupes = 0;
 
   // Dedup: antes de crear, vincula las locales sin cloudId que YA existen en la
   // nube (mismo título+artista+tono) para no subir copias. Hace el push
@@ -206,9 +221,18 @@ async function pushSongsToLibraryCore(songs, libId) {
     (Array.isArray(existRows) ? existRows : []).forEach(r => {
       const k = nkey(r); if (!cloudByKey.has(k)) cloudByKey.set(k, r.id);
     });
+    // Un registro de la nube solo puede vincularse a UNA canción local: si hay
+    // duplicados locales (mismo título+artista+tono), enlazar los dos al mismo
+    // id hacía que el upsert intentara tocar la misma fila dos veces y Postgres
+    // abortaba TODO el push con "ON CONFLICT DO UPDATE command cannot affect
+    // row a second time".
+    const usedCloudIds = new Set(songs.map(s => s.cloudId).filter(Boolean));
     withoutCloud.forEach(s => {
       const id = cloudByKey.get(nkey(s));
-      if (id) { s.cloudId = id; s.libraryId = libId; linked++; }
+      if (id && !usedCloudIds.has(id)) {
+        s.cloudId = id; s.libraryId = libId; linked++;
+        usedCloudIds.add(id);
+      }
     });
   }
 
@@ -246,7 +270,12 @@ async function pushSongsToLibraryCore(songs, libId) {
   // vieja y una bajada de fondo posterior podría considerar "más nueva" a la
   // nube y pisar una edición local recién hecha.
   if (toUpdate.length) {
-    const pairs = toUpdate.map(s => ({ s, row: Object.assign({ id: s.cloudId }, toRow(s, libId)) }));
+    const allPairs = toUpdate.map(s => ({ s, row: Object.assign({ id: s.cloudId }, toRow(s, libId)) }));
+    const pairs = dedupePairsByCloudId(allPairs);
+    dupes = allPairs.length - pairs.length;
+    if (dupes) {
+      console.warn(`[songSync] ${dupes} canción(es) locales comparten registro en la nube (duplicados). Se sube una por registro.`);
+    }
     for (const batch of batchPairsByRowKeys(pairs)) {
       const rows = await rest('/songs?on_conflict=id', {
         method: 'POST',
@@ -270,7 +299,7 @@ async function pushSongsToLibraryCore(songs, libId) {
   }
 
   if (created || linked) { setSongs(getSongs().slice()); notifyUpdated(); } // persiste cloudId sellado
-  return { created, updated, linked };
+  return { created, updated, linked, dupes };
 }
 
 // ── Bajar (pull) ──────────────────────────────────────────────────────────
