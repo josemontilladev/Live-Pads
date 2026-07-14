@@ -970,6 +970,9 @@ function bindRestOfApp() {
   // Arranca el motor de bajada automática (arranque/focus/intervalo). Se
   // auto-protege: sin sesión / librería / red no hace nada.
   import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
+  // Buzón de invitaciones: si alguien te invitó por email, te aparece dentro de
+  // la app (sin códigos que pegar). Mismas guardas: sin sesión/red, no hace nada.
+  import('./cloud/inviteInbox.js').then(m => m.startInviteInbox()).catch(() => {});
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,
