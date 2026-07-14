@@ -279,6 +279,41 @@
 .acc-danger > h4 { color: #fca5a5 !important; }
 .acc-empty { font-size: 13px; color: var(--text-dim, #9aa0ad); padding: 6px 0; }
 .acc-hint { font-size: 12px; color: var(--text-dim, #9aa0ad); margin-top: 6px; line-height: 1.4; }
+
+/* Estado de sincronización: una frase que responde "¿está este equipo al día?" */
+.acc-sync-status {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-dim, #9aa0ad);
+}
+.acc-sync-status.ok {
+  color: #86efac;
+  background: rgba(134, 239, 172, 0.08);
+  border-color: rgba(134, 239, 172, 0.2);
+}
+.acc-sync-status.warn {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+/* Lo granular, plegado: solo estorba hasta que algo falla. */
+.acc-adv { margin-top: 10px; }
+.acc-adv > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-dim, #9aa0ad);
+  padding: 4px 0;
+  user-select: none;
+}
+.acc-adv > summary:hover { color: #fff; }
+.acc-adv > .acc-row { margin-top: 8px; }
 .acc-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
 
 /* Historial de actividad del equipo */
