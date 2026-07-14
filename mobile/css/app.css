@@ -51,7 +51,13 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
   position: sticky; top: 0; z-index: 5; background: rgba(10, 10, 10, 0.96);
   border-bottom: 1px solid var(--border);
 }
-.lib-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.lib-title {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  background: none; border: none; color: var(--text); padding: 0; text-align: left;
+}
+.lib-title:active { opacity: 0.7; }
+.lib-title-txt { min-width: 0; }
+.caret { color: var(--accent); font-size: 12px; }
 .lib-logo { width: 38px; height: 38px; border-radius: 10px; }
 .lib-title h2 { margin: 0; font-size: 17px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-sub { margin: 0; color: var(--muted); font-size: 11px; }
@@ -184,6 +190,29 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
 }
 .pad-btn.on.song-key::after { color: #111; }
 .pad-btn.loading { opacity: 0.55; }
+
+/* ── Hoja de selección (repertorio) ─────────────────────────────────────── */
+.sheet {
+  position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.7);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.sheet-card {
+  width: 100%; max-width: 480px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.sheet-card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 900; text-align: center; }
+.sheet-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.sheet-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 15px 16px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  background: var(--card); border: 1px solid var(--border); color: var(--text); text-align: left;
+}
+.sheet-item.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.btn-ghost {
+  width: 100%; height: 48px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  background: transparent; border: 1px solid var(--border); color: var(--muted);
+}
 
 /* ── Toast ──────────────────────────────────────────────────────────────── */
 .toast {

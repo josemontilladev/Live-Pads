@@ -31,18 +31,27 @@
   <!-- ── BIBLIOTECA ───────────────────────────────────────────────────── -->
   <section id="screen-library" class="screen hidden">
     <header class="lib-head">
-      <div class="lib-title">
+      <button class="lib-title" id="lib-picker" aria-label="Cambiar de repertorio">
         <img src="assets/logo.png" alt="" class="lib-logo">
-        <div>
-          <h2 id="lib-name">Repertorio</h2>
+        <span class="lib-title-txt">
+          <h2 id="lib-name">Repertorio <span class="caret">▾</span></h2>
           <p id="lib-count" class="lib-sub"></p>
-        </div>
-      </div>
+        </span>
+      </button>
       <div class="lib-actions">
         <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">⟳</button>
         <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
       </div>
     </header>
+
+    <!-- Hoja para elegir repertorio (el usuario suele tener varias librerías) -->
+    <div id="lib-sheet" class="sheet hidden">
+      <div class="sheet-card">
+        <h3>Elige tu repertorio</h3>
+        <div id="lib-sheet-list" class="sheet-list"></div>
+        <button id="lib-sheet-close" class="btn-ghost">Cancelar</button>
+      </div>
+    </div>
     <div class="lib-tools">
       <input type="search" id="search" placeholder="Buscar canción o artista…">
       <div id="setlist-chips" class="chips"></div>
