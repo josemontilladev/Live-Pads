@@ -39,6 +39,7 @@ const fmt = (s) => {
 
 // ── Estado ──────────────────────────────────────────────────────────────
 let libraryId = null;
+let libraries = [];
 let songs = [];
 let setlists = [];
 let activeSetlistId = null;
@@ -94,20 +95,61 @@ async function enterLibrary() {
     if (c) { songs = c; renderSongs(); }
   }
   try {
-    const libs = await listLibraries();
-    if (!Array.isArray(libs) || !libs.length) {
+    libraries = await listLibraries();
+    if (!Array.isArray(libraries) || !libraries.length) {
       $('song-list').innerHTML = '<p class="empty">Tu cuenta no tiene librerías todavía. Crea una desde LivePads en tu PC.</p>';
       return;
     }
-    const chosen = libs.find(l => l.id === libraryId) || libs[0];
-    libraryId = chosen.id;
-    setActiveLibraryId(libraryId);
-    $('lib-name').textContent = chosen.name || 'Repertorio';
-    await refreshData();
+    // Respeta la elegida antes; si es la primera vez, elige la que TENGA
+    // canciones (una cuenta suele tener "Mi librería" vacía + el repertorio real).
+    let chosen = libraries.find(l => l.id === libraryId);
+    if (!chosen) chosen = await pickDefaultLibrary(libraries);
+    await useLibrary(chosen);
   } catch (err) {
     if (!songs.length) $('song-list').innerHTML = `<p class="empty">Sin conexión y sin datos guardados aún.<br>Conéctate una vez para descargar el repertorio.</p>`;
   }
 }
+
+// La librería con más canciones (la que el usuario de verdad usa).
+async function pickDefaultLibrary(libs) {
+  if (libs.length === 1) return libs[0];
+  const counts = await Promise.all(
+    libs.map(l => fetchSongs(l.id).then(s => s.length).catch(() => 0))
+  );
+  let best = 0;
+  counts.forEach((n, i) => { if (n > counts[best]) best = i; });
+  return libs[best];
+}
+
+async function useLibrary(lib) {
+  libraryId = lib.id;
+  setActiveLibraryId(libraryId);
+  $('lib-name').innerHTML = `${esc(lib.name || 'Repertorio')} <span class="caret">▾</span>`;
+  activeSetlistId = null;
+  renderChips._auto = false; // permite auto-seleccionar el setlist de HOY
+  await refreshData();
+}
+
+// ── Selector de repertorio ──────────────────────────────────────────────
+$('lib-picker').addEventListener('click', () => {
+  const box = $('lib-sheet-list');
+  box.innerHTML = libraries.map(l =>
+    `<button class="sheet-item ${l.id === libraryId ? 'active' : ''}" data-id="${l.id}">
+       <span>${esc(l.name)}</span>${l.id === libraryId ? '<span>✓</span>' : ''}
+     </button>`).join('');
+  box.querySelectorAll('.sheet-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      $('lib-sheet').classList.add('hidden');
+      const lib = libraries.find(l => l.id === el.dataset.id);
+      if (lib && lib.id !== libraryId) { songs = []; renderSongs(); await useLibrary(lib); }
+    });
+  });
+  $('lib-sheet').classList.remove('hidden');
+});
+$('lib-sheet-close').addEventListener('click', () => $('lib-sheet').classList.add('hidden'));
+$('lib-sheet').addEventListener('click', (e) => {
+  if (e.target === $('lib-sheet')) $('lib-sheet').classList.add('hidden');
+});
 
 async function refreshData() {
   const [s, sl] = await Promise.all([
