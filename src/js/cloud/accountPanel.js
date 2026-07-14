@@ -199,6 +199,16 @@ async function render() {
       </div>
 
       <div class="acc-section">
+        <h4>Archivos (audio y carátulas)</h4>
+        <div id="acc-files-status" class="acc-hint">Comprobando…</div>
+        <div class="acc-row">
+          <button class="acc-btn ghost acc-btn-flex" data-act="pull-files">⬇ Descargar archivos</button>
+          <button class="acc-btn acc-btn-flex" data-act="push-files">⬆ Subir archivos</button>
+        </div>
+        <div class="acc-hint">Las canciones sincronizan sus datos siempre; esto sube y baja los <b>audios y carátulas</b>. Súbelos una vez y en cualquier otro equipo bastará con iniciar sesión y darle a Descargar.</div>
+      </div>
+
+      <div class="acc-section">
         <h4>Servicios compartidos</h4>
         <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
         <div class="acc-row">
@@ -242,6 +252,7 @@ async function refreshLibs() {
   }
   await renderManage();
   await renderSetlists();
+  refreshFilesStatus(); // sin await: no bloquea el panel
   // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
   try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
 }
@@ -261,6 +272,26 @@ async function renderSetlists() {
       <button class="acc-btn ghost sm" data-act="load-setlist" data-id="${s.id}">Cargar</button>
       <button class="acc-btn danger sm" data-act="del-setlist" data-id="${s.id}">Borrar</button>
     </div>`).join('');
+}
+
+// Estado de la biblioteca de ARCHIVOS (audio + carátulas) en la nube.
+// Dice de un vistazo si esta PC está completa y si falta subir algo.
+async function refreshFilesStatus() {
+  const box = overlay?.querySelector('#acc-files-status');
+  if (!box) return;
+  if (!state.activeId) { box.textContent = 'Elige una librería.'; return; }
+  try {
+    const { estadoBiblioteca } = await import('./fileSync.js');
+    const s = await estadoBiblioteca();
+    const mb = (s.cloudBytes / (1024 * 1024)).toFixed(0);
+    const parts = [`${s.inCloud} archivo(s) en la nube (${mb} MB)`];
+    if (s.pendingUpload) parts.push(`<b>${s.pendingUpload} sin subir</b>`);
+    if (s.pendingDownload) parts.push(`<b>${s.pendingDownload} por descargar aquí</b>`);
+    if (!s.pendingUpload && !s.pendingDownload && s.inCloud) parts.push('este equipo está al día ✓');
+    box.innerHTML = parts.join(' · ');
+  } catch (e) {
+    box.textContent = 'No se pudo comprobar el estado de los archivos.';
+  }
 }
 
 // Gestión de la librería activa (miembros + invitaciones) — solo si eres dueño.
@@ -619,7 +650,44 @@ async function onClick(e) {
             btn.textContent = '⟳ Bajando canciones…';
             const { pullLibrarySongs } = await import('./songSync.js');
             const r = await pullLibrarySongs();
-            msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}.`, 'ok');
+            // Con las canciones ya en local (y su cloudId), materializa los
+            // setlists del equipo: en una PC nueva aparecen los del domingo.
+            let sl = { added: 0, updated: 0 };
+            try {
+              const { pullSharedSetlists } = await import('./setlistSync.js');
+              sl = await pullSharedSetlists();
+            } catch (_) { /* sin setlists o sin permisos: no es crítico */ }
+            const slTxt = (sl.added || sl.updated) ? ` · ${sl.added + sl.updated} setlist(s)` : '';
+            msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}${slTxt}.`, 'ok');
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'push-files': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            const { subirBiblioteca } = await import('./fileSync.js');
+            const r = await subirBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Subiendo ${done}/${total}…` : '⟳ Subiendo…';
+            });
+            if (!r.total) msg('Todos los archivos ya estaban en la nube.', 'ok');
+            else msg(`Subidos ${r.uploaded} archivo(s)${r.failed ? `, ${r.failed} fallaron` : ''}.`, r.failed ? '' : 'ok');
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'pull-files': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            const { bajarBiblioteca } = await import('./fileSync.js');
+            const r = await bajarBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Bajando ${done}/${total}…` : '⟳ Bajando…';
+            });
+            if (!r.total) msg('Ya tienes todos los archivos de la nube.', 'ok');
+            else msg(`Descargados ${r.downloaded} archivo(s)${r.failed ? `, ${r.failed} fallaron` : ''}.`, r.failed ? '' : 'ok');
+            refreshFilesStatus();
+            // Re-render de las tarjetas: ya hay audio/carátula donde no había.
+            window.dispatchEvent(new CustomEvent('songs-changed'));
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }

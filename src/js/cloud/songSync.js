@@ -73,6 +73,9 @@ function toRow(song, libraryId) {
       showChords: !!song.showChords,
       audio:      song.audio || null,
       timeSig:    song.timeSig || null,
+      // La CARÁTULA viaja como ruta ("livepads://app/Covers/x.jpg"). Los bytes
+      // van a R2 (fileSync.js): sin esta ruta, otra PC no sabría qué bajar.
+      cover:      song.cover || null,
     },
   };
   // Solo se incluye el enlace de YouTube cuando LO HAY: el upsert es
@@ -107,6 +110,7 @@ function fromRow(row) {
     showChords: !!m.showChords,
     audio:      m.audio || { sequence: null, original: null },
     timeSig:    m.timeSig || '4/4',
+    cover:      m.cover || null,
     cloudUpdatedAt: row.updated_at || null,
     updatedBy:      row.updated_by || null,
     // Nombre legible del último editor (perfil embebido por PostgREST). Solo se
@@ -313,8 +317,12 @@ export async function pullLibrarySongs(opts = {}) {
   const applyOnto = (target, incoming) => {
     const localAudio = target.audio;
     const localLyrics = target.lyrics;
+    const localCover = target.cover;
     Object.assign(target, incoming, { id: target.id });
     if (localAudio && (localAudio.sequence || localAudio.original)) target.audio = localAudio;
+    // Igual que el audio: una fila sin carátula no borra la carátula local (las
+    // filas antiguas de la nube no traen `meta.cover`).
+    if (!incoming.cover && localCover) target.cover = localCover;
     // Espejo de la protección del push: una fila de la nube SIN letra no borra
     // una letra local. (Meses de updates fallidos dejaron filas sin letra en la
     // nube; sin esta guarda, una bajada "más nueva" —p. ej. tras el PATCH del
