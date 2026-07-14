@@ -190,31 +190,34 @@ async function render() {
       </div>
 
       <div class="acc-section">
-        <h4>Canciones de esta librería</h4>
+        <h4>Sincronización</h4>
+        <div class="acc-sync-status" id="acc-sync-status">Comprobando…</div>
         <div class="acc-row">
-          <button class="acc-btn ghost acc-btn-flex" data-act="pull-songs">⬇ Bajar canciones</button>
-          <button class="acc-btn acc-btn-flex" data-act="push-songs">⬆ Subir mis canciones</button>
+          <button class="acc-btn ghost acc-btn-flex" data-act="sync-down" title="Trae de la nube las canciones, los servicios y los audios que falten aquí">⬇ Traer todo aquí</button>
+          <button class="acc-btn acc-btn-flex" data-act="sync-up" title="Sube a la nube tus canciones y sus audios">⬆ Subir todo</button>
         </div>
-        <div class="acc-hint">Subir copia tus canciones locales a la nube (las comparte con tu equipo). Bajar trae las de la librería a este equipo.</div>
+        <div class="acc-hint">Todo el repertorio (canciones, letras, audios, carátulas y servicios) viaja junto. <b>Subir todo</b> guarda lo de este equipo en la nube; <b>Traer todo aquí</b> deja este equipo con el repertorio completo.</div>
+        <details class="acc-adv">
+          <summary>Opciones avanzadas</summary>
+          <div class="acc-row">
+            <button class="acc-btn ghost sm acc-btn-flex" data-act="pull-songs">⬇ Solo canciones</button>
+            <button class="acc-btn ghost sm acc-btn-flex" data-act="push-songs">⬆ Solo canciones</button>
+          </div>
+          <div class="acc-row">
+            <button class="acc-btn ghost sm acc-btn-flex" data-act="pull-files">⬇ Solo audios</button>
+            <button class="acc-btn ghost sm acc-btn-flex" data-act="push-files">⬆ Solo audios</button>
+          </div>
+          <div class="acc-hint">Útil solo si algo falló y quieres reintentar una parte.</div>
+        </details>
       </div>
 
       <div class="acc-section">
-        <h4>Archivos (audio y carátulas)</h4>
-        <div id="acc-files-status" class="acc-hint">Comprobando…</div>
-        <div class="acc-row">
-          <button class="acc-btn ghost acc-btn-flex" data-act="pull-files">⬇ Descargar archivos</button>
-          <button class="acc-btn acc-btn-flex" data-act="push-files">⬆ Subir archivos</button>
-        </div>
-        <div class="acc-hint">Las canciones sincronizan sus datos siempre; esto sube y baja los <b>audios y carátulas</b>. Súbelos una vez y en cualquier otro equipo bastará con iniciar sesión y darle a Descargar.</div>
-      </div>
-
-      <div class="acc-section">
-        <h4>Servicios compartidos</h4>
+        <h4>Servicios del domingo</h4>
         <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
         <div class="acc-row">
-          <button class="acc-btn acc-btn-flex" data-act="save-setlist">☁ Guardar servicio actual</button>
+          <button class="acc-btn acc-btn-flex" data-act="save-setlist">☁ Guardar el servicio actual</button>
         </div>
-        <div class="acc-hint">Guarda el orden del servicio actual para que tu equipo lo cargue. Solo incluye canciones que estén en la nube.</div>
+        <div class="acc-hint">Guarda la lista que tienes montada abajo para que tu equipo la cargue (y aparezca en las webs de Cantantes y Producción).</div>
       </div>
     </div>
 
@@ -274,23 +277,34 @@ async function renderSetlists() {
     </div>`).join('');
 }
 
-// Estado de la biblioteca de ARCHIVOS (audio + carátulas) en la nube.
-// Dice de un vistazo si esta PC está completa y si falta subir algo.
+// Estado de sincronización EN UNA FRASE: ¿está este equipo al día o no?
+// Se evita el detalle técnico (canciones vs archivos) salvo cuando falta algo.
 async function refreshFilesStatus() {
-  const box = overlay?.querySelector('#acc-files-status');
+  const box = overlay?.querySelector('#acc-sync-status');
   if (!box) return;
   if (!state.activeId) { box.textContent = 'Elige una librería.'; return; }
+  box.className = 'acc-sync-status';
   try {
     const { estadoBiblioteca } = await import('./fileSync.js');
     const s = await estadoBiblioteca();
-    const mb = (s.cloudBytes / (1024 * 1024)).toFixed(0);
-    const parts = [`${s.inCloud} archivo(s) en la nube (${mb} MB)`];
-    if (s.pendingUpload) parts.push(`<b>${s.pendingUpload} sin subir</b>`);
-    if (s.pendingDownload) parts.push(`<b>${s.pendingDownload} por descargar aquí</b>`);
-    if (!s.pendingUpload && !s.pendingDownload && s.inCloud) parts.push('este equipo está al día ✓');
-    box.innerHTML = parts.join(' · ');
+    const mb = s.cloudBytes / (1024 * 1024);
+    const size = mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
+
+    const faltan = [];
+    if (s.pendingUpload) faltan.push(`${s.pendingUpload} audio(s) sin subir`);
+    if (s.pendingDownload) faltan.push(`${s.pendingDownload} audio(s) por traer`);
+
+    if (!faltan.length) {
+      box.classList.add('ok');
+      box.innerHTML = s.inCloud
+        ? `✓ Este equipo está al día · ${s.inCloud} archivo(s) en la nube (${size})`
+        : '✓ Sin archivos que sincronizar todavía';
+    } else {
+      box.classList.add('warn');
+      box.innerHTML = `⚠ ${faltan.join(' · ')}`;
+    }
   } catch (e) {
-    box.textContent = 'No se pudo comprobar el estado de los archivos.';
+    box.textContent = 'No se pudo comprobar el estado.';
   }
 }
 
@@ -660,6 +674,62 @@ async function onClick(e) {
             const slTxt = (sl.added || sl.updated) ? ` · ${sl.added + sl.updated} setlist(s)` : '';
             msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}${slTxt}.`, 'ok');
             refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        // ── Acciones COMBINADAS: es lo que la gente quiere hacer de verdad.
+        //    "Subir todo" = mis canciones + sus audios. "Traer todo" =
+        //    canciones + servicios + audios. Los botones granulares quedan en
+        //    "Opciones avanzadas" para reintentar una parte si algo falló.
+        case 'sync-up': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            btn.textContent = '⟳ Subiendo canciones…';
+            const { pushLibrarySongs } = await import('./songSync.js');
+            const r = await pushLibrarySongs();
+
+            const { subirBiblioteca } = await import('./fileSync.js');
+            const f = await subirBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Subiendo audios ${done}/${total}…` : '⟳ Subiendo audios…';
+            });
+
+            const partes = [`${r.created + r.updated} canción(es)`];
+            if (f.uploaded) partes.push(`${f.uploaded} audio(s)`);
+            msg(
+              `✓ Subido: ${partes.join(' y ')}.${f.failed ? ` (${f.failed} audio(s) fallaron)` : ''}`,
+              f.failed ? '' : 'ok'
+            );
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'sync-down': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            btn.textContent = '⟳ Trayendo canciones…';
+            const { pullLibrarySongs } = await import('./songSync.js');
+            const r = await pullLibrarySongs();
+
+            let sl = { added: 0, updated: 0 };
+            try {
+              const { pullSharedSetlists } = await import('./setlistSync.js');
+              sl = await pullSharedSetlists();
+            } catch (_) { /* sin setlists: no es crítico */ }
+
+            const { bajarBiblioteca } = await import('./fileSync.js');
+            const f = await bajarBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Trayendo audios ${done}/${total}…` : '⟳ Trayendo audios…';
+            });
+
+            const partes = [`${r.added + r.refreshed} canción(es)`];
+            if (sl.added + sl.updated) partes.push(`${sl.added + sl.updated} servicio(s)`);
+            if (f.downloaded) partes.push(`${f.downloaded} audio(s)`);
+            msg(
+              `✓ Este equipo ya tiene: ${partes.join(', ')}.${f.failed ? ` (${f.failed} audio(s) fallaron)` : ''}`,
+              f.failed ? '' : 'ok'
+            );
+            refreshFilesStatus();
+            window.dispatchEvent(new CustomEvent('songs-changed'));
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
