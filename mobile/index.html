@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>LivePads Móvil</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+  <!-- ── LOGIN ────────────────────────────────────────────────────────── -->
+  <section id="screen-login" class="screen">
+    <div class="login-box">
+      <img src="assets/logo.png" alt="LivePads" class="login-logo">
+      <h1>LivePads <span>Móvil</span></h1>
+      <p class="login-sub">Tu repertorio, en cualquier dispositivo.</p>
+      <form id="login-form" autocomplete="on">
+        <input type="email" id="login-email" placeholder="Correo" required autocomplete="username" inputmode="email">
+        <input type="password" id="login-pass" placeholder="Contraseña" required autocomplete="current-password">
+        <button type="submit" class="btn-primary" id="login-btn">Entrar</button>
+      </form>
+      <p class="login-err" id="login-err"></p>
+      <p class="login-hint">Usa la misma cuenta de LivePads en tu PC.</p>
+    </div>
+  </section>
+
+  <!-- ── BIBLIOTECA ───────────────────────────────────────────────────── -->
+  <section id="screen-library" class="screen hidden">
+    <header class="lib-head">
+      <div class="lib-title">
+        <img src="assets/logo.png" alt="" class="lib-logo">
+        <div>
+          <h2 id="lib-name">Repertorio</h2>
+          <p id="lib-count" class="lib-sub"></p>
+        </div>
+      </div>
+      <div class="lib-actions">
+        <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">⟳</button>
+        <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
+      </div>
+    </header>
+    <div class="lib-tools">
+      <input type="search" id="search" placeholder="Buscar canción o artista…">
+      <div id="setlist-chips" class="chips"></div>
+    </div>
+    <main id="song-list" class="song-list"></main>
+  </section>
+
+  <!-- ── REPRODUCCIÓN ─────────────────────────────────────────────────── -->
+  <section id="screen-player" class="screen hidden">
+    <header class="pl-head">
+      <button id="pl-back" class="icon-btn" aria-label="Volver">←</button>
+      <div class="pl-title">
+        <h2 id="pl-song">—</h2>
+        <p id="pl-artist">—</p>
+      </div>
+      <span id="pl-key" class="key-badge">—</span>
+    </header>
+
+    <main class="pl-body">
+      <div class="pl-cover-wrap">
+        <img id="pl-cover" class="pl-cover" alt="" hidden>
+        <div id="pl-cover-fallback" class="pl-cover-fallback">🎵</div>
+      </div>
+
+      <!-- Pista: secuencia / original -->
+      <div class="pl-track">
+        <div class="seg" id="track-seg">
+          <button data-track="sequence" class="seg-btn active">Secuencia</button>
+          <button data-track="original" class="seg-btn">Original</button>
+        </div>
+        <div id="pl-state" class="pl-state"></div>
+        <div class="pl-transport">
+          <button id="pl-rew" class="round-btn" aria-label="Atrás 10s">−10</button>
+          <button id="pl-play" class="round-btn big" aria-label="Reproducir">▶</button>
+          <button id="pl-fwd" class="round-btn" aria-label="Adelante 10s">+10</button>
+        </div>
+        <div class="pl-progress">
+          <span id="pl-cur">0:00</span>
+          <input type="range" id="pl-seek" min="0" max="100" value="0" step="1">
+          <span id="pl-dur">0:00</span>
+        </div>
+      </div>
+
+      <!-- Mezcla: volúmenes y PANEO (música / click) -->
+      <div class="panel">
+        <h3>Mezcla</h3>
+        <div class="mix-row">
+          <label>Música</label>
+          <input type="range" id="mix-music-vol" min="0" max="100" value="100">
+          <span class="mix-pan">
+            <small>L</small>
+            <input type="range" id="mix-music-pan" min="-100" max="100" value="0">
+            <small>R</small>
+          </span>
+        </div>
+        <div class="mix-row">
+          <label>Click</label>
+          <input type="range" id="mix-click-vol" min="0" max="100" value="100">
+          <span class="mix-pan">
+            <small>L</small>
+            <input type="range" id="mix-click-pan" min="-100" max="100" value="0">
+            <small>R</small>
+          </span>
+        </div>
+        <div class="mix-row">
+          <label>Pads</label>
+          <input type="range" id="mix-pads-vol" min="0" max="100" value="80">
+          <span class="mix-pan mix-pan--empty"></span>
+        </div>
+        <p class="hint">Truco in-ears: música toda a la izquierda y click todo a la derecha.</p>
+      </div>
+
+      <!-- Metrónomo -->
+      <div class="panel">
+        <div class="panel-row">
+          <h3>Metrónomo</h3>
+          <div class="bpm-ctl">
+            <button id="bpm-down" class="mini-btn">−</button>
+            <span id="pl-bpm" class="bpm-val">120</span>
+            <button id="bpm-up" class="mini-btn">+</button>
+            <span class="bpm-unit">BPM</span>
+          </div>
+          <button id="metro-toggle" class="btn-toggle">▶ Click</button>
+        </div>
+        <div id="beat-dots" class="beat-dots"></div>
+      </div>
+
+      <!-- Pads de notas -->
+      <div class="panel">
+        <div class="panel-row">
+          <h3>Pads</h3>
+          <span class="hint" id="pads-hint">Toca el tono para encender el colchón</span>
+        </div>
+        <div id="pads-grid" class="pads-grid"></div>
+      </div>
+    </main>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
