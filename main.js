@@ -1133,6 +1133,94 @@ function auditLibraryAudio() {
 
 ipcMain.handle('library-audio-audit', async () => auditLibraryAudio());
 
+// ─────────────────────────────────────────────────────────────────────────
+// Biblioteca de archivos en la NUBE (Cloudflare R2)
+//
+// El renderer pide a la Edge Function `r2-sign` una URL prefirmada y nos la
+// pasa aquí: la transferencia de bytes ocurre en el proceso MAIN (Node), no en
+// el renderer. Así evitamos CORS, no cargamos archivos de 100 MB en memoria del
+// renderer, y podemos escribir a disco de forma atómica.
+//
+// `relPath` es la ruta relativa dentro de la biblioteca de audio, la misma que
+// viaja en las canciones ("Sequences/x.mp3", "Covers/y.jpg").
+// ─────────────────────────────────────────────────────────────────────────
+
+// Convierte una ruta relativa de la biblioteca a su ruta absoluta real,
+// respetando la carpeta custom (Sequences/Original Tracks/Covers) y userData.
+function libraryRelToAbs(relPath) {
+  const rel = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!rel || rel.includes('..')) return null;
+  if (!isAudioLibraryRelPath(rel)) return null; // solo las carpetas de la biblioteca
+  return path.join(getAudioLibraryRoot(), rel);
+}
+
+// ¿Qué archivos de la biblioteca existen ya en disco? Devuelve, para las rutas
+// pedidas, cuáles faltan y cuáles están (con su tamaño) — con esto el renderer
+// decide qué subir y qué bajar sin leer bytes.
+ipcMain.handle('library-files-stat', async (_e, relPaths) => {
+  const list = Array.isArray(relPaths) ? relPaths : [];
+  const present = [];
+  const missing = [];
+  for (const rel of list) {
+    const abs = libraryRelToAbs(rel);
+    if (!abs) continue;
+    try {
+      const st = fs.statSync(abs);
+      if (st.isFile() && st.size > 0) {
+        present.push({ path: rel, size: st.size });
+        continue;
+      }
+    } catch (_) { /* no existe */ }
+    missing.push(rel);
+  }
+  return { present, missing };
+});
+
+const CONTENT_TYPES = {
+  '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.aac': 'audio/aac',
+  '.webm': 'audio/webm', '.opus': 'audio/opus',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp',
+};
+
+// Sube un archivo local a R2 con la URL prefirmada (PUT). Devuelve su tamaño.
+ipcMain.handle('r2-upload-file', async (_e, { url, relPath }) => {
+  const abs = libraryRelToAbs(relPath);
+  if (!abs) throw new Error('Ruta no permitida: ' + relPath);
+  const st = fs.statSync(abs);
+  const body = fs.readFileSync(abs);
+  const ext = path.extname(abs).toLowerCase();
+  const contentType = CONTENT_TYPES[ext] || 'application/octet-stream';
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType, 'Content-Length': String(st.size) },
+    body,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`R2 rechazó la subida (${res.status}) ${t.slice(0, 120)}`);
+  }
+  return { size: st.size, contentType };
+});
+
+// Baja un archivo de R2 (GET prefirmado) y lo escribe en la biblioteca local.
+// Escribe a un temporal y renombra: si la app muere a medias no queda un audio
+// corrupto que luego "existe" pero no suena.
+ipcMain.handle('r2-download-file', async (_e, { url, relPath }) => {
+  const abs = libraryRelToAbs(relPath);
+  if (!abs) throw new Error('Ruta no permitida: ' + relPath);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`R2 rechazó la descarga (${res.status})`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  const tmp = abs + '.livepads-tmp';
+  fs.writeFileSync(tmp, buf);
+  fs.renameSync(tmp, abs);
+  return { size: buf.length };
+});
+
 // Repara: (1) vincula huérfanos a canciones cuyo título coincide con el nombre
 // del archivo (si el slot está vacío/roto); (2) limpia las referencias rotas
 // que queden. Escribe la BD de forma atómica. Devuelve { linked, cleared }.

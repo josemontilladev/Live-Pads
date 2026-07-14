@@ -6,7 +6,7 @@
 
 import { rest, isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
-import { getServiceSongs, replaceService } from '../data/service.js';
+import { getServiceSongs, replaceService, upsertSavedSetlistFromCloud } from '../data/service.js';
 import { getSongs } from '../state/store.js';
 
 function requireContext() {
@@ -102,4 +102,31 @@ export async function deleteSharedSetlist(id) {
   requireContext();
   await rest(`/setlists?id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
   return true;
+}
+
+// Materializa TODOS los setlists de la nube en los guardados locales. Es lo que
+// hace que una PC nueva, al iniciar sesión, tenga ya los servicios del domingo
+// sin copiar nada a mano. Se llama tras bajar las canciones (necesita cloudId).
+export async function pullSharedSetlists() {
+  const libId = requireContext();
+  const rows = await rest(
+    `/setlists?library_id=eq.${libId}&select=id,name,song_ids,meta,updated_at`
+  );
+  if (!Array.isArray(rows) || !rows.length) return { added: 0, updated: 0 };
+
+  const byCloud = new Map();
+  getSongs().forEach(s => { if (s.cloudId) byCloud.set(s.cloudId, s); });
+
+  let added = 0, updated = 0;
+  for (const row of rows) {
+    const songs = (row.song_ids || []).map(cid => byCloud.get(cid)).filter(Boolean);
+    const res = upsertSavedSetlistFromCloud({
+      name: row.name,
+      date: (row.meta && row.meta.date) || null,
+      songs,
+    });
+    if (res === 'added') added++;
+    else if (res === 'updated') updated++;
+  }
+  return { added, updated };
 }
