@@ -46,6 +46,24 @@ export function collectReferencedPaths(songs) {
   return [...set];
 }
 
+// Samples de los KITS DE BATERÍA personalizados (UserDrums/*.wav). Se suben a
+// R2 para que la app web reproduzca los kits del usuario. Best-effort.
+export async function collectUserDrumsPaths() {
+  const set = new Set();
+  try {
+    const raw = await window.electronAPI.loadUserDrums();
+    const kits = (raw && Array.isArray(raw.kits)) ? raw.kits : [];
+    const PADS = ['c_kick', 'c_snare', 'c_hhc', 'c_clap', 'c_perc1', 'c_perc2', 'c_crash', 'c_ride'];
+    kits.forEach((k) => {
+      PADS.forEach((id) => {
+        const rel = urlToRelPath(k[id]);
+        if (rel && rel.startsWith('UserDrums/')) set.add(rel);
+      });
+    });
+  } catch (_) { /* sin kits o sin electronAPI: nada que subir */ }
+  return [...set];
+}
+
 function requireContext() {
   if (!isLoggedIn()) throw new Error('Inicia sesión para usar la nube.');
   const libId = getActiveLibraryId();
@@ -71,6 +89,9 @@ async function signUrl(libraryId, relPath, op) {
 export async function subirBiblioteca(onProgress) {
   const libId = requireContext();
   const referenced = collectReferencedPaths();
+  // + los samples de los kits de batería personalizados (UserDrums).
+  const drums = await collectUserDrumsPaths();
+  drums.forEach((p) => referenced.push(p));
   if (!referenced.length) return { uploaded: 0, skipped: 0, failed: 0, total: 0 };
 
   // Solo podemos subir lo que exista físicamente aquí.

@@ -1150,6 +1150,11 @@ ipcMain.handle('library-audio-audit', async () => auditLibraryAudio());
 function libraryRelToAbs(relPath) {
   const rel = String(relPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!rel || rel.includes('..')) return null;
+  // Kits de batería personalizados (samples propios): viven en userData/UserDrums.
+  // Se suben a R2 para que la app web (movil.livepads.online) los reproduzca.
+  if (rel === 'UserDrums' || rel.startsWith('UserDrums/')) {
+    return path.join(app.getPath('userData'), rel);
+  }
   if (!isAudioLibraryRelPath(rel)) return null; // solo las carpetas de la biblioteca
   return path.join(getAudioLibraryRoot(), rel);
 }
