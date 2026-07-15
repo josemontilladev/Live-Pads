@@ -35,13 +35,19 @@
         <button class="lib-title" id="lib-picker" aria-label="Cambiar de repertorio">
           <img src="assets/logo.png" alt="" class="lib-logo">
           <span class="lib-title-txt">
-            <h2 id="lib-name">Repertorio <span class="caret">▾</span></h2>
+            <h2 id="lib-name">Repertorio
+              <svg class="ico caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </h2>
             <p id="lib-count" class="lib-sub"></p>
           </span>
         </button>
         <div class="lib-actions">
-          <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">⟳</button>
-          <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
+          <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+          </button>
+          <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </div>
     </header>
@@ -58,7 +64,8 @@
       <input type="search" id="search" placeholder="Buscar canción o artista…">
       <div id="setlist-chips" class="chips"></div>
       <button id="btn-offline" class="offline-bar hidden">
-        <span id="offline-txt">⬇ Descargar para usar sin internet</span>
+        <svg class="ico" id="offline-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span id="offline-txt">Descargar para usar sin internet</span>
       </button>
     </div>
     <main id="song-list" class="song-list"></main>
@@ -68,7 +75,9 @@
   <section id="screen-player" class="screen hidden">
     <header class="pl-head">
       <div class="pl-head-inner">
-        <button id="pl-back" class="icon-btn" aria-label="Volver">←</button>
+        <button id="pl-back" class="icon-btn" aria-label="Volver">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
         <div class="pl-title">
           <h2 id="pl-song">—</h2>
           <p id="pl-artist">—</p>
@@ -80,16 +89,22 @@
     <!-- Navegación dentro del setlist (sin volver a la lista) -->
     <div class="pl-nav-wrap">
       <div id="pl-nav" class="pl-nav hidden">
-        <button id="pl-prev" class="nav-btn" aria-label="Canción anterior">◀</button>
+        <button id="pl-prev" class="nav-btn" aria-label="Canción anterior">
+          <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="19 20 9 12 19 4 19 20"/><rect x="4" y="5" width="2.4" height="14" rx="1"/></svg>
+        </button>
         <span id="pl-pos" class="pl-pos">—</span>
-        <button id="pl-next" class="nav-btn" aria-label="Canción siguiente">▶</button>
+        <button id="pl-next" class="nav-btn" aria-label="Canción siguiente">
+          <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 4 15 12 5 20 5 4"/><rect x="17.6" y="5" width="2.4" height="14" rx="1"/></svg>
+        </button>
       </div>
     </div>
 
     <main class="pl-body">
       <div class="pl-cover-wrap">
         <img id="pl-cover" class="pl-cover" alt="" hidden>
-        <div id="pl-cover-fallback" class="pl-cover-fallback">🎵</div>
+        <div id="pl-cover-fallback" class="pl-cover-fallback">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
       </div>
 
       <!-- Pista: secuencia / original -->
@@ -100,9 +115,17 @@
         </div>
         <div id="pl-state" class="pl-state"></div>
         <div class="pl-transport">
-          <button id="pl-rew" class="round-btn" aria-label="Atrás 10s">−10</button>
-          <button id="pl-play" class="round-btn big" aria-label="Reproducir">▶</button>
-          <button id="pl-fwd" class="round-btn" aria-label="Adelante 10s">+10</button>
+          <button id="pl-rew" class="round-btn" aria-label="Atrás 10 segundos">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 8 6 12l5 4V8z"/><path d="M18 8l-5 4 5 4V8z"/></svg>
+            <span class="round-sub">10</span>
+          </button>
+          <button id="pl-play" class="round-btn big" aria-label="Reproducir">
+            <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+          </button>
+          <button id="pl-fwd" class="round-btn" aria-label="Adelante 10 segundos">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8l5 4-5 4V8z"/><path d="M6 8l5 4-5 4V8z"/></svg>
+            <span class="round-sub">10</span>
+          </button>
         </div>
         <div class="pl-progress">
           <span id="pl-cur">0:00</span>
@@ -136,7 +159,7 @@
           <span class="mix-name">Pads</span>
           <input type="range" class="mix-vol" id="mix-pads-vol" min="0" max="100" value="80" aria-label="Volumen pads">
         </div>
-        <p class="hint">💡 In-ears: música toda a la izquierda, click todo a la derecha.</p>
+        <p class="hint">In-ears: música toda a la izquierda, click todo a la derecha.</p>
       </div>
 
       <!-- Metrónomo -->
@@ -149,7 +172,10 @@
             <button id="bpm-up" class="mini-btn">+</button>
             <span class="bpm-unit">BPM</span>
           </div>
-          <button id="metro-toggle" class="btn-toggle">▶ Click</button>
+          <button id="metro-toggle" class="btn-toggle" aria-pressed="false">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12"/><path d="m9.5 21 2.5-15 2.5 15"/><line x1="12" y1="6" x2="16" y2="11"/></svg>
+            <span>Click</span>
+          </button>
         </div>
         <div id="beat-dots" class="beat-dots"></div>
       </div>
