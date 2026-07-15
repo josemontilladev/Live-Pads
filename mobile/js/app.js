@@ -4,7 +4,7 @@
 // grandes. Todo lo pesado (audio) se carga al pedirlo y queda cacheado.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { restoreSession, signIn, signOut, isLoggedIn } from './supabase.js';
+import { restoreSession, signIn, signOut, isLoggedIn, signInWithGoogle, handleOAuthCallback } from './supabase.js';
 import {
   listLibraries, getActiveLibraryId, setActiveLibraryId,
   fetchSongs, cachedSongs, fetchSetlists,
@@ -62,10 +62,17 @@ const coverUrls = new Map(); // coverPath → objectURL (memo de sesión)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  const user = await restoreSession();
+  // ¿Volvemos de Google? (tokens en el hash) → crea la sesión.
+  const oauthUser = await handleOAuthCallback();
+  const user = oauthUser || await restoreSession();
   if (user) await enterLibrary();
   else show('login');
 })();
+
+$('login-google').addEventListener('click', () => {
+  $('login-err').textContent = '';
+  signInWithGoogle(); // redirige a Google
+});
 
 // ── Login ───────────────────────────────────────────────────────────────
 $('login-form').addEventListener('submit', async (e) => {

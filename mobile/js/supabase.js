@@ -79,6 +79,50 @@ export function signOut() {
   emit();
 }
 
+// ── Google (OAuth de Supabase, flujo web con redirect) ─────────────────────
+// Redirige a Google; al volver, GoTrue añade los tokens en el hash de la URL.
+export function signInWithGoogle() {
+  const redirectTo = location.origin + location.pathname + location.search;
+  const url = `${AUTH}/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  window.location.href = url;
+}
+
+// Al cargar la página, detecta el retorno de OAuth (#access_token=…) y crea la
+// sesión. Devuelve el usuario si venía de Google, o null si no.
+export async function handleOAuthCallback() {
+  const hash = location.hash || '';
+  if (hash.indexOf('access_token=') === -1) {
+    // ¿Vino un error de OAuth? (p. ej. provider no habilitado)
+    if (hash.indexOf('error') !== -1) {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    }
+    return null;
+  }
+  const p = new URLSearchParams(hash.slice(1));
+  const access_token = p.get('access_token');
+  const refresh_token = p.get('refresh_token');
+  const expires_in = Number(p.get('expires_in')) || 3600;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+  if (!access_token) return null;
+
+  let user = null;
+  try {
+    const res = await httpFetch(`${AUTH}/user`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${access_token}` },
+    });
+    if (res.ok) user = await res.json();
+  } catch (_) {}
+  session = {
+    access_token,
+    refresh_token,
+    expires_at: Date.now() + (expires_in - 60) * 1000,
+    user,
+  };
+  persist();
+  emit();
+  return user;
+}
+
 async function refreshSession() {
   if (!session || !session.refresh_token) throw new Error('Sin sesión');
   const data = await authFetch('/token?grant_type=refresh_token', {
