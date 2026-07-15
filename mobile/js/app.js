@@ -19,6 +19,12 @@ import {
 const $ = (id) => document.getElementById(id);
 const screens = { login: $('screen-login'), library: $('screen-library'), player: $('screen-player') };
 
+// Iconos SVG (estilo Lucide, trazo 2). Se inyectan donde el estado cambia.
+const ICON = {
+  play: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"/></svg>',
+  pause: '<svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4.2" height="16" rx="1.2"/><rect x="13.8" y="4" width="4.2" height="16" rx="1.2"/></svg>',
+};
+
 function show(name) {
   Object.entries(screens).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
 }
@@ -256,13 +262,17 @@ async function updateOfflineBar(list) {
   if (!withAudio.length) { bar.classList.add('hidden'); return; }
   let missing = 0;
   for (const s of withAudio) if (!(await isSongCached(libraryId, s))) missing++;
+  const ico = $('offline-ico');
   if (!missing) {
     bar.classList.remove('hidden');
     bar.classList.add('done');
-    $('offline-txt').textContent = `✓ ${withAudio.length} listas sin internet`;
+    // Icono ✓ (descargado)
+    ico.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
+    $('offline-txt').textContent = `${withAudio.length} listas sin internet`;
   } else {
     bar.classList.remove('hidden', 'done');
-    $('offline-txt').textContent = `⬇ Descargar ${missing} para usar sin internet`;
+    ico.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
+    $('offline-txt').textContent = `Descargar ${missing} para usar sin internet`;
   }
 }
 
@@ -274,7 +284,7 @@ $('btn-offline').addEventListener('click', async () => {
   bar.dataset.busy = '1';
   let done = 0;
   for (const s of list) {
-    $('offline-txt').textContent = `⬇ Descargando ${++done}/${list.length}…`;
+    $('offline-txt').textContent = `Descargando ${++done}/${list.length}…`;
     try { await prefetchSong(libraryId, s); } catch (_) {}
     document.querySelectorAll(`.offline-dot[data-cid="${s.cloudId}"]`).forEach(el => el.classList.add('ready'));
   }
@@ -363,7 +373,7 @@ window.addEventListener('popstate', () => { if (current) closePlayer(); });
 function stopMetronomeUI() {
   stopMetronome();
   const btn = $('metro-toggle');
-  if (btn) { btn.classList.remove('on'); btn.textContent = '▶ Click'; }
+  if (btn) { btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); }
 }
 
 // ── Navegación dentro del setlist (◀ 3/12 ▶) ─────────────────────────────
@@ -456,7 +466,8 @@ $('pl-seek').addEventListener('input', (e) => {
 });
 
 function updateTransport(reset) {
-  $('pl-play').textContent = player.playing ? '⏸' : '▶';
+  $('pl-play').innerHTML = player.playing ? ICON.pause : ICON.play;
+  $('pl-play').setAttribute('aria-label', player.playing ? 'Pausar' : 'Reproducir');
   if (reset) { $('pl-seek').value = 0; $('pl-cur').textContent = '0:00'; $('pl-dur').textContent = '0:00'; }
   if (player.playing && !uiTimer) {
     uiTimer = setInterval(() => {
@@ -464,7 +475,7 @@ function updateTransport(reset) {
       $('pl-cur').textContent = fmt(player.currentTime);
       $('pl-dur').textContent = fmt(player.duration);
       $('pl-seek').value = String(Math.round((player.currentTime / Math.max(1, player.duration)) * 1000));
-      if (!player.playing) { clearInterval(uiTimer); uiTimer = null; $('pl-play').textContent = '▶'; }
+      if (!player.playing) { clearInterval(uiTimer); uiTimer = null; $('pl-play').innerHTML = ICON.play; }
     }, 200);
   }
 }
@@ -487,14 +498,14 @@ $('metro-toggle').addEventListener('click', () => {
   const btn = $('metro-toggle');
   if (metroRunning()) {
     stopMetronome();
-    btn.classList.remove('on'); btn.textContent = '▶ Click';
+    btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false');
     return;
   }
   const dots = () => [...document.querySelectorAll('.beat-dot')];
   startMetronome(Number($('pl-bpm').textContent), current?.timeSig, (beat) => {
     dots().forEach((d, i) => d.classList.toggle('hit', i === beat));
   });
-  btn.classList.add('on'); btn.textContent = '■ Click';
+  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
 });
 function bpmNudge(d) {
   const v = Math.max(30, Math.min(300, Number($('pl-bpm').textContent) + d));
