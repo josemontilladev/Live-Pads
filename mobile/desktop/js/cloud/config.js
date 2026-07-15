@@ -14,9 +14,11 @@ export const SUPABASE_URL = 'https://hmrviyzisgoovyttnsth.supabase.co';
 // Pega la anon key entre las comillas (empieza por "eyJ...").
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtcnZpeXppc2dvb3Z5dHRuc3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDUzMzYsImV4cCI6MjA5NTM4MTMzNn0.GzUFdrLjl6VnYngmMrKCkLpPSrvqrY0m_wDAjKEfsxk';
 
-// true cuando la anon key está puesta; si está vacía, la app simplemente no
-// ofrece la nube (modo local de siempre) en vez de romperse.
-export const CLOUD_ENABLED = SUPABASE_ANON_KEY.length > 20;
+// DESKTOP CLOUD (movil.livepads.online): el login y la carga de canciones los
+// maneja cloud-boot.js (correo/contraseña de LivePads). El sistema de cloud
+// PROPIO del renderer (auth con Google, sync, panel de cuenta) usa electronAPI
+// que aquí no existe → se DESACTIVA para que no aparezca su puerta de login.
+export const CLOUD_ENABLED = false;
 
 // Correos con permisos de administrador: ven la sincronización con GI.Setlist
 // (MongoDB), porque esa base es compartida y solo el responsable del
