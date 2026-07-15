@@ -520,15 +520,16 @@ function initDelegation() {
 
     switch (action) {
       case 'play-seq':
-        // Con audio → reproduce; sin audio → menú "Cargar audio" (sube
-        // archivo o, si hay original, extrae del original vía Stems).
-        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        // Con audio → reproduce Y fija la fuente abajo en "Secuencia"; sin audio →
+        // menú "Cargar audio" (sube archivo o, si hay original, extrae vía Stems).
+        if (song.audio && song.audio.sequence) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'sequence');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
       case 'play-orig':
-        // Con audio → reproduce; sin audio → menú (Subir archivo / YouTube).
-        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        // Con audio → reproduce Y fija la fuente abajo en "Original"; sin audio →
+        // menú (Subir archivo / YouTube).
+        if (song.audio && song.audio.original) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'original');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
@@ -588,6 +589,7 @@ function initDelegation() {
         song.artist = card.querySelector('.edit-artist').value.trim();
         song.bpm = card.querySelector('.edit-bpm').value.trim();
         song.key = card.querySelector('.edit-key').value;
+        song.timeSig = card.querySelector('.edit-timesig')?.value || song.timeSig || '4/4';
         song.genre = card.querySelector('.edit-genre').value;
         const tagsEl = card.querySelector('.edit-tags');
         if (tagsEl) {
@@ -642,7 +644,7 @@ function initDelegation() {
             // Si la canción está en la nube, propaga el borrado a la librería
             // (offline-first: el módulo de nube lo ignora sin red o sin permiso).
             if (song.cloudId) {
-              try { window.dispatchEvent(new CustomEvent('livepads:song-deleted', { detail: { cloudId: song.cloudId } })); } catch (_) {}
+              try { window.dispatchEvent(new CustomEvent('livepads:song-deleted', { detail: { cloudId: song.cloudId, title: song.title } })); } catch (_) {}
             }
           }
         });
@@ -726,19 +728,13 @@ function handleAddToService(song, card, btn) {
     return;
   }
   deps.addToService(song);
-  // El "+" pasa a ✓ de forma persistente (queda marcada como añadida).
+  // El "+" pasa a ✓ de forma persistente (queda marcada como añadida). La
+  // confirmación va por TOAST (abajo) en vez de un popup dentro de la card: el
+  // popup se solapaba con el badge "En servicio" que ahora aparece al instante
+  // y confundía. Badge + ✓ + toast dan feedback claro sin pisarse.
   btn.classList.add('is-added');
   btn.title = 'Ya está en la lista';
   btn.innerHTML = ICON_ADD_CHECK;
-  const popup = document.createElement('div');
-  popup.className = 'added-popup';
   const name = getCurrentSetlistName();
-  popup.textContent = name ? `Añadida a “${name}”` : 'Añadida a tu lista de hoy';
-  card.classList.add('has-popup');
-  card.appendChild(popup);
-  setTimeout(() => popup.classList.add('leaving'), 800);
-  setTimeout(() => {
-    popup.remove();
-    card.classList.remove('has-popup');
-  }, 1200);
+  window.showToast?.(name ? `Añadida a “${name}”` : 'Añadida a tu lista de hoy', 'success');
 }

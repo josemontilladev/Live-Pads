@@ -174,15 +174,14 @@ const SYNTH = {
   bass:   { gain: 0.55, osc: [{ type: 'square', gain: 0.7 }, { type: 'sawtooth', gain: 0.3, octave: -1 }], filter: { base: 450, vel: 2400, q: 0.8 }, adsr: { a: 0.004, d: 0.2, s: 0.55, r: 0.22 } },
 };
 export const INSTRUMENTS = [
-  // DEMO WEB: "Piano" (Salamander) se quitó del selector (no sonaba bien en web);
-  // el default es Rhodes. En la app de escritorio el piano sí va.
+  { id: 'piano', name: 'Piano' },          // samples (Salamander)
   { id: 'rhodes', name: 'Rhodes' },        // samples (Electric Piano 1, FluidR3_GM)
   { id: 'strings', name: 'Strings' },      // samples (cello)
   { id: 'pad', name: 'Pad' },              // sintético
   { id: 'lead', name: 'Synth lead' },      // sintético
   { id: 'bass', name: 'Bass' },            // samples (bajo eléctrico)
 ];
-let currentInstrument = 'rhodes';
+let currentInstrument = 'piano';
 export function setInstrument(id) {
   if (!(SAMPLE_BANKS[id] || SYNTH[id])) return;
   currentInstrument = id;

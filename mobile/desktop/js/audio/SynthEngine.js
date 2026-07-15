@@ -1,4 +1,16 @@
 /* SynthEngine — Web Audio API */
+
+// Ganancia base de makeup del máster (pads+batería+click) antes del limitador.
+// ~2.2× ≈ +6.8 dB: sube el nivel percibido de toda la app (antes se oía bajo al
+// 100%) sin saturar, porque el limitador a −1.5 dB contiene los picos. Súbelo/
+// bájalo aquí si hace falta más/menos pegada.
+const MASTER_MAKEUP = 2.2;
+
+// Boost del click/metrónomo (bus propio con limitador). Alto a propósito: el
+// click tiene que CORTAR cuando toca toda la banda. Su limitador dedicado evita
+// que sature y que apriete los pads. Súbelo/bájalo aquí si hace falta.
+const CLICK_MAKEUP = 3.2;
+
 export class SynthEngine {
   constructor() {
     this.ctx = null;
@@ -42,14 +54,38 @@ export class SynthEngine {
     this.limiterNode.ratio.value = 20;
     this.limiterNode.attack.value = 0.003;
     this.limiterNode.release.value = 0.1;
+    // Ganancia de "makeup"/maximizador ANTES del limitador: sin esto, pads/
+    // batería/click salían crudos y bajos aunque el fader estuviese al 100% (el
+    // limitador solo recorta picos, no sube el nivel). Empuja la señal hacia el
+    // limitador → sube el volumen percibido; el limitador (−1.5 dB) evita que
+    // sature. Equivale a lo que ya hace la Pista con su TRACK_MAKEUP.
+    this.makeupNode = this.ctx.createGain();
+    this.makeupNode.gain.value = MASTER_MAKEUP;
     this.padGain.connect(this.lpfNode);
     this.lpfNode.connect(this.hpfNode);
     this.hpfNode.connect(this.padPanNode);
     this.padPanNode.connect(this.masterGain);
     this.drumGain.connect(this.drumPanNode);
     this.drumPanNode.connect(this.masterGain);
-    this.masterGain.connect(this.limiterNode);
+    this.masterGain.connect(this.makeupNode);
+    this.makeupNode.connect(this.limiterNode);
     this.limiterNode.connect(this.ctx.destination);
+
+    // Bus DEDICADO del click/metrónomo: boost fuerte + su propio limitador →
+    // destino. Separado del máster a propósito: (1) el click debe CORTAR en banda
+    // completa (antes iba directo a destination sin boost y se perdía), (2) tener
+    // su propio limitador evita que "duckee" los pads en cada golpe (si compartiera
+    // el limitador del máster, cada click haría dip en los pads → pumping).
+    this.clickBus = this.ctx.createGain();
+    this.clickBus.gain.value = CLICK_MAKEUP;
+    this.clickLimiter = this.ctx.createDynamicsCompressor();
+    this.clickLimiter.threshold.value = -1.0;
+    this.clickLimiter.knee.value = 0;
+    this.clickLimiter.ratio.value = 20;
+    this.clickLimiter.attack.value = 0.002;
+    this.clickLimiter.release.value = 0.08;
+    this.clickBus.connect(this.clickLimiter);
+    this.clickLimiter.connect(this.ctx.destination);
 
     // Keep-alive: a silent constant source keeps the AudioContext from idling
     // so the FIRST pad/drum hit after a quiet stretch has zero warm-up latency
@@ -987,7 +1023,7 @@ export class SynthEngine {
       src.buffer = this._clickBuffers[fileKey];
       const gainNode = this.ctx.createGain(); gainNode.gain.value = volume;
       const panNode  = this.ctx.createStereoPanner(); panNode.pan.value = pan;
-      src.connect(gainNode); gainNode.connect(panNode); panNode.connect(this.ctx.destination);
+      src.connect(gainNode); gainNode.connect(panNode); panNode.connect(this.clickBus || this.ctx.destination);
       src.start(now);
       return;
     }
@@ -995,7 +1031,7 @@ export class SynthEngine {
     // Fallback: synthesis
     const out = this.ctx.createGain(); out.gain.value = volume;
     const panNode = this.ctx.createStereoPanner(); panNode.pan.value = pan;
-    out.connect(panNode); panNode.connect(this.ctx.destination);
+    out.connect(panNode); panNode.connect(this.clickBus || this.ctx.destination);
 
     switch(soundType) {
       case 'classic':

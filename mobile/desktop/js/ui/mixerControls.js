@@ -8,6 +8,7 @@
 import { q } from '../utils/dom.js';
 import { panShort } from '../utils/format.js';
 import { syncSlider, syncPanSlider, bindToggle } from '../utils/sliders.js';
+import { setTrackMasterVolume } from '../audio/trackPlayer.js';
 
 export function bindMixerControls(deps) {
   const engine = deps.getEngine();
@@ -92,20 +93,24 @@ export function bindMixerControls(deps) {
   // `livepads:master-vol-change` event so Stems' master slider mirrors
   // this one and vice versa.
   const mvol = q('#master-vol'), mvolVal = q('#master-vol-val');
+  // "Maestro" = master REAL sobre TODO: el SynthEngine (pads/batería/click) Y la
+  // Pista (que vive en su propio AudioContext). Antes solo tocaba el SynthEngine,
+  // así que con la Pista sonando el fader/mute no hacían nada.
+  const setMaster = (v) => { engine.setMasterVolume(v); setTrackMasterVolume(v); };
   // Mute maestro: corta TODO el audio sin perder la posición del fader. Vive en
   // ambos controles (sidebar + mixer); arrastrar el fader lo des-mutea solo.
   const muteBtns = Array.from(document.querySelectorAll('.master-mute-btn'));
   let masterMuted = false;
   const applyMasterMute = (on) => {
     masterMuted = on;
-    engine.setMasterVolume(on ? 0 : (mvol.value / 100));
+    setMaster(on ? 0 : (mvol.value / 100));
     mvol.classList.toggle('is-muted', on);
     muteBtns.forEach(b => { b.classList.toggle('is-muted', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
   };
   muteBtns.forEach(b => b.addEventListener('click', () => applyMasterMute(!masterMuted)));
   mvol.oninput = () => {
     if (masterMuted) applyMasterMute(false);   // mover el fader restaura el sonido
-    engine.setMasterVolume(mvol.value / 100);
+    setMaster(mvol.value / 100);
     mvolVal.textContent = mvol.value + '%';
     syncSlider(mvol);
     document.dispatchEvent(new CustomEvent('livepads:master-vol-change', {
@@ -119,7 +124,7 @@ export function bindMixerControls(deps) {
     mvol.value = pct;
     mvolVal.textContent = pct + '%';
     if (masterMuted) applyMasterMute(false);
-    engine.setMasterVolume(e.detail.value);
+    setMaster(e.detail.value);
     syncSlider(mvol);
   });
 

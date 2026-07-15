@@ -45,7 +45,9 @@
   flex: 1;
   padding: 20px;
   display: grid;
-  grid-template-columns: 350px 1fr 340px;
+  /* IZQUIERDA = setlist/librería · CENTRO = metrónomo/batería/mezclador ·
+     DERECHA = selectores + pads de notas. (Intercambiado respecto al original.) */
+  grid-template-columns: 340px 1fr 350px;
   grid-template-rows: auto 1fr;
   gap: 20px;
   overflow-y: auto;
@@ -56,12 +58,21 @@
 /* Top modules: Bank + Metro — solo columnas 1-2: la columna 3 es del setlist,
    que ocupa TODO el lado derecho (filas 1-2). El metrónomo queda centrado
    sobre la zona de pads. */
+/* Ya no es un sub-grid: sus hijos (bank-section + metrónomo) participan
+   directamente en el grid de #stage para poder ubicarlos en columnas distintas
+   (selectores a la DERECHA, metrónomo al CENTRO). */
 #top-modules-grid {
-  grid-column: 1 / 3;
+  display: contents;
+}
+/* Selectores de Pad/Kit → arriba a la DERECHA (sobre los pads de notas). */
+#bank-section {
+  grid-column: 3;
   grid-row: 1;
-  display: grid;
-  grid-template-columns: 350px 1fr;
-  gap: 20px;
+}
+/* Metrónomo → arriba al CENTRO (sobre la batería). */
+#panel-metro {
+  grid-column: 2;
+  grid-row: 1;
 }
 
 /* Bank section (inside top-modules-grid, no longer spans full width) */
@@ -115,7 +126,7 @@
 
 /* ── PANEL KEYS ── */
 #panel-keys {
-  grid-column: 1;
+  grid-column: 3;
   grid-row: 2;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -126,6 +137,32 @@
   gap: 16px;
   min-height: 0;
 }
+/* Indicador de tono sonante del pad (arriba del grid). Glanceable en escenario:
+   nota grande; si la canción está transpuesta, muestra "escrito → sonante". */
+.key-indicator {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  flex-shrink: 0; padding: 8px 16px; border-radius: var(--r-md, 10px);
+  background: var(--bg-card); border: 1px solid var(--border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.key-indicator.hidden { display: none; }
+.key-indicator .ki-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.key-indicator .ki-body { display: flex; align-items: center; gap: 9px; }
+.key-indicator .ki-label { line-height: 1; }
+.key-indicator .ki-sounding { font-size: 34px; font-weight: 800; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.key-indicator .ki-written { font-size: 19px; font-weight: 600; line-height: 1; color: var(--text-muted); }
+.key-indicator .ki-arrow { font-size: 16px; line-height: 1; color: var(--text-muted); }
+/* Sonando (pad activo) → resalta en color de acento con leve glow. */
+.key-indicator.is-active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 16px color-mix(in srgb, var(--accent) 28%, transparent); }
+.key-indicator.is-active .ki-sounding { color: var(--accent); }
+/* Transpuesto → marca el tono sonante en color de aviso para que se note que
+   NO es el tono escrito de la canción. */
+.key-indicator.is-transposed { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+.key-indicator.is-transposed .ki-sounding { color: var(--danger); }
+
 .key-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -157,9 +194,24 @@
   box-shadow: 0 0 35px var(--blue);
   transform: translateY(-4px) scale(1.02);
 }
+/* Preparado (en cola, sin sonar): borde azul MÁS marcado + un latido suave para
+   que el director localice el pad que va a disparar desde lejos. Solo hay uno
+   preparado a la vez, así que animar su glow es barato. */
 .key-btn.prepared {
   border-color: var(--blue); color: var(--blue);
-  box-shadow: inset 0 0 0 1px var(--blue);
+  box-shadow: inset 0 0 0 2px var(--blue);
+  animation: pad-prepared-pulse 1.8s ease-in-out infinite;
+}
+@keyframes pad-prepared-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 2px var(--blue), 0 0 7px color-mix(in srgb, var(--blue) 30%, transparent); }
+  50%      { box-shadow: inset 0 0 0 2px var(--blue), 0 0 22px color-mix(in srgb, var(--blue) 62%, transparent); }
+}
+/* Accesibilidad: sin animación si el usuario pidió menos movimiento (glow fijo). */
+@media (prefers-reduced-motion: reduce) {
+  .key-btn.prepared {
+    animation: none;
+    box-shadow: inset 0 0 0 2px var(--blue), 0 0 16px color-mix(in srgb, var(--blue) 45%, transparent);
+  }
 }
 
 /* Fade-out progress indicator — a 3px bar at the bottom of the pad

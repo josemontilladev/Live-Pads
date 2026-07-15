@@ -323,7 +323,19 @@ export function renderServiceList() {
   updateServiceMeta(allSongs);
 
   if (allSongs.length === 0) {
-    if (emptyMsg) emptyMsg.classList.remove('hidden');
+    if (emptyMsg) {
+      emptyMsg.classList.remove('hidden');
+      // El CTA cambia según si hay setlists guardados para elegir: si NO hay,
+      // invita a CREAR uno (en vez de mandar a la Librería). El onclick (en
+      // setlistTabs.js) hace la misma bifurcación.
+      const btn = q('#btn-service-go-library');
+      if (btn) {
+        const noLists = listSavedSetlists().length === 0;
+        btn.innerHTML = noLists
+          ? '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Crear setlist'
+          : '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg> Ir a la Librería';
+      }
+    }
     return;
   }
 
@@ -493,12 +505,12 @@ function initDelegation() {
 
     switch (action) {
       case 'play-seq':
-        if (song.audio && song.audio.sequence) deps.loadAndPlayTrack(song, 'sequence');
+        if (song.audio && song.audio.sequence) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'sequence');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'sequence',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;
       case 'play-orig':
-        if (song.audio && song.audio.original) deps.loadAndPlayTrack(song, 'original');
+        if (song.audio && song.audio.original) (deps.onPlaySongSource || deps.loadAndPlayTrack)(song, 'original');
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;

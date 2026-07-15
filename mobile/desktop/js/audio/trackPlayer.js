@@ -25,7 +25,19 @@ let audioCtx = null;
 let pannerNode = null;
 let makeupNode = null;       // ganancia de compensación (nivela la Pista con pads/batería)
 let trackLimiter = null;     // limitador de seguridad para que el makeup no sature
+let trackMasterGain = null;  // ganancia MAESTRA de la Pista (la controla el fader/mute "Maestro")
+let trackMasterVol = 1;      // 0..1 — recordada para re-aplicarla al recrear el grafo por carga
 let currentPitch = 0;        // semitonos aplicados al audio cargado
+
+// El control "Maestro" del mixer afecta también a la Pista (que vive en su propio
+// AudioContext). Lo aplica al nodo de ganancia maestra de la Pista, y recuerda el
+// valor para los grafos que se recrean por carga. v en 0..1 (0 = mute).
+export function setTrackMasterVolume(v) {
+  trackMasterVol = Math.max(0, Math.min(1, isFinite(v) ? v : 1));
+  if (trackMasterGain && audioCtx) {
+    try { trackMasterGain.gain.setTargetAtTime(trackMasterVol, audioCtx.currentTime, 0.02); } catch (e) { trackMasterGain.gain.value = trackMasterVol; }
+  }
+}
 
 // La Pista vive en su propio AudioContext (sin el master/limiter del SynthEngine),
 // así que sale "en crudo" mientras pads/batería/click pasan por un limiter
@@ -57,6 +69,9 @@ let deps = {
   // Decisión de "qué hace el botón Play" — la define app.js (play según la
   // fuente seleccionada). Fallback: toggle directo de la pista cargada.
   onPlayPauseButton: () => { toggleTrackAudio(); },
+  // Notifica a app.js cada cambio de estado play/pause/fin de la pista, para
+  // reflejar controles dependientes (botón "solo secuencia").
+  onPlayState: () => {},
 };
 
 export function initTrackPlayer(d) {
@@ -83,6 +98,10 @@ export function setTrackPitch(n) {
     }
   }
   paintPitchUI();
+  // Notifica a app.js para que actualice el pad de notas activo/preparado.
+  if (typeof deps.onPitchChange === 'function') {
+    try { deps.onPitchChange(v, currentSong); } catch (_) {}
+  }
 }
 
 function paintPitchUI() {
@@ -135,15 +154,22 @@ function connectPanGraph() {
     const panEl = els.panSlider;
     pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
 
+    // Ganancia maestra de la Pista: el fader/mute "Maestro" del mixer la controla
+    // (con el valor recordado, para que un master bajo siga aplicando tras recargar).
+    trackMasterGain = audioCtx.createGain();
+    trackMasterGain.gain.value = trackMasterVol;
+
     audio.output.connect(makeupNode);
     makeupNode.connect(trackLimiter);
     trackLimiter.connect(pannerNode);
-    pannerNode.connect(audioCtx.destination);
+    pannerNode.connect(trackMasterGain);
+    trackMasterGain.connect(audioCtx.destination);
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
     pannerNode = null;
     makeupNode = null;
     trackLimiter = null;
+    trackMasterGain = null;
   }
 }
 
@@ -156,14 +182,14 @@ const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el 
 export function cleanupTrackAudio() {
   if (!audio) return;
   const old = audio;
-  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode;
+  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
   // Liberamos las referencias del módulo YA, para que la próxima carga cree su
   // propio grafo y los dos puedan sonar a la vez durante el fade.
-  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null;
+  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null;
 
   const dispose = () => {
     try { old.output && old.output.disconnect(); } catch (e) {}
-    [oldMakeup, oldLimiter, oldPanner].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
+    [oldMakeup, oldLimiter, oldPanner, oldMaster].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
     try { old.pause(); old.src = ''; old.onerror = null; old.ontimeupdate = null; old.onended = null; } catch (e) {}
   };
 
@@ -262,9 +288,11 @@ export function setPlayBtnIcon(playing) {
 }
 
 // Pinta el icono según el estado REAL de la PISTA (secuencia/original). Lo usan
-// los eventos play/pause/ended del audio y el toggle directo.
+// los eventos play/pause/ended del audio y el toggle directo. Además notifica a
+// app.js (onPlayState) para reflejar el botón "solo secuencia".
 function paintPlayBtn() {
   setPlayBtnIcon(!!(audio && !audio.paused));
+  try { deps.onPlayState && deps.onPlayState(); } catch (e) {}
 }
 
 function formatTime(seconds) {
@@ -276,6 +304,15 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// Pinta el "tiempo restante" (-m:ss) — lo que el director mira para anticipar el
+// final. cur/dur en segundos.
+function setRemaining(cur, dur) {
+  const el = els.timeRemain;
+  if (!el) return;
+  const remain = (isFinite(dur) && dur > 0) ? Math.max(0, dur - cur) : 0;
+  el.textContent = '-' + formatTime(remain);
+}
+
 // DOM element refs are cached lazily — populated on first track playback and
 // reused across all subsequent renders so ontimeupdate (firing ~4×/sec)
 // doesn't hit querySelector on every tick.
@@ -285,6 +322,7 @@ function cacheTrackPlayerEls() {
   els.title    = q('#tp-title');
   els.timeCur  = q('#tp-time-current');
   els.timeTot  = q('#tp-time-total');
+  els.timeRemain = q('#tp-time-remain');
   els.progress = q('#tp-progress');
   els.playBtn  = q('#tp-play-btn');
   els.stopBtn  = q('#tp-stop-btn');
@@ -387,6 +425,7 @@ async function startTrackPlayback(url, title, type) {
     if (timeCur) timeCur.textContent = formatTime(audio.currentTime);
     if (audio.duration) {
       if (timeTot) timeTot.textContent = formatTime(audio.duration);
+      setRemaining(audio.currentTime, audio.duration);
       if (progress) {
         progress.value = (audio.currentTime / audio.duration) * 100;
         syncSlider(progress);
@@ -408,6 +447,7 @@ async function startTrackPlayback(url, title, type) {
   const stampDuration = () => {
     if (!isFinite(audio.duration) || audio.duration <= 0) return;
     if (timeTot) timeTot.textContent = formatTime(audio.duration);
+    setRemaining(audio.currentTime || 0, audio.duration);
     if (currentSong && (!currentSong.durationSec || currentSong.durationSec !== Math.round(audio.duration))) {
       currentSong.durationSec = Math.round(audio.duration);
       if (typeof deps.onDurationDiscovered === 'function') {
@@ -498,6 +538,7 @@ export function bindTrackPlayerControls() {
         const t = (e.target.value / 100) * audio.duration;
         const tc = q('#tp-time-current');
         if (tc) tc.textContent = formatTime(t);
+        setRemaining(t, audio.duration); // el restante también sigue el arrastre
       }
     };
     // onchange fires once, on drag-release (or click / keyboard) — this is where
@@ -526,9 +567,15 @@ export function bindTrackPlayerControls() {
 // Used by master play/stop logic for the "Sin pista seleccionada" reset.
 export function clearTrackUI() {
   cleanupTrackAudio();
+  // Sin pista = sin transposición que mostrar. Reseteamos el contador a 0 para
+  // que NO arrastre el ±N de la canción anterior (la transposición es por
+  // canción; una sin pista cargada no hereda la de otra).
+  currentPitch = 0;
+  paintPitchUI();
   const tt = q('#tp-title'); if (tt) tt.textContent = 'Sin pista seleccionada';
   const tc = q('#tp-time-current'); if (tc) tc.textContent = '0:00';
   const tot = q('#tp-time-total'); if (tot) tot.textContent = '0:00';
+  const rem = q('#tp-time-remain'); if (rem) rem.textContent = '-0:00';
   const prog = q('#tp-progress'); if (prog) prog.value = 0;
   const playBtn = q('#tp-play-btn');
   if (playBtn) playBtn.innerHTML = PLAY_ICON;

@@ -36,22 +36,30 @@
   transition: transform 0.15s;
 }
 .tp-play svg { width: 16px; height: 16px; }
-.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance {
+.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance, .tp-seqonly {
   width: 32px; height: 32px;
   border-radius: var(--r-lg);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s, box-shadow 0.2s;
 }
-.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover {
+.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover, .tp-seqonly:hover {
   color: var(--text); border-color: var(--border-strong);
 }
-.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg {
+.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg, .tp-seqonly svg {
   width: 14px; height: 14px;
 }
 .tp-loop.active,
 .tp-autoadvance.active { background: var(--accent-grad); border-color: var(--blue); color: #000; }
+/* Solo-secuencia: ENCENDIDO mientras la secuencia está sonando, apagado si no.
+   Verde (identidad de la secuencia/SEQ) para distinguirlo del loop (ámbar). */
+.tp-seqonly.is-running {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ok), white 28%), var(--ok));
+  border-color: var(--ok);
+  color: #052e1a;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--ok) 55%, transparent);
+}
 
 /* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS).
    Cápsula con misma altura (32px) que el resto de transport-secundario.
@@ -105,7 +113,10 @@
 }
 /* Kill the default vertical margin browsers give range inputs and let the
    scrubber absorb the free space between title and time. */
-#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; }
+/* Barra de progreso más alta (más protagonista y más fácil de arrastrar en
+   cabina táctil). El fondo/gradiente vive en el propio input, así que subir la
+   altura engorda el track de forma segura; el thumb sigue igual. */
+#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; height: 7px; border-radius: 4px; }
 #tp-title {
   font-size: 14px;
   font-weight: 600;
@@ -118,12 +129,21 @@
   max-width: 240px;
 }
 .tp-time {
-  font-size: 11px;
+  display: flex; align-items: baseline; gap: 4px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
   white-space: nowrap;
+}
+.tp-time #tp-time-total { color: var(--text-muted); }
+.tp-time-sep { color: var(--text-muted); opacity: 0.55; }
+/* Tiempo restante: lo más glanceable en vivo → pill en color de acento. */
+.tp-remain {
+  margin-left: 8px; padding: 1px 8px; border-radius: 6px;
+  font-size: 13px; font-weight: 800; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
 .tp-right {
@@ -187,18 +207,64 @@
   display: flex; flex-direction: column; gap: 6px;
   min-width: 0;
 }
-.mx-channel--master { justify-content: center; }
+/* El canal Maestro (control global) se distingue de las fuentes con un borde
+   de acento y su nombre en color, para que se lea de un vistazo cuál es. */
+.mx-channel--master {
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
+}
+.mx-channel--master .mx-name { color: var(--accent); }
 .mx-name {
-  font-size: 11px; font-weight: 600; color: var(--text);
+  font-size: 12.5px; font-weight: 700; color: var(--text);
   letter-spacing: 0.3px; white-space: nowrap;
 }
 .mx-ctrl { display: flex; align-items: center; gap: 8px; }
-.mx-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
+.mx-lbl { font-size: 10.5px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
 .mx-slider { flex: 1; min-width: 0; }
+/* El VALOR es lo que el director lee de reojo: más grande y en color pleno
+   (no apagado), tabular para que no "baile" al cambiar de cifra. */
 .mx-val {
-  font-size: 10px; color: var(--text-muted);
-  min-width: 32px; text-align: right;
-  font-variant-numeric: tabular-nums; font-weight: 600;
+  font-size: 12.5px; color: var(--text);
+  min-width: 38px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 700;
+}
+
+/* ── Faders del mezclador: riel hundido + cap metálico ────────────────
+   Estilo "hardware" de los controles de volumen (lo que el equipo aprobó del
+   experimento de skin) promovido al look por defecto. Scoped a #mixer-bar. */
+#mixer-bar input[type="range"] {
+  height: 8px; border-radius: 5px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.85), inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+/* Volumen: barra en el acento sobre groove oscuro */
+#mixer-bar input.blue-slider {
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--accent) 88%, #000) 0%,
+    var(--accent) var(--pct, 50%),
+    #0b0c0e var(--pct, 50%));
+}
+#mixer-bar .mx-channel--master input.blue-slider {
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--accent) 45%, #fff) 0%,
+    var(--accent) var(--pct, 50%),
+    #0b0c0e var(--pct, 50%));
+}
+/* Pan: groove metálico neutro */
+#mixer-bar input.pan-slider {
+  background: linear-gradient(90deg, #0b0c0e 0%, #171a1d 50%, #0b0c0e 100%);
+}
+/* Cap del fader: BLANCO grooved (Chromium/Electron → webkit) */
+#mixer-bar input[type="range"]::-webkit-slider-thumb {
+  width: 22px; height: 17px; border-radius: 4px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef0f3 46%, #d7dae0 54%, #c2c6cd 100%);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
+}
+#mixer-bar input[type="range"]::-webkit-slider-thumb:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f6f8 46%, #e2e4e9 54%, #d0d3d9 100%);
 }
 
 /* Floating "Añadida al servicio" popup over the library card after click.

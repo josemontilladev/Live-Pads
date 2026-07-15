@@ -11,9 +11,8 @@
 
 export const SUPABASE_URL = 'https://hmrviyzisgoovyttnsth.supabase.co';
 
-// DEMO WEB: nube DESHABILITADA a propósito (anon key vacía) → corre en modo
-// local sin login (initAuthGate retorna directo). En la app real lleva la key.
-export const SUPABASE_ANON_KEY = '';
+// Pega la anon key entre las comillas (empieza por "eyJ...").
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtcnZpeXppc2dvb3Z5dHRuc3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDUzMzYsImV4cCI6MjA5NTM4MTMzNn0.GzUFdrLjl6VnYngmMrKCkLpPSrvqrY0m_wDAjKEfsxk';
 
 // true cuando la anon key está puesta; si está vacía, la app simplemente no
 // ofrece la nube (modo local de siempre) en vez de romperse.
