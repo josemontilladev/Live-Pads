@@ -95,11 +95,13 @@ async function enterLibrary() {
   show('library');
   // Pinta al instante desde caché mientras llega la red.
   const cachedLib = getActiveLibraryId();
+  let painted = false;
   if (cachedLib) {
     libraryId = cachedLib;
     const c = cachedSongs(cachedLib);
-    if (c) { songs = c; renderSongs(); }
+    if (c) { songs = c; renderSongs(); painted = true; }
   }
+  if (!painted) renderSkeleton(); // evita el pantallazo en blanco en la 1ª carga
   try {
     libraries = await listLibraries();
     if (!Array.isArray(libraries) || !libraries.length) {
@@ -216,6 +218,16 @@ function visibleSongs() {
   const q = norm(query.trim());
   if (q) list = list.filter(s => norm(s.title).includes(q) || norm(s.artist).includes(q));
   return list;
+}
+
+// Placeholders animados mientras carga (percepción de velocidad).
+function renderSkeleton(n = 8) {
+  $('song-list').innerHTML = Array.from({ length: n }, () => `
+    <div class="song-card skel" aria-hidden="true">
+      <span class="skel-box skel-cover"></span>
+      <span class="song-info"><span class="skel-box skel-line w60"></span><span class="skel-box skel-line w35"></span></span>
+      <span class="skel-box skel-key"></span>
+    </div>`).join('');
 }
 
 function renderSongs() {
