@@ -452,7 +452,7 @@ $('pl-rew').addEventListener('click', () => { player.seek(player.currentTime - 1
 $('pl-fwd').addEventListener('click', () => { player.seek(player.currentTime + 10); updateTransport(); });
 $('pl-seek').addEventListener('input', (e) => {
   if (!player.buffer) return;
-  player.seek((Number(e.target.value) / 100) * player.duration);
+  player.seek((Number(e.target.value) / 1000) * player.duration);
 });
 
 function updateTransport(reset) {
@@ -463,9 +463,9 @@ function updateTransport(reset) {
       if (!player.buffer) return;
       $('pl-cur').textContent = fmt(player.currentTime);
       $('pl-dur').textContent = fmt(player.duration);
-      $('pl-seek').value = String(Math.round((player.currentTime / Math.max(1, player.duration)) * 100));
+      $('pl-seek').value = String(Math.round((player.currentTime / Math.max(1, player.duration)) * 1000));
       if (!player.playing) { clearInterval(uiTimer); uiTimer = null; $('pl-play').textContent = '▶'; }
-    }, 250);
+    }, 200);
   }
 }
 
