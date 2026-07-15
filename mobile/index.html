@@ -137,6 +137,19 @@
             <button data-mode="click" class="seg-btn">Click</button>
             <button data-mode="original" class="seg-btn">Original</button>
           </div>
+
+          <!-- Transponer el colchón (pad) + repetir -->
+          <div class="pl-tools">
+            <div class="transpose">
+              <button id="tr-down" class="mini-btn" aria-label="Bajar tono">−</button>
+              <span class="tr-label">Tono <b id="tr-key">—</b> <span id="tr-val" class="tr-val">0</span></span>
+              <button id="tr-up" class="mini-btn" aria-label="Subir tono">+</button>
+            </div>
+            <button id="loop-btn" class="tool-toggle" aria-pressed="false" title="Repetir canción">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            </button>
+          </div>
+
           <div id="pl-state" class="pl-state"></div>
           <div class="pl-transport">
             <button id="pl-rew" class="round-btn" aria-label="Atrás 10 segundos">

@@ -199,6 +199,23 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
 .seg-btn[data-mode="click"].active { background: #3b82f6; color: #eaf1ff; }
 .seg-btn[data-mode="original"].active { background: var(--accent); color: #241800; }
 .seg-btn[disabled] { opacity: 0.3; }
+/* Fila de herramientas: transponer + loop */
+.pl-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.transpose {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px 6px;
+}
+.tr-label { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tr-label b { color: var(--accent); font-weight: 800; }
+.tr-val { font-family: ui-monospace, monospace; font-weight: 700; color: var(--muted); min-width: 22px; display: inline-block; text-align: center; }
+.tr-val.shifted { color: var(--accent); }
+.tool-toggle {
+  width: 46px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+}
+.tool-toggle.on { background: var(--accent-dim); border-color: rgba(251, 174, 0, 0.4); color: var(--accent); }
+.tool-toggle .ico { width: 20px; height: 20px; }
+
 .pl-state { min-height: 18px; text-align: center; color: var(--accent); font-size: 12px; padding-top: 6px; }
 .pl-transport { display: flex; align-items: center; justify-content: center; gap: 26px; padding: 10px 0 6px; }
 .round-btn {
