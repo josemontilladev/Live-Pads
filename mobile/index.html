@@ -84,6 +84,31 @@
         <button id="lib-sheet-close" class="btn-ghost">Cancelar</button>
       </div>
     </div>
+    <!-- ── EDITOR DE SERVICIOS (crear/editar setlist en la nube) ─────────── -->
+    <section id="screen-setlist" class="screen hidden">
+      <header class="lib-head">
+        <div class="lib-head-inner">
+          <button id="sl-back" class="icon-btn" aria-label="Volver">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          <div class="min-w-0" style="flex:1">
+            <h2 id="sl-editor-title" style="font-size:16px;font-weight:700;margin:0">Nuevo servicio</h2>
+          </div>
+          <button id="sl-save" class="chip active" style="height:40px">Guardar</button>
+        </div>
+      </header>
+      <div class="lib-tools">
+        <input type="text" id="sl-name" placeholder="Nombre del servicio (ej. Domingo AM)" maxlength="120">
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <input type="date" id="sl-date" style="flex:1;height:46px;padding:0 14px;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--text)">
+          <button id="sl-delete" class="chip" style="height:46px;color:#ff6b6b;border-color:rgba(255,107,107,.3)">Eliminar</button>
+        </div>
+        <p class="hint" id="sl-count" style="margin:8px 2px 0">Toca canciones para agregarlas al servicio</p>
+        <input type="search" id="sl-search" placeholder="Buscar para agregar…" style="margin-top:8px">
+      </div>
+      <main id="sl-song-list" class="song-list"></main>
+    </section>
+
     <div class="lib-tools">
       <input type="search" id="search" placeholder="Buscar canción o artista…">
       <div id="setlist-chips" class="chips"></div>
