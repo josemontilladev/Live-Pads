@@ -248,6 +248,11 @@ export function loadAndPlayTrack(song, type) {
 
 async function resolvePlayableUrl(url) {
   if (!url || typeof url !== 'string') return url;
+  // NUBE (movil.livepads.online): las rutas livepads:// se resuelven a una URL
+  // firmada de R2 (o a un blob cacheado si ya se descargó para offline).
+  if (url.startsWith('livepads://') && window.__cloudResolve) {
+    try { return await window.__cloudResolve(url); } catch (_) { /* cae al camino normal */ }
+  }
   // Old paths sometimes wrote '../assets/...' — normalize.
   let safeUrl = url.replace('../assets/', 'assets/');
 
