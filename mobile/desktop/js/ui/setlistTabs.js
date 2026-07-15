@@ -15,7 +15,7 @@ import {
 import { showDialog } from './dialog.js';
 import { isLoggedIn } from '../cloud/supabase.js';
 import { maybeShowChooserOnServiceOpen, showServiceChooser, showServiceCreate } from './serviceListView.js';
-import { getServiceSongs } from '../data/service.js';
+import { getServiceSongs, listSavedSetlists } from '../data/service.js';
 
 export function bindSetlistTabs() {
   const panelSetlist = q('#panel-setlist');
@@ -63,10 +63,18 @@ export function bindSetlistTabs() {
     showServiceCreate({ prefillCurrent: true });
   };
 
-  // Empty-state CTA — switches to the Library tab so the user can add songs.
+  // Empty-state CTA. Si NO hay setlists guardados para elegir, lleva directo a
+  // CREAR una lista (en vez de a la Librería); si ya hay, va a la Librería para
+  // agregar canciones / elegir.
   const btnGoLib = q('#btn-service-go-library');
   if (btnGoLib) {
-    btnGoLib.onclick = () => q('.s-toggle[data-target="gi-setlist-list"]')?.click();
+    btnGoLib.onclick = () => {
+      if (listSavedSetlists().length === 0) {
+        showServiceCreate();
+      } else {
+        q('.s-toggle[data-target="gi-setlist-list"]')?.click();
+      }
+    };
   }
 
   // Compartir servicio: guarda el orden actual como setlist de la librería

@@ -183,11 +183,6 @@ function bindSearchAndAdd(deps) {
   const btnAddGiSong = q('#btn-add-gi-song');
   if (btnAddGiSong) {
     btnAddGiSong.onclick = () => {
-      // DEMO WEB: límite de 1 canción agregada por visita (se resetea al recargar).
-      if (document.documentElement.classList.contains('is-web-demo') && window.__demoAddedSong) {
-        window.showToast?.('Versión demo: solo se puede agregar 1 canción. Descargá LivePads para tu repertorio completo.', 'info');
-        return;
-      }
       const scope = getLibraryScope();
       const genre = getCurrentGenre();
       // Modal popup centrado (igual que en Stems); antes el form se abría inline
@@ -200,7 +195,6 @@ function bindSearchAndAdd(deps) {
         },
         onSaved: (newSong) => {
           getSongs().push(newSong);
-          if (document.documentElement.classList.contains('is-web-demo')) window.__demoAddedSong = true;
           if (window.electronAPI && window.electronAPI.saveGiSetlist) {
             window.electronAPI.saveGiSetlist(getSongs());
           }

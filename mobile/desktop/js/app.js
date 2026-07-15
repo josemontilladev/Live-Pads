@@ -3,7 +3,10 @@ import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
+import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
 import { openMetronomeModal } from './ui/metronomeModal.js';
+import { openTunerModal } from './ui/tunerModal.js';
+import { initDeepLink } from './cloud/deepLink.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
@@ -32,15 +35,17 @@ import { initLibrarySelector } from './cloud/librarySelector.js';
 
 // Pads workspace guided tour (mirrors the Stems one). Targets stable static
 // elements in the Pads layout. Its own one-time localStorage flag.
-const PADS_TOUR_KEY = 'livepads-pads-tour-seen-v1';
+const PADS_TOUR_KEY = 'livepads-pads-tour-seen-v2';
 const PADS_TOUR_STEPS = [
   { target: '#key-grid',        title: 'Pads de adoración',     body: 'Los 12 tonos. Pulsa uno para lanzar un colchón continuo; al cambiar de tono hace <b>crossfade</b> automático, sin silencios. También responden al teclado/MIDI.' },
   { target: '#pad-bank-select', title: 'Bancos de sonido',      body: 'Cambia el carácter del pad (cálido, etéreo, etc.). Cada banco tiene los 12 tonos precargados para que el cambio sea instantáneo.' },
-  { target: '#bpm-display',     title: 'Metrónomo',             body: 'Tempo, compás, sonido del click y multiplicador 1x/2x. Timing sample-accurate para que no se desfase nunca.' },
+  { target: '#bpm-display',     title: 'Metrónomo',             body: 'Tempo, <b>compás</b> (4/4, 3/4, 6/8…), sonido del click y multiplicador 1x/2x. Cada canción puede llevar su compás y al lanzarla el metrónomo lo adopta. Timing sample-accurate.' },
   { target: '#drum-grid',       title: 'Batería',               body: 'Pads de percusión mapeables a teclado/MIDI. Puedes crear kits propios y asignar tus propios samples.' },
-  { target: '#gi-search',       title: 'Setlist y librería',    body: 'Busca por título, artista, letra, <b>tono:G</b> o <b>tag:navidad</b>. Arma el servicio con arrastrar y soltar, y activa el auto-avance entre canciones.' },
-  { target: '.ws-tab[data-workspace="stems"]', title: 'Editor de Stems', body: 'La pestaña Stems abre el editor con <b>separación por IA</b> (voz/batería/bajo/otros) y click inteligente alineado a la canción.' },
-  { target: '#btn-help',        title: 'Atajos de teclado',     body: 'Pulsa <b>?</b> en cualquier momento para ver todos los atajos. Casi todo se controla sin ratón.' },
+  { target: '#mixer-bar',       title: 'Mezclador',             body: 'Volumen y paneo de <b>pads, batería, click, pista y maestro</b>, con mute del maestro y crossfade configurable. Los faders (Vol) y perillas (Pan) son mapeables a MIDI.' },
+  { target: '#src-seq',         title: 'Reproductor y fuentes', body: 'Elige la fuente: <b>Secuencia</b>, <b>Click</b> u <b>Original</b>. El Play reproduce o pausa según lo seleccionado, y el botón de al lado controla <b>solo la secuencia</b> — todo mapeable a MIDI.' },
+  { target: '#gi-search',       title: 'Setlist y librería',    body: 'Busca por título, artista, letra, <b>tono:G</b> o <b>tag:navidad</b>. Cada card muestra tono · BPM · compás; al pulsarla, el metrónomo toma su tempo, compás y tono. Arma el servicio arrastrando.' },
+  { target: '.ws-tab[data-workspace="stems"]', title: 'Editor de Stems', body: 'La pestaña Stems abre el editor con <b>separación por IA</b> (voz/batería/bajo/otros), recorte y fades por clip, y click inteligente alineado a la canción.' },
+  { target: '#btn-menu',        title: 'Menú y Ajustes',        body: 'Desde aquí: <b>Mapeo MIDI/Teclado (Learn)</b>, temas, atajos de teclado, companion y más. Casi todo se controla sin ratón — mapea cualquier control a tu controlador.' },
 ];
 function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); }
 
@@ -118,10 +123,21 @@ import {
 // need them. We could move them to the store too, but they have no
 // "reset" semantics — they're created once and live forever — so keeping
 // them here makes the boot sequence easier to follow.
+
+// Índice de semitono (0-11) de la nota raíz de la canción cargada, sin contar
+// el pitch shift del reproductor. Se fija al aplicar la canción (applyGiSong) y
+// se usa para calcular qué botón del pad de notas resaltar cuando el usuario
+// sube/baja el tono con los botones del reproductor.
+let _songBaseKeySemitone = null; // null = no hay canción con tono conocido
+
 let engine, metro;
 
 /* ── BOOT ── */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Deep-link de invitación: registrar el receptor IPC cuanto antes para no
+  // perder el token si la app se abrió en frío desde un enlace livepads://.
+  try { initDeepLink(); } catch (_) {}
+
   // Configuración personal en la nube (offline-first): si hay sesión + internet,
   // baja la config del usuario a local ANTES de leerla, para que el arranque
   // tome los valores de la nube. Sin red o sin sesión, no bloquea nada.
@@ -190,6 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     persist: persistGiSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
+    onPlaySongSource: playSongSource,
     addToService,
     openLyricsEditorModal,
     toggleLyricsAccordion,
@@ -203,6 +220,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     persistServiceSongs: saveServiceSongs,
     onApplySong: applyGiSong,
     loadAndPlayTrack,
+    onPlaySongSource: playSongSource,
     removeFromService,
     reorderService,
     openLyricsEditorModal,
@@ -321,6 +339,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // El botón Play del reproductor reproduce/pausa SEGÚN LA FUENTE seleccionada
     // (Secuencia/Click/Original), de forma desacoplada (ver triggerSourcePlayPause).
     onPlayPauseButton: () => triggerSourcePlayPause(),
+    // Refleja el botón "solo secuencia" (encendido/apagado) en cada cambio de
+    // estado de la pista (play/pause/fin).
+    onPlayState: () => reflectSeqOnlyBtn(),
+    // Al cambiar el tono (+1/-1 semitono), actualiza el pad de notas para que
+    // el botón resaltado refleje la tonalidad real de la canción en ese momento.
+    onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
   });
 
   buildBankSelects();
@@ -479,6 +503,62 @@ function buildKeyGrid() {
     grid.appendChild(btn);
   });
   if (typeof updateKeyHints === 'function') updateKeyHints();
+  updateKeyIndicator();
+}
+
+// Transpone el pad de notas activo/preparado `pitchSemitones` semitonos
+// respecto de la nota base de la canción cargada (_songBaseKeySemitone).
+// Se llama cada vez que el usuario ajusta el tono del reproductor.
+function applyNotepadPitchShift(pitchSemitones) {
+  if (_songBaseKeySemitone === null) return; // sin canción con tono conocido
+
+  // Calcular el índice de nota destino (0–11) aplicando el desplazamiento.
+  const targetSemitone = ((_songBaseKeySemitone + pitchSemitones) % 12 + 12) % 12;
+
+  // Obtener la lista de notas según la notación actual (sostenidos/bemoles).
+  const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
+  // Ambas listas tienen exactamente 12 notas en orden cromático, por lo que el
+  // índice coincide directamente con el semitono.
+  const targetKey = keys[targetSemitone];
+  if (!targetKey) return;
+
+  const activeKey   = getActiveKey();
+  const preparedKey = getPreparedPadKey();
+
+  if (activeKey) {
+    // Hay un pad sonando: transicionar suavemente a la nueva nota.
+    if (activeKey !== targetKey) onKeyClick(targetKey);
+  } else if (preparedKey) {
+    // Hay un pad preparado (sin sonar): mover la preparación.
+    if (preparedKey !== targetKey) {
+      setPreparedPadKey(targetKey);
+      qa('.key-btn').forEach(b => {
+        b.classList.remove('prepared');
+        if (b.dataset.key === targetKey) b.classList.add('prepared');
+      });
+    }
+  }
+  updateKeyIndicator();
+}
+
+// Indicador de tono sonante del pad (arriba del grid). Muestra la nota
+// preparada/activa en grande; si difiere del tono ESCRITO de la canción (porque
+// está transpuesta), muestra "escrito → sonante" (p. ej. C → B).
+function updateKeyIndicator() {
+  const el = q('#key-indicator');
+  if (!el) return;
+  const sounding = getActiveKey() || getPreparedPadKey();
+  if (!sounding) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const active = !!getActiveKey();
+  const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
+  const written = (_songBaseKeySemitone != null) ? keys[_songBaseKeySemitone] : null;
+  const transposed = !!(written && written !== sounding);
+  el.classList.remove('hidden');
+  el.classList.toggle('is-active', active);          // sonando (vs solo preparado)
+  el.classList.toggle('is-transposed', transposed);
+  el.innerHTML = transposed
+    ? `<span class="ki-label">Tono</span><span class="ki-body"><span class="ki-written">${written}</span><span class="ki-arrow">→</span><span class="ki-sounding">${sounding}</span></span>`
+    : `<span class="ki-label">Tono</span><span class="ki-body"><span class="ki-sounding">${sounding}</span></span>`;
 }
 
 function updateKeyHints() {
@@ -540,6 +620,7 @@ function onKeyClick(key) {
       b.classList.toggle('active', b.dataset.key === getActiveKey());
     });
   }
+  updateKeyIndicator();
 }
 
 
@@ -580,6 +661,7 @@ function bindAll() {
   bindCountInToggle();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
+  q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
 
   // Doble clic en CUALQUIER slider de paneo → vuelve al centro (0). Delegado
   // para cubrir todos (mezclador, metro, pads, batería) sin wiring individual;
@@ -810,7 +892,12 @@ function bindRestOfApp() {
         if (r && r.created > 0) {
           showToast(`${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
         }
-      } catch (_) { /* sin sesión/red: se reintenta en el próximo cambio */ }
+      } catch (e) {
+        // Sin sesión/red se reintenta en el próximo cambio — pero DEJAR RASTRO:
+        // un fallo persistente aquí estuvo meses mudo (lotes con claves mixtas
+        // rechazados por PostgREST) y las letras nunca llegaban a GI.Setlist.
+        try { console.warn('[LivePads] auto-push a la nube falló:', e && e.message); } catch (_) {}
+      }
     }, 2000);
   }
   // Señal genérica "cambió data de canciones, sincronizá" — NO re-renderiza la
@@ -824,8 +911,81 @@ function bindRestOfApp() {
   window.addEventListener('livepads:song-deleted', (ev) => {
     const cloudId = ev?.detail?.cloudId;
     if (!cloudId) return;
+    const title = ev?.detail?.title;
     import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId)).catch(() => {});
+    // Registra el borrado en el historial del equipo (best-effort).
+    import('./cloud/libraries.js').then(({ getActiveLibraryId }) => {
+      const libId = getActiveLibraryId();
+      if (libId) import('./cloud/activity.js').then(a => a.logActivity(libId, 'deleted', title)).catch(() => {});
+    }).catch(() => {});
   });
+
+  // ── Sincronización "en vivo": cambios que hacen otros miembros del equipo ──
+  // libraryLive.js baja en background y, cuando OTRO miembro cambió algo, emite
+  // este evento. Avisamos con un toast — pero NO en pleno directo: si hay música
+  // sonando, acumulamos y lo mostramos al parar (no molestar en escenario).
+  let pendingActivity = [];
+  const isPlayingNow = () => (isTrackLoaded() && isTrackPlaying()) || getMetroRunning();
+  function showActivityToast(changes) {
+    const titles = [...new Set(changes.map(c => c.title).filter(Boolean))];
+    const names  = [...new Set(changes.map(c => c.byName).filter(Boolean))];
+    if (!titles.length) return;
+    let text;
+    if (titles.length === 1) {
+      text = names[0] ? `${names[0]} actualizó «${titles[0]}»` : `Se actualizó «${titles[0]}»`;
+    } else {
+      const who = names.length === 1 ? ` por ${names[0]}` : ' por tu equipo';
+      text = `${titles.length} canciones actualizadas${who}`;
+    }
+    showToast(text, 'info');
+  }
+  function flushActivity() {
+    if (!pendingActivity.length || isPlayingNow()) return;
+    const changes = pendingActivity; pendingActivity = [];
+    showActivityToast(changes);
+  }
+  window.addEventListener('livepads:library-activity', (ev) => {
+    const changes = (ev?.detail?.changes) || [];
+    if (changes.length) pendingActivity.push(...changes);
+    flushActivity();
+  });
+
+  // Conflictos: se resuelven en un diálogo (mía / de ellos). No interrumpimos un
+  // directo: si hay música sonando, esperan hasta que pare.
+  let pendingConflicts = [];
+  function flushConflicts() {
+    if (!pendingConflicts.length || isPlayingNow()) return;
+    const list = pendingConflicts; pendingConflicts = [];
+    import('./cloud/conflictDialog.js').then(m => m.showConflictsModal(list)).catch(() => {});
+  }
+  window.addEventListener('livepads:library-conflict', (ev) => {
+    const list = (ev?.detail?.conflicts) || [];
+    if (list.length) pendingConflicts.push(...list);
+    flushConflicts();
+  });
+
+  // Reintenta mostrar avisos/conflictos pendientes cuando la música pare.
+  setInterval(() => { flushActivity(); flushConflicts(); }, 15000);
+
+  // Arranca el motor de bajada automática (arranque/focus/intervalo). Se
+  // auto-protege: sin sesión / librería / red no hace nada.
+  import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
+  // Buzón de invitaciones: si alguien te invitó por email, te aparece dentro de
+  // la app (sin códigos que pegar). Mismas guardas: sin sesión/red, no hace nada.
+  import('./cloud/inviteInbox.js').then(m => m.startInviteInbox()).catch(() => {});
+
+  // Auto-sync de setlists: sube TODOS los guardados a la nube al arrancar y cada
+  // vez que cambian (debounced), para que aparezcan completos en la web y en la
+  // app móvil. Best-effort (sin sesión/red no hace nada).
+  let setlistSyncTimer = null;
+  const syncSetlists = () => {
+    import('./cloud/setlistSync.js').then(m => m.autoSyncSetlists()).catch(() => {});
+  };
+  window.addEventListener('livepads:setlists-changed', () => {
+    clearTimeout(setlistSyncTimer);
+    setlistSyncTimer = setTimeout(syncSetlists, 2500);
+  });
+  setTimeout(syncSetlists, 8000); // una pasada tras el arranque (ya con canciones)
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,
@@ -990,6 +1150,15 @@ function refreshPlayBtnIcon() {
     ? getMetroRunning()
     : (isTrackLoaded() && isTrackPlaying());
   setPlayBtnIcon(playing);
+  reflectSeqOnlyBtn();
+}
+
+// Botón "solo secuencia": ENCENDIDO solo cuando la SECUENCIA está sonando.
+function reflectSeqOnlyBtn() {
+  const btn = q('#tp-seqonly-btn');
+  if (!btn) return;
+  const running = isTrackLoaded() && getCurrentType() === 'sequence' && isTrackPlaying();
+  btn.classList.toggle('is-running', running);
 }
 
 // openSidebarTab / closeAllOverlays -> src/js/ui/overlays.js
@@ -1048,6 +1217,7 @@ function prepareNextSongKey(song) {
     b.classList.remove('prepared');
     if (b.dataset.key === key) b.classList.add('prepared');
   });
+  updateKeyIndicator();
 }
 
 // La ORIGINAL nunca es la fuente maestra: solo cuenta como fuente de tiempo una
@@ -1306,6 +1476,18 @@ function selectSource(which) {
   refreshPlayBtnIcon();                            // el icono del Play sigue a la nueva fuente
 }
 
+// Reproduce una fuente desde el ICONO de una card (secuencia/original) Y fija la
+// selección de fuente abajo: así los 3 botones (Secuencia/Click/Original) reflejan
+// lo que tocaste en la card. type = 'sequence' | 'original'.
+function playSongSource(song, type) {
+  masterSource = (type === 'original') ? 'reference' : 'sequence';
+  loadAndPlayTrack(song, type);
+  paintSourceSegs();
+  refreshNowPlayingLiveState();
+  refreshPlayBtnIcon();
+  reflectSeqOnlyBtn();
+}
+
 // Ilumina el botón de la fuente SELECCIONADA (masterSource), suene o no — así se
 // ve cuál disparará el Play sin tener que darle primero.
 function paintSourceSegs() {
@@ -1344,6 +1526,7 @@ function panicStopAll() {
   setActiveKey(null);
   setPreparedPadKey(null);
   buildKeyGrid();
+  updateKeyIndicator();
   if (getMetroRunning()) toggleMetro();
   if (isTrackLoaded() && isTrackPlaying()) clickPlayPause(); // pausa secuencia/original
   // Detener TAMBIÉN la reproducción del timeline de Stems si está montado: el
@@ -1640,7 +1823,17 @@ function applyGiSong(song) {
     const v = parseInt(song.bpm);
     if (!isNaN(v)) applyBpm(v);
   }
-  
+
+  // Update compás (clave del metrónomo): poné el metrónomo en el compás de la
+  // canción (3/4, 6/8, etc.). El value del #metro-sig-select es el numerador.
+  if (song.timeSig && SONG_TIME_SIG_BEATS[song.timeSig]) {
+    const sigSel = q('#metro-sig-select');
+    if (sigSel) {
+      sigSel.value = String(SONG_TIME_SIG_BEATS[song.timeSig]);
+      sigSel.dispatchEvent(new Event('change', { bubbles: true })); // → metro.setBeats + beat dots
+    }
+  }
+
   // Update Key
   if (song.key) {
     let key = song.key.replace('m', '').trim();
@@ -1669,6 +1862,10 @@ function applyGiSong(song) {
     // Smooth transition or prepare the new key
     const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
     if (keys.includes(key)) {
+      // Guardar el semitono base (0-11) de la nota raíz de esta canción para
+      // poder recalcular el pad correcto cuando el usuario transponga el tono
+      // del reproductor con los botones ▲/▼ del track player.
+      _songBaseKeySemitone = keys.indexOf(key);
       if (getActiveKey()) {
         // If a pad is playing, smoothly crossfade to the new key
         onKeyClick(key);
@@ -1680,12 +1877,18 @@ function applyGiSong(song) {
           if (b.dataset.key === key) b.classList.add('prepared');
         });
       }
+      updateKeyIndicator();
     } else {
       // Key doesn't map to any of the 12 chromatic pads (e.g. "Em7b5",
       // unusual jazz extensions). Surface a warning so the user knows
       // why the pad didn't auto-prepare instead of silently failing.
+      _songBaseKeySemitone = null;
       showToast(`Tono "${song.key}" no se reconoce — el pad no se preparó automáticamente.`, 'warning');
     }
+  } else {
+    // La canción no tiene tono definido: deshabilitar la transposición del pad.
+    _songBaseKeySemitone = null;
+    updateKeyIndicator();
   }
 
   // Auto-load ONLY the sequence (the backing track that master Play drives).
@@ -1699,6 +1902,18 @@ function applyGiSong(song) {
     // previously hand-loaded original) and reset the player UI.
     clearTrackUI();
   }
+
+  // Si la canción tiene un pitch guardado (de una sesión anterior), aplicarlo
+  // también al pad de notas — el track player lo restaura al audio en
+  // startTrackPlayback, pero no llama onPitchChange automáticamente.
+  //
+  // SOLO si hay una SECUENCIA que se auto-carga y va a sonar en ese tono: el pad
+  // debe igualar el tono SONANTE del track. Sin secuencia, el pad refleja el tono
+  // ESCRITO de la canción; aplicar un pitch guardado (p. ej. de un original que
+  // no se auto-carga) desplazaría el pad "en fantasma" — C se prepararía como B
+  // aunque el contador de transposición muestre 0 y nada suene transpuesto.
+  const savedPitch = Number((song.audio && song.audio.pitch) || 0) || 0;
+  if (savedPitch !== 0 && song.audio && song.audio.sequence) applyNotepadPitchShift(savedPitch);
 
   // Mirror to the LAN Companion (no-op if server is off).
   if (window.electronAPI && window.electronAPI.companionPublishSong) {

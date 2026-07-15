@@ -3,30 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivePads — Demo en vivo (Pads + metrónomo)</title>
-  <meta name="description" content="Probá LivePads en tu navegador: colchones de adoración, metrónomo, drum pads y mezclador. Sin instalar nada.">
-  <link rel="icon" href="assets/logo.png">
+  <title>LivePads</title>
   <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
   <link rel="stylesheet" href="css/index.css">
-  <!-- CLOUD: stub de electronAPI con canciones de la nube (antes de todo). -->
+  <!-- CLOUD: stub de electronAPI con canciones de la nube (ANTES de todo). -->
   <script src="js/_cloud-shim.js"></script>
-  <link rel="stylesheet" href="css/demo.css">
   <style>
-    /* Solo pantalla de PADS (Stems se conecta más adelante). */
+    /* Navegador: sin controles de ventana (min/max/cerrar). */
+    .wm-btns { display: none !important; }
+    /* Fase 1: solo pantalla de Pads (Stems se conecta más adelante). */
     .ws-tab[data-workspace="stems"] { display: none !important; }
-    /* Ya no es demo: fuera el CTA de descarga. */
-    .demo-cta { display: none !important; }
     /* Puerta de login / carga cloud */
     #cloud-gate { position: fixed; inset: 0; z-index: 100000; background: #0a0a0a; display: flex; align-items: center; justify-content: center; }
     #cloud-login, #cloud-loading { display: none; flex-direction: column; align-items: center; gap: 14px; width: 100%; max-width: 340px; padding: 24px; text-align: center; }
-    #cloud-gate img { width: 76px; height: 76px; border-radius: 18px; box-shadow: 0 0 40px rgba(200,245,66,0.22); }
+    #cloud-gate img { width: 76px; height: 76px; border-radius: 18px; box-shadow: 0 0 40px rgba(251,174,0,0.22); }
     #cloud-gate h1 { margin: 6px 0 0; font-size: 24px; font-weight: 700; color: #f2f2f2; font-family: 'Inter', system-ui, sans-serif; }
     #cloud-gate p.sub { margin: 0 0 8px; color: #9aa0ad; font-size: 14px; }
     #cloud-login-form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
     #cloud-gate input { height: 50px; padding: 0 15px; border-radius: 12px; font-size: 16px; background: #141414; border: 1px solid rgba(255,255,255,0.1); color: #f2f2f2; }
-    #cloud-gate button.primary { height: 50px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; background: #c8f542; color: #0a1400; cursor: pointer; }
+    #cloud-gate button.primary { height: 50px; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; background: var(--accent, #fbae00); color: #201400; cursor: pointer; }
     #cloud-login-err { color: #ff6b6b; font-size: 13px; min-height: 18px; }
-    .cloud-spin { width: 42px; height: 42px; border: 4px solid rgba(200,245,66,0.25); border-top-color: #c8f542; border-radius: 50%; animation: cloudspin 0.9s linear infinite; }
+    .cloud-spin { width: 42px; height: 42px; border: 4px solid rgba(251,174,0,0.25); border-top-color: #fbae00; border-radius: 50%; animation: cloudspin 0.9s linear infinite; }
     @keyframes cloudspin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -119,13 +116,11 @@
         <button class="icon-btn" id="btn-metro-pads" title="Metrónomo (con subdivisiones) — herramienta independiente" aria-label="Metrónomo">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10l-2.4-15.2A1 1 0 0 0 13.6 5h-3.2a1 1 0 0 0-1 .8L7 21z"/><line x1="12" y1="5.5" x2="9" y2="14"/><line x1="6.4" y1="17" x2="17.6" y2="17"/></svg>
         </button>
+        <button class="icon-btn" id="btn-tuner-pads" title="Afinador — escucha el micrófono y muestra la nota y afinación" aria-label="Afinador">
+          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7a4 4 0 0 0 8 0V3"/><line x1="12" y1="14" x2="12" y2="21"/></svg>
+        </button>
         <!-- Botón "?" retirado: los atajos viven en el panel de Ajustes (sección Atajos). -->
         <!-- Engranaje retirado: el menú ☰ (izquierda) abre el panel de Ajustes centralizado. -->
-        <a class="demo-cta" id="demo-download" href="https://livepads.online" target="_blank" rel="noopener" title="Descargar la app completa">
-          <span class="demo-cta-tag">DEMO</span>
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span class="demo-cta-txt">Descargar LivePads</span>
-        </a>
         <div class="wm-btns">
           <button class="wm-btn wm-min" id="btn-min" aria-label="Minimizar" title="Minimizar">
             <svg viewBox="0 0 10 1" aria-hidden="true"><rect width="10" height="1" fill="currentColor"/></svg>
@@ -255,6 +250,9 @@
 
       <!-- Keys + Pad controls -->
       <div id="panel-keys">
+        <!-- Indicador de tono sonante del pad. Muestra la nota preparada/activa
+             en grande; si la canción está transpuesta, muestra "escrito → sonante". -->
+        <div id="key-indicator" class="key-indicator hidden" aria-live="polite" title="Tono del pad preparado (→ indica transposición)"></div>
         <div class="key-grid" id="key-grid"></div>
         <div id="pad-volume-tray" class="sb-card mx-relocated">
           <div class="tray-header">Ajustes de pad</div>
@@ -537,7 +535,8 @@
         <div id="tp-title">Ninguna pista cargada</div>
         <input type="range" id="tp-progress" min="0" max="100" value="0" class="blue-slider">
         <div class="tp-time">
-          <span id="tp-time-current">0:00</span> / <span id="tp-time-total">0:00</span>
+          <span id="tp-time-current">0:00</span><span class="tp-time-sep">/</span><span id="tp-time-total">0:00</span>
+          <span id="tp-time-remain" class="tp-remain" title="Tiempo restante">-0:00</span>
         </div>
       </div>
 
@@ -805,30 +804,6 @@
 
 
 </div>
-<!-- Renderer real de LivePads. Arranca normal (engancha DOMContentLoaded) y su
-     loadGiSetlist espera a que cloud-boot traiga las canciones tras el login. -->
 <script type="module" src="js/app.js"></script>
-<!-- Google Analytics (GA4) — mismo panel que la landing (filtrable por sitio). -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-85NZS8LHJK"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-85NZS8LHJK');
-</script>
-<!-- GA4: eventos del demo — clic en Descargar + primera interacción (engagement). -->
-<script>
-(function () {
-  function track(name, params) { try { gtag('event', name, params || {}); } catch (e) {} }
-  var engaged = false;
-  document.addEventListener('click', function (e) {
-    if (e.target.closest('#demo-download')) { track('download_click', { location: 'demo' }); return; }
-    if (!engaged && e.target.closest('.key-btn, .drum-btn')) {
-      engaged = true;
-      track('demo_engaged', {});
-    }
-  }, true);
-})();
-</script>
 </body>
 </html>

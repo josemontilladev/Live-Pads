@@ -35,6 +35,11 @@ export function applyLibrarySelection(formEl, song) {
   return (song.libraryId || null) !== prev; // ¿cambió?
 }
 
+// Compases disponibles (clave del metrónomo). El metrónomo cuenta `beats` =
+// numerador (4/4→4, 6/8→6, 12/8→12), igual que el dropdown #metro-sig-select.
+export const TIME_SIGNATURES = ['2/4', '3/4', '4/4', '6/8', '12/8'];
+export const TIME_SIG_BEATS = { '2/4': 2, '3/4': 3, '4/4': 4, '6/8': 6, '12/8': 12 };
+
 const KEYS_WITH_LABELS = [
   ['C', 'C (Do)'], ['C#', 'C# (Do#)'], ['Db', 'Db (Reb)'],
   ['D', 'D (Re)'], ['D#', 'D# (Re#)'], ['Eb', 'Eb (Mib)'],
@@ -57,6 +62,12 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
     .concat(KEYS_WITH_LABELS.map(([k, label]) =>
       `<option value="${k}" ${song.key === k ? 'selected' : ''}>${label}</option>`
     )).join('');
+
+  // Compás (clave del metrónomo): se aplica al metrónomo al lanzar la canción.
+  const curSig = song.timeSig || '4/4';
+  const sigOptions = TIME_SIGNATURES
+    .map(s => `<option value="${s}" ${s === curSig ? 'selected' : ''}>${s}</option>`)
+    .join('');
 
   // Audio section — collapsible to reduce visual weight. Auto-expands
   // when at least one slot has audio assigned (so the user sees the
@@ -102,6 +113,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
       <input type="text" class="gi-edit-input edit-artist" value="${esc(song.artist || '')}" placeholder="Artista">
       <div class="gi-edit-row">
         <input type="text" class="gi-edit-input gi-edit-input--small edit-bpm" value="${esc(song.bpm || '')}" placeholder="BPM">
+        <select class="gi-edit-input gi-edit-input--small edit-timesig" title="Compás (clave del metrónomo)">${sigOptions}</select>
         <select class="gi-edit-input gi-edit-input--small edit-key">${keyOptions}</select>
         <select class="gi-edit-input gi-edit-input--small edit-genre">
           <option value="alabanza" ${song.genre === 'alabanza' ? 'selected' : ''}>Alabanza</option>

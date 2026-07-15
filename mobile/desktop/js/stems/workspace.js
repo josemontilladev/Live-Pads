@@ -23,6 +23,7 @@ import { renderEventsToBuffer, getInstrument, instrumentName as instLabel } from
 import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { openLyricsFullscreen } from '../ui/lyricsFullscreen.js';
 import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu, openContextMenu } from '../ui/cardMoreMenu.js';
 import { audioMenuItems } from '../ui/songMenu.js';
@@ -363,6 +364,7 @@ export async function mount() {
   wireConsoleReorder(root);
   wireTrackSelection(root);
   wireConsoleCollapse(root);
+  wireConsoleResize(root);
   wirePiano(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
@@ -674,6 +676,7 @@ const SHELL_HTML = `
     </main>
 
     <section class="stems-console" id="stems-console">
+      <div class="stems-console-resize" id="stems-console-resize" title="Arrastra para ajustar el alto de la consola" aria-hidden="true"></div>
       <header class="stems-console-header">
         <div class="stems-console-header-left">
           <button class="stems-console-toggle" id="stems-console-toggle" type="button" title="Contraer / expandir consola" aria-label="Contraer consola">
@@ -3155,6 +3158,44 @@ function wireConsoleCollapse(root) {
   });
 }
 
+// Alto de la consola AJUSTABLE arrastrando su borde superior. El timeline
+// (arrange, flex:1) absorbe el cambio → no se deforma. Se recuerda en localStorage.
+const CONSOLE_H_KEY = 'stems-console-h';
+function wireConsoleResize(root) {
+  const section = root.querySelector('#stems-console');
+  const handle  = root.querySelector('#stems-console-resize');
+  if (!section || !handle) return;
+  // Restaurar alto guardado.
+  try { const h = parseInt(localStorage.getItem(CONSOLE_H_KEY), 10); if (h) section.style.setProperty('--stems-console-h', h + 'px'); } catch {}
+  const clamp = (h) => Math.max(150, Math.min(Math.round(window.innerHeight * 0.72), h));
+  let dragging = false, startY = 0, startH = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startY = e.clientY;
+    startH = section.getBoundingClientRect().height;
+    try { handle.setPointerCapture(e.pointerId); } catch {}
+    document.body.style.cursor = 'ns-resize';
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const h = clamp(startH + (startY - e.clientY)); // arrastrar hacia ARRIBA = más alto
+    section.style.setProperty('--stems-console-h', h + 'px');
+    repaintAllFaders();
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.cursor = '';
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+    try { localStorage.setItem(CONSOLE_H_KEY, String(Math.round(section.getBoundingClientRect().height))); } catch {}
+    refreshTimelineWidth();
+    requestAnimationFrame(repaintAllFaders);
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
 // ── Piano virtual ─────────────────────────────────────────────────
 function wirePiano(root) {
   const container = root.querySelector('#stems-piano');
@@ -5299,6 +5340,9 @@ function renderSetlistPanel(filter = '') {
           ${badges ? `<span class="ssl-tags">${badges}</span>` : ''}
         </span>
       </span>
+      <span class="ssl-lyrics ${s.lyrics ? '' : 'is-empty'}" data-act="lyrics" title="${s.lyrics ? 'Ver letra y acordes' : 'Sin letra'}" role="button" aria-label="Ver letra y acordes">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </span>
       ${check}
     </button>`;
   }).join('');
@@ -5343,6 +5387,13 @@ function bindSetlistPanel() {
     if (!row) return;
     const song = getSongs().find(s => String(s.id) === row.dataset.id);
     if (!song) return;
+    // Icono de letra: abre el visor de letra + acordes (no reproduce ni asigna).
+    if (e.target.closest('.ssl-lyrics')) {
+      e.stopPropagation();
+      if (song.lyrics) openLyricsFullscreen(song);
+      else toast('Esta canción no tiene letra.', 'info');
+      return;
+    }
     if (setlistPanelSlot === 'all') {
       // Clic izquierdo en "Todas": carga el audio ya asignado al timeline y lo
       // reproduce. Si tiene secuencia y original, deja elegir; si no tiene

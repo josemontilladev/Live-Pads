@@ -252,6 +252,9 @@ export function bindMidiHandlers(deps) {
           const btn = q('#tp-autoadvance-btn'); if (btn) btn.click();
         } else if (mapping.action === 'close_seq') {
           const btn = q('#tp-close-btn'); if (btn) btn.click();
+        } else if (mapping.action === 'metro_mult') {
+          // Multiplicador del metrónomo (1x / 2x). id = '1' o '2'.
+          const b = q('#btn-mult-' + mapping.id); if (b) b.click();
         } else if (mapping.action === 'prev_song') {
           servicePrevSong();
         } else if (mapping.action === 'next_song') {
@@ -312,6 +315,8 @@ export function bindMidiHandlers(deps) {
     const sourceBtn = e.target.closest('.source-seg-btn');
     const pianoBtn  = e.target.closest('#btn-piano-pads');
     const metroModalBtn = e.target.closest('#btn-metro-pads');
+    const mult1Btn  = e.target.closest('#btn-mult-1');
+    const mult2Btn  = e.target.closest('#btn-mult-2');
     const pitchUpBtn   = e.target.closest('#tp-pitch-up');
     const pitchDownBtn = e.target.closest('#tp-pitch-down');
     const slider    = e.target.closest('input[type="range"]');
@@ -332,6 +337,8 @@ export function bindMidiHandlers(deps) {
     else if (sourceBtn) target = { action: 'source', id: sourceBtn.dataset.source };
     else if (pianoBtn) target = { action: 'toggle_piano' };
     else if (metroModalBtn) target = { action: 'toggle_metronome' };
+    else if (mult1Btn) target = { action: 'metro_mult', id: '1' };
+    else if (mult2Btn) target = { action: 'metro_mult', id: '2' };
     else if (pitchUpBtn) target = { action: 'pitch_up' };
     else if (pitchDownBtn) target = { action: 'pitch_down' };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };

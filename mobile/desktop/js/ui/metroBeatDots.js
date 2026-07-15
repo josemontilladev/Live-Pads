@@ -9,6 +9,7 @@ let metroRef = null;
 // con BPM alto x2 corre ~6 veces/seg durante toda la sesión.
 let dots = [];
 let lastOnBeat = -1;
+let mainBtn = null; // botón grande de Play (cacheado) para el pulso de tempo
 
 // Inject the metronome instance once at boot. Lets the dots stay decoupled
 // from app.js's `let metro` global.
@@ -50,4 +51,15 @@ export function onMetroBeat(beat) {
   lastOnBeat = beat;
   const live = q('#metro-bpm-live');
   if (live && metroRef) live.textContent = metroRef.bpm + ' BPM';
+
+  // Pulso de tempo en el botón grande de Play: referencia visual del beat en la
+  // vista principal (aunque el click esté en silencio). El tiempo 1 (downbeat)
+  // late más fuerte con glow. Reflow para reiniciar la animación en cada beat;
+  // es UN solo elemento, coste despreciable.
+  if (!mainBtn) mainBtn = q('#btn-metro-main');
+  if (mainBtn) {
+    mainBtn.classList.remove('beat-pulse', 'beat-pulse--down');
+    void mainBtn.offsetWidth;
+    mainBtn.classList.add(beat === 0 ? 'beat-pulse--down' : 'beat-pulse');
+  }
 }

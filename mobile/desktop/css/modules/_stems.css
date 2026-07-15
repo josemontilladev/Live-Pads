@@ -276,21 +276,34 @@ body[data-workspace="stems"] #body {
 .ssl-search:focus { border-color: var(--accent); }
 .ssl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ssl-row {
+  position: relative;   /* ancla los iconos de esquina (letra arriba, check abajo) */
   text-align: left; border: none; background: transparent; border-radius: var(--r-md);
-  padding: 7px 8px; cursor: pointer; width: 100%;
+  padding: 7px 34px 7px 8px; cursor: pointer; width: 100%;  /* reserva la derecha para los iconos */
   display: flex; align-items: center; gap: 11px;
 }
 .ssl-row:hover { background: var(--bg-hover); }
 /* Check ✓ a la derecha: en modo Secuencia/Original marca las que YA tienen ese
    slot, en positivo (no atenúa la fila para no parecer deshabilitada). */
 .ssl-check {
-  margin-left: auto; flex-shrink: 0;
+  position: absolute; bottom: 7px; right: 7px;   /* esquina inferior derecha */
+  flex-shrink: 0;
   width: 19px; height: 19px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 600; line-height: 1;
 }
 .ssl-check.seq  { color: #10b981; background: rgba(16, 185, 129, 0.18); }
 .ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
+/* Icono "ver letra y acordes" — esquina SUPERIOR derecha de la fila (deja la
+   meta-line libre para las badges Sec/Orig). */
+.ssl-lyrics {
+  position: absolute; top: 6px; right: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px;
+  color: var(--text-muted); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ssl-lyrics:hover { background: rgba(255, 255, 255, 0.08); color: var(--accent); }
+.ssl-lyrics.is-empty { opacity: 0.32; }
 .ssl-cover {
   position: relative; flex-shrink: 0;
   width: 52px; height: 52px; border-radius: var(--r-md); overflow: hidden;
@@ -328,11 +341,28 @@ body[data-workspace="stems"] #body {
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
 .stems-newsong-modal {
-  width: 380px; max-width: 92vw;
-  background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg); padding: 20px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  width: 440px; max-width: 94vw;
+  background: linear-gradient(180deg, var(--bg-surface), var(--bg-card));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 22px 22px 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.04);
 }
+/* Encabezado del modal de canción (icono + título + subtítulo). */
+.newsong-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.newsong-head-icon {
+  flex: 0 0 auto;
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.newsong-head-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.newsong-head-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.15; }
+.newsong-head-sub   { font-size: 11.5px; color: var(--text-muted); }
 /* Cheat-sheet de atajos del timeline */
 .stems-newsong-modal.stems-shortcuts { width: 460px; }
 .stems-shortcuts-title { margin: 0 0 14px; font-size: 14px; font-weight: 600; color: var(--text); }
@@ -1216,19 +1246,21 @@ body[data-workspace="stems"] #body {
 .stems-ruler {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, var(--bg-card), var(--bg));
+  /* Rail de transporte: borde superior claro + línea inferior marcada. */
+  background: linear-gradient(180deg, var(--bg-hover) 0%, var(--bg-card) 55%, var(--bg) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 var(--border-strong);
 }
 .stems-tick {
   position: absolute;
   top: 22px;
   width: 1px;
   height: 8px;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.22);
 }
 .stems-tick--bar {
   top: 8px;
   height: 22px;
-  background: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.55);
 }
 .stems-tick-label {
   position: absolute;
@@ -1503,7 +1535,7 @@ body[data-workspace="stems"] #body {
 /* Fila 2: acciones de la pista, alineadas a la derecha. */
 .stems-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
 .stems-row--click .stems-row-strip {
-  box-shadow: inset 3px 0 0 #60a5fa, 2px 0 4px rgba(0,0,0,0.25);
+  box-shadow: inset 3px 0 0 var(--src-click), 2px 0 4px rgba(0,0,0,0.25);
 }
 .stems-row--guide .stems-row-strip {
   box-shadow: inset 3px 0 0 var(--ok), 2px 0 4px rgba(0,0,0,0.25);
@@ -1526,14 +1558,16 @@ body[data-workspace="stems"] #body {
   width: 26px; height: 26px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
-  background: var(--bg);
+  /* Base con leve relieve para que lea como botón físico (antes plano/oscuro). */
+  background: linear-gradient(180deg, var(--bg-hover), var(--bg-surface));
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
 }
-.stems-ms:hover { color: var(--text); filter: brightness(1.15); }
+.stems-ms:hover { color: var(--text); background: linear-gradient(180deg, var(--bg-hover), var(--bg-hover)); border-color: var(--accent); }
 .stems-ms--mute.is-on {
   background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
   border-color: var(--danger-soft);
@@ -1569,9 +1603,9 @@ body[data-workspace="stems"] #body {
   border-radius: 999px;
 }
 .stems-row--click .stems-row-kind {
-  color: #60a5fa;
-  border-color: rgba(96,165,250,0.4);
-  background: rgba(96,165,250,0.1);
+  color: var(--src-click);
+  border-color: color-mix(in srgb, var(--src-click) 40%, transparent);
+  background: color-mix(in srgb, var(--src-click) 10%, transparent);
 }
 .stems-row--guide .stems-row-kind {
   color: var(--ok);
@@ -1707,9 +1741,11 @@ body[data-workspace="stems"] #body {
   align-items: center;
   padding: 4px 0;
   cursor: grab;
+  /* Carril más oscuro/hundido → la onda resalta (antes se veía lavada). */
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
+    linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.30)),
     var(--bg);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
   transition: background 0.15s;
 }
 
@@ -1791,8 +1827,34 @@ body[data-workspace="stems"] #body {
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  max-height: 260px;
+  position: relative;
+  /* Alto AJUSTABLE por el usuario: arrastra el borde superior (handle) → cambia
+     --stems-console-h. El área del timeline (arrange, flex:1) absorbe el cambio,
+     así el timeline no se deforma. Default alto (faders largos); clamp con max-height. */
+  height: var(--stems-console-h, 360px);
+  max-height: 72vh;
+  min-height: 150px;
 }
+/* Handle de resize en el borde superior de la consola */
+.stems-console-resize {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 10px;
+  cursor: ns-resize;
+  z-index: 5;
+}
+.stems-console-resize::before {
+  content: "";
+  position: absolute;
+  left: 50%; top: 3px;
+  width: 42px; height: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background 0.15s;
+}
+.stems-console-resize:hover::before { background: var(--accent); }
+.stems-console.is-collapsed .stems-console-resize { display: none; }
 /* Sin pistas: oculta la consola entera para que no aparezca como bloque
    negro vacío de 260px debajo de la timeline. */
 #workspace-stems:not(.has-tracks) .stems-console { display: none; }
@@ -1862,21 +1924,23 @@ body[data-workspace="stems"] #body {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-/* Consola contraída: oculta los strips; el header (con el master) se queda. */
-.stems-console.is-collapsed { max-height: none; }
+/* Consola contraída: oculta los strips; el header (con el master) se queda.
+   height:auto + min-height:0 para que ocupe SOLO el header (el min-height:150px
+   del estado normal dejaba un hueco vacío grande al contraer). */
+.stems-console.is-collapsed { max-height: none; height: auto; min-height: 0; }
 .stems-console.is-collapsed .stems-console-strips { display: none; }
 .stems-console-strips {
   display: flex;
   flex-direction: row;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 12px 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  /* +10px sobre la altura útil original: cuando hay muchas pistas y aparece la
-     barra horizontal (8px), ésta se come parte de la altura y el fader (con su
-     min-height) se desbordaba quedando recortado abajo. La holgura absorbe el
-     scrollbar para que el final del volumen siempre sea alcanzable. */
-  height: 230px;
+  /* Llena la consola (menos el header): así, al ajustar el alto de la consola,
+     los faders (fila 1fr del strip) crecen/encogen. La barra horizontal (8px)
+     vive dentro; el padding inferior absorbe su altura. */
+  flex: 1 1 auto;
+  min-height: 0;
   scrollbar-width: thin;
   /* Modo estándar (Chromium/Electron reciente): al fijar scrollbar-width se
      ignoran los pseudo ::-webkit-*, así que el color va por aquí — si no, el
@@ -1895,27 +1959,39 @@ body[data-workspace="stems"] #body {
 .stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 .stems-console-strip {
-  flex: 0 0 108px;
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
+  flex: 0 0 106px;
+  width: 106px;
+  min-width: 106px;
+  max-width: 106px;
   height: 100%;
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 7px;
-  padding: 9px 9px 7px;
-  background: var(--bg-card);
+  gap: 5px;
+  padding: 8px 7px 7px;
+  /* Relieve: gradiente sutil de arriba-claro + sombra interna, para que el strip
+     tenga volumen (antes era una tarjeta plana). */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-hover) 50%, var(--bg-card)) 0%, var(--bg-card) 100%);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   position: relative;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 3px rgba(0,0,0,0.35);
   transition: border-color 0.18s, opacity 0.15s;
+}
+/* Barra de color por pista (usa --track-color inline) → cada strip se distingue
+   de un vistazo, no todos iguales. */
+.stems-console-strip::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--track-color, var(--accent)) 72%, transparent);
 }
 .stems-console-strip:hover {
   border-color: var(--accent);
 }
 .stems-console-strip--click {
-  border-color: rgba(96,165,250,0.4);
+  border-color: color-mix(in srgb, var(--src-click) 40%, transparent);
 }
 .stems-console-strip--guide {
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
@@ -1940,7 +2016,7 @@ body[data-workspace="stems"] #body {
   letter-spacing: 1.2px;
   color: var(--text-muted);
 }
-.stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
+.stems-console-strip--click .stems-console-strip-kind { color: var(--src-click); }
 .stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
 .stems-console-strip-name {
   display: block;
@@ -1971,10 +2047,10 @@ body[data-workspace="stems"] #body {
   color: var(--text-muted);
 }
 .stems-console-pan-readout {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   font-family: ui-monospace, Consolas, monospace;
-  color: var(--text-muted);
+  color: var(--text);
   text-align: right;
 }
 
@@ -1984,6 +2060,15 @@ body[data-workspace="stems"] #body {
   gap: 5px;
   justify-items: center;
 }
+/* SOLO en la consola: M/S y el círculo del pan un poco más chicos, para que la
+   tira respire y no se vea saturada (los M/S de las filas del timeline no cambian). */
+.stems-console-ms-row .stems-ms {
+  width: 21px; height: 21px;
+  font-size: 11px;
+  border-radius: 5px;
+}
+.stems-console-pan::-webkit-slider-thumb { width: 11px; height: 11px; }
+.stems-console-pan::-moz-range-thumb { width: 11px; height: 11px; }
 
 /* Custom pointer-driven vertical fader — reliable across Chromium
    versions (native vertical range was ignoring drags). track = the
@@ -2033,16 +2118,14 @@ body[data-workspace="stems"] #body {
   transform: translateX(-50%);
   width: 36px;
   height: 18px;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--accent), white 35%) 0%,
-    var(--accent) 55%,
-    color-mix(in srgb, var(--accent), black 35%) 100%);
+  /* Cap BLANCO grooved, igual que los faders del mezclador de Pads. */
+  background: linear-gradient(180deg, #ffffff 0%, #eef0f3 46%, #d7dae0 54%, #c2c6cd 100%);
   border: 1px solid rgba(0,0,0,0.5);
   border-radius: 4px;
   box-shadow:
     0 2px 6px rgba(0,0,0,0.5),
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    inset 0 -1px 0 rgba(0,0,0,0.35);
+    inset 0 1px 0 rgba(255,255,255,0.95),
+    inset 0 -1px 0 rgba(0,0,0,0.2);
   pointer-events: none;
   /* A center grip line for that real-fader look */
 }
@@ -2057,15 +2140,15 @@ body[data-workspace="stems"] #body {
 }
 
 .stems-console-strip-readout {
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   letter-spacing: 0.4px;
   color: var(--text);
   font-family: ui-monospace, Consolas, monospace;
   text-align: center;
-  background: rgba(0,0,0,0.45);
+  background: rgba(0,0,0,0.5);
   border-radius: 3px;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 /* ── Master (lives in the console header, right side) ───────────── */

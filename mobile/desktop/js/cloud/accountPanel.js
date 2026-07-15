@@ -17,10 +17,11 @@ import { openAuthGate } from './authUI.js';
 import {
   listLibraries, createLibrary, renameLibrary, deleteLibrary, leaveLibrary,
   listMembers, removeMember, changeMemberRole,
-  listInvites, createInvite, revokeInvite, acceptInvite,
+  listInvites, createInvite, createShareInvite, revokeInvite, acceptInvite,
   getActiveLibraryId, setActiveLibraryId,
 } from './libraries.js';
 import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
+import { listActivity } from './activity.js';
 
 let overlay = null;
 let popModal = null;
@@ -59,6 +60,20 @@ ${code}
     if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
     else window.location.href = url;
   } catch (_) {}
+}
+
+// Mensaje listo para WhatsApp/chat con el código de invitación y las
+// instrucciones para unirse. Lo usa el botón "Crear enlace para compartir".
+function buildInviteMessage(code) {
+  const active = state.libs.find(l => l.id === state.activeId);
+  const libName = active ? active.name : 'mi librería';
+  return `¡Hola! Te invito a la librería "${libName}" en LivePads.
+
+La forma fácil: abre LivePads (inicia sesión) y haz clic en este enlace:
+livepads://join?token=${code}
+
+O manualmente: Menú → "Mi cuenta y librerías" → "Librerías" → en "Unirme a una librería" pega este código:
+${code}`;
 }
 
 // Intenta enviar la invitación por correo automático (Edge Function + Resend).
@@ -175,21 +190,57 @@ async function render() {
       </div>
 
       <div class="acc-section">
-        <h4>Canciones de esta librería</h4>
-        <div class="acc-row">
-          <button class="acc-btn ghost acc-btn-flex" data-act="pull-songs">⬇ Bajar canciones</button>
-          <button class="acc-btn acc-btn-flex" data-act="push-songs">⬆ Subir mis canciones</button>
+        <h4>Sincronización</h4>
+        <div class="acc-sync-status" id="acc-sync-status">Comprobando…</div>
+
+        <button class="acc-btn acc-btn-full" data-act="sync-toggle" id="acc-sync-toggle">
+          ☁ Sincronizar…
+        </button>
+
+        <!-- Desplegable: qué dirección y qué incluir. Un solo botón de acción. -->
+        <div class="acc-sync-panel hidden" id="acc-sync-panel">
+          <div class="acc-sync-group">
+            <span class="acc-sync-label">¿Qué quieres hacer?</span>
+            <label class="acc-check">
+              <input type="radio" name="sync-dir" value="down" checked>
+              <span>⬇ <b>Traer a este equipo</b> — bajar de la nube</span>
+            </label>
+            <label class="acc-check">
+              <input type="radio" name="sync-dir" value="up">
+              <span>⬆ <b>Subir a la nube</b> — guardar lo de este equipo</span>
+            </label>
+          </div>
+
+          <div class="acc-sync-group">
+            <span class="acc-sync-label">Incluir</span>
+            <label class="acc-check">
+              <input type="checkbox" data-item="songs" checked>
+              <span>Canciones y letras</span>
+            </label>
+            <label class="acc-check">
+              <input type="checkbox" data-item="files" checked>
+              <span>Audios y carátulas <em id="acc-sync-files-hint"></em></span>
+            </label>
+            <label class="acc-check">
+              <input type="checkbox" data-item="setlists" checked>
+              <span>Servicios del domingo</span>
+            </label>
+          </div>
+
+          <button class="acc-btn acc-btn-full" data-act="sync-run" id="acc-sync-run">
+            Sincronizar
+          </button>
+          <div class="acc-hint">Los audios pueden pesar cientos de MB: puedes desmarcarlos si solo quieres las letras y los datos.</div>
         </div>
-        <div class="acc-hint">Subir copia tus canciones locales a la nube (las comparte con tu equipo). Bajar trae las de la librería a este equipo.</div>
       </div>
 
       <div class="acc-section">
-        <h4>Servicios compartidos</h4>
+        <h4>Servicios del domingo</h4>
         <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
         <div class="acc-row">
-          <button class="acc-btn acc-btn-flex" data-act="save-setlist">☁ Guardar servicio actual</button>
+          <button class="acc-btn acc-btn-flex" data-act="save-setlist">☁ Guardar el servicio actual</button>
         </div>
-        <div class="acc-hint">Guarda el orden del servicio actual para que tu equipo lo cargue. Solo incluye canciones que estén en la nube.</div>
+        <div class="acc-hint">Guarda la lista que tienes montada abajo para que tu equipo la cargue (y aparezca en las webs de Cantantes y Producción).</div>
       </div>
     </div>
 
@@ -227,6 +278,7 @@ async function refreshLibs() {
   }
   await renderManage();
   await renderSetlists();
+  refreshFilesStatus(); // sin await: no bloquea el panel
   // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
   try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
 }
@@ -248,6 +300,50 @@ async function renderSetlists() {
     </div>`).join('');
 }
 
+// Cambiar la dirección (subir/traer) cambia cuántos audios están pendientes.
+function onSyncDirChange(e) {
+  if (e.target?.name === 'sync-dir') refreshFilesStatus();
+}
+
+// Estado de sincronización EN UNA FRASE: ¿está este equipo al día o no?
+// Se evita el detalle técnico (canciones vs archivos) salvo cuando falta algo.
+async function refreshFilesStatus() {
+  const box = overlay?.querySelector('#acc-sync-status');
+  if (!box) return;
+  if (!state.activeId) { box.textContent = 'Elige una librería.'; return; }
+  box.className = 'acc-sync-status';
+  try {
+    const { estadoBiblioteca } = await import('./fileSync.js');
+    const s = await estadoBiblioteca();
+    const mb = s.cloudBytes / (1024 * 1024);
+    const size = mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
+
+    const faltan = [];
+    if (s.pendingUpload) faltan.push(`${s.pendingUpload} audio(s) sin subir`);
+    if (s.pendingDownload) faltan.push(`${s.pendingDownload} audio(s) por traer`);
+
+    if (!faltan.length) {
+      box.classList.add('ok');
+      box.innerHTML = s.inCloud
+        ? `✓ Este equipo está al día · ${s.inCloud} archivo(s) en la nube (${size})`
+        : '✓ Sin archivos que sincronizar todavía';
+    } else {
+      box.classList.add('warn');
+      box.innerHTML = `⚠ ${faltan.join(' · ')}`;
+    }
+
+    // Pista junto al checkbox de audios: cuántos moverá según la dirección.
+    const hint = overlay.querySelector('#acc-sync-files-hint');
+    if (hint) {
+      const dir = overlay.querySelector('input[name="sync-dir"]:checked')?.value || 'down';
+      const n = dir === 'up' ? s.pendingUpload : s.pendingDownload;
+      hint.textContent = n ? `(${n} pendiente${n === 1 ? '' : 's'})` : '(al día)';
+    }
+  } catch (e) {
+    box.textContent = 'No se pudo comprobar el estado.';
+  }
+}
+
 // Gestión de la librería activa (miembros + invitaciones) — solo si eres dueño.
 async function renderManage() {
   const wrap = overlay.querySelector('#acc-manage');
@@ -264,7 +360,12 @@ async function renderManage() {
   if (!isOwner) {
     wrap.innerHTML = `<h4>${escapeHtml(active.name)}</h4>
       <div class="acc-empty">Eres invitado en esta librería. Solo el propietario gestiona miembros.</div>
-      <div class="acc-row"><button class="acc-btn danger acc-btn-flex" data-act="leave-lib" data-lib="${active.id}">Salir de esta librería</button></div>`;
+      <div class="acc-row"><button class="acc-btn danger acc-btn-flex" data-act="leave-lib" data-lib="${active.id}">Salir de esta librería</button></div>
+      <div class="acc-activity-wrap">
+        <h4>Actividad reciente</h4>
+        <div id="acc-activity-list"><div class="acc-empty">Cargando…</div></div>
+      </div>`;
+    renderActivity(active.id);
     return;
   }
 
@@ -273,21 +374,64 @@ async function renderManage() {
     <div id="acc-members"><div class="acc-empty">Cargando miembros…</div></div>
 
     <div class="acc-row">
-      <input id="acc-inv-email" type="email" placeholder="correo@persona.com">
+      <input id="acc-inv-email" type="email" placeholder="correo@persona.com (opcional)">
       <select id="acc-inv-role">
         <option value="viewer">Solo ver</option>
         <option value="editor">Editar</option>
       </select>
       <button class="acc-btn" data-act="invite">Invitar</button>
     </div>
+    <div class="acc-row">
+      <button class="acc-btn ghost acc-btn-wide" data-act="share-link">🔗 Crear enlace para compartir</button>
+    </div>
+    <div class="acc-hint">Genera un código para enviar por WhatsApp; tu amig@ lo pega en “Unirme a una librería”. Usa el rol elegido arriba (Solo ver / Editar).</div>
     <div id="acc-invites"></div>
+
+    <div class="acc-activity-wrap">
+      <h4>Actividad reciente</h4>
+      <div id="acc-activity-list"><div class="acc-empty">Cargando…</div></div>
+    </div>
 
     <div class="acc-foot">
       <button class="acc-btn ghost sm" data-act="rename-lib">Renombrar</button>
       <button class="acc-btn danger sm" data-act="delete-lib">Eliminar librería</button>
     </div>
   `;
-  await Promise.all([renderMembers(active.id), renderInvites(active.id)]);
+  await Promise.all([renderMembers(active.id), renderInvites(active.id), renderActivity(active.id)]);
+}
+
+// Formatea un evento de actividad a texto legible.
+function activityText(a) {
+  const who = (a.actor && (a.actor.display_name || a.actor.email)) || 'Alguien';
+  const title = a.song_title ? `«${a.song_title}»` : '';
+  switch (a.type) {
+    case 'added':   return `${who} añadió ${title}`.trim();
+    case 'edited':  return `${who} editó ${title}`.trim();
+    case 'deleted': return `${who} borró ${title}`.trim();
+    case 'joined':  return `${who} se unió al equipo`;
+    default:        return `${who} hizo un cambio`;
+  }
+}
+function relTime(iso) {
+  const t = Date.parse(iso || ''); if (!t) return '';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 60) return 'hace un momento';
+  const m = Math.floor(s / 60); if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60); if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24); return `hace ${d} d`;
+}
+async function renderActivity(libId) {
+  const box = overlay.querySelector('#acc-activity-list');
+  if (!box) return;
+  let rows;
+  try { rows = await listActivity(libId, 15); }
+  catch (e) { box.innerHTML = '<div class="acc-empty">No se pudo cargar la actividad.</div>'; return; }
+  if (!rows || !rows.length) { box.innerHTML = '<div class="acc-empty">Sin actividad todavía.</div>'; return; }
+  box.innerHTML = rows.map(a => `
+    <div class="acc-activity-item">
+      <span class="aa-text">${escapeHtml(activityText(a))}</span>
+      <span class="aa-time">${escapeHtml(relTime(a.created_at))}</span>
+    </div>`).join('');
 }
 
 async function renderMembers(libId) {
@@ -320,19 +464,28 @@ async function renderInvites(libId) {
   // Cada invitación pendiente: cabecera con email/rol y el código visible en
   // un input readonly + botón "Copiar". Reduce fricción cuando hay que
   // compartirlo manualmente (chat, mensaje de voz, etc.).
-  box.innerHTML = pending.map(i => `
+  box.innerHTML = pending.map(i => {
+    const isLink = !i.email; // invitación por enlace/código (sin correo)
+    const label = isLink ? '🔗 Enlace para compartir' : escapeHtml(i.email);
+    // Con correo: botón "Enviar correo". Por enlace: "Copiar mensaje" (texto
+    // listo para WhatsApp con el código y las instrucciones).
+    const sendBtn = isLink
+      ? `<button class="acc-btn sm" data-act="copy-msg" data-code="${escapeHtml(i.token)}">Copiar mensaje</button>`
+      : `<button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar correo</button>`;
+    return `
     <div class="acc-invite">
       <div class="acc-invite-head">
-        <span class="i-email">${escapeHtml(i.email)}</span>
-        <span class="acc-role-tag ${i.role === 'editor' ? '' : ''}">${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
+        <span class="i-email">${label}</span>
+        <span class="acc-role-tag">${i.role === 'editor' ? 'Editor' : 'Solo ver'}</span>
         <button class="acc-btn danger sm" data-act="revoke" data-id="${i.id}" title="Anular invitación">Anular</button>
       </div>
       <div class="acc-invite-code">
         <input type="text" readonly value="${escapeHtml(i.token)}" class="acc-code-input" aria-label="Código de invitación" data-act="select-code">
         <button class="acc-btn ghost sm" data-act="copy-code" data-code="${escapeHtml(i.token)}">Copiar</button>
-        <button class="acc-btn sm" data-act="mail-invite" data-email="${escapeHtml(i.email)}" data-code="${escapeHtml(i.token)}">Enviar correo</button>
+        ${sendBtn}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Acciones ────────────────────────────────────────────────────────────────
@@ -475,6 +628,20 @@ async function onClick(e) {
           }
           return;
         }
+        case 'share-link': {
+          const role = overlay.querySelector('#acc-inv-role')?.value || 'viewer';
+          const inv = await createShareInvite(state.activeId, role);
+          await renderInvites(state.activeId);
+          if (inv && inv.token) {
+            const text = buildInviteMessage(inv.token);
+            try { await navigator.clipboard.writeText(text); } catch (_) {}
+            msg('Enlace/código creado y copiado. Pégalo en WhatsApp para invitar.', 'ok');
+          }
+          return;
+        }
+        case 'copy-msg':
+          try { await navigator.clipboard.writeText(buildInviteMessage(btn.dataset.code)); msg('Mensaje de invitación copiado.', 'ok'); } catch (_) {}
+          return;
         case 'copy-code':
           try { await navigator.clipboard.writeText(btn.dataset.code); msg('Código copiado al portapapeles.', 'ok'); } catch (_) {}
           return;
@@ -506,8 +673,11 @@ async function onClick(e) {
           if (!code.trim()) return msg('Pega el código de invitación.');
           await acceptInvite(code);
           overlay.querySelector('#acc-join-code').value = '';
-          msg('¡Te uniste a la librería!', 'ok');
-          return refreshLibs();
+          msg('¡Te uniste a la librería! Bajando su repertorio…', 'ok');
+          await refreshLibs();
+          // Trae ya las canciones de la librería recién unida (no esperes al poll).
+          try { const { checkLibraryNow } = await import('./libraryLive.js'); checkLibraryNow(); } catch (_) {}
+          return;
         }
         case 'push-songs': {
           btn.disabled = true; const lbl = btn.textContent;
@@ -530,7 +700,136 @@ async function onClick(e) {
             btn.textContent = '⟳ Bajando canciones…';
             const { pullLibrarySongs } = await import('./songSync.js');
             const r = await pullLibrarySongs();
-            msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}.`, 'ok');
+            // Con las canciones ya en local (y su cloudId), materializa los
+            // setlists del equipo: en una PC nueva aparecen los del domingo.
+            let sl = { added: 0, updated: 0 };
+            try {
+              const { pullSharedSetlists } = await import('./setlistSync.js');
+              sl = await pullSharedSetlists();
+            } catch (_) { /* sin setlists o sin permisos: no es crítico */ }
+            const slTxt = (sl.added || sl.updated) ? ` · ${sl.added + sl.updated} setlist(s)` : '';
+            msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}${slTxt}.`, 'ok');
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        // ── Un solo botón: despliega dirección + qué incluir ──
+        case 'sync-toggle': {
+          const panel = overlay.querySelector('#acc-sync-panel');
+          if (panel) {
+            const open = panel.classList.toggle('hidden');
+            btn.textContent = open ? '☁ Sincronizar…' : '☁ Sincronizar ▴';
+          }
+          return;
+        }
+        case 'sync-run': {
+          const panel = overlay.querySelector('#acc-sync-panel');
+          const dir = panel?.querySelector('input[name="sync-dir"]:checked')?.value || 'down';
+          const want = (item) => !!panel?.querySelector(`input[data-item="${item}"]`)?.checked;
+          const doSongs = want('songs');
+          const doFiles = want('files');
+          const doSetlists = want('setlists');
+          if (!doSongs && !doFiles && !doSetlists) {
+            msg('Marca al menos una cosa para sincronizar.');
+            return;
+          }
+
+          btn.disabled = true; const lbl = btn.textContent;
+          const partes = [];
+          let fallos = 0;
+          try {
+            if (dir === 'up') {
+              if (doSongs) {
+                btn.textContent = '⟳ Subiendo canciones…';
+                const { pushLibrarySongs } = await import('./songSync.js');
+                const r = await pushLibrarySongs();
+                partes.push(`${r.created + r.updated} canción(es)`);
+                if (r.dupes) {
+                  partes.push(`${r.dupes} duplicada(s) omitida(s)`);
+                }
+              }
+              if (doSetlists) {
+                btn.textContent = '⟳ Subiendo servicios…';
+                try {
+                  const { pushSavedSetlists } = await import('./setlistSync.js');
+                  const r = await pushSavedSetlists();
+                  if (r.pushed) partes.push(`${r.pushed} servicio(s)`);
+                } catch (_) { /* sin setlists guardados */ }
+              }
+              if (doFiles) {
+                const { subirBiblioteca } = await import('./fileSync.js');
+                const f = await subirBiblioteca(({ done, total }) => {
+                  btn.textContent = total ? `⟳ Subiendo audios ${done}/${total}…` : '⟳ Subiendo audios…';
+                });
+                if (f.uploaded) partes.push(`${f.uploaded} audio(s)`);
+                fallos += f.failed;
+              }
+              msg(
+                partes.length
+                  ? `✓ Subido a la nube: ${partes.join(', ')}.${fallos ? ` (${fallos} fallaron)` : ''}`
+                  : 'Ya estaba todo en la nube.',
+                fallos ? '' : 'ok'
+              );
+            } else {
+              if (doSongs) {
+                btn.textContent = '⟳ Trayendo canciones…';
+                const { pullLibrarySongs } = await import('./songSync.js');
+                const r = await pullLibrarySongs();
+                partes.push(`${r.added + r.refreshed} canción(es)`);
+              }
+              if (doSetlists) {
+                btn.textContent = '⟳ Trayendo servicios…';
+                try {
+                  const { pullSharedSetlists } = await import('./setlistSync.js');
+                  const r = await pullSharedSetlists();
+                  if (r.added + r.updated) partes.push(`${r.added + r.updated} servicio(s)`);
+                } catch (_) { /* la librería no tiene servicios */ }
+              }
+              if (doFiles) {
+                const { bajarBiblioteca } = await import('./fileSync.js');
+                const f = await bajarBiblioteca(({ done, total }) => {
+                  btn.textContent = total ? `⟳ Trayendo audios ${done}/${total}…` : '⟳ Trayendo audios…';
+                });
+                if (f.downloaded) partes.push(`${f.downloaded} audio(s)`);
+                fallos += f.failed;
+              }
+              msg(
+                partes.length
+                  ? `✓ Este equipo ya tiene: ${partes.join(', ')}.${fallos ? ` (${fallos} fallaron)` : ''}`
+                  : 'Este equipo ya estaba al día.',
+                fallos ? '' : 'ok'
+              );
+              window.dispatchEvent(new CustomEvent('songs-changed'));
+            }
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'push-files': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            const { subirBiblioteca } = await import('./fileSync.js');
+            const r = await subirBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Subiendo ${done}/${total}…` : '⟳ Subiendo…';
+            });
+            if (!r.total) msg('Todos los archivos ya estaban en la nube.', 'ok');
+            else msg(`Subidos ${r.uploaded} archivo(s)${r.failed ? `, ${r.failed} fallaron` : ''}.`, r.failed ? '' : 'ok');
+            refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'pull-files': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            const { bajarBiblioteca } = await import('./fileSync.js');
+            const r = await bajarBiblioteca(({ done, total }) => {
+              btn.textContent = total ? `⟳ Bajando ${done}/${total}…` : '⟳ Bajando…';
+            });
+            if (!r.total) msg('Ya tienes todos los archivos de la nube.', 'ok');
+            else msg(`Descargados ${r.downloaded} archivo(s)${r.failed ? `, ${r.failed} fallaron` : ''}.`, r.failed ? '' : 'ok');
+            refreshFilesStatus();
+            // Re-render de las tarjetas: ya hay audio/carátula donde no había.
+            window.dispatchEvent(new CustomEvent('songs-changed'));
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
@@ -544,6 +843,8 @@ async function onClick(e) {
     state.activeId = libRow.dataset.lib;
     setActiveLibraryId(state.activeId);
     refreshLibs();
+    // Baja ya el repertorio de la librería recién activada.
+    import('./libraryLive.js').then(m => m.checkLibraryNow()).catch(() => {});
   }
 }
 
@@ -562,6 +863,9 @@ export async function openAccountPanel() {
   overlay.classList.remove('hidden');
   overlay.removeEventListener('click', onClick);
   overlay.addEventListener('click', onClick);
+  // Al cambiar de dirección (subir/traer), la pista de audios pendientes cambia.
+  overlay.removeEventListener('change', onSyncDirChange);
+  overlay.addEventListener('change', onSyncDirChange);
   if (popModal) { popModal(); popModal = null; }
   popModal = pushModal(() => close());
   await render();

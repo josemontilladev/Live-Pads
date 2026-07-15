@@ -147,7 +147,9 @@ export function reorderService(fromIdx, toIdx) {
 
 // ── Setlists guardados (con nombre + fecha) ───────────────────────────────
 // El "Servicio" es la lista de trabajo actual; estos son snapshots con nombre
-// que el usuario guarda para reusar (Domingo AM, Jóvenes, etc.). Solo locales.
+// que el usuario guarda para reusar (Domingo AM, Jóvenes, etc.). Se guardan
+// local Y se comparten a la nube (ver cloud/setlistSync.js), de modo que en una
+// PC nueva se materializan solos al iniciar sesión.
 const SAVED_KEY = 'livepads-saved-setlists';
 
 export function listSavedSetlists() {
@@ -155,6 +157,37 @@ export function listSavedSetlists() {
 }
 function writeSavedSetlists(arr) {
   localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
+  // Cualquier cambio en los setlists guardados dispara una subida a la nube
+  // (debounced en el listener) para que TODOS aparezcan en las vistas web y en
+  // la app móvil, no solo el "actual".
+  try { window.dispatchEvent(new Event('livepads:setlists-changed')); } catch (_) {}
+}
+
+// Trae un setlist de la NUBE a los guardados locales. Se identifica por NOMBRE
+// (misma clave que usa el dedupe de la nube): si ya existe, se actualiza; si no,
+// se añade. Devuelve 'added' | 'updated' | null (sin canciones = se ignora).
+export function upsertSavedSetlistFromCloud({ name, date, songs }) {
+  const list = Array.isArray(songs) ? songs : [];
+  if (!name || !list.length) return null;
+  const arr = listSavedSetlists();
+  const clean = list.map(({ serviceId, ...s }) => s);
+  const existing = arr.find(s => s.name === name);
+  if (existing) {
+    existing.songs = clean;
+    existing.date = date || existing.date || null;
+    existing.savedAt = Date.now();
+    writeSavedSetlists(arr);
+    return 'updated';
+  }
+  arr.unshift({
+    id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
+    name,
+    date: date || null,
+    savedAt: Date.now(),
+    songs: clean,
+  });
+  writeSavedSetlists(arr);
+  return 'added';
 }
 // Guarda el servicio ACTUAL como un setlist con nombre + fecha (YYYY-MM-DD).
 // Devuelve la entrada.
