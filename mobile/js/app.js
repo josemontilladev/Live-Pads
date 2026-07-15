@@ -616,26 +616,33 @@ function readMusicVol() {
   return el ? Number(el.value) / 100 : 1;
 }
 
+// Estado de carga: se muestra en el reproductor grande (pl-state) Y, discreto,
+// encima del mini (mini-status) para que se vea también desde la lista.
+function setLoadStatus(text) {
+  const st = $('pl-state'); if (st) st.textContent = text || '';
+  const ms = $('mini-status');
+  if (ms) { ms.textContent = text || ''; ms.classList.toggle('hidden', !text); }
+}
+
 let loadedPath = null;
 async function ensureLoaded() {
   const path = trackPath();
   if (!path) { toast('Esta canción no tiene ese audio.'); return false; }
   if (loadedPath === path && player.buffer) return true;
-  const st = $('pl-state');
   try {
-    st.textContent = 'Cargando audio…';
+    setLoadStatus('Cargando audio…');
     await player.load(libraryId, path, {
       onState: (phase, pct) => {
-        st.textContent = phase === 'descargando'
+        setLoadStatus(phase === 'descargando'
           ? `Descargando de la nube… ${pct != null ? pct + '%' : ''}`
-          : 'Preparando audio…';
+          : 'Preparando audio…');
       },
     });
     loadedPath = path;
-    st.textContent = '';
+    setLoadStatus('');
     return true;
   } catch (err) {
-    st.textContent = '';
+    setLoadStatus('');
     toast('No se pudo cargar el audio: ' + (err.message || 'sin conexión'));
     return false;
   }
