@@ -59,15 +59,47 @@ const coverUrls = new Map(); // coverPath → objectURL (memo de sesión)
 
 // ── Arranque ────────────────────────────────────────────────────────────
 (async function boot() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  registerSW();
+  bindNetwork();
   // ¿Volvemos de Google? (tokens en el hash) → crea la sesión.
   const oauthUser = await handleOAuthCallback();
   const user = oauthUser || await restoreSession();
   if (user) await enterLibrary();
   else show('login');
 })();
+
+// ── Robustez: Service Worker con aviso de nueva versión ───────────────────
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        // Hay una versión nueva instalada y ya había una controlando la página.
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner();
+      });
+    });
+  }).catch(() => {});
+}
+function showUpdateBanner() {
+  const b = $('update-banner');
+  if (!b) return;
+  b.classList.remove('hidden');
+}
+$('update-reload')?.addEventListener('click', () => location.reload());
+
+// ── Robustez: indicador de "sin conexión" ─────────────────────────────────
+function bindNetwork() {
+  const paint = () => {
+    const off = !navigator.onLine;
+    $('offline-banner')?.classList.toggle('hidden', !off);
+    document.body.classList.toggle('is-offline', off);
+  };
+  window.addEventListener('online', paint);
+  window.addEventListener('offline', paint);
+  paint();
+}
 
 $('login-google').addEventListener('click', () => {
   $('login-err').textContent = '';
@@ -642,8 +674,9 @@ async function ensureLoaded() {
     setLoadStatus('');
     return true;
   } catch (err) {
-    setLoadStatus('');
-    toast('No se pudo cargar el audio: ' + (err.message || 'sin conexión'));
+    // Deja un mensaje accionable: volver a tocar ▶ reintenta (y si la sesión
+    // caducó, validToken la renueva en el reintento).
+    setLoadStatus(navigator.onLine ? '⚠ No cargó · toca play para reintentar' : '⚠ Sin conexión · descarga esta canción primero');
     return false;
   }
 }

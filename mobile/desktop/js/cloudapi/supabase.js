@@ -153,7 +153,12 @@ export async function restoreSession() {
   return session.user;
 }
 
-export async function rest(path, { method = 'GET', body, prefer } = {}) {
+// Fuerza un refresco del token (para reintentar tras un 401 en pleno servicio).
+async function forceRefresh() {
+  try { await refreshSession(); return true; } catch (_) { return false; }
+}
+
+export async function rest(path, { method = 'GET', body, prefer } = {}, _retried) {
   const token = await validToken();
   const headers = {
     'apikey': SUPABASE_ANON_KEY,
@@ -165,6 +170,10 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
     method, headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+  // Sesión caducada en el servidor → refresca y reintenta UNA vez.
+  if (res.status === 401 && !_retried && session && await forceRefresh()) {
+    return rest(path, { method, body, prefer }, true);
+  }
   let data = null;
   try { data = await res.json(); } catch (_) {}
   if (!res.ok) throw new Error((data && (data.message || data.hint)) || `Error ${res.status}`);
@@ -172,7 +181,7 @@ export async function rest(path, { method = 'GET', body, prefer } = {}) {
 }
 
 // Edge Function autenticada (r2-sign).
-export async function invokeFunction(name, payload) {
+export async function invokeFunction(name, payload, _retried) {
   const token = await validToken();
   const res = await httpFetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: 'POST',
@@ -183,6 +192,9 @@ export async function invokeFunction(name, payload) {
     },
     body: JSON.stringify(payload || {}),
   });
+  if (res.status === 401 && !_retried && session && await forceRefresh()) {
+    return invokeFunction(name, payload, true);
+  }
   let data = null;
   try { data = await res.json(); } catch (_) {}
   if (!res.ok) throw new Error((data && (data.error || data.message)) || `Error ${res.status}`);
