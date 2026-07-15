@@ -805,21 +805,9 @@
 
 
 </div>
-<!-- app.js (renderer real) lo inyecta cloud-boot.js tras el login. -->
-<!-- Al arrancar el renderer, oculta la puerta cloud. -->
-<script>
-  (function () {
-    var gate = document.getElementById('cloud-gate');
-    var pre = document.getElementById('preloader');
-    // Cuando el preloader del renderer desaparece, el gate ya no hace falta.
-    var obs = new MutationObserver(function () {
-      if (pre && (pre.style.display === 'none' || pre.classList.contains('hidden'))) {
-        if (gate) gate.style.display = 'none';
-      }
-    });
-    if (pre) obs.observe(pre, { attributes: true, attributeFilter: ['style', 'class'] });
-  })();
-</script>
+<!-- Renderer real de LivePads. Arranca normal (engancha DOMContentLoaded) y su
+     loadGiSetlist espera a que cloud-boot traiga las canciones tras el login. -->
+<script type="module" src="js/app.js"></script>
 <!-- Google Analytics (GA4) — mismo panel que la landing (filtrable por sitio). -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-85NZS8LHJK"></script>
 <script>
