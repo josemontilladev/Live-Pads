@@ -108,6 +108,19 @@ export async function deleteSharedSetlist(id) {
   return true;
 }
 
+// Auto-sync (best-effort): sube a la nube TODOS los setlists guardados
+// localmente. Se llama al arrancar y cada vez que cambian (debounced). Sin
+// sesión/librería no hace nada y no lanza. NO borra nada de la nube (la tabla
+// `setlists` se comparte con la web GI.Setlist, que también puede crear).
+export async function autoSyncSetlists() {
+  if (!isLoggedIn() || !getActiveLibraryId()) return { pushed: 0, skipped: 0 };
+  try {
+    return await pushSavedSetlists();
+  } catch (_) {
+    return { pushed: 0, skipped: 0 };
+  }
+}
+
 // Sube TODOS los setlists guardados localmente a la nube (dedupe por nombre).
 // Los que aún no tienen ninguna canción en la nube se saltan (no se puede
 // referenciar lo que no existe allí).

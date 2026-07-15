@@ -973,6 +973,19 @@ function bindRestOfApp() {
   // Buzón de invitaciones: si alguien te invitó por email, te aparece dentro de
   // la app (sin códigos que pegar). Mismas guardas: sin sesión/red, no hace nada.
   import('./cloud/inviteInbox.js').then(m => m.startInviteInbox()).catch(() => {});
+
+  // Auto-sync de setlists: sube TODOS los guardados a la nube al arrancar y cada
+  // vez que cambian (debounced), para que aparezcan completos en la web y en la
+  // app móvil. Best-effort (sin sesión/red no hace nada).
+  let setlistSyncTimer = null;
+  const syncSetlists = () => {
+    import('./cloud/setlistSync.js').then(m => m.autoSyncSetlists()).catch(() => {});
+  };
+  window.addEventListener('livepads:setlists-changed', () => {
+    clearTimeout(setlistSyncTimer);
+    setlistSyncTimer = setTimeout(syncSetlists, 2500);
+  });
+  setTimeout(syncSetlists, 8000); // una pasada tras el arranque (ya con canciones)
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,

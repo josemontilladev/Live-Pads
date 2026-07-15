@@ -157,6 +157,10 @@ export function listSavedSetlists() {
 }
 function writeSavedSetlists(arr) {
   localStorage.setItem(SAVED_KEY, JSON.stringify(arr));
+  // Cualquier cambio en los setlists guardados dispara una subida a la nube
+  // (debounced en el listener) para que TODOS aparezcan en las vistas web y en
+  // la app móvil, no solo el "actual".
+  try { window.dispatchEvent(new Event('livepads:setlists-changed')); } catch (_) {}
 }
 
 // Trae un setlist de la NUBE a los guardados locales. Se identifica por NOMBRE
