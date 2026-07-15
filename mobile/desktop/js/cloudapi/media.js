@@ -29,6 +29,7 @@ async function signGet(rel) {
 }
 
 // livepads:// → URL reproducible (objectURL cacheado u URL firmada de R2).
+// Para PISTAS grandes (canción): streaming por URL firmada (no carga en RAM).
 export async function cloudResolve(livepadsUrl) {
   const rel = relFrom(livepadsUrl);
   if (!rel || !LIB) return livepadsUrl;
@@ -38,6 +39,28 @@ export async function cloudResolve(livepadsUrl) {
     if (hit) return URL.createObjectURL(await hit.blob());
   } catch (_) { /* sin Cache API: seguimos a streaming */ }
   try { return await signGet(rel); } catch (_) { return livepadsUrl; }
+}
+
+// Igual, pero para ARCHIVOS PEQUEÑOS (samples de kit, carátulas): SIEMPRE
+// baja una vez a Cache Storage y devuelve un blob local → el 2º uso (cambiar de
+// kit, re-render) es instantáneo, sin volver a la red.
+export async function cloudResolveFile(livepadsUrl) {
+  const rel = relFrom(livepadsUrl);
+  if (!rel || !LIB) return livepadsUrl;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    let hit = await cache.match(cacheKey(rel));
+    if (!hit) {
+      const url = await signGet(rel);
+      const res = await fetch(url);
+      if (!res.ok) return url;
+      await cache.put(cacheKey(rel), res.clone());
+      hit = res;
+    }
+    return URL.createObjectURL(await hit.blob());
+  } catch (_) {
+    try { return await signGet(rel); } catch (__) { return livepadsUrl; }
+  }
 }
 
 // ── Descarga offline (setlist completo) ────────────────────────────────────
@@ -51,12 +74,24 @@ async function prefetchOne(rel) {
   return true;
 }
 
-export async function prefetchSongs(songs, onProgress) {
+// Rutas de los samples de los kits de batería personalizados (para descargar).
+function drumRels(drums) {
+  const rels = [];
+  const kits = drums && Array.isArray(drums.kits) ? drums.kits : [];
+  const PADS = ['c_kick', 'c_snare', 'c_hhc', 'c_clap', 'c_perc1', 'c_perc2', 'c_crash', 'c_ride'];
+  kits.forEach((k) => PADS.forEach((id) => { const r = relFrom(k[id]); if (r) rels.push(r); }));
+  return rels;
+}
+
+// Descarga TODO a la caché local: audios + carátulas de las canciones y los
+// samples de los kits. Así la app en la nube reacciona rápido y sirve offline.
+export async function prefetchAll(songs, drums, onProgress) {
   const rels = [];
   (songs || []).forEach((s) => {
     const a = s.audio || {};
     [a.sequence, a.original, s.cover].forEach((u) => { const r = relFrom(u); if (r) rels.push(r); });
   });
+  drumRels(drums).forEach((r) => rels.push(r));
   const uniq = [...new Set(rels)];
   let done = 0, got = 0, failed = 0;
   for (const rel of uniq) {
@@ -65,6 +100,8 @@ export async function prefetchSongs(songs, onProgress) {
   }
   return { got, failed, total: uniq.length };
 }
+// Compat: prefetch solo canciones.
+export function prefetchSongs(songs, onProgress) { return prefetchAll(songs, null, onProgress); }
 
 // ── Carátulas: reemplaza <img src="livepads://…"> por la URL resuelta ──────
 const coverCache = new Map();
