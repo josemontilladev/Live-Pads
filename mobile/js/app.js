@@ -268,6 +268,16 @@ function renderChips() {
       renderChips(); renderSongs();
     });
   });
+  // Botón "Ordenar" (solo con un setlist activo): reordena localmente.
+  if (activeSetlistId) {
+    const b = document.createElement('button');
+    b.className = 'chip order-chip' + (orderMode ? ' active' : '');
+    b.innerHTML = orderMode ? '✓ Listo' : '↕ Ordenar';
+    b.addEventListener('click', () => { orderMode = !orderMode; renderChips(); renderSongs(); });
+    box.appendChild(b);
+  } else {
+    orderMode = false;
+  }
   // Auto-seleccionar la lista de HOY la primera vez.
   if (activeSetlistId === null && !renderChips._auto) {
     renderChips._auto = true;
@@ -276,12 +286,41 @@ function renderChips() {
   }
 }
 
+// Mueve una canción en el orden personalizado del setlist activo.
+function moveSong(i, dir) {
+  const sl = setlists.find(x => x.id === activeSetlistId);
+  if (!sl) return;
+  const list = visibleSongs();
+  const ids = list.map(s => s.cloudId);
+  const j = i + dir;
+  if (j < 0 || j >= ids.length) return;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  saveCustomOrder(sl.id, ids);
+  renderSongs();
+}
+
+// Orden personalizado por setlist (solo en este dispositivo).
+let orderMode = false;
+function customOrderKey(id) { return 'lpm-order-' + id; }
+function getCustomOrder(id) {
+  try { const r = localStorage.getItem(customOrderKey(id)); return r ? JSON.parse(r) : null; } catch (_) { return null; }
+}
+function saveCustomOrder(id, ids) { try { localStorage.setItem(customOrderKey(id), JSON.stringify(ids)); } catch (_) {} }
+
 function visibleSongs() {
   let list = songs;
   const sl = setlists.find(x => x.id === activeSetlistId);
   if (sl) {
     const bySongId = new Map(songs.map(s => [s.cloudId, s]));
-    list = sl.songIds.map(id => bySongId.get(id)).filter(Boolean);
+    let ids = sl.songIds;
+    // Aplica el orden personalizado del dispositivo si existe (las nuevas van al final).
+    const custom = getCustomOrder(sl.id);
+    if (custom) {
+      const inCustom = custom.filter(id => sl.songIds.includes(id));
+      const rest = sl.songIds.filter(id => !inCustom.includes(id));
+      ids = [...inCustom, ...rest];
+    }
+    list = ids.map(id => bySongId.get(id)).filter(Boolean);
   }
   const q = norm(query.trim());
   if (q) list = list.filter(s => norm(s.title).includes(q) || norm(s.artist).includes(q));
@@ -309,8 +348,13 @@ function renderSongs() {
     </div>`;
     return;
   }
+  const ordering = orderMode && !!activeSetlistId && !query;
   box.innerHTML = list.map((s, i) => `
-    <button class="song-card" data-i="${i}" data-cid="${s.cloudId}">
+    <div class="song-card ${ordering ? 'reordering' : ''}" data-i="${i}" data-cid="${s.cloudId}">
+      ${ordering ? `<span class="reorder-btns">
+        <button class="reorder-up" data-i="${i}" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="reorder-down" data-i="${i}" aria-label="Bajar" ${i === list.length - 1 ? 'disabled' : ''}>▼</button>
+      </span>` : ''}
       <span class="song-cover" data-cover="${s.coverPath || ''}">${(s.title || '?')[0].toUpperCase()}</span>
       <span class="song-info">
         <b>${esc(s.title)}</b>
@@ -323,10 +367,15 @@ function renderSongs() {
         </span>
         ${s.bpm ? `<span class="bpm-badge">${esc(String(s.bpm))} BPM</span>` : ''}
       </span>
-    </button>`).join('');
-  box.querySelectorAll('.song-card').forEach(el => {
-    el.addEventListener('click', () => openSong(list[Number(el.dataset.i)]));
-  });
+    </div>`).join('');
+  if (ordering) {
+    box.querySelectorAll('.reorder-up').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); moveSong(Number(el.dataset.i), -1); }));
+    box.querySelectorAll('.reorder-down').forEach(el => el.addEventListener('click', (e) => { e.stopPropagation(); moveSong(Number(el.dataset.i), 1); }));
+  } else {
+    box.querySelectorAll('.song-card').forEach(el => {
+      el.addEventListener('click', () => openSong(list[Number(el.dataset.i)]));
+    });
+  }
   lazyCovers(box);
   markOfflineDots(list);
   updateOfflineBar(list);

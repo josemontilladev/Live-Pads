@@ -136,6 +136,15 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
   transition: transform 0.08s ease, background 0.12s ease;
 }
 .song-card:active { background: #222; transform: scale(0.985); }
+.order-chip { border-color: rgba(251, 174, 0, 0.4) !important; color: var(--accent) !important; }
+.order-chip.active { background: var(--accent) !important; color: #111 !important; }
+.song-card.reordering { background: var(--card); }
+.reorder-btns { display: flex; flex-direction: column; gap: 2px; flex: none; margin-right: 2px; }
+.reorder-btns button {
+  width: 30px; height: 24px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--accent); font-size: 11px; line-height: 1;
+}
+.reorder-btns button:disabled { opacity: 0.3; color: var(--muted); }
 .song-cover {
   width: 54px; height: 54px; border-radius: 10px; flex: none; object-fit: cover;
   background: var(--surface); display: flex; align-items: center; justify-content: center;
