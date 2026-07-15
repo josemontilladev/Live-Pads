@@ -76,9 +76,58 @@ async function loadCloudSongs() {
   return (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
 }
 
-// Botón "Descargar offline": se integra en la cabecera del Setlist (junto a
-// import/export), NO flota sobre el transporte. Baja audios + carátulas del
-// repertorio a la caché del navegador (comparte caché con el móvil).
+// ── Banner de progreso visible (arriba, centrado) ──────────────────────────
+function progressEl() {
+  let b = document.getElementById('cloud-progress');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'cloud-progress';
+    b.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9600;display:none;align-items:center;gap:12px;min-width:280px;max-width:90vw;padding:11px 16px;border-radius:12px;background:rgba(18,18,18,.97);border:1px solid rgba(251,174,0,.32);color:#fbae00;font:600 13px Inter,system-ui,sans-serif;box-shadow:0 14px 44px rgba(0,0,0,.55)';
+    b.innerHTML = '<div class="cp-spin" style="width:18px;height:18px;border:3px solid rgba(251,174,0,.25);border-top-color:#fbae00;border-radius:50%;animation:cloudspin .9s linear infinite;flex:none"></div>' +
+      '<div style="flex:1;min-width:0"><div id="cp-text">Descargando…</div>' +
+      '<div style="height:4px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden"><div id="cp-bar" style="height:100%;width:0;background:#fbae00;border-radius:3px;transition:width .2s"></div></div></div>';
+    document.body.appendChild(b);
+  }
+  return b;
+}
+function showProgress(done, total, label) {
+  const b = progressEl();
+  b.style.display = 'flex';
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  b.querySelector('#cp-text').textContent = `${label || 'Descargando todo para usar sin latencia'} · ${done}/${total} (${pct}%)`;
+  b.querySelector('#cp-bar').style.width = pct + '%';
+  b.querySelector('.cp-spin').style.display = 'block';
+}
+function finishProgress(msg) {
+  const b = progressEl();
+  b.querySelector('#cp-text').textContent = msg;
+  b.querySelector('#cp-bar').style.width = '100%';
+  b.querySelector('.cp-spin').style.display = 'none';
+  setTimeout(() => { b.style.display = 'none'; }, 3500);
+}
+
+let downloading = false;
+async function runFullDownload(auto) {
+  if (downloading) return;
+  downloading = true;
+  const btn = document.getElementById('cloud-offline-btn');
+  if (btn) { btn.dataset.busy = '1'; btn.style.opacity = '0.6'; }
+  showProgress(0, 1, auto ? 'Preparando todo para 0 latencia' : 'Descargando todo');
+  try {
+    const r = await prefetchAll(window.__CLOUD_SONGS__ || [], window.__CLOUD_DRUMS__ || null, (done, total) => {
+      showProgress(done, total);
+    });
+    finishProgress(r.failed ? `✓ Descargado (${r.failed} fallaron)` : '✓ Todo en memoria local · sin latencia');
+    try { localStorage.setItem('lpd-prefetched-' + ACTIVE_LIB, '1'); } catch (_) {}
+  } catch (_) {
+    finishProgress('No se pudo descargar todo');
+  } finally {
+    downloading = false;
+    if (btn) { delete btn.dataset.busy; btn.style.opacity = '1'; }
+  }
+}
+
+// Botón "Descargar offline" en la cabecera del Setlist + auto la 1ª vez.
 function addOfflineButton() {
   if (document.getElementById('cloud-offline-btn')) return;
   const host = document.querySelector('.setlist-header-actions');
@@ -87,29 +136,15 @@ function addOfflineButton() {
   const btn = document.createElement('button');
   btn.id = 'cloud-offline-btn';
   btn.className = 'icon-btn accent-btn';
-  btn.title = 'Descargar audios y carátulas para usar sin internet';
-  const ICON = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 3v9"/><polyline points="8 9 12 13 16 9"/><path d="M4 15a5 5 0 0 0 4 6h9a4 4 0 0 0 1-7.9A6 6 0 0 0 6.5 9"/></svg>';
-  btn.innerHTML = ICON;
-  const toast = (t) => { try { window.showToast ? window.showToast(t) : (btn.title = t); } catch (_) {} };
-
-  btn.addEventListener('click', async () => {
-    if (btn.dataset.busy) return;
-    btn.dataset.busy = '1';
-    btn.style.opacity = '0.6';
-    try {
-      const r = await prefetchAll(window.__CLOUD_SONGS__ || [], window.__CLOUD_DRUMS__ || null, (done, total) => {
-        btn.title = `Descargando ${done}/${total}…`;
-      });
-      toast(r.failed ? `Descargado (${r.failed} fallaron)` : '✓ Todo disponible sin internet');
-    } catch (_) {
-      toast('No se pudo descargar');
-    } finally {
-      delete btn.dataset.busy;
-      btn.style.opacity = '1';
-      btn.title = 'Descargar audios y carátulas para usar sin internet';
-    }
-  });
+  btn.title = 'Descargar TODO (audios, carátulas y kits) para usar sin latencia';
+  btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 3v9"/><polyline points="8 9 12 13 16 9"/><path d="M4 15a5 5 0 0 0 4 6h9a4 4 0 0 0 1-7.9A6 6 0 0 0 6.5 9"/></svg>';
+  btn.addEventListener('click', () => runFullDownload(false));
   host.appendChild(btn);
+
+  // Primera vez en este equipo: descarga todo automáticamente (una sola vez).
+  let already = false;
+  try { already = !!localStorage.getItem('lpd-prefetched-' + ACTIVE_LIB); } catch (_) {}
+  if (!already) setTimeout(() => runFullDownload(true), 2500);
 }
 
 // Entrega las canciones al renderer (que ya arrancó y espera en loadGiSetlist).
