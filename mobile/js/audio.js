@@ -57,10 +57,39 @@ export async function loadFileBlob(libraryId, relPath, { onState } = {}) {
 
 // ¿Está ya offline este archivo?
 export async function isFileCached(libraryId, relPath) {
+  if (!relPath) return true; // nada que bajar = "listo"
   try {
     const cache = await caches.open(CACHE_NAME);
     return !!(await cache.match(cacheKey(libraryId, relPath)));
   } catch (_) { return false; }
+}
+
+// ¿Están TODOS los archivos de audio de una canción ya offline? (para el punto
+// verde de "lista sin internet"). La carátula no cuenta: es opcional.
+export async function isSongCached(libraryId, song) {
+  const paths = [song.sequencePath, song.originalPath].filter(Boolean);
+  if (!paths.length) return true;
+  for (const p of paths) {
+    if (!(await isFileCached(libraryId, p))) return false;
+  }
+  return true;
+}
+
+// Descarga a la caché los archivos de una canción (audio + carátula) que falten.
+// Devuelve cuántos bajó.
+export async function prefetchSong(libraryId, song) {
+  const paths = [song.sequencePath, song.originalPath, song.coverPath].filter(Boolean);
+  let got = 0;
+  for (const p of paths) {
+    if (await isFileCached(libraryId, p)) continue;
+    try { await loadFileBlob(libraryId, p); got++; } catch (_) { /* seguimos con el resto */ }
+  }
+  return got;
+}
+
+// Borra TODO el audio cacheado (liberar espacio en la tablet).
+export async function clearMediaCache() {
+  try { await caches.delete(CACHE_NAME); return true; } catch (_) { return false; }
 }
 
 // Carátula → object URL para <img>. null si falla (la card muestra iniciales).

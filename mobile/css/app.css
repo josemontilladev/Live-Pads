@@ -191,6 +191,36 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
 .pad-btn.on.song-key::after { color: #111; }
 .pad-btn.loading { opacity: 0.55; }
 
+/* ── Descarga offline (barra + punto por canción) ───────────────────────── */
+.offline-bar {
+  width: 100%; margin-top: 8px; height: 42px; border-radius: 10px;
+  background: var(--accent-dim); border: 1px solid var(--accent);
+  color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: 0.02em;
+}
+.offline-bar:active { opacity: 0.8; }
+.offline-bar.done {
+  background: rgba(134, 239, 172, 0.08); border-color: rgba(134, 239, 172, 0.3); color: #86efac;
+}
+.song-meta-top { display: flex; align-items: center; gap: 7px; }
+.offline-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: transparent; border: 1.5px solid var(--border);
+}
+.offline-dot.ready { background: #86efac; border-color: #86efac; box-shadow: 0 0 6px rgba(134, 239, 172, 0.5); }
+
+/* ── Navegación dentro del setlist (player) ─────────────────────────────── */
+.pl-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 6px 16px 0;
+}
+.nav-btn {
+  width: 52px; height: 40px; border-radius: 10px; font-size: 15px; font-weight: 900;
+  background: var(--card); border: 1px solid var(--border); color: var(--accent);
+}
+.nav-btn:disabled { opacity: 0.25; color: var(--muted); }
+.nav-btn:active:not(:disabled) { background: var(--accent-dim); }
+.pl-pos { font-size: 13px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+
 /* ── Hoja de selección (repertorio) ─────────────────────────────────────── */
 .sheet {
   position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.7);
