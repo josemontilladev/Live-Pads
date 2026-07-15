@@ -81,6 +81,35 @@ export async function fetchSetlists(libraryId) {
   }));
 }
 
+// ── Crear / editar / borrar SERVICIOS (setlists) en la nube ────────────────
+// Escriben en la MISMA tabla `setlists` que LivePads y las webs. Requiere ser
+// editor/dueño de la librería (lo impone la RLS). song_ids en orden.
+export async function createSetlist(libraryId, { name, date, songIds }) {
+  const rows = await rest('/setlists', {
+    method: 'POST',
+    body: {
+      library_id: libraryId,
+      name: (name || 'Servicio').slice(0, 120),
+      song_ids: songIds || [],
+      meta: { date: date || null },
+    },
+    prefer: 'return=representation',
+  });
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+export async function updateSetlist(id, { name, date, songIds }) {
+  const body = {};
+  if (name != null) body.name = name.slice(0, 120);
+  if (songIds != null) body.song_ids = songIds;
+  if (date !== undefined) body.meta = { date: date || null };
+  await rest(`/setlists?id=eq.${id}`, { method: 'PATCH', body, prefer: 'return=minimal' });
+}
+
+export async function deleteSetlist(id) {
+  await rest(`/setlists?id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
+}
+
 // URL firmada de LECTURA para un archivo de la biblioteca (10 min).
 export async function signGet(libraryId, relPath) {
   const r = await invokeFunction('r2-sign', { libraryId, path: relPath, op: 'get' });

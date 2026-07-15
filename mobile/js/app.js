@@ -8,6 +8,7 @@ import { restoreSession, signIn, signOut, isLoggedIn, signInWithGoogle, handleOA
 import {
   listLibraries, getActiveLibraryId, setActiveLibraryId,
   fetchSongs, cachedSongs, fetchSetlists,
+  createSetlist, updateSetlist, deleteSetlist,
 } from './cloud.js';
 import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
 import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, activePadKey } from './pads.js';
@@ -255,20 +256,33 @@ const todayISO = () => {
 
 function renderChips() {
   const box = $('setlist-chips');
-  if (!setlists.length) { box.innerHTML = ''; return; }
   const today = todayISO();
   const chip = (id, label, isToday) =>
     `<button class="chip ${activeSetlistId === id ? 'active' : ''}" data-id="${id ?? ''}">` +
     `${isToday ? '<span class="hoy">HOY</span>' : ''}${label}</button>`;
   box.innerHTML =
     chip(null, 'Todas', false) +
-    setlists.map(sl => chip(sl.id, sl.name, sl.date === today)).join('');
-  box.querySelectorAll('.chip').forEach(el => {
+    setlists.map(sl => chip(sl.id, sl.name, sl.date === today)).join('') +
+    '<button class="chip chip-new" data-new="1" title="Crear servicio">+ Servicio</button>';
+  box.querySelectorAll('.chip[data-id], .chip[data-id=""]').forEach(el => {
+    if (el.dataset.new) return;
     el.addEventListener('click', () => {
       activeSetlistId = el.dataset.id || null;
       renderChips(); renderSongs();
     });
   });
+  box.querySelector('.chip-new')?.addEventListener('click', () => openSetlistEditor(null));
+  // Editar el servicio activo (lápiz).
+  if (activeSetlistId) {
+    const sl = setlists.find(s => s.id === activeSetlistId);
+    if (sl) {
+      const e = document.createElement('button');
+      e.className = 'chip';
+      e.innerHTML = '✎ Editar';
+      e.addEventListener('click', () => openSetlistEditor(sl));
+      box.appendChild(e);
+    }
+  }
   // Botón "Ordenar" (solo con un setlist activo): reordena localmente.
   if (activeSetlistId) {
     const b = document.createElement('button');
@@ -286,6 +300,86 @@ function renderChips() {
     if (hoy) { activeSetlistId = hoy.id; renderChips(); renderSongs(); }
   }
 }
+
+// ── Editor de servicios (crear/editar setlist en la nube) ─────────────────
+let editingSetlist = null;   // null = nuevo
+let slSelected = [];         // cloudIds en orden
+let slQuery = '';
+
+function openSetlistEditor(sl) {
+  editingSetlist = sl;
+  slSelected = sl ? [...(sl.songIds || [])] : [];
+  slQuery = '';
+  $('sl-editor-title').textContent = sl ? 'Editar servicio' : 'Nuevo servicio';
+  $('sl-name').value = sl ? sl.name : '';
+  $('sl-date').value = (sl && sl.date) || todayISO();
+  $('sl-search').value = '';
+  $('sl-delete').style.display = sl ? '' : 'none';
+  renderSlSongs();
+  $('screen-setlist').classList.remove('hidden');
+}
+function closeSetlistEditor() { $('screen-setlist').classList.add('hidden'); }
+
+function renderSlSongs() {
+  $('sl-count').textContent = slSelected.length
+    ? `${slSelected.length} en el servicio · toca para agregar o quitar`
+    : 'Toca canciones para agregarlas al servicio';
+  const byId = new Map(songs.map(s => [s.cloudId, s]));
+  const selected = slSelected.map(id => byId.get(id)).filter(Boolean);
+  const q = norm(slQuery.trim());
+  let others = songs.filter(s => !slSelected.includes(s.cloudId));
+  if (q) others = others.filter(s => norm(s.title).includes(q) || norm(s.artist).includes(q));
+  others.sort((a, b) => norm(a.title).localeCompare(norm(b.title)));
+  const list = [...selected, ...others];
+  const box = $('sl-song-list');
+  box.innerHTML = list.map(s => {
+    const idx = slSelected.indexOf(s.cloudId);
+    const picked = idx >= 0;
+    return `<button class="song-card sl-pick ${picked ? 'picked' : ''}" data-cid="${s.cloudId}">
+      ${picked ? `<span class="sl-order">${idx + 1}</span>` : ''}
+      <span class="song-cover">${(s.title || '?')[0].toUpperCase()}</span>
+      <span class="song-info"><b>${esc(s.title)}</b><small>${esc(s.artist || '—')}</small></span>
+      <span class="song-meta"><span class="key-badge">${esc(s.key || '—')}</span></span>
+    </button>`;
+  }).join('');
+  box.querySelectorAll('.sl-pick').forEach(el => {
+    el.addEventListener('click', () => {
+      const cid = el.dataset.cid;
+      const i = slSelected.indexOf(cid);
+      if (i >= 0) slSelected.splice(i, 1); else slSelected.push(cid);
+      renderSlSongs();
+    });
+  });
+}
+
+$('sl-search').addEventListener('input', (e) => { slQuery = e.target.value; renderSlSongs(); });
+$('sl-back').addEventListener('click', closeSetlistEditor);
+$('sl-save').addEventListener('click', async () => {
+  const name = $('sl-name').value.trim() || 'Servicio';
+  const date = $('sl-date').value || null;
+  if (!slSelected.length) { toast('Agrega al menos una canción'); return; }
+  const btn = $('sl-save'); btn.disabled = true;
+  try {
+    if (editingSetlist) await updateSetlist(editingSetlist.id, { name, date, songIds: slSelected });
+    else await createSetlist(libraryId, { name, date, songIds: slSelected });
+    toast('✓ Servicio guardado');
+    await refreshData();
+    closeSetlistEditor();
+  } catch (err) {
+    toast('No se pudo guardar: ' + (err.message || 'revisa tu permiso de edición'));
+  } finally { btn.disabled = false; }
+});
+$('sl-delete').addEventListener('click', async () => {
+  if (!editingSetlist) return;
+  if (!confirm(`¿Eliminar el servicio "${editingSetlist.name}"?`)) return;
+  try {
+    await deleteSetlist(editingSetlist.id);
+    if (activeSetlistId === editingSetlist.id) activeSetlistId = null;
+    toast('Servicio eliminado');
+    await refreshData();
+    closeSetlistEditor();
+  } catch (err) { toast('No se pudo eliminar'); }
+});
 
 // Mueve una canción en el orden personalizado del setlist activo.
 function moveSong(i, dir) {
