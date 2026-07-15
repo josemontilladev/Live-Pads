@@ -6,7 +6,7 @@
 // audio de pista se omite aquí (audio: null) para no intentar rutas locales.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { restoreSession, signIn, isLoggedIn, rest, signInWithGoogle, handleOAuthCallback } from './cloudapi/supabase.js';
+import { restoreSession, signIn, isLoggedIn, rest, signInWithGoogle, handleOAuthCallback, getUser, signOut } from './cloudapi/supabase.js';
 import { setLibraryId, cloudResolve, watchCovers, prefetchSongs } from './cloudapi/media.js';
 
 const LIB_KEY = 'lpm-active-library';
@@ -117,11 +117,42 @@ async function startWithSession() {
   let songs = [];
   try { songs = await loadCloudSongs(); } catch (e) { songs = []; }
   deliverSongs(songs);
-  watchCovers();      // resuelve las carátulas livepads:// → R2
-  addOfflineButton(); // botón de descarga offline
+  watchCovers();        // resuelve las carátulas livepads:// → R2
+  addOfflineButton();   // botón de descarga offline
+  addAccountButton();   // botón de cuenta / cerrar sesión en el header
   // El renderer ya se ve por debajo; quitamos la puerta.
   const gate = document.getElementById('cloud-gate');
   if (gate) gate.style.display = 'none';
+}
+
+// Botón de CUENTA en el header (mi sistema de login, no el del renderer).
+// Muestra el correo y permite cerrar sesión fácilmente.
+function addAccountButton() {
+  if (document.getElementById('cloud-acct-btn')) return;
+  const host = document.querySelector('.topbar-actions');
+  if (!host) { setTimeout(addAccountButton, 500); return; }
+  const user = getUser() || {};
+  const email = user.email || (user.user_metadata && user.user_metadata.email) || 'Mi cuenta';
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;display:inline-flex';
+  const btn = document.createElement('button');
+  btn.id = 'cloud-acct-btn';
+  btn.className = 'icon-btn';
+  btn.title = email;
+  btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  const menu = document.createElement('div');
+  menu.style.cssText = 'position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:#141414;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;z-index:9500;display:none;box-shadow:0 14px 44px rgba(0,0,0,.55)';
+  menu.innerHTML = '<div style="font-size:11px;color:#9aa0ad;margin-bottom:3px">Sesión iniciada</div>' +
+    '<div style="font-size:13px;font-weight:700;margin-bottom:14px;word-break:break-all;color:#f2f2f2">' + email + '</div>' +
+    '<button id="cloud-logout" style="width:100%;height:40px;border:none;border-radius:10px;background:rgba(255,107,107,.12);color:#ff6b6b;font-weight:700;cursor:pointer">Cerrar sesión</button>';
+  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; });
+  menu.addEventListener('click', (e) => e.stopPropagation());
+  document.addEventListener('click', () => { menu.style.display = 'none'; });
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  host.insertBefore(wrap, host.firstChild);
+  menu.querySelector('#cloud-logout').addEventListener('click', () => { signOut(); location.reload(); });
 }
 
 function showLogin(msg) {
