@@ -14,9 +14,12 @@
         var p = new URLSearchParams(location.search);
         var v = p.get('view');
         if (v === 'mobile') return;
+        // Si volvemos de Google (tokens en el hash), NO redirijas: deja que esta
+        // página procese el login (si no, se perderían los tokens).
+        if (location.hash.indexOf('access_token=') !== -1) return;
         var isDesktop = window.matchMedia('(min-width: 1000px) and (pointer: fine)').matches;
         if ((isDesktop || v === 'desktop') && location.pathname.indexOf('/desktop') === -1) {
-          location.replace('desktop/' + location.search);
+          location.replace('desktop/' + location.search + location.hash);
         }
       } catch (e) {}
     })();
