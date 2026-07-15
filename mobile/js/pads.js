@@ -39,11 +39,21 @@ export function setPadsVolume(v) {
   if (masterGain) masterGain.gain.value = v;
 }
 
+// Arranca el pad de un tono (sin togglear). Si ya suena ese, no hace nada.
+export async function startPad(key) {
+  if (!key) return null;
+  if (current && current.key === key) return key;
+  return startPadInternal(key);
+}
+
 // Enciende (o cambia a) el pad de un tono. Si es el activo, lo apaga.
 export async function togglePad(key) {
-  const c = audioCtx();
   if (current && current.key === key) { stopPads(); return null; }
+  return startPadInternal(key);
+}
 
+async function startPadInternal(key) {
+  const c = audioCtx();
   const buf = await bufferFor(key);
   const gain = c.createGain();
   gain.gain.setValueAtTime(0.0001, c.currentTime);

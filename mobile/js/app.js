@@ -10,7 +10,7 @@ import {
   fetchSongs, cachedSongs, fetchSetlists,
 } from './cloud.js';
 import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
-import { PAD_KEYS, togglePad, stopPads, setPadsVolume, activePadKey } from './pads.js';
+import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, activePadKey } from './pads.js';
 import {
   startMetronome, stopMetronome, metroRunning,
   setMetroBpm, setMetroVolume, setMetroPan,
@@ -432,7 +432,7 @@ function updateMini() {
     $('mini-title').textContent = current.title;
     $('mini-artist').textContent = current.artist || '—';
     $('mini').classList.remove('hidden');
-    $('mini-play').innerHTML = player.playing ? ICON.pause : ICON.play;
+    $('mini-play').innerHTML = masterActive() ? ICON.pause : ICON.play;
     document.body.classList.add('has-mini');
   } else {
     mini.classList.add('hidden');
@@ -447,12 +447,7 @@ function setMiniCover(url) {
   c.innerHTML = '';
 }
 $('mini').addEventListener('click', (e) => {
-  if (e.target.closest('#mini-play')) {
-    audioCtx();
-    if (player.playing) player.pause(); else if (player.buffer) player.play();
-    updateTransport();
-    return;
-  }
+  if (e.target.closest('#mini-play')) { masterToggle(); return; }
   reopenPlayer();
 });
 
@@ -532,17 +527,42 @@ async function ensureLoaded() {
   }
 }
 
-$('pl-play').addEventListener('click', async () => {
+// ── PLAY MAESTRO (como LivePads) ──────────────────────────────────────────
+// Un solo botón arranca "la canción completa":
+//   · Si hay pista (secuencia u original): reproduce la pista + el PAD del tono.
+//   · Si NO hay pista: reproduce el CLICK (metrónomo) + el PAD del tono.
+// Pausar detiene todo (pista/click/pad).
+function masterActive() { return player.playing || metroRunning(); }
+
+async function masterToggle() {
   audioCtx(); // gesto: desbloquea el audio del navegador
-  if (player.playing) { player.pause(); updateTransport(); return; }
-  const btn = $('pl-play');
-  btn.disabled = true;
-  const ok = await ensureLoaded();
-  btn.disabled = false;
-  if (!ok) return;
-  player.play();
+  if (masterActive()) {
+    if (player.playing) player.pause();
+    stopMetronomeUI();
+    stopPads();
+    updateTransport();
+    renderPads();
+    return;
+  }
+  // Arranca el colchón (pad) en el tono de la canción, en paralelo.
+  const key = songPadKey();
+  if (key) { startPad(key).then(() => renderPads()).catch(() => {}); }
+
+  const path = trackPath();
+  if (path) {
+    // Hay secuencia/original → reproduce la pista.
+    const btn = $('pl-play');
+    btn.disabled = true;
+    const ok = await ensureLoaded();
+    btn.disabled = false;
+    if (ok) player.play();
+  } else {
+    // Sin pista → el "play" es el click (metrónomo).
+    startMetro();
+  }
   updateTransport();
-});
+}
+$('pl-play').addEventListener('click', masterToggle);
 player.onEnded = () => updateTransport();
 
 $('pl-rew').addEventListener('click', () => { player.seek(player.currentTime - 10); updateTransport(); });
@@ -553,8 +573,9 @@ $('pl-seek').addEventListener('input', (e) => {
 });
 
 function updateTransport(reset) {
-  $('pl-play').innerHTML = player.playing ? ICON.pause : ICON.play;
-  $('pl-play').setAttribute('aria-label', player.playing ? 'Pausar' : 'Reproducir');
+  const active = masterActive();
+  $('pl-play').innerHTML = active ? ICON.pause : ICON.play;
+  $('pl-play').setAttribute('aria-label', active ? 'Pausar' : 'Reproducir');
   updateMini();
   if (reset) { $('pl-seek').value = 0; $('pl-cur').textContent = '0:00'; $('pl-dur').textContent = '0:00'; }
   if (player.playing && !uiTimer) {
@@ -581,19 +602,21 @@ function renderBeatDots() {
   $('beat-dots').innerHTML = Array.from({ length: beats }, (_, i) =>
     `<span class="beat-dot ${i === 0 ? 'accent' : ''}"></span>`).join('');
 }
-$('metro-toggle').addEventListener('click', () => {
-  audioCtx();
-  const btn = $('metro-toggle');
-  if (metroRunning()) {
-    stopMetronome();
-    btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false');
-    return;
-  }
+// Arranca el metrónomo y refleja su botón (compartido por el botón Click y el
+// play maestro de canciones sin pista).
+function startMetro() {
   const dots = () => [...document.querySelectorAll('.beat-dot')];
   startMetronome(Number($('pl-bpm').textContent), current?.timeSig, (beat) => {
     dots().forEach((d, i) => d.classList.toggle('hit', i === beat));
   });
-  btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true');
+  const btn = $('metro-toggle');
+  if (btn) { btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); }
+}
+$('metro-toggle').addEventListener('click', () => {
+  audioCtx();
+  if (metroRunning()) { stopMetronomeUI(); updateTransport(); return; }
+  startMetro();
+  updateTransport();
 });
 function bpmNudge(d) {
   const v = Math.max(30, Math.min(300, Number($('pl-bpm').textContent) + d));
