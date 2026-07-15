@@ -10,10 +10,13 @@
 
   const stubs = {
     getAppVersion: () => Promise.resolve('cloud'),
-    // Canciones de la nube (o null si aún no cargaron → el renderer espera).
-    loadGiSetlist: () => Promise.resolve(
-      window.__CLOUD_SONGS__ ? { data: { songs: window.__CLOUD_SONGS__ } } : null
-    ),
+    // Canciones de la nube. El renderer arranca normal (oculta su preloader) y
+    // esta llamada ESPERA a que cloud-boot termine el login y traiga las
+    // canciones. Si ya están, resuelve al instante.
+    loadGiSetlist: () => new Promise((resolve) => {
+      if (window.__CLOUD_SONGS__) return resolve({ data: { songs: window.__CLOUD_SONGS__ } });
+      window.__onCloudSongs = () => resolve({ data: { songs: window.__CLOUD_SONGS__ || [] } });
+    }),
     saveGiSetlist: asyncNull,
     loadPresets: () => Promise.resolve(null),
     savePreset: asyncNull,

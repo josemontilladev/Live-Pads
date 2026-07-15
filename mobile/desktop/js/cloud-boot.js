@@ -63,26 +63,21 @@ async function loadCloudSongs() {
   return (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
 }
 
-// Inyecta el renderer real (module) una vez tenemos las canciones.
-function bootRenderer() {
-  const s = document.createElement('script');
-  s.type = 'module';
-  s.src = 'js/app.js';
-  document.body.appendChild(s);
-  // Fallback: oculta la puerta cloud aunque el observer del preloader no dispare.
-  setTimeout(() => { const g = document.getElementById('cloud-gate'); if (g) g.style.display = 'none'; }, 3000);
+// Entrega las canciones al renderer (que ya arrancó y espera en loadGiSetlist).
+function deliverSongs(songs) {
+  window.__CLOUD_SONGS__ = songs || [];
+  if (typeof window.__onCloudSongs === 'function') window.__onCloudSongs();
 }
 
 async function startWithSession() {
   el('cloud-login').style.display = 'none';
   el('cloud-loading').style.display = 'flex';
-  try {
-    window.__CLOUD_SONGS__ = await loadCloudSongs();
-  } catch (e) {
-    window.__CLOUD_SONGS__ = [];
-  }
-  el('cloud-loading').style.display = 'none';
-  bootRenderer();
+  let songs = [];
+  try { songs = await loadCloudSongs(); } catch (e) { songs = []; }
+  deliverSongs(songs);
+  // El renderer ya se ve por debajo; quitamos la puerta.
+  const gate = document.getElementById('cloud-gate');
+  if (gate) gate.style.display = 'none';
 }
 
 function showLogin(msg) {
