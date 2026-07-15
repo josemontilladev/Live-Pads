@@ -72,12 +72,19 @@ async function startPadInternal(key) {
   return key;
 }
 
+const FADE_OUT_S = 2.5; // apagado bien suave (nunca de golpe)
 function fadeOutAndStop({ source, gain }) {
   const c = audioCtx();
   try {
-    gain.gain.setValueAtTime(gain.gain.value, c.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + FADE_S);
-    source.stop(c.currentTime + FADE_S + 0.1);
+    const now = c.currentTime;
+    // Cancela cualquier rampa en curso (p. ej. el fade-in) y arranca el fade
+    // de salida desde el valor ACTUAL — sin esto, una rampa pendiente pisaba
+    // el fade y el pad se cortaba de golpe.
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + FADE_OUT_S);
+    gain.gain.setValueAtTime(0, now + FADE_OUT_S + 0.02); // corta el zumbido residual
+    source.stop(now + FADE_OUT_S + 0.1);
   } catch (_) {}
 }
 

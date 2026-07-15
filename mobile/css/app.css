@@ -183,9 +183,14 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
 
 .pl-track { margin-bottom: 14px; }
 .seg { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.seg-btn { flex: 1; height: 46px; border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; }
+.seg-btn { flex: 1; height: 48px; border: none; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; transition: background 0.15s ease, color 0.15s ease; }
+.seg-btn:not([disabled]):active { background: rgba(255, 255, 255, 0.05); }
+/* Color por modo (activo) — distinción rápida de un vistazo, como LivePads. */
 .seg-btn.active { background: var(--accent); color: #111; }
-.seg-btn[disabled] { opacity: 0.35; }
+.seg-btn[data-mode="sequence"].active { background: #22c55e; color: #05230f; }
+.seg-btn[data-mode="click"].active { background: #3b82f6; color: #eaf1ff; }
+.seg-btn[data-mode="original"].active { background: var(--accent); color: #241800; }
+.seg-btn[disabled] { opacity: 0.3; }
 .pl-state { min-height: 18px; text-align: center; color: var(--accent); font-size: 12px; padding-top: 6px; }
 .pl-transport { display: flex; align-items: center; justify-content: center; gap: 26px; padding: 10px 0 6px; }
 .round-btn {
