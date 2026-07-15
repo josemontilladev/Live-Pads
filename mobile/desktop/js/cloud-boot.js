@@ -7,10 +7,16 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { restoreSession, signIn, isLoggedIn, rest, signInWithGoogle, handleOAuthCallback, getUser, signOut } from './cloudapi/supabase.js';
-import { setLibraryId, cloudResolve, watchCovers, prefetchSongs } from './cloudapi/media.js';
+import { setLibraryId, cloudResolve, cloudResolveFile, watchCovers, prefetchAll } from './cloudapi/media.js';
 
 const LIB_KEY = 'lpm-active-library';
 let ACTIVE_LIB = null;
+
+// Service Worker (scope /desktop/): deja pads/js/css/imágenes en caché local
+// para que la app cargue y reaccione rápido, y funcione offline.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 function el(id) { return document.getElementById(id); }
 
@@ -62,7 +68,8 @@ async function loadCloudSongs() {
   if (!libId) return [];
   ACTIVE_LIB = libId;
   setLibraryId(libId);
-  window.__cloudResolve = cloudResolve; // el renderer resuelve audio/carátulas por R2
+  window.__cloudResolve = cloudResolve;         // pistas grandes → streaming R2
+  window.__cloudResolveFile = cloudResolveFile; // samples/carátulas → blob cacheado
   const rows = await rest(
     `/songs?library_id=eq.${libId}&select=id,title,artist,bpm,key,genre,lyrics,youtube_url,tags,meta&order=title.asc`
   );
@@ -90,10 +97,10 @@ function addOfflineButton() {
     btn.dataset.busy = '1';
     btn.style.opacity = '0.6';
     try {
-      const r = await prefetchSongs(window.__CLOUD_SONGS__ || [], (done, total) => {
+      const r = await prefetchAll(window.__CLOUD_SONGS__ || [], window.__CLOUD_DRUMS__ || null, (done, total) => {
         btn.title = `Descargando ${done}/${total}…`;
       });
-      toast(r.failed ? `Descargado (${r.failed} fallaron)` : '✓ Repertorio disponible sin internet');
+      toast(r.failed ? `Descargado (${r.failed} fallaron)` : '✓ Todo disponible sin internet');
     } catch (_) {
       toast('No se pudo descargar');
     } finally {

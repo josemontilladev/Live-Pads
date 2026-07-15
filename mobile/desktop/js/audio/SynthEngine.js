@@ -995,10 +995,11 @@ export class SynthEngine {
       .map(async p => {
         try {
           // NUBE: los samples propios (livepads://app/UserDrums/…) se resuelven
-          // a una URL firmada de R2 (o blob cacheado) antes de descargar.
+          // a un blob CACHEADO de R2 (2º cambio de kit = instantáneo).
           let src = p.sample;
-          if (typeof src === 'string' && src.startsWith('livepads://') && window.__cloudResolve) {
-            try { src = await window.__cloudResolve(src); } catch (_) {}
+          const resolver = window.__cloudResolveFile || window.__cloudResolve;
+          if (typeof src === 'string' && src.startsWith('livepads://') && resolver) {
+            try { src = await resolver(src); } catch (_) {}
           }
           const resp = await fetch(src);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
