@@ -234,7 +234,13 @@ function renderSongs() {
   const list = visibleSongs();
   $('lib-count').textContent = `${list.length} canciones`;
   const box = $('song-list');
-  if (!list.length) { box.innerHTML = '<p class="empty">No hay canciones aquí.</p>'; return; }
+  if (!list.length) {
+    box.innerHTML = `<div class="empty">
+      <svg class="empty-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <p>${query ? 'Sin resultados para tu búsqueda.' : 'No hay canciones en esta lista.'}</p>
+    </div>`;
+    return;
+  }
   box.innerHTML = list.map((s, i) => `
     <button class="song-card" data-i="${i}" data-cid="${s.cloudId}">
       <span class="song-cover" data-cover="${s.coverPath || ''}">${(s.title || '?')[0].toUpperCase()}</span>
