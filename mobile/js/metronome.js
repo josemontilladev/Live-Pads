@@ -35,18 +35,22 @@ function ensureOut() {
   return out;
 }
 
+// Click COWBELL metálico, igual que LivePads (dos osciladores square + paso
+// alto). Suena fuerte para oírse cuando todos tocan en vivo.
 function click(time, accent) {
   const c = audioCtx();
-  const o = c.createOscillator();
-  const g = c.createGain();
-  // Blip corto y penetrante; el acento (tiempo 1) más agudo y fuerte.
-  o.frequency.value = accent ? 1800 : 1200;
-  g.gain.setValueAtTime(accent ? 1 : 0.72, time);
-  g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-  o.connect(g);
-  g.connect(ensureOut().gain);
-  o.start(time);
-  o.stop(time + 0.06);
+  const dest = ensureOut().gain;
+  const freqs = accent ? [562, 845] : [440, 660];
+  for (const fr of freqs) {
+    const o = c.createOscillator(); o.type = 'square'; o.frequency.value = fr;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 300;
+    const g = c.createGain();
+    // Ganancia alta (el equipo se queja de que "apenas se escucha el click").
+    g.gain.setValueAtTime(accent ? 0.9 : 0.6, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time + (accent ? 0.45 : 0.28));
+    o.connect(hp); hp.connect(g); g.connect(dest);
+    o.start(time); o.stop(time + (accent ? 0.5 : 0.3));
+  }
 }
 
 function scheduler() {
