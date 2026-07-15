@@ -15,6 +15,7 @@ import {
   startMetronome, stopMetronome, metroRunning,
   setMetroBpm, setMetroVolume, setMetroPan,
   setMetroTimeSig, setMetroSubdivision,
+  toggleAccent, isAccent,
 } from './metronome.js';
 
 const $ = (id) => document.getElementById(id);
@@ -470,7 +471,7 @@ async function openSong(song, keepHistory, opts = {}) {
   mode = song.sequencePath ? 'sequence' : (song.originalPath ? 'original' : 'click');
   semitones = 0; // cada canción arranca en su tono
   loadedPath = null;
-  player.stop(); stopPads(); stopMetronomeUI();
+  player.stop(); player.setPitch(0); stopPads(); stopMetronomeUI();
   if (!minimized) {
     show('player');
     if (!keepHistory) history.pushState({ player: true }, '');
@@ -817,12 +818,14 @@ function transposeBy(d) {
   semitones = Math.max(-6, Math.min(6, semitones + d));
   renderTranspose();
   renderPads();
+  // Transpone el AUDIO (secuencia/original) sin cambiar la velocidad.
+  player.setPitch(semitones);
   // Si el colchón está sonando, cámbialo al nuevo tono (crossfade suave).
   if (activePadKey()) { const k = songPadKey(); if (k) startPad(k).then(() => renderPads()).catch(() => {}); }
 }
 $('tr-down').addEventListener('click', () => transposeBy(-1));
 $('tr-up').addEventListener('click', () => transposeBy(1));
-$('tr-val').addEventListener('dblclick', () => { semitones = 0; renderTranspose(); renderPads(); const k = songPadKey(); if (activePadKey() && k) startPad(k).then(() => renderPads()).catch(() => {}); });
+$('tr-val').addEventListener('dblclick', () => { semitones = 0; renderTranspose(); renderPads(); player.setPitch(0); const k = songPadKey(); if (activePadKey() && k) startPad(k).then(() => renderPads()).catch(() => {}); });
 
 // ── Loop / repetir ────────────────────────────────────────────────────────
 $('loop-btn').addEventListener('click', () => {
@@ -867,8 +870,15 @@ $('mix-pads-vol').addEventListener('input', e => setPadsVolume(Number(e.target.v
 function currentSig() { return $('metro-sig')?.value || current?.timeSig || '4/4'; }
 function renderBeatDots() {
   const beats = parseInt(String(currentSig()).split('/')[0], 10) || 4;
-  $('beat-dots').innerHTML = Array.from({ length: beats }, (_, i) =>
-    `<span class="beat-dot ${i === 0 ? 'accent' : ''}"></span>`).join('');
+  const box = $('beat-dots');
+  box.innerHTML = Array.from({ length: beats }, (_, i) =>
+    `<button class="beat-dot ${isAccent(i) ? 'accent' : ''}" data-beat="${i}" title="Acento del clic (toca para activar/quitar)"></button>`).join('');
+  box.querySelectorAll('.beat-dot').forEach(el => {
+    el.addEventListener('click', () => {
+      const on = toggleAccent(Number(el.dataset.beat));
+      el.classList.toggle('accent', on);
+    });
+  });
 }
 // Compás: cambia el patrón (y los puntos) en vivo.
 $('metro-sig').addEventListener('change', (e) => {

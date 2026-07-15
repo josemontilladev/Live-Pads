@@ -15,6 +15,7 @@ let running = false;
 let bpm = 120;
 let beatsPerBar = 4;
 let subdivision = 1;   // 1x o 2x (golpes por pulso)
+let accents = { 0: true }; // qué pulsos llevan acento (índice → bool); def: tiempo 1
 let nextNoteTime = 0;
 let stepInBar = 0;     // paso actual (0 … beatsPerBar*subdivision-1)
 let volume = 1;
@@ -89,7 +90,8 @@ function scheduler() {
   const totalSteps = beatsPerBar * subdivision;
   while (nextNoteTime < c.currentTime + SCHEDULE_AHEAD_S) {
     const isMainBeat = stepInBar % subdivision === 0;
-    const accent = stepInBar === 0;          // tiempo 1 = acento fuerte
+    const beatIdx = Math.floor(stepInBar / subdivision);
+    const accent = isMainBeat && !!accents[beatIdx]; // acento según el patrón
     // En subdivisiones (2x) el "y" suena más flojo que el pulso principal.
     click(nextNoteTime, accent, isMainBeat);
     if (onBeat && isMainBeat) {
@@ -128,3 +130,7 @@ export function setMetroVolume(v) { volume = v; if (out) out.gain.gain.value = v
 export function setMetroPan(p) { panValue = p; if (out && out.pan) out.pan.pan.value = p; }
 export function setMetroTimeSig(sig) { beatsPerBar = parseInt(String(sig || '4/4').split('/')[0], 10) || 4; }
 export function setMetroSubdivision(n) { subdivision = Number(n) === 2 ? 2 : 1; }
+// Patrón de acentos: objeto { beatIdx: bool }. toggleAccent invierte un pulso.
+export function setAccents(obj) { accents = obj || {}; }
+export function toggleAccent(i) { accents[i] = !accents[i]; return !!accents[i]; }
+export function isAccent(i) { return !!accents[i]; }

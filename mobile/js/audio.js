@@ -11,8 +11,21 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { signGet } from './cloud.js';
+import { SoundTouchNode } from '../vendor/soundtouch-worklet/SoundTouchNode.js';
 
 const CACHE_NAME = 'lpm-media-v1';
+
+// Registro (una vez) del worklet SoundTouch para transponer el AUDIO sin
+// cambiar la velocidad (mismo motor que LivePads escritorio).
+let stReady = null;
+function ensureSoundTouch(ctx) {
+  if (stReady) return stReady;
+  stReady = SoundTouchNode
+    .register(ctx, 'vendor/soundtouch-worklet/soundtouch-processor.js')
+    .then(() => true)
+    .catch(() => false);
+  return stReady;
+}
 
 let ctx = null;
 export function audioCtx() {
@@ -132,6 +145,8 @@ export class Player {
     this.volume = 1;
     this.panValue = 0;
     this.onEnded = null;
+    this.pitchSemitones = 0;   // transposición del audio (SoundTouch)
+    this.stNode = null;        // SoundTouchNode (solo si pitch ≠ 0)
   }
 
   ensureNodes() {
@@ -173,7 +188,17 @@ export class Player {
     const c = audioCtx();
     this.source = c.createBufferSource();
     this.source.buffer = this.buffer;
-    this.source.connect(this.gain);
+    // Con transposición: source → SoundTouchNode → gain. Sin ella: source → gain.
+    let head = this.gain;
+    if (this.pitchSemitones !== 0 && this.stNode) {
+      try { this.stNode.disconnect(); } catch (_) {}
+      try {
+        this.stNode.connect(this.gain);
+        this.stNode.pitchSemitones.value = this.pitchSemitones;
+        head = this.stNode;
+      } catch (_) { head = this.gain; }
+    }
+    this.source.connect(head);
     this.source.onended = () => {
       // onended también dispara en stop(); solo avisamos si llegó al final.
       if (this.playing && this.currentTime >= this.duration - 0.1) {
@@ -218,5 +243,18 @@ export class Player {
   setPan(p) {
     this.panValue = p;
     if (this.pan) this.pan.pan.value = p;
+  }
+
+  // Transpone el AUDIO n semitonos (−6..+6) sin cambiar la velocidad.
+  async setPitch(n) {
+    const s = Math.max(-12, Math.min(12, Math.round(Number(n) || 0)));
+    this.pitchSemitones = s;
+    if (s !== 0 && !this.stNode) {
+      const ok = await ensureSoundTouch(audioCtx());
+      if (ok) { try { this.stNode = new SoundTouchNode({ context: audioCtx() }); } catch (_) { this.stNode = null; } }
+    }
+    if (this.stNode) { try { this.stNode.pitchSemitones.value = s; } catch (_) {} }
+    // Re-rutear en vivo: reinicia la reproducción en la posición actual.
+    if (this.playing) this.seek(this.currentTime);
   }
 }
