@@ -31,16 +31,18 @@
   <!-- ── BIBLIOTECA ───────────────────────────────────────────────────── -->
   <section id="screen-library" class="screen hidden">
     <header class="lib-head">
-      <button class="lib-title" id="lib-picker" aria-label="Cambiar de repertorio">
-        <img src="assets/logo.png" alt="" class="lib-logo">
-        <span class="lib-title-txt">
-          <h2 id="lib-name">Repertorio <span class="caret">▾</span></h2>
-          <p id="lib-count" class="lib-sub"></p>
-        </span>
-      </button>
-      <div class="lib-actions">
-        <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">⟳</button>
-        <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
+      <div class="lib-head-inner">
+        <button class="lib-title" id="lib-picker" aria-label="Cambiar de repertorio">
+          <img src="assets/logo.png" alt="" class="lib-logo">
+          <span class="lib-title-txt">
+            <h2 id="lib-name">Repertorio <span class="caret">▾</span></h2>
+            <p id="lib-count" class="lib-sub"></p>
+          </span>
+        </button>
+        <div class="lib-actions">
+          <button id="btn-refresh" class="icon-btn" title="Actualizar" aria-label="Actualizar">⟳</button>
+          <button id="btn-logout" class="icon-btn" title="Cerrar sesión" aria-label="Cerrar sesión">⏻</button>
+        </div>
       </div>
     </header>
 
@@ -65,19 +67,23 @@
   <!-- ── REPRODUCCIÓN ─────────────────────────────────────────────────── -->
   <section id="screen-player" class="screen hidden">
     <header class="pl-head">
-      <button id="pl-back" class="icon-btn" aria-label="Volver">←</button>
-      <div class="pl-title">
-        <h2 id="pl-song">—</h2>
-        <p id="pl-artist">—</p>
+      <div class="pl-head-inner">
+        <button id="pl-back" class="icon-btn" aria-label="Volver">←</button>
+        <div class="pl-title">
+          <h2 id="pl-song">—</h2>
+          <p id="pl-artist">—</p>
+        </div>
+        <span id="pl-key" class="key-badge">—</span>
       </div>
-      <span id="pl-key" class="key-badge">—</span>
     </header>
 
     <!-- Navegación dentro del setlist (sin volver a la lista) -->
-    <div id="pl-nav" class="pl-nav hidden">
-      <button id="pl-prev" class="nav-btn" aria-label="Canción anterior">◀</button>
-      <span id="pl-pos" class="pl-pos">—</span>
-      <button id="pl-next" class="nav-btn" aria-label="Canción siguiente">▶</button>
+    <div class="pl-nav-wrap">
+      <div id="pl-nav" class="pl-nav hidden">
+        <button id="pl-prev" class="nav-btn" aria-label="Canción anterior">◀</button>
+        <span id="pl-pos" class="pl-pos">—</span>
+        <button id="pl-next" class="nav-btn" aria-label="Canción siguiente">▶</button>
+      </div>
     </div>
 
     <main class="pl-body">
@@ -108,30 +114,29 @@
       <!-- Mezcla: volúmenes y PANEO (música / click) -->
       <div class="panel">
         <h3>Mezcla</h3>
-        <div class="mix-row">
-          <label>Música</label>
-          <input type="range" id="mix-music-vol" min="0" max="100" value="100">
-          <span class="mix-pan">
+        <div class="mix-ch">
+          <span class="mix-name">Música</span>
+          <input type="range" class="mix-vol" id="mix-music-vol" min="0" max="100" value="100" aria-label="Volumen música">
+          <div class="mix-pan">
             <small>L</small>
-            <input type="range" id="mix-music-pan" min="-100" max="100" value="0">
+            <input type="range" id="mix-music-pan" min="-100" max="100" value="0" aria-label="Paneo música">
             <small>R</small>
-          </span>
+          </div>
         </div>
-        <div class="mix-row">
-          <label>Click</label>
-          <input type="range" id="mix-click-vol" min="0" max="100" value="100">
-          <span class="mix-pan">
+        <div class="mix-ch">
+          <span class="mix-name">Click</span>
+          <input type="range" class="mix-vol" id="mix-click-vol" min="0" max="100" value="100" aria-label="Volumen click">
+          <div class="mix-pan">
             <small>L</small>
-            <input type="range" id="mix-click-pan" min="-100" max="100" value="0">
+            <input type="range" id="mix-click-pan" min="-100" max="100" value="0" aria-label="Paneo click">
             <small>R</small>
-          </span>
+          </div>
         </div>
-        <div class="mix-row">
-          <label>Pads</label>
-          <input type="range" id="mix-pads-vol" min="0" max="100" value="80">
-          <span class="mix-pan mix-pan--empty"></span>
+        <div class="mix-ch">
+          <span class="mix-name">Pads</span>
+          <input type="range" class="mix-vol" id="mix-pads-vol" min="0" max="100" value="80" aria-label="Volumen pads">
         </div>
-        <p class="hint">Truco in-ears: música toda a la izquierda y click todo a la derecha.</p>
+        <p class="hint">💡 In-ears: música toda a la izquierda, click todo a la derecha.</p>
       </div>
 
       <!-- Metrónomo -->
