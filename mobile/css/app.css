@@ -129,7 +129,18 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
   background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(251, 174, 0, 0.3);
 }
 .bpm-badge { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; }
-.empty { color: var(--muted); text-align: center; padding: 48px 20px; font-size: 14px; }
+.empty { color: var(--muted); text-align: center; padding: 48px 20px; font-size: 14px; line-height: 1.5; }
+
+/* Skeletons de carga (shimmer). */
+.song-card.skel { pointer-events: none; }
+.skel-box { display: block; border-radius: 8px; background: linear-gradient(100deg, #1a1a1a 30%, #232323 50%, #1a1a1a 70%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; }
+.skel-cover { width: 54px; height: 54px; border-radius: 10px; flex: none; }
+.skel-line { height: 12px; margin: 4px 0; }
+.skel-line.w60 { width: 62%; }
+.skel-line.w35 { width: 35%; }
+.skel-key { width: 40px; height: 26px; flex: none; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel-box { animation: none; } }
 
 /* ── Reproducción ───────────────────────────────────────────────────────── */
 .pl-head {
