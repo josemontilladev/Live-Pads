@@ -51,7 +51,7 @@ let setlists = [];
 let activeSetlistId = null;
 let query = '';
 let current = null;          // canción abierta
-let track = 'sequence';      // 'sequence' | 'original'
+let mode = 'sequence';       // 'sequence' | 'click' | 'original'
 const player = new Player();
 let uiTimer = null;
 const coverUrls = new Map(); // coverPath → objectURL (memo de sesión)
@@ -347,7 +347,8 @@ async function openSong(song, keepHistory) {
   current = song;
   playlist = visibleSongs();
   playIndex = playlist.findIndex(s => s.cloudId === song.cloudId);
-  track = song.sequencePath ? 'sequence' : 'original';
+  // Modo por defecto: secuencia si hay; si no, original; si no, click.
+  mode = song.sequencePath ? 'sequence' : (song.originalPath ? 'original' : 'click');
   loadedPath = null;
   player.stop(); stopPads(); stopMetronomeUI();
   show('player');
@@ -485,28 +486,56 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && current) requestWakeLock();
 });
 
+// Ruta de audio del modo actual ('click' no tiene pista → null).
 function trackPath() {
-  return track === 'sequence' ? current?.sequencePath : current?.originalPath;
+  if (mode === 'sequence') return current?.sequencePath || null;
+  if (mode === 'original') return current?.originalPath || null;
+  return null; // click
 }
 
 function renderTrackSeg() {
   document.querySelectorAll('#track-seg .seg-btn').forEach(btn => {
-    const t = btn.dataset.track;
-    const has = t === 'sequence' ? !!current?.sequencePath : !!current?.originalPath;
+    const m = btn.dataset.mode;
+    const has = m === 'sequence' ? !!current?.sequencePath
+      : m === 'original' ? !!current?.originalPath
+      : true; // click siempre disponible
     btn.disabled = !has;
-    btn.classList.toggle('active', t === track);
+    btn.classList.toggle('active', m === mode);
   });
 }
+
+// Cambio de modo EN VIVO (como LivePads): si está sonando, cambia la fuente sin
+// parar el pad; si está en pausa, solo deja listo el modo para el próximo play.
 document.querySelectorAll('#track-seg .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btn.disabled || track === btn.dataset.track) return;
-    track = btn.dataset.track;
-    player.stop();
-    loadedPath = null;
+  btn.addEventListener('click', async () => {
+    const m = btn.dataset.mode;
+    if (btn.disabled || m === mode) return;
+    const wasPlaying = masterActive();
+    mode = m;
     renderTrackSeg();
+
+    // Corta la fuente anterior (pista o click), el PAD sigue.
+    if (player.playing) player.pause();
+    stopMetronomeUI();
+    loadedPath = null;
+
+    if (wasPlaying) {
+      // Arranca la nueva fuente de inmediato.
+      if (mode === 'click') {
+        startMetro();
+      } else {
+        const ok = await ensureLoaded();
+        if (ok) { player.setVolume(readMusicVol()); player.play(); }
+      }
+    }
     updateTransport(true);
   });
 });
+
+function readMusicVol() {
+  const el = document.getElementById('mix-music-vol');
+  return el ? Number(el.value) / 100 : 1;
+}
 
 let loadedPath = null;
 async function ensureLoaded() {
