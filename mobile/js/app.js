@@ -53,6 +53,8 @@ let activeSetlistId = null;
 let query = '';
 let current = null;          // canción abierta
 let mode = 'sequence';       // 'sequence' | 'click' | 'original'
+let semitones = 0;           // transposición del colchón (pad)
+let loopEnabled = false;     // repetir canción
 const player = new Player();
 let uiTimer = null;
 const coverUrls = new Map(); // coverPath → objectURL (memo de sesión)
@@ -391,6 +393,7 @@ async function openSong(song, keepHistory, opts = {}) {
   playIndex = playlist.findIndex(s => s.cloudId === song.cloudId);
   // Modo por defecto: secuencia si hay; si no, original; si no, click.
   mode = song.sequencePath ? 'sequence' : (song.originalPath ? 'original' : 'click');
+  semitones = 0; // cada canción arranca en su tono
   loadedPath = null;
   player.stop(); stopPads(); stopMetronomeUI();
   if (!minimized) {
@@ -412,6 +415,7 @@ async function openSong(song, keepHistory, opts = {}) {
   setMetroTimeSig(sigSel ? sigSel.value : sig);
   renderTrackSeg();
   renderBeatDots();
+  renderTranspose();
   renderPads();
   updateTransport(true);
   $('pl-state').textContent = '';
@@ -718,7 +722,40 @@ async function masterToggle() {
   updateTransport();
 }
 $('pl-play').addEventListener('click', masterToggle);
-player.onEnded = () => updateTransport();
+player.onEnded = () => {
+  if (loopEnabled && player.buffer) { player.seek(0); player.play(); } // repetir
+  updateTransport();
+};
+
+// ── Transponer el colchón (pad) ───────────────────────────────────────────
+function renderTranspose() {
+  const base = baseKey();
+  $('tr-key').textContent = base ? songPadKey() : '—';
+  const v = $('tr-val');
+  v.textContent = semitones > 0 ? `+${semitones}` : String(semitones);
+  v.classList.toggle('shifted', semitones !== 0);
+  $('tr-down').disabled = !base;
+  $('tr-up').disabled = !base;
+}
+function transposeBy(d) {
+  if (!baseKey()) return;
+  semitones = Math.max(-6, Math.min(6, semitones + d));
+  renderTranspose();
+  renderPads();
+  // Si el colchón está sonando, cámbialo al nuevo tono (crossfade suave).
+  if (activePadKey()) { const k = songPadKey(); if (k) startPad(k).then(() => renderPads()).catch(() => {}); }
+}
+$('tr-down').addEventListener('click', () => transposeBy(-1));
+$('tr-up').addEventListener('click', () => transposeBy(1));
+$('tr-val').addEventListener('dblclick', () => { semitones = 0; renderTranspose(); renderPads(); const k = songPadKey(); if (activePadKey() && k) startPad(k).then(() => renderPads()).catch(() => {}); });
+
+// ── Loop / repetir ────────────────────────────────────────────────────────
+$('loop-btn').addEventListener('click', () => {
+  loopEnabled = !loopEnabled;
+  $('loop-btn').classList.toggle('on', loopEnabled);
+  $('loop-btn').setAttribute('aria-pressed', String(loopEnabled));
+  toast(loopEnabled ? 'Repetir activado' : 'Repetir desactivado');
+});
 
 $('pl-rew').addEventListener('click', () => { player.seek(player.currentTime - 10); updateTransport(); });
 $('pl-fwd').addEventListener('click', () => { player.seek(player.currentTime + 10); updateTransport(); });
@@ -797,13 +834,21 @@ $('bpm-up').addEventListener('click', () => bpmNudge(1));
 
 // ── Pads de notas ───────────────────────────────────────────────────────
 const KEY_ALIASES = { 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab', 'A#': 'Bb' };
-function songPadKey() {
+// Tono base (raíz) de la canción, sin transponer.
+function baseKey() {
   let k = (current?.key || '').trim();
   if (!k) return null;
   k = k.replace(/m(aj7|7)?$/i, '').trim();            // Am → A (colchón en la raíz)
   k = k.length > 1 ? k[0].toUpperCase() + k.slice(1) : k.toUpperCase();
   k = KEY_ALIASES[k] || k;
   return PAD_KEYS.includes(k) ? k : null;
+}
+// Tono del colchón APLICANDO la transposición (semitones).
+function songPadKey() {
+  const base = baseKey();
+  if (!base) return null;
+  const i = PAD_KEYS.indexOf(base);
+  return PAD_KEYS[(i + semitones + 120) % 12];
 }
 
 function renderPads() {
