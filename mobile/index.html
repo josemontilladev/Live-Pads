@@ -55,6 +55,9 @@
     <div class="lib-tools">
       <input type="search" id="search" placeholder="Buscar canción o artista…">
       <div id="setlist-chips" class="chips"></div>
+      <button id="btn-offline" class="offline-bar hidden">
+        <span id="offline-txt">⬇ Descargar para usar sin internet</span>
+      </button>
     </div>
     <main id="song-list" class="song-list"></main>
   </section>
@@ -69,6 +72,13 @@
       </div>
       <span id="pl-key" class="key-badge">—</span>
     </header>
+
+    <!-- Navegación dentro del setlist (sin volver a la lista) -->
+    <div id="pl-nav" class="pl-nav hidden">
+      <button id="pl-prev" class="nav-btn" aria-label="Canción anterior">◀</button>
+      <span id="pl-pos" class="pl-pos">—</span>
+      <button id="pl-next" class="nav-btn" aria-label="Canción siguiente">▶</button>
+    </div>
 
     <main class="pl-body">
       <div class="pl-cover-wrap">

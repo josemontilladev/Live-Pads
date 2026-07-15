@@ -9,7 +9,7 @@ import {
   listLibraries, getActiveLibraryId, setActiveLibraryId,
   fetchSongs, cachedSongs, fetchSetlists,
 } from './cloud.js';
-import { Player, loadCoverUrl, audioCtx } from './audio.js';
+import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
 import { PAD_KEYS, togglePad, stopPads, setPadsVolume, activePadKey } from './pads.js';
 import {
   startMetronome, stopMetronome, metroRunning,
@@ -218,11 +218,17 @@ function renderSongs() {
   const box = $('song-list');
   if (!list.length) { box.innerHTML = '<p class="empty">No hay canciones aquí.</p>'; return; }
   box.innerHTML = list.map((s, i) => `
-    <button class="song-card" data-i="${i}">
+    <button class="song-card" data-i="${i}" data-cid="${s.cloudId}">
       <span class="song-cover" data-cover="${s.coverPath || ''}">${(s.title || '?')[0].toUpperCase()}</span>
-      <span class="song-info"><b>${esc(s.title)}</b><small>${esc(s.artist || '—')}</small></span>
+      <span class="song-info">
+        <b>${esc(s.title)}</b>
+        <small>${esc(s.artist || '—')}</small>
+      </span>
       <span class="song-meta">
-        <span class="key-badge">${esc(s.key || '—')}</span>
+        <span class="song-meta-top">
+          <span class="offline-dot" data-cid="${s.cloudId}" title="Disponible sin internet"></span>
+          <span class="key-badge">${esc(s.key || '—')}</span>
+        </span>
         ${s.bpm ? `<span class="bpm-badge">${esc(String(s.bpm))} BPM</span>` : ''}
       </span>
     </button>`).join('');
@@ -230,7 +236,52 @@ function renderSongs() {
     el.addEventListener('click', () => openSong(list[Number(el.dataset.i)]));
   });
   lazyCovers(box);
+  markOfflineDots(list);
+  updateOfflineBar(list);
 }
+
+// Punto verde en las canciones que ya están descargadas (usables sin internet).
+async function markOfflineDots(list) {
+  for (const s of list) {
+    const ok = await isSongCached(libraryId, s);
+    document.querySelectorAll(`.offline-dot[data-cid="${s.cloudId}"]`)
+      .forEach(el => el.classList.toggle('ready', ok));
+  }
+}
+
+// Barra de descarga: cuántas de la vista faltan por bajar.
+async function updateOfflineBar(list) {
+  const bar = $('btn-offline');
+  const withAudio = list.filter(s => s.sequencePath || s.originalPath);
+  if (!withAudio.length) { bar.classList.add('hidden'); return; }
+  let missing = 0;
+  for (const s of withAudio) if (!(await isSongCached(libraryId, s))) missing++;
+  if (!missing) {
+    bar.classList.remove('hidden');
+    bar.classList.add('done');
+    $('offline-txt').textContent = `✓ ${withAudio.length} listas sin internet`;
+  } else {
+    bar.classList.remove('hidden', 'done');
+    $('offline-txt').textContent = `⬇ Descargar ${missing} para usar sin internet`;
+  }
+}
+
+// Descarga todo lo visible (útil antes del domingo, con WiFi).
+$('btn-offline').addEventListener('click', async () => {
+  const bar = $('btn-offline');
+  if (bar.classList.contains('done') || bar.dataset.busy) return;
+  const list = visibleSongs().filter(s => s.sequencePath || s.originalPath);
+  bar.dataset.busy = '1';
+  let done = 0;
+  for (const s of list) {
+    $('offline-txt').textContent = `⬇ Descargando ${++done}/${list.length}…`;
+    try { await prefetchSong(libraryId, s); } catch (_) {}
+    document.querySelectorAll(`.offline-dot[data-cid="${s.cloudId}"]`).forEach(el => el.classList.add('ready'));
+  }
+  delete bar.dataset.busy;
+  toast('✓ Descargadas para usar sin internet');
+  updateOfflineBar(visibleSongs());
+});
 
 function esc(t) {
   return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -261,12 +312,20 @@ function lazyCovers(root) {
 }
 
 // ── Reproducción ────────────────────────────────────────────────────────
-async function openSong(song) {
+let playlist = [];   // orden visible al abrir (para ◀▶)
+let playIndex = -1;
+
+async function openSong(song, keepHistory) {
   current = song;
+  playlist = visibleSongs();
+  playIndex = playlist.findIndex(s => s.cloudId === song.cloudId);
   track = song.sequencePath ? 'sequence' : 'original';
-  player.stop();
+  loadedPath = null;
+  player.stop(); stopPads(); stopMetronomeUI();
   show('player');
-  history.pushState({ player: true }, '');
+  if (!keepHistory) history.pushState({ player: true }, '');
+  requestWakeLock();
+  renderNav();
 
   $('pl-song').textContent = song.title;
   $('pl-artist').textContent = song.artist || '—';
@@ -292,11 +351,47 @@ async function openSong(song) {
 function closePlayer() {
   player.stop(); stopMetronome(); stopPads();
   clearInterval(uiTimer); uiTimer = null;
+  releaseWakeLock();
   current = null;
   show('library');
+  renderSongs(); // refresca los puntos de "descargado"
 }
 $('pl-back').addEventListener('click', () => history.back());
 window.addEventListener('popstate', () => { if (current) closePlayer(); });
+
+// Apaga solo el metrónomo + su botón (al cambiar de canción).
+function stopMetronomeUI() {
+  stopMetronome();
+  const btn = $('metro-toggle');
+  if (btn) { btn.classList.remove('on'); btn.textContent = '▶ Click'; }
+}
+
+// ── Navegación dentro del setlist (◀ 3/12 ▶) ─────────────────────────────
+function renderNav() {
+  const nav = $('pl-nav');
+  if (playlist.length <= 1 || playIndex < 0) { nav.classList.add('hidden'); return; }
+  nav.classList.remove('hidden');
+  $('pl-pos').textContent = `${playIndex + 1} / ${playlist.length}`;
+  $('pl-prev').disabled = playIndex <= 0;
+  $('pl-next').disabled = playIndex >= playlist.length - 1;
+}
+$('pl-prev').addEventListener('click', () => { if (playIndex > 0) openSong(playlist[playIndex - 1], true); });
+$('pl-next').addEventListener('click', () => { if (playIndex < playlist.length - 1) openSong(playlist[playIndex + 1], true); });
+
+// ── Wake Lock: la pantalla NO se apaga con una canción abierta ───────────
+let wakeLock = null;
+async function requestWakeLock() {
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); }
+  catch (_) { /* no soportado o denegado: sin drama */ }
+}
+function releaseWakeLock() {
+  try { wakeLock?.release(); } catch (_) {}
+  wakeLock = null;
+}
+// Al volver a la app, re-pedir el lock (se libera al ocultar la pestaña).
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && current) requestWakeLock();
+});
 
 function trackPath() {
   return track === 'sequence' ? current?.sequencePath : current?.originalPath;
