@@ -69,32 +69,40 @@ async function loadCloudSongs() {
   return (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
 }
 
-// Botón flotante "Descargar offline": baja audios + carátulas del repertorio a
-// la caché del navegador para tocar sin internet (comparte caché con el móvil).
+// Botón "Descargar offline": se integra en la cabecera del Setlist (junto a
+// import/export), NO flota sobre el transporte. Baja audios + carátulas del
+// repertorio a la caché del navegador (comparte caché con el móvil).
 function addOfflineButton() {
   if (document.getElementById('cloud-offline-btn')) return;
+  const host = document.querySelector('.setlist-header-actions');
+  if (!host) { setTimeout(addOfflineButton, 500); return; } // el renderer aún no montó
+
   const btn = document.createElement('button');
   btn.id = 'cloud-offline-btn';
+  btn.className = 'icon-btn accent-btn';
   btn.title = 'Descargar audios y carátulas para usar sin internet';
-  btn.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:9000;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:10px;border:1px solid rgba(251,174,0,.35);background:rgba(251,174,0,.12);color:#fbae00;font:600 13px Inter,system-ui,sans-serif;cursor:pointer';
-  btn.innerHTML = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Descargar offline</span>';
+  const ICON = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M12 3v9"/><polyline points="8 9 12 13 16 9"/><path d="M4 15a5 5 0 0 0 4 6h9a4 4 0 0 0 1-7.9A6 6 0 0 0 6.5 9"/></svg>';
+  btn.innerHTML = ICON;
+  const toast = (t) => { try { window.showToast ? window.showToast(t) : (btn.title = t); } catch (_) {} };
+
   btn.addEventListener('click', async () => {
     if (btn.dataset.busy) return;
     btn.dataset.busy = '1';
-    const label = btn.querySelector('span');
+    btn.style.opacity = '0.6';
     try {
       const r = await prefetchSongs(window.__CLOUD_SONGS__ || [], (done, total) => {
-        label.textContent = `Descargando ${done}/${total}…`;
+        btn.title = `Descargando ${done}/${total}…`;
       });
-      label.textContent = r.failed ? `Listo (${r.failed} fallaron)` : '✓ Disponible sin internet';
+      toast(r.failed ? `Descargado (${r.failed} fallaron)` : '✓ Repertorio disponible sin internet');
     } catch (_) {
-      label.textContent = 'Error al descargar';
+      toast('No se pudo descargar');
     } finally {
       delete btn.dataset.busy;
-      setTimeout(() => { const s = btn.querySelector('span'); if (s) s.textContent = 'Descargar offline'; }, 4000);
+      btn.style.opacity = '1';
+      btn.title = 'Descargar audios y carátulas para usar sin internet';
     }
   });
-  document.body.appendChild(btn);
+  host.appendChild(btn);
 }
 
 // Entrega las canciones al renderer (que ya arrancó y espera en loadGiSetlist).
