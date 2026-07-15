@@ -13,10 +13,45 @@ const LIB_KEY = 'lpm-active-library';
 let ACTIVE_LIB = null;
 
 // Service Worker (scope /desktop/): deja pads/js/css/imágenes en caché local
-// para que la app cargue y reaccione rápido, y funcione offline.
+// para que la app cargue y reaccione rápido, y funcione offline. Con aviso de
+// nueva versión.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) netBanner('update');
+      });
+    });
+  }).catch(() => {});
 }
+
+// Banner fijo (arriba): 'offline' persistente o 'update' con botón Recargar.
+function netBanner(kind) {
+  let b = document.getElementById('cloud-net');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'cloud-net';
+    b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9700;display:flex;align-items:center;gap:10px;padding:9px 15px;border-radius:11px;font:600 12.5px Inter,system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5)';
+    document.body.appendChild(b);
+  }
+  if (kind === 'offline') {
+    b.style.background = '#3a2a12'; b.style.color = '#fbbf24'; b.style.border = '1px solid rgba(251,191,36,.3)';
+    b.textContent = 'Sin conexión · usando lo descargado';
+    b.style.display = 'flex';
+  } else if (kind === 'update') {
+    b.style.background = '#fbae00'; b.style.color = '#111'; b.style.border = 'none';
+    b.innerHTML = 'Nueva versión disponible <button style="height:28px;padding:0 12px;margin-left:6px;border:none;border-radius:8px;background:rgba(0,0,0,.2);color:#111;font-weight:800;cursor:pointer">Recargar</button>';
+    b.querySelector('button').onclick = () => location.reload();
+    b.style.display = 'flex';
+  } else {
+    b.style.display = 'none';
+  }
+}
+window.addEventListener('offline', () => netBanner('offline'));
+window.addEventListener('online', () => { const b = document.getElementById('cloud-net'); if (b && !b.querySelector('button')) b.style.display = 'none'; });
+if (!navigator.onLine) setTimeout(() => netBanner('offline'), 1000);
 
 function el(id) { return document.getElementById(id); }
 
