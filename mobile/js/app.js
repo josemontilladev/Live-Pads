@@ -91,6 +91,32 @@ function showUpdateBanner() {
 }
 $('update-reload')?.addEventListener('click', () => location.reload());
 
+// ── Instalar como app (PWA) ───────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const b = $('install-banner');
+  // No molestar si ya está instalada o si el usuario lo descartó antes.
+  let dismissed = false;
+  try { dismissed = localStorage.getItem('lpm-install-dismissed') === '1'; } catch (_) {}
+  if (b && !dismissed && !window.matchMedia('(display-mode: standalone)').matches) {
+    b.classList.remove('hidden');
+  }
+});
+$('install-yes')?.addEventListener('click', async () => {
+  $('install-banner')?.classList.add('hidden');
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  try { await deferredPrompt.userChoice; } catch (_) {}
+  deferredPrompt = null;
+});
+$('install-no')?.addEventListener('click', () => {
+  $('install-banner')?.classList.add('hidden');
+  try { localStorage.setItem('lpm-install-dismissed', '1'); } catch (_) {}
+});
+window.addEventListener('appinstalled', () => { $('install-banner')?.classList.add('hidden'); });
+
 // ── Robustez: indicador de "sin conexión" ─────────────────────────────────
 function bindNetwork() {
   const paint = () => {
