@@ -20,7 +20,7 @@ html, body {
 .hidden { display: none !important; }
 .screen { min-height: 100dvh; display: flex; flex-direction: column; }
 button { font-family: inherit; cursor: pointer; }
-input[type='range'] { accent-color: var(--accent); height: 28px; }
+input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
 
 /* ── Login ──────────────────────────────────────────────────────────────── */
 #screen-login { align-items: center; justify-content: center; padding: 24px; }
@@ -46,11 +46,11 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
 
 /* ── Biblioteca ─────────────────────────────────────────────────────────── */
 .lib-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 10px;
   position: sticky; top: 0; z-index: 5; background: rgba(10, 10, 10, 0.96);
   border-bottom: 1px solid var(--border);
 }
+.lib-head-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .lib-title {
   display: flex; align-items: center; gap: 10px; min-width: 0;
   background: none; border: none; color: var(--text); padding: 0; text-align: left;
@@ -67,6 +67,7 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
   background: var(--surface); border: 1px solid var(--border); color: var(--text);
 }
 .icon-btn:active { background: var(--card); }
+.lib-head-inner, .lib-tools, .song-list { max-width: 720px; margin-left: auto; margin-right: auto; width: 100%; }
 .lib-tools { padding: 10px 16px 4px; }
 #search {
   width: 100%; height: 48px; padding: 0 16px; border-radius: 12px; font-size: 15px;
@@ -115,10 +116,12 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
   position: sticky; top: 0; z-index: 5; background: rgba(10, 10, 10, 0.96);
   border-bottom: 1px solid var(--border);
 }
-.pl-title { flex: 1; min-width: 0; }
+.pl-head-inner { display: flex; align-items: center; gap: 10px; }
+.pl-head-inner, .pl-nav, .pl-body { max-width: 560px; margin-left: auto; margin-right: auto; width: 100%; }
+.pl-title { flex: 1; min-width: 0; text-align: left; }
 .pl-title h2 { margin: 0; font-size: 16px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pl-title p { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pl-body { flex: 1; overflow-y: auto; padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; width: 100%; }
+.pl-body { flex: 1; overflow-y: auto; padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 0px)); }
 
 .pl-cover-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
 .pl-cover, .pl-cover-fallback {
@@ -153,12 +156,15 @@ input[type='range'] { accent-color: var(--accent); height: 28px; }
 .panel-row h3 { margin: 0; }
 .hint { color: var(--muted); font-size: 11px; margin: 8px 0 0; }
 
-.mix-row { display: grid; grid-template-columns: 52px 1fr 130px; align-items: center; gap: 10px; margin-bottom: 8px; }
-.mix-row label { font-size: 13px; font-weight: 700; }
-.mix-pan { display: flex; align-items: center; gap: 4px; }
-.mix-pan small { color: var(--muted); font-size: 10px; font-weight: 800; }
-.mix-pan input { width: 100%; }
-.mix-pan--empty { visibility: hidden; }
+/* Mezcla: un bloque por canal. Nombre arriba, volumen a lo ancho, y el paneo
+   L—R debajo (más pequeño). Claro y con targets grandes para el dedo. */
+.mix-ch { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.mix-ch:last-of-type { border-bottom: none; padding-bottom: 4px; }
+.mix-name { display: block; font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+.mix-vol { width: 100%; display: block; }
+.mix-pan { display: grid; grid-template-columns: 16px 1fr 16px; align-items: center; gap: 8px; margin-top: 2px; }
+.mix-pan small { color: var(--muted); font-size: 10px; font-weight: 900; text-align: center; }
+.mix-pan input { width: 100%; height: 24px; }
 
 .bpm-ctl { display: flex; align-items: center; gap: 8px; }
 .mini-btn {
