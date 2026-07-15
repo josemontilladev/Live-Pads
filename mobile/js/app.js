@@ -351,7 +351,9 @@ function lazyCovers(root) {
 let playlist = [];   // orden visible al abrir (para ◀▶)
 let playIndex = -1;
 
-async function openSong(song, keepHistory) {
+async function openSong(song, keepHistory, opts = {}) {
+  const minimized = !!opts.minimized;   // reproducir sin abrir el reproductor
+  const autoplay = !!opts.autoplay;     // arrancar de una (mini prev/next)
   current = song;
   playlist = visibleSongs();
   playIndex = playlist.findIndex(s => s.cloudId === song.cloudId);
@@ -359,9 +361,11 @@ async function openSong(song, keepHistory) {
   mode = song.sequencePath ? 'sequence' : (song.originalPath ? 'original' : 'click');
   loadedPath = null;
   player.stop(); stopPads(); stopMetronomeUI();
-  show('player');
-  if (!keepHistory) history.pushState({ player: true }, '');
-  requestWakeLock();
+  if (!minimized) {
+    show('player');
+    if (!keepHistory) history.pushState({ player: true }, '');
+    requestWakeLock();
+  }
   renderNav();
 
   $('pl-song').textContent = song.title;
@@ -396,6 +400,16 @@ async function openSong(song, keepHistory) {
 
   // Precarga la SIGUIENTE del setlist (para que el cambio sea instantáneo).
   prefetchNeighbor();
+
+  // Mini prev/next: si venía sonando, arranca la nueva de una.
+  if (autoplay) {
+    const okKey = songPadKey();
+    if (okKey && mode !== 'original') startPad(okKey).then(() => renderPads()).catch(() => {});
+    const path = trackPath();
+    if (path) { const ok = await ensureLoaded(); if (ok) player.play(); }
+    else startMetro();
+    updateTransport();
+  }
 }
 
 // Baja en silencio el audio de la próxima canción del setlist (best-effort).
@@ -447,6 +461,16 @@ function updateMini() {
     $('mini-artist').textContent = current.artist || '—';
     $('mini').classList.remove('hidden');
     $('mini-play').innerHTML = masterActive() ? ICON.pause : ICON.play;
+    // Etiqueta de modo (SEC / ORI / CLK) y disponibilidad del toggle.
+    const label = mode === 'original' ? 'ORI' : mode === 'click' ? 'CLK' : 'SEC';
+    const mm = $('mini-mode');
+    mm.textContent = label;
+    const canToggle = !!(current.sequencePath && current.originalPath);
+    mm.classList.toggle('mode-orig', mode === 'original');
+    mm.disabled = !canToggle;
+    // ⏮ / ⏭
+    $('mini-prev').disabled = playIndex <= 0;
+    $('mini-next').disabled = playIndex < 0 || playIndex >= playlist.length - 1;
     document.body.classList.add('has-mini');
   } else {
     mini.classList.add('hidden');
@@ -460,9 +484,42 @@ function setMiniCover(url) {
   c.style.backgroundSize = 'cover';
   c.innerHTML = '';
 }
-$('mini').addEventListener('click', (e) => {
-  if (e.target.closest('#mini-play')) { masterToggle(); return; }
-  reopenPlayer();
+$('mini-open').addEventListener('click', reopenPlayer);
+$('mini-play').addEventListener('click', masterToggle);
+$('mini-prev').addEventListener('click', () => miniNav(-1));
+$('mini-next').addEventListener('click', () => miniNav(1));
+
+// ⏮ / ⏭ desde el mini: cambia de canción SIN abrir el reproductor completo.
+function miniNav(dir) {
+  if (playIndex < 0) return;
+  const ni = playIndex + dir;
+  if (ni < 0 || ni >= playlist.length) return;
+  const wasPlaying = masterActive();
+  openSong(playlist[ni], true, { minimized: true, autoplay: wasPlaying });
+}
+
+// Toggle Secuencia ↔ Original en el mini (cambio de fuente en vivo, sin abrir).
+$('mini-mode').addEventListener('click', async () => {
+  if (!current) return;
+  const target = mode === 'original' ? 'sequence' : 'original';
+  // Solo si esa pista existe.
+  const has = target === 'sequence' ? !!current.sequencePath : !!current.originalPath;
+  if (!has) { toast(target === 'original' ? 'Sin pista original' : 'Sin secuencia'); return; }
+  const wasPlaying = masterActive();
+  mode = target;
+  renderTrackSeg();
+  if (player.playing) player.pause();
+  stopMetronomeUI();
+  loadedPath = null;
+  // El pad acompaña a Secuencia, no a Original.
+  if (mode === 'original') stopPads();
+  else { const k = songPadKey(); if (k && activePadKey() !== k) startPad(k).then(() => renderPads()).catch(() => {}); }
+  if (wasPlaying) {
+    const ok = await ensureLoaded();
+    if (ok) { player.setVolume(readMusicVol()); player.play(); }
+  }
+  updateTransport();
+  updateMini();
 });
 
 // Apaga solo el metrónomo + su botón (al cambiar de canción).
