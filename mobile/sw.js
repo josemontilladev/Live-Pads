@@ -36,8 +36,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return; // Supabase/R2: la app decide
 
-  // Pads: cache-first (inmutables).
-  if (url.pathname.includes('/assets/pads/')) {
+  // Pads y clicks: cache-first (assets inmutables).
+  if (url.pathname.includes('/assets/pads/') || url.pathname.includes('/assets/click/')) {
     e.respondWith(
       caches.open(PADS_CACHE).then(async (c) => {
         const hit = await c.match(e.request);
