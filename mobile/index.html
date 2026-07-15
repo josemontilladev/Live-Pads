@@ -186,19 +186,32 @@
 
       <!-- Metrónomo -->
       <div class="panel">
-        <div class="panel-row">
+        <div class="metro-top">
           <h3>Metrónomo</h3>
+          <select id="metro-sig" class="metro-sig" aria-label="Compás">
+            <option value="2/4">2/4</option>
+            <option value="3/4">3/4</option>
+            <option value="4/4" selected>4/4</option>
+            <option value="6/8">6/8</option>
+            <option value="12/8">12/8</option>
+          </select>
+        </div>
+        <div class="metro-row">
           <div class="bpm-ctl">
             <button id="bpm-down" class="mini-btn">−</button>
             <span id="pl-bpm" class="bpm-val">120</span>
             <button id="bpm-up" class="mini-btn">+</button>
             <span class="bpm-unit">BPM</span>
           </div>
-          <button id="metro-toggle" class="btn-toggle" aria-pressed="false">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12"/><path d="m9.5 21 2.5-15 2.5 15"/><line x1="12" y1="6" x2="16" y2="11"/></svg>
-            <span>Click</span>
-          </button>
+          <div class="subdiv">
+            <button data-sub="1" class="sub-btn active">1x</button>
+            <button data-sub="2" class="sub-btn">2x</button>
+          </div>
         </div>
+        <button id="metro-toggle" class="btn-toggle metro-click" aria-pressed="false">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12"/><path d="m9.5 21 2.5-15 2.5 15"/><line x1="12" y1="6" x2="16" y2="11"/></svg>
+          <span>Click</span>
+        </button>
         <div id="beat-dots" class="beat-dots"></div>
       </div>
 

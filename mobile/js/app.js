@@ -14,6 +14,7 @@ import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, activePadKey } 
 import {
   startMetronome, stopMetronome, metroRunning,
   setMetroBpm, setMetroVolume, setMetroPan,
+  setMetroTimeSig, setMetroSubdivision,
 } from './metronome.js';
 
 const $ = (id) => document.getElementById(id);
@@ -361,6 +362,11 @@ async function openSong(song, keepHistory) {
   $('pl-key').textContent = song.key || '—';
   $('pl-bpm').textContent = song.bpm || '120';
   setMetroBpm(song.bpm || 120);
+  // Compás de la canción en el selector (editable por el usuario).
+  const sig = song.timeSig || '4/4';
+  const sigSel = $('metro-sig');
+  if (sigSel) { sigSel.value = ['2/4', '3/4', '4/4', '6/8', '12/8'].includes(sig) ? sig : '4/4'; }
+  setMetroTimeSig(sigSel ? sigSel.value : sig);
   renderTrackSeg();
   renderBeatDots();
   renderPads();
@@ -519,6 +525,14 @@ document.querySelectorAll('#track-seg .seg-btn').forEach(btn => {
     stopMetronomeUI();
     loadedPath = null;
 
+    // El pad acompaña a Secuencia y Click, pero NO a Original.
+    if (mode === 'original') {
+      stopPads();
+    } else {
+      const key = songPadKey();
+      if (key && activePadKey() !== key) startPad(key).then(() => renderPads()).catch(() => {});
+    }
+
     if (wasPlaying) {
       // Arranca la nueva fuente de inmediato.
       if (mode === 'click') {
@@ -529,6 +543,7 @@ document.querySelectorAll('#track-seg .seg-btn').forEach(btn => {
       }
     }
     updateTransport(true);
+    renderPads();
   });
 });
 
@@ -545,7 +560,13 @@ async function ensureLoaded() {
   const st = $('pl-state');
   try {
     st.textContent = 'Cargando audio…';
-    await player.load(libraryId, path, { onState: () => { st.textContent = 'Descargando de la nube…'; } });
+    await player.load(libraryId, path, {
+      onState: (phase, pct) => {
+        st.textContent = phase === 'descargando'
+          ? `Descargando de la nube… ${pct != null ? pct + '%' : ''}`
+          : 'Preparando audio…';
+      },
+    });
     loadedPath = path;
     st.textContent = '';
     return true;
@@ -573,9 +594,10 @@ async function masterToggle() {
     renderPads();
     return;
   }
-  // Arranca el colchón (pad) en el tono de la canción, en paralelo.
+  // Arranca el colchón (pad) en el tono de la canción — salvo en ORIGINAL, que
+  // ya trae su propia música y no debe superponerse un colchón.
   const key = songPadKey();
-  if (key) { startPad(key).then(() => renderPads()).catch(() => {}); }
+  if (key && mode !== 'original') { startPad(key).then(() => renderPads()).catch(() => {}); }
 
   const path = trackPath();
   if (path) {
@@ -626,16 +648,30 @@ $('mix-click-pan').addEventListener('input', e => setMetroPan(Number(e.target.va
 $('mix-pads-vol').addEventListener('input', e => setPadsVolume(Number(e.target.value) / 100));
 
 // ── Metrónomo ───────────────────────────────────────────────────────────
+function currentSig() { return $('metro-sig')?.value || current?.timeSig || '4/4'; }
 function renderBeatDots() {
-  const beats = parseInt(String(current?.timeSig || '4/4').split('/')[0], 10) || 4;
+  const beats = parseInt(String(currentSig()).split('/')[0], 10) || 4;
   $('beat-dots').innerHTML = Array.from({ length: beats }, (_, i) =>
     `<span class="beat-dot ${i === 0 ? 'accent' : ''}"></span>`).join('');
 }
+// Compás: cambia el patrón (y los puntos) en vivo.
+$('metro-sig').addEventListener('change', (e) => {
+  setMetroTimeSig(e.target.value);
+  renderBeatDots();
+});
+// Subdivisión 1x / 2x.
+document.querySelectorAll('.sub-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    setMetroSubdivision(Number(btn.dataset.sub));
+  });
+});
 // Arranca el metrónomo y refleja su botón (compartido por el botón Click y el
 // play maestro de canciones sin pista).
 function startMetro() {
   const dots = () => [...document.querySelectorAll('.beat-dot')];
-  startMetronome(Number($('pl-bpm').textContent), current?.timeSig, (beat) => {
+  startMetronome(Number($('pl-bpm').textContent), currentSig(), (beat) => {
     dots().forEach((d, i) => d.classList.toggle('hit', i === beat));
   });
   const btn = $('metro-toggle');
