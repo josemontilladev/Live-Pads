@@ -24,6 +24,7 @@ html, body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overscroll-behavior: none;
+  overflow-x: hidden; /* nunca scroll horizontal */
 }
 .hidden { display: none !important; }
 /* El atributo `hidden` debe ganar SIEMPRE (el display:flex de algunas cajas
@@ -122,7 +123,8 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
 .song-list { flex: 1; padding: 6px 16px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; -webkit-overflow-scrolling: touch; }
 .song-card {
   display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--radius);
-  background: var(--card); border: 1px solid var(--border); text-align: left; color: var(--text); width: 100%;
+  background: var(--card); border: 1px solid var(--border); text-align: left; color: var(--text);
+  width: 100%; min-width: 0; /* permite que el texto se recorte en rejilla */
   transition: transform 0.08s ease, background 0.12s ease;
 }
 .song-card:active { background: #222; transform: scale(0.985); }
@@ -240,7 +242,7 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
 .beat-dot.hit { background: var(--accent); transform: scale(1.35); }
 .beat-dot.accent.hit { background: #fff; }
 
-.pads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pads-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .pad-btn {
   height: 58px; border-radius: 12px; font-size: 16px; font-weight: 700;
   background: var(--surface); border: 1px solid var(--border); color: var(--text);
@@ -356,12 +358,12 @@ body.has-mini .song-list { padding-bottom: calc(88px + env(safe-area-inset-botto
 /* Tablet: 2 columnas de cards */
 @media (min-width: 600px) {
   .lib-head-inner, .lib-tools, .song-list { max-width: 900px; }
-  .song-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-content: start; }
+  .song-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: start; }
 }
 /* Laptop / escritorio: 3 columnas + reproductor en DOS columnas */
 @media (min-width: 1000px) {
   .lib-head-inner, .lib-tools, .song-list { max-width: 1120px; }
-  .song-list { grid-template-columns: repeat(3, 1fr); }
+  .song-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
   .pl-head-inner { max-width: 1040px; }
   .pl-body {
@@ -384,5 +386,5 @@ body.has-mini .song-list { padding-bottom: calc(88px + env(safe-area-inset-botto
 /* Pantallas grandes: 4 columnas */
 @media (min-width: 1440px) {
   .lib-head-inner, .lib-tools, .song-list { max-width: 1320px; }
-  .song-list { grid-template-columns: repeat(4, 1fr); }
+  .song-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
