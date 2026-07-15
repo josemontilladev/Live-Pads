@@ -374,6 +374,21 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
   background: rgba(0, 0, 0, 0.2); color: #111; font-weight: 800; font-size: 12px;
 }
 
+/* ── Banner de instalar app ─────────────────────────────────────────────── */
+.install-banner {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 55;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 24px); max-width: 460px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+body.has-mini .install-banner { display: none; } /* no chocar con el mini */
+.install-logo { width: 34px; height: 34px; border-radius: 9px; flex: none; }
+.install-txt { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; }
+.install-yes { height: 38px; padding: 0 16px; border-radius: 10px; border: none; background: var(--accent); color: #111; font-weight: 800; font-size: 13px; }
+.install-no { width: 34px; height: 38px; border: none; background: transparent; color: var(--muted); font-size: 16px; }
+
 /* ── Toast ──────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px));
@@ -476,4 +491,14 @@ body.has-mini .song-list { padding-bottom: calc(88px + env(safe-area-inset-botto
 @media (min-width: 1440px) {
   .lib-head-inner, .lib-tools, .song-list { max-width: 1320px; }
   .song-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Horizontal con poca altura (móvil/tablet en atril acostado): carátula más
+   chica y menos aire para que el transporte y los pads no queden fuera. */
+@media (orientation: landscape) and (max-height: 620px) {
+  .pl-cover-wrap { margin-bottom: 10px; }
+  .pl-cover, .pl-cover-fallback { width: min(34vh, 150px); height: min(34vh, 150px); border-radius: 16px; }
+  .pl-body { padding-top: 8px; }
+  .panel { padding: 10px 12px; margin-bottom: 8px; }
+  .round-btn.big { width: 66px; height: 66px; }
 }
