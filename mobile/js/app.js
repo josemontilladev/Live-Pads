@@ -85,7 +85,7 @@ $('login-form').addEventListener('submit', async (e) => {
 });
 
 $('btn-logout').addEventListener('click', () => {
-  player.stop(); stopPads(); stopMetronome();
+  stopEverything();
   signOut();
   show('login');
 });
@@ -360,26 +360,95 @@ async function openSong(song, keepHistory) {
   updateTransport(true);
   $('pl-state').textContent = '';
 
+  updateMini();
+
   // Carátula grande
   const img = $('pl-cover'); const fb = $('pl-cover-fallback');
   img.hidden = true; fb.hidden = false;
   if (song.coverPath) {
     let url = coverUrls.get(song.coverPath);
     if (url === undefined) { url = await loadCoverUrl(libraryId, song.coverPath); coverUrls.set(song.coverPath, url); }
-    if (url && current === song) { img.src = url; img.hidden = false; fb.hidden = true; }
+    if (url && current === song) {
+      img.src = url; img.hidden = false; fb.hidden = true;
+      setMiniCover(url);
+    }
   }
+
+  // Precarga la SIGUIENTE del setlist (para que el cambio sea instantáneo).
+  prefetchNeighbor();
 }
 
-function closePlayer() {
+// Baja en silencio el audio de la próxima canción del setlist (best-effort).
+let prefetchTimer = null;
+function prefetchNeighbor() {
+  clearTimeout(prefetchTimer);
+  const next = playIndex >= 0 && playIndex < playlist.length - 1 ? playlist[playIndex + 1] : null;
+  if (!next) return;
+  prefetchTimer = setTimeout(() => { prefetchSong(libraryId, next).catch(() => {}); }, 1500);
+}
+
+// ── Minimizar / reabrir (mini-reproductor persistente, estilo Spotify) ────
+// Volver NO detiene la música: baja el reproductor a una barra y deja seguir
+// sonando mientras se navega la lista. Solo se detiene al abrir OTRA canción,
+// al cerrar sesión, o con la X del mini.
+function minimizePlayer() {
+  releaseWakeLock();
+  show('library');
+  renderSongs();
+  updateMini();
+}
+function reopenPlayer() {
+  if (!current) return;
+  show('player');
+  history.pushState({ player: true }, '');
+  requestWakeLock();
+  updateTransport();
+  updateMini();
+}
+function stopEverything() {
   player.stop(); stopMetronome(); stopPads();
   clearInterval(uiTimer); uiTimer = null;
   releaseWakeLock();
   current = null;
-  show('library');
-  renderSongs(); // refresca los puntos de "descargado"
+  updateMini();
 }
 $('pl-back').addEventListener('click', () => history.back());
-window.addEventListener('popstate', () => { if (current) closePlayer(); });
+window.addEventListener('popstate', () => {
+  // Solo minimiza si el reproductor está a la vista (no en la lista).
+  if (current && !screens.player.classList.contains('hidden')) minimizePlayer();
+});
+
+// ── Mini-reproductor ──────────────────────────────────────────────────────
+function updateMini() {
+  const mini = $('mini');
+  const onLibrary = !screens.library.classList.contains('hidden');
+  if (current && onLibrary) {
+    $('mini-title').textContent = current.title;
+    $('mini-artist').textContent = current.artist || '—';
+    $('mini').classList.remove('hidden');
+    $('mini-play').innerHTML = player.playing ? ICON.pause : ICON.play;
+    document.body.classList.add('has-mini');
+  } else {
+    mini.classList.add('hidden');
+    document.body.classList.remove('has-mini');
+  }
+}
+function setMiniCover(url) {
+  const c = $('mini-cover');
+  if (!c) return;
+  c.style.backgroundImage = `url("${url}")`;
+  c.style.backgroundSize = 'cover';
+  c.innerHTML = '';
+}
+$('mini').addEventListener('click', (e) => {
+  if (e.target.closest('#mini-play')) {
+    audioCtx();
+    if (player.playing) player.pause(); else if (player.buffer) player.play();
+    updateTransport();
+    return;
+  }
+  reopenPlayer();
+});
 
 // Apaga solo el metrónomo + su botón (al cambiar de canción).
 function stopMetronomeUI() {
@@ -480,6 +549,7 @@ $('pl-seek').addEventListener('input', (e) => {
 function updateTransport(reset) {
   $('pl-play').innerHTML = player.playing ? ICON.pause : ICON.play;
   $('pl-play').setAttribute('aria-label', player.playing ? 'Pausar' : 'Reproducir');
+  updateMini();
   if (reset) { $('pl-seek').value = 0; $('pl-cur').textContent = '0:00'; $('pl-dur').textContent = '0:00'; }
   if (player.playing && !uiTimer) {
     uiTimer = setInterval(() => {
