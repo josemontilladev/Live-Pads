@@ -1,0 +1,3090 @@
+/* Stem Editor — Moises-style layout. Sticky-left strip per row + big
+   horizontal waveform. Pads chrome hidden via a body-level attribute so
+   the gear / ? buttons still reach the floating sidebar that lives in
+   #body but the Pads-only elements (stage, track player, etc.) don't
+   bleed into the Stems workspace. */
+
+body[data-workspace="stems"] #stage,
+body[data-workspace="stems"] #track-player-bar,
+body[data-workspace="stems"] #now-playing-banner,
+body[data-workspace="stems"] #pad-bank-picker,
+body[data-workspace="stems"] #kit-bank-picker,
+body[data-workspace="stems"] #midi-learn-overlay {
+  display: none !important;
+}
+/* #body is a flex item that holds the Pads layout. When all its in-flow
+   children are hidden we want it to collapse so #workspace-stems takes the
+   full vertical space. The #sidebar inside #body is position:fixed so it
+   remains reachable from any workspace. */
+body[data-workspace="stems"] #body {
+  flex: 0 0 0;
+  min-height: 0;
+  height: 0;
+  overflow: visible;
+}
+
+/* ── Workspace switcher with sliding indicator ──────────────────── */
+.workspace-switcher {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  /* Sin margin-left: el .topbar-left ya define gap entre el menú
+     hamburguesa y este switcher. */
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.1)),
+    var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.25),
+    inset 0 0 0 1px rgba(255,255,255,0.025);
+}
+.ws-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  background: var(--accent);
+  border-radius: 7px;
+  box-shadow: 0 0 14px var(--glow);
+  transform: translateX(0);
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+.ws-tab {
+  position: relative;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.25s ease;
+}
+.ws-tab:hover:not(.is-active) { color: var(--text); }
+.ws-tab.is-active {
+  color: var(--on-accent);
+}
+
+/* Smooth crossfade for the workspace content. Outgoing hides instantly
+   (CSS can't animate display), incoming runs the entry animation. */
+#body, #workspace-stems {
+  transition: opacity 0.28s ease;
+}
+.ws-entering {
+  animation: wsFadeIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes wsFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Stems workspace shell ──────────────────────────────────────── */
+#workspace-stems {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+#workspace-stems.hidden { display: none; }
+
+/* Bento layout: the shell is a padded container on the app's base
+   background; each major area (control deck, timeline, console) is a
+   rounded card with a gap between, matching the Pads stage grid. */
+.stems-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: row;        /* [panel setlist] [contenido] */
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  padding: 14px;
+  gap: 14px;
+  background: var(--bg-main);
+}
+/* Columna principal: envuelve deck + timeline + consola (el layout vertical de
+   antes vive ahora acá, para dejar el panel de setlist a la izquierda). */
+.stems-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Panel de setlist dentro de Stems (destino de la asignación) ─────────── */
+.stems-setlist {
+  position: relative;
+  width: 300px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px; min-height: 0;
+}
+/* Colapsado: el botón flecha vive fuera del flujo (tab centrada en el borde),
+   por eso no se oculta aquí; sí todo el contenido. Sin overflow:hidden para que
+   la tab pueda sobresalir del borde derecho. */
+.stems-setlist.collapsed { width: 42px; padding: 12px 4px; }
+.stems-setlist.collapsed .ssl-title-row,
+.stems-setlist.collapsed .ssl-head,
+.stems-setlist.collapsed .ssl-slot,
+.stems-setlist.collapsed .ssl-search,
+.stems-setlist.collapsed .ssl-list,
+.stems-setlist.collapsed .ssl-hint,
+.stems-setlist.collapsed .ssl-title,
+.stems-setlist.collapsed .ssl-add { display: none; }
+
+/* Riel "Canciones": solo visible colapsado. Tres bloques distribuidos a lo
+   largo (chip de icono arriba, texto vertical al centro, contador abajo) con
+   space-between para LLENAR el alto y que la franja no se sienta vacía. Todo el
+   riel es clicable (expande). */
+.ssl-rail { display: none; }
+.stems-setlist.collapsed {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-surface)), var(--bg-surface) 55%);
+}
+.stems-setlist.collapsed .ssl-rail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s;
+  user-select: none;
+}
+.stems-setlist.collapsed .ssl-rail:hover { color: var(--accent); }
+/* Icono + texto agrupados ARRIBA, chevron al centro (indica "expandir"),
+   contador abajo. space-between los reparte a lo largo del riel. */
+.ssl-rail-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+/* Mismo botón circular que el de contraer (.ssl-collapse-btn), para que el
+   afford de expandir/contraer se vea idéntico en ambos estados. */
+.ssl-rail-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.stems-setlist.collapsed .ssl-rail:hover .ssl-rail-chevron {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+}
+.ssl-rail-text {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);    /* lee de abajo hacia arriba */
+  font-size: 11px;
+  font-weight: 600;             /* mismo estilo discreto/ligero que el expandido */
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.ssl-rail-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Cabecera en UNA línea: [+] [Todas|Secuencia|Original] */
+.ssl-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* Mismo botón "+" que Pads: gradiente de acento, redondeado, con el ícono SVG. */
+.ssl-add {
+  flex-shrink: 0;
+  width: 32px; height: 32px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-grad);
+  color: #0a0a14; border: none; cursor: pointer;
+  border-radius: 50%; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+.ssl-add:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.ssl-add svg { width: 16px; height: 16px; }
+.ssl-title { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
+
+/* Encabezado del panel (expandido): icono música plano + título + botón contraer.
+   El icono (.ssl-title-icon) y el título (.ssl-title-label) comparten estilo con
+   el riel colapsado, en su forma discreta (sin chip de fondo). */
+.ssl-title-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ssl-title-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
+.ssl-title-icon svg { width: 16px; height: 16px; }
+.ssl-title-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.ssl-collapse-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.ssl-collapse-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+}
+.ssl-slot { display: flex; gap: 3px; flex: 1; min-width: 0; }
+.ssl-slot-btn {
+  flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-hover);
+  border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.ssl-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
+.ssl-search {
+  flex-shrink: 0;
+  padding: 7px 10px; background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 7px; color: #fff; font-size: 12px; outline: none;
+}
+.ssl-search:focus { border-color: var(--accent); }
+.ssl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ssl-row {
+  text-align: left; border: none; background: transparent; border-radius: var(--r-md);
+  padding: 7px 8px; cursor: pointer; width: 100%;
+  display: flex; align-items: center; gap: 11px;
+}
+.ssl-row:hover { background: var(--bg-hover); }
+/* Check ✓ a la derecha: en modo Secuencia/Original marca las que YA tienen ese
+   slot, en positivo (no atenúa la fila para no parecer deshabilitada). */
+.ssl-check {
+  margin-left: auto; flex-shrink: 0;
+  width: 19px; height: 19px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; line-height: 1;
+}
+.ssl-check.seq  { color: #10b981; background: rgba(16, 185, 129, 0.18); }
+.ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
+.ssl-cover {
+  position: relative; flex-shrink: 0;
+  width: 52px; height: 52px; border-radius: var(--r-md); overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--song-accent, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+}
+.ssl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ssl-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
+.ssl-cover-fallback { font-size: 21px; font-weight: 600; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; }
+.ssl-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ssl-row-title {
+  font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.25;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ssl-row-artist { font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ssl-row-meta { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ssl-meta-music { flex-shrink: 0; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Badges de estado del slot. Verde = Secuencia, Ámbar = Original — mismo
+   lenguaje de color que el selector de Fuente (Secuencia/Click/Ref). */
+.ssl-tags { display: flex; gap: 3px; flex-shrink: 0; }
+.ssl-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 1px 5px; border-radius: 4px; line-height: 1.5;
+}
+.ssl-tag.seq  { color: #10b981; background: rgba(16, 185, 129, 0.16); }
+.ssl-tag.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
+.ssl-hint { font-size: 10px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
+.ssl-empty { padding: 14px 4px; text-align: center; color: var(--text-muted); font-size: 11px; }
+
+/* Modal de "nueva canción" en Stems — reusa el form de Pads (.gi-edit-form). */
+.stems-newsong-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 20, 0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.stems-newsong-modal {
+  width: 380px; max-width: 92vw;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+/* Cheat-sheet de atajos del timeline */
+.stems-newsong-modal.stems-shortcuts { width: 460px; }
+.stems-shortcuts-title { margin: 0 0 14px; font-size: 14px; font-weight: 600; color: var(--text); }
+.stems-shortcuts-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.stems-shortcut-row {
+  display: grid; grid-template-columns: 175px 1fr; align-items: center; gap: 12px;
+  padding: 6px 8px; border-radius: 7px;
+}
+.stems-shortcut-row:nth-child(odd) { background: rgba(255,255,255,0.025); }
+.stems-shortcut-row kbd {
+  justify-self: start;
+  font: 600 11px/1.4 'Consolas', monospace;
+  color: var(--accent);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px; padding: 2px 7px; white-space: nowrap;
+}
+.stems-shortcut-row span { font-size: 13px; color: var(--text-muted); }
+.stems-help-btn { font-weight: 600; }
+.stems-help-btn:hover { color: var(--accent); }
+
+/* Card shell shared by the bento blocks. Overflow is set per-component
+   below (arrange needs auto for scroll; deck/console/footer hidden). */
+.stems-deck,
+.stems-arrange,
+.stems-console {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+/* Control deck (transport + actions) — stacked rows inside one card */
+.stems-deck {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.stems-console { overflow: hidden; }
+
+/* Resaltado de arrastre: solo el área del timeline (no toda la pantalla).
+   El borde + tinte van como inset box-shadow sobre el viewport del scroller,
+   así se pintan en el área visible y NO se desplazan con el scroll. */
+#workspace-stems.is-dragover .stems-arrange {
+  box-shadow: inset 0 0 0 2px var(--accent),
+              inset 0 0 0 9999px color-mix(in srgb, var(--accent) 8%, transparent);
+  border-radius: var(--r-md);
+}
+/* Rótulo centrado en el alto VISIBLE del área de pistas. Va sobre el scroller
+   (no sobre el contenido, que con pocas pistas es corto y lo dejaba pegado
+   arriba). Con el timeline sin scrollear queda centrado en el espacio negro. */
+#workspace-stems.is-dragover .stems-arrange::after {
+  content: "Suelta los archivos para importar";
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* ── Top bar (responsive: wraps gracefully on narrow viewports) ──── */
+.stems-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap-sm) var(--gap-md);
+  padding: 7px 16px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+.stems-tb-left, .stems-tb-mid, .stems-tb-right {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.stems-tb-mid { flex-shrink: 0; }
+/* Ya no se empuja al borde derecho (quedaba un hueco enorme): vive en la fila
+   de MARCADORES, justo después del Loop, como un bloque que no se parte. */
+.stems-tb-right { flex-shrink: 0; flex-wrap: nowrap; }
+
+.stems-brand {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1.2px;
+  white-space: nowrap;
+}
+.stems-brand span {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  font-size: 11px;
+}
+
+/* Field wrapper aligns with Pads dropdown dimensions (radius var(--r-md),
+   bg-card surface, border that lifts on hover/focus). */
+/* ── Alturas uniformes y "aire" dentro de wrappers ──────────────────
+   Referencia visual: el contenedor de "Importar stems / Exportar / Mi
+   proyecto" (.stems-actions-primary). Sus buttons internos son ~30px y
+   el wrapper tiene padding 4px → wrapper ~38px con breathing visible
+   entre el borde del button y el borde del wrapper. Ese es el patrón
+   que extendemos al resto.
+
+   Dos niveles:
+   1. Wrappers (.stems-field, .stems-tools-group, .stems-loop-group,
+      .stems-actions-primary, .stems-tb-mid): altura ~38px, padding 4px.
+      Los controles internos no tocan los bordes del wrapper.
+   2. Leaves directos en la fila (.stems-zoom-group, .stems-snap-toggle,
+      .stems-state-pill, .stems-readout, .stems-btn standalone): 32px.
+   3. Controles internos dentro de wrappers (.stems-btn, .stems-mini-select,
+      .stems-pitch-group, .stems-project-name): 30px para dejar 4px de
+      aire en cada lado dentro del wrapper de 38px.
+*/
+.stems-field,
+.stems-tools-group,
+.stems-loop-group,
+.stems-actions-primary,
+.stems-tb-mid {
+  height: 38px;
+  padding: 3px 6px;
+  box-sizing: border-box;
+}
+
+/* Leaves del topbar (sin wrapper interno) — 32px, igual altura que un
+   button standalone. La fila luce alineada visualmente. */
+.stems-zoom-group,
+.stems-snap-toggle,
+.stems-state-pill,
+.stems-readout,
+.stems-btn {
+  height: 32px;
+  box-sizing: border-box;
+}
+
+/* Controles INTERNOS dentro de wrappers — 30px, 4px aire en cada lado
+   contra el wrapper de 38px. */
+.stems-field--pitch .stems-pitch-group,
+.stems-tools-group .stems-btn,
+.stems-tools-group .stems-mini-select,
+.stems-actions-primary .stems-btn,
+.stems-actions-primary .stems-project-name,
+.stems-loop-group .stems-btn,
+.stems-tb-mid .stems-tb-btn {
+  height: 30px;
+  box-sizing: border-box;
+}
+
+/* Paddings ajustados a la altura nueva — los originales asumían más
+   espacio vertical y desbordaban. */
+.stems-tools-group .stems-mini-select,
+.stems-actions-primary .stems-project-name { padding-top: 0; padding-bottom: 0; }
+.stems-tools-group .stems-btn,
+.stems-actions-primary .stems-btn,
+.stems-loop-group .stems-btn { padding-top: 0; padding-bottom: 0; }
+
+/* Laptops / pantallas angostas: el módulo de zoom/SNAP/TIMECODE se movió a la
+   derecha de la fila de MARCADORES (ahí hay espacio). En angosto solo se oculta
+   la píldora de estado (redundante con el botón Play) para que la fila entre
+   cómoda, y se aprietan un poco los gaps. */
+@media (max-width: 1500px) {
+  .stems-topbar { gap: 6px 10px; }
+  .stems-tb-left, .stems-tb-mid { gap: 6px; }
+  .stems-state-pill { display: none; }
+}
+
+.stems-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  transition: border-color 0.2s;
+}
+.stems-field:hover { border-color: var(--accent); }
+.stems-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.stems-field label {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-family: var(--font-main);
+}
+.stems-field input {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  width: 46px;
+  font-family: var(--font-main);
+  text-align: center;
+  outline: none;
+}
+
+.stems-field--bpm { padding-right: 4px; gap: 6px; }
+.stems-bpm-detect {
+  appearance: none;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-main);
+  letter-spacing: 0.3px;
+  padding: 4px 9px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stems-bpm-detect:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--accent);
+}
+.stems-bpm-detect:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.stems-field--select select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-main);
+  cursor: pointer;
+  padding: 0 4px;
+  outline: none;
+  color-scheme: dark;
+}
+.stems-field--select option { background: var(--bg-card); color: var(--text); }
+
+/* Grupo de tono master — mismo lenguaje visual que el pitch del player
+   de Pads: cápsula con ▼ valor ▲. El borde se tinta cuando shifted ≠ 0
+   para feedback claro. */
+.stems-field--pitch { padding-right: 4px; }
+.stems-pitch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  /* height viene de la regla unificada (32px). */
+  padding: 0 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  transition: border-color 0.15s;
+}
+.stems-pitch-group.shifted { border-color: var(--accent); }
+.stems-pitch-btn {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.stems-pitch-btn:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+.stems-pitch-val {
+  min-width: 24px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+  cursor: pointer;
+}
+.stems-pitch-val.shifted { color: var(--accent); }
+/* Botón "Aplicar" del transposer — aparece cuando hay un cambio sin aplicar. */
+.stems-pitch-apply {
+  margin-left: 6px; height: 24px; padding: 0 10px;
+  border: none; border-radius: 7px;
+  background: var(--accent-grad); color: #0a0a14;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+  cursor: pointer; transition: filter 0.15s;
+}
+.stems-pitch-apply:hover { filter: brightness(1.08); }
+.stems-pitch-apply[hidden] { display: none; }
+
+/* Transport group — Stop + Pause clustered together as secondary, Play
+   floats as the prominent primary action (matches the visual weight of
+   the metronome's Play in Pads). */
+.stems-tb-mid {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px 4px 4px 6px;
+  gap: 6px !important;
+}
+.stems-tb-btn {
+  appearance: none;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+.stems-tb-btn:hover { color: var(--text); background: var(--bg-hover); border-color: var(--border); }
+.stems-tb-btn:active { transform: scale(0.94); }
+.stems-tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stems-tb-btn--play {
+  background: var(--accent-grad);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  /* 32x32 → mismo alto que el resto del topbar (BPM, COMPÁS, TONO).
+     Antes era 40 y empujaba la altura de toda la fila. Conserva el
+     border-radius circular y el glow para mantener la jerarquía visual
+     (sigue siendo "el botón principal"), pero ya no domina la fila. */
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 0 14px var(--glow), 0 3px 10px rgba(0,0,0,0.4);
+  margin-left: 2px;
+}
+.stems-tb-btn--play:hover {
+  background: var(--accent-grad);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  filter: brightness(1.1);
+}
+/* Disabled: el bg accent + opacity 0.4 dejaba el botón aún "brillante" en
+   ámbar quemado, confuso (parecía activo). Apagamos por completo el accent
+   y el glow para que se lea como inactivo de un vistazo. */
+.stems-tb-btn--play:disabled,
+.stems-tb-btn--play[disabled] {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+  opacity: 0.55;
+}
+.stems-tb-btn--play:disabled:hover,
+.stems-tb-btn--play[disabled]:hover {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  filter: none;
+}
+.stems-tb-btn--play svg { width: 14px; height: 14px; }
+
+/* Transport time readout: position / total duration */
+.stems-tb-time {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: 6px;
+  padding: 0 4px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stems-tb-time #stems-tb-cur { color: var(--text); }
+.stems-tb-time #stems-tb-total { color: var(--text-muted); }
+.stems-tb-time-sep { color: var(--text-muted); opacity: 0.6; }
+.stems-tb-btn--play.is-playing {
+  animation: stemsPulse 1.6s ease-in-out infinite;
+}
+@keyframes stemsPulse {
+  50% { box-shadow: 0 0 30px var(--glow-strong); }
+}
+
+.stems-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;     /* centra vertical dentro de los 32px de altura */
+  line-height: 1.05;
+  flex-shrink: 0;
+}
+.stems-readout .label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+.stems-readout .value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace;
+}
+.stems-readout .value.mono { letter-spacing: 0.2px; }
+
+/* Zoom + snap controls in the topbar */
+.stems-zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+.stems-zoom-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  width: 22px; height: 22px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.stems-zoom-btn:hover { background: rgba(255,255,255,0.06); color: var(--accent); }
+.stems-zoom-readout {
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  min-width: 38px;
+  text-align: center;
+}
+.stems-snap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.stems-snap-toggle input { accent-color: var(--accent); }
+.stems-snap-toggle:has(input:checked) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+/* Select de subdivisión de snap (Off / 1/16 / 1/8 / 1/4 / Compás). */
+/* Mismo lenguaje visual que los dropdown de Pads (.metro-dropdown / .stems-mini-select). */
+.stems-snap-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  font: 600 11px/1 var(--font-main); letter-spacing: 0.3px;
+  padding: 6px 24px 6px 10px; cursor: pointer; outline: none;
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  transition: border-color 0.2s;
+}
+.stems-snap-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
+.stems-snap-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.stems-snap-select option { background: var(--bg-card); color: var(--text); }
+
+.stems-state-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.3px;
+  padding: 0 12px;            /* height viene de la regla unificada */
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.stems-state-pill[data-state="play"] {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+  color: var(--ok);
+}
+/* "DETENIDO" en gris no aporta nada (el play button ya muestra el estado).
+   Solo aparece visualmente cuando hay algo distinto a "stop". */
+.stems-state-pill:not([data-state="play"]) { display: none; }
+
+/* ── Responsive: en pantallas <1400px ocultamos los controles más
+   secundarios del topbar para evitar que SNAP/timecode/state se vayan
+   a una segunda línea. La info perdida es no-crítica:
+   · TIMECODE (00:00.000) es redundante con "0:00/5:26" del transport
+     — solo se diferencia en precisión de ms.
+   · Row-height (▼▲) controla el alto visual de las pistas — útil pero
+     poco usado; sigue accesible con Ctrl+rueda sobre los rows.
+*/
+@media (max-width: 1400px) {
+  .stems-tb-right .stems-readout { display: none; }
+}
+@media (max-width: 1280px) {
+  .stems-tb-right .stems-zoom-group[title*="Altura"] { display: none; }
+}
+
+/* ── Single action row — Importar/Exportar (left, prominent) +
+       project name (centered) + secondary actions (right). Wraps on
+       narrow viewports without ever hiding any group. ─────────────── */
+.stems-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+/* Fila unificada (antes había row1 + row2). Mismo padding compacto que
+   row2 para que el deck no consuma más de lo necesario en vertical. */
+.stems-actions--unified {
+  padding: 5px 14px;
+  background: rgba(255,255,255,0.018);
+  gap: 8px;
+}
+.stems-actions-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+.stems-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+/* Popover "Generar" — agrupa Click + Guía. Igual que el dropdown de
+   Proyecto: position:fixed para escapar del overflow:hidden del
+   .stems-deck; el JS reposiciona en coords absolutas al abrir. */
+.stems-generators-wrap { position: relative; display: inline-block; }
+.stems-generators-pop {
+  position: fixed;
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  min-width: 170px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.stems-generators-pop.hidden { display: none; }
+.stems-generators-pop .stems-btn { justify-content: flex-start; }
+
+.stems-marker-add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stems-project-icon {
+  color: var(--accent);
+  opacity: 0.65;
+  display: flex;
+  flex-shrink: 0;
+}
+.stems-project-name {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  flex: 1;
+  min-width: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stems-project-name:hover { background: var(--bg-card); }
+.stems-project-name:focus {
+  outline: none;
+  background: var(--bg-card);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+.stems-tools-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.2);
+}
+.stems-tools-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.stems-btn--accent {
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 14px var(--glow);
+  font-weight: 600;
+}
+.stems-btn--accent:hover {
+  background: var(--accent-grad);
+  filter: brightness(1.1);
+  border-color: var(--accent);
+}
+
+.stems-btn--ghost {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.stems-btn--ghost:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  filter: brightness(1.05);
+}
+.stems-btn--ghost:disabled {
+  border-color: var(--border);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.stems-btn--subtle {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+.stems-btn--subtle:hover {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.stems-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-main);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.stems-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+.stems-btn:active { transform: scale(0.97); }
+.stems-btn:focus { outline: none; }
+.stems-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stems-btn:hover { filter: brightness(1.15); }
+.stems-btn:active { transform: scale(0.97); }
+.stems-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stems-btn--primary {
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+/* Keep the accent fill on hover (the base .stems-btn:hover would turn it
+   dark) and just brighten slightly — no glow ring, which read as ugly. */
+.stems-btn--primary:hover {
+  background: var(--accent-grad);
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+/* Mini-select matches Pads' .metro-dropdown — same paddings, font,
+   radius and grey SVG caret so dropdowns feel native across both
+   workspaces. */
+.stems-mini-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-family: var(--font-main);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 24px 6px 10px;
+  cursor: pointer;
+  outline: none;
+  max-width: 160px;
+  flex-shrink: 0;
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.stems-mini-select:hover { border-color: var(--accent); background-color: var(--bg-hover); }
+
+/* Accent chips — one per beat in the bar; toggle which beats are accented. */
+/* Cloud-separation config dialog — alineado con el resto de modales:
+   backdrop con blur sutil y entrada animada para que no se sienta seco. */
+.stems-cloud-overlay {
+  position: fixed; inset: 0; z-index: 4000;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  animation: stems-cloud-fade .14s ease-out;
+}
+@keyframes stems-cloud-fade { from { opacity: 0; } to { opacity: 1; } }
+.stems-cloud-panel {
+  width: min(440px, 92vw);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 22px 24px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  animation: stems-cloud-pop .18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes stems-cloud-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--text); }
+.stems-cloud-panel p { margin: 0 0 16px; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
+.stems-cloud-panel label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 10px 0 5px; letter-spacing: 0.3px; }
+.stems-cloud-panel select, .stems-cloud-panel input {
+  width: 100%; padding: 9px 12px; border-radius: 8px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  color: var(--text); font-size: 13px; font-family: var(--font-main); outline: none;
+}
+.stems-cloud-panel input:focus, .stems-cloud-panel select:focus { border-color: var(--accent); }
+.stems-cloud-actions { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
+
+.stems-accent { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.stems-accent-chip {
+  appearance: none;
+  width: 22px; height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: var(--font-main);
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
+}
+.stems-accent-chip:hover { border-color: var(--border-strong); color: var(--text); }
+.stems-accent-chip.is-on {
+  background: var(--accent-grad);
+  border-color: var(--accent);
+  color: #000;
+}
+.stems-mini-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.stems-mini-select option { background: var(--bg-card); color: var(--text); }
+
+/* ── Narrow viewport tuning ─────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .stems-readout .value { font-size: 12px; }
+  .stems-readout .label { font-size: 9px; }
+  .stems-project-name { font-size: 13px; }
+}
+@media (max-width: 1024px) {
+  .stems-topbar { padding: 6px 10px; gap: 6px 12px; }
+  .stems-actions { padding: 6px 10px; gap: 8px; }
+  .stems-tb-right .stems-readout:not(:last-of-type) { display: none; }
+  .stems-mixer-console { max-height: 260px; }
+  .stems-mixer-strips { height: 230px; }
+  .stems-strip { flex: 0 0 124px; width: 124px; padding: 8px 8px 6px; }
+  .stems-lane { min-height: 70px; }
+  .stems-lane-canvas { height: 58px; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ARRANGE — sticky-left strip + horizontal waveform per row (Moises).
+
+   .stems-arrange is the single horizontal/vertical scroll container.
+   Its child rows extend wider than the viewport; each row's strip uses
+   `position: sticky; left: 0` so controls stay visible while waveforms
+   scroll horizontally. The ruler row uses `position: sticky; top: 0`
+   for the same reason vertically.
+   ════════════════════════════════════════════════════════════════════ */
+.stems-arrange {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg);
+  position: relative;
+  min-height: 0;
+  /* Query container: deja que el empty-state mida su ancho contra el área
+     VISIBLE del viewport (100cqw) y quede centrado, sin importar el scroll
+     ni el tamaño de la ventana. */
+  container-type: inline-size;
+  /* Flex item must allow shrinking below content width, otherwise it grows
+     to the full timeline width and overflows the shell instead of scrolling
+     internally — which also makes scrollLeft (and auto-follow) a no-op. */
+  min-width: 0;
+}
+/* Sin pistas cargadas: no tiene sentido scrollear vertical (la timeline está
+   vacía debajo de la regla). Ocultamos el scroll-y para que el área negra
+   no se sienta "rota". Cuando hay pistas, vuelve overflow:auto normal. */
+/* Sin pistas no hay nada que recorrer: ocultamos AMBOS scrolls (no solo el
+   vertical). Antes quedaba un scroll horizontal por el ancho de la regla, y al
+   desplazarte el "Sin pistas aún" se iba de vista. Sin scroll, queda fijo. */
+#workspace-stems:not(.has-tracks) .stems-arrange { overflow: hidden; }
+#workspace-stems:not(.has-tracks) .stems-arrange-inner { min-height: 100%; width: 100%; min-width: 0; }
+/* La regla del timeline no debe forzar ancho cuando no hay pistas. */
+#workspace-stems:not(.has-tracks) .stems-head-tl { width: 100% !important; }
+/* Centrar el "Sin pistas aún" también en VERTICAL: las filas ocupan el alto
+   disponible (bajo la regla) y centran su contenido; sin el margin-top fijo. */
+#workspace-stems:not(.has-tracks) .stems-rows { flex: 1; justify-content: center; }
+#workspace-stems:not(.has-tracks) .stems-empty { margin-top: 0; }
+.stems-arrange-inner {
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  position: relative;
+}
+
+/* Ruler row — sticky to the top. Left "spacer" stays sticky to the
+   left as well so it covers the strip column edge. */
+.stems-head-row {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
+.stems-head-spacer {
+  width: 220px;
+  min-width: 220px;
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.stems-head-spacer-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+}
+.stems-head-spacer-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+}
+.stems-head-tl {
+  flex: 0 0 auto;
+  position: relative;
+  height: 40px;
+}
+
+/* Ruler ticks (rendered by drawRuler) live in .stems-head-tl > .stems-ruler */
+.stems-ruler {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--bg-card), var(--bg));
+}
+.stems-tick {
+  position: absolute;
+  top: 22px;
+  width: 1px;
+  height: 8px;
+  background: rgba(255,255,255,0.18);
+}
+.stems-tick--bar {
+  top: 8px;
+  height: 22px;
+  background: rgba(255,255,255,0.45);
+}
+.stems-tick-label {
+  position: absolute;
+  top: 4px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  font-family: ui-monospace, Consolas, monospace;
+  pointer-events: none;
+}
+.stems-tick-bar { font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+.stems-tick-time { font-size: 10px; font-weight: 600; color: var(--accent); opacity: 0.8; }
+
+/* Markers layer — sits inside the head-tl so it scrolls horizontally
+   with the ruler. Each marker's vertical line extends down through the
+   row lanes via a pseudo-element. */
+.stems-marker-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.stems-marker {
+  position: absolute;
+  top: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  transform: translateX(-2px);
+  pointer-events: auto;
+}
+/* Líneas verticales de los marcadores — capa propia en .stems-arrange-inner,
+   debajo del strip izquierdo (que es z-index 2) para que NUNCA lo tapen. Igual
+   patrón que el overlay de loop/rango. */
+.stems-marker-lines {
+  position: absolute;
+  top: 40px;            /* debajo de la regla */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.stems-marker-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-1px);
+  background: color-mix(in srgb, var(--ok) 55%, transparent);
+}
+.stems-marker-line.is-sel { background: var(--accent); }
+.stems-marker-flag {
+  background: var(--ok);
+  color: var(--on-accent);
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: flex;
+}
+.stems-marker-label {
+  background: rgba(10,10,20,0.85);
+  border: 1px solid color-mix(in srgb, var(--ok) 55%, transparent);
+  color: var(--ok);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  margin-left: 2px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.stems-marker-remove {
+  appearance: none;
+  width: 18px; height: 18px;
+  background: transparent;
+  border: none;
+  color: color-mix(in srgb, var(--ok) 70%, transparent);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  margin-left: 2px;
+}
+.stems-marker-remove:hover { color: var(--danger-soft); }
+/* Marcador seleccionado (clic): se mueve con ← →. */
+.stems-marker.is-sel { outline: 1px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
+.stems-marker.is-sel .stems-marker-flag { color: var(--accent); }
+/* Resaltar el × al pasar por el marcador, para que se note que se puede quitar. */
+.stems-marker:hover .stems-marker-remove { color: color-mix(in srgb, var(--danger-soft) 85%, transparent); }
+.stems-marker:hover .stems-marker-remove:hover { background: color-mix(in srgb, var(--danger-soft) 15%, transparent); border-radius: 50%; }
+
+/* ── Track rows (each = sticky strip + lane) ─────────────────────── */
+.stems-rows {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+/* Las filas (y la fila de la regla) deben medir el ANCHO DEL CONTENIDO, no el
+   del viewport: un sticky solo puede "viajar" dentro de su contenedor — con
+   filas de ancho viewport, al scrollear más de una pantalla los strips de la
+   izquierda (y el spacer "Pistas" de la regla) se salían de vista durante la
+   reproducción. min-width 100% cubre proyectos más cortos que la ventana. */
+.stems-rows, .stems-head-row, .stems-row {
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Beat/bar guide-line metrics — set by drawGrid() from BPM + zoom. */
+:root {
+  --stems-beatpx: 100000px;
+  --stems-barpx: 100000px;
+  --stems-barline: rgba(255, 255, 255, 0.30);
+  --stems-beatline: rgba(255, 255, 255, 0.10);
+}
+.stems-empty {
+  /* Flexbox centring works reliably regardless of margin-auto quirks.
+     `width: 100vw` + `position: sticky; left: 0` makes the empty stay
+     glued to the viewport while the timeline can still scroll behind it. */
+  position: sticky;
+  left: 0;
+  width: 100cqw;   /* ancho del área visible del arrange (no de la ventana) */
+  margin-top: 80px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.stems-empty > * { max-width: 480px; }
+.stems-empty-icon { margin-bottom: 6px; }
+.stems-empty h3 { margin: 0; }
+.stems-empty p  { margin: 0; }
+
+/* The "Importar stems" inline link looks like a styled anchor but
+   triggers the file picker so the empty state is a working call-to-action. */
+.stems-empty-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  cursor: pointer;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.stems-empty-link:hover {
+  color: color-mix(in srgb, var(--accent), white 12%);
+  text-decoration-color: var(--accent);
+}
+.stems-empty-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.stems-empty[hidden] { display: none; }
+.stems-empty-icon { color: var(--accent); opacity: 0.55; margin-bottom: 10px; }
+.stems-empty h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); font-weight: 700; }
+.stems-empty p  { margin: 0; font-size: 13px; }
+.stems-empty strong { color: var(--accent); }
+
+.stems-row {
+  display: flex;
+  min-height: var(--stems-row-height, 64px);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.15s, background 0.15s;
+}
+.stems-row:hover { background: rgba(255,255,255,0.015); }
+.stems-row.is-silenced { opacity: 0.4; }
+.stems-row.is-dragging { opacity: 0.4; background: rgba(255,255,255,0.04); }
+/* Multi-selección (Ctrl/Cmd + clic): fila resaltada. */
+.stems-row.is-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.stems-row.is-selected .stems-row-strip { background: color-mix(in srgb, var(--accent) 14%, var(--bg-card)); }
+
+/* Localizada desde la consola (clic en un strip): subrayado de acento + tinte
+   para identificar de un vistazo qué pista corresponde al canal tocado. Al
+   traerla al tope con scrollIntoView, el scroll-margin la deja bajo la regla
+   pegajosa (.stems-head-tl = 40px) en vez de tapada por ella. */
+.stems-row { scroll-margin-top: 44px; }
+/* Pista localizada (clic en su strip de consola): el LANE se tiñe a lo ancho
+   (= todo el largo del track) para verla de un vistazo aunque la canción avance.
+   La tira izquierda solo lleva una barra de acento, así no tapa los controles.
+   El tinte del lane se define más abajo (tras el hover, para ganarle). */
+.stems-row.is-located .stems-row-strip {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-card));
+  box-shadow: inset 3px 0 0 var(--accent);
+  /* Por encima del overlay del lane (z-index 2): si no, al desplazar la pista
+     el overlay tapaba el strip y "rellenaba" los controles de forma despareja.
+     Así el strip queda relleno parejo siempre, con los controles legibles. */
+  z-index: 4;
+}
+.stems-console-strip.is-located {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px -2px var(--accent);
+}
+/* Multi-selección: cada canal seleccionado se ilumina igual que la selección
+   única (antes solo destacaba la última pista clickeada). */
+.stems-console-strip.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 12px -2px var(--accent);
+}
+
+/* Barra flotante de selección de pistas. */
+.stems-sel-bar {
+  position: fixed;
+  left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 200;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.stems-sel-bar[hidden] { display: none; }
+.stems-sel-count { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.stems-sel-del {
+  background: linear-gradient(135deg, #f87171 0%, var(--danger) 100%); color: #fff; border: none;
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: filter 0.15s;
+}
+.stems-sel-del:hover { filter: brightness(1.08); }
+.stems-sel-clear {
+  background: transparent; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 6px;
+}
+.stems-sel-clear:hover { color: var(--text); }
+.stems-row.is-drop-target { box-shadow: inset 0 2px 0 var(--accent); }
+
+.stems-lane { min-height: var(--stems-row-height, 64px); }
+
+/* Drag handle on strip — always visible so reordering is discoverable */
+.stems-row-grip {
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: grab;
+  padding: 0 4px;
+  user-select: none;
+  opacity: 0.45;
+  transition: color 0.15s, opacity 0.15s;
+  letter-spacing: -1px;
+}
+.stems-row-strip:hover .stems-row-grip { opacity: 0.9; color: var(--accent); }
+.stems-row-grip:active { cursor: grabbing; }
+
+/* Left strip — single horizontal row with identification + reorder +
+   per-track destructive actions. Mixing controls (vol/pan/mute/solo)
+   live in the console below; duplicating them here was visually busy
+   and forced a tall row. */
+.stems-row-strip {
+  width: 220px;
+  min-width: 220px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;   /* identificación arriba (nombre legible), iconos abajo */
+  justify-content: center;
+  gap: 6px;
+}
+/* Fila 1: grip + color + badge/nombre (el nombre ocupa el ancho → se lee). */
+.stems-row-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.stems-row-top .stems-row-meta { flex: 1 1 auto; min-width: 0; }
+/* Fila 2: acciones de la pista, alineadas a la derecha. */
+.stems-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.stems-row--click .stems-row-strip {
+  box-shadow: inset 3px 0 0 #60a5fa, 2px 0 4px rgba(0,0,0,0.25);
+}
+.stems-row--guide .stems-row-strip {
+  box-shadow: inset 3px 0 0 var(--ok), 2px 0 4px rgba(0,0,0,0.25);
+}
+
+/* Strip head: single horizontal row with the name claiming flex space
+   between the M/S group on the left and the action icons on the right.
+   Using flex (not grid) keeps all six elements on one line at 220 px
+   width — grid was wrapping them onto two rows. */
+.stems-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.stems-row-head .stems-row-meta { flex: 1 1 auto; min-width: 0; }
+.stems-ms-pair { display: flex; gap: 3px; }
+.stems-ms {
+  appearance: none;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
+}
+.stems-ms:hover { color: var(--text); filter: brightness(1.15); }
+.stems-ms--mute.is-on {
+  background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
+  border-color: var(--danger-soft);
+  color: var(--on-accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger-soft) 55%, transparent);
+}
+.stems-ms--solo.is-on {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent), white 35%), var(--accent));
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.stems-row-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+/* Kind label as a pill chip, not just an eyebrow — gives it a clear
+   container and makes click/guide tracks recognisable at a glance. */
+.stems-row-kind {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 1px 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.stems-row--click .stems-row-kind {
+  color: #60a5fa;
+  border-color: rgba(96,165,250,0.4);
+  background: rgba(96,165,250,0.1);
+}
+.stems-row--guide .stems-row-kind {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+}
+.stems-row-name {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 1px 4px;
+  margin-left: -4px;
+  border-radius: 4px;
+  transition: background 0.15s, border-color 0.15s;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+}
+.stems-row-name:hover { background: rgba(255,255,255,0.04); }
+.stems-row-name:focus { outline: none; background: rgba(255,255,255,0.06); border-color: var(--accent); }
+
+.stems-row-remove {
+  appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.stems-row-strip:hover .stems-row-remove { opacity: 1; }
+.stems-row-remove:hover { border-color: color-mix(in srgb, var(--danger-soft) 50%, transparent); color: var(--danger-soft); }
+
+.stems-row-controls { display: flex; flex-direction: column; gap: 4px; }
+.stems-vol-group {
+  display: grid;
+  grid-template-columns: 14px 1fr 26px;
+  align-items: center;
+  gap: 6px;
+}
+.stems-vol-icon { color: var(--accent); opacity: 0.85; display: flex; }
+
+/* Stems sliders match the Pads design system: white circular thumb,
+   thin track tinted with the theme accent on the filled portion. JS
+   updates --fill (0..100%) for the dynamic gradient. */
+.stems-range,
+.stems-vol-slider,
+.stems-pan-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 3px;
+  outline: none;
+}
+.stems-range::-webkit-slider-thumb,
+.stems-vol-slider::-webkit-slider-thumb,
+.stems-pan-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  transition: transform 0.1s;
+}
+.stems-range::-webkit-slider-thumb:hover,
+.stems-vol-slider::-webkit-slider-thumb:hover,
+.stems-pan-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+.stems-range::-moz-range-thumb,
+.stems-vol-slider::-moz-range-thumb,
+.stems-pan-slider::-moz-range-thumb {
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+/* Filled-track variant for the volume slider — gold up to the thumb */
+.stems-vol-slider {
+  background: linear-gradient(to right,
+    var(--accent) 0%,
+    var(--accent) var(--fill, 85%),
+    var(--border-strong) var(--fill, 85%),
+    var(--border-strong) 100%);
+}
+.stems-vol-readout {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: right;
+}
+
+.stems-pan-group {
+  display: grid;
+  grid-template-columns: 12px 1fr 12px;
+  align-items: center;
+  gap: 6px;
+}
+.stems-pan-letter {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  opacity: 0.7;
+  text-align: center;
+}
+/* Pan slider: plain grey track + white thumb, identical to the Pads
+   `.pan-slider`. No fill — the thumb position and the readout carry the
+   pan value, exactly like in the Pads mixer. */
+.stems-pan-slider {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Lane — the part that fills horizontally with the waveform */
+.stems-row-lane.is-shifting { cursor: grabbing; }
+.stems-row-lane {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px 0;
+  cursor: grab;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.01), transparent),
+    var(--bg);
+  transition: background 0.15s;
+}
+
+/* Beat/bar guide lines drawn OVER the waveform (so they're visible through
+   the spectrum), but inside the lane so they never overlap the sticky strip.
+   Sized to the current BPM/zoom via the --stems-*px vars set by drawGrid(). */
+.stems-row-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    repeating-linear-gradient(90deg, var(--stems-barline) 0, var(--stems-barline) 1px, transparent 1px, transparent var(--stems-barpx)),
+    repeating-linear-gradient(90deg, var(--stems-beatline) 0, var(--stems-beatline) 1px, transparent 1px, transparent var(--stems-beatpx));
+}
+.stems-row:hover .stems-row-lane {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent),
+    var(--bg);
+}
+/* Lane de la pista localizada: tinte de acento a lo ANCHO (todo el largo del
+   track; el lane mide lo que el canvas). Definido tras el hover para que gane
+   aunque se pase el mouse por encima. */
+.stems-row.is-located .stems-row-lane,
+.stems-row.is-located:hover .stems-row-lane,
+.stems-row.is-selected .stems-row-lane,
+.stems-row.is-selected:hover .stems-row-lane {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+}
+/* Overlay translúcido POR ENCIMA de la grilla y el waveform (z-index 2 > grid
+   z-index 1) para que la pista seleccionada resalte de verdad y no se pierda
+   entre las líneas del compás. Lleva también las líneas de foco arriba/abajo. */
+.stems-row.is-located .stems-row-lane::after,
+.stems-row.is-selected .stems-row-lane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
+}
+.stems-row-canvas {
+  display: block;
+  height: 100%;
+}
+
+/* Playhead — vertical line crossing all rows. z-index sits BELOW the
+   sticky strip (z 2) so the strip masks it when it's near the project
+   start, and BELOW the ruler row (z 5) so it doesn't poke above. */
+.stems-playhead {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 50%, transparent));
+  box-shadow: 0 0 14px var(--glow), 0 0 4px var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+.stems-playhead::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -5px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--accent);
+  filter: drop-shadow(0 0 6px var(--glow));
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   CONSOLA — bottom panel with vertical-fader strips per track. Mirrors
+   the row strips above; either side updates the other via JS sync.
+   ════════════════════════════════════════════════════════════════════ */
+.stems-console {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  max-height: 260px;
+}
+/* Sin pistas: oculta la consola entera para que no aparezca como bloque
+   negro vacío de 260px debajo de la timeline. */
+#workspace-stems:not(.has-tracks) .stems-console { display: none; }
+.stems-console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 4px;
+  border-bottom: 1px solid var(--border);
+}
+/* Toggle de contraer/expandir la consola: cluster clicable (chevron + título +
+   contador) en forma de pill, con realce de acento al pasar el mouse. */
+.stems-console-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+.stems-console-toggle:hover {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.stems-console-toggle:active { transform: translateY(0.5px); }
+.stems-console-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+}
+.stems-console-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: ui-monospace, Consolas, monospace;
+}
+/* Chevron del toggle (span): solo el icono, gira 180° al contraer. */
+.stems-console-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.16s, transform 0.2s;
+}
+.stems-console-toggle:hover .stems-console-collapse { color: var(--accent); }
+.stems-console-collapse.is-collapsed { transform: rotate(180deg); }
+/* Botón "Seleccionar todas". */
+.stems-console-selall {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 6px);
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.stems-console-selall:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+/* Consola contraída: oculta los strips; el header (con el master) se queda. */
+.stems-console.is-collapsed { max-height: none; }
+.stems-console.is-collapsed .stems-console-strips { display: none; }
+.stems-console-strips {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* +10px sobre la altura útil original: cuando hay muchas pistas y aparece la
+     barra horizontal (8px), ésta se come parte de la altura y el fader (con su
+     min-height) se desbordaba quedando recortado abajo. La holgura absorbe el
+     scrollbar para que el final del volumen siempre sea alcanzable. */
+  height: 230px;
+  scrollbar-width: thin;
+  /* Modo estándar (Chromium/Electron reciente): al fijar scrollbar-width se
+     ignoran los pseudo ::-webkit-*, así que el color va por aquí — si no, el
+     canal sale blanco/gris del SO. thumb claro, track sutil oscuro. */
+  scrollbar-color: rgba(255,255,255,0.2) rgba(255,255,255,0.05);
+}
+.stems-console-strips::-webkit-scrollbar { height: 8px; }
+.stems-console-strips::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+}
+.stems-console-strips::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+.stems-console-strips::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+.stems-console-strip {
+  flex: 0 0 108px;
+  width: 108px;
+  min-width: 108px;
+  max-width: 108px;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 7px;
+  padding: 9px 9px 7px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.18s, opacity 0.15s;
+}
+.stems-console-strip:hover {
+  border-color: var(--accent);
+}
+.stems-console-strip--click {
+  border-color: rgba(96,165,250,0.4);
+}
+.stems-console-strip--guide {
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+/* Reordenamiento por drag-and-drop (handle = cabecera del strip). */
+.stems-console-strip.is-dragging { opacity: 0.4; }
+.stems-console-strip.is-drop-target { box-shadow: inset 2px 0 0 var(--accent); }
+
+.stems-console-strip-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+  cursor: grab;
+}
+.stems-console-strip-head:active { cursor: grabbing; }
+.stems-console-strip-kind {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+.stems-console-strip--click .stems-console-strip-kind { color: #60a5fa; }
+.stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
+.stems-console-strip-name {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Console pan: PAN label + slider + value readout, stacked compact to
+   fit the 108px strip — same slider primitive as Pads (gold left-fill +
+   white thumb). */
+.stems-console-pan-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stems-console-pan-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+.stems-console-pan-readout {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.stems-console-ms-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  justify-items: center;
+}
+
+/* Custom pointer-driven vertical fader — reliable across Chromium
+   versions (native vertical range was ignoring drags). track = the
+   groove, fill = lit portion from the bottom, handle = draggable cap. */
+.stems-cfader {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Piso bajo a propósito: el fader es la fila 1fr del grid del strip; si su
+     min-height supera el espacio disponible, el grid desborda y overflow:hidden
+     recorta el fondo (el mango en 0 queda tapado). Con un piso pequeño el fader
+     siempre cede y su 0 coincide con el borde inferior visible de la tarjeta. */
+  min-height: 48px;
+  cursor: pointer;
+  touch-action: none;       /* let pointer events drive the drag */
+  outline: none;
+}
+.stems-cfader:focus-visible {
+  box-shadow: 0 0 0 2px var(--glow);
+  border-radius: 6px;
+}
+.stems-cfader-track {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 8px; bottom: 8px;
+  width: 8px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.stems-cfader-fill {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  width: 8px;
+  background: var(--accent);
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--glow);
+  pointer-events: none;
+}
+.stems-cfader-handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 18px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent), white 35%) 0%,
+    var(--accent) 55%,
+    color-mix(in srgb, var(--accent), black 35%) 100%);
+  border: 1px solid rgba(0,0,0,0.5);
+  border-radius: 4px;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    inset 0 -1px 0 rgba(0,0,0,0.35);
+  pointer-events: none;
+  /* A center grip line for that real-fader look */
+}
+.stems-cfader-handle::after {
+  content: "";
+  position: absolute;
+  left: 6px; right: 6px; top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.35);
+  border-radius: 1px;
+}
+
+.stems-console-strip-readout {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text);
+  font-family: ui-monospace, Consolas, monospace;
+  text-align: center;
+  background: rgba(0,0,0,0.45);
+  border-radius: 3px;
+  padding: 2px 0;
+}
+
+/* ── Master (lives in the console header, right side) ───────────── */
+.stems-console-header-left,
+.stems-console-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stems-master {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+}
+.stems-master .stems-range { width: 150px; }
+/* Gold left-fill for the master, identical to the Pads `.blue-slider`
+   (gold up to the thumb, rgba(255,255,255,0.12) track after it). */
+.stems-range--fill {
+  background: linear-gradient(to right,
+    var(--accent) 0%,
+    var(--accent) var(--fill, 85%),
+    rgba(255, 255, 255, 0.12) var(--fill, 85%),
+    rgba(255, 255, 255, 0.12) 100%);
+}
+.stems-master-readout {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  min-width: 36px;
+}
+
+/* Master VU meter — thin vertical bar to the left of the slider that
+   reflects realtime peak amplitude from the master analyser. */
+.stems-master-meter {
+  position: relative;
+  width: 6px;
+  height: 18px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.stems-master-meter-fill {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 100%;
+  /* El nivel se revela con clip-path (recorta desde arriba), no con `height`:
+     clip-path corre en el compositor y NO dispara layout/reflow en cada frame
+     del VU meter (~60fps mientras suena una pista en Stems). */
+  clip-path: inset(100% 0 0 0);
+  background: linear-gradient(180deg,
+    var(--danger-soft) 0%,
+    color-mix(in srgb, var(--accent), white 18%) 28%,
+    var(--accent) 70%,
+    color-mix(in srgb, var(--accent), black 25%) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: clip-path 0.05s linear;
+}
+
+/* Per-track colour swatch — same footprint as the M/S/icon buttons so
+   the head row stays visually balanced. */
+.stems-row-color {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.stems-row-color::-webkit-color-swatch-wrapper { padding: 0; }
+.stems-row-color::-webkit-color-swatch { border: none; border-radius: 4px; }
+.stems-row-color:hover { border-color: var(--accent); transform: scale(1.1); }
+
+/* Export + remove sit always-visible at low opacity so the strip head
+   layout never reflows on hover. Same 20 px footprint as the color
+   swatch to keep visual rhythm. */
+.stems-row-export {
+  appearance: none;
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.stems-row-strip:hover .stems-row-export { opacity: 1; }
+.stems-row-export:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Loop toggle button — explicit OFF vs ON states so the toggle is
+   visible even when inactive (not just "another ghost button"). */
+#stems-loop-toggle {
+  position: relative;
+}
+#stems-loop-toggle::after {
+  content: "OFF";
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  margin-left: 2px;
+  opacity: 0.7;
+}
+#stems-loop-toggle.is-on {
+  background: var(--accent-grad);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+#stems-loop-toggle.is-on::after {
+  content: "ON";
+  color: var(--on-accent);
+  opacity: 1;
+}
+
+/* ── First-run tour overlay ─────────────────────────────────────── */
+.stems-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: auto;
+  /* No background/blur here — the dimming is done entirely by the spotlight's
+     box-shadow so the highlighted element stays crisp and clearly visible. */
+  background: transparent;
+  animation: tourFadeIn 0.2s ease;
+}
+@keyframes tourFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.stems-tour-spot {
+  position: absolute;
+  border-radius: var(--r-md);
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.7),
+    0 0 0 2px var(--accent),
+    0 0 24px var(--glow);
+  pointer-events: none;
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stems-tour-card {
+  position: absolute;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 18px 20px 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 24px var(--glow);
+  transition: background 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.stems-tour-step {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stems-tour-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.stems-tour-card p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.stems-tour-card p b { color: var(--text); font-weight: 700; }
+.stems-tour-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.stems-tour-actions #stems-tour-skip { margin-right: auto; }
+
+/* Loop overlay — translucent accent band spanning the timeline between
+   the start/end loop markers. Sits above the rows background but below
+   the playhead so the moving line stays visible through the band. */
+.stems-loop-overlay {
+  position: absolute;
+  top: 40px;        /* below the ruler row */
+  bottom: 0;
+  height: auto;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-left: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+  border-right: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+.stems-loop-overlay[hidden] { display: none; }
+
+/* Selección de rango de tiempo (arrastrar sobre la regla). */
+.stems-range-overlay {
+  position: absolute;
+  top: 40px; bottom: 0; height: auto;
+  background: color-mix(in srgb, #60a5fa 16%, transparent);
+  border-left: 2px solid #60a5fa;
+  border-right: 2px solid #60a5fa;
+  pointer-events: none;
+  z-index: 1;
+}
+.stems-range-overlay[hidden] { display: none; }
+/* Barra flotante de acciones del rango. */
+.stems-range-bar {
+  position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%);
+  z-index: 220;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 9px;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: var(--r-md); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.stems-range-bar .srb-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+.stems-range-bar button {
+  font-size: 11px; font-weight: 700; color: var(--text);
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 10px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.stems-range-bar button:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+.stems-range-bar .srb-close { padding: 5px 9px; color: var(--text-muted); }
+
+/* Loop endpoints in markers — coloured pill so the user can spot them */
+.stems-marker--loop-start .stems-marker-flag,
+.stems-marker--loop-end   .stems-marker-flag {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.stems-marker--loop-start .stems-marker-label,
+.stems-marker--loop-end   .stems-marker-label {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.stems-marker--loop-start::after,
+.stems-marker--loop-end::after {
+  content: "↻";
+  position: absolute;
+  right: -14px;
+  top: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.stems-marker--loop-end::after { content: "⤴"; }
+
+.stems-save-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.stems-save-pill.is-on { opacity: 1; }
+.stems-save-pill[data-state="pending"] {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  opacity: 1;
+}
+.stems-save-pill[data-state="saving"] {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  opacity: 1;
+}
+.stems-save-pill[data-state="saved"] {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+
+/* ── Right-click context menus (markers, etc.) ─────────────────── */
+/* Mismo estilo que .card-more-menu (tarjetas/consola) para que TODOS los menús
+   desplegables de la app sean iguales. */
+.stems-context-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 180px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: ctxMenuIn 0.1s ease-out;
+}
+@keyframes ctxMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.stems-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.stems-context-menu button:hover { background: var(--bg-hover); color: var(--text); }
+.stems-context-menu button.danger { color: var(--text-muted); }
+.stems-context-menu button.danger:hover { background: var(--bg-hover); color: #ff7a7a; }
+.stems-context-menu--scroll {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+/* Menú contextual de marcador: cabecera + grid de tipos en línea (sin
+   submenú anidado). Tipos comunes a un clic, "Más tipos…" para los raros. */
+.stems-marker-ctx { min-width: 230px; }
+.smc-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+}
+.smc-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 0 6px 4px;
+}
+/* Especificidad > ".stems-context-menu button" (la regla genérica del menú)
+   para no necesitar !important. */
+.stems-context-menu .smc-type-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 4px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
+}
+.stems-context-menu .smc-type-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-card);
+}
+.stems-context-menu .smc-type-btn.is-active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.stems-context-menu .smc-more {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 10px 8px;
+  text-align: center;
+}
+.stems-context-menu .smc-more:hover { color: var(--accent); background: transparent; }
+.smc-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+.stems-context-menu button.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* Row del select de tonalidad dentro del menú contextual del marker. */
+.smc-key-row { padding: 0 6px 4px; }
+.smc-key-select {
+  width: 100%;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.smc-key-select:focus { border-color: var(--accent); }
+.smc-key-select option,
+.smc-key-select optgroup { background: var(--bg-card); color: var(--text); }
+
+/* Badge de tonalidad en el marker — discreto, junto a la etiqueta. */
+.stems-marker-key {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  margin-left: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--on-accent);
+  background: var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+/* Loop A-B "libres" — botones compactos al lado del toggle de Loop.
+   Cuando un punto está marcado, se ilumina en accent. */
+.stems-loop-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.stems-btn.stems-loop-ab {
+  min-width: 26px;
+  padding: 4px 8px;
+  font-weight: 600;
+  font-size: 11px;
+}
+.stems-btn.stems-loop-ab.is-set {
+  color: var(--on-accent);
+  background: var(--accent-grad);
+  border-color: var(--accent);
+}
+.stems-ctx-hint {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: 6px;
+  opacity: 0.8;
+}
+.stems-ctx-sep { height: 1px; background: var(--border); margin: 4px 6px; }
+.stems-context-menu button.stems-ctx-toggle { font-size: 12px; color: var(--text-muted); }
+.stems-context-menu button.stems-ctx-toggle:hover { color: var(--text); background: var(--bg-hover); }
+
+/* ── Project dropdown (Nuevo / Guardar como / Abrir) ───────────── */
+.stems-proj-menu {
+  position: relative;
+}
+.stems-proj-dropdown {
+  /* fixed en vez de absolute para escapar del .stems-deck que tiene
+     overflow:hidden (necesario para clippear el border-radius del deck).
+     El JS reposiciona el dropdown justo bajo su trigger al abrir. */
+  position: fixed;
+  min-width: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 9500;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  animation: ctxMenuIn 0.14s ease-out;
+}
+.stems-proj-dropdown[hidden] { display: none; }
+.stems-proj-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.stems-proj-item:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+/* ── Modal (Save As + Open project) ────────────────────────────── */
+.stems-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: none;
+  animation: ctxMenuIn 0.18s ease-out;
+}
+.stems-modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 24px 28px;
+  width: 420px;
+  max-width: 92vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.stems-modal-card--wide { width: 520px; }
+.stems-modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.stems-modal-card p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.stems-modal-input {
+  width: 100%;
+  appearance: none;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+.stems-modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+.stems-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.stems-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 360px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding-right: 4px;
+}
+.stems-modal-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.stems-modal-empty strong { color: var(--accent); }
+.stems-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.stems-modal-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+}
+.stems-modal-row-info { display: flex; flex-direction: column; min-width: 0; }
+.stems-modal-row-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stems-modal-row-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.stems-modal-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.stems-btn--danger {
+  border-color: color-mix(in srgb, var(--danger-soft) 40%, transparent);
+  color: var(--danger-soft);
+}
+.stems-btn--danger:hover {
+  background: color-mix(in srgb, var(--danger-soft) 10%, transparent);
+  border-color: var(--danger-soft);
+}
+
+/* ── Export overlay ─────────────────────────────────────────────── */
+.stems-export-overlay {
+  /* fixed so it's centred on the whole window, not just the stems area */
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 20, 0.82);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+.stems-export-overlay[hidden] { display: none; }
+.stems-export-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 26px 32px;
+  min-width: 380px;
+  max-width: 80%;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.stems-spinner {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 14px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: stemsSpin 0.7s linear infinite;
+}
+@keyframes stemsSpin { to { transform: rotate(360deg); } }
+
+/* ── Non-modal separation toast (bottom-right, doesn't block tools) ─ */
+.stems-sep-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 200;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.stems-sep-toast.is-in { opacity: 1; transform: translateY(0); }
+.stems-sep-toast.is-done { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.stems-sep-toast.is-error { border-color: var(--danger-soft); }
+.stems-sep-toast-head { display: flex; align-items: center; gap: 10px; }
+.stems-sep-toast-spin {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: stemsSpin 0.7s linear infinite;
+}
+.stems-sep-toast-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.stems-sep-toast-text strong { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.3px; }
+.stems-sep-toast-name {
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stems-sep-toast-pct {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace; flex-shrink: 0;
+}
+.stems-sep-toast-cancel {
+  flex-shrink: 0;
+  appearance: none;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 11px; line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.stems-sep-toast-cancel:hover { color: var(--danger-soft); border-color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 10%, transparent); }
+.stems-sep-toast-cancel:disabled { opacity: 0.4; cursor: default; }
+.stems-sep-toast-stage {
+  margin: 9px 0 8px;
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stems-sep-toast.is-error .stems-sep-toast-stage { color: #ff8a84; white-space: normal; }
+.stems-sep-toast-bar {
+  height: 5px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1); overflow: hidden;
+}
+.stems-sep-toast-fill {
+  height: 100%; width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+
+.stems-export-panel h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.stems-export-stage {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+  min-height: 1.4em;
+  word-break: break-all;
+}
+.stems-export-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.stems-export-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2, var(--accent)));
+  box-shadow: 0 0 14px var(--glow);
+  transition: width 0.18s ease;
+}
+/* Botón para cancelar una importación que se quedó colgada (también Esc). */
+.stems-import-cancel {
+  margin-top: 16px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.stems-import-cancel:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent);
+}
+
+/* ── Modal "Asignar mezcla a una canción" (Exportar → asignar) ───────────── */
+.stems-assign-overlay {
+  position: fixed; inset: 0; z-index: 10050;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.stems-assign-modal {
+  width: min(440px, 92vw); max-height: 80vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.sam-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+.sam-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.sam-close { background: transparent; border: none; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.sam-close:hover { color: var(--text); }
+.sam-slot { display: flex; gap: 4px; padding: 0 16px 10px; }
+.sam-slot-btn {
+  flex: 1; padding: 8px; border: 1px solid var(--border); background: var(--bg-hover);
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.sam-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
+.sam-search {
+  margin: 0 16px 10px; padding: 9px 12px; background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+}
+.sam-search:focus { border-color: var(--accent); }
+.sam-list { overflow-y: auto; padding: 0 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.sam-row {
+  display: flex; align-items: baseline; gap: 8px; text-align: left;
+  padding: 9px 10px; border: none; background: transparent; border-radius: 7px; cursor: pointer; width: 100%;
+}
+.sam-row:hover { background: var(--bg-hover); }
+.sam-row-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 60%; }
+.sam-row-meta { font-size: 11px; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sam-row-has { font-size: 9px; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
+.sam-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
+
+/* ── Modal de transpose selectivo (elegir qué pistas transponer) ──────────── */
+.stt-overlay {
+  position: fixed; inset: 0; z-index: 4100;
+  background: rgba(10,10,20,0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.stt-modal {
+  width: 460px; max-width: 92vw; max-height: 82vh; display: flex; flex-direction: column;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+}
+.stt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.stt-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.stt-x { background: transparent; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.stt-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.stt-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0 0 12px; }
+.stt-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.stt-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer;
+}
+.stt-row:hover { border-color: var(--border-strong); }
+.stt-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.stt-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stt-kind { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.stt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.stt-btn {
+  padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); border-radius: 8px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.stt-btn:hover { background: rgba(255,255,255,0.12); }
+.stt-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
+.stt-btn--primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* ── VU por pista en la consola — barrita vertical junto al fader (look master) ── */
+.stems-cfader-row { display: flex; gap: 6px; align-items: stretch; width: 100%; height: 100%; min-height: 48px; }
+.stems-cfader-row .stems-cfader { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.stems-cmeter {
+  flex: 0 0 9px; width: 9px; align-self: stretch;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.stems-cmeter-fill {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
+  clip-path: inset(100% 0 0 0);
+  background: linear-gradient(180deg,
+    var(--danger-soft) 0%,
+    color-mix(in srgb, var(--accent), white 18%) 28%,
+    var(--accent) 70%,
+    color-mix(in srgb, var(--accent), black 25%) 100%);
+  transition: clip-path 0.05s linear;
+}
+
+/* ── Multiplicador del click 1x / 2x (junto a Detectar BPM) ── */
+.stems-click-mult { display: inline-flex; gap: 2px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
+.stems-mult-btn {
+  border: none; background: transparent; color: var(--text-muted);
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stems-mult-btn:hover { color: var(--text); }
+.stems-mult-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a14); }
+
+/* ── Metrónomo con subdivisiones (popover junto al piano) ── */
+.stems-metro-wrap { position: relative; display: inline-flex; }
+#stems-metro-toggle.is-on { color: var(--accent); border-color: var(--accent); }
+.stems-metro-pop {
+  position: fixed; z-index: 9500;
+  min-width: 184px; padding: 6px;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  display: flex; flex-direction: column; gap: 1px;
+}
+.stems-metro-pop.hidden { display: none; }
+.stems-metro-pop-title {
+  font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-muted); padding: 4px 8px 6px;
+}
+.stems-metro-opt {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 9px; border: none; border-radius: 6px; background: none;
+  color: var(--text-muted); font-size: 13px; font-weight: 500; text-align: left; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stems-metro-opt:hover { background: var(--bg-hover); color: var(--text); }
+.stems-metro-opt.is-on { color: var(--accent); }
+.stems-metro-opt.is-on::after { content: '✓'; font-weight: 700; }
+
+/* M/S del strip de la fila: el par va a la IZQUIERDA de la fila de acciones,
+   los iconos (separar/exportar/eliminar) se quedan a la derecha. */
+.stems-row-actions .stems-row-ms { margin-right: auto; }
+
+/* Identidad de color en la consola: cada canal lleva una barra superior con
+   el COLOR DE SU PISTA (--track-color, seteado por JS) — se ubica el canal de
+   un vistazo, sutil, sin competir con los estados de selección/located. */
+.stems-console-strip {
+  border-top: 3px solid var(--track-color, var(--border));
+}
+/* Con el canal seleccionado/localizado, el borde de acento pintaba TAMBIÉN el
+   borde superior y tapaba la identidad de color: el top conserva el color de
+   la pista (el anillo/box-shadow de acento sigue marcando el estado). */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  border-top-color: var(--track-color, var(--accent));
+}
+/* Sin el anillo de 1px (box-shadow spread) en el estado focus: dibujaba una
+   línea de acento POR ENCIMA de la barra de color. El acento queda en los
+   bordes laterales/inferior + un glow suave; arriba manda el color del track. */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  box-shadow: 0 0 12px -2px var(--accent);
+}
+/* Glow del focus mucho más suave (el anterior se sentía fuerte). */
+.stems-console-strip.is-located,
+.stems-console-strip.is-selected {
+  box-shadow: 0 0 6px -3px var(--accent);
+}
+
+/* ── Recorte (trim) + fades por clip ──────────────────────────────────
+   Overlay sobre la lane: caja del clip con asas estilo DAW. Posicionado en
+   coordenadas absolutas de la lane (left/width en px los fija el JS según
+   PX_PER_SEC + offset + trim). z-index 3 (sobre grid=1 y overlay select=2). */
+.stems-clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  z-index: 3;
+  pointer-events: none;       /* el cuerpo deja pasar el clic (seek); solo asas capturan */
+  border-radius: 4px;
+}
+/* Asas de recorte: barras verticales en los bordes. Ocultas hasta hover. */
+.stems-clip-h {
+  position: absolute;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.stems-row-lane:hover .stems-clip-h { opacity: 1; }
+.stems-clip-h--trimL,
+.stems-clip-h--trimR {
+  top: 0; bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+}
+.stems-clip-h--trimL { left: -1px; }
+.stems-clip-h--trimR { right: -1px; }
+.stems-clip-h--trimL::before,
+.stems-clip-h--trimR::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 6px -1px var(--accent);
+}
+.stems-clip-h--trimL::before { left: 0; border-radius: 3px 0 0 3px; }
+.stems-clip-h--trimR::before { right: 0; border-radius: 0 3px 3px 0; }
+/* Asas de fade: pomos circulares en las esquinas superiores. Levemente
+   visibles siempre (marcan que se puede arrastrar), brillan en hover. */
+.stems-clip-h--fadeIn,
+.stems-clip-h--fadeOut {
+  top: -4px;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  cursor: ew-resize;
+  opacity: 0.55;
+}
+.stems-clip-h--fadeIn  { left: -6px; }
+.stems-clip-h--fadeOut { right: -6px; }
+.stems-row-lane:hover .stems-clip-h--fadeIn,
+.stems-row-lane:hover .stems-clip-h--fadeOut { opacity: 1; }
+/* Triángulos de fade: el área de volumen "quitado" por la rampa. El ancho lo
+   fija el JS; el alto es el del clip. */
+.stems-clip-fade {
+  position: absolute;
+  top: 0; bottom: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: saturate(0.6);
+}
+.stems-clip-fade--in  { left: 0;  clip-path: polygon(0 0, 100% 0, 0 100%); }
+.stems-clip-fade--out { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+/* Línea de la pendiente del fade, para que se lea la rampa con claridad. */
+.stems-clip-fade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.stems-clip-fade--in::after  { border-bottom: 1.5px solid color-mix(in srgb, var(--accent) 70%, white); transform-origin: bottom left; }
+/* Máscaras de la zona recortada del buffer (entre canvas y clip): atenúan el
+   waveform que NO va a sonar. Absolutas en la lane, z bajo las asas. */
+.stems-clip-mask {
+  position: absolute;
+  top: 4px; bottom: 4px;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  border-radius: 3px;
+}
+/* Readout flotante durante el arrastre (fade Xs / inicio mm:ss). */
+.stems-clip-tip {
+  position: absolute;
+  top: -22px; left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--bg);
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 4;
+}
+/* Mientras se arrastra el offset (is-shifting), el overlay se oculta para no
+   quedar desfasado del canvas que se mueve en vivo. */
+.stems-row-lane.is-shifting .stems-clip,
+.stems-row-lane.is-shifting .stems-clip-mask { opacity: 0; }

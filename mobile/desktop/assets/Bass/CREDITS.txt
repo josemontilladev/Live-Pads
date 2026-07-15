@@ -1,0 +1,8 @@
+Samples de Bass (bajo eléctrico) — atribución
+=============================================
+
+Provienen de la Versilian Community Sample Library (VCSL) por Versilian Studios,
+liberada bajo CC0 1.0 (dominio público). Subconjunto en MP3 redistribuido por el
+proyecto tonejs-instruments (https://github.com/nbrosowsky/tonejs-instruments).
+
+Usado en LivePads como instrumento "Bass" del piano virtual (Stems).

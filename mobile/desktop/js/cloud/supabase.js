@@ -1,0 +1,281 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Cliente Supabase mínimo (auth + REST) hecho con fetch.
+//
+// No usamos la librería @supabase/supabase-js para no inflar el bundle: el
+// renderer carga ES modules crudos (sin empaquetador) y la prioridad es que la
+// app sea ligera y rápida. Esto habla directo con la API REST de GoTrue/PostgREST,
+// que es exactamente lo que hace la librería grande por debajo.
+// ─────────────────────────────────────────────────────────────────────────
+
+import { SUPABASE_URL, SUPABASE_ANON_KEY, CLOUD_ENABLED } from './config.js';
+
+const AUTH = `${SUPABASE_URL}/auth/v1`;
+const REST = `${SUPABASE_URL}/rest/v1`;
+
+// Sesión en memoria: { access_token, refresh_token, expires_at(ms), user }
+let session = null;
+const listeners = new Set();
+
+export function isCloudEnabled() { return CLOUD_ENABLED; }
+export function getSession() { return session; }
+export function getUser() { return session ? session.user : null; }
+export function isLoggedIn() { return !!(session && session.access_token); }
+
+// Suscribirse a cambios de sesión (login/logout/refresh). Devuelve un
+// des-suscriptor.
+export function onAuthChange(cb) {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+function emit() { listeners.forEach(cb => { try { cb(session); } catch (_) {} }); }
+
+// ── Persistencia cifrada (vía main process / safeStorage) ─────────────────
+async function persist() {
+  try {
+    if (session) await window.electronAPI.authSaveSession(session);
+    else await window.electronAPI.authClearSession();
+  } catch (_) {}
+}
+
+// fetch con timeout (AbortController): ninguna llamada a la nube puede colgar
+// la app (p.ej. WiFi conectado sin salida a internet). Falla rápido y limpio.
+function httpFetch(url, opts = {}, timeoutMs = 12000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
+// ── Llamadas HTTP base ────────────────────────────────────────────────────
+async function authFetch(path, { method = 'POST', body, token } = {}) {
+  const res = await httpFetch(`${AUTH}${path}`, {
+    method,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const msg = (data && (data.error_description || data.msg || data.error || data.message)) || `Error ${res.status}`;
+    throw new Error(translateAuthError(msg));
+  }
+  return data;
+}
+
+function translateAuthError(msg) {
+  const m = String(msg).toLowerCase();
+  if (m.includes('invalid login credentials')) return 'Correo o contraseña incorrectos.';
+  if (m.includes('email not confirmed'))        return 'Aún no confirmaste tu correo. Revisa tu bandeja de entrada.';
+  if (m.includes('user already registered'))    return 'Ya existe una cuenta con ese correo.';
+  if (m.includes('password should be at least')) return 'La contraseña debe tener al menos 6 caracteres.';
+  if (m.includes('unable to validate email'))   return 'El correo no es válido.';
+  if (m.includes('rate limit') || m.includes('too many')) return 'Demasiados intentos. Espera un momento e inténtalo de nuevo.';
+  return msg;
+}
+
+function applyTokenResponse(data) {
+  // respuesta de /token o /signup con sesión activa
+  if (!data || !data.access_token) return null;
+  session = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: Date.now() + ((data.expires_in || 3600) * 1000),
+    user: data.user || (session && session.user) || null,
+  };
+  persist();
+  emit();
+  return session;
+}
+
+// ── API pública ───────────────────────────────────────────────────────────
+
+// Registro. Con confirmación por correo activada, NO devuelve sesión: el
+// usuario debe confirmar el email antes de poder entrar.
+export async function signUp(email, password, displayName) {
+  const data = await authFetch('/signup', {
+    body: {
+      email, password,
+      data: displayName ? { display_name: displayName } : undefined,
+    },
+  });
+  // Si el proyecto NO exige confirmación, signup devuelve sesión: la aplicamos.
+  if (data && data.access_token) applyTokenResponse(data);
+  // needsConfirmation = true cuando hay usuario pero todavía sin sesión.
+  const needsConfirmation = !!(data && !data.access_token);
+  return { needsConfirmation, user: data && (data.user || data) };
+}
+
+export async function signIn(email, password) {
+  const data = await authFetch('/token?grant_type=password', { body: { email, password } });
+  return applyTokenResponse(data);
+}
+
+// Aplica una sesión obtenida por OAuth (Google) — el flujo lo abre el proceso
+// principal en una ventana y nos devuelve los tokens. Recupera el usuario.
+export async function applySessionTokens({ access_token, refresh_token, expires_in }) {
+  if (!access_token) throw new Error('No se recibió la sesión de Google.');
+  session = {
+    access_token,
+    refresh_token: refresh_token || null,
+    expires_at: Date.now() + ((Number(expires_in) || 3600) * 1000),
+    user: null,
+  };
+  try {
+    const res = await httpFetch(`${AUTH}/user`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${access_token}` },
+    });
+    if (res.ok) session.user = await res.json();
+  } catch (_) {}
+  persist();
+  emit();
+  return session;
+}
+
+// Inicia sesión con Google. El proceso principal abre la ventana de Google,
+// captura los tokens del redirect y los aplica aquí.
+export const OAUTH_REDIRECT = 'https://livepads.online/';
+export async function signInWithGoogle() {
+  if (!window.electronAPI?.authOAuth) throw new Error('OAuth no disponible.');
+  const tokens = await window.electronAPI.authOAuth({
+    provider: 'google',
+    supabaseUrl: SUPABASE_URL,
+    redirectTo: OAUTH_REDIRECT,
+  });
+  if (!tokens || tokens.error) throw new Error(tokens?.error || 'No se pudo iniciar con Google.');
+  return applySessionTokens(tokens);
+}
+
+// Cambiar la contraseña del usuario logueado (no requiere la actual; la sesión
+// activa autoriza el cambio, como en la mayoría de apps).
+export async function updatePassword(newPassword) {
+  const token = await validToken();
+  if (!token) throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+  const res = await httpFetch(`${AUTH}/user`, {
+    method: 'PUT',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  let data = null; try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error(translateAuthError((data && (data.msg || data.error_description || data.error || data.message)) || `Error ${res.status}`));
+  return true;
+}
+
+// Eliminar la cuenta (vía Edge Function con privilegios). Borra el usuario y,
+// en cascada, sus librerías propias, canciones, setlists y configuración.
+export async function deleteAccount() {
+  await invokeFunction('delete-account', {});
+  session = null;
+  persist();
+  emit();
+  return true;
+}
+
+export async function resetPassword(email) {
+  await authFetch('/recover', { body: { email } });
+  return true;
+}
+
+export async function signOut() {
+  try {
+    if (session && session.access_token) {
+      await authFetch('/logout', { token: session.access_token });
+    }
+  } catch (_) { /* da igual si el token ya no es válido */ }
+  session = null;
+  persist();
+  emit();
+}
+
+// Renueva el access_token usando el refresh_token. Devuelve true si quedó una
+// sesión válida.
+async function refreshSession() {
+  if (!session || !session.refresh_token) return false;
+  // Offline: no tocamos la red ni invalidamos la sesión (la conservamos).
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
+  try {
+    const data = await authFetch('/token?grant_type=refresh_token', {
+      body: { refresh_token: session.refresh_token },
+    });
+    return !!applyTokenResponse(data);
+  } catch (_) {
+    // Solo damos la sesión por muerta si HABÍA conexión (rechazo real del
+    // servidor). Si fue un fallo de red, conservamos la sesión.
+    if (typeof navigator === 'undefined' || navigator.onLine) { session = null; persist(); emit(); }
+    return false;
+  }
+}
+
+// Devuelve un access_token vigente (refrescando si está por caducar).
+async function validToken() {
+  if (!session) return null;
+  if (Date.now() > session.expires_at - 60_000) {
+    // Offline: usa el token que haya (no se puede refrescar sin red).
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return session.access_token;
+    const ok = await refreshSession();
+    if (!ok) return null;
+  }
+  return session.access_token;
+}
+
+// Llamada genérica a la API REST (PostgREST) ya autenticada. `path` empieza
+// por "/", p.ej. "/songs?select=*".
+export async function rest(path, { method = 'GET', body, prefer } = {}) {
+  const token = await validToken();
+  const headers = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+  };
+  if (prefer) headers['Prefer'] = prefer;
+  const res = await httpFetch(`${REST}${path}`, {
+    method, headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error((data && (data.message || data.hint)) || `Error ${res.status}`);
+  return data;
+}
+
+// Llama a una función RPC de Postgres (p.ej. accept_invite).
+export function rpc(fn, args) {
+  return rest(`/rpc/${fn}`, { method: 'POST', body: args || {} });
+}
+
+// Invoca una Edge Function (p.ej. send-invite) autenticada con la sesión.
+export async function invokeFunction(name, payload) {
+  const token = await validToken();
+  const res = await httpFetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token || SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload || {}),
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error((data && (data.error || data.message)) || `Error ${res.status}`);
+  return data;
+}
+
+// Restaura la sesión guardada al arrancar la app. Refresca el token si hace
+// falta. Devuelve el usuario o null.
+export async function restoreSession() {
+  if (!CLOUD_ENABLED) return null;
+  try {
+    const saved = await window.electronAPI.authLoadSession();
+    if (saved && saved.access_token) {
+      session = saved;
+      // IMPORTANTE: no tocamos la red al arrancar. Cargar la sesión guardada
+      // basta para entrar a la app (offline incluido). El token se refresca de
+      // forma perezosa en validToken() solo cuando se hace una operación online.
+      emit();
+    }
+  } catch (_) {}
+  return getUser();
+}

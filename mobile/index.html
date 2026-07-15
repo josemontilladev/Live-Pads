@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#0a0a0a">
   <title>LivePads Móvil</title>
+  <script>
+    // Auto-cambio: PC/laptop (pantalla ancha + ratón) → la UI completa de Pads
+    // estilo LivePads (desktop/); teléfono/tablet → este reproductor móvil.
+    // Forzable con ?view=mobile o ?view=desktop.
+    (function () {
+      try {
+        var p = new URLSearchParams(location.search);
+        var v = p.get('view');
+        if (v === 'mobile') return;
+        var isDesktop = window.matchMedia('(min-width: 1000px) and (pointer: fine)').matches;
+        if ((isDesktop || v === 'desktop') && location.pathname.indexOf('/desktop') === -1) {
+          location.replace('desktop/' + location.search);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.png">
   <link rel="apple-touch-icon" href="assets/icon.png">
