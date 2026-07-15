@@ -32,16 +32,34 @@ export async function loadFileBlob(libraryId, relPath, { onState } = {}) {
     const cache = await caches.open(CACHE_NAME);
     const hit = await cache.match(key);
     if (hit) return await hit.blob();
-    onState?.('descargando');
+    onState?.('descargando', 0);
     const url = await signGet(libraryId, relPath);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Descarga falló (${res.status})`);
     const resForCache = res.clone();
-    const blob = await res.blob();
+    const ct = res.headers.get('Content-Type') || 'application/octet-stream';
+    const total = Number(res.headers.get('Content-Length')) || 0;
+
+    // Lee el stream para reportar PORCENTAJE mientras baja.
+    let blob;
+    if (res.body && res.body.getReader && total) {
+      const reader = res.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        onState?.('descargando', Math.min(99, Math.round((loaded / total) * 100)));
+      }
+      blob = new Blob(chunks, { type: ct });
+    } else {
+      blob = await res.blob();
+    }
+    onState?.('procesando', 100);
     // Guardar sin bloquear la reproducción.
-    cache.put(key, new Response(resForCache.body, {
-      headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/octet-stream' },
-    })).catch(() => {});
+    cache.put(key, new Response(resForCache.body, { headers: { 'Content-Type': ct } })).catch(() => {});
     return blob;
   } catch (err) {
     // Sin Cache API (contexto raro) → directo a red.
