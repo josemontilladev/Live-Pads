@@ -100,40 +100,45 @@
     </div>
 
     <main class="pl-body">
-      <div class="pl-cover-wrap">
-        <img id="pl-cover" class="pl-cover" alt="" hidden>
-        <div id="pl-cover-fallback" class="pl-cover-fallback">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <!-- Zona "sonando ahora": carátula + transporte (columna izq. en escritorio) -->
+      <div class="pl-now">
+        <div class="pl-cover-wrap">
+          <img id="pl-cover" class="pl-cover" alt="" hidden>
+          <div id="pl-cover-fallback" class="pl-cover-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          </div>
+        </div>
+
+        <!-- Pista: secuencia / original -->
+        <div class="pl-track">
+          <div class="seg" id="track-seg">
+            <button data-track="sequence" class="seg-btn active">Secuencia</button>
+            <button data-track="original" class="seg-btn">Original</button>
+          </div>
+          <div id="pl-state" class="pl-state"></div>
+          <div class="pl-transport">
+            <button id="pl-rew" class="round-btn" aria-label="Atrás 10 segundos">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 8 6 12l5 4V8z"/><path d="M18 8l-5 4 5 4V8z"/></svg>
+              <span class="round-sub">10</span>
+            </button>
+            <button id="pl-play" class="round-btn big" aria-label="Reproducir">
+              <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+            </button>
+            <button id="pl-fwd" class="round-btn" aria-label="Adelante 10 segundos">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8l5 4-5 4V8z"/><path d="M6 8l5 4-5 4V8z"/></svg>
+              <span class="round-sub">10</span>
+            </button>
+          </div>
+          <div class="pl-progress">
+            <span id="pl-cur">0:00</span>
+            <input type="range" id="pl-seek" min="0" max="1000" value="0" step="1">
+            <span id="pl-dur">0:00</span>
+          </div>
         </div>
       </div>
 
-      <!-- Pista: secuencia / original -->
-      <div class="pl-track">
-        <div class="seg" id="track-seg">
-          <button data-track="sequence" class="seg-btn active">Secuencia</button>
-          <button data-track="original" class="seg-btn">Original</button>
-        </div>
-        <div id="pl-state" class="pl-state"></div>
-        <div class="pl-transport">
-          <button id="pl-rew" class="round-btn" aria-label="Atrás 10 segundos">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 8 6 12l5 4V8z"/><path d="M18 8l-5 4 5 4V8z"/></svg>
-            <span class="round-sub">10</span>
-          </button>
-          <button id="pl-play" class="round-btn big" aria-label="Reproducir">
-            <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"/></svg>
-          </button>
-          <button id="pl-fwd" class="round-btn" aria-label="Adelante 10 segundos">
-            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8l5 4-5 4V8z"/><path d="M6 8l5 4-5 4V8z"/></svg>
-            <span class="round-sub">10</span>
-          </button>
-        </div>
-        <div class="pl-progress">
-          <span id="pl-cur">0:00</span>
-          <input type="range" id="pl-seek" min="0" max="1000" value="0" step="1">
-          <span id="pl-dur">0:00</span>
-        </div>
-      </div>
-
+      <!-- Paneles de control (columna der. en escritorio) -->
+      <div class="pl-panels">
       <!-- Mezcla: volúmenes y PANEO (música / click) -->
       <div class="panel">
         <h3>Mezcla</h3>
@@ -188,8 +193,23 @@
         </div>
         <div id="pads-grid" class="pads-grid"></div>
       </div>
+      </div><!-- /.pl-panels -->
     </main>
   </section>
+
+  <!-- ── MINI-REPRODUCTOR (persiste al volver a la lista) ─────────────────── -->
+  <button id="mini" class="mini hidden" aria-label="Abrir reproductor">
+    <span class="mini-cover" id="mini-cover">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+    </span>
+    <span class="mini-info">
+      <b id="mini-title">—</b>
+      <small id="mini-artist">—</small>
+    </span>
+    <span class="mini-play" id="mini-play" role="button" aria-label="Reproducir/Pausar">
+      <svg class="ico" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="7 4 20 12 7 20 7 4"/></svg>
+    </span>
+  </button>
 
   <div id="toast" class="toast hidden"></div>
   <script type="module" src="js/app.js"></script>
