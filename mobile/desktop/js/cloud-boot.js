@@ -6,7 +6,7 @@
 // audio de pista se omite aquí (audio: null) para no intentar rutas locales.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { restoreSession, signIn, isLoggedIn, rest } from './cloudapi/supabase.js';
+import { restoreSession, signIn, isLoggedIn, rest, signInWithGoogle, handleOAuthCallback } from './cloudapi/supabase.js';
 import { setLibraryId, cloudResolve, watchCovers, prefetchSongs } from './cloudapi/media.js';
 
 const LIB_KEY = 'lpm-active-library';
@@ -131,9 +131,15 @@ function showLogin(msg) {
 }
 
 async function main() {
-  const user = await restoreSession();
+  // ¿Volvemos de Google? (tokens en el hash) → sesión lista.
+  const oauthUser = await handleOAuthCallback();
+  const user = oauthUser || await restoreSession();
   if (user && isLoggedIn()) return startWithSession();
   showLogin('');
+  el('cloud-google').addEventListener('click', () => {
+    el('cloud-login-err').textContent = '';
+    signInWithGoogle();
+  });
   el('cloud-login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = el('cloud-login-btn');
