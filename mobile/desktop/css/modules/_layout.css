@@ -1,0 +1,264 @@
+/* ── TOPBAR ── */
+#topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  z-index: 1002;
+  flex-shrink: 0;
+}
+.topbar-left, .topbar-right { flex: 1; display: flex; align-items: center; }
+.topbar-center { flex: 1; display: flex; justify-content: center; }
+.topbar-right { justify-content: flex-end; }
+#topbar button, .wm-btns { -webkit-app-region: no-drag; }
+.topbar-left { display: flex; align-items: center; gap: 12px; -webkit-app-region: no-drag; }
+.topbar-logo { display: flex; align-items: center; gap: 10px; margin: 0 20px; }
+
+.icon-btn {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  border-radius: var(--r-md); color: var(--text-muted);
+  cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+.icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+.wm-btns { display: flex; margin-left: 16px; -webkit-app-region: no-drag; }
+.wm-btn {
+  width: 46px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--text-muted); transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
+}
+.wm-btn:hover { background: var(--bg-hover); color: var(--text); }
+.wm-close:hover { background: #e81123; color: #fff; }
+.wm-btn svg { width: 12px; height: 12px; }
+
+/* ── STAGE ── */
+#stage {
+  flex: 1;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 350px 1fr 340px;
+  grid-template-rows: auto 1fr;
+  gap: 20px;
+  overflow-y: auto;
+  position: relative;
+  min-width: 0;
+}
+
+/* Top modules: Bank + Metro — solo columnas 1-2: la columna 3 es del setlist,
+   que ocupa TODO el lado derecho (filas 1-2). El metrónomo queda centrado
+   sobre la zona de pads. */
+#top-modules-grid {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 20px;
+}
+
+/* Bank section (inside top-modules-grid, no longer spans full width) */
+#bank-section {
+  padding: 14px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  flex-shrink: 0;
+}
+.bank-row { display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+.bank-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.3px; }
+.bank-selector {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+.bank-selector .metro-dropdown {
+  flex: 1;
+  font-size: 13px;
+  height: 36px;
+}
+.sb-div { height: 1px; background: var(--border); width: 100%; opacity: 0.5; }
+
+.metro-dropdown {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+  transition: border-color 0.2s;
+}
+.metro-dropdown:hover { border-color: var(--blue); background: var(--bg-hover); }
+.metro-dropdown:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(255,188,0,0.15); }
+
+/* ── PANEL KEYS ── */
+#panel-keys {
+  grid-column: 1;
+  grid-row: 2;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+.key-btn {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text-muted);
+  font-size: 18px; font-weight: 600;
+  cursor: pointer; outline: none; position: relative;
+  /* NO usar `all`: incluía el box-shadow blur 35px del estado .active, que se
+     repintaba durante 0.18s en CADA disparo de pad (la acción más frecuente en
+     vivo). Acotado a transform/color/borde/fondo; el glow aparece instantáneo. */
+  transition:
+    transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 10px 6px;
+}
+.key-btn:hover { background: var(--bg-hover); color: var(--text); border-color: var(--blue); transform: translateY(-2px); }
+.key-btn.active {
+  background: var(--accent-grad); border-color: var(--blue); color: #000;
+  box-shadow: 0 0 35px var(--blue);
+  transform: translateY(-4px) scale(1.02);
+}
+.key-btn.prepared {
+  border-color: var(--blue); color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+/* Fade-out progress indicator — a 3px bar at the bottom of the pad
+   that drains right-to-left over PAD_STOP_FADE_S (5s). Lets the user
+   see exactly when the audio tail will end so they can plan the next
+   key trigger. The bar respects the active theme via var(--accent). */
+.key-btn.fading-out::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--accent), var(--accent2, var(--accent)));
+  box-shadow: 0 0 10px var(--glow);
+  transform-origin: right center;
+  animation: pad-fade-progress 5s linear forwards;
+  pointer-events: none;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+@keyframes pad-fade-progress {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.kbd-hint {
+  position: absolute; top: 6px; right: 6px;
+  font-size: 9px; font-weight: 600; color: var(--text-muted);
+  opacity: 0.6; background: var(--bg-hover);
+  padding: 2px 4px; border-radius: 3px; pointer-events: none;
+}
+.key-btn.active .kbd-hint { color: #000; opacity: 0.7; }
+
+/* Pad volume tray */
+#pad-volume-tray { padding: 18px; }
+.tray-header {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.tray-pan-row {
+  display: flex; align-items: center; gap: 10px; margin-left: auto;
+  flex-shrink: 0; min-width: 200px;
+}
+.tray-pan-label { font-size: 10px; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+
+.sb-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+.sb-row { display: flex; align-items: center; gap: 14px; padding: 14px 18px; }
+.sr-label { font-size: 13px; font-weight: 700; color: var(--text); min-width: 55px; }
+.sr-val { font-size: 12px; color: var(--text-muted); min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ── PANEL DRUMS ── */
+#panel-drums {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.drum-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 12px;
+  flex: 1;          /* grow to fill available vertical space */
+  min-height: 0;
+}
+.drum-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  position: relative; cursor: pointer; outline: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; display: flex; flex-direction: column;
+  padding: 14px; width: 100%; height: 100%;
+}
+.drum-btn:hover { background: var(--bg-hover); border-color: var(--blue); }
+/* PERF: snap to hit state instantly (no transition delay) — live drummer
+   needs immediate visual feedback on every hit. The fade back is smooth
+   via the base .drum-btn transition when .hit is removed. */
+.drum-btn.hit, .drum-btn:active {
+  background: var(--accent-grad); border-color: var(--blue);
+  box-shadow: 0 0 25px var(--blue);
+  transition: none;
+}
+.drum-btn .drum-label { font-size: 14px; font-weight: 600; color: var(--text); text-align: left; }
+.drum-btn.hit .drum-label { color: #000; opacity: 1; }
+
+.drum-btn.has-sample::before {
+  content: '';
+  position: absolute;
+  bottom: 10px; right: 10px;
+  width: 6px; height: 6px;
+  background: var(--blue);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--blue);
+}
+
+#drum-volume-tray { padding: 18px; flex-shrink: 0; }
+.drum-volumes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.drum-vol-item { background: var(--bg-surface); padding: 10px; border-radius: var(--r-md); display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); }
+.drum-vol-header { display: flex; align-items: center; justify-content: space-between; }
+.drum-vol-item label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.drum-vol-pct { font-size: 10px; color: var(--text-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.drum-vol-item input { width: 100%; }
+
