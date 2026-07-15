@@ -21,7 +21,12 @@
     loadPresets: () => Promise.resolve(null),
     savePreset: asyncNull,
     deletePreset: asyncNull,
-    loadUserDrums: () => Promise.resolve(null),
+    // Kits de batería personalizados desde la nube (user_settings.data.drums).
+    // Espera a que cloud-boot los traiga tras el login.
+    loadUserDrums: () => new Promise((resolve) => {
+      if (window.__CLOUD_DRUMS_READY__) return resolve(window.__CLOUD_DRUMS__ || null);
+      window.__onCloudDrums = () => resolve(window.__CLOUD_DRUMS__ || null);
+    }),
     saveUserDrums: asyncNull,
     loadMidiMap: () => Promise.resolve(null),
     saveMidiMap: asyncNull,

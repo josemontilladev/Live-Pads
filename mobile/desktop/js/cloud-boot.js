@@ -111,11 +111,27 @@ function deliverSongs(songs) {
   if (typeof window.__onCloudSongs === 'function') window.__onCloudSongs();
 }
 
+// Kits de batería personalizados del usuario (user_settings.data.drums).
+async function loadCloudDrums() {
+  try {
+    const u = getUser();
+    if (!u || !u.id) return null;
+    const rows = await rest(`/user_settings?select=data&user_id=eq.${u.id}`);
+    const data = Array.isArray(rows) && rows[0] ? rows[0].data : null;
+    return data && data.drums ? data.drums : null;
+  } catch (_) { return null; }
+}
+
 async function startWithSession() {
   el('cloud-login').style.display = 'none';
   el('cloud-loading').style.display = 'flex';
   let songs = [];
   try { songs = await loadCloudSongs(); } catch (e) { songs = []; }
+  // Kits de batería (definiciones); los samples viven en R2 (subidos con la
+  // biblioteca). Se entregan al renderer vía el shim de loadUserDrums.
+  try { window.__CLOUD_DRUMS__ = await loadCloudDrums(); } catch (_) { window.__CLOUD_DRUMS__ = null; }
+  window.__CLOUD_DRUMS_READY__ = true;
+  if (typeof window.__onCloudDrums === 'function') window.__onCloudDrums();
   deliverSongs(songs);
   watchCovers();        // resuelve las carátulas livepads:// → R2
   addOfflineButton();   // botón de descarga offline

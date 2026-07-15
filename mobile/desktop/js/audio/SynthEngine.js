@@ -994,7 +994,13 @@ export class SynthEngine {
       .filter(p => p.sample)
       .map(async p => {
         try {
-          const resp = await fetch(p.sample);
+          // NUBE: los samples propios (livepads://app/UserDrums/…) se resuelven
+          // a una URL firmada de R2 (o blob cacheado) antes de descargar.
+          let src = p.sample;
+          if (typeof src === 'string' && src.startsWith('livepads://') && window.__cloudResolve) {
+            try { src = await window.__cloudResolve(src); } catch (_) {}
+          }
+          const resp = await fetch(src);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const ab  = await resp.arrayBuffer();
           this._setDrumBuffer(p.id, await this.ctx.decodeAudioData(ab));
