@@ -188,6 +188,7 @@ async function enterLibrary() {
     if (c) { songs = c; renderSongs(); painted = true; }
   }
   if (!painted) renderSkeleton(); // evita el pantallazo en blanco en la 1ª carga
+  if (navigator.onLine) toast(painted ? 'Actualizando repertorio…' : 'Cargando repertorio…');
   try {
     libraries = await listLibraries();
     if (!Array.isArray(libraries) || !libraries.length) {
