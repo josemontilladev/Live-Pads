@@ -21,6 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { pullLibrarySongs, isPushInFlight } from './songSync.js';
+import { pullSharedSetlists } from './setlistSync.js';
 import { isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
 
@@ -66,6 +67,14 @@ async function pullNow() {
         window.dispatchEvent(new CustomEvent('livepads:library-conflict', { detail: { conflicts: r.conflicts } }));
       } catch (_) {}
     }
+    // Setlists del equipo: materializa los servicios creados/editados en otras
+    // apps (antes solo se bajaban a mano). Ya con las canciones/cloudId en local.
+    try {
+      const sl = await pullSharedSetlists();
+      if (sl && (sl.added || sl.updated)) {
+        window.dispatchEvent(new Event('livepads:setlists-synced'));
+      }
+    } catch (_) {}
   } catch (_) {
     // sin red / sin permiso / sesión expirada: se reintenta en la próxima ronda
   } finally {

@@ -188,16 +188,23 @@ async function startWithSession() {
 
   await setupCloud(); // librería activa + resolución de medios R2
 
-  // A partir de aquí manda el motor de nube del RENDERER: trae las canciones y
-  // los servicios, y sube lo que se cree o edite aquí (igual que en la PC).
+  // Kits de batería + MIDI de la nube (antes de que arranque el resto).
   try {
-    const { checkLibraryNow } = await import('./cloud/libraryLive.js');
-    checkLibraryNow();
-  } catch (_) {}
-  try {
-    // Trae kits de batería + mapeo MIDI de la nube a este equipo.
     const { bootSyncBeforeLoad } = await import('./cloud/userSettings.js');
     await bootSyncBeforeLoad();
+  } catch (_) {}
+
+  // A partir de aquí manda el motor de nube del RENDERER: baja canciones Y
+  // servicios (pullNow ahora hace ambos), y sube lo que se cree/edite aquí.
+  try {
+    const { checkLibraryNow } = await import('./cloud/libraryLive.js');
+    await checkLibraryNow(); // espera el primer pull (canciones + setlists)
+    // Persiste el catálogo YA (no dependas del evento, que puede registrarse
+    // después): así una recarga offline abre con el repertorio real.
+    const { getSongs } = await import('./state/store.js');
+    if (window.electronAPI && window.electronAPI.saveGiSetlist) {
+      window.electronAPI.saveGiSetlist(getSongs());
+    }
   } catch (_) {}
 
   watchCovers();        // resuelve las carátulas livepads:// → R2

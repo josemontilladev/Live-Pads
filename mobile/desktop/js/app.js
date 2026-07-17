@@ -855,6 +855,14 @@ function bindRestOfApp() {
     persistGiSongs();
     renderGiList(q('#gi-search')?.value || '');
     updateFilterCounts();
+    // Refresca las copias del servicio cargado (tono/letra/audio) cuando OTRO
+    // miembro edita una canción que está en tu servicio; antes solo se
+    // actualizaba tras un cambio local.
+    try { if (syncServiceWithLibrary()) renderServiceList(); } catch (_) {}
+  });
+  // Setlists del equipo materializados por el poll → re-render del selector.
+  window.addEventListener('livepads:setlists-synced', () => {
+    try { renderServiceList(); } catch (_) {}
   });
 
   // Recarga la librería DESDE DISCO (sin guardar el store antes): lo usa el

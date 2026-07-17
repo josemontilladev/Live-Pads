@@ -41,9 +41,12 @@
     },
 
     // ── Catálogo de canciones: caché local (la nube manda y sincroniza) ──
+    // SIEMPRE devuelve un objeto (aunque sea vacío) para que el renderer NO caiga
+    // al catálogo DEMO empaquetado (que no tiene cloudId y se subiría a la
+    // librería compartida contaminándola).
     loadGiSetlist: () => {
       const songs = lsGet(CATALOG_KEY);
-      return Promise.resolve(Array.isArray(songs) ? { data: { songs } } : null);
+      return Promise.resolve({ data: { songs: Array.isArray(songs) ? songs : [] } });
     },
     saveGiSetlist: (songs) => lsSet(CATALOG_KEY, songs || []),
 
@@ -55,7 +58,7 @@
     saveUserDrums: (d) => lsSet(DRUMS_KEY, d),
     loadMidiMap: () => Promise.resolve(lsGet(MIDI_KEY)),
     saveMidiMap: (m) => lsSet(MIDI_KEY, m),
-    saveMidiMapSync: noop,
+    saveMidiMapSync: (m) => { try { localStorage.setItem(MIDI_KEY, JSON.stringify(m)); } catch (_) {} },
     audioLibraryGet: () => Promise.resolve(null),
     audioLibrarySet: asyncNull,
     libraryConflictsCheck: () => Promise.resolve({ count: 0, conflicts: [] }),
