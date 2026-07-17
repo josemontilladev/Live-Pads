@@ -120,6 +120,7 @@ $('install-no')?.addEventListener('click', () => {
 window.addEventListener('appinstalled', () => { $('install-banner')?.classList.add('hidden'); });
 
 // ── Robustez: indicador de "sin conexión" ─────────────────────────────────
+let lastSync = 0;
 function bindNetwork() {
   const paint = () => {
     const off = !navigator.onLine;
@@ -129,6 +130,21 @@ function bindNetwork() {
   window.addEventListener('online', paint);
   window.addEventListener('offline', paint);
   paint();
+
+  // Mantener el repertorio al día: al volver a la app o reconectar (si estamos
+  // en la biblioteca, con red y ha pasado >20s), refresca canciones y servicios
+  // → ves lo que se creó/editó en la PC o el desktop.
+  const maybeSync = () => {
+    if (!navigator.onLine || !libraryId) return;
+    if (screens.library.classList.contains('hidden')) return; // no en player/login
+    if ($('screen-setlist') && !$('screen-setlist').classList.contains('hidden')) return; // no editando
+    if (Date.now() - lastSync < 20000) return;
+    lastSync = Date.now();
+    refreshData().catch(() => {});
+  };
+  window.addEventListener('online', maybeSync);
+  window.addEventListener('focus', maybeSync);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeSync(); });
 }
 
 $('login-google').addEventListener('click', () => {
