@@ -11,7 +11,15 @@
 const SHELL = 'lpd-shell-v1';
 const ASSETS = 'lpd-assets-v1';
 
-self.addEventListener('install', () => self.skipWaiting());
+// Precachea la portada para garantizar que la app ABRA sin internet.
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(SHELL)
+      .then((c) => c.addAll(['index.html', './']))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
+});
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -43,12 +51,21 @@ self.addEventListener('fetch', (e) => {
   }
 
   // Shell (js/css/html): network-first con caída a caché.
+  // Sin red, una navegación cae a la index.html cacheada → la app ABRE OFFLINE.
   e.respondWith(
     fetch(e.request)
       .then((res) => {
         if (res.ok) caches.open(SHELL).then((c) => c.put(e.request, res.clone())).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(e.request))
+      .catch(async () => {
+        const hit = await caches.match(e.request);
+        if (hit) return hit;
+        if (e.request.mode === 'navigate') {
+          const idx = await caches.match('index.html') || await caches.match('./');
+          if (idx) return idx;
+        }
+        return Response.error();
+      })
   );
 });

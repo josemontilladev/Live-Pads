@@ -132,10 +132,16 @@ async function refreshSession() {
 }
 
 // Token válido (refresca si está por vencer). null si no hay sesión.
+// OFFLINE: si no hay red no se puede refrescar — devolvemos el token guardado y
+// NO cerramos sesión, para que la app abra igual con lo que esté descargado.
 export async function validToken() {
   if (!session) return null;
   if (Date.now() >= (session.expires_at || 0)) {
-    try { await refreshSession(); } catch (_) { signOut(); return null; }
+    if (!navigator.onLine) return session.access_token;
+    try { await refreshSession(); } catch (_) {
+      if (!navigator.onLine) return session.access_token;
+      signOut(); return null;
+    }
   }
   return session.access_token;
 }

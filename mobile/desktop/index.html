@@ -32,6 +32,13 @@
     #cloud-login-err { color: #ff6b6b; font-size: 13px; min-height: 18px; }
     .cloud-spin { width: 42px; height: 42px; border: 4px solid rgba(251,174,0,0.25); border-top-color: #fbae00; border-radius: 50%; animation: cloudspin 0.9s linear infinite; }
     @keyframes cloudspin { to { transform: rotate(360deg); } }
+    /* Descarga total pendiente: el botón "late" suave para que se note que está. */
+    .cloud-dl-hint { position: relative; animation: dlpulse 2.4s ease-in-out infinite; }
+    .cloud-dl-hint::after {
+      content: ''; position: absolute; top: 2px; right: 2px; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--accent, #fbae00);
+    }
+    @keyframes dlpulse { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
   </style>
 </head>
 <body>

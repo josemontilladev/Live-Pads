@@ -80,8 +80,24 @@ function rowToCatalogSong(r) {
   };
 }
 
+// Caché local del repertorio: permite ABRIR SIN INTERNET lo ya descargado.
+const SONGS_CACHE = 'lpd-songs-cache';
+const DRUMS_CACHE = 'lpd-drums-cache';
+function cachePut(key, libId, data) {
+  try { localStorage.setItem(key, JSON.stringify({ libId, data })); } catch (_) {}
+}
+function cacheGet(key, libId) {
+  try {
+    const c = JSON.parse(localStorage.getItem(key) || 'null');
+    if (c && (!libId || c.libId === libId)) return c.data;
+  } catch (_) {}
+  return null;
+}
+
 async function pickLibraryId() {
   const saved = (() => { try { return localStorage.getItem(LIB_KEY); } catch (_) { return null; } })();
+  // Sin red: usa la última librería recordada (no se puede consultar).
+  if (!navigator.onLine && saved) return saved;
   const libs = await rest('/libraries?select=id,name&order=created_at.asc');
   if (!Array.isArray(libs) || !libs.length) return null;
   if (saved && libs.some(l => l.id === saved)) return saved;
@@ -99,16 +115,27 @@ async function pickLibraryId() {
 }
 
 async function loadCloudSongs() {
-  const libId = await pickLibraryId();
-  if (!libId) return [];
+  let libId = null;
+  try { libId = await pickLibraryId(); } catch (_) { /* sin red */ }
+  if (!libId) { try { libId = localStorage.getItem(LIB_KEY); } catch (_) {} }
+  if (!libId) return cacheGet(SONGS_CACHE, null) || [];
+
   ACTIVE_LIB = libId;
   setLibraryId(libId);
   window.__cloudResolve = cloudResolve;         // pistas grandes → streaming R2
   window.__cloudResolveFile = cloudResolveFile; // samples/carátulas → blob cacheado
-  const rows = await rest(
-    `/songs?library_id=eq.${libId}&select=id,title,artist,bpm,key,genre,lyrics,youtube_url,tags,meta&order=title.asc`
-  );
-  return (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
+
+  try {
+    const rows = await rest(
+      `/songs?library_id=eq.${libId}&select=id,title,artist,bpm,key,genre,lyrics,youtube_url,tags,meta&order=title.asc`
+    );
+    const songs = (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
+    cachePut(SONGS_CACHE, libId, songs); // para abrir sin internet
+    return songs;
+  } catch (_) {
+    // Sin red / error: abre con el repertorio guardado localmente.
+    return cacheGet(SONGS_CACHE, libId) || [];
+  }
 }
 
 // ── Banner de progreso visible (arriba, centrado) ──────────────────────────
@@ -176,10 +203,14 @@ function addOfflineButton() {
   btn.addEventListener('click', () => runFullDownload(false));
   host.appendChild(btn);
 
-  // Primera vez en este equipo: descarga todo automáticamente (una sola vez).
+  // NO se descarga solo (tarda y puede no quererse ahora): si aún no está todo
+  // en local, el botón se resalta para que se vea que la opción está ahí.
   let already = false;
   try { already = !!localStorage.getItem('lpd-prefetched-' + ACTIVE_LIB); } catch (_) {}
-  if (!already) setTimeout(() => runFullDownload(true), 2500);
+  if (!already) {
+    btn.classList.add('cloud-dl-hint');
+    btn.title = 'Descargar TODO para usar sin internet y sin latencia (recomendado antes del servicio)';
+  }
 }
 
 // Entrega las canciones al renderer (que ya arrancó y espera en loadGiSetlist).
@@ -192,11 +223,15 @@ function deliverSongs(songs) {
 async function loadCloudDrums() {
   try {
     const u = getUser();
-    if (!u || !u.id) return null;
+    if (!u || !u.id) return cacheGet(DRUMS_CACHE, null);
     const rows = await rest(`/user_settings?select=data&user_id=eq.${u.id}`);
     const data = Array.isArray(rows) && rows[0] ? rows[0].data : null;
-    return data && data.drums ? data.drums : null;
-  } catch (_) { return null; }
+    const drums = data && data.drums ? data.drums : null;
+    if (drums) cachePut(DRUMS_CACHE, ACTIVE_LIB, drums); // para abrir sin internet
+    return drums;
+  } catch (_) {
+    return cacheGet(DRUMS_CACHE, ACTIVE_LIB) || cacheGet(DRUMS_CACHE, null);
+  }
 }
 
 async function startWithSession() {
