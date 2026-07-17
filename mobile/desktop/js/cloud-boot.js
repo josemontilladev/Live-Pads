@@ -63,6 +63,35 @@ if (!navigator.onLine) setTimeout(() => netBanner('offline'), 1000);
 
 function el(id) { return document.getElementById(id); }
 
+// Mensaje de carga en la puerta (título grande + detalle chico) → siempre se
+// sabe QUÉ está pasando mientras arranca.
+function loadStep(title, detail) {
+  const t = el('cloud-loading-msg'); if (t) t.textContent = title;
+  const d = el('cloud-loading-sub'); if (d) d.textContent = detail || '';
+}
+
+// Indicador de fondo (arriba-derecha) cuando sincroniza tras estar dentro:
+// "Sincronizando…" / "Actualizado ✓". Discreto, se oculta solo.
+function syncPill(text, ok) {
+  let p = document.getElementById('cloud-sync-pill');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = 'cloud-sync-pill';
+    p.style.cssText = 'position:fixed;top:12px;right:16px;z-index:9400;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:rgba(20,20,20,.96);border:1px solid rgba(255,255,255,.12);color:#9aa0ad;font:600 12px Inter,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .3s';
+    document.body.appendChild(p);
+  }
+  p.innerHTML = ok
+    ? '<span style="color:#86efac">✓</span> ' + text
+    : '<span style="width:12px;height:12px;border:2px solid rgba(251,174,0,.3);border-top-color:#fbae00;border-radius:50%;display:inline-block;animation:cloudspin .8s linear infinite"></span> ' + text;
+  p.style.opacity = '1';
+  p.style.display = 'flex';
+  clearTimeout(syncPill._t);
+  if (ok) syncPill._t = setTimeout(() => { p.style.opacity = '0'; setTimeout(() => { p.style.display = 'none'; }, 300); }, 2200);
+}
+// El motor del renderer avisa cuando termina de bajar cambios → "Actualizado".
+window.addEventListener('livepads:library-synced', () => syncPill('Actualizado', true));
+window.addEventListener('livepads:setlists-synced', () => syncPill('Servicios actualizados', true));
+
 // Elige la librería ACTIVA (la que el renderer usará para sincronizar).
 // Se guarda con la MISMA clave que el renderer (libraries.js) para que su motor
 // de nube y el nuestro apunten a la misma.
@@ -186,10 +215,12 @@ async function startWithSession() {
   el('cloud-login').style.display = 'none';
   el('cloud-loading').style.display = 'flex';
 
+  loadStep('Preparando tu repertorio…', 'Conectando con la nube');
   await setupCloud(); // librería activa + resolución de medios R2
 
   // Kits de batería + MIDI de la nube (antes de que arranque el resto).
   try {
+    loadStep('Cargando tu configuración…', 'Kits de batería y MIDI');
     const { bootSyncBeforeLoad } = await import('./cloud/userSettings.js');
     await bootSyncBeforeLoad();
   } catch (_) {}
@@ -197,14 +228,21 @@ async function startWithSession() {
   // A partir de aquí manda el motor de nube del RENDERER: baja canciones Y
   // servicios (pullNow ahora hace ambos), y sube lo que se cree/edite aquí.
   try {
+    loadStep('Cargando canciones y servicios…', 'Descargando tu repertorio de la nube');
     const { checkLibraryNow } = await import('./cloud/libraryLive.js');
-    await checkLibraryNow(); // espera el primer pull (canciones + setlists)
+    // Con red lenta, no dejes el gate colgado: máx 15s (el renderer muestra el
+    // repertorio cacheado mientras, y el poll seguirá trayendo lo que falte).
+    await Promise.race([
+      checkLibraryNow(),
+      new Promise((r) => setTimeout(r, 15000)),
+    ]);
     // Persiste el catálogo YA (no dependas del evento, que puede registrarse
     // después): así una recarga offline abre con el repertorio real.
     const { getSongs } = await import('./state/store.js');
     if (window.electronAPI && window.electronAPI.saveGiSetlist) {
       window.electronAPI.saveGiSetlist(getSongs());
     }
+    loadStep('¡Listo!', '');
   } catch (_) {}
 
   watchCovers();        // resuelve las carátulas livepads:// → R2
