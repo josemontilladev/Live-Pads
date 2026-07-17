@@ -8,7 +8,8 @@
 // en el móvil también sirve aquí y viceversa.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { invokeFunction } from './supabase.js';
+// Una sola sesión en toda la app: usamos el cliente de nube del renderer.
+import { invokeFunction } from '../cloud/supabase.js';
 
 const CACHE_NAME = 'lpm-media-v1';
 let LIB = null;
