@@ -1,35 +1,60 @@
 // ─────────────────────────────────────────────────────────────────────────
 // SHIM CLOUD del renderer de LivePads en el navegador (desktop).
-// Reemplaza a _demo-shim.js: mismos stubs de electronAPI, pero loadGiSetlist
-// devuelve las canciones REALES de la nube (Supabase), que cloud-boot.js deja
-// en window.__CLOUD_SONGS__ tras el login. Debe cargarse ANTES de app.js.
+//
+// Da a electronAPI un sustituto de navegador para que el renderer REAL corra y,
+// sobre todo, para que su PROPIO motor de nube (songSync / setlistSync /
+// libraryLive) funcione igual que en la app de escritorio:
+//   · La SESIÓN se guarda en localStorage (en vez de safeStorage de Electron).
+//   · El catálogo de canciones se guarda en localStorage (caché offline); la
+//     fuente de verdad es Supabase y el renderer la sincroniza solo.
+//   · El login con Google usa el flujo WEB (redirect) en vez del de Electron.
+// Debe cargarse ANTES de app.js.
 // ─────────────────────────────────────────────────────────────────────────
 (function () {
   const noop = () => {};
   const asyncNull = () => Promise.resolve(null);
 
+  // Claves locales (compartidas con cloud-boot).
+  const SESSION_KEY = 'lp-session';
+  const CATALOG_KEY = 'lp-catalog';
+  const DRUMS_KEY = 'lp-drums';
+  const MIDI_KEY = 'lp-midimap';
+  const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} return Promise.resolve(true); };
+
+  const SUPABASE_URL = 'https://hmrviyzisgoovyttnsth.supabase.co';
+
   const stubs = {
     getAppVersion: () => Promise.resolve('cloud'),
-    // Canciones de la nube. El renderer arranca normal (oculta su preloader) y
-    // esta llamada ESPERA a que cloud-boot termine el login y traiga las
-    // canciones. Si ya están, resuelve al instante.
-    loadGiSetlist: () => new Promise((resolve) => {
-      if (window.__CLOUD_SONGS__) return resolve({ data: { songs: window.__CLOUD_SONGS__ } });
-      window.__onCloudSongs = () => resolve({ data: { songs: window.__CLOUD_SONGS__ || [] } });
-    }),
-    saveGiSetlist: asyncNull,
+
+    // ── Sesión: localStorage (el renderer la persiste/restaura por aquí) ──
+    authLoadSession: () => Promise.resolve(lsGet(SESSION_KEY)),
+    authSaveSession: (s) => lsSet(SESSION_KEY, s),
+    authClearSession: () => { try { localStorage.removeItem(SESSION_KEY); } catch (_) {} return Promise.resolve(true); },
+    // Google en el navegador: redirige a Supabase/GoTrue. La promesa nunca
+    // resuelve porque la página navega; al volver, cloud-boot lee los tokens.
+    authOAuth: ({ provider }) => {
+      const redirectTo = location.origin + location.pathname;
+      location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=${encodeURIComponent(provider || 'google')}` +
+        `&redirect_to=${encodeURIComponent(redirectTo)}`;
+      return new Promise(() => {});
+    },
+
+    // ── Catálogo de canciones: caché local (la nube manda y sincroniza) ──
+    loadGiSetlist: () => {
+      const songs = lsGet(CATALOG_KEY);
+      return Promise.resolve(Array.isArray(songs) ? { data: { songs } } : null);
+    },
+    saveGiSetlist: (songs) => lsSet(CATALOG_KEY, songs || []),
+
     loadPresets: () => Promise.resolve(null),
     savePreset: asyncNull,
     deletePreset: asyncNull,
-    // Kits de batería personalizados desde la nube (user_settings.data.drums).
-    // Espera a que cloud-boot los traiga tras el login.
-    loadUserDrums: () => new Promise((resolve) => {
-      if (window.__CLOUD_DRUMS_READY__) return resolve(window.__CLOUD_DRUMS__ || null);
-      window.__onCloudDrums = () => resolve(window.__CLOUD_DRUMS__ || null);
-    }),
-    saveUserDrums: asyncNull,
-    loadMidiMap: () => Promise.resolve(null),
-    saveMidiMap: asyncNull,
+    // Kits de batería: caché local; user_settings los sincroniza a la nube.
+    loadUserDrums: () => Promise.resolve(lsGet(DRUMS_KEY)),
+    saveUserDrums: (d) => lsSet(DRUMS_KEY, d),
+    loadMidiMap: () => Promise.resolve(lsGet(MIDI_KEY)),
+    saveMidiMap: (m) => lsSet(MIDI_KEY, m),
     saveMidiMapSync: noop,
     audioLibraryGet: () => Promise.resolve(null),
     audioLibrarySet: asyncNull,

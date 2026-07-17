@@ -1,15 +1,23 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Arranque CLOUD del desktop: puerta de login → trae las canciones de la nube
-// (mismas de LivePads/Supabase) → las deja en window.__CLOUD_SONGS__ → carga el
-// renderer real (app.js). Fase 1: pads/click/metrónomo/mezclador/setlist. La
-// reproducción de la pista (secuencia/original desde R2) es fase 2, así que el
-// audio de pista se omite aquí (audio: null) para no intentar rutas locales.
+// Arranque CLOUD del desktop.
+//
+// Usa el MISMO cliente de nube del renderer (js/cloud/supabase.js) — una sola
+// sesión — para que su motor nativo (songSync / setlistSync / libraryLive)
+// sincronice igual que LivePads de escritorio: lo que crees o edites aquí se
+// sube a Supabase y aparece en la PC y en el móvil, y su polling trae lo que
+// cambien los demás.
+//
+// Este módulo solo aporta: puerta de login, elección de librería, resolución de
+// medios desde R2 y la descarga para uso sin internet.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { restoreSession, signIn, isLoggedIn, rest, signInWithGoogle, handleOAuthCallback, getUser, signOut } from './cloudapi/supabase.js';
+import {
+  restoreSession, signIn, isLoggedIn, getUser, signOut, rest, applySessionTokens,
+} from './cloud/supabase.js';
+import { getActiveLibraryId, setActiveLibraryId, listLibraries } from './cloud/libraries.js';
 import { setLibraryId, cloudResolve, cloudResolveFile, watchCovers, prefetchAll } from './cloudapi/media.js';
 
-const LIB_KEY = 'lpm-active-library';
+const LIB_KEY = 'livepads-active-library';
 let ACTIVE_LIB = null;
 
 // Service Worker (scope /desktop/): deja pads/js/css/imágenes en caché local
@@ -55,51 +63,16 @@ if (!navigator.onLine) setTimeout(() => netBanner('offline'), 1000);
 
 function el(id) { return document.getElementById(id); }
 
-// Fila de la nube → canción con el MISMO formato que canciones_app.json (lo que
-// el renderer espera). Fase 1: sin audio de pista (se conecta R2 en fase 2).
-function rowToCatalogSong(r) {
-  const m = r.meta || {};
-  return {
-    id: 'song_cloud_' + r.id,
-    cloudId: r.id,
-    title: r.title || 'Sin título',
-    artist: r.artist || '',
-    bpm: r.bpm || '',
-    key: r.key || '',
-    genre: r.genre || 'adoracion',
-    lyrics: r.lyrics || '',
-    tags: Array.isArray(r.tags) ? r.tags : [],
-    youtubeUrl: r.youtube_url || '',
-    timeSig: m.timeSig || '4/4',
-    favorite: !!m.favorite,
-    showChords: !!m.showChords,
-    addedAt: m.addedAt || Date.now(),
-    // Rutas reales: el renderer las resuelve a R2 vía window.__cloudResolve.
-    audio: m.audio || { sequence: null, original: null },
-    cover: m.cover || null,
-  };
-}
-
-// Caché local del repertorio: permite ABRIR SIN INTERNET lo ya descargado.
-const SONGS_CACHE = 'lpd-songs-cache';
-const DRUMS_CACHE = 'lpd-drums-cache';
-function cachePut(key, libId, data) {
-  try { localStorage.setItem(key, JSON.stringify({ libId, data })); } catch (_) {}
-}
-function cacheGet(key, libId) {
-  try {
-    const c = JSON.parse(localStorage.getItem(key) || 'null');
-    if (c && (!libId || c.libId === libId)) return c.data;
-  } catch (_) {}
-  return null;
-}
-
+// Elige la librería ACTIVA (la que el renderer usará para sincronizar).
+// Se guarda con la MISMA clave que el renderer (libraries.js) para que su motor
+// de nube y el nuestro apunten a la misma.
 async function pickLibraryId() {
-  const saved = (() => { try { return localStorage.getItem(LIB_KEY); } catch (_) { return null; } })();
-  // Sin red: usa la última librería recordada (no se puede consultar).
+  const saved = getActiveLibraryId();
+  // Sin red: usa la última recordada (no se puede consultar).
   if (!navigator.onLine && saved) return saved;
-  const libs = await rest('/libraries?select=id,name&order=created_at.asc');
-  if (!Array.isArray(libs) || !libs.length) return null;
+  let libs = [];
+  try { libs = await listLibraries(); } catch (_) { return saved || null; }
+  if (!Array.isArray(libs) || !libs.length) return saved || null;
   if (saved && libs.some(l => l.id === saved)) return saved;
   // La que tenga más canciones (evita "Mi librería" vacía).
   let best = libs[0].id, bestN = -1;
@@ -110,32 +83,23 @@ async function pickLibraryId() {
       if (n > bestN) { bestN = n; best = l.id; }
     } catch (_) {}
   }
-  try { localStorage.setItem(LIB_KEY, best); } catch (_) {}
+  setActiveLibraryId(best);
   return best;
 }
 
-async function loadCloudSongs() {
+// Deja lista la resolución de medios (R2) y la librería activa. A partir de
+// aquí, el motor de nube del renderer (libraryLive) trae y sube las canciones.
+async function setupCloud() {
   let libId = null;
-  try { libId = await pickLibraryId(); } catch (_) { /* sin red */ }
-  if (!libId) { try { libId = localStorage.getItem(LIB_KEY); } catch (_) {} }
-  if (!libId) return cacheGet(SONGS_CACHE, null) || [];
-
+  try { libId = await pickLibraryId(); } catch (_) {}
+  if (!libId) libId = getActiveLibraryId();
+  if (!libId) return null;
+  setActiveLibraryId(libId);
   ACTIVE_LIB = libId;
   setLibraryId(libId);
   window.__cloudResolve = cloudResolve;         // pistas grandes → streaming R2
   window.__cloudResolveFile = cloudResolveFile; // samples/carátulas → blob cacheado
-
-  try {
-    const rows = await rest(
-      `/songs?library_id=eq.${libId}&select=id,title,artist,bpm,key,genre,lyrics,youtube_url,tags,meta&order=title.asc`
-    );
-    const songs = (Array.isArray(rows) ? rows : []).map(rowToCatalogSong);
-    cachePut(SONGS_CACHE, libId, songs); // para abrir sin internet
-    return songs;
-  } catch (_) {
-    // Sin red / error: abre con el repertorio guardado localmente.
-    return cacheGet(SONGS_CACHE, libId) || [];
-  }
+  return libId;
 }
 
 // ── Banner de progreso visible (arriba, centrado) ──────────────────────────
@@ -176,7 +140,12 @@ async function runFullDownload(auto) {
   if (btn) { btn.dataset.busy = '1'; btn.style.opacity = '0.6'; }
   showProgress(0, 1, auto ? 'Preparando todo para 0 latencia' : 'Descargando todo');
   try {
-    const r = await prefetchAll(window.__CLOUD_SONGS__ || [], window.__CLOUD_DRUMS__ || null, (done, total) => {
+    // Canciones desde el store del renderer; kits desde la caché local.
+    let songs = [];
+    try { const { getSongs } = await import('./state/store.js'); songs = getSongs() || []; } catch (_) {}
+    let drums = null;
+    try { drums = JSON.parse(localStorage.getItem('lp-drums') || 'null'); } catch (_) {}
+    const r = await prefetchAll(songs, drums, (done, total) => {
       showProgress(done, total);
     });
     finishProgress(r.failed ? `✓ Descargado (${r.failed} fallaron)` : '✓ Todo en memoria local · sin latencia');
@@ -213,38 +182,24 @@ function addOfflineButton() {
   }
 }
 
-// Entrega las canciones al renderer (que ya arrancó y espera en loadGiSetlist).
-function deliverSongs(songs) {
-  window.__CLOUD_SONGS__ = songs || [];
-  if (typeof window.__onCloudSongs === 'function') window.__onCloudSongs();
-}
-
-// Kits de batería personalizados del usuario (user_settings.data.drums).
-async function loadCloudDrums() {
-  try {
-    const u = getUser();
-    if (!u || !u.id) return cacheGet(DRUMS_CACHE, null);
-    const rows = await rest(`/user_settings?select=data&user_id=eq.${u.id}`);
-    const data = Array.isArray(rows) && rows[0] ? rows[0].data : null;
-    const drums = data && data.drums ? data.drums : null;
-    if (drums) cachePut(DRUMS_CACHE, ACTIVE_LIB, drums); // para abrir sin internet
-    return drums;
-  } catch (_) {
-    return cacheGet(DRUMS_CACHE, ACTIVE_LIB) || cacheGet(DRUMS_CACHE, null);
-  }
-}
-
 async function startWithSession() {
   el('cloud-login').style.display = 'none';
   el('cloud-loading').style.display = 'flex';
-  let songs = [];
-  try { songs = await loadCloudSongs(); } catch (e) { songs = []; }
-  // Kits de batería (definiciones); los samples viven en R2 (subidos con la
-  // biblioteca). Se entregan al renderer vía el shim de loadUserDrums.
-  try { window.__CLOUD_DRUMS__ = await loadCloudDrums(); } catch (_) { window.__CLOUD_DRUMS__ = null; }
-  window.__CLOUD_DRUMS_READY__ = true;
-  if (typeof window.__onCloudDrums === 'function') window.__onCloudDrums();
-  deliverSongs(songs);
+
+  await setupCloud(); // librería activa + resolución de medios R2
+
+  // A partir de aquí manda el motor de nube del RENDERER: trae las canciones y
+  // los servicios, y sube lo que se cree o edite aquí (igual que en la PC).
+  try {
+    const { checkLibraryNow } = await import('./cloud/libraryLive.js');
+    checkLibraryNow();
+  } catch (_) {}
+  try {
+    // Trae kits de batería + mapeo MIDI de la nube a este equipo.
+    const { bootSyncBeforeLoad } = await import('./cloud/userSettings.js');
+    await bootSyncBeforeLoad();
+  } catch (_) {}
+
   watchCovers();        // resuelve las carátulas livepads:// → R2
   addOfflineButton();   // botón de descarga offline
   addAccountButton();   // botón de cuenta / cerrar sesión en el header
@@ -289,6 +244,28 @@ function showLogin(msg) {
   if (msg) el('cloud-login-err').textContent = msg;
 }
 
+// Vuelta de Google: GoTrue deja los tokens en el hash. Se los damos al cliente
+// del renderer (una sola sesión) y limpiamos la URL.
+async function handleOAuthCallback() {
+  const hash = location.hash || '';
+  if (hash.indexOf('access_token=') === -1) return null;
+  const p = new URLSearchParams(hash.slice(1));
+  const access_token = p.get('access_token');
+  const refresh_token = p.get('refresh_token');
+  const expires_in = Number(p.get('expires_in')) || 3600;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+  if (!access_token) return null;
+  try { return await applySessionTokens({ access_token, refresh_token, expires_in }); }
+  catch (_) { return null; }
+}
+
+// Redirige a Google (mismo flujo que usa el shim para el renderer).
+function googleLogin() {
+  const redirectTo = location.origin + location.pathname;
+  location.href = 'https://hmrviyzisgoovyttnsth.supabase.co/auth/v1/authorize?provider=google' +
+    `&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
 async function main() {
   // ¿Volvemos de Google? (tokens en el hash) → sesión lista.
   const oauthUser = await handleOAuthCallback();
@@ -297,7 +274,7 @@ async function main() {
   showLogin('');
   el('cloud-google').addEventListener('click', () => {
     el('cloud-login-err').textContent = '';
-    signInWithGoogle();
+    googleLogin();
   });
   el('cloud-login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
