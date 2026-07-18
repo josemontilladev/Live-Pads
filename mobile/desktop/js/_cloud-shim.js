@@ -24,6 +24,19 @@
 
   const SUPABASE_URL = 'https://hmrviyzisgoovyttnsth.supabase.co';
 
+  // ── Compuerta de configuración de cuenta (MIDI + kits) ────────────────────
+  // El renderer lee el mapa MIDI y los kits UNA sola vez al arrancar, y lo hace
+  // en paralelo con cloud-boot. Sin esta compuerta ganaba la carrera y aplicaba
+  // lo que hubiera en localStorage —vacío en un navegador nuevo—, así que la
+  // configuración de la nube no llegaba nunca (hasta recargar). Aquí esas dos
+  // lecturas esperan a que cloud-boot baje user_settings y lo escriba.
+  let settingsDone;
+  const settingsReady = new Promise((r) => { settingsDone = r; });
+  window.__cloudSettingsDone = () => settingsDone();
+  // Red de seguridad: sin sesión, sin red o con la nube caída, el arranque NO
+  // se queda esperando. Se sigue con lo local.
+  setTimeout(() => settingsDone(), 12000);
+
   const stubs = {
     getAppVersion: () => Promise.resolve('cloud'),
 
@@ -54,9 +67,9 @@
     savePreset: asyncNull,
     deletePreset: asyncNull,
     // Kits de batería: caché local; user_settings los sincroniza a la nube.
-    loadUserDrums: () => Promise.resolve(lsGet(DRUMS_KEY)),
+    loadUserDrums: async () => { await settingsReady; return lsGet(DRUMS_KEY); },
     saveUserDrums: (d) => lsSet(DRUMS_KEY, d),
-    loadMidiMap: () => Promise.resolve(lsGet(MIDI_KEY)),
+    loadMidiMap: async () => { await settingsReady; return lsGet(MIDI_KEY); },
     saveMidiMap: (m) => lsSet(MIDI_KEY, m),
     saveMidiMapSync: (m) => { try { localStorage.setItem(MIDI_KEY, JSON.stringify(m)); } catch (_) {} },
     audioLibraryGet: () => Promise.resolve(null),

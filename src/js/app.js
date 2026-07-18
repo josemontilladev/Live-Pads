@@ -164,6 +164,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   //   - Default click sound decode (depends on engine.ctx)
   //   - User drums + MIDI map from disk (Node-side IPC, independent)
   await engine.init();
+  // Contexto COMPARTIDO de la app: el motor de Stems (y con el el piano) lo
+  // adopta en vez de abrir el suyo, para que el piano y la cancion suenen a la
+  // vez y no en dos contextos de audio separados.
+  try { window.__livepadsSharedCtx = engine.ctx; } catch (_) {}
   const clickWarmup = engine.loadClickBuffers(); // default = 'cowbell'
   const userDrumsP = window.electronAPI?.loadUserDrums
     ? window.electronAPI.loadUserDrums()

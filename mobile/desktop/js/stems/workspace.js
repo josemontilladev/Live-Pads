@@ -617,6 +617,19 @@ const SHELL_HTML = `
             Loop
           </button>
         </div>
+        <label class="stems-speed" title="Velocidad de reproducción. El tono NO cambia: puedes bajar a 0.5× para sacar un solo y las notas siguen en la misma tonalidad.">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-2.5"/></svg>
+          <select id="stems-speed" class="stems-speed-select">
+            <option value="0.5">0.50×</option>
+            <option value="0.6">0.60×</option>
+            <option value="0.7">0.70×</option>
+            <option value="0.8">0.80×</option>
+            <option value="0.9">0.90×</option>
+            <option value="1" selected>1.00×</option>
+            <option value="1.1">1.10×</option>
+            <option value="1.25">1.25×</option>
+          </select>
+        </label>
       </div>
 
       <span class="stems-actions-divider" aria-hidden="true"></span>
@@ -1492,10 +1505,12 @@ function wireArrangeEvents(root) {
         loopEnabled = true;
       }
       syncLoopRegion();
+      scheduleSave();
     };
     loopABtn.ondblclick = () => {
       freeLoopA = null;
       syncLoopRegion();
+      scheduleSave();
     };
   }
   if (loopBBtn) {
@@ -1505,10 +1520,24 @@ function wireArrangeEvents(root) {
         loopEnabled = true;
       }
       syncLoopRegion();
+      scheduleSave();
     };
     loopBBtn.ondblclick = () => {
       freeLoopB = null;
       syncLoopRegion();
+      scheduleSave();
+    };
+  }
+
+  // Velocidad de estudio: baja el tempo sin tocar la afinación (el motor
+  // compensa el tono). Se guarda con el proyecto para retomar donde quedaste.
+  const speedSel = root.querySelector('#stems-speed');
+  if (speedSel) {
+    speedSel.onchange = async () => {
+      playSpeed = parseFloat(speedSel.value) || 1;
+      await engine.setPlaybackRate(playSpeed);
+      paintSpeed();
+      scheduleSave();
     };
   }
 
@@ -4341,6 +4370,9 @@ let loopEnabled = false;
 // trozo sin tener que crear marcadores permanentes para algo efímero.
 let freeLoopA = null;
 let freeLoopB = null;
+// Velocidad de estudio (1 = normal). El motor compensa el tono, así que
+// bajarla sirve para sacar solos sin que la canción cambie de tonalidad.
+let playSpeed = 1;
 
 // Tamaño del paso de snap en segundos (0 = sin snap), según snapDivision + BPM.
 function snapUnitSec() {
@@ -4575,6 +4607,9 @@ function redrawMarkers() {
     enableMarkerDrag(el, m.id);
     layer.appendChild(el);
   }
+  // Las banderas A/B viven en esta misma capa, y arriba la vaciamos entera:
+  // hay que repintarlas o desaparecerían con cualquier cambio de marcadores.
+  redrawLoopHandles();
 }
 
 // ── Marker drag-to-reposition ────────────────────────────────────
@@ -4745,33 +4780,74 @@ function toggleLoop() {
   scheduleSave();
 }
 
+// Marca el selector de velocidad cuando NO está en 1× — así se ve de un
+// vistazo por qué la canción suena lenta (y no parece que la app va mal).
+function paintSpeed() {
+  const sel = document.getElementById('stems-speed');
+  if (sel) sel.closest('.stems-speed')?.classList.toggle('is-off-normal', Math.abs(playSpeed - 1) > 0.001);
+}
+
+// Devuelve los extremos del loop vigentes (A/B libres o el par de marcadores),
+// o nulls si no hay. Lo usan tanto el motor como el pintado del timeline.
+function currentLoopBounds() {
+  if (freeLoopA != null && freeLoopB != null) {
+    return { start: Math.min(freeLoopA, freeLoopB), end: Math.max(freeLoopA, freeLoopB) };
+  }
+  if (loopStartMarkerId && loopEndMarkerId) {
+    const a = markers.find(m => m.id === loopStartMarkerId);
+    const b = markers.find(m => m.id === loopEndMarkerId);
+    if (a && b) return { start: Math.min(a.atSec, b.atSec), end: Math.max(a.atSec, b.atSec) };
+  }
+  return { start: null, end: null };
+}
+
+// Pinta las banderas A y B sobre la regla. Antes los puntos SOLO se veían
+// como estado de los botones A/B de la barra: en el timeline no aparecía
+// nada, así que no había forma de saber dónde habían caído. Se pintan aunque
+// falte uno de los dos (marcar A y aún no B es un estado normal) y aunque el
+// loop esté apagado, en cuyo caso van atenuadas.
+function redrawLoopHandles() {
+  const layer = document.getElementById('stems-marker-layer');
+  if (!layer) return;
+  layer.querySelectorAll('.stems-loop-handle').forEach(el => el.remove());
+  const dim = loopEnabled ? '' : ' is-dim';
+  const put = (sec, label) => {
+    if (sec == null) return;
+    const el = document.createElement('div');
+    el.className = `stems-loop-handle stems-loop-handle--${label.toLowerCase()}${dim}`;
+    el.style.left = `${sec * PX_PER_SEC}px`;
+    el.title = `Punto ${label}: ${formatTime(sec)} — doble clic en el botón ${label} para quitarlo`;
+    el.innerHTML = `<span class="stems-loop-handle-tag">${label}</span>`;
+    layer.appendChild(el);
+  };
+  put(freeLoopA, 'A');
+  put(freeLoopB, 'B');
+}
+
 function syncLoopRegion() {
   const overlay = document.getElementById('stems-loop-overlay');
   // Prioridad: si hay A/B "libres" definidos, ganan sobre los marcadores.
   // Eso permite loopear secciones efímeras (entre verso y coro, etc.) sin
   // ensuciar la lista de marcadores con anclas permanentes.
-  let start = null, end = null;
-  if (freeLoopA != null && freeLoopB != null) {
-    start = Math.min(freeLoopA, freeLoopB);
-    end   = Math.max(freeLoopA, freeLoopB);
-  } else if (loopStartMarkerId && loopEndMarkerId) {
-    const a = markers.find(m => m.id === loopStartMarkerId);
-    const b = markers.find(m => m.id === loopEndMarkerId);
-    if (a && b) { start = Math.min(a.atSec, b.atSec); end = Math.max(a.atSec, b.atSec); }
-  }
-  if (!loopEnabled || start == null || end == null || end <= start) {
-    engine.clearLoopRegion();
-    if (overlay) overlay.hidden = true;
-    paintLoopAbButtons();
-    return;
-  }
-  engine.setLoopRegion(start, end);
-  // Position overlay over the timeline area (after the sticky strip column).
+  const { start, end } = currentLoopBounds();
+  const valid = start != null && end != null && end > start;
+
+  if (!loopEnabled || !valid) engine.clearLoopRegion();
+  else engine.setLoopRegion(start, end);
+
+  // La banda se pinta SIEMPRE que haya rango, incluso con el loop apagado
+  // (atenuada): así ves la zona que vas a repetir antes de activarlo.
   if (overlay) {
-    overlay.hidden = false;
-    overlay.style.left  = `${STRIP_WIDTH + start * PX_PER_SEC}px`;
-    overlay.style.width = `${(end - start) * PX_PER_SEC}px`;
+    if (!valid) {
+      overlay.hidden = true;
+    } else {
+      overlay.hidden = false;
+      overlay.classList.toggle('is-armed', !loopEnabled);
+      overlay.style.left  = `${STRIP_WIDTH + start * PX_PER_SEC}px`;
+      overlay.style.width = `${(end - start) * PX_PER_SEC}px`;
+    }
   }
+  redrawLoopHandles();
   paintLoopAbButtons();
 }
 
@@ -5582,7 +5658,8 @@ async function doSave() {
       loopStartMarkerId,
       loopEndMarkerId,
       freeLoopA,
-      freeLoopB
+      freeLoopB,
+      playSpeed
     });
     flashSavedPill();
   } catch (e) {
@@ -5722,6 +5799,14 @@ async function rehydrate(state) {
     const btn = document.getElementById('stems-loop-toggle');
     if (btn) btn.classList.toggle('is-on', loopEnabled);
   }
+  // Siempre se aplica (con 1× por defecto): si no se reseteara, abrir un
+  // proyecto nuevo heredaría la velocidad lenta del anterior y parecería un bug.
+  playSpeed = (typeof state.playSpeed === 'number' && state.playSpeed > 0)
+    ? Math.max(0.25, Math.min(2, state.playSpeed)) : 1;
+  const speedSelEl = document.getElementById('stems-speed');
+  if (speedSelEl) speedSelEl.value = String(playSpeed);
+  engine.setPlaybackRate(playSpeed);
+  paintSpeed();
   syncLoopRegion(); // pinta el loop (libre o por marcadores) al recargar
   refreshTransport();
   refreshTimelineWidth();

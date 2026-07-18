@@ -9,6 +9,8 @@
 // Phase 1: import / play / stop / per-track volume / master volume.
 // Phases 2 & 3 will layer in pan, mute/solo, seek/pause, MP3 export.
 
+import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
+
 let ctx = null;
 let masterGain = null;
 let isPlaying = false;
@@ -26,6 +28,18 @@ let loopStart = null;  // seconds, null = disabled
 let loopEnd   = null;
 let onLoop = null;     // workspace-supplied callback when the loop wraps
 
+// ── Velocidad de reproducción (estudio lento) ────────────────────────────────
+// Bajar la velocidad se hace con `playbackRate` en cada AudioBufferSourceNode:
+// es sample-exacto y mantiene TODAS las pistas en fase (nada de deriva entre
+// stems). El pero es que resamplear también baja el tono, y para sacar un solo
+// eso no sirve: las notas quedarían en otra tonalidad. Por eso metemos un
+// SoundTouchNode al final del master que sube el tono exactamente lo que el
+// resampleo lo bajó (-12·log2(rate) semitonos) → tempo lento, afinación intacta.
+// A rate = 1 el nodo se puentea (cero coste y cero latencia extra).
+let playbackRate = 1;
+let rateComp = null;          // SoundTouchNode de compensación (null = puenteado)
+let rateWorkletReg = null;    // { promise } — registro perezoso del worklet
+
 // Master analyser exposes a tiny live-level reading so the UI can paint a
 // VU meter without leaking audio internals. Float time-domain data fits
 // every codec we read; we squeeze it into a peak/RMS pair on demand.
@@ -34,6 +48,24 @@ let analyserBuf = null;
 
 function ensureCtx() {
   if (ctx) return ctx;
+  // Si la app ya tiene un AudioContext vivo (el del SynthEngine, que comparten
+  // los pads y el reproductor de pistas), lo ADOPTAMOS en vez de abrir uno
+  // nuevo. Con dos contextos, el piano —que suena por aquí— quedaba en un
+  // contexto aparte del audio de la canción, y no se podían escuchar juntos.
+  // Uno solo = mismo reloj, misma política de autoplay, todo suena a la vez.
+  const shared = window.__livepadsSharedCtx;
+  if (shared && shared.state !== 'closed') {
+    ctx = shared;
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.85;
+    masterAnalyser = ctx.createAnalyser();
+    masterAnalyser.fftSize = 512;
+    masterAnalyser.smoothingTimeConstant = 0.3;
+    analyserBuf = new Float32Array(masterAnalyser.fftSize);
+    masterGain.connect(masterAnalyser);
+    masterAnalyser.connect(ctx.destination);
+    return ctx;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   ctx = new AC({ latencyHint: 'interactive' });
   // Tope de 48 kHz. Con interfaces a 96 kHz, cada buffer decodificado ocupa el
@@ -462,7 +494,71 @@ export function getDurationSec() {
 
 export function getCurrentSec() {
   if (!isPlaying) return pauseOffsetSec;
-  return Math.min(pauseOffsetSec + (ctx.currentTime - startedAt), getDurationSec());
+  // A media velocidad, 1 s de reloj = 0.5 s de proyecto: el playhead avanza
+  // en tiempo de PROYECTO, así que escalamos el delta por el rate.
+  return Math.min(pauseOffsetSec + (ctx.currentTime - startedAt) * playbackRate, getDurationSec());
+}
+
+export function getPlaybackRate() { return playbackRate; }
+
+// Registra el worklet de SoundTouch una sola vez por contexto. En Electron el
+// código llega por IPC (funciona dentro del asar); en dev cae a la ruta suelta.
+function ensureRateWorklet() {
+  if (rateWorkletReg) return rateWorkletReg.promise;
+  const promise = (async () => {
+    let url = null;
+    try {
+      const code = await window.electronAPI?.getSoundtouchWorklet?.();
+      if (code) url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+    } catch (_) {}
+    if (!url) url = 'vendor/soundtouch-worklet/soundtouch-processor.js';
+    await SoundTouchNode.register(ctx, url);
+  })();
+  promise.catch(e => console.warn('[Stems] worklet de velocidad no disponible:', e && e.message || e));
+  rateWorkletReg = { promise };
+  return promise;
+}
+
+// Rutea el master: masterGain → analyser → [compensación de tono] → destino.
+async function routeRateCompensation() {
+  ensureCtx();
+  const needed = Math.abs(playbackRate - 1) > 0.001;
+  try { masterAnalyser.disconnect(); } catch (_) {}
+  if (rateComp) { try { rateComp.disconnect(); } catch (_) {} }
+  if (!needed) {
+    rateComp = null;
+    masterAnalyser.connect(ctx.destination);
+    return;
+  }
+  if (!rateComp) {
+    try {
+      await ensureRateWorklet();
+      rateComp = new SoundTouchNode({ context: ctx });
+    } catch (_) { rateComp = null; }
+  }
+  if (!rateComp) {                      // sin worklet: velocidad sí, tono no
+    masterAnalyser.connect(ctx.destination);
+    return;
+  }
+  try { rateComp.pitchSemitones.value = -12 * Math.log2(playbackRate); } catch (_) {}
+  masterAnalyser.connect(rateComp);
+  rateComp.connect(ctx.destination);
+}
+
+// Cambia la velocidad (0.25×–2×) preservando la posición del playhead. Si
+// estaba sonando, reprograma las fuentes desde el mismo punto.
+export async function setPlaybackRate(r) {
+  ensureCtx();
+  const v = Math.max(0.25, Math.min(2, Number(r) || 1));
+  if (Math.abs(v - playbackRate) < 0.001) return;
+  const wasPlaying = isPlaying;
+  const at = getCurrentSec();
+  if (wasPlaying) pause();
+  playbackRate = v;
+  await routeRateCompensation();
+  pauseOffsetSec = at;
+  if (wasPlaying) play();
+  else if (onTimeUpdate) onTimeUpdate(pauseOffsetSec);
 }
 
 // Programa la rampa de fade-in/out de un clip sobre el AudioParam `g`, en
@@ -516,12 +612,18 @@ export function play() {
     src.fadeGain = fadeGain;
     // Arranque: si el playhead está dentro del clip, desde `local`; si está antes,
     // se agenda para el futuro (cuando el clip entra). Duración acotada a trimEnd.
+    // `offset`/`duration` de start() van en tiempo de BUFFER (no los toca el
+    // rate); las esperas y las rampas van en tiempo de RELOJ, así que se
+    // dividen por el rate: a 0.5× el clip tarda el doble en entrar.
+    src.playbackRate.value = playbackRate;
     let startWhen, startOffset, dur;
     if (local >= trimStart) { startWhen = when; startOffset = local; dur = trimEnd - local; }
-    else { startWhen = when + (trimStart - local); startOffset = trimStart; dur = trimEnd - trimStart; }
+    else { startWhen = when + (trimStart - local) / playbackRate; startOffset = trimStart; dur = trimEnd - trimStart; }
     // Envolvente de fade (en tiempo del contexto). clipStart/End = cuándo el buffer
     // pasa por trimStart/trimEnd respecto al playhead actual.
-    scheduleFade(fadeGain.gain, t.fadeInSec, t.fadeOutSec, when - local + trimStart, when - local + trimEnd, when);
+    scheduleFade(fadeGain.gain, t.fadeInSec, t.fadeOutSec,
+                 when + (trimStart - local) / playbackRate,
+                 when + (trimEnd - local) / playbackRate, when);
     src.start(startWhen, startOffset, Math.max(0, dur));
     t.sourceNode = src;
     src.onended = () => {

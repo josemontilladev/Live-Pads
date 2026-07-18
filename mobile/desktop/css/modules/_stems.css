@@ -482,12 +482,41 @@ body[data-workspace="stems"] #body {
 .stems-field,
 .stems-tools-group,
 .stems-loop-group,
+.stems-speed,
 .stems-actions-primary,
 .stems-tb-mid {
   height: 38px;
   padding: 3px 6px;
   box-sizing: border-box;
 }
+
+/* Velocidad de estudio (junto al loop): bajar el tempo para sacar solos. */
+.stems-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-dim);
+}
+.stems-speed-select {
+  height: 30px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+/* Fuera de 1×: se marca para que se note que la lentitud es a propósito. */
+.stems-speed.is-off-normal {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+  color: var(--accent);
+}
+.stems-speed.is-off-normal .stems-speed-select { color: var(--accent); font-weight: 600; }
 
 /* Leaves del topbar (sin wrapper interno) — 32px, igual altura que un
    button standalone. La fila luce alineada visualmente. */
@@ -2346,18 +2375,55 @@ body[data-workspace="stems"] #body {
 /* Loop overlay — translucent accent band spanning the timeline between
    the start/end loop markers. Sits above the rows background but below
    the playhead so the moving line stays visible through the band. */
+/* Banda del loop A-B. Iba en z-index 0, es decir DEBAJO de .stems-rows (que
+   es position:relative y va después en el DOM): la banda existía pero las
+   filas la tapaban por completo. Con z-index 1 —el mismo que las líneas de
+   marcador, que sí se ven— queda sobre los lanes. */
 .stems-loop-overlay {
   position: absolute;
   top: 40px;        /* below the ruler row */
   bottom: 0;
   height: auto;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-left: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent);
-  border-right: 2px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 85%, transparent);
+  border-right: 2px solid color-mix(in srgb, var(--accent) 85%, transparent);
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
+}
+/* Rango marcado pero loop apagado: se insinúa, sin gritar. */
+.stems-loop-overlay.is-armed {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-left-style: dashed;
+  border-right-style: dashed;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .stems-loop-overlay[hidden] { display: none; }
+
+/* Banderas A / B sobre la regla — dicen DÓNDE cayó cada punto. */
+.stems-loop-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 4;
+}
+.stems-loop-handle-tag {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  padding: 1px 5px;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+  color: #111;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+.stems-loop-handle--b .stems-loop-handle-tag { left: auto; right: 2px; border-radius: 4px 0 0 4px; }
+.stems-loop-handle.is-dim { opacity: 0.45; }
 
 /* Selección de rango de tiempo (arrastrar sobre la regla). */
 .stems-range-overlay {

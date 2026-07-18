@@ -230,6 +230,9 @@ async function startWithSession() {
     const { bootSyncBeforeLoad } = await import('./cloud/userSettings.js');
     await bootSyncBeforeLoad();
   } catch (_) {}
+  // Ya está en localStorage: el renderer puede leer MIDI y kits (los tenía
+  // esperando en la compuerta del shim para no adelantarse a la nube).
+  try { window.__cloudSettingsDone?.(); } catch (_) {}
 
   // A partir de aquí manda el motor de nube del RENDERER: baja canciones Y
   // servicios (pullNow ahora hace ambos), y sube lo que se cree/edite aquí.
@@ -322,6 +325,9 @@ async function main() {
   const oauthUser = await handleOAuthCallback();
   const user = oauthUser || await restoreSession();
   if (user && isLoggedIn()) return startWithSession();
+  // Sin sesión no hay config que bajar: se abre la compuerta ya, para que el
+  // renderer no se quede esperando 12 s a un timeout.
+  try { window.__cloudSettingsDone?.(); } catch (_) {}
   showLogin('');
   el('cloud-google').addEventListener('click', () => {
     el('cloud-login-err').textContent = '';
