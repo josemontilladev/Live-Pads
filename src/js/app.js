@@ -892,6 +892,18 @@ function bindRestOfApp() {
         if (r && r.created > 0) {
           showToast(`${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
         }
+        // Y sube los ARCHIVOS que falten (audio + carátulas). Sin esto, una
+        // canción nueva llegaba a la nube pero su audio NO, y las apps web no
+        // tenían nada que descargar. Solo sube lo que falta (idempotente).
+        try {
+          const { subirBiblioteca } = await import('./cloud/fileSync.js');
+          const f = await subirBiblioteca();
+          if (f && f.uploaded > 0) {
+            showToast(`${f.uploaded} archivo(s) de audio subidos a la nube.`, 'success');
+          }
+        } catch (fe) {
+          try { console.warn('[LivePads] auto-subida de audio falló:', fe && fe.message); } catch (_) {}
+        }
       } catch (e) {
         // Sin sesión/red se reintenta en el próximo cambio — pero DEJAR RASTRO:
         // un fallo persistente aquí estuvo meses mudo (lotes con claves mixtas

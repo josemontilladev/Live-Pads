@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 // Una sola sesión en toda la app: usamos el cliente de nube del renderer.
-import { invokeFunction } from '../cloud/supabase.js';
+import { invokeFunction, rest } from '../cloud/supabase.js';
 
 const CACHE_NAME = 'lpm-media-v1';
 let LIB = null;
@@ -94,12 +94,24 @@ export async function prefetchAll(songs, drums, onProgress) {
   });
   drumRels(drums).forEach((r) => rels.push(r));
   const uniq = [...new Set(rels)];
+  // Qué existe REALMENTE en la nube (manifiesto). Lo que la canción referencia
+  // pero aún no se subió desde LivePads PC no se puede descargar: hay que
+  // decirlo en vez de fallar en silencio.
+  let inCloud = null;
+  try {
+    const rows = await rest(`/library_files?library_id=eq.${LIB}&select=path`);
+    if (Array.isArray(rows)) inCloud = new Set(rows.map((r) => r.path));
+  } catch (_) { /* sin manifiesto: intentamos igual */ }
+
+  const missingInCloud = inCloud ? uniq.filter((r) => !inCloud.has(r)) : [];
+  const downloadable = inCloud ? uniq.filter((r) => inCloud.has(r)) : uniq;
+
   let done = 0, got = 0, failed = 0;
-  for (const rel of uniq) {
-    onProgress && onProgress(++done, uniq.length);
+  for (const rel of downloadable) {
+    onProgress && onProgress(++done, downloadable.length);
     try { if (await prefetchOne(rel)) got++; } catch (_) { failed++; }
   }
-  return { got, failed, total: uniq.length };
+  return { got, failed, total: downloadable.length, missingInCloud: missingInCloud.length };
 }
 // Compat: prefetch solo canciones.
 export function prefetchSongs(songs, onProgress) { return prefetchAll(songs, null, onProgress); }
