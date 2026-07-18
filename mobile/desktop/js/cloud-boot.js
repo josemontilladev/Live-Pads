@@ -177,8 +177,14 @@ async function runFullDownload(auto) {
     const r = await prefetchAll(songs, drums, (done, total) => {
       showProgress(done, total);
     });
-    finishProgress(r.failed ? `✓ Descargado (${r.failed} fallaron)` : '✓ Todo en memoria local · sin latencia');
-    try { localStorage.setItem('lpd-prefetched-' + ACTIVE_LIB, '1'); } catch (_) {}
+    // Si hay audios que la canción usa pero que AÚN NO están en la nube, no se
+    // pueden bajar: hay que subirlos desde LivePads en la PC.
+    if (r.missingInCloud) {
+      finishProgress(`⚠ ${r.missingInCloud} audio(s) aún no están en la nube · súbelos desde LivePads en tu PC (Sincronizar → Subir todo)`);
+    } else {
+      finishProgress(r.failed ? `✓ Descargado (${r.failed} fallaron)` : '✓ Todo en memoria local · sin latencia');
+      try { localStorage.setItem('lpd-prefetched-' + ACTIVE_LIB, '1'); } catch (_) {}
+    }
   } catch (_) {
     finishProgress('No se pudo descargar todo');
   } finally {
