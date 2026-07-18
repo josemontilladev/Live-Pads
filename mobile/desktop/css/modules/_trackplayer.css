@@ -196,8 +196,28 @@
 }
 .mx-channels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* SIEMPRE en una sola fila: 4 canales iguales + Maestro más angosto (solo
+     tiene Vol). Antes era auto-fit minmax(150px), que en laptops no daba el
+     ancho para los 5 y tiraba el Maestro a una segunda fila, comiendo alto. */
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 0.6fr);
   gap: 10px;
+}
+/* Laptops: compacta lo justo para que los 5 sigan cabiendo en la fila. */
+@media (max-width: 1500px) {
+  .mx-channels { gap: 8px; }
+  .mx-channel { padding: 7px 9px; gap: 5px; }
+  .mx-lbl { min-width: 18px; font-size: 10px; }
+  .mx-val { min-width: 32px; font-size: 11.5px; }
+  .mx-name { font-size: 11.5px; }
+}
+@media (max-width: 1250px) {
+  #mixer-bar { padding: 10px 11px; gap: 8px; }
+  .mx-channels { gap: 6px; }
+  .mx-channel { padding: 6px 7px; }
+  /* El orden (Pan arriba, Vol abajo) y el valor (R100 / 32%) ya identifican
+     cada control, así que a este ancho las etiquetas sobran. */
+  .mx-lbl { display: none; }
+  .mx-val { min-width: 30px; font-size: 11px; }
 }
 .mx-channel {
   background: var(--bg-hover);
