@@ -11,7 +11,7 @@ import {
   createSetlist, updateSetlist, deleteSetlist,
 } from './cloud.js';
 import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
-import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, activePadKey } from './pads.js';
+import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, setPadsPan, activePadKey } from './pads.js';
 import {
   startMetronome, stopMetronome, metroRunning,
   setMetroBpm, setMetroVolume, setMetroPan,
@@ -976,6 +976,7 @@ $('mix-music-pan').addEventListener('input', e => player.setPan(Number(e.target.
 $('mix-click-vol').addEventListener('input', e => setMetroVolume(Number(e.target.value) / 100));
 $('mix-click-pan').addEventListener('input', e => setMetroPan(Number(e.target.value) / 100));
 $('mix-pads-vol').addEventListener('input', e => setPadsVolume(Number(e.target.value) / 100));
+$('mix-pads-pan').addEventListener('input', e => setPadsPan(Number(e.target.value) / 100));
 
 // ── Metrónomo ───────────────────────────────────────────────────────────
 function currentSig() { return $('metro-sig')?.value || current?.timeSig || '4/4'; }

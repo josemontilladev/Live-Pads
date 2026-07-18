@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { audioCtx } from './audio.js';
+import { createTruePan } from './truePan.js';
 
 export const PAD_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const FADE_S = 2;
@@ -12,13 +13,20 @@ const buffers = new Map();  // tono → AudioBuffer (decode perezoso)
 let current = null;         // { key, source, gain }
 let masterGain = null;
 let masterVolume = 0.8;
+let masterPan = null;
+let panValue = 0;
 
 function ensureMaster() {
   const c = audioCtx();
   if (!masterGain) {
     masterGain = c.createGain();
     masterGain.gain.value = masterVolume;
-    masterGain.connect(c.destination);
+    // Los pads también se panean (antes iban fijos al centro y se colaban en el
+    // oído del click cuando se usan in-ears).
+    masterPan = createTruePan(c);
+    masterGain.connect(masterPan.input);
+    masterPan.output.connect(c.destination);
+    masterPan.setPan(panValue);
   }
   return masterGain;
 }
@@ -37,6 +45,12 @@ export function activePadKey() { return current ? current.key : null; }
 export function setPadsVolume(v) {
   masterVolume = v;
   if (masterGain) masterGain.gain.value = v;
+}
+
+// Paneo de los pads (-1 izq … 0 … +1 der).
+export function setPadsPan(p) {
+  panValue = Math.max(-1, Math.min(1, Number(p) || 0));
+  if (masterPan) masterPan.setPan(panValue);
 }
 
 // Arranca el pad de un tono (sin togglear). Si ya suena ese, no hace nada.
