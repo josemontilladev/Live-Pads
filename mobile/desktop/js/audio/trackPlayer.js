@@ -252,6 +252,14 @@ export function loadAndPlayTrack(song, type) {
 
 async function resolvePlayableUrl(url) {
   if (!url || typeof url !== 'string') return url;
+
+  // NUBE (navegador): las pistas viven en R2, no en disco. Sin esto la URL
+  // livepads:// salía intacta (está en la lista de "ya resueltas" de abajo,
+  // pensada para Electron) y el <audio> fallaba SIEMPRE con "Audio no
+  // encontrado", aunque el archivo estuviera descargado en la caché.
+  if (window.__cloudResolve && /^livepads:\/\//i.test(url)) {
+    try { return await window.__cloudResolve(url); } catch (_) { return url; }
+  }
   // Old paths sometimes wrote '../assets/...' — normalize.
   let safeUrl = url.replace('../assets/', 'assets/');
 
@@ -370,6 +378,19 @@ async function startTrackPlayback(url, title, type) {
     // de mandar al usuario a editar la canción. La canción + slot ya los tenemos.
     const song = currentSong;
     const slot = type === 'sequence' ? 'la secuencia' : 'el original';
+    // En el navegador no hay disco donde reasignar: si falla, es que ese
+    // archivo aún no está subido a la nube. Se dice eso y no se ofrece un
+    // botón que aquí no puede hacer nada.
+    if (window.__cloudResolve) {
+      await confirmDialogAsync({
+        title: 'Audio no disponible en la nube',
+        message: `“${title}” no tiene ${slot} subida a la nube todavía.\n\nAbre LivePads en la PC donde está el archivo y usa Sincronizar → Subir audio; luego vuelve a entrar aquí.`,
+        confirmLabel: 'Entendido',
+        cancelLabel: null,
+        danger: false,
+      });
+      return;
+    }
     const ok = await confirmDialogAsync({
       title: 'Audio no encontrado',
       message: `No se pudo cargar ${slot} de “${title}”. El archivo puede faltar, haberse movido o estar dañado.\n\n¿Reasignar el archivo ahora?`,

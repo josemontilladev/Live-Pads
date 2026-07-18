@@ -33,7 +33,11 @@ function resetDialogChrome() {
   if (input) { input.classList.remove('hidden'); input.value = ''; }
   if (okBtn) { okBtn.classList.remove('d-ok--danger'); okBtn.textContent = 'Guardar'; }
   const cancel = q('#dialog-cancel');
-  if (cancel) cancel.onclick = hideDialog; // limpia handler previo; confirmDialog lo sobreescribe
+  if (cancel) {
+    cancel.onclick = hideDialog;           // limpia handler previo; confirmDialog lo sobreescribe
+    cancel.classList.remove('hidden');     // un diálogo sin cancelar no debe contagiar al siguiente
+    cancel.textContent = 'Cancelar';
+  }
 }
 
 export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
@@ -71,7 +75,9 @@ export function showDialog(title, placeholder = 'Nombre…', onConfirm = null) {
  *   - onConfirm     {Function} fires on OK
  *   - onCancel      {Function} optional, fires on Cancel
  */
-export function confirmDialog({ title, message, confirmLabel = 'Eliminar', danger = true, onConfirm, onCancel }) {
+// `cancelLabel: null` oculta el botón de cancelar — para avisos donde solo
+// cabe enterarse (dos botones que hacen lo mismo confunden).
+export function confirmDialog({ title, message, confirmLabel = 'Eliminar', cancelLabel, danger = true, onConfirm, onCancel }) {
   const titleEl  = q('#dialog-title');
   const overlay  = q('#dialog-overlay');
   const msgEl    = q('#dialog-message');
@@ -87,6 +93,8 @@ export function confirmDialog({ title, message, confirmLabel = 'Eliminar', dange
   msgEl.classList.remove('hidden');
   input.classList.add('hidden');
   okBtn.textContent = confirmLabel;
+  cancelBtn.classList.toggle('hidden', cancelLabel === null);
+  if (cancelLabel) cancelBtn.textContent = cancelLabel;
   if (danger) okBtn.classList.add('d-ok--danger');
 
   overlay.classList.remove('hidden');

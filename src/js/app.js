@@ -837,8 +837,20 @@ function bindHamburgerMenu() {
     closePreflight(); const p = q('#embed-preflight'); if (p) p.innerHTML = '';
     embedModal('embed-companion', () => openCompanionPanel(), '#companion-overlay');
   });
-  wire('#set-account',   () => import('./cloud/accountPanel.js')
-        .then(m => { m.openAccountPanel(); embedNow('embed-account', '#account-overlay'); }).catch(() => {}));
+  // Ojo: se ESPERA a openAccountPanel antes de embeber (crea el overlay y
+  // pinta su contenido de forma asíncrona; embeber antes dejaba el panel
+  // vacío). Y el error se muestra: el `.catch(()=>{})` de antes lo tragaba,
+  // así que un fallo aquí se veía como "el botón no hace nada".
+  wire('#set-account', async () => {
+    try {
+      const m = await import('./cloud/accountPanel.js');
+      await m.openAccountPanel();
+      embedNow('embed-account', '#account-overlay');
+    } catch (e) {
+      console.error('[LivePads] no se pudo abrir Mi cuenta:', e);
+      window.showToast?.(`No se pudo abrir Mi cuenta: ${e && e.message || e}`, 'error');
+    }
+  });
 }
 
 
