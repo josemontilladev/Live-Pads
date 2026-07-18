@@ -13,6 +13,7 @@ import { q } from '../utils/dom.js';
 import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
 import { PitchAudio } from './pitchAudio.js';
+import { createTruePan } from './truePan.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 
 let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSemitones)
@@ -150,9 +151,12 @@ function connectPanGraph() {
     trackLimiter.attack.value = 0.003;
     trackLimiter.release.value = 0.1;
 
-    pannerNode = audioCtx.createStereoPanner();
+    // Paneo REAL (aísla canales). Con StereoPannerNode, panear la secuencia a
+    // la derecha PLEGABA el canal izquierdo encima → el click grabado en ese
+    // canal se oía también en el oído derecho. Ver audio/truePan.js.
+    pannerNode = createTruePan(audioCtx);
     const panEl = els.panSlider;
-    pannerNode.pan.value = panEl ? (parseFloat(panEl.value) || 0) / 100 : 0;
+    pannerNode.setPan(panEl ? (parseFloat(panEl.value) || 0) / 100 : 0);
 
     // Ganancia maestra de la Pista: el fader/mute "Maestro" del mixer la controla
     // (con el valor recordado, para que un master bajo siga aplicando tras recargar).
@@ -161,8 +165,8 @@ function connectPanGraph() {
 
     audio.output.connect(makeupNode);
     makeupNode.connect(trackLimiter);
-    trackLimiter.connect(pannerNode);
-    pannerNode.connect(trackMasterGain);
+    trackLimiter.connect(pannerNode.input);
+    pannerNode.output.connect(trackMasterGain);
     trackMasterGain.connect(audioCtx.destination);
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
@@ -248,11 +252,6 @@ export function loadAndPlayTrack(song, type) {
 
 async function resolvePlayableUrl(url) {
   if (!url || typeof url !== 'string') return url;
-  // NUBE (movil.livepads.online): las rutas livepads:// se resuelven a una URL
-  // firmada de R2 (o a un blob cacheado si ya se descargó para offline).
-  if (url.startsWith('livepads://') && window.__cloudResolve) {
-    try { return await window.__cloudResolve(url); } catch (_) { /* cae al camino normal */ }
-  }
   // Old paths sometimes wrote '../assets/...' — normalize.
   let safeUrl = url.replace('../assets/', 'assets/');
 
@@ -524,7 +523,7 @@ export function bindTrackPlayerControls() {
   if (tpPanSlider && tpPanVal) {
     tpPanSlider.oninput = (e) => {
       const v = parseFloat(e.target.value) || 0;
-      if (pannerNode) pannerNode.pan.value = v / 100;
+      if (pannerNode) pannerNode.setPan(v / 100);
       tpPanVal.textContent = panShort(v);
       syncPanSlider(e.target);
     };

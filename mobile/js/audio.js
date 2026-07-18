@@ -12,6 +12,7 @@
 
 import { signGet } from './cloud.js';
 import { SoundTouchNode } from '../vendor/soundtouch-worklet/SoundTouchNode.js';
+import { createTruePan } from './truePan.js';
 
 const CACHE_NAME = 'lpm-media-v1';
 
@@ -153,16 +154,15 @@ export class Player {
     const c = audioCtx();
     if (!this.gain) {
       this.gain = c.createGain();
-      this.pan = c.createStereoPanner ? c.createStereoPanner() : null;
-      if (this.pan) {
-        this.gain.connect(this.pan);
-        this.pan.connect(c.destination);
-      } else {
-        this.gain.connect(c.destination);
-      }
+      // Paneo REAL (aísla canales): con StereoPannerNode, mandar la secuencia a
+      // un lado plegaba el canal contrario encima y el click grabado en él se
+      // oía en ambos oídos. Ver truePan.js.
+      this.pan = createTruePan(c);
+      this.gain.connect(this.pan.input);
+      this.pan.output.connect(c.destination);
     }
     this.gain.gain.value = this.volume;
-    if (this.pan) this.pan.pan.value = this.panValue;
+    if (this.pan) this.pan.setPan(this.panValue);
   }
 
   async load(libraryId, relPath, opts) {
@@ -239,10 +239,10 @@ export class Player {
     if (this.gain) this.gain.gain.value = v;
   }
 
-  // -1 (todo izquierda) … 0 … +1 (todo derecha)
+  // -1 (todo izquierda) … 0 … +1 (todo derecha). Aísla canales de verdad.
   setPan(p) {
     this.panValue = p;
-    if (this.pan) this.pan.pan.value = p;
+    if (this.pan) this.pan.setPan(p);
   }
 
   // Transpone el AUDIO n semitonos (−6..+6) sin cambiar la velocidad.
@@ -253,7 +253,11 @@ export class Player {
       const ok = await ensureSoundTouch(audioCtx());
       if (ok) { try { this.stNode = new SoundTouchNode({ context: audioCtx() }); } catch (_) { this.stNode = null; } }
     }
-    if (this.stNode) { try { this.stNode.pitchSemitones.value = s; } catch (_) {} }
+    if (this.stNode) {
+      try { this.stNode.pitchSemitones.value = s; } catch (_) {}
+      // Sin transposición, saca el nodo del grafo (si no queda colgando).
+      if (s === 0) { try { this.stNode.disconnect(); } catch (_) {} }
+    }
     // Re-rutear en vivo: reinicia la reproducción en la posición actual.
     if (this.playing) this.seek(this.currentTime);
   }
