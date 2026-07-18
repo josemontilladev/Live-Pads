@@ -4,7 +4,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { audioCtx } from './audio.js';
-import { createTruePan } from './truePan.js';
 
 export const PAD_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const FADE_S = 2;
@@ -22,11 +21,14 @@ function ensureMaster() {
     masterGain = c.createGain();
     masterGain.gain.value = masterVolume;
     // Los pads también se panean (antes iban fijos al centro y se colaban en el
-    // oído del click cuando se usan in-ears).
-    masterPan = createTruePan(c);
-    masterGain.connect(masterPan.input);
-    masterPan.output.connect(c.destination);
-    masterPan.setPan(panValue);
+    // oído del click). Aquí SÍ usamos StereoPanner a propósito: un pad es
+    // contenido musical estéreo, así que al mandarlo a un oído se quiere TODO
+    // el sonido (plegado), no la mitad. El aislamiento por canal solo aplica a
+    // la PISTA, donde cada canal lleva cosas distintas (click/guía vs música).
+    masterPan = c.createStereoPanner();
+    masterGain.connect(masterPan);
+    masterPan.connect(c.destination);
+    masterPan.pan.value = panValue;
   }
   return masterGain;
 }
@@ -50,7 +52,7 @@ export function setPadsVolume(v) {
 // Paneo de los pads (-1 izq … 0 … +1 der).
 export function setPadsPan(p) {
   panValue = Math.max(-1, Math.min(1, Number(p) || 0));
-  if (masterPan) masterPan.setPan(panValue);
+  if (masterPan) masterPan.pan.value = panValue;
 }
 
 // Arranca el pad de un tono (sin togglear). Si ya suena ese, no hace nada.
