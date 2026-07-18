@@ -48,6 +48,24 @@ let analyserBuf = null;
 
 function ensureCtx() {
   if (ctx) return ctx;
+  // Si la app ya tiene un AudioContext vivo (el del SynthEngine, que comparten
+  // los pads y el reproductor de pistas), lo ADOPTAMOS en vez de abrir uno
+  // nuevo. Con dos contextos, el piano —que suena por aquí— quedaba en un
+  // contexto aparte del audio de la canción, y no se podían escuchar juntos.
+  // Uno solo = mismo reloj, misma política de autoplay, todo suena a la vez.
+  const shared = window.__livepadsSharedCtx;
+  if (shared && shared.state !== 'closed') {
+    ctx = shared;
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.85;
+    masterAnalyser = ctx.createAnalyser();
+    masterAnalyser.fftSize = 512;
+    masterAnalyser.smoothingTimeConstant = 0.3;
+    analyserBuf = new Float32Array(masterAnalyser.fftSize);
+    masterGain.connect(masterAnalyser);
+    masterAnalyser.connect(ctx.destination);
+    return ctx;
+  }
   const AC = window.AudioContext || window.webkitAudioContext;
   ctx = new AC({ latencyHint: 'interactive' });
   // Tope de 48 kHz. Con interfaces a 96 kHz, cada buffer decodificado ocupa el

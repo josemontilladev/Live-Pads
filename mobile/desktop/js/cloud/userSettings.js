@@ -32,10 +32,21 @@ const isOnline = () => (typeof navigator === 'undefined') || navigator.onLine;
 const isDirty = () => localStorage.getItem(DIRTY_KEY) === '1';
 function setDirty(v) { try { v ? localStorage.setItem(DIRTY_KEY, '1') : localStorage.removeItem(DIRTY_KEY); } catch (_) {} }
 
+// Última config bajada de la nube — sirve de red para no PISAR con vacío.
+let lastCloudData = null;
+
+const isEmptyMidi = (m) => !m || (!Object.keys(m.pads || {}).length && !Object.keys(m.stems || {}).length);
+
 // ── Recolectar la config local actual (para subir) ─────────────────────────
 async function collect() {
   const out = { v: 1 };
   try { const m = await import('../midi/midiMap.js'); out.midi = m.getAllMidiMaps(); } catch (_) {}
+  // Nunca subas un mapa MIDI VACÍO sobre uno que la nube sí tiene: si este
+  // equipo aún no lo ha cargado (o arrancó sin él), borraría el mapeo del
+  // controlador en TODOS los dispositivos. Ante la duda, conserva el de la nube.
+  if (isEmptyMidi(out.midi) && lastCloudData && !isEmptyMidi(lastCloudData.midi)) {
+    out.midi = lastCloudData.midi;
+  }
   try { out.drums = window.electronAPI ? await window.electronAPI.loadUserDrums() : null; } catch (_) {}
   try { const s = await import('../data/service.js'); out.service = s.getServiceSongs(); } catch (_) {}
   out.prefs = {};
@@ -47,6 +58,7 @@ async function collect() {
 // Solo escribe a disco/localStorage; el arranque (o un reload) la aplica.
 async function writeToLocal(data) {
   if (!data) return;
+  lastCloudData = data;
   if (data.midi && window.electronAPI?.saveMidiMapSync) {
     try { window.electronAPI.saveMidiMapSync(data.midi); } catch (_) {}
   }
@@ -132,6 +144,7 @@ export async function bootSyncBeforeLoad() {
   try {
     const rows = await rest(`/user_settings?select=data,updated_at&user_id=eq.${u.id}`);
     const row = Array.isArray(rows) ? rows[0] : null;
+    if (row) lastCloudData = row.data;     // referencia para no pisar con vacío
     if (!row) {
       setDirty(true);                       // aún no hay nube → subiremos lo local
     } else if (row.updated_at !== localStorage.getItem(STAMP_KEY)) {
