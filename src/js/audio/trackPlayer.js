@@ -14,6 +14,7 @@ import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
 import { PitchAudio } from './pitchAudio.js';
 import { createTruePan } from './truePan.js';
+import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 
 let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSemitones)
@@ -129,6 +130,7 @@ function ensureAudioCtx() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   try { audioCtx = new AC({ latencyHint: 'interactive' }); } catch (_) { audioCtx = null; }
+  if (audioCtx) forceStereoOutput(audioCtx);
   return audioCtx;
 }
 

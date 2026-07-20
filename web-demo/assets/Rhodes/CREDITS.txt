@@ -1,0 +1,9 @@
+Samples de Rhodes (piano eléctrico) — atribución
+================================================
+
+Provienen del programa General MIDI "Electric Piano 1" del soundfont
+FluidR3_GM, creado por Frank Wen, distribuido bajo licencia MIT.
+Subconjunto en MP3 por-nota redistribuido por el proyecto midi-js-soundfonts
+(https://github.com/gleitz/midi-js-soundfonts).
+
+Usado en LivePads como instrumento "Rhodes" del piano virtual (Stems).

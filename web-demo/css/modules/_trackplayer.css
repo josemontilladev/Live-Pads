@@ -1,0 +1,250 @@
+/* ── Track Player bar (bottom bar) ────────────────────────────────────
+   All visual rules live here instead of inline on the markup. */
+#track-player-bar {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  z-index: 1000;
+  height: 76px;
+  margin-bottom: 12px;
+}
+/* Separador vertical sutil entre los 3 grupos visuales del player
+   (transport | info | right). Ayuda a leer la barra de un vistazo. */
+.tp-info::before, .tp-right::before {
+  content: "";
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.06);
+  margin-right: 12px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.tp-transport { display: flex; gap: 8px; align-items: center; }
+/* Tamaños unificados:
+   · Primario (play)               → 40×40
+   · Secundarios (transport icons) → 32×32 cápsulas
+   · SVGs                          → 16px (primario) / 14px (resto) */
+.tp-play {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--accent-grad); color: #000;
+  transition: transform 0.15s;
+}
+.tp-play svg { width: 16px; height: 16px; }
+.tp-stop, .tp-restart, .tp-loop, .tp-autoadvance {
+  width: 32px; height: 32px;
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.tp-stop:hover, .tp-restart:hover, .tp-loop:hover, .tp-autoadvance:hover {
+  color: var(--text); border-color: var(--border-strong);
+}
+.tp-stop svg, .tp-restart svg, .tp-loop svg, .tp-autoadvance svg {
+  width: 14px; height: 14px;
+}
+.tp-loop.active,
+.tp-autoadvance.active { background: var(--accent-grad); border-color: var(--blue); color: #000; }
+
+/* Pitch (tono) — ±1 semitono sin alterar el tempo (SoundTouchJS).
+   Cápsula con misma altura (32px) que el resto de transport-secundario.
+   Cuando shifted, el border completo se tinta para feedback claro. */
+.tp-pitch-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 2px;
+  height: 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  transition: border-color 0.15s;
+}
+.tp-pitch-group.shifted { border-color: var(--blue); }
+.tp-pitch-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 0;
+  cursor: pointer;
+}
+.tp-pitch-btn:hover { color: var(--blue); background: rgba(255,255,255,.05); }
+.tp-pitch-val {
+  min-width: 24px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+  cursor: pointer;
+}
+.tp-pitch-val.shifted { color: var(--blue); }
+
+/* Single horizontal row: title · scrubber · time, all vertically centered
+   so the progress bar lines up with the transport buttons and the close ×
+   (the old two-row stack pushed the scrubber into the lower half). */
+.tp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 0 10px;
+  min-width: 0;
+}
+/* Kill the default vertical margin browsers give range inputs and let the
+   scrubber absorb the free space between title and time. */
+#tp-progress { margin: 0; display: block; flex: 1; min-width: 0; }
+#tp-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  max-width: 240px;
+}
+.tp-time {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tp-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: 10px;
+}
+.tp-vol-row, .tp-pan-row { padding: 0; }
+.tp-vol-label { font-size: 10px; min-width: 24px; }
+.tp-vol-slider { width: 80px; }
+.tp-vol-val { min-width: 26px; }
+.tp-close {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+/* ── Mezclador: consolidated volume/pan bar ───────────────────────────
+   All vol/pan controls were moved here for one-glance access + MIDI
+   mapping. The original sliders stay in the DOM (driving the engine) but
+   their host containers carry .mx-relocated to hide them visually. */
+.mx-relocated { display: none !important; }
+
+/* Lives inside #panel-drums (where the per-pad drum volumes used to be), so
+   it's styled as a bento card rather than a full-width bottom bar. */
+#mixer-bar {
+  flex-shrink: 0;
+  /* Same subtle card gradient as the other bento panels (bank/setlist/metro)
+     so it doesn't read as a flat near-black block. */
+  background: linear-gradient(155deg, var(--bg-card) 0%, var(--bg-surface) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mx-title {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text); font-size: 13px; font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.mx-hint {
+  margin-left: auto;
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.2px; white-space: nowrap;
+}
+.mx-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.mx-channel {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 8px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+}
+.mx-channel--master { justify-content: center; }
+.mx-name {
+  font-size: 11px; font-weight: 600; color: var(--text);
+  letter-spacing: 0.3px; white-space: nowrap;
+}
+.mx-ctrl { display: flex; align-items: center; gap: 8px; }
+.mx-lbl { font-size: 10px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
+.mx-slider { flex: 1; min-width: 0; }
+.mx-val {
+  font-size: 10px; color: var(--text-muted);
+  min-width: 32px; text-align: right;
+  font-variant-numeric: tabular-nums; font-weight: 600;
+}
+
+/* Floating "Añadida al servicio" popup over the library card after click.
+   Uses transform + opacity for the fade-out (GPU-friendly). */
+.gi-song-item.has-popup { position: relative; }
+.added-popup {
+  position: absolute;
+  right: 10px;
+  bottom: 45px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #000;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 4px 12px var(--glow);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.4s, transform 0.4s;
+  will-change: opacity, transform;
+}
+.added-popup.leaving {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Inline BPM editor input — replaces a giant `input.style.cssText` blob
+   in app.js. Same look, but parseable + themable from one place. */
+#bpm-inline-input {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--glow);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+  width: 85px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  margin: 0 auto;
+  display: block;
+  padding: 2px 4px;
+  box-sizing: border-box;
+  box-shadow: 0 0 10px var(--glow);
+}
+

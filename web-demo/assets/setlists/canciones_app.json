@@ -1,0 +1,68 @@
+{
+  "exportedAt": "2026-01-01T00:00:00.000Z",
+  "version": 1,
+  "data": {
+    "songs": [
+      {
+        "id": "demo_1",
+        "title": "Cielo Abierto",
+        "artist": "LivePads Demo",
+        "key": "G",
+        "originalKey": "G",
+        "bpm": "72",
+        "genre": "Adoración",
+        "lyrics": "[Intro]\n[G] [D] [Em] [C]\n\n[Verse]\n[G]Sobre nosotros [D]tu presencia\n[Em]llena este lu[C]gar\n[G]Cielo abier[D]to, gloria que [Em]desciende[C]\n\n[Chorus]\n[C]Santo, [G]santo [D]eres tú\n[Em]toda la tierra [C]canta [D]a ti"
+      },
+      {
+        "id": "demo_2",
+        "title": "Tu Fidelidad",
+        "artist": "LivePads Demo",
+        "key": "D",
+        "originalKey": "D",
+        "bpm": "68",
+        "genre": "Adoración",
+        "lyrics": "[Verse]\n[D]Cada mañana [A]nueva es\n[Bm]tu mise[G]ricordia en mí\n[D]Grande es [A]tu fideli[G]dad\n\n[Chorus]\n[G]Fiel, [D]fiel, [A]siempre has sido fiel\n[Bm]nunca me [G]has falla[D]do a [A]mí"
+      },
+      {
+        "id": "demo_3",
+        "title": "Levanto Mi Voz",
+        "artist": "LivePads Demo",
+        "key": "A",
+        "originalKey": "A",
+        "bpm": "128",
+        "genre": "Alabanza",
+        "lyrics": "[Verse]\n[A]Levanto mi [E]voz, te can[F#m]to a ti [D]\n[A]con todo mi [E]ser te ala[D]bo\n\n[Chorus]\n[A]Aleluya, [E]aleluya\n[F#m]digno eres [D]tú\n[A]Aleluya, [E]aleluya\n[D]Rey de gloria"
+      },
+      {
+        "id": "demo_4",
+        "title": "Fuego en el Altar",
+        "artist": "LivePads Demo",
+        "key": "Em",
+        "originalKey": "Em",
+        "bpm": "140",
+        "genre": "Alabanza",
+        "lyrics": "[Verse]\n[Em]Enciende en [C]mí ese fue[G]go [D]\n[Em]que nunca se [C]apaga[G]rá [D]\n\n[Chorus]\n[Em]Arde, [C]arde en [G]mí [D]\n[Em]consume todo [C]mi [D]ser"
+      },
+      {
+        "id": "demo_5",
+        "title": "Descansaré en Ti",
+        "artist": "LivePads Demo",
+        "key": "C",
+        "originalKey": "C",
+        "bpm": "64",
+        "genre": "Adoración",
+        "lyrics": "[Verse]\n[C]En tu presen[G]cia hay [Am]paz [F]\n[C]quietud para [G]mi al[F]ma\n\n[Chorus]\n[F]Descansa[C]ré, [G]descansaré en [Am]ti\n[F]mi refu[C]gio [G]eres tú"
+      },
+      {
+        "id": "demo_6",
+        "title": "Gloria al Rey",
+        "artist": "LivePads Demo",
+        "key": "E",
+        "originalKey": "E",
+        "bpm": "132",
+        "genre": "Alabanza",
+        "lyrics": "[Verse]\n[E]Toda la crea[B]ción procla[C#m]ma [A]\n[E]la gloria de [B]nuestro [A]Rey\n\n[Chorus]\n[E]Gloria al [B]Rey, [A]gloria al Rey\n[C#m]por siempre rei[B]na[A]rá"
+      }
+    ]
+  }
+}

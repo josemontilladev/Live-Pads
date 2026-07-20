@@ -1,0 +1,105 @@
+/* ── HORIZONTAL METRONOME (ahora en top-modules-grid) ── */
+.horizontal-metro {
+  flex-shrink: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  /* Distribute the controls with equal breathing room across the width —
+     space-evenly keeps even margins at the edges too, so it uses the side
+     space without the jammed-to-the-corners look of space-between. */
+  justify-content: space-evenly;
+  gap: 24px;
+  z-index: 1;
+  min-height: 60px;
+  /* En ventanas chicas las secciones NO entran en una fila: sin esto la
+     última (sonidos/checkboxes) desbordaba el panel y se montaba sobre el
+     setlist. wrap solo actúa cuando hace falta. */
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+.hm-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;   /* permite encoger en vez de desbordar */
+}
+.hm-play {
+  flex: 0 0 160px;
+  gap: 10px;
+}
+.hm-bpm {
+  flex: 0 0 180px;
+  gap: 8px;
+}
+.hm-bpm-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hm-bpm-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hm-bpm-slider-wrap input { flex: 1; }
+.hm-compas {
+  flex: 0 0 120px;
+  gap: 6px;
+}
+.hm-mix {
+  flex: 0 0 160px;
+  gap: 4px;
+}
+.hm-clickseq {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+/* Checkbox custom: caja redondeada que se llena con el gradiente de acento y
+   muestra un check al activarse. */
+.hm-clickseq input {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; margin: 0; flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-hover);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hm-clickseq input:hover { border-color: var(--accent); }
+.hm-clickseq input:checked { background: var(--accent-grad); border-color: transparent; }
+.hm-clickseq input:checked::after {
+  content: '';
+  width: 4px; height: 8px;
+  border: solid #0a0a14;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.hm-clickseq input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hm-clickseq input:checked + span { color: var(--text); }
+.hm-clickseq:hover { color: var(--text); }
+
+#metro-beat-row {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.metro-main-btn {
+  padding: 10px 16px;
+  font-size: 13px;
+  width: auto;
+}
+.metro-bpm-big {
+  font-size: 32px;
+}
+.metro-adj {
+  width: 28px; height: 28px;
+}
+

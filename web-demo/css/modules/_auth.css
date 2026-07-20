@@ -1,0 +1,350 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Pantalla de cuenta (bienvenida / login / registro).
+   Overlay a pantalla completa que aparece al arrancar si no hay sesión.
+   ═══════════════════════════════════════════════════════════════════ */
+
+#auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(251, 174, 0, 0.16), transparent 60%),
+    var(--bg, #0e0f13);
+  -webkit-app-region: drag;        /* permite mover la ventana frameless */
+}
+#auth-gate.hidden { display: none; }
+
+.auth-winctrls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  display: flex;
+  -webkit-app-region: no-drag;
+  z-index: 1;
+}
+.auth-wm {
+  -webkit-app-region: no-drag;
+  width: 46px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim, #9aa0ad);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.auth-wm:hover { background: rgba(255, 255, 255, 0.08); color: var(--text, #e8eaf0); }
+.auth-wm-close:hover { background: #e81123; color: #fff; }
+
+.auth-card {
+  -webkit-app-region: no-drag;
+  width: min(420px, 92vw);
+  background: var(--panel, #16181f);
+  border: 1px solid var(--border, #262a35);
+  border-radius: var(--r-lg);
+  padding: 32px 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.auth-logo-img {
+  display: block;
+  margin: 0 auto 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-lg);
+}
+.auth-logo {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.auth-logo span { color: var(--accent, #FBAE00); }
+.auth-sub {
+  color: var(--text-dim, #9aa0ad);
+  font-size: 13px;
+  margin: 0 0 24px;
+}
+
+.auth-view { display: none; }
+.auth-view.active { display: block; }
+
+.auth-field { text-align: left; margin-bottom: 14px; }
+.auth-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim, #9aa0ad);
+  margin-bottom: 6px;
+}
+.auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border, #2a2f3c);
+  background: var(--input-bg, #0f1117);
+  color: var(--text, #e8eaf0);
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+.auth-field input:focus { border-color: var(--accent, #FBAE00); }
+
+.auth-btn {
+  -webkit-app-region: no-drag;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--r-md);
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: transform .08s, filter .15s, background .15s;
+}
+.auth-btn:active { transform: translateY(1px); }
+.auth-btn.primary { background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14); }
+.auth-btn.primary:hover { filter: brightness(1.08); }
+.auth-btn.ghost {
+  background: transparent;
+  color: var(--text, #e8eaf0);
+  border: 1px solid var(--border, #2a2f3c);
+}
+.auth-btn.ghost:hover { background: rgba(255, 255, 255, 0.04); }
+.auth-btn:disabled { opacity: .55; cursor: progress; }
+.auth-btn.google {
+  background: #fff;
+  color: #1f1f1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.auth-btn.google:hover { filter: brightness(0.97); }
+.auth-btn.google svg { flex: 0 0 auto; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim, #6b7280);
+  font-size: 11px;
+  margin: 18px 0 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border, #262a35);
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--accent, #FFD45C);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px;
+}
+.auth-link:hover { text-decoration: underline; }
+
+.auth-foot {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--text-dim, #9aa0ad);
+}
+
+.auth-msg {
+  font-size: 13px;
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  text-align: left;
+  display: none;
+}
+.auth-msg.show { display: block; }
+.auth-msg.error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: #fca5a5; border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); }
+.auth-msg.ok    { background: rgba(34, 197, 94, 0.12);  color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+.auth-msg.info  { background: rgba(251, 174, 0, 0.12); color: #FFD45C; border: 1px solid rgba(251, 174, 0, 0.3); }
+
+.auth-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim, #9aa0ad); font-size: 13px;
+  margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px;
+}
+.auth-back:hover { color: var(--text, #e8eaf0); }
+
+.auth-confirm-icon {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--ok);
+}
+
+/* ── Panel "Mi cuenta y librerías" ────────────────────────────────────── */
+#account-overlay {
+  position: fixed; inset: 0; z-index: 8500;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+#account-overlay.hidden { display: none; }
+
+.acc-panel {
+  width: min(560px, 94vw);
+  max-height: 88vh; overflow-y: auto;
+  background: var(--panel, #16181f);
+  border: 1px solid var(--border, #262a35);
+  border-radius: var(--r-lg);
+  padding: 22px 22px 26px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.acc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.acc-head h3 { margin: 0; font-size: 16px; }
+.acc-x { background: none; border: none; color: var(--text-dim, #9aa0ad); font-size: 22px; cursor: pointer; line-height: 1; }
+.acc-x:hover { color: var(--text, #e8eaf0); }
+
+.acc-user { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--input-bg, #0f1117); border-radius: var(--r-md); margin-bottom: 18px; }
+.acc-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14); display: flex; align-items: center; justify-content: center; font-weight: 700; flex: 0 0 auto; }
+.acc-user-info { flex: 1; min-width: 0; }
+.acc-user-info .name { font-weight: 600; font-size: 14px; }
+.acc-user-info .email { font-size: 12px; color: var(--text-dim, #9aa0ad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.acc-section { margin-bottom: 20px; }
+.acc-section > h4 { margin: 0 0 10px; font-size: 13px; color: var(--text-dim, #9aa0ad); text-transform: uppercase; letter-spacing: .04em; }
+
+.acc-lib-list { display: flex; flex-direction: column; gap: 8px; }
+.acc-lib {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r-md);
+  border: 1px solid var(--border, #262a35);
+  background: var(--input-bg, #0f1117);
+  cursor: pointer;
+}
+.acc-lib:hover { border-color: var(--border-strong, rgba(255,255,255,.15)); background: rgba(255, 255, 255, 0.03); }
+.acc-lib.active { border-color: var(--accent, #FBAE00); background: rgba(251, 174, 0, 0.08); }
+.acc-lib .lib-name { flex: 1; font-size: 14px; font-weight: 600; }
+.acc-lib .lib-badge { font-size: 11px; color: var(--text-dim, #9aa0ad); }
+.acc-lib .lib-check { color: var(--accent, #FFD45C); }
+.acc-lib:focus-visible { outline: 2px solid var(--accent, #FBAE00); outline-offset: 2px; }
+
+.acc-row { display: flex; gap: 8px; margin-top: 10px; }
+.acc-row input, .acc-row select {
+  flex: 1; min-width: 0;
+  padding: 9px 11px; border-radius: 8px;
+  border: 1px solid var(--border, #2a2f3c);
+  background: var(--input-bg, #0f1117); color: var(--text, #e8eaf0);
+  font-size: 13px; outline: none;
+}
+.acc-row select { flex: 0 0 auto; }
+.acc-btn {
+  padding: 9px 14px; border-radius: 8px; border: none;
+  background: var(--accent, #FBAE00); color: var(--on-accent, #0a0a14);
+  font-size: 13px; font-weight: 700; cursor: pointer; flex: 0 0 auto;
+}
+.acc-btn.sm { padding: 6px 10px; font-size: 12px; }
+.acc-btn.ghost { background: transparent; border: 1px solid var(--border, #2a2f3c); color: var(--text, #e8eaf0); }
+.acc-btn.danger { background: transparent; border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); color: #fca5a5; }
+
+.acc-member, .acc-invite {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid var(--border, #1d2129);
+  font-size: 13px;
+}
+.acc-member:last-child, .acc-invite:last-child { border-bottom: none; }
+.acc-member .m-email, .acc-invite .i-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-role-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--text-dim, #9aa0ad); }
+.acc-role-tag.owner { background: rgba(251,174,0,.15); color: #FFD45C; }
+
+.acc-code {
+  display: flex; gap: 8px; align-items: center; margin-top: 8px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--input-bg, #0f1117); border: 1px dashed var(--border, #2a2f3c);
+}
+.acc-code code { flex: 1; font-size: 12px; color: var(--text, #e8eaf0); word-break: break-all; }
+
+.acc-msg { font-size: 13px; border-radius: 8px; padding: 8px 11px; margin-top: 10px; display: none; }
+.acc-msg.show { display: block; }
+.acc-msg.error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: #fca5a5; }
+.acc-msg.ok    { background: rgba(34,197,94,.12); color: #86efac; }
+
+.acc-danger { border-top: 1px solid color-mix(in srgb, var(--danger) 20%, transparent); padding-top: 14px; }
+.acc-danger > h4 { color: #fca5a5 !important; }
+.acc-empty { font-size: 13px; color: var(--text-dim, #9aa0ad); padding: 6px 0; }
+.acc-hint { font-size: 12px; color: var(--text-dim, #9aa0ad); margin-top: 6px; line-height: 1.4; }
+.acc-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; }
+
+/* Sub-tabs del panel (Cuenta / Librerías / Equipo) — píldora estilo
+   tablist similar a los tabs del setlist, anclados bajo el bloque de usuario. */
+.acc-tabs {
+  display: flex; gap: 4px;
+  margin: 4px 0 16px;
+  padding: 3px;
+  background: var(--input-bg, #0f1117);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border, #262a35);
+}
+.acc-tab {
+  flex: 1;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: var(--text-dim, #9aa0ad);
+  font: 700 12px/1 inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.acc-tab:hover { color: var(--text, #e8eaf0); background: rgba(255,255,255,0.04); }
+.acc-tab.active {
+  background: var(--bg-card, #1a1d24);
+  color: var(--text, #e8eaf0);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.acc-tab-panel.hidden { display: none; }
+
+/* Helpers de layout para botones full-width / flex */
+.acc-btn-wide { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.acc-btn-full { width: 100%; margin-top: 8px; }
+.acc-btn-flex { flex: 1; }
+
+/* Invitación pendiente con código copiable */
+.acc-invite { flex-direction: column; align-items: stretch; gap: 8px; }
+.acc-invite-head { display: flex; align-items: center; gap: 10px; }
+.acc-invite-head .i-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.acc-invite-code {
+  display: flex; gap: 6px;
+  padding: 6px 6px 6px 10px;
+  background: var(--input-bg, #0f1117);
+  border: 1px dashed var(--border, #2a2f3c);
+  border-radius: 8px;
+}
+.acc-code-input {
+  flex: 1; min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text, #e8eaf0);
+  font: 600 12px/1.4 'Consolas', 'Menlo', monospace;
+  outline: none;
+  letter-spacing: 0.5px;
+}
+
+/* Accesibilidad: anillo de foco visible por teclado en controles de cuenta/auth */
+.acc-x:focus-visible,
+.acc-btn:focus-visible,
+.auth-btn:focus-visible,
+.auth-link:focus-visible,
+.auth-wm:focus-visible { outline: 2px solid var(--accent, #FBAE00); outline-offset: 2px; border-radius: 6px; }
+.acc-row input:focus-visible,
+.acc-row select:focus-visible,
+.acc-row input:focus,
+.acc-row select:focus { outline: none; border-color: var(--accent, #FBAE00); }
+.gi-lib-select:focus-visible { outline: none; }

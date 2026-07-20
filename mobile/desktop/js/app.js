@@ -168,6 +168,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // adopta en vez de abrir el suyo, para que el piano y la cancion suenen a la
   // vez y no en dos contextos de audio separados.
   try { window.__livepadsSharedCtx = engine.ctx; } catch (_) {}
+  // Si la SALIDA del equipo es mono, el paneo no existe: el click que mandas a
+  // la izquierda se suma con la musica de la derecha y sale por los dos lados.
+  // Es exactamente el fallo que aparece en una laptop y no en otra, asi que se
+  // avisa en vez de dejar que se descubra en medio del servicio.
+  if (engine.outputInfo && engine.outputInfo.stereo === false) {
+    setTimeout(() => showToast(
+      'Salida de audio MONO: el paneo no se oira. Conecta auriculares o una interfaz, ' +
+      'y revisa "Audio mono" en la configuracion de accesibilidad del sistema.',
+      'error'), 2500);
+  }
   const clickWarmup = engine.loadClickBuffers(); // default = 'cowbell'
   const userDrumsP = window.electronAPI?.loadUserDrums
     ? window.electronAPI.loadUserDrums()
@@ -832,6 +842,48 @@ function bindHamburgerMenu() {
   // El resto se EMBEBE dentro de su sección del sidebar.
   wire('#set-mappings',  () => embedModal('embed-midi',       () => openMappingsList(),                     '#mappings-overlay'));
   wire('#set-midi-rescan', () => { try { window.__livepadsRescanMidi?.(); } catch (_) {} });
+
+  // ── Selector de controlador MIDI ───────────────────────────────────────
+  // La lista se repuebla cada vez que se abre el panel y en cada cambio de
+  // dispositivos, para que refleje lo que hay enchufado AHORA. La eleccion se
+  // guarda solo en LOCAL (a proposito: el id del puerto es de esta maquina, no
+  // tiene sentido sincronizarlo a la cuenta).
+  const MIDI_INPUT_KEY = 'livepads-midi-input';
+  const paintMidiInputs = () => {
+    const sel = q('#set-midi-input');
+    const state = q('#set-midi-input-state');
+    if (!sel) return;
+    const list = (engine && typeof engine.listMidiInputs === 'function') ? engine.listMidiInputs() : [];
+    const saved = localStorage.getItem(MIDI_INPUT_KEY) || '';
+    sel.innerHTML = '<option value="">Todos los controladores</option>' +
+      list.map(d => {
+        const label = d.manufacturer ? `${d.name} — ${d.manufacturer}` : d.name;
+        const safe = label.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        return `<option value="${d.id}">${safe}</option>`;
+      }).join('');
+    sel.value = list.some(d => d.id === saved) ? saved : '';
+    if (state) {
+      const none = list.length === 0;
+      state.classList.toggle('is-none', none);
+      state.textContent = none
+        ? 'No se detecta ningun controlador. Enchufalo y usa «Reconectar MIDI».'
+        : `${list.length} dispositivo${list.length > 1 ? 's' : ''} conectado${list.length > 1 ? 's' : ''}.`;
+    }
+  };
+  const midiInputSel = q('#set-midi-input');
+  if (midiInputSel) {
+    midiInputSel.onchange = () => {
+      const id = midiInputSel.value || '';
+      try { localStorage.setItem(MIDI_INPUT_KEY, id); } catch (_) {}
+      try { engine.setMidiInput?.(id); } catch (_) {}
+      const name = midiInputSel.options[midiInputSel.selectedIndex]?.textContent || '';
+      showToast(id ? `Usando: ${name}` : 'Escuchando todos los controladores.', 'success');
+    };
+  }
+  // Repinta al abrir la pestana MIDI y cuando cambian los dispositivos.
+  document.querySelector('.stab[data-tab="midi"]')?.addEventListener('click', () => setTimeout(paintMidiInputs, 60));
+  window.addEventListener('livepads:midi-devices', paintMidiInputs);
+  setTimeout(paintMidiInputs, 1500);
   // Servicio: Pre-vuelo y Companion son MUTUAMENTE EXCLUSIVOS (uno u otro).
   wire('#set-preflight', () => {
     closeCompanionPanel(); const c = q('#embed-companion'); if (c) c.innerHTML = '';

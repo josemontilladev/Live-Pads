@@ -59,7 +59,11 @@ async function collect() {
 async function writeToLocal(data) {
   if (!data) return;
   lastCloudData = data;
-  if (data.midi && window.electronAPI?.saveMidiMapSync) {
+  // Un mapa VACIO de la nube NO debe borrar el que ya funciona en este equipo:
+  // al entrar una cuenta nueva (un companero en tu laptop) su config viene sin
+  // MIDI y el controlador dejaba de responder "solo con su cuenta". Se conserva
+  // el local y, con el push, ese mapa pasa a ser tambien el de su cuenta.
+  if (data.midi && !isEmptyMidi(data.midi) && window.electronAPI?.saveMidiMapSync) {
     try { window.electronAPI.saveMidiMapSync(data.midi); } catch (_) {}
   }
   if (data.drums && window.electronAPI?.saveUserDrums) {

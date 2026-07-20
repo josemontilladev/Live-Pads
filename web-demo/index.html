@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivePads — Demo en vivo (Pads + metrónomo)</title>
+  <meta name="description" content="Probá LivePads en tu navegador: colchones de adoración, metrónomo, drum pads y mezclador. Sin instalar nada.">
+  <link rel="icon" href="assets/logo.png">
+  <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
+  <link rel="stylesheet" href="css/index.css">
+  <!-- DEMO WEB: stub de electronAPI (debe ir ANTES de cualquier script). -->
+  <script src="js/_demo-shim.js"></script>
+  <link rel="stylesheet" href="css/demo.css">
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div id="preloader">
+    <img src="assets/logo.png" alt="Live Pads Logo" class="preloader-logo">
+    <div class="preloader-title">LIVE PADS</div>
+    <div class="preloader-version" id="preloader-version"></div>
+    <div class="preloader-bar"><div class="preloader-fill"></div></div>
+    <div class="preloader-status" id="preloader-status" aria-live="polite"></div>
+  </div>
+  <script>
+    // Mostrar la versión instalada debajo del nombre, apenas carga (antes de app.js).
+    (function () {
+      try {
+        window.electronAPI && window.electronAPI.getAppVersion &&
+        window.electronAPI.getAppVersion().then(function (v) {
+          var el = document.getElementById('preloader-version');
+          if (el && v) el.textContent = 'v' + v;
+        }).catch(function () {});
+      } catch (e) {}
+    })();
+  </script>
+
+  <div id="midi-learn-overlay">
+    <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo MIDI: Haz clic en un control de la app. (Clic aquí para salir)
+  </div>
+
+  <div id="app">
+
+  <header id="topbar">
+    <div class="topbar-left">
+      <button class="icon-btn" id="btn-menu" aria-label="Menú" title="Menú">
+        <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="workspace-switcher" role="tablist" aria-label="Workspace (Tab para alternar)" title="Alterna con Tab">
+        <span class="ws-indicator" aria-hidden="true"></span>
+        <button class="ws-tab is-active" data-workspace="pads" role="tab" aria-selected="true" title="Workspace Pads (Tab)">Pads</button>
+        <button class="ws-tab" data-workspace="stems" role="tab" aria-selected="false" title="Workspace Stems (Tab)">Stems</button>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <div class="topbar-logo">
+        <span class="topbar-logo-text">Live Pads</span>
+        <!-- Logo inline (SVG) para que el FONDO siga el color del theme. -->
+        <svg class="topbar-logo-img" viewBox="0 0 48 48" role="img" aria-label="LivePads">
+          <rect x="2" y="2" width="44" height="44" rx="11" fill="var(--accent)"/>
+          <g stroke="var(--on-accent, #0a0a14)" stroke-width="3" stroke-linecap="round">
+            <line x1="14" y1="20" x2="14" y2="28"/>
+            <line x1="20" y1="14" x2="20" y2="34"/>
+            <line x1="26" y1="18" x2="26" y2="30"/>
+            <line x1="32" y1="11" x2="32" y2="37"/>
+            <line x1="38" y1="20" x2="38" y2="28"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="topbar-actions">
+        <span id="midi-status-pill" class="midi-status-pill hidden" title="" aria-live="polite"></span>
+        <button class="icon-btn" id="btn-piano-pads" title="Piano — toca/escuchá notas (también con tu controlador MIDI)" aria-label="Piano" aria-pressed="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-metro-pads" title="Metrónomo (con subdivisiones) — herramienta independiente" aria-label="Metrónomo">
+          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h10l-2.4-15.2A1 1 0 0 0 13.6 5h-3.2a1 1 0 0 0-1 .8L7 21z"/><line x1="12" y1="5.5" x2="9" y2="14"/><line x1="6.4" y1="17" x2="17.6" y2="17"/></svg>
+        </button>
+        <!-- Botón "?" retirado: los atajos viven en el panel de Ajustes (sección Atajos). -->
+        <!-- Engranaje retirado: el menú ☰ (izquierda) abre el panel de Ajustes centralizado. -->
+        <a class="demo-cta" id="demo-download" href="https://livepads.online" target="_blank" rel="noopener" title="Descargar la app completa">
+          <span class="demo-cta-tag">DEMO</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="demo-cta-txt">Descargar LivePads</span>
+        </a>
+        <div class="wm-btns">
+          <button class="wm-btn wm-min" id="btn-min" aria-label="Minimizar" title="Minimizar">
+            <svg viewBox="0 0 10 1" aria-hidden="true"><rect width="10" height="1" fill="currentColor"/></svg>
+          </button>
+          <button class="wm-btn wm-max" id="btn-max" aria-label="Maximizar" title="Maximizar">
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0,0v10h10V0H0z M9,9H1V1h8V9z" fill="currentColor"/></svg>
+          </button>
+          <button class="wm-btn wm-close" id="btn-close" aria-label="Cerrar" title="Cerrar">
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M10,0.7L9.3,0L5,4.3L0.7,0L0,0.7L4.3,5L0,9.3L0.7,10L5,5.7L9.3,10L10,9.3L5.7,5L10,0.7z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN BODY ═══ -->
+  <div id="body">
+    <main id="stage">
+
+      <!-- TOP MODULES: Bank + Metronome in 2-column grid -->
+      <div id="top-modules-grid">
+
+        <!-- Bank Selectors -->
+        <div id="bank-section">
+          <div class="bank-row">
+            <div class="bank-label">Pad</div>
+            <div class="bank-selector">
+              <select id="pad-bank-select" class="metro-dropdown"></select>
+            </div>
+          </div>
+          <div class="sb-div"></div>
+          <div class="bank-row">
+            <div class="bank-label">Kit de batería</div>
+            <div class="bank-selector bank-selector--with-actions">
+              <select id="kit-bank-select" class="metro-dropdown"></select>
+              <button id="btn-create-kit" class="kit-action-btn" title="Crear Nuevo Kit Personalizado">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <button id="btn-edit-kit" class="kit-action-btn" title="Editar Kit Personalizado">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="18" height="18"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+              </button>
+              <button id="btn-delete-kit" class="kit-action-btn kit-action-btn--hidden" title="Eliminar Kit Personalizado">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metronome (moved from bottom) -->
+        <footer id="panel-metro" class="horizontal-metro">
+
+          <div class="hm-section hm-play">
+            <button class="metro-main-btn metro-main-btn--square" id="btn-metro-main" aria-label="Reproducir / detener metrónomo" title="Reproducir / detener metrónomo">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24" aria-hidden="true"><polygon points="5,3 19,12 5,21"/></svg>
+            </button>
+            <div id="metro-beat-row">
+              <div id="metro-beat-dots"></div>
+              <div id="metro-bpm-live">— BPM</div>
+            </div>
+          </div>
+
+          <div class="hm-section hm-bpm">
+            <div class="hm-bpm-controls">
+              <button class="metro-adj" id="bpm-minus" aria-label="Bajar BPM" title="Bajar BPM"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              <div class="metro-bpm-big" id="bpm-display">120</div>
+              <button class="metro-adj" id="bpm-plus" aria-label="Subir BPM" title="Subir BPM"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            </div>
+            <div class="hm-bpm-slider-wrap">
+              <input type="range" id="bpm-slider" min="30" max="300" value="120" class="blue-slider metro-slider">
+              <button class="tap-btn tap-btn--compact" id="tap-tempo">TAP</button>
+            </div>
+          </div>
+
+          <div class="hm-section hm-compas">
+            <select id="metro-sig-select" class="metro-dropdown metro-sig-select">
+              <option value="2">2/4</option>
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4</option>
+              <option value="6">6/8</option>
+              <option value="12">12/8</option>
+            </select>
+            <div class="metro-mult-row">
+              <button class="metro-mult-btn active" id="btn-mult-1">1x</button>
+              <button class="metro-mult-btn" id="btn-mult-2">2x</button>
+            </div>
+          </div>
+
+          <div class="hm-section hm-section--sounds">
+            <select id="metro-sound-select" class="metro-dropdown">
+              <option value="classic">Clásico</option>
+              <option value="woodblock">Woodblock</option>
+              <option value="percussive">Percus.</option>
+              <option value="gentle">Suave</option>
+              <option value="blip">Blip</option>
+              <option value="digital">Digital</option>
+              <option value="cowbell" selected>Cowbell</option>
+            </select>
+            <select id="metro-notation-select" class="metro-dropdown">
+              <option value="flats">Bemol (Db)</option>
+              <option value="sharps" selected>Sost (C#)</option>
+            </select>
+            <label class="hm-clickseq" title="Reproducir también el metrónomo cuando hay una secuencia cargada (para secuencias sin click)">
+              <input type="checkbox" id="click-with-seq">
+              <span>Click + secuencia</span>
+            </label>
+            <label class="hm-clickseq" title="Cuenta de entrada: un compás de clicks antes de arrancar la secuencia">
+              <input type="checkbox" id="countin-toggle">
+              <span>Cuenta de entrada</span>
+            </label>
+          </div>
+
+          <div class="hm-section hm-mix mx-relocated">
+            <div class="sb-row sb-row--metro">
+              <span class="sr-label sr-label--metro">Vol</span>
+              <input type="range" id="metro-vol-slider" min="0" max="100" value="80" class="blue-slider">
+              <span class="sr-val sr-val--metro" id="metro-vol-val">80%</span>
+            </div>
+            <div class="sb-row sb-row--metro-bottom">
+              <span class="sr-label sr-label--metro">Pan</span>
+              <input type="range" id="metro-pan-slider" min="-100" max="100" value="0" class="pan-slider">
+              <span class="sr-val sr-val--metro" id="metro-pan-val">C</span>
+            </div>
+          </div>
+
+        </footer>
+      </div><!-- /top-modules-grid -->
+
+      <!-- Keys + Pad controls -->
+      <div id="panel-keys">
+        <div class="key-grid" id="key-grid"></div>
+        <div id="pad-volume-tray" class="sb-card mx-relocated">
+          <div class="tray-header">Ajustes de pad</div>
+          <div class="sb-row">
+            <span class="sr-label">Vol</span>
+            <input type="range" id="pad-vol-stage" min="0" max="100" value="75" class="blue-slider">
+            <span class="sr-val" id="pad-vol-val-stage">75%</span>
+          </div>
+          <div class="sb-div"></div>
+          <div class="sb-row">
+            <span class="sr-label">Pan</span>
+            <input type="range" id="pad-pan-stage" min="-100" max="100" value="0" class="pan-slider">
+            <span class="sr-val" id="pad-pan-val-stage">C</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drums panel -->
+      <div id="panel-drums">
+        <div class="drum-grid" id="drum-grid"></div>
+
+        <!-- Canonical drum master sliders + per-pad volumes: kept in the DOM
+             (still drive the engine) but hidden — replaced visually by the
+             consolidated mixer below. -->
+        <div id="drum-volume-tray" class="sb-card mx-relocated">
+          <div class="tray-header tray-header--drum">
+            <span>Pads de batería</span>
+            <div class="drum-tray-controls">
+              <div class="tray-pan-row tray-pan-row--flush">
+                <span class="sr-label sr-label--inline">Vol</span>
+                <input type="range" id="drum-master-vol-stage" min="0" max="100" value="80" class="blue-slider slider--80">
+                <span class="sr-val sr-val--narrow" id="drum-master-vol-val-stage">80%</span>
+              </div>
+              <div class="tray-pan-row tray-pan-row--flush">
+                <span class="tray-pan-label sr-label--inline">Pan</span>
+                <input type="range" id="drum-pan-stage" min="-100" max="100" value="0" class="pan-slider slider--80">
+                <span class="sr-val sr-val--narrow" id="drum-pan-val-stage">C</span>
+              </div>
+            </div>
+          </div>
+          <div id="drum-volumes" class="drum-volumes"></div>
+        </div>
+
+        <!-- ═══ MEZCLADOR (todos los vol/pan agrupados para mapeo MIDI) ═══ -->
+        <div id="mixer-bar">
+          <div class="mx-title">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="14" height="14"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+            <span>Mezclador</span>
+            <span class="mx-hint">Faders → Vol · Perillas → Pan (MIDI)</span>
+          </div>
+          <div class="mx-channels">
+            <div class="mx-channel">
+              <span class="mx-name">Pads</span>
+              <div class="mx-ctrl"><span class="mx-lbl">Pan</span><input type="range" id="mx-pads-pan" min="-100" max="100" value="0" class="pan-slider mx-slider" aria-label="Pan de Pads"><span class="mx-val" id="mx-pads-pan-val">C</span></div>
+              <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-pads-vol" min="0" max="100" value="75" class="blue-slider mx-slider" aria-label="Volumen de Pads"><span class="mx-val" id="mx-pads-vol-val">75%</span></div>
+            </div>
+            <div class="mx-channel">
+              <span class="mx-name">Batería</span>
+              <div class="mx-ctrl"><span class="mx-lbl">Pan</span><input type="range" id="mx-drums-pan" min="-100" max="100" value="0" class="pan-slider mx-slider" aria-label="Pan de Batería"><span class="mx-val" id="mx-drums-pan-val">C</span></div>
+              <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-drums-vol" min="0" max="100" value="80" class="blue-slider mx-slider" aria-label="Volumen de Batería"><span class="mx-val" id="mx-drums-vol-val">80%</span></div>
+            </div>
+            <div class="mx-channel">
+              <span class="mx-name">Click</span>
+              <div class="mx-ctrl"><span class="mx-lbl">Pan</span><input type="range" id="mx-click-pan" min="-100" max="100" value="0" class="pan-slider mx-slider" aria-label="Pan del Click"><span class="mx-val" id="mx-click-pan-val">C</span></div>
+              <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-click-vol" min="0" max="100" value="80" class="blue-slider mx-slider" aria-label="Volumen del Click"><span class="mx-val" id="mx-click-vol-val">80%</span></div>
+            </div>
+            <div class="mx-channel">
+              <span class="mx-name">Pista</span>
+              <div class="mx-ctrl"><span class="mx-lbl">Pan</span><input type="range" id="mx-track-pan" min="-100" max="100" value="0" class="pan-slider mx-slider" aria-label="Pan de la Pista"><span class="mx-val" id="mx-track-pan-val">C</span></div>
+              <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-track-vol" min="0" max="100" value="80" class="blue-slider mx-slider" aria-label="Volumen de la Pista"><span class="mx-val" id="mx-track-vol-val">80%</span></div>
+            </div>
+            <div class="mx-channel mx-channel--master">
+              <span class="mx-name">Maestro</span>
+              <div class="mx-ctrl"><span class="mx-lbl">Vol</span><input type="range" id="mx-master-vol" min="0" max="100" value="100" class="blue-slider mx-slider" aria-label="Volumen Maestro"><span class="mx-val" id="mx-master-vol-val">100%</span></div>
+              <button type="button" class="master-mute-btn master-mute-btn--mx" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
+                <svg class="ic-vol" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                <svg class="ic-mute" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ PANEL SETLIST (antes en sidebar) ═══ -->
+      <div id="panel-setlist">
+        <div class="setlist-header">
+          <span class="setlist-title">Setlist</span>
+          <div class="setlist-header-actions">
+            <button class="icon-btn accent-btn" id="btn-import-gi" title="Importar librería desde .json">
+              <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <button class="icon-btn accent-btn" id="btn-export-gi" title="Exportar librería a .json">
+              <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </button>
+            <input type="file" id="gi-file-input" accept=".json" hidden>
+          </div>
+        </div>
+        
+        <div class="setlist-tabs-toggle">
+          <button class="s-toggle active" data-target="gi-setlist-list">Librería</button>
+          <button class="s-toggle" data-target="service-setlist-list">Servicio</button>
+        </div>
+
+        <div id="service-setlist-list" class="hidden">
+          <!-- Selector de setlist: al abrir la app (si hay setlists guardados)
+               se muestra primero para elegir la lista; al cargar una, se ven
+               las canciones. Se puede volver con "Cambiar lista". -->
+          <div id="service-chooser" class="service-chooser"></div>
+          <!-- Crear setlist INLINE (título/fecha/descripción + selector de
+               canciones) dentro del mismo panel, sin modal centrado. -->
+          <div id="service-create" class="service-create"></div>
+          <div class="service-actions">
+            <div class="service-actions-text">
+              <span class="service-actions-label">Tu lista de hoy</span>
+              <span class="service-actions-meta" id="service-meta" aria-live="polite"></span>
+            </div>
+            <div class="service-actions-nav">
+              <button class="icon-btn service-nav-btn" id="btn-service-prev" title="Canción anterior">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" class="svg-nudge-up"><polyline points="18 15 12 9 6 15"/></svg>
+              </button>
+              <button class="icon-btn service-nav-btn" id="btn-service-next" title="Canción siguiente">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14" class="svg-nudge-down"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <button class="icon-btn service-nav-btn" id="btn-setlists" title="Setlists guardados (elegir / cargar)" aria-label="Setlists guardados">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              </button>
+              <button class="icon-btn service-nav-btn" id="btn-service-save" title="Guardar la lista actual como setlist" aria-label="Guardar la lista actual">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              </button>
+              <button class="icon-btn service-nav-btn" id="btn-service-share" title="Guardar este servicio para tu equipo (nube)" aria-label="Compartir servicio">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M16 16l-4-4-4 4"/><path d="M12 12v9"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              </button>
+              <button class="icon-btn service-nav-btn btn-clear-service" id="btn-clear-service" title="Vaciar lista" aria-label="Vaciar lista">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="svc-search-row">
+            <input type="text" id="svc-search" class="gi-search-input gi-search-input--inline" placeholder="Buscar en este servicio…">
+            <button type="button" id="svc-search-clear" class="gi-search-clear hidden" aria-label="Limpiar búsqueda" title="Limpiar">
+              <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div id="service-empty-msg" class="setlist-empty setlist-empty--cta">
+            <div class="empty-icon" aria-hidden="true">
+              <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="42" height="42"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="13" x2="17" y2="13"/><line x1="9" y1="17" x2="14" y2="17"/></svg>
+            </div>
+            <h4>Set vacío</h4>
+            <p>Aún no has añadido canciones al servicio de hoy. Ábrelas desde la Librería con el botón <b>＋</b> de cada card.</p>
+            <div class="empty-cta-row">
+              <button type="button" class="empty-cta empty-cta--primary" id="btn-service-go-library">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg>
+                Ir a la Librería
+              </button>
+            </div>
+          </div>
+          <div id="service-songs-container" class="drag-container"></div>
+        </div>
+        
+        <div id="gi-setlist-list">
+          <div class="gi-sticky-header">
+            <div class="gi-search-row search-collapsed">
+              <div class="gi-lib-line">
+                <div class="gi-lib-row hidden" id="gi-lib-row">
+                  <select id="gi-lib-select" class="gi-lib-select" title="Repertorio activo"></select>
+                </div>
+                <button class="icon-btn gi-search-toggle no-shrink" id="btn-gi-search-toggle" title="Buscar (título, artista, letra)" aria-label="Buscar" aria-expanded="false">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="16" height="16"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+                </button>
+                <button class="icon-btn gi-filter-toggle no-shrink" id="btn-gi-filter-toggle" title="Filtrar por categoría" aria-haspopup="true" aria-expanded="false">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="16" height="16"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+                <span class="gi-filter-dot" id="gi-filter-dot" hidden></span>
+              </button>
+              <button class="icon-btn accent-btn btn-add-gi-song" id="btn-add-gi-song" title="Nueva canción">
+                <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <div id="gi-filter-menu" class="gi-filter-menu hidden" role="menu">
+                <button class="gi-filter-option active" data-genre="all" role="menuitem">
+                  <span class="gi-filter-option-label">Todas</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-all">0</span>
+                </button>
+                <button class="gi-filter-option gi-filter-option--fav" data-genre="favoritos" role="menuitem">
+                  <span class="gi-filter-option-label">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="currentColor" width="12" height="12" style="vertical-align:-1px;margin-right:4px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    Favoritos
+                  </span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-favoritos">0</span>
+                </button>
+                <button class="gi-filter-option gi-filter-option--recent" data-genre="recientes" role="menuitem">
+                  <span class="gi-filter-option-label">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="12" height="12" style="vertical-align:-1px;margin-right:4px;"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+                    Recientes
+                  </span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-recientes">0</span>
+                </button>
+                <button class="gi-filter-option" data-genre="alabanza" role="menuitem">
+                  <span class="gi-filter-option-label">Alabanza</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-alabanza">0</span>
+                </button>
+                <button class="gi-filter-option" data-genre="adoracion" role="menuitem">
+                  <span class="gi-filter-option-label">Adoración</span>
+                  <span class="gi-filter-option-count" id="gi-filter-count-adoracion">0</span>
+                </button>
+                <div class="gi-filter-sep"></div>
+                <button class="gi-filter-action" id="gi-dedupe-btn" type="button" role="menuitem" title="Quitar canciones repetidas (mismo título, artista y tono)">
+                  <span class="gi-filter-option-label">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="12" height="12" style="vertical-align:-1px;margin-right:4px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Eliminar duplicados
+                  </span>
+                </button>
+              </div>
+              </div>
+              <div class="gi-search-wrap">
+                <input type="text" id="gi-search" class="gi-search-input gi-search-input--inline" placeholder="Buscar título, artista, letra…" title="Busca por título (primero), artista, etiquetas y letra. Filtros avanzados: &quot;tono:G&quot;, &quot;tag:navidad&quot;.">
+                <button type="button" id="gi-search-clear" class="gi-search-clear hidden" aria-label="Limpiar búsqueda" title="Limpiar búsqueda">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="gi-songs-container"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- "Sonando" — tira discreta encima del track player. Visible solo
+         cuando hay una canción activa. Click → salta a la card en Librería. -->
+    <!-- Clic con mouse salta a la canción en la Librería. NO es foco de teclado:
+         como Espacio es el Play maestro global, hacerlo focusable robaba esa
+         tecla. La × interna sí es un <button> accesible. -->
+    <div id="now-playing-banner" class="hidden np-strip" aria-live="polite" title="Ir a la canción en la Librería">
+      <!-- Grupo izquierdo (se trunca con ellipsis): el selector del medio queda
+           FIJO al centro de la barra sin importar el largo del título. -->
+      <div class="np-left">
+        <span class="np-dot" aria-hidden="true"></span>
+        <span class="np-label">Preparada</span>
+        <span class="np-title" id="np-title">—</span>
+        <span class="np-artist" id="np-artist"></span>
+        <!-- Qué audio tiene la canción (de un vistazo): SEQ = secuencia, ORIG = original. -->
+        <span class="np-badges" id="np-badges" aria-hidden="true"></span>
+      </div>
+      <button type="button" class="np-close" id="np-close-btn" title="Deseleccionar canción" aria-label="Deseleccionar canción">
+        <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="11" height="11"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- ═══ TRACK PLAYER (Secuencias / Original) ═══ -->
+    <div id="track-player-bar">
+      <div class="tp-transport">
+        <button class="icon-btn tp-play" id="tp-play-btn" title="Reproducir / Pausar (según la fuente seleccionada)">
+           <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><polygon points="5,3 19,12 5,21"/></svg>
+        </button>
+         <button class="icon-btn tp-seqonly" id="tp-seqonly-btn" title="Reproducir / Pausar SOLO la secuencia (independiente del click). Clic o mapeá un botón MIDI.">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="16" height="16"><rect x="2" y="7" width="20" height="10" rx="2"></rect><circle cx="7" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="17" cy="12" r="1.6" fill="currentColor"></circle></svg>
+         </button>
+         <button class="icon-btn tp-restart" id="tp-restart-btn" title="Volver al inicio">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+         </button>
+         <button class="icon-btn tp-loop" id="tp-loop-btn" title="Repetir (Loop)">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+         </button>
+         <button class="icon-btn tp-autoadvance" id="tp-autoadvance-btn" title="Auto-avance: encadena la siguiente canción del servicio al terminar">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+         </button>
+         <div class="tp-pitch-group" title="Tono del audio: ±1 semitono sin cambiar la velocidad. Doble clic en el número para resetear.">
+           <button class="icon-btn tp-pitch-btn" id="tp-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
+           <span class="tp-pitch-val" id="tp-pitch-val" title="Tono (semitonos) — doble clic para resetear">0</span>
+           <button class="icon-btn tp-pitch-btn" id="tp-pitch-up" type="button" title="Subir 1 semitono">▲</button>
+         </div>
+         <!-- Selector de FUENTE (movido aquí para que se vea): Secuencia / Click /
+              Original. Clickeable, táctil y MIDI-mapeable (data-source). -->
+         <div class="source-seg" role="group" aria-label="Fuente de la canción">
+           <button class="source-seg-btn" id="src-seq" data-source="sequence" title="Pad + Secuencia (fuente maestra) — clic o mapeá un botón MIDI">Secuencia</button>
+           <button class="source-seg-btn" id="src-click" data-source="click" title="Pad + Click / metrónomo — clic o mapeá un botón MIDI">Click</button>
+           <button class="source-seg-btn source-seg-btn--ref" id="src-ref" data-source="reference" title="Original / referencia (ensayo) — clic o mapeá un botón MIDI">Original</button>
+         </div>
+      </div>
+
+      <div class="tp-info">
+        <div id="tp-title">Ninguna pista cargada</div>
+        <input type="range" id="tp-progress" min="0" max="100" value="0" class="blue-slider">
+        <div class="tp-time">
+          <span id="tp-time-current">0:00</span> / <span id="tp-time-total">0:00</span>
+        </div>
+      </div>
+
+      <div class="tp-right">
+         <div class="sb-row tp-pan-row mx-relocated">
+            <span class="sr-label tp-vol-label">Pan</span>
+            <input type="range" id="tp-pan" min="-100" max="100" value="0" class="blue-slider tp-vol-slider">
+            <span class="sr-val tp-vol-val" id="tp-pan-val">C</span>
+         </div>
+         <div class="sb-row tp-vol-row mx-relocated">
+            <span class="sr-label tp-vol-label">Vol</span>
+            <input type="range" id="tp-vol" min="0" max="100" value="80" class="blue-slider tp-vol-slider">
+            <span class="sr-val tp-vol-val" id="tp-vol-val">80%</span>
+         </div>
+         <button class="icon-btn tp-close" id="tp-close-btn" title="Cerrar pista">
+           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+         </button>
+      </div>
+      <input type="file" id="tp-file-input" accept="audio/*" hidden>
+    </div>
+
+    <aside id="sidebar">
+      <div id="sidebar-overlay"></div>
+      <div id="sidebar-inner">
+        <button class="sidebar-close-btn" id="btn-sidebar-close" title="Cerrar (Esc)" aria-label="Cerrar panel lateral">✕</button>
+        <div class="sidebar-layout">
+        <nav class="sidebar-nav" aria-label="Categorías de ajustes">
+          <div class="sidebar-nav-title">Ajustes</div>
+          <button class="stab active" data-tab="audio"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>Audio</button>
+          <button class="stab" data-tab="library"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Biblioteca</button>
+          <button class="stab" data-tab="midi"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><line x1="9" y1="6" x2="9" y2="14"/><line x1="15" y1="6" x2="15" y2="14"/></svg>MIDI / Teclado</button>
+          <button class="stab" data-tab="themes"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>Temas</button>
+          <button class="stab" data-tab="service"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>Servicio</button>
+          <button class="stab" data-tab="account"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Cuenta</button>
+          <div class="sidebar-nav-sep"></div>
+          <button class="stab" data-tab="shortcuts"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>Atajos</button>
+          <button class="stab" data-tab="about"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Acerca</button>
+        </nav>
+        <div class="sidebar-scroll">
+
+          <!-- SECCIÓN: AUDIO -->
+          <div id="tab-audio" class="stab-body visible">
+            <div class="sb-label mx-relocated">Ajustes generales</div>
+            <div class="sb-card mx-relocated">
+              <div class="sb-row">
+                <span class="sr-label sr-label--wide">Maestro</span>
+                <button type="button" class="master-mute-btn" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
+                  <svg class="ic-vol" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                  <svg class="ic-mute" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                </button>
+                <input type="range" id="master-vol" min="0" max="100" value="100" class="blue-slider">
+                <span class="sr-val" id="master-vol-val">100%</span>
+              </div>
+              <div class="sb-row" title="Duración de la transición cruzada al cambiar de tono de pad (sin silencios)">
+                <span class="sr-label sr-label--wide">Crossfade</span>
+                <input type="range" id="pad-crossfade" min="5" max="40" value="20" step="1" class="blue-slider">
+                <span class="sr-val" id="pad-crossfade-val">2.0 s</span>
+              </div>
+            </div>
+
+            <div class="sb-label">Ajustes de pad</div>
+            <div class="sb-card">
+              <div class="sb-row mx-relocated">
+                <span class="sr-label">Vol</span>
+                <input type="range" id="pad-vol" min="0" max="100" value="75" class="blue-slider">
+                <span class="sr-val" id="pad-vol-val">75%</span>
+              </div>
+              <div class="sb-div mx-relocated"></div>
+              <div class="sb-row mx-relocated">
+                <span class="sr-label">Pan</span>
+                <input type="range" id="pad-pan" min="-100" max="100" value="0" class="grey-slider">
+                <span class="sr-val" id="pad-pan-val">C</span>
+              </div>
+              <div class="sb-div mx-relocated"></div>
+              <div class="sb-row">
+                <span class="sr-label">Filtro</span>
+                <input type="range" id="pad-lpf" min="800" max="18000" value="18000" class="blue-slider">
+                <div class="toggle-sw on" id="lpf-toggle"></div>
+              </div>
+            </div>
+
+            <div class="sb-label">Pads de batería</div>
+            <div class="sb-card mx-relocated">
+              <div class="sb-row">
+                <span class="sr-label sr-label--xwide">Maestro</span>
+                <input type="range" id="drum-master-vol" min="0" max="100" value="80" class="blue-slider">
+                <span class="sr-val" id="drum-master-vol-val">80%</span>
+              </div>
+            </div>
+            <div class="sb-card" id="sidebar-drum-volumes"></div>
+          </div>
+
+          <!-- SECCIÓN: BIBLIOTECA -->
+          <div id="tab-library" class="stab-body">
+            <!-- Biblioteca de audios — carpeta personalizada que sincroniza
+                 entre máquinas vía OneDrive/Dropbox/etc. -->
+            <div class="sb-label">Biblioteca de audios</div>
+            <div class="sb-card audio-lib-card">
+              <div class="audio-lib-desc">Carpeta donde se guardan Sequences y Original Tracks. Si usás OneDrive/Dropbox, configurá aquí esa ruta en cada máquina para que los audios se sincronicen automáticamente.</div>
+              <div class="audio-lib-row">
+                <span class="audio-lib-label">Ruta actual:</span>
+                <code class="audio-lib-path" id="audio-lib-path">…</code>
+              </div>
+              <div class="audio-lib-actions">
+                <button class="acc-btn ghost sm" id="btn-audio-lib-pick">Cambiar carpeta…</button>
+                <button class="acc-btn ghost sm" id="btn-audio-lib-reset" title="Volver a la carpeta interna de LivePads">Restaurar</button>
+              </div>
+              <button class="acc-btn ghost sm audio-lib-audit-btn" id="btn-audio-lib-audit" title="Busca referencias rotas, audios huérfanos y archivos aún sin descargar de la nube">Revisar audios…</button>
+              <div class="audio-lib-msg" id="audio-lib-msg" hidden></div>
+            </div>
+          </div>
+
+          <!-- SECCIÓN: MIDI / TECLADO -->
+          <div id="tab-midi" class="stab-body">
+            <div class="sb-label">MIDI / Teclado</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Asigná cualquier control de la app (pads, drums, transporte, volúmenes) a tu teclado o controlador MIDI con el modo Learn.</p>
+              <button class="sb-btn sb-btn--primary" id="set-midi-learn">Mapeo MIDI / Teclado (Learn)</button>
+              <button class="sb-btn" id="set-mappings">Ver mapeos activos</button>
+              <button class="sb-btn" id="set-midi-rescan" title="Vuelve a buscar tu controlador (si no lo reconoció o lo reconectaste)">Reconectar MIDI</button>
+            </div>
+            <div class="set-embed" id="embed-midi"></div>
+          </div>
+
+          <!-- SECCIÓN: SERVICIO -->
+          <div id="tab-service" class="stab-body">
+            <div class="sb-label">Servicio</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Verificá que todo esté listo antes de empezar, y mostrá letras y acordes en el teléfono de tu banda por WiFi.</p>
+              <button class="sb-btn" id="set-preflight">Pre-vuelo del servicio</button>
+              <button class="sb-btn" id="set-companion">Companion (móvil)</button>
+            </div>
+            <div class="set-embed" id="embed-preflight"></div>
+            <div class="set-embed" id="embed-companion"></div>
+          </div>
+
+          <!-- SECCIÓN: CUENTA -->
+          <div id="tab-account" class="stab-body">
+            <div class="sb-label">Cuenta y librerías</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Tu sesión, las librerías compartidas con tu equipo y la configuración que te sigue a cualquier equipo.</p>
+              <button class="sb-btn sb-btn--primary" id="set-account">Abrir Mi cuenta y librerías</button>
+            </div>
+            <div class="set-embed" id="embed-account"></div>
+          </div>
+
+          <!-- TAB: THEMES -->
+          <div id="tab-themes" class="stab-body">
+            <div class="themes-header"><span class="themes-title">Temas</span></div>
+            <div class="themes-list" id="themes-list"></div>
+          </div>
+
+          <!-- TAB: SHORTCUTS — populated on boot by cheatSheet.js -->
+          <div id="tab-shortcuts" class="stab-body">
+            <div class="sb-label">Atajos de teclado</div>
+            <div id="shortcuts-content" class="sb-card"></div>
+          </div>
+
+          <!-- TAB: ABOUT -->
+          <div id="tab-about" class="stab-body">
+            <div class="about-sidebar-panel">
+              <img src="assets/logo.png" alt="Logo" class="about-logo">
+              <h3 class="about-title">LIVE PADS</h3>
+              <div class="about-version" id="about-version">Edición Profesional</div>
+
+              <div class="about-update">
+                <button class="sb-btn" id="btn-check-updates">Buscar actualizaciones</button>
+                <span class="about-update-status" id="update-status"></span>
+              </div>
+
+              <p class="about-blurb">
+                Plataforma profesional de directo para iglesias y presentaciones: colchones de pads continuos, metrónomo sample-accurate, drum pads con kits, reproductor híbrido de secuencias y mapeo MIDI/teclado — con transiciones cruzadas sin silencios. Funciona 100% sin internet; en la nube tu repertorio y configuración te siguen a cualquier equipo.
+              </p>
+
+              <div class="about-features">
+                <div class="about-feat-title">Incluye</div>
+                <ul class="about-feat-list">
+                  <li><b>Cuentas en la nube</b> — inicia con correo o <b>Google</b>; tu repertorio y ajustes (MIDI, kits, tema) te siguen a cualquier equipo.</li>
+                  <li><b>Librerías compartidas</b> — invita a tu equipo por correo, con roles de editar o solo ver.</li>
+                  <li><b>Offline-first</b> — todo funciona sin internet; sincroniza solo cuando hay conexión.</li>
+                  <li><b>Editor de Stems con IA</b> — separa una canción en voz · batería · bajo · otros, 100% local (GPU/CPU).</li>
+                  <li><b>Click inteligente</b> — detecta BPM y compás y se alinea solo a la canción.</li>
+                  <li><b>Audio desde YouTube</b> — pega un enlace y descarga el audio original (con internet).</li>
+                  <li><b>Setlist</b> con letras y acordes, auto-avance y servicios compartidos.</li>
+                  <li><b>Companion móvil</b> (PWA) por WiFi — incluso sin internet, creando una red local en la laptop.</li>
+                  <li><b>MIDI/teclado</b> totalmente mapeable, con mapeos únicos y persistentes.</li>
+                  <li><b>Actualizaciones automáticas</b> — siempre la última versión.</li>
+                </ul>
+                <button class="about-tour-btn" id="about-tour" type="button">Ver tutorial otra vez</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ═══ STEMS WORKSPACE (sibling of #body, switched in by topbar tabs) ═══ -->
+  <div id="workspace-stems" class="hidden"></div>
+
+  <!-- Overlays -->
+  <div id="menu-overlay" class="hidden" onclick="closeMenu()"></div>
+  <div id="menu-popover" class="hidden">
+    <button class="menu-item menu-item--accent" id="menu-midi-learn">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><line x1="12" y1="3" x2="12" y2="21"></line><line x1="8" y1="3" x2="8" y2="12"></line><line x1="16" y1="3" x2="16" y2="12"></line></svg>
+      Mapeo MIDI / Teclado
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item" id="menu-open-settings">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes de audio
+    </button>
+    <button class="menu-item" id="menu-open-themes">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>
+      Temas visuales
+    </button>
+    <button class="menu-item" id="menu-preflight">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+      Pre-vuelo del servicio
+    </button>
+    <button class="menu-item" id="menu-mappings">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Mapeos activos
+    </button>
+    <button class="menu-item" id="menu-companion">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+      Companion (móvil)
+    </button>
+    <button class="menu-item" id="menu-account">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Mi cuenta y librerías
+    </button>
+    <div class="menu-divider"></div>
+    <button class="menu-item" id="menu-fullscreen">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      Pantalla completa
+    </button>
+    <button class="menu-item" id="menu-tour">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.7"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+      Ver tutorial otra vez
+    </button>
+    <button class="menu-item" id="menu-about">
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Acerca de Live Pads…
+    </button>
+  </div>
+
+  <div id="pad-bank-picker" class="bank-picker hidden"><div id="pad-bank-list"></div></div>
+  <div id="kit-bank-picker" class="bank-picker hidden"><div id="kit-bank-list"></div></div>
+
+  <div id="dialog-overlay" class="hidden">
+    <div class="dialog-box">
+      <h3 id="dialog-title">Guardar set</h3>
+      <p id="dialog-message" class="dialog-message hidden"></p>
+      <input class="dialog-input" id="dialog-name" placeholder="Nombre…">
+      <div class="dialog-actions">
+        <button class="d-cancel" id="dialog-cancel">Cancelar</button>
+        <button class="d-ok" id="dialog-ok">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+
+
+</div>
+<script type="module" src="js/app.js"></script>
+<!-- Google Analytics (GA4) — mismo panel que la landing (filtrable por sitio). -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-85NZS8LHJK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-85NZS8LHJK');
+</script>
+<!-- GA4: eventos del demo — clic en Descargar + primera interacción (engagement). -->
+<script>
+(function () {
+  function track(name, params) { try { gtag('event', name, params || {}); } catch (e) {} }
+  var engaged = false;
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('#demo-download')) { track('download_click', { location: 'demo' }); return; }
+    if (!engaged && e.target.closest('.key-btn, .drum-btn')) {
+      engaged = true;
+      track('demo_engaged', {});
+    }
+  }, true);
+})();
+</script>
+</body>
+</html>

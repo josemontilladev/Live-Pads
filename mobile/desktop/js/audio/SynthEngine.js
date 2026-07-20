@@ -11,6 +11,8 @@ const MASTER_MAKEUP = 2.2;
 // que sature y que apriete los pads. Súbelo/bájalo aquí si hace falta.
 const CLICK_MAKEUP = 3.2;
 
+import { forceStereoOutput } from './stereoOut.js';
+
 export class SynthEngine {
   constructor() {
     this.ctx = null;
@@ -36,6 +38,10 @@ export class SynthEngine {
     // latencyHint: 'interactive' minimizes audio buffer size for live triggering.
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC({ latencyHint: 'interactive' });
+    // Salida en estereo explicito: si el equipo se presenta como mono, todo se
+    // pliega a un canal y el paneo deja de existir (el click sale por los dos
+    // lados). Guardamos el diagnostico para poder avisarlo en la UI.
+    this.outputInfo = forceStereoOutput(this.ctx);
     this.masterGain = this.ctx.createGain(); this.masterGain.gain.value = 1;
     this.padGain    = this.ctx.createGain(); this.padGain.gain.value = 0.75;
     this.padPanNode = this.ctx.createStereoPanner();
@@ -995,7 +1001,8 @@ export class SynthEngine {
       .map(async p => {
         try {
           // NUBE: los samples propios (livepads://app/UserDrums/…) se resuelven
-          // a un blob CACHEADO de R2 (2º cambio de kit = instantáneo).
+          // a un blob CACHEADO de R2 (2º cambio de kit = instantáneo). En
+          // Electron no existe el resolvedor y se usa la ruta tal cual.
           let src = p.sample;
           const resolver = window.__cloudResolveFile || window.__cloudResolve;
           if (typeof src === 'string' && src.startsWith('livepads://') && resolver) {
@@ -1199,8 +1206,15 @@ export class SynthEngine {
     // mensajes. open() es idempotente. Si rechaza (puerto tomado por otra app),
     // lo registramos para poder avisar "ocupado".
     const bindAll = () => {
+      // Con varios controladores enchufados (o puertos fantasma que crean
+      // algunos drivers), se puede fijar CUAL usar. Si el elegido no esta
+      // presente —lo desenchufaron, cambio de puerto USB— se ligan todos: en
+      // vivo es preferible que responda cualquiera antes que nada.
+      const only = this._midiInputId;
+      const ids = [...midiAccess.inputs.values()].map(i => i.id);
+      const useFilter = !!only && ids.includes(only);
       for (const i of midiAccess.inputs.values()) {
-        i.onmidimessage = this._onMidiMessage;
+        i.onmidimessage = (!useFilter || i.id === only) ? this._onMidiMessage : null;
         try {
           const p = i.open && i.open();
           if (p && typeof p.then === 'function') p.catch(() => {});
@@ -1234,6 +1248,24 @@ export class SynthEngine {
     if (this._midiPollTimer) clearInterval(this._midiPollTimer);
     this._midiPollTimer = setInterval(() => sync(null), 1000);
   }
+
+  // Entradas MIDI visibles ahora mismo, para el selector de Ajustes.
+  listMidiInputs() {
+    if (!this._midiAccess) return [];
+    return [...this._midiAccess.inputs.values()].map(i => ({
+      id: i.id,
+      name: i.name || 'Entrada MIDI',
+      manufacturer: i.manufacturer || '',
+      state: i.state,
+    }));
+  }
+
+  // Fija el controlador a usar (null/'' = todos). Re-liga de inmediato.
+  setMidiInput(id) {
+    this._midiInputId = id || null;
+    if (typeof this._midiSync === 'function') this._midiSync(null, true);
+  }
+  getMidiInput() { return this._midiInputId || null; }
 
   // Re-escaneo MANUAL: pide un MIDIAccess FRESCO. Resuelve casos donde el handle
   // anterior no "ve" el controlador re-enchufado o que otra app liberó (el poll

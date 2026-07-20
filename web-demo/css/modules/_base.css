@@ -1,0 +1,144 @@
+/* Inter shipped locally (variable font, all weights) so the app loads
+   instantly and works fully offline — no Google Fonts network request. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('../../assets/fonts/InterVariable.woff2') format('woff2');
+}
+
+:root {
+  --bg-main: #0a0a0a;
+  --bg-sidebar: #050505;
+  --bg-surface: #0f0f0f;
+  --bg-card: #141414;
+  --bg-hover: #1f1f1f;
+  --text: #ffffff;
+  --text-muted: #a3a3a3;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --blue: #FBAE00;
+  /* Premium palette extensions — populated dynamically by applyTheme() with
+     a secondary accent (for highlights) and a per-theme glow color (used by
+     active states and focus rings). Fallbacks here mirror the default theme. */
+  --accent: var(--blue);
+  --accent2: #FFD45C;
+  --glow: rgba(251, 174, 0, 0.20);
+  /* Gradiente de acento reutilizable para fondos de BOTONES (texto e icono).
+     Usa los dos accents del tema activo → se adapta solo a cada paleta. */
+  --accent-grad: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  /* Texto/icono que va encima del accent (azul/ámbar). Negro azulado para
+     conservar el contraste de marca consistente en toda la app. */
+  --on-accent: #0a0a14;
+  --r-sm: 5px;
+  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --gap-lg: 28px;
+  --gap-md: 18px;
+  --gap-sm: 10px;
+  /* Radios alineados a la guía Linear (≤8px). _linear.css declara los mismos
+     valores; mantenerlos idénticos aquí evita que un cambio de orden de
+     imports devuelva los radios grandes viejos. */
+  --r-lg: 8px;
+  --r-md: 6px;
+  /* Tokens semánticos: éxito y peligro. TODO color de estado en la app debe
+     usar estos (no #4ade80 / #ff4747 / #ff5f57 hardcodeados) para que los
+     themes puedan re-skinnearlos. */
+  --ok: #4ade80;
+  --warn: #f59e0b;
+  --danger: #ff4747;
+  --danger-soft: #ff5f57;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-h: rgba(255, 255, 255, 0.07);
+  --glass-a: rgba(255, 255, 255, 0.12);
+}
+
+/* PERF: We deliberately do NOT apply a universal `body *` transition.
+   An earlier version had `body * { transition: all 0.5s }` which made every
+   class toggle, hover, and DOM mutation animate for half a second — caught
+   even our surgical updates and dragged the whole UI to a crawl. Each
+   element now declares its own transition only where it makes sense (hover
+   states, sliders, etc.). Theme switching is instant — fine for live use. */
+
+.hidden { display: none !important; }
+
+/* ── Premium polish layer ─────────────────────────────────────────────
+   Subtle gradient backgrounds, refined borders, and per-theme glows.
+   All driven by CSS variables set by applyTheme(). Zero runtime cost
+   — CSS variable lookup is essentially free, no JS work per frame. */
+
+/* Cards: replace the flat `background: var(--bg-card)` with a subtle
+   2-stop gradient that adds depth without breaking dark themes. */
+.gi-song-item,
+.preset-item,
+.theme-item {
+  background:
+    linear-gradient(155deg, var(--bg-card) 0%, var(--bg-surface) 100%);
+}
+
+/* Hover lifts use a stronger border + a wider glow */
+.preset-item:hover,
+.theme-item:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+/* Accent / primary buttons: gradient using both accents */
+.accent-btn,
+.btn-add-gi-song,
+button.pi-play {
+  background: var(--accent-grad);
+}
+
+/* Section panels gain a refined inner highlight */
+#bank-section,
+#panel-setlist,
+#panel-metro {
+  background:
+    linear-gradient(155deg, var(--bg-card) 0%, var(--bg-surface) 100%);
+}
+
+/* Title text in setlist + sidebar gets a hairline highlight */
+.setlist-title,
+.sidebar-title {
+  letter-spacing: 0.6px;
+}
+
+/* Refined scrollbar that matches the active theme */
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-main);
+  background-color: var(--bg-main);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: relative;
+}
+
+#body {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  position: relative;
+}
+
