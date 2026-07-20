@@ -87,6 +87,8 @@ export function bindMidiHandlers(deps) {
   // is connected (or before MIDI access resolves on app boot).
   let midiEverConnected = false;
   const renderDevicePill = (names, evt) => {
+    // Avisa a Ajustes para que repueble el selector de controlador.
+    try { window.dispatchEvent(new Event('livepads:midi-devices')); } catch (_) {}
     const pill = q('#midi-status-pill');
     // Aviso de conexión/desconexión de un controlador (no en el arranque, solo
     // en cambios reales mientras se usa la app).
@@ -143,6 +145,14 @@ export function bindMidiHandlers(deps) {
       if (same) deleteMapping(key);
     }
   };
+
+  // Controlador elegido en Ajustes (solo local: el id del puerto es de esta
+  // maquina). Se aplica antes de ligar, para no escuchar puertos que el usuario
+  // descarto a proposito.
+  try {
+    const savedInput = localStorage.getItem('livepads-midi-input');
+    if (savedInput) engine.setMidiInput?.(savedInput);
+  } catch (_) {}
 
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;

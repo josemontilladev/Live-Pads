@@ -1,0 +1,284 @@
+/* ════════════════════════════════════════════════════════════════════
+   Piano virtual — panel acoplado en la parte baja de Stems. Teclado DOM
+   tocable con mouse/MIDI + grabación a pista. Estética alineada a la app.
+   ════════════════════════════════════════════════════════════════════ */
+/* Botón-icono "Piano" junto a SNAP — abre/cierra el panel flotante. */
+.stems-piano-btn {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.stems-piano-btn:hover { color: var(--accent); border-color: var(--accent); }
+.stems-piano-btn.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Panel FLOTANTE y arrastrable (no ocupa espacio en el layout de Stems). */
+.stems-piano {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: min(960px, 94vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 210px;
+  padding: 10px 12px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  /* Redimensionable arrastrando la esquina inferior derecha. */
+  resize: both;
+  overflow: hidden;
+  min-width: 360px;
+  min-height: 150px;
+  max-width: 98vw;
+  max-height: 92vh;
+}
+/* display:flex de la clase pisaba el atributo hidden → forzar oculto. */
+.stems-piano[hidden] { display: none; }
+
+/* El piano de PADS arranca más arriba que el de Stems: en Pads hay una barra de
+   reproductor abajo (#track-player-bar ≈ 88px) que, con bottom:22px, lo tapaba.
+   Solo afecta la posición inicial — al arrastrarlo queda donde lo dejes. */
+#pads-piano { bottom: 100px; }
+/* Pista visual de la esquina redimensionable (la manija nativa es sutil). */
+.stems-piano::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 11px;
+  height: 11px;
+  pointer-events: none;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  background: linear-gradient(135deg,
+    transparent 0 55%, var(--text-muted) 55% 64%,
+    transparent 64% 73%, var(--text-muted) 73% 82%,
+    transparent 82%);
+}
+/* Al pasar el mouse por el panel, el handle de redimensionar se hace evidente. */
+.stems-piano:hover::after { opacity: 0.9; }
+
+/* Barra de controles */
+.pk-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  cursor: move;                 /* zona de arrastre del panel flotante */
+}
+.pk-bar button, .pk-bar input, .pk-bar label { cursor: default; }
+.pk-bar button, .pk-bar .pk-oct-btn, .pk-bar .pk-rec, .pk-bar .pk-close { cursor: pointer; }
+.pk-bar input[type="range"] { cursor: pointer; }
+.pk-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.pk-inst {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pk-reverb {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.pk-reverb:hover { color: var(--accent); border-color: var(--accent); }
+.pk-reverb.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.pk-octave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pk-oct-btn {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 14px; line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.pk-oct-btn:hover { color: var(--accent); border-color: var(--accent); }
+.pk-oct-label {
+  min-width: 62px;
+  text-align: center;
+  font-size: 11px; font-weight: 700;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+}
+.pk-vol {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.pk-vol .stems-range { width: 110px; }
+
+/* Botón de grabar */
+.pk-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 11px; font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.pk-rec:hover { border-color: var(--danger-soft); }
+.pk-rec-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--danger-soft);
+  flex-shrink: 0;
+}
+.pk-rec.is-recording {
+  border-color: var(--danger-soft);
+  background: color-mix(in srgb, var(--danger-soft) 18%, transparent);
+}
+.pk-rec.is-recording .pk-rec-dot { animation: pk-rec-pulse 1s ease-in-out infinite; }
+@keyframes pk-rec-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.pk-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.pk-close {
+  margin-left: auto;
+  background: none; border: none; padding: 0 2px;
+  color: var(--text-muted);
+  font-size: 18px; line-height: 1; cursor: pointer;
+  transition: color 0.15s;
+}
+.pk-close:hover { color: var(--text); }
+
+/* ── Teclado ──────────────────────────────────────────────────────── */
+.pk-keys {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  --pk-nwhite: 22;
+  user-select: none;
+  touch-action: none;
+}
+.pk-whites {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+.pk-white {
+  flex: 1 1 0;
+  position: relative;
+  background: linear-gradient(180deg, #fbfbfb, #ececec);
+  border: 1px solid #2a2a30;
+  border-radius: 0 0 5px 5px;
+  margin-right: -1px;          /* colapsa bordes contiguos */
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+}
+.pk-white:first-child { border-top-left-radius: 4px; }
+.pk-white:last-child { border-top-right-radius: 4px; margin-right: 0; }
+.pk-white .pk-name {
+  font-size: 9px;
+  font-weight: 700;
+  color: #8a8a93;
+  pointer-events: none;
+}
+/* Letra del teclado de la PC sobre cada tecla (octava base). */
+.pk-pckey {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 3px;
+  padding: 0 3px;
+  pointer-events: none;
+}
+.pk-black .pk-pckey {
+  bottom: 7px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+.pk-white.is-active {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 55%, #fff),
+    color-mix(in srgb, var(--accent) 78%, #fff));
+}
+
+.pk-blacks {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 62%;
+  pointer-events: none;        /* la capa no captura; cada tecla sí */
+}
+.pk-black {
+  position: absolute;
+  top: 0;
+  width: calc(100% / var(--pk-nwhite) * 0.62);
+  height: 100%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #3a3a42, #111114);
+  border: 1px solid #000;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 -3px 4px rgba(255,255,255,0.08);
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 2;
+}
+.pk-black.is-active {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 70%, #000),
+    color-mix(in srgb, var(--accent) 92%, #000));
+}
+
+/* El botón de piano del topbar sirve en ambas pantallas: en Pads togglea el
+   piano de Pads, en Stems el piano de Stems (lógica context-aware en app.js). */

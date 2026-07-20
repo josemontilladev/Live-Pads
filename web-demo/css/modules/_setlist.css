@@ -1,0 +1,1763 @@
+/* ── PANEL SETLIST (ahora en stage) ──
+   Panel itself does NOT scroll; the inner song container handles that.
+   This keeps .gi-sticky-header (search + filter row) pinned at the top
+   while the user scrolls through 80+ cards. The setlist header, the
+   now-playing banner and the tab toggle stay above the sticky search. */
+#panel-setlist {
+  grid-column: 3;
+  grid-row: 1 / -1;   /* todo el lado derecho, desde arriba hasta abajo */
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+#gi-songs-container,
+#service-songs-container {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Breathing room so the first card's hover lift (translateY + glow) isn't
+     clipped against the scroll container's top edge. */
+  padding-top: 6px;
+  scroll-padding-top: 8px; /* pinned active card isn't flush to the top edge */
+}
+
+/* Beat visualizer */
+#metro-beat-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#metro-beat-dots { display: flex; gap: 10px; align-items: center; }
+.beat-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  /* PERF: only the hover scale is animated. Beat on/off flashes are
+     instant so the tempo is perceived correctly at high BPM (a 200ms
+     fade would smear at >150 BPM). */
+  transition: transform 0.15s;
+  cursor: pointer;
+  position: relative;
+}
+.beat-dot.on { background: var(--blue); box-shadow: 0 0 10px var(--blue); }
+.beat-dot.accent { border: 2px solid var(--blue); background: rgba(255,188,0,0.2); }
+.beat-dot.accent.on { background: var(--blue); box-shadow: 0 0 15px var(--blue); }
+.beat-dot:hover { transform: scale(1.2); background: rgba(255,255,255,0.2); }
+#metro-bpm-live {
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Square variant of the metro start button (used in the inline metro row) */
+.metro-main-btn--square {
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border-radius: var(--r-md);
+}
+
+/* Start button */
+.metro-main-btn {
+  width: 100%; padding: 14px;
+  background: var(--accent-grad); border: none; border-radius: var(--r-md);
+  color: #000; font-size: 14px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; letter-spacing: 0.3px;
+}
+.metro-main-btn:hover { filter: brightness(1.1); }
+.metro-main-btn:active { transform: scale(0.97); }
+.metro-main-btn.running {
+  background: var(--danger);
+  color: #fff;
+  position: relative;
+}
+/* Soft heartbeat while the metronome runs. Uses a pseudo-element ring animated
+   with transform+opacity (GPU-composited) instead of animating box-shadow
+   spread — the old version repainted every frame for the whole service, a real
+   cost on weak laptop GPUs. */
+.metro-main-btn.running::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 50%, transparent);
+  pointer-events: none;
+  animation: metro-running-pulse 1.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes metro-running-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0;    transform: scale(1.22); }
+}
+
+/* Metro cards */
+.metro-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px;
+}
+.metro-section-label {
+  font-size: 10px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px;
+}
+
+/* BPM controls */
+.metro-bpm-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 14px;
+}
+.metro-adj {
+  width: 36px; height: 36px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; flex-shrink: 0;
+}
+.metro-adj:hover { border-color: var(--blue); color: var(--blue); }
+.metro-adj svg { width: 16px; height: 16px; }
+.metro-bpm-big {
+  font-size: 42px; font-weight: 700; color: var(--blue);
+  font-variant-numeric: tabular-nums; letter-spacing: -2px;
+  text-align: center; flex: 1;
+}
+.metro-slider { width: 100%; margin-bottom: 12px; }
+
+/* Tap tempo */
+.tap-btn {
+  width: 100%; padding: 12px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); font-weight: 600; font-size: 12px;
+  cursor: pointer; letter-spacing: 1px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.tap-btn:active { background: var(--accent-grad); color: #000; border-color: var(--blue); transform: scale(0.97); }
+
+/* Time signature */
+.metro-sig-row {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+}
+.sig-btn {
+  padding: 10px 4px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; text-align: center;
+}
+.sig-btn:hover { border-color: var(--blue); color: var(--text); }
+.sig-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
+
+/* Multiplier */
+.metro-mult-btn {
+  flex: 1; padding: 8px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.metro-mult-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
+
+/* Sound buttons */
+.metro-sound-row  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.metro-sound-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.sound-btn {
+  padding: 10px 6px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text-muted); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; text-align: center;
+}
+.sound-btn:hover { border-color: var(--blue); color: var(--text); }
+.sound-btn.active { background: var(--accent-grad); color: #000; border-color: var(--blue); }
+
+/* Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%; height: 4px;
+  background: var(--border-strong); border-radius: 3px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: #fff; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: transform 0.1s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+input.blue-slider {
+  background: linear-gradient(to right, var(--blue) 0%, var(--blue) var(--pct, 50%), rgba(255,255,255,0.12) var(--pct, 50%));
+}
+/* Pan slider: grey track with white line at center */
+input.pan-slider {
+  background: linear-gradient(to right, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.12) 50%);
+  position: relative;
+}
+
+/* Toggle */
+.toggle-sw {
+  width: 42px; height: 22px; background: var(--bg-hover); border-radius: var(--r-md);
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle-sw.on { background: var(--blue); }
+.toggle-sw::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  background: var(--text-muted); border-radius: 50%;
+  transition: transform 0.2s, background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.toggle-sw.on::after { transform: translateX(20px); background: #000; }
+
+/* ── GI-SETLIST ── */
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
+.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: #fff; margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
+.gi-search-input:focus { border-color: var(--blue); }
+/* Drag & Drop: el resto del row (.gi-song-item, .gi-badge, .action-btn,
+   .gi-song-actions) lo define el bloque "Spotify-style rows" más abajo. */
+.drag-over { border-top: 3px solid var(--blue) !important; }
+
+/* ── GI-SETLIST — Spotify-style rows ── */
+
+/* Library tab: lock search + filters at the top of the panel, only the song
+   list scrolls. #gi-setlist-list becomes a vertical flex container so the
+   header (.gi-sticky-header) keeps its natural height and #gi-songs-container
+   absorbs the remaining space and scrolls on its own. */
+#gi-setlist-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#gi-setlist-list .gi-sticky-header {
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+}
+#gi-setlist-list.scrolled .gi-sticky-header {
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Filter icon button (between search and the "+" add). The orange dot
+   appears only when a non-default genre filter is active.
+   Tamaño unificado con el toggle de búsqueda y el botón de + para que la
+   fila se vea ordenada (3 capsulas del mismo alto). */
+.gi-filter-toggle {
+  position: relative;
+  width: 32px; height: 32px;
+  border-radius: var(--r-lg);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.gi-filter-toggle:hover { color: var(--text); border-color: var(--blue); }
+.gi-filter-toggle.active { color: var(--blue); border-color: var(--blue); background: rgba(0, 170, 255, 0.06); }
+.gi-filter-dot {
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 6px var(--blue);
+}
+
+/* Dropdown menu that replaces the inline filter chips. Anchors below the
+   filter icon button (which is positioned within .gi-search-row). */
+.gi-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 50px; /* nudged so it sits under the filter icon, not under "+" */
+  min-width: 170px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 6px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  display: flex; flex-direction: column; gap: 2px;
+  animation: gi-menu-pop 0.14s ease;
+}
+@keyframes gi-menu-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.gi-filter-option {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  padding: 9px 12px;
+  background: transparent; border: none;
+  color: var(--text); font-size: 12px; font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer; text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.gi-filter-option:hover { background: var(--bg-hover); }
+.gi-filter-option.active {
+  background: rgba(0, 170, 255, 0.08);
+  color: var(--blue);
+  font-weight: 600;
+}
+.gi-filter-option-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 2px 7px;
+  border-radius: var(--r-md);
+  min-width: 22px; text-align: center;
+}
+.gi-filter-option.active .gi-filter-option-count {
+  background: rgba(0, 170, 255, 0.18);
+  color: var(--blue);
+}
+
+/* When the song list is scrolled, collapse only the Setlist title row to
+   reclaim space. The Presets/Librería/Servicio tabs stay pinned (like the
+   search input) so the user can switch tabs without scrolling back up. */
+#panel-setlist.songs-scrolled .setlist-header {
+  max-height: 0;
+  min-height: 0; /* anula el min-height del header para que el colapso por scroll funcione */
+  opacity: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-width: 0;
+}
+.setlist-header,
+.setlist-tabs-toggle {
+  transition: max-height 0.22s ease, opacity 0.18s ease,
+              margin-top 0.22s ease, margin-bottom 0.22s ease,
+              padding 0.22s ease;
+  max-height: 80px; /* large enough for normal layout */
+  overflow: hidden;
+}
+#gi-songs-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px; /* breathing room for the scrollbar */
+}
+
+/* Same locked-header pattern for the Servicio tab. */
+#service-setlist-list:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#service-setlist-list .service-actions {
+  flex-shrink: 0;
+}
+#service-songs-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
+.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
+.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+/* Search */
+.gi-search-input {
+  width: 100%; padding: 6px 12px 6px 32px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--r-lg); color: #fff; margin-bottom: 10px;
+  font-size: 12px; outline: none; transition: border-color 0.2s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 11px center;
+  height: 32px;
+  box-sizing: border-box;
+}
+.gi-search-input:focus { border-color: var(--blue); }
+
+/* (Antes vivían aquí .gi-filter-btn y .gi-list-header — huérfanos sin
+    HTML que los usara desde que el filtro pasó a ser un menú dropdown
+    y las cards no tienen header de columnas. Eliminados.) */
+
+/* Song row — Spotify style */
+.gi-song-item { padding: 9px 11px 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; display: flex; flex-direction: column; gap: 4px; position: relative; overflow: hidden;
+  /* Skip rendering offscreen cards — faster initial paint + smoother scroll
+     with large libraries. `auto 72px` lets the browser remember each card's
+     real height (collapsed ~72px) so the scrollbar doesn't jump. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+.gi-song-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+/* Row number column (the play indicator is rendered inside .gi-row-num
+   via .gi-row-num-text / .gi-row-num-play; active-song toggles which one
+   is visible). On hover we only light up the card border + background,
+   the row number itself stays put so the title doesn't shift left. */
+.gi-row-num {
+  font-size: 12px; color: var(--text-muted); font-weight: 600;
+  text-align: center; min-width: 20px; font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* Carátula de la canción — miniatura de YouTube (livepads://) o, si no hay,
+   un placeholder con la inicial del título sobre un tinte. La barrita de
+   acento a la izquierda da el look colorido/organizado del setlist. */
+.gi-song-cover {
+  position: relative;
+  width: 52px; height: 52px;
+  flex-shrink: 0;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--song-accent, var(--accent));
+  display: flex; align-items: center; justify-content: center;
+}
+.gi-song-cover img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gi-song-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
+.gi-cover-fallback {
+  font-size: 21px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: uppercase;
+}
+
+/* Línea de metadatos del modelo: tono · BPM · género (debajo del artista). */
+.gi-song-meta-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* Title + artist block */
+.gi-song-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+/* ── "En servicio hoy" ──────────────────────────────────────────────
+   Marca de un vistazo las canciones de la librería que están en el servicio
+   activo. Chip verde bajo los metadatos + un tinte sutil en el borde. */
+.gi-inservice-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #052e1a;
+  background: linear-gradient(180deg, #4ade80, #34d399);
+  box-shadow: 0 0 8px color-mix(in srgb, #34d399 45%, transparent);
+}
+.gi-song-item.in-service {
+  border-color: color-mix(in srgb, #34d399 45%, var(--border));
+}
+/* Cuando además es la canción activa, gana el realce de activa (no duplicar). */
+.gi-song-item.in-service.active-song { border-color: var(--accent); }
+.gi-song-title {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gi-song-artist {
+  font-size: 11px; color: var(--text-muted); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Right side: meta badges + action buttons */
+.gi-song-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.gi-song-meta {
+  display: flex; gap: 5px; align-items: center;
+}
+.gi-badge {
+  padding: 2px 7px; border-radius: var(--r-lg);
+  background: rgba(255,255,255,0.07); color: var(--text-muted);
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+  letter-spacing: 0.3px;
+  /* Altura fija + line-height controlado para que el alineamiento vertical
+     no salte al pasar el mouse por la card (el hover empuja el row 1px
+     arriba; sin esto, los badges se reposicionan visiblemente). */
+  line-height: 14px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+}
+.gi-badge.bpm { color: var(--text-muted); }
+.gi-badge.key { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--blue); }
+.gi-badge.genre { display: none; } /* Hide genre — too long for compact layout */
+.gi-badge.tag {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  text-transform: lowercase;
+}
+
+/* Action buttons — hidden until hover */
+.gi-song-actions { display: flex; gap: 4px; align-items: center; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.05); }
+/* El ⋮ se empuja al extremo derecho; los iconos de uso en vivo quedan a la izquierda. */
+.gi-song-actions .btn-more { margin-left: auto; }
+/* "+" para añadir al servicio (un clic) — acento al pasar el mouse. */
+.action-btn.btn-add { color: var(--accent); }
+.action-btn.btn-add:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); }
+/* Ya está en la lista activa → ✓ verde (evita agregarla dos veces). */
+.action-btn.btn-add.is-added { color: var(--ok); }
+.action-btn.btn-add.is-added:hover { background: color-mix(in srgb, var(--ok) 16%, transparent); border-color: var(--ok); }
+/* ↑↓ reordenar el servicio — visibles pero secundarios. */
+.action-btn.btn-move-up, .action-btn.btn-move-down { color: color-mix(in srgb, var(--text) 62%, transparent); }
+.action-btn.btn-move-up:hover, .action-btn.btn-move-down:hover { color: var(--text); background: color-mix(in srgb, var(--text) 12%, transparent); }
+
+.action-btn {
+  width: 26px; height: 22px; border-radius: 6px;
+  border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+  flex-shrink: 0;
+}
+.action-btn:hover { color: var(--blue); background: rgba(255,255,255,0.08); }
+.action-btn svg { width: 13px; height: 13px; }
+/* Cabina táctil: agranda el área tocable de las acciones por canción a ~40px
+   (sin agrandar el icono), para no errar entre "play secuencia" y "play
+   original" en una tablet con luz baja. Solo en punteros gruesos (no desktop). */
+@media (pointer: coarse) {
+  .action-btn { width: 40px; height: 40px; }
+}
+
+/* Drag & Drop */
+.gi-song-item.dragging { opacity: 0.3; background: var(--bg-card); }
+
+/* Active song highlight — class-based so applyGiSong() can toggle the
+   indicator on two cards instead of re-rendering the whole list.
+   Uses var(--glow) so the highlight color matches the active theme. */
+.gi-song-item.active-song {
+  border-color: var(--accent);
+  background:
+    linear-gradient(120deg, var(--glow), transparent 70%),
+    var(--bg-card);
+  box-shadow: 0 0 14px var(--glow);
+  position: relative;
+}
+/* Left-edge accent bar — readable from across the room. The bar uses the
+   theme accent so it tints with the active palette. */
+.gi-song-item.active-song::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 4px;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 0 8px var(--glow);
+}
+.gi-song-item.active-song .gi-song-title {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 14px;
+}
+.gi-song-item.active-song .gi-row-num {
+  color: var(--accent) !important;
+}
+/* Each card renders BOTH the row number and the play icon — the active-song
+   class swaps which one is visible, no innerHTML rebuild needed. */
+.gi-row-num-play { display: none; }
+.gi-song-item.active-song .gi-row-num-text { display: none; }
+.gi-song-item.active-song .gi-row-num-play { display: inline-block; }
+/* Drag-and-drop drop indicator (Service list). Renders a glowing
+   horizontal bar at the TOP of the card the dragged item would land
+   above — clearer signal than a subtle border-top. The dragged item
+   itself fades via .dragging defined above. */
+.gi-song-item.drag-over::after {
+  content: '';
+  position: absolute;
+  left: 6px; right: 6px; top: -3px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--glow);
+  pointer-events: none;
+  /* Animate the bar growing in from 0 width so the cue feels precise. */
+  animation: drop-bar-in 0.14s ease-out;
+}
+@keyframes drop-bar-in {
+  from { transform: scaleX(0.6); opacity: 0; }
+  to   { transform: scaleX(1);   opacity: 1; }
+}
+
+/* ── Song Card layout (replaces inline styles in songCard.js) ── */
+.gi-song-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.gi-song-row-left {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.gi-song-item .gi-row-num {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 20px;
+  text-align: center;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gi-song-item .gi-song-main {
+  flex: 1;
+  min-width: 0;
+}
+.gi-song-item .gi-song-title {
+  /* Texto a todo el ancho: el título envuelve hasta 2 líneas para que no se
+     corte (los títulos largos con "(feat. …)" se leen completos). */
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: normal;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.gi-song-item .gi-song-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.gi-badge.hidden-genre { display: none; }
+.gi-song-item .gi-song-actions {
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Action button state colors — were inline styles, now driven by classes */
+.action-btn.btn-lyrics.no-lyrics {
+  opacity: 0.55;
+}
+.action-btn.btn-lyrics.has-lyrics {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.action-btn.btn-lyrics.has-lyrics.lyrics-open {
+  background: var(--glow);
+}
+.action-btn.btn-seq.has-audio,
+.action-btn.btn-orig.has-audio {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+/* Mini-menú "Canción Original": elegir subir archivo o descargar de YouTube */
+.orig-src-menu {
+  position: fixed;
+  z-index: 9500;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  min-width: 152px;
+  animation: orig-src-in .1s ease-out;
+}
+@keyframes orig-src-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.orig-src-menu button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.orig-src-menu button:hover { background: var(--bg-hover); color: var(--text); }
+
+.about-tour-btn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.about-tour-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* Quitar del SERVICIO de hoy (acción ligera) — gris, sin alarma visual */
+.action-btn.btn-remove { color: var(--text-dim, #9aa0ad); }
+.action-btn.btn-remove:hover { color: var(--text, #e8eaf0); }
+
+/* Eliminar de la LIBRERÍA (irreversible) — rojo + papelera para distinguir */
+.action-btn.btn-remove-lib { color: var(--danger); }
+.action-btn.btn-remove-lib:hover { color: #ff7a7a; }
+
+/* "..." — acciones secundarias (editar, eliminar). Tono apagado para no
+   competir con las acciones primarias de la fila. */
+.action-btn.btn-more { color: var(--text-dim, #9aa0ad); }
+.action-btn.btn-more:hover { color: var(--text, #e8eaf0); }
+.action-btn.btn-more[aria-expanded="true"] { color: var(--blue); }
+
+/* Popover anclado al botón "..." — mismo lenguaje visual sutil que
+   .orig-src-menu (el desplegable de "subir audio / desde YouTube"). */
+.card-more-menu {
+  position: fixed;
+  z-index: 9500;
+  min-width: 152px;
+  padding: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: orig-src-in .1s ease-out;
+}
+.card-more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.card-more-item:hover { background: var(--bg-hover); color: var(--text); }
+.card-more-item.danger { color: var(--text-muted); }
+.card-more-item.danger:hover { background: var(--bg-hover); color: #ff7a7a; }
+.card-more-item .cmm-ico { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; opacity: 0.8; }
+.card-more-item .cmm-ico svg { width: 13px; height: 13px; }
+
+/* Búsqueda dentro del Servicio (pestaña Servicio) */
+.svc-search-row { position: relative; margin: 8px 0 6px; }
+.svc-search-row .gi-search-input { width: 100%; padding-right: 30px; box-sizing: border-box; }
+.svc-search-row .gi-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+
+.sound-btn { padding: 6px 4px; font-size: 10px; }
+
+/* Setlist header buttons (Sync / Import / Export) visibility per active
+   tab. #panel-setlist[data-active-tab="..."] is set por JS al togglear tabs.
+   Estas acciones solo aplican a la Librería. */
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-import-gi,
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-export-gi,
+#panel-setlist[data-active-tab="service-setlist-list"] #btn-sync-gi {
+  display: none;
+}
+
+/* ── Service tab header (prev/next/clear buttons) ─────────────────── */
+.service-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+.service-actions-text {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.service-actions-label {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;            /* el nombre del setlist en una sola línea */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;                /* es un selector: clic → elegir/crear lista */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+}
+.service-actions-label::after {
+  content: "▾";
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.service-actions-label:hover { color: var(--accent); }
+.service-actions-label:hover::after { color: var(--accent); }
+.service-actions-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.service-actions-meta:empty { display: none; }
+.service-actions-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.service-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  padding: 0;
+}
+.svg-nudge-up   { margin-top: -1px; }
+.svg-nudge-down { margin-top: 1px; }
+/* Service-list "vaciar" trash icon — destructive accent on hover. */
+.btn-clear-service {
+  color: var(--danger);
+  margin-left: 8px;
+}
+.btn-clear-service:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+/* Reusable empty-state box (dashed border + muted text) */
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  border: 2px dashed var(--border);
+  border-radius: var(--r-md);
+}
+
+
+/* ── Inline edit form (Library only) ───────────────────────────────────
+   Rendered into a song card when the user clicks the pencil action.
+   Replaces the card's inner HTML; the card scaffold is reused so the
+   visual position doesn't jump. */
+.gi-edit-form {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+.gi-edit-row     { display: flex; gap: 8px; }
+.gi-edit-actions { display: flex; gap: 8px; margin-top: 6px; }
+/* Fila "Guardar en [biblioteca]" (crear/editar canción, Pads y Stems). */
+.gi-edit-lib-row {
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.gi-edit-lib-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text-muted); white-space: nowrap;
+}
+.gi-edit-lib-row .edit-library { flex: 1; width: 0; }
+.gi-edit-input {
+  width: 100%;
+  padding: 9px 11px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.gi-edit-input::placeholder { color: var(--text-muted); }
+.gi-edit-input--title { font-size: 14px; font-weight: 700; }
+.gi-edit-input--small { flex: 1; width: 0; text-align: center; }
+select.gi-edit-input { cursor: pointer; text-align: left; }
+.gi-edit-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--glow);
+  background: var(--bg-card);
+}
+
+.gi-edit-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--r-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+.gi-edit-btn.save {
+  background: var(--accent-grad);
+  color: #0a0a14; border-color: transparent; font-weight: 600;
+}
+.gi-edit-btn.save:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+.gi-edit-btn.cancel:hover { border-color: var(--text-muted); color: var(--text); background: var(--bg-hover); }
+
+/* ── "Sonando" — tira discreta encima del track player ───────────────
+   Una sola línea, baja prominencia: punto pulsante + "Sonando" + título
+   en línea. Click salta a la card activa en la Librería. Oculta cuando
+   no hay canción activa (refreshActiveSongHighlights togglea .hidden). */
+#now-playing-banner.np-strip {
+  /* Dos zonas: [info 1fr] [× a la derecha]. (Antes había una 3ª columna para
+     el selector de fuente — al moverse al player, la × quedaba huérfana en el
+     centro de la barra.) */
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 12px;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+#now-playing-banner.np-strip:hover { background: rgba(255,255,255,0.025); }
+#now-playing-banner.np-strip.hidden { display: none; }
+/* Zona izquierda: dot + label + título + artista, truncada con ellipsis. */
+#now-playing-banner .np-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;       /* permite que el título encoja y haga ellipsis */
+  overflow: hidden;
+}
+/* La × a la derecha del todo (3a columna de la grid). */
+#now-playing-banner .np-close { justify-self: end; }
+
+#now-playing-banner .np-dot {
+  flex-shrink: 0;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: np-pulse 1.8s ease-in-out infinite;
+}
+@keyframes np-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+/* Estado "preparada" (seleccionada, nada suena): punto estático y atenuado, sin
+   la pulsación de "sonando". La clase .is-live (la pone refreshNowPlayingLiveState)
+   reactiva la pulsación y el color de acento cuando algo realmente suena. */
+#now-playing-banner:not(.is-live) .np-dot {
+  animation: none;
+  background: var(--text-muted);
+  box-shadow: none;
+  opacity: 0.7;
+}
+#now-playing-banner:not(.is-live) .np-label { color: var(--text-muted); }
+
+/* El punto + la etiqueta "SONANDO" toman el color de la FUENTE activa, igual
+   que el segmento seleccionado: verde Secuencia / azul Click / ámbar Referencia.
+   (Cuando está PREPARADA gana la regla :not(.is-live) de arriba: punto/etiqueta
+   atenuados.) */
+#now-playing-banner.is-src-seq   .np-dot   { background: #10b981; box-shadow: 0 0 7px rgba(16,185,129,0.7); }
+#now-playing-banner.is-src-seq   .np-label { color: #10b981; }
+#now-playing-banner.is-src-click .np-dot   { background: #3b82f6; box-shadow: 0 0 7px rgba(59,130,246,0.7); }
+#now-playing-banner.is-src-click .np-label { color: #3b82f6; }
+#now-playing-banner.is-src-ref   .np-dot   { background: #f59e0b; box-shadow: 0 0 7px rgba(245,158,11,0.7); }
+#now-playing-banner.is-src-ref   .np-label { color: #f59e0b; }
+
+#now-playing-banner .np-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.85;
+}
+#now-playing-banner .np-title {
+  flex-shrink: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist {
+  flex-shrink: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#now-playing-banner .np-artist:not(:empty)::before { content: "·"; margin: 0 4px; opacity: 0.6; }
+#now-playing-banner .np-artist:empty { display: none; }
+
+/* Selector de Fuente en el banner — 3 segmentos a la derecha (cambio rápido de
+   qué suena). El activo se ilumina (lo setea refreshNowPlayingLiveState):
+   VERDE = fuente maestra (Secuencia/Click, ambos con el pad), ÁMBAR = Original
+   (solo referencia). Clickeable, táctil y MIDI-mapeable. */
+/* Selector de fuente — vive en la barra del reproductor (#track-player-bar);
+   antes estaba scoped al banner. Genérico para que aplique donde esté. */
+.source-seg {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+.source-seg-btn {
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.source-seg-btn:hover { background: rgba(255, 255, 255, 0.06); }
+
+/* Cada fuente con su color, para distinguirlas de un vistazo. Inactiva = texto
+   tintado; activa = se llena con el color. */
+#src-seq   { color: #34d399; }   /* Secuencia → verde */
+#src-click { color: #60a5fa; }   /* Click → azul */
+#src-ref   { color: #fbbf24; }   /* Original → ámbar */
+
+#src-seq.active {
+  background: #10b981; color: #042016; box-shadow: 0 1px 7px rgba(16, 185, 129, 0.5);
+}
+#src-click.active {
+  background: #3b82f6; color: #04122b; box-shadow: 0 1px 7px rgba(59, 130, 246, 0.5);
+}
+#src-ref.active {
+  background: #f59e0b; color: #2a1c00; box-shadow: 0 1px 7px rgba(245, 158, 11, 0.5);
+}
+@media (pointer: coarse) {
+  .source-seg-btn { padding: 8px 14px; font-size: 12px; }
+}
+
+#now-playing-banner .np-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+#now-playing-banner .np-close:hover { background: rgba(232,17,35,0.18); color: #ff7a7a; }
+
+/* Brief flash applied to the active card after clicking the banner — pulses
+   the existing accent glow once so the eye lands on it instantly. */
+.gi-song-item.flash-locate {
+  animation: card-flash 0.9s ease-out;
+}
+@keyframes card-flash {
+  0%   { box-shadow: 0 0 14px var(--glow); }
+  35%  { box-shadow: 0 0 36px var(--accent), 0 0 0 2px var(--accent); }
+  100% { box-shadow: 0 0 14px var(--glow); }
+}
+
+/* Loading state for action icon buttons (import JSON / future loaders).
+   Mirrors the pulse used by the MongoDB sync button so the visual
+   vocabulary stays consistent: dim + slow pulse + theme-accent tint. */
+.icon-btn.is-loading {
+  opacity: 0.7;
+  pointer-events: none;
+  animation: pulse 1.1s infinite;
+  color: var(--accent);
+}
+
+/* Favorite star action button. Outlined by default (text-muted), filled
+   in accent colour when marked. Sits at the start of the action row so
+   it reads as an identity-property rather than another action. */
+.action-btn.btn-favorite { color: var(--text-muted); }
+.action-btn.btn-favorite.is-fav {
+  color: var(--accent);
+  filter: drop-shadow(0 0 4px var(--glow));
+}
+.action-btn.btn-favorite:hover { color: var(--accent); }
+
+/* Filter-menu "Favoritos" row — star icon already inline in HTML; this
+   just tints the row accent when it's the active filter. */
+.gi-filter-option--fav.active .gi-filter-option-label { color: var(--accent); }
+
+/* "Recientes" row — clock icon inline in HTML; green accent when active so
+   it reads as "newly added" and stays distinct from the Favoritos star. */
+.gi-filter-option--recent.active .gi-filter-option-label { color: var(--ok); }
+
+/* "Próxima" cue — the service card that's been staged by Tab. Distinct
+   from .active-song (which is "currently playing"). Dashed accent border
+   reads as "ready/waiting" without competing with the active-song bar. */
+.gi-song-item.queued-next {
+  border-color: var(--accent);
+  border-style: dashed;
+  box-shadow: 0 0 10px var(--glow);
+  position: relative;
+}
+.gi-song-item.queued-next::before {
+  content: 'PRÓXIMA';
+  position: absolute;
+  top: 4px; right: 8px;
+  background: var(--accent);
+  color: #000;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 2px 8px;
+  border-radius: var(--r-md);
+  box-shadow: 0 0 8px var(--glow);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Empty-state card for the Library tab — illustrated + CTA buttons.
+   Shown when getSongs().length === 0. The three CTAs proxy through to
+   the existing header buttons (sync / import / new). */
+.setlist-empty--cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+}
+.setlist-empty--cta .empty-icon {
+  color: var(--accent);
+  opacity: 0.55;
+  filter: drop-shadow(0 0 12px var(--glow));
+}
+.setlist-empty--cta h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+.setlist-empty--cta p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+.empty-cta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+.empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.empty-cta:hover { border-color: var(--accent); color: var(--accent); }
+.empty-cta--primary {
+  background: var(--accent-grad);
+  color: #000;
+  border-color: var(--accent);
+}
+.empty-cta--primary:hover { filter: brightness(1.08); color: #000; }
+
+/* Service-list "played" indicator — cards before the active index get
+   dimmed so the worship leader sees set progress. Toggle managed by
+   refreshActiveSongHighlights(). Returning to an earlier card un-plays
+   it (idx logic in songState.js). */
+#service-songs-container .gi-song-item.played {
+  opacity: 0.45;
+  filter: saturate(0.6);
+}
+#service-songs-container .gi-song-item.played:hover {
+  opacity: 0.9;
+  filter: none;
+}
+
+/* Drag-handle hint — songs are draggable but the affordance wasn't
+   obvious. On hover the row-number area swaps cursor to "grab" and we
+   show a faint 6-dot grip icon on the very left edge, so dragging
+   becomes discoverable without adding a permanent UI element.
+   Action buttons keep their normal pointer (so clicks aren't ambiguous). */
+.gi-song-item[draggable="true"]:hover .gi-song-row { cursor: grab; }
+.gi-song-item[draggable="true"]:active .gi-song-row { cursor: grabbing; }
+.gi-song-item[draggable="true"]::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 50%;
+  transform: translateY(-50%);
+  width: 4px; height: 18px;
+  background-image:
+    radial-gradient(circle, currentColor 1px, transparent 1.4px);
+  background-size: 4px 4px;
+  background-repeat: repeat-y;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.gi-song-item[draggable="true"]:hover::after { opacity: 0.55; }
+.gi-song-item.dragging::after,
+.gi-song-item.active-song::after,
+.gi-song-item.queued-next::after { opacity: 0 !important; }
+
+/* Search match highlight — wraps the matching substring in song title /
+   artist when there's a free-text search active. Theme-aware via accent. */
+.gi-song-item mark.search-hit {
+  background: var(--glow);
+  color: var(--accent);
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: inherit;
+}
+
+/* Audio assignment section inside the inline edit form. One row per
+   track type (sequence / original) — pill if the path is set + a small
+   × to clear; otherwise a compact "Asignar archivo" button that proxies
+   to the existing seq/orig play flow (which prompts for a file). */
+.gi-edit-audio {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+}
+.gi-edit-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.gi-edit-audio-label {
+  flex: 0 0 60px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+.gi-edit-audio-status.has {
+  color: var(--ok);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.gi-edit-audio-clear {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+.gi-edit-audio-clear:hover { border-color: var(--danger); color: var(--danger); }
+.gi-edit-audio-assign {
+  flex: 1;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+.gi-edit-audio-assign:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  border-style: solid;
+}
+
+/* Collapsible audio section in the inline edit form. Defaults to closed
+   for songs without audio assigned (keeps the form compact); auto-opens
+   for songs that already have files (so status + clear are visible). */
+.gi-edit-audio-details {
+  margin: 2px 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.gi-edit-audio-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+  user-select: none;
+  list-style: none;
+  padding: 2px 0;
+}
+.gi-edit-audio-summary::-webkit-details-marker { display: none; }
+.gi-edit-audio-summary::before {
+  content: '▸';
+  font-size: 9px;
+  transition: transform 0.15s ease;
+}
+.gi-edit-audio-details[open] .gi-edit-audio-summary::before {
+  transform: rotate(90deg);
+}
+.gi-edit-audio-summary-badge {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+}
+
+/* Touch-reorder ghost — a clone of the card that follows the finger.
+   Position/opacity are set inline by touchReorder.js; only the visual
+   tilt + shadow come from CSS so they match the rest of the
+   drag-and-drop language. */
+.touch-ghost {
+  pointer-events: none !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  transform: rotate(-2deg);
+  filter: brightness(1.06);
+  border: 1px solid var(--accent) !important;
+}
+
+/* ── Selector de repertorio (librería de la nube) en la cabecera de Librería ── */
+.gi-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gi-lib-row.hidden { display: none; }
+.gi-lib-icon { color: var(--text-muted); flex: 0 0 auto; }
+/* Mismo estilo moderno que los dropdowns de Pad/Kit (.metro-dropdown):
+   sin la flecha nativa, con chevron custom y hover/focus de acento. */
+.gi-lib-select {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 7px 24px 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.gi-lib-select:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.gi-lib-select:focus, .gi-lib-select:focus-visible { border-color: var(--border-strong); box-shadow: none; outline: none; }
+
+/* ── Acción "Eliminar duplicados" en el menú del filtro de Librería ── */
+.gi-filter-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+.gi-filter-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  text-align: left;
+}
+.gi-filter-action:hover { background: var(--bg-hover); }
+.gi-filter-action .gi-filter-option-label { color: var(--text-muted); font-size: 13px; }
+.gi-filter-action:hover .gi-filter-option-label { color: #fca5a5; }
+
+/* ── Modal "Setlists guardados" (nombre + fecha) ──────────────────────────── */
+.setlists-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 10, 20, 0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.setlists-modal {
+  width: 440px; max-width: 92vw; max-height: 82vh; overflow: auto;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); padding: 18px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+.setlists-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.setlists-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.setlists-x {
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.setlists-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+/* Formulario de guardado: título + fecha (calendario) + botón. */
+.setlists-save-form {
+  display: flex; align-items: flex-end; gap: 8px;
+  margin-bottom: 14px; padding: 12px;
+  background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md);
+}
+.setlists-save-form .sl-field { display: flex; flex-direction: column; gap: 4px; }
+.setlists-save-form .sl-field--title { flex: 1; min-width: 0; }
+.setlists-save-form label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.setlists-save-form input {
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
+}
+.setlists-save-form input:focus { border-color: var(--accent); }
+.setlists-save-form .sl-date { color-scheme: dark; cursor: pointer; }
+.setlists-save-form .sl-save-btn {
+  padding: 9px 16px; font-size: 13px; font-weight: 600; color: #000;
+  background: var(--accent); border: none; border-radius: 8px; cursor: pointer;
+  white-space: nowrap; transition: filter 0.15s;
+}
+.setlists-save-form .sl-save-btn:hover { filter: brightness(1.08); }
+.setlists-list { display: flex; flex-direction: column; gap: 6px; }
+.setlists-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 11px; border-radius: var(--r-md);
+  background: var(--bg-hover); border: 1px solid var(--border);
+}
+.setlists-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.setlists-row-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.setlists-row-meta { font-size: 11px; color: var(--text-muted); }
+.setlists-load {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 12px; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.setlists-load:hover { color: #fff; background: rgba(255,255,255,0.12); border-color: var(--accent); }
+.setlists-del {
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 7px; border-radius: 6px;
+}
+.setlists-del:hover { color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 12%, transparent); }
+.setlists-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px 8px; line-height: 1.5; }
+
+/* ── Selector de setlist (chooser) en la pestaña Servicio ─────────────────── */
+.service-chooser { display: none; }
+/* Cuando se está eligiendo: ocultar la vista de canciones y mostrar el chooser. */
+#service-setlist-list.choosing .service-actions,
+#service-setlist-list.choosing .svc-search-row,
+#service-setlist-list.choosing #service-songs-container,
+#service-setlist-list.choosing #service-empty-msg { display: none !important; }
+#service-setlist-list.choosing .service-chooser { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.svc-chooser-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.svc-chooser-head h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.svc-chooser-manage {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex-shrink: 0;
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  border-radius: 8px; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.svc-chooser-manage:hover { color: var(--accent); border-color: var(--accent); }
+.svc-chooser-new {
+  width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--r-md); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+}
+.svc-chooser-new:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.svc-chooser-save {
+  width: 100%; margin-bottom: 10px; flex-shrink: 0; padding: 10px;
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--r-md); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.svc-chooser-save:hover { border-color: var(--accent); color: var(--accent); }
+.svc-chooser-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1 1 auto; min-height: 0; padding-top: 2px; }
+.svc-chooser-item {
+  display: flex; align-items: center; gap: 8px; text-align: left;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md);
+  padding: 9px 10px 9px 13px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s; width: 100%;
+}
+.svc-chooser-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+.svc-chooser-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+.svc-chooser-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-chooser-meta { font-size: 11px; color: var(--text-muted); }
+.svc-chooser-del {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 7px;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 16px; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.svc-chooser-del:hover { color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 12%, transparent); }
+.svc-chooser-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 20px 8px; }
+.svc-chooser-current {
+  margin-top: 12px; flex-shrink: 0; width: 100%; padding: 11px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent); font-size: 13px; font-weight: 600; border-radius: var(--r-md); cursor: pointer; transition: background 0.15s;
+}
+.svc-chooser-current:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+
+/* Acciones del modal "Nueva lista de servicio" (reusa .setlists-* y .stt-btn) */
+.new-setlist-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+/* ── Modal "Nuevo Setlist" (título + fecha + descripción + selector de canciones) ── */
+.nsl-overlay {
+  position: fixed; inset: 0; z-index: 4200;
+  background: rgba(8,8,16,0.75);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.nsl-modal {
+  width: 780px; max-width: 94vw; max-height: 88vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); box-shadow: 0 30px 80px rgba(0,0,0,0.55); overflow: hidden;
+}
+.nsl-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.nsl-head h3 { margin: 0; font-size: 20px; font-weight: 600; color: var(--text); }
+.nsl-sub { margin: 2px 0 0; font-size: 12px; color: var(--text-muted); }
+.nsl-x { background: transparent; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.nsl-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.nsl-body { padding: 18px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+.nsl-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.nsl-field { display: flex; flex-direction: column; gap: 6px; }
+.nsl-field > label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+}
+.nsl-field input, .nsl-field textarea {
+  background: var(--bg-card); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px;
+  font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+}
+.nsl-field input:focus, .nsl-field textarea:focus { border-color: var(--accent); }
+.nsl-field input[type="date"] { color-scheme: dark; cursor: pointer; }
+.nsl-songs {
+  border: 1px solid var(--border); border-radius: var(--r-md); padding: 14px;
+  display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--bg-card) 50%, transparent);
+}
+.nsl-songs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.nsl-songs-title { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.nsl-count { color: var(--accent); }
+.nsl-search {
+  flex: 0 0 240px; max-width: 50%;
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; outline: none;
+}
+.nsl-search:focus { border-color: var(--accent); }
+.nsl-songs-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.nsl-song {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; transition: border-color 0.15s;
+}
+.nsl-song:hover { border-color: var(--border-strong); }
+.nsl-song.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+.nsl-song input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.nsl-song-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.nsl-song-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nsl-song-artist { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nsl-song-meta { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
+.nsl-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px; }
+.nsl-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); }
+.nsl-btn {
+  padding: 11px 20px; font-size: 13px; font-weight: 700; cursor: pointer;
+  background: transparent; color: var(--text-muted); border: none; border-radius: var(--r-md); transition: color 0.15s;
+}
+.nsl-btn:hover { color: var(--text); }
+.nsl-btn--primary { background: var(--accent); color: #000; }
+.nsl-btn--primary:hover { color: #000; filter: brightness(1.08); }
+@media (max-width: 640px) { .nsl-fields { grid-template-columns: 1fr; } .nsl-search { flex-basis: 140px; } }
+
+/* ── Crear setlist INLINE (dentro del panel de Servicio, no modal) ─────────── */
+.service-create { display: none; }
+#service-setlist-list.creating .service-actions,
+#service-setlist-list.creating .svc-search-row,
+#service-setlist-list.creating #service-songs-container,
+#service-setlist-list.creating #service-empty-msg,
+#service-setlist-list.creating #service-chooser { display: none !important; }
+#service-setlist-list.creating .service-create { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+
+.svc-create-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.svc-create-back {
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  width: 28px; height: 28px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0;
+}
+.svc-create-back:hover { color: var(--text); border-color: var(--text-muted); }
+.svc-create-head h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.svc-create-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.svc-create-field > span { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.svc-create-field input, .svc-create-field textarea, .svc-create-field select {
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 9px 11px; font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+}
+.svc-create-field input:focus, .svc-create-field textarea:focus, .svc-create-field select:focus { border-color: var(--accent); }
+.svc-create-field select { cursor: pointer; }
+.svc-create-field input[type="date"] { color-scheme: dark; cursor: pointer; }
+.svc-create-songs-head { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin: 4px 0 6px; }
+.svc-create-songs-head .nsl-count { color: var(--accent); }
+.service-create .nsl-search { width: 100%; max-width: none; flex: none; margin-bottom: 8px; }
+.svc-create-list { flex: 1 1 auto; min-height: 80px; max-height: none; }
+.svc-create-foot { display: flex; gap: 8px; margin-top: 10px; flex-shrink: 0; }
+/* Botones compactos para darle más alto a la lista de canciones. */
+.svc-create-foot .nsl-btn { flex: 1; text-align: center; border: 1px solid var(--border); padding: 8px 12px; font-size: 12px; }
+.svc-create-foot .nsl-btn--primary { border-color: var(--accent); }
+
+/* Nombre + fecha en una sola línea en la creación inline. */
+.svc-create-row2 { display: flex; gap: 8px; }
+.svc-create-row2 .svc-create-field { flex: 1; min-width: 0; }
+.svc-create-row2 .svc-create-date { flex: 0 0 128px; }
+
+/* Tarjetas del selector de canciones: estilo Librería (carátula + info + meta)
+   con checkbox de acento para tildar. */
+.svc-pick {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md);
+  cursor: pointer; transition: border-color 0.15s;
+}
+.svc-pick:hover { border-color: var(--border-strong); }
+.svc-pick.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-card)); }
+/* Checkbox custom igual al de "Click + secuencia": caja redondeada que se llena
+   con el gradiente de acento y muestra un check al activarse. */
+.svc-pick input {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; margin: 0; flex-shrink: 0;
+  border: 1.5px solid var(--border-strong); border-radius: 5px;
+  background: var(--bg-hover); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.svc-pick input:hover { border-color: var(--accent); }
+.svc-pick input:checked { background: var(--accent-grad); border-color: transparent; }
+.svc-pick input:checked::after {
+  content: ''; width: 4px; height: 8px;
+  border: solid #0a0a14; border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+.svc-pick input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.svc-pick .gi-song-cover { width: 38px; height: 38px; min-width: 38px; flex-shrink: 0; border-radius: 7px; }
+.svc-pick-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.svc-pick-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-pick-artist { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.svc-pick-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* Crear librería INLINE (en el contenedor de la Librería, no modal). */
+.gi-create-lib { display: flex; flex-direction: column; gap: 12px; padding: 18px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-md); }
+.gi-create-lib h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.gi-create-lib-name {
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; font-family: inherit; outline: none;
+}
+.gi-create-lib-name:focus { border-color: var(--accent); }
+.gi-create-lib-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.gi-create-lib-actions .nsl-btn { padding: 8px 16px; font-size: 13px; border: 1px solid var(--border); }
+.gi-create-lib-actions .nsl-btn--primary { border-color: var(--accent); }
+
+/* Chooser: botón ⋯ por setlist, buscador y edición inline (renombrar+fecha). */
+.svc-chooser-more {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 18px; line-height: 1; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.svc-chooser-more:hover { color: var(--text); background: var(--bg-hover); }
+.svc-chooser-search {
+  width: 100%; margin-bottom: 8px; flex-shrink: 0;
+  background: var(--bg-card); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 8px 12px; font-size: 13px; outline: none;
+}
+.svc-chooser-search:focus { border-color: var(--accent); }
+.svc-chooser-item.is-editing { display: block; padding: 10px 12px; cursor: default; }
+.svc-chooser-edit { display: flex; flex-direction: column; gap: 6px; }
+.svc-chooser-edit input {
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; outline: none; font-family: inherit;
+}
+.svc-chooser-edit input:focus { border-color: var(--accent); }
+.svc-chooser-edit input[type="date"] { color-scheme: dark; cursor: pointer; }
+.svc-edit-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px; }
+.svc-edit-btn {
+  padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 7px; cursor: pointer;
+  background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+}
+.svc-edit-btn:hover { color: var(--text); }
+.svc-edit-btn--ok { background: var(--accent); color: #000; border-color: var(--accent); }
+.svc-edit-btn--ok:hover { color: #000; filter: brightness(1.08); }
+
+/* Separación del selector de fuente respecto a los controles de transporte.
+   En la barra van algo más compactos para no robar ancho a la pista/progreso. */
+#track-player-bar .source-seg { margin-left: 8px; flex-shrink: 0; }
+#track-player-bar .source-seg-btn { padding: 5px 10px; font-size: 11px; }
+
+/* Badges de audio disponible en el banner (SEQ / ORIG). */
+#now-playing-banner .np-badges { display: inline-flex; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+#now-playing-banner .np-badge {
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.5px;
+  padding: 1px 5px; border-radius: 4px; line-height: 1.4;
+  border: 1px solid currentColor; opacity: 0.85;
+}
+#now-playing-banner .np-badge--seq  { color: #34d399; }   /* secuencia → verde */
+#now-playing-banner .np-badge--orig { color: #fbbf24; }   /* original → ámbar */

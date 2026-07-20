@@ -1,0 +1,1830 @@
+/* ── DIALOGS & OVERLAYS ── */
+#dialog-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: none;
+  display: flex; align-items: center; justify-content: center;
+  /* 100000 = above every other overlay (lyrics modal 9999, midi 10000,
+     sound pool 99999). This is the top-most inline prompt so it must win
+     against anything that could be open underneath. */
+  z-index: 100000;
+}
+.dialog-box {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 36px; width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,1);
+}
+.dialog-box h3 { font-size: 18px; font-weight: 600; }
+.dialog-input {
+  width: 100%; padding: 14px; background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: #fff; margin: 20px 0; font-size: 16px; outline: none; font-weight: 600;
+}
+.dialog-input:focus { border-color: var(--blue); }
+.dialog-message {
+  /* Body text for confirmation dialogs (e.g. "¿Eliminar esta canción?").
+     Shows above the actions row when confirmDialog() is used; hidden in
+     plain prompts via the .hidden class. */
+  margin: 16px 0 24px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+  opacity: 0.92;
+}
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.d-ok { background: var(--accent-grad); color: #000; font-weight: 700; padding: 12px 24px; border-radius: var(--r-md); border: none; cursor: pointer; font-size: 14px; }
+.d-ok--danger { background: var(--danger); color: #fff; }
+.d-cancel { background: transparent; color: var(--text-muted); font-weight: 700; padding: 12px 24px; border: none; cursor: pointer; font-size: 14px; }
+
+/* Menu Popover */
+#menu-popover {
+  position: absolute; top: 56px; left: 16px; width: 240px;
+  background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  z-index: 3100; padding: 6px; display: flex; flex-direction: column;
+}
+.menu-item {
+  padding: 11px 14px; border-radius: 8px; background: transparent; border: none;
+  color: var(--text); font-size: 13px; font-weight: 700;
+  text-align: left; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
+  display: flex; align-items: center; gap: 10px;
+}
+.menu-item:hover { background: var(--bg-hover); color: var(--blue); }
+.menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+#menu-overlay { position: fixed; inset: 0; z-index: 3000; }
+
+/* Bank pickers */
+.bank-picker {
+  position: fixed; background: var(--bg-surface); border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg); box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  z-index: 2200; padding: 6px; min-width: 260px; max-height: 340px; overflow-y: auto;
+}
+.bank-picker-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.2px; padding: 10px 14px 6px; }
+.bank-picker-item {
+  width: 100%; padding: 12px 14px; border-radius: 8px; background: transparent; border: none;
+  color: var(--text); font-size: 13px; text-align: left; cursor: pointer;
+  display: flex; align-items: center; gap: 12px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.bank-picker-item:hover { background: var(--bg-hover); }
+.bank-picker-item.active { background: var(--glow); }
+.bank-color { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.bank-check { color: var(--blue); margin-left: auto; }
+
+/* ── SOUND POOL MODAL ──
+   Premium glassmorphism modal. All styles class-based. Accent buttons use
+   the active theme (var(--accent), var(--glow)) so the modal feels native
+   in every theme. */
+#sound-pool-modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  font-family: 'Inter', sans-serif;
+}
+.spm-box {
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--r-lg);
+  width: 460px;
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.spm-header {
+  padding: 22px 24px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.spm-badge {
+  display: inline-block;
+  background: var(--glow);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--r-lg);
+  margin-bottom: 6px;
+}
+.spm-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+.spm-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.spm-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.spm-content {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.spm-upload {
+  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  color: #000;
+  border: none;
+  padding: 13px 18px;
+  border-radius: var(--r-md);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-shadow: 0 4px 16px var(--glow);
+  letter-spacing: 0.3px;
+  transition: box-shadow 0.15s, filter 0.15s;
+}
+.spm-upload:hover {
+  box-shadow: 0 6px 24px var(--glow);
+  filter: brightness(1.07);
+}
+.spm-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+.spm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.spm-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  padding: 32px 0;
+  line-height: 1.6;
+}
+.spm-empty-emoji {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+.spm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: default;
+  transition: background 0.15s, border-color 0.15s;
+}
+.spm-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.spm-row-name {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+.spm-row-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e0e0e0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spm-row-kit {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 1px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spm-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.spm-play {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ccc;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.spm-play:not(.playing):hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+.spm-play.playing {
+  background: var(--glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.spm-assign {
+  background: var(--accent-grad);
+  border: none;
+  color: #000;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: filter 0.15s;
+}
+.spm-assign:hover { filter: brightness(1.12); }
+
+/* ── LETRA Y ACORDES — Accordion ── */
+.gi-lyrics-accordion {
+  /* Cerrado NO debe ocupar espacio: sin el borde ni el margin la tarjeta no
+     arrastra un hueco fantasma debajo de los iconos. Ambos vuelven al abrir. */
+  border-top: 0;
+  margin-top: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.32s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease;
+}
+.gi-lyrics-accordion.open {
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  /* Big max-height so the actual content height is never clipped — letting
+     the lyrics flow naturally means the OUTER setlist scrollbar handles
+     everything, eliminating the confusing double-scrollbar (one for the
+     card list, one inside the expanded card). */
+  max-height: 20000px;
+  overflow: visible;
+  opacity: 1;
+  padding-top: 12px;
+  padding-bottom: 4px;
+}
+
+/* Accordion header: el toggle "Con/Sin acordes" pega a la izquierda
+   (acción primaria de visualización) y los iconos de edición + pantalla
+   completa a la derecha. La separación visual ayuda a no confundirlos. */
+.lyrics-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* editar + acordes + expandir, todos a la derecha */
+  gap: 6px;
+  margin-bottom: 10px;
+  margin-right: 8px;
+}
+.lyrics-edit-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: 5px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.lyrics-edit-btn:hover { color: var(--blue); background: rgba(255,255,255,0.06); }
+
+/* Botón ⛶ — mismo estilo discreto que el lápiz, accent al hover */
+.lyrics-fs-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: 5px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.lyrics-fs-btn:hover { color: var(--accent); background: rgba(255,255,255,0.06); }
+
+/* ── Overlay "letra a pantalla completa" ─────────────────────────────
+   Para uso en vivo: letra grande, A+/A−, toggle de acordes. Cubre toda
+   la ventana, fondo casi negro para máxima legibilidad en escenario. */
+.lyrics-fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  /* La barra del overlay queda sobre la zona de drag de Electron (topbar):
+     sin no-drag, el SO captura los clics de los controles (transpose, A±). */
+  -webkit-app-region: no-drag;
+  /* Fondo casi sólido del theme: con 0.96 la app se transparentaba detrás y
+     ensuciaba la lectura. */
+  background: color-mix(in srgb, var(--bg-main) 99%, transparent);
+  display: flex;
+  flex-direction: column;
+  animation: lfs-fade-in 0.15s ease-out;
+}
+.lfs-bar { -webkit-app-region: no-drag; }
+@keyframes lfs-fade-in { from { opacity: 0; } to { opacity: 1; } }
+body.lyrics-fs-open { overflow: hidden; }
+
+.lfs-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.35);
+}
+.lfs-meta { min-width: 0; flex: 1; }
+.lfs-title {
+  font-size: 16px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lfs-artist {
+  font-size: 12px; color: var(--text-muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lfs-artist:empty { display: none; }
+
+/* Tonalidad + BPM en la barra (visibles de un vistazo en vivo). */
+.lfs-info { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-right: 8px; }
+.lfs-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font: 700 12px/1 inherit;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.lfs-badge--key { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Transponer acordes en vivo (▼ N ▲ · doble clic en el número = reset). */
+.lfs-trans { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; }
+.lfs-trans-val {
+  min-width: 30px; text-align: center;
+  font: 700 12px/1 inherit; color: var(--text-muted);
+  cursor: pointer; user-select: none;
+}
+.lfs-trans-val.is-shifted { color: var(--accent); }
+
+.lfs-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lfs-btn {
+  min-width: 32px; height: 32px;
+  padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 8px;
+  color: var(--text);
+  font: 600 12px/1 inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.lfs-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2); }
+.lfs-btn.active { color: var(--accent); border-color: var(--accent); background: var(--glow); }
+.lfs-font-val {
+  min-width: 28px; text-align: center;
+  font: 700 12px/1 inherit; color: var(--text-muted);
+}
+.lfs-close:hover { color: #ff7a7a; border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+
+.lfs-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 48px 45vh;   /* cola larga: la última línea puede subir al centro */
+  scroll-behavior: smooth;
+}
+.lfs-content {
+  /* Columna de LECTURA: más angosta que antes (900px era demasiado ancho para
+     escanear con la vista a distancia, p.ej. desde el teclado en el escenario). */
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--text);
+  line-height: 1.55;
+  font-weight: 500;
+  /* el font-size base lo controla el JS (style="font-size:Xpx;") */
+}
+/* TODO escala en em para que A+/A− agrande de verdad: las reglas base de
+   .lyric-line/.chord-line traen px fijos (13px) pensados para la card chica
+   del setlist — acá se re-declaran relativas al tamaño elegido. */
+.lfs-content .lyric-line {
+  font-size: 1em;
+  line-height: 1.45;
+  margin-bottom: 0.35em;
+  font-weight: 600;
+}
+.lfs-content .lyric-line.has-inline-chords { margin-top: 1.1em; }
+.lfs-content .section-header-line {
+  font-size: 0.5em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  letter-spacing: 2px;
+}
+.lfs-content .chord-line {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  font-size: 0.78em;
+  margin-top: 0.5em;
+}
+.lfs-content .inline-chord {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.7em;
+  letter-spacing: 0.3px;
+  transform: translateY(-1.5em);
+}
+.lfs-content.hide-chords .chord-line,
+.lfs-content.hide-chords .inline-chord { display: none; }
+.lfs-content .lyrics-spacer { height: 0.6em !important; }
+/* Modo "Solo letra" = modo LECTURA pura → centrado (como un teleprompter).
+   Con acordes queda alineado a la izquierda para no romper su alineación
+   monoespaciada sobre la sílaba. */
+.lfs-content.hide-chords { text-align: center; }
+
+/* Chord toggle: text pill */
+.lyrics-chord-pill {
+  padding: 3px 10px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
+}
+.lyrics-chord-pill.active {
+  background: var(--glow);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--blue);
+}
+
+/* ── LYRICS EDITOR MODAL ── */
+.lyrics-editor-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.02);
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.lyrics-section-select {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 11px; font-weight: 700;
+  outline: none; cursor: pointer;
+  padding: 5px 10px;
+  transition: border-color 0.2s;
+  font-family: var(--font-main);
+}
+.lyrics-section-select:hover { border-color: var(--blue); }
+/* Estilos de las opciones del select de secciones — antes eran inline
+   en cada <option> con color/background hardcodeados. Aquí salen del
+   tema y el placeholder ("+ SECCIÓN") es atenuado. */
+.lyrics-section-select option { background: var(--bg-card); color: var(--text); }
+.lyrics-section-select option.opt-placeholder { color: var(--text-muted); }
+
+/* Cuerpo del modal de editor (ocupa el espacio entre header y footer) */
+.lyrics-modal-body {
+  flex: 1; min-height: 0;
+  margin-bottom: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.editor-workspace { flex: 1; position: relative; min-height: 0; }
+.editor-workspace .editor-container { display: block; }
+.editor-workspace .modal-preview-panel { display: none; }
+.editor-workspace.is-preview .editor-container { display: none; }
+.editor-workspace.is-preview .modal-preview-panel { display: block; }
+.editor-workspace .modal-preview-panel .lyrics-text-content { font-size: 12px; }
+.editor-textarea { tab-size: 4; overflow-y: auto; }
+.toolbar-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+.format-tool-btn.chord-btn {
+  color: var(--blue); font-weight: 700;
+  font-family: 'Consolas', monospace; font-size: 12px;
+}
+/* Subtle ghost button — matches .import-url-btn styling for visual
+   cohesion in the editor toolbar. */
+.lyrics-preview-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.lyrics-preview-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--glow);
+}
+.lyrics-preview-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--glow);
+}
+
+/* Modal panel */
+.lyrics-modal-overlay {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: none;
+  display: flex; justify-content: flex-end; align-items: flex-start;
+  z-index: 9999;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.lyrics-modal-panel {
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-strong);
+  width: 520px; max-width: 95vw;
+  height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 24px;
+  box-shadow: -12px 0 40px rgba(0,0,0,0.6);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+.lyrics-modal-header {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; margin-bottom: 20px; flex-shrink: 0;
+}
+.lyrics-modal-title {
+  margin: 0; font-size: 10px; font-weight: 700;
+  color: var(--blue); text-transform: uppercase; letter-spacing: 1.2px;
+}
+.lyrics-modal-subtitle {
+  margin: 5px 0 0; font-size: 12px;
+  color: var(--text-muted); font-weight: 500;
+}
+.lyrics-modal-close {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%; width: 28px; height: 28px;
+  color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; flex-shrink: 0;
+}
+.lyrics-modal-close:hover { border-color: var(--border-strong); color: var(--text); background: rgba(255,255,255,0.04); }
+.lyrics-modal-footer {
+  display: flex; gap: 10px; justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 16px; flex-shrink: 0;
+}
+.lyrics-shortcut-hint {
+  font-size: 10px; color: var(--text-muted);
+  letter-spacing: 0.4px; opacity: 0.7;
+}
+.lyrics-modal-actions {
+  display: flex; gap: 8px;
+}
+
+/* Autosave indicator — fades in while saving, then settles into the
+   "saved" state for 2s before disappearing. data-state attribute is
+   flipped from JS (idle / saving / saved). */
+.lyrics-autosave-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.lyrics-autosave-indicator[data-state="saving"] {
+  opacity: 0.7;
+  color: var(--text-muted);
+}
+.lyrics-autosave-indicator[data-state="saved"] {
+  opacity: 1;
+  color: var(--ok);
+}
+.lyrics-autosave-indicator[data-state="idle"]   { opacity: 0; }
+.lyrics-autosave-indicator[data-state="saving"] .lai-icon-saved { display: none; }
+.lyrics-autosave-indicator[data-state="saved"]  .lai-icon-saved { display: inline-block; }
+.lyrics-autosave-indicator[data-state="idle"]   .lai-icon-saved { display: none; }
+
+/* Tonality badge in the modal subtitle */
+.lyrics-key-badge {
+  display: inline-block;
+  margin-left: 8px; padding: 2px 8px;
+  background: rgba(255, 174, 0, 0.12);
+  border: 1px solid rgba(255, 174, 0, 0.35);
+  border-radius: var(--r-md);
+  color: #fbae00;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+}
+
+/* Discreet "ghost" buttons for the lyrics editor toolbar (Import URL and
+   Vista Previa). Outline-only with subtle accent on hover — matches the
+   minimalist tooling row without competing with the [+ SECCIÓN] dropdown
+   or the chord/transpose controls. */
+.import-url-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px;
+  padding: 4px 9px !important;
+  border-radius: 6px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.import-url-btn:hover {
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  background: var(--glow) !important;
+}
+.import-url-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+.import-url-btn svg {
+  width: 12px; height: 12px;
+  opacity: 0.85;
+}
+
+/* Icon-only variant — square chip, just the SVG, no text. Used by the
+   Importar URL and Vista Previa buttons in the lyrics editor toolbar. */
+.format-tool-btn.icon-only,
+.btn-preview-toggle.icon-only,
+.import-url-btn.icon-only {
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  gap: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.format-tool-btn.icon-only svg,
+.btn-preview-toggle.icon-only svg,
+.import-url-btn.icon-only svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.9;
+}
+
+.lyrics-preview-spacer { flex: 1; }
+
+/* Transpose control group in the editor toolbar */
+.transpose-group {
+  display: flex; align-items: center; gap: 4px;
+  flex-shrink: 0;
+}
+.transpose-btn {
+  font-size: 11px !important;
+  min-width: 24px;
+  padding: 6px 8px !important;
+}
+.transpose-counter {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 30px; height: 26px; padding: 0 7px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.transpose-counter.shifted {
+  background: rgba(0, 170, 255, 0.08);
+  border-color: rgba(0, 170, 255, 0.4);
+  color: var(--blue);
+}
+.lyrics-modal-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); padding: 9px 20px;
+  border-radius: 6px; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
+}
+.lyrics-modal-cancel:hover { border-color: var(--border-strong); color: var(--text); }
+.lyrics-modal-save {
+  background: var(--accent-grad); border: none; color: #000;
+  padding: 9px 24px; border-radius: 6px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s;
+}
+.lyrics-modal-save:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.lyrics-text-content {
+  color: #e5e5e5;
+  user-select: text;
+}
+
+.lyrics-preview-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-y: auto;
+  user-select: text;
+  box-sizing: border-box;
+}
+
+/* Encabezado de sección (INTRO, CORO…): pill con GRADIENTE del theme y texto
+   oscuro encima — máximo contraste con los acordes (texto en accent sobre
+   fondo oscuro). Estructura = bloque de color; armonía = texto de color. */
+.section-header-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--on-accent, #0a0a14) !important;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 18px;
+  margin-bottom: 7px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  /* Gradiente explícito (no --accent-grad: la capa Linear lo aplana a sólido). */
+  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+}
+.section-header-line:first-child { margin-top: 2px; }
+/* En modo lectura centrado (fullscreen "Solo letra") el pill, al ser inline,
+   se centra solo con el text-align del contenedor. */
+
+.chord-line {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.15;
+  margin-top: 8px;
+  letter-spacing: 0.6px;
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  white-space: pre; /* crucial to preserve spaces between chords! */
+}
+
+.lyric-line {
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  font-family: var(--font-main), sans-serif;
+  letter-spacing: 0.2px;
+}
+
+.lyric-line.has-inline-chords {
+  margin-top: 18px; /* space for the floating chords */
+}
+
+.inline-chord {
+  position: absolute;
+  transform: translateY(-1.35em);
+  color: var(--accent);
+  font-weight: 600;
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+.hide-chords .chord-line {
+  display: none !important;
+}
+
+.hide-chords .inline-chord {
+  display: none !important;
+}
+
+/* Toggle de acordes en la card: botón-icono, mismo molde que el lápiz y el
+   expandir (uniformidad). Activo (acordes visibles) = acento ámbar. */
+.chord-toggle-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none;
+  color: var(--text-muted); cursor: pointer;
+  border-radius: 5px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+.chord-toggle-btn:hover { color: var(--accent); background: rgba(255, 255, 255, 0.06); }
+.chord-toggle-btn.active { color: var(--accent); }
+
+.action-btn.btn-lyrics.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--glow);
+}
+
+/* Premium Code editor styling with syntax overlay */
+.editor-container {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.editor-textarea, .editor-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.editor-textarea {
+  color: transparent;
+  caret-color: #fff;
+  z-index: 2;
+  resize: none;
+  overflow-y: auto;
+}
+
+.editor-highlight {
+  color: #cbd5e1;
+  z-index: 1;
+  overflow-y: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Modern pill and format toolbar buttons */
+.sec-pill-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.sec-pill-btn:hover {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+
+.format-tool-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.format-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+/* Botón "Auto-formato": texto en vez de icono, con un acento sutil para que se
+   note como acción destacada (marca todas las secciones de una). */
+.format-tool-btn.autoformat-btn {
+  width: auto;
+  padding: 0 9px;
+  gap: 3px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  white-space: nowrap;
+}
+.format-tool-btn.autoformat-btn:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+
+/* ── Shortcuts list (rendered inside sidebar #tab-shortcuts) ─────────
+   Same domain-grouped layout we had in the overlay version but in a
+   compact single-column form factor that fits the 360-ish px sidebar
+   width. cheatSheet.js renders the markup into #shortcuts-content. */
+#shortcuts-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 16px 18px;
+}
+#shortcuts-content .cs-section h4 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+#shortcuts-content .cs-section dl {
+  margin: 0;
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+#shortcuts-content .cs-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+#shortcuts-content .cs-row dt { margin: 0; }
+#shortcuts-content .cs-row dd { margin: 0; color: var(--text-muted); }
+#shortcuts-content kbd {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: 'Inter', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+/* ── Toast stack ───────────────────────────────────────────────────────
+   Anchored above the track-player bar (76px tall) so a stack of toasts
+   never overlaps the transport controls. Per-type background/border is
+   set inline by toast.js — this block only handles layout + animation.
+   Right-aligned stack, slides up from bottom on enter, fades up on exit. */
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 96px; /* 76px track player + 20px gap */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10000;
+  pointer-events: none;
+  max-width: calc(100vw - 40px);
+}
+/* Toast estilo Linear: tarjeta oscura DEL THEME (antes eran bloques de color
+   sólido con estilos inline que ignoraban el theme). El tipo se comunica con
+   la barra de acento izquierda + el ícono coloreado por token semántico. */
+.toast {
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-left-width: 3px;
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: auto;
+}
+.toast svg { flex-shrink: 0; }
+.toast--info    { border-left-color: var(--accent); }
+.toast--info svg    { color: var(--accent); }
+.toast--success { border-left-color: var(--ok); }
+.toast--success svg { color: var(--ok); }
+.toast--error   { border-left-color: var(--danger); }
+.toast--error svg   { color: var(--danger); }
+.toast--warning { border-left-color: var(--warn); }
+.toast--warning svg { color: var(--warn); }
+.toast--in  { opacity: 1; transform: translateY(0); }
+.toast--out { opacity: 0; transform: translateY(-20px); }
+/* Botón de cierre del toast — hereda el color del toast, discreto hasta hover. */
+.toast-close {
+  margin-left: 6px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.65;
+  padding: 0 2px;
+  transition: opacity 0.15s;
+}
+.toast-close:hover { opacity: 1; }
+
+/* ── Pre-flight checklist overlay ────────────────────────────────────
+   Same vocabulary as the cheat sheet: backdrop blur, panel slides up,
+   close via ×, click backdrop or Esc. Each row shows a check (green
+   ✓) or warning (amber ⚠) with a description. */
+#preflight-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: none;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 100001;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+#preflight-overlay.open { opacity: 1; }
+
+#preflight-overlay .pf-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  width: 520px; max-width: 100%;
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  padding: 26px 28px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  transform: translateY(10px) scale(0.985);
+  transition: transform 0.28s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#preflight-overlay.open .pf-panel { transform: translateY(0) scale(1); }
+
+#preflight-overlay .pf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#preflight-overlay .pf-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#preflight-overlay .pf-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#preflight-overlay .pf-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#preflight-overlay .pf-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#preflight-overlay .pf-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+}
+#preflight-overlay .pf-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#preflight-overlay .pf-row--ok   { border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+#preflight-overlay .pf-row--warn { border-color: rgba(245, 158, 11, 0.4); }
+
+#preflight-overlay .pf-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+#preflight-overlay .pf-row--ok   .pf-icon { background: color-mix(in srgb, var(--ok) 18%, transparent);  color: var(--ok); }
+#preflight-overlay .pf-row--warn .pf-icon { background: rgba(245, 158, 11, 0.18); color: #f59e0b; }
+
+#preflight-overlay .pf-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+#preflight-overlay .pf-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+#preflight-overlay .pf-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+#preflight-overlay .pf-summary {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+#preflight-overlay .pf-summary.is-ok   { background: color-mix(in srgb, var(--ok) 12%, transparent);  color: var(--ok); }
+#preflight-overlay .pf-summary.is-warn { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+
+/* ── MIDI / Keyboard mappings list overlay ────────────────────────────
+   Same visual vocabulary as cheat sheet + preflight: backdrop blur, panel
+   slides up, × to close. One row per mapping with a × to delete it. */
+#mappings-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: none;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 100001;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+#mappings-overlay.open { opacity: 1; }
+
+#mappings-overlay .mp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  width: 560px; max-width: 100%;
+  max-height: 82vh;
+  display: flex; flex-direction: column;
+  padding: 26px 28px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  transform: translateY(10px) scale(0.985);
+  transition: transform 0.28s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#mappings-overlay.open .mp-panel { transform: translateY(0) scale(1); }
+
+#mappings-overlay .mp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#mappings-overlay .mp-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#mappings-overlay .mp-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+#mappings-overlay .mp-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#mappings-overlay .mp-footer {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+#mappings-overlay .mp-clear-all {
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid rgba(232, 17, 35, 0.4);
+  background: rgba(232, 17, 35, 0.1);
+  color: #ff6b6b; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+#mappings-overlay .mp-clear-all:hover { background: #e81123; color: #fff; border-color: #e81123; }
+#mappings-overlay .mp-io {
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-hover);
+  color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+#mappings-overlay .mp-io:hover { border-color: var(--accent); color: var(--accent); }
+
+#mappings-overlay .mp-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+#mappings-overlay .mp-body { overflow-y: auto; flex: 1; }
+#mappings-overlay .mp-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+#mappings-overlay .mp-row {
+  display: grid;
+  grid-template-columns: 64px auto 18px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+#mappings-overlay .mp-key-kind {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+#mappings-overlay .mp-key-kind.kbd  { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+#mappings-overlay .mp-key-kind.midi { background: var(--glow); color: var(--accent); }
+#mappings-overlay .mp-key {
+  font-family: 'Inter', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: var(--text);
+}
+#mappings-overlay .mp-arrow { color: var(--text-muted); opacity: 0.5; }
+#mappings-overlay .mp-target { color: var(--text); font-weight: 500; }
+#mappings-overlay .mp-clear {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#mappings-overlay .mp-clear:hover { border-color: var(--danger); color: var(--danger); }
+
+#mappings-overlay .mp-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+#mappings-overlay .mp-empty p { margin: 4px 0; font-size: 13px; }
+#mappings-overlay .mp-empty-hint { font-size: 11px; opacity: 0.7; }
+
+/* ── Spotlight (Ctrl+K) ────────────────────────────────────────────────
+   Floating command palette anchored near the top of the viewport.
+   Same chrome as cheat sheet / preflight but with the search input as
+   first-class citizen (focus on open). Results render below as buttons
+   with keyboard navigation (↑↓ Enter). */
+#spotlight-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: none;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12vh 24px 24px;
+  z-index: 100002;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+#spotlight-overlay.open { opacity: 1; }
+#spotlight-overlay .sp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  width: 600px; max-width: 100%;
+  max-height: 70vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.85);
+  transform: translateY(-8px) scale(0.99);
+  transition: transform 0.22s var(--ease-spring, cubic-bezier(0.32,0.72,0,1));
+}
+#spotlight-overlay.open .sp-panel { transform: translateY(0) scale(1); }
+
+#spotlight-overlay .sp-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+#spotlight-overlay .sp-icon { color: var(--text-muted); flex-shrink: 0; }
+#spotlight-overlay .sp-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+#spotlight-overlay .sp-input::placeholder { color: var(--text-muted); }
+#spotlight-overlay .sp-hint {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+#spotlight-overlay .sp-results {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px;
+}
+#spotlight-overlay .sp-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+#spotlight-overlay .sp-row.is-active,
+#spotlight-overlay .sp-row:hover {
+  background: var(--bg-hover);
+}
+#spotlight-overlay .sp-row.is-active {
+  border: 1px solid var(--accent);
+  padding: 8px 11px;
+}
+#spotlight-overlay .sp-row-kind {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+#spotlight-overlay .sp-row-text {
+  display: flex; flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+#spotlight-overlay .sp-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#spotlight-overlay .sp-row-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#spotlight-overlay .sp-empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+#spotlight-overlay .sp-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+#spotlight-overlay .sp-footer kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  font-size: 9px;
+  color: var(--text);
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+/* ── Companion (LAN viewer) overlay ──────────────────────────────────
+   Same visual grammar as preflight: backdrop blur, panel scales up, ×
+   to close. Shows server status, URL, client count, and a toggle. */
+#companion-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: none;
+  display: flex; align-items: center; justify-content: center;
+  padding: 32px;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#companion-overlay.open { opacity: 1; }
+
+#companion-overlay .cp-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  width: 460px; max-width: 100%;
+  padding: 20px 22px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  transform: translateY(8px) scale(0.98);
+  transition: transform 0.25s var(--ease-spring, ease);
+}
+#companion-overlay.open .cp-panel { transform: translateY(0) scale(1); }
+
+#companion-overlay .cp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+#companion-overlay .cp-header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+#companion-overlay .cp-close {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+#companion-overlay .cp-close:hover { border-color: var(--accent); color: var(--accent); }
+
+#companion-overlay .cp-subtitle {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+#companion-overlay .cp-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+#companion-overlay .cp-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #6b6b7a;
+  box-shadow: 0 0 0 0 transparent;
+  transition: background 0.2s, box-shadow 0.4s;
+}
+#companion-overlay .cp-status[data-running="true"] .cp-dot {
+  background: var(--ok);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ok) 60%, transparent);
+}
+#companion-overlay .cp-status[data-running="true"] .cp-status-label { color: var(--ok); }
+#companion-overlay .cp-status[data-running="false"] .cp-status-label { color: var(--text-muted); }
+
+#companion-overlay .cp-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+#companion-overlay .cp-qr-frame {
+  width: 200px;
+  height: 200px;
+  padding: 10px;
+  background: #ffffff;
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 1px var(--border-strong), 0 0 16px var(--glow);
+  display: flex; align-items: center; justify-content: center;
+}
+#companion-overlay .cp-qr-frame svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#companion-overlay .cp-qr-caption {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
+
+#companion-overlay .cp-url-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+#companion-overlay .cp-url {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  user-select: all;
+  word-break: break-all;
+}
+#companion-overlay .cp-copy {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+#companion-overlay .cp-copy:hover { border-color: var(--accent); color: var(--accent); }
+#companion-overlay .cp-copy.is-copied {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ok) 50%, transparent);
+  color: var(--ok);
+}
+
+#companion-overlay .cp-iface-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+#companion-overlay .cp-iface-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+#companion-overlay .cp-iface-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+#companion-overlay .cp-iface-select:focus { outline: none; border-color: var(--accent); }
+
+#companion-overlay .cp-clients {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+#companion-overlay .cp-clients #cp-clients-count {
+  color: var(--text);
+  font-weight: 700;
+}
+
+#companion-overlay .cp-hint {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+#companion-overlay .cp-firewall {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.55;
+}
+#companion-overlay .cp-firewall strong {
+  display: block;
+  color: #f59e0b;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+#companion-overlay .cp-firewall em {
+  font-style: normal;
+  color: var(--accent);
+  font-weight: 700;
+}
+#companion-overlay .cp-fw-btn {
+  display: block;
+  margin: 8px 0 4px;
+  padding: 8px 14px;
+  border-radius: 7px;
+  border: 1px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+#companion-overlay .cp-fw-btn:hover:not(:disabled) { background: rgba(245, 158, 11, 0.28); }
+#companion-overlay .cp-fw-btn:disabled { opacity: 0.7; cursor: default; }
+#companion-overlay .cp-fw-tip { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+
+#companion-overlay .cp-hotspot-row { margin: 0 0 14px; }
+#companion-overlay .cp-hotspot-btn {
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
+}
+#companion-overlay .cp-hotspot-btn:hover { border-color: var(--accent); color: var(--accent); }
+#companion-overlay .cp-hotspot-tip { display: block; margin-top: 5px; color: var(--text-muted); font-size: 11px; line-height: 1.45; }
+
+#companion-overlay .cp-autostart {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+#companion-overlay .cp-autostart input {
+  accent-color: var(--accent);
+  width: 16px; height: 16px;
+  cursor: pointer;
+}
+
+#companion-overlay .cp-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+#companion-overlay .cp-toggle {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent-grad);
+  color: #0a0a14;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+#companion-overlay .cp-toggle:hover { filter: brightness(1.08); }
+#companion-overlay .cp-toggle:active { transform: scale(0.97); }
+#companion-overlay .cp-toggle:disabled { opacity: 0.55; cursor: progress; }
+#companion-overlay .cp-toggle--off {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ════════ Metrónomo (modal independiente · Stems + Pads) ════════ */
+/* Panel FLOTANTE y movible (sin velo que bloquee la app, como el piano). */
+#metronome-overlay {
+  position: fixed; inset: 0; z-index: 8600; pointer-events: none;
+  opacity: 0; transition: opacity 0.18s ease;
+}
+#metronome-overlay.open { opacity: 1; }
+.mtm-panel {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;             /* clickeable aun sobre el topbar (drag region) */
+  width: 332px; min-width: 244px; max-width: min(96vw, 480px);
+  height: auto; max-height: calc(100vh - 12px);   /* alto SIEMPRE se ajusta al contenido (sin huecos) */
+  overflow: auto; resize: horizontal;      /* solo ancho: escala el disco, el alto sigue solo */
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  padding: 0 16px 14px; display: flex; flex-direction: column; gap: 9px;
+}
+.mtm-head {
+  display: flex; align-items: center; gap: 8px; cursor: move;
+  margin: 0 -16px 2px; padding: 10px 14px 9px;
+  border-bottom: 1px solid var(--border); user-select: none;
+}
+.mtm-drag-dots { color: var(--text-muted); opacity: 0.5; letter-spacing: -2px; font-size: 14px; }
+.mtm-head h3 { margin: 0; flex: 1; font-size: 14px; font-weight: 600; }
+.mtm-close { background: none; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; line-height: 1; }
+.mtm-close:hover { color: var(--text); }
+.mtm-bpm { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.mtm-bpm-main { display: flex; flex-direction: column; align-items: center; min-width: 104px; }
+.mtm-bpm-input {
+  width: 100%; text-align: center; background: transparent; border: none;
+  color: var(--accent); font-size: 34px; font-weight: 600; line-height: 1; padding: 0;
+  font-family: inherit; outline: none; -moz-appearance: textfield;
+}
+.mtm-bpm-input::-webkit-outer-spin-button, .mtm-bpm-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mtm-bpm-input:focus { color: var(--text); }
+.mtm-bpm-unit { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: var(--text-muted); }
+.mtm-step { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 18px; cursor: pointer; flex-shrink: 0; }
+.mtm-step:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.mtm-bpm-slider-row { display: flex; align-items: center; gap: 10px; }
+.mtm-bpm-slider { flex: 1; min-width: 0; }
+.mtm-tap { flex-shrink: 0; padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-weight: 700; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
+.mtm-tap:hover { border-color: var(--accent); color: var(--accent); }
+.mtm-tap:active { background: var(--accent); color: var(--on-accent, #0a0a14); }
+
+/* Visualización radial (segmentos por tiempo + pulso de subdivisión). */
+.mtm-radial { width: 46%; max-width: 188px; height: auto; aspect-ratio: 1 / 1; align-self: center; display: block; flex-shrink: 0; }
+.mtm-seg { fill: var(--bg-hover); stroke: var(--bg-card); stroke-width: 2; transition: fill 0.04s ease; }
+.mtm-seg.is-on { fill: var(--accent); }
+.mtm-seg.is-on.is-accent { fill: var(--danger); }        /* tiempo 1 (acento) = rojo */
+.mtm-radial-center { fill: var(--bg-surface); stroke: var(--border); stroke-width: 2; }
+.mtm-radial-pulse { fill: none; stroke: var(--accent); stroke-width: 0; opacity: 0; }
+.mtm-radial-pulse.pulsing { animation: mtm-pulse 0.16s ease-out; }
+@keyframes mtm-pulse {
+  0%   { stroke-width: 4; opacity: 0.65; r: 46; }
+  100% { stroke-width: 0; opacity: 0;    r: 50; }
+}
+.mtm-radial-num { fill: var(--text); font-size: 30px; font-weight: 600; }
+.mtm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mtm-field { display: flex; flex-direction: column; gap: 4px; }
+.mtm-field > span { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
+.mtm-field select { padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text); font-size: 13px; cursor: pointer; }
+.mtm-sub { display: flex; flex-direction: column; gap: 5px; }
+.mtm-sub-label { font-size: 9px; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); }
+.mtm-sub-opts { display: flex; gap: 5px; }
+.mtm-sub-btn { flex: 1; padding: 7px 0; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+.mtm-sub-btn:hover { color: var(--text); border-color: var(--border-strong); }
+.mtm-sub-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a14); border-color: var(--accent); }
+.mtm-sub-name { font-size: 11px; color: var(--text-muted); text-align: center; }
+.mtm-vol { display: flex; align-items: center; gap: 10px; color: var(--text-muted); }
+.mtm-vol-slider { flex: 1; }
+.mtm-play { align-self: center; width: 50px; height: 50px; margin-top: 2px; border-radius: 50%; border: none; background: var(--accent); color: var(--on-accent, #0a0a14); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent); transition: transform 0.1s, filter 0.1s; }
+.mtm-play:hover { filter: brightness(1.06); }
+.mtm-play:active { transform: scale(0.95); }
+.mtm-play.is-playing { background: var(--danger); box-shadow: 0 4px 14px color-mix(in srgb, var(--danger) 40%, transparent); color: #fff; }
+
+/* Metrónomo — extras: nombre de tempo, acentos/silencios por tiempo. */
+.mtm-tempo-name { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 1px; }
+.mtm-radial-hint { font-size: 10px; color: var(--text-muted); text-align: center; margin: -3px 0 -2px; }
+.mtm-radial-hint b { color: var(--text); font-weight: 600; }
+.mtm-seg.beat-accent { fill: color-mix(in srgb, var(--danger) 24%, var(--bg-hover)); }
+.mtm-seg.beat-rest { fill: var(--bg-surface); opacity: 0.4; }

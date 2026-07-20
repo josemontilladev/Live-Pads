@@ -1,0 +1,234 @@
+/* ═══════════════════════════════════════════════════════
+   Utility classes (extracted from inline styles — Fase 26)
+   ═══════════════════════════════════════════════════════ */
+
+/* Topbar */
+.topbar-logo-text { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+.topbar-logo-img { height: 34px; width: 34px; }
+.topbar-actions { display: flex; align-items: center; gap: 12px; }
+
+/* Body root flex direction (was inline) */
+#body { flex-direction: column; }
+
+/* Bank kit row already has bank-selector class; the inline flex+gap was redundant.
+   Add modifier for the kit row that hosts action buttons. */
+.bank-selector--with-actions { display: flex; gap: 4px; align-items: center; }
+
+/* Metronome compact controls */
+.tap-btn--compact { width: auto; padding: 4px 10px; font-size: 10px; }
+.metro-sig-select { margin-bottom: 6px; }
+.metro-mult-row { display: flex; gap: 6px; }
+.hm-section--sounds { display: flex; flex-direction: column; gap: 6px; flex: 0 0 110px; }
+
+/* Metronome mix rows (slim variants of .sb-row / .sr-label / .sr-val) */
+.sb-row--metro { padding: 0 0 6px; }
+.sb-row--metro-bottom { padding: 0; }
+.sr-label--metro { font-size: 10px; min-width: 24px; }
+.sr-val--metro { min-width: 26px; }
+
+/* Pad volume tray (was inline) */
+#pad-volume-tray { margin-top: auto; margin-bottom: 0; flex-shrink: 0; }
+
+/* Drum tray header layout */
+.tray-header--drum { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.drum-tray-controls { display: flex; gap: 16px; align-items: center; font-size: 11px; font-weight: normal; }
+.tray-pan-row--flush { margin: 0; padding: 0; justify-content: flex-end; }
+.sr-label--inline { min-width: auto; margin-right: 4px; }
+.sr-val--narrow { min-width: 30px; }
+.slider--80 { width: 80px; }
+
+/* Setlist header actions */
+.setlist-header-actions { display: flex; gap: 8px; }
+
+/* GI search row — los 3 botones (🔍 / filtro / +) viven a la derecha;
+   cuando se expande el input crece desde la izquierda. justify-content
+   funciona también colapsado, porque el wrap queda con width 0. */
+/* Cabecera de Librería en columna: arriba la LÍNEA (selector + 3 iconos),
+   abajo el buscador (que aparece al tocar la 🔍). */
+.gi-search-row { display: flex; flex-direction: column; gap: 6px; align-items: stretch; position: relative; }
+.gi-lib-line { display: flex; gap: 6px; align-items: center; position: relative; }
+.gi-lib-line .gi-lib-row { flex: 1; min-width: 0; }
+.gi-search-input--inline { flex: 1; margin-bottom: 0; }
+.no-shrink { flex-shrink: 0; }
+.btn-add-gi-song { flex-shrink: 0; border-radius: 50%; transition: transform 0.15s; }
+
+/* Tamaños unificados para los 3 botones de la fila (🔍 / filtro / +).
+   Mismas dimensiones que .gi-filter-toggle: 32×32 cápsula. La regla de
+   .accent-btn en _sidebar.css usa !important (34×34), así que aquí
+   también marcamos !important para ganarle SIN tocar el sidebar. */
+.gi-search-row .icon-btn,
+.gi-search-row .accent-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: var(--r-lg) !important;
+}
+.gi-search-row .icon-btn svg { width: 14px; height: 14px; }
+.gi-search-row .accent-btn svg { width: 14px !important; height: 14px !important; }
+.gi-search-toggle {
+  display: inline-flex;   /* la 🔍 vive fija en la línea; abre/cierra el input de abajo */
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+}
+.gi-search-toggle:hover { color: var(--text); border-color: var(--blue); }
+/* Expandido (no colapsado): la 🔍 se marca como activa. */
+.gi-search-row:not(.search-collapsed) .gi-search-toggle { color: var(--accent); border-color: var(--accent); }
+/* Colapsado: ocultamos el wrap con display:none para que NO contribuya al
+   flex-gap (con width:0 el gap entre toggle y filtro se duplicaba). */
+.gi-search-row.search-collapsed .gi-search-wrap { display: none; }
+
+/* Search input + clear-X overlay. The wrap is flex:1 so it inherits the
+   width allotted to the search column; the input has padding-right to
+   leave room for the absolutely-positioned × button. */
+.gi-search-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+/* margin-bottom:0 (higher specificity than the responsive .gi-search-input
+   rule) so the wrap hugs the input and the clear-× stays vertically centred. */
+.gi-search-wrap .gi-search-input { padding-right: 30px; margin-bottom: 0; }
+.gi-search-clear {
+  position: absolute;
+  top: 50%; right: 8px;
+  transform: translateY(-50%);
+  width: 18px; height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.gi-search-clear:hover { background: rgba(255, 255, 255, 0.16); color: var(--text); }
+.gi-search-clear.hidden { display: none; }
+
+/* Sidebar settings — wider labels */
+.sr-label--wide { min-width: 60px; }
+.sr-label--xwide { min-width: 70px; }
+
+/* Sidebar drum volumes card */
+#sidebar-drum-volumes { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Menu items with accent text */
+.menu-item--accent { color: var(--blue); }
+
+
+/* MIDI device name pill (topbar) — shown when a controller is connected.
+   Hidden until midiBindings.js receives the first state event from the
+   browser's MIDIAccess. Title attribute holds the full list when there's
+   more than one device. */
+.midi-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.midi-status-pill.hidden { display: none; }
+.midi-status-pill::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ok) 55%, transparent);
+}
+
+/* ── Auto-update banner (bottom-center, non-intrusive) ───────────── */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 16px);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 10px 16px;
+  background: var(--bg-card, #141414);
+  border: 1px solid var(--border-strong, rgba(255,255,255,0.15));
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  color: var(--text, #fff);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1);
+}
+.update-banner.is-in { opacity: 1; transform: translate(-50%, 0); }
+.update-banner button {
+  appearance: none;
+  border: 1px solid var(--accent, #FBAE00);
+  background: var(--accent, #FBAE00);
+  color: #0a0a14;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.update-banner button:hover { filter: brightness(1.08); }
+.update-banner .update-banner__later {
+  background: transparent;
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  color: var(--text-muted, #a3a3a3);
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+/* Estado de ALERTA del pill MIDI: persiste en rojo cuando se desconectó el
+   controlador en vivo (el toast se va, este queda hasta reconectar o clic). */
+.midi-status-pill--alert {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: #fca5a5;
+  cursor: pointer;
+}
+.midi-status-pill--alert::before { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+
+/* ── Mute maestro (sidebar + mixer) ──────────────────────────────────
+   Corta todo el audio sin mover el fader. Rojo encendido cuando está activo;
+   intercambia el icono altavoz ↔ altavoz-tachado. */
+.master-mute-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, box-shadow .2s;
+}
+.master-mute-btn--mx { width: 24px; height: 24px; border-radius: 6px; }
+.master-mute-btn:hover { color: var(--text); border-color: var(--accent); }
+.master-mute-btn .ic-mute { display: none; }
+.master-mute-btn.is-muted .ic-vol { display: none; }
+.master-mute-btn.is-muted .ic-mute { display: inline-flex; }
+.master-mute-btn.is-muted {
+  background: linear-gradient(180deg, #ff7a73, var(--danger-soft));
+  border-color: var(--danger-soft);
+  color: #fff;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--danger-soft) 55%, transparent);
+}
+/* El fader maestro se atenúa mientras está silenciado, para que se lea el estado. */
+.blue-slider.is-muted { opacity: 0.4; filter: grayscale(0.6); }

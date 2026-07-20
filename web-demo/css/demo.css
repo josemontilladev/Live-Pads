@@ -1,0 +1,35 @@
+/* Ajustes SOLO para el demo web (cargado después de index.css). */
+
+/* No hay marco de ventana en el navegador → ocultar min/max/cerrar. */
+.is-web-demo .wm-btns { display: none !important; }
+
+/* Stems no aplica en el demo (separación IA es local/Electron) → ocultar tab. */
+.is-web-demo .ws-tab[data-workspace="stems"] { display: none !important; }
+
+/* CTA de descarga en el TOPBAR (no tapa los toasts del fondo). */
+.demo-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding: 7px 13px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--on-accent, #1a1205);
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 0 14px -5px var(--accent);
+  transition: transform 0.12s, box-shadow 0.2s;
+}
+.demo-cta:hover { transform: translateY(-1px); box-shadow: 0 0 20px -3px var(--accent); }
+.demo-cta-tag {
+  font-size: 9px; font-weight: 900; letter-spacing: 1px;
+  background: rgba(0,0,0,0.22); color: var(--on-accent, #1a1205);
+  padding: 2px 6px; border-radius: 999px;
+}
+/* En pantallas chicas, dejar solo el icono + DEMO (sin el texto largo). */
+@media (max-width: 900px) {
+  .demo-cta-txt { display: none; }
+}

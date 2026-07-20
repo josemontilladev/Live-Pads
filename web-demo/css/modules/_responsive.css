@@ -1,0 +1,350 @@
+/* ── RESPONSIVE LAPTOP / SMALL SCREEN HEIGHTS ── */
+/* Laptops 1600x900 / 1440x900: densidad apenas más ajustada (el grueso vive en
+   el bloque de 850px; los modales ya se capan al viewport en _linear.css). */
+@media (max-height: 900px) {
+  #stage { padding: 14px; gap: 14px; }
+}
+@media (max-height: 850px) {
+  /* stage adjustments */
+  #stage {
+    padding: 12px;
+    gap: 12px;
+    grid-template-columns: 320px 1fr 310px;
+  }
+  #top-modules-grid {
+    gap: 12px;
+    grid-template-columns: 320px 1fr;
+  }
+
+  /* bank section adjustments */
+  #bank-section {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .bank-row {
+    gap: 4px;
+  }
+  .bank-selector .metro-dropdown {
+    height: 30px;
+    font-size: 12px;
+  }
+  .sb-div {
+    margin: 4px 0;
+  }
+
+  /* metronome section adjustments */
+  .horizontal-metro {
+    padding: 8px 14px;
+    min-height: 70px;
+    gap: 12px;
+  }
+  /* The metro main play button intentionally KEEPS its desktop size
+     (50×50, declared on .metro-main-btn--square in _setlist.css) — this
+     control is the user's primary visual anchor during a live service
+     so it stays uniform across screen sizes. */
+  .metro-bpm-big {
+    font-size: 26px;
+  }
+  .metro-adj {
+    width: 26px;
+    height: 26px;
+  }
+  .metro-dropdown {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .hm-bpm-slider-wrap {
+    gap: 6px;
+  }
+  .tap-btn {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+  .hm-play {
+    flex: 0 1 130px;
+    gap: 6px;
+  }
+  #metro-beat-dots {
+    gap: 6px;
+  }
+  .beat-dot {
+    width: 8px;
+    height: 8px;
+  }
+  #metro-bpm-live {
+    font-size: 11px;
+  }
+  .hm-bpm {
+    flex: 0 1 145px;
+    gap: 6px;
+  }
+  .hm-compas {
+    flex: 0 1 90px;
+    gap: 4px;
+  }
+  .horizontal-metro > .hm-section:nth-child(4) {
+    flex: 0 1 90px;
+    gap: 4px;
+  }
+  .hm-mix {
+    /* Wider than the rest of the metro sections so the vol/pan slider
+       tracks are long enough to show the yellow fill clearly even at
+       pan=-100/+100. At 125px the thumb covered ~25% of the visible
+       track and the colour band looked invisible on laptop screens. */
+    flex: 0 1 200px;
+    gap: 4px;
+  }
+  .hm-mix .blue-slider,
+  .hm-mix .pan-slider {
+    /* Force the slider to claim the row's remaining space — the labels
+       (Vol / Pan / 80% / L100) are fixed-width so the slider becomes
+       as long as possible. */
+    flex: 1;
+    min-width: 80px;
+  }
+  .horizontal-metro .sb-row {
+    gap: 6px;
+  }
+  .tray-pan-row {
+    min-width: 0;
+  }
+
+  /* panel keys adjustments */
+  #panel-keys {
+    padding: 12px;
+    gap: 10px;
+  }
+  .key-grid {
+    grid-template-rows: repeat(4, 1fr);
+    gap: 6px;
+    min-height: 0;
+  }
+  .key-btn {
+    padding: 6px 4px;
+    font-size: 14px;
+    border-radius: 8px;
+    min-height: 44px;   /* mínimo táctil (WCAG) para tocar bien en el escenario */
+  }
+  .kbd-hint {
+    top: 3px;
+    right: 3px;
+    font-size: 9px;
+    padding: 1px 3px;
+  }
+
+  /* pad volume tray card adjustments — compacted on laptop heights so
+     the panel fits below the 12-key grid without the bottom keys (A/A#/B)
+     overlapping the Vol/Pan rows. */
+  #pad-volume-tray {
+    padding: 6px 14px 8px;
+  }
+  .tray-header {
+    font-size: 11px;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+  }
+  #pad-volume-tray .sb-row {
+    padding: 4px 10px;
+    gap: 10px;
+  }
+  #pad-volume-tray .sb-div {
+    margin: 2px 0;
+  }
+  .sb-row {
+    padding: 6px 10px;
+    gap: 10px;
+  }
+  .sr-label {
+    font-size: 11px;
+    min-width: 40px;
+  }
+  .sr-val {
+    font-size: 10px;
+    min-width: 22px;
+  }
+
+  /* panel drums adjustments */
+  #panel-drums {
+    gap: 10px;
+  }
+  .drum-grid {
+    gap: 6px;
+  }
+  .drum-btn {
+    padding: 8px 10px;
+    border-radius: 8px;
+    min-height: 44px;   /* mínimo táctil (WCAG) */
+  }
+  .drum-btn .drum-label {
+    font-size: 11px;
+  }
+  #drum-volume-tray {
+    padding: 10px 14px;
+  }
+  .drum-vol-item {
+    padding: 6px;
+    gap: 2px;
+    border-radius: 8px;
+  }
+  .drum-vol-header label {
+    font-size: 10px;
+  }
+  .drum-vol-pct {
+    font-size: 9px;
+  }
+
+  /* panel setlist adjustments */
+  #panel-setlist {
+    padding: 12px;
+  }
+  /* En laptop, el header del servicio queda en UNA fila como en desktop: el
+     título (nombre del servicio) a la izquierda y los iconos juntos a la
+     derecha. El título es corto y se trunca con … si hace falta, así los iconos
+     no se desbordan ni se apilan. */
+  #service-setlist-list .service-actions-nav { gap: 6px; }
+  .setlist-header {
+    margin-bottom: 10px;
+  }
+  .setlist-title {
+    font-size: 14px;
+  }
+  .setlist-tabs-toggle {
+    margin-bottom: 10px;
+    padding: 2px;
+    border-radius: 8px;
+  }
+  .s-toggle {
+    padding: 5px;
+    font-size: 10px;
+    border-radius: 5px;
+  }
+  .gi-search-input {
+    /* Preserve the 32px left padding that reserves space for the lupa SVG
+       (background-image). The previous shorthand `padding: 6px 10px;`
+       collapsed all four sides, making the icon overlap the placeholder
+       text on laptop-height screens. */
+    padding: 6px 10px 6px 32px;
+    margin-bottom: 8px;
+    font-size: 11px;
+    background-position: 10px center;
+  }
+  /* (.gi-filters y .gi-filter-btn eran chips antiguos — el filtro ahora
+      es un menú dropdown, así que estas reglas no aplicaban a nada.) */
+  .gi-song-item {
+    padding: 7px 9px 3px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+  }
+  .gi-song-title {
+    font-size: 14px;
+  }
+  .gi-song-artist {
+    font-size: 10px;
+  }
+  .gi-song-meta-line {
+    font-size: 11px;
+  }
+  .action-btn {
+    width: 24px;
+    height: 24px;
+  }
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* topbar and player heights */
+  #topbar {
+    height: 48px;
+    padding: 0 16px;
+  }
+  .topbar-logo-img {
+    height: 28px; width: 28px;
+  }
+  .topbar-logo span {
+    font-size: 14px;
+  }
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  .icon-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+  .wm-btn {
+    width: 36px;
+    height: 48px;
+  }
+
+  #track-player-bar {
+    height: 60px;
+    padding: 8px 16px;
+    gap: 12px;
+  }
+  #tp-play-btn {
+    width: 36px;
+    height: 36px;
+  }
+  #tp-play-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  #tp-stop-btn, #tp-loop-btn {
+    width: 36px;
+    height: 36px;
+  }
+  #tp-stop-btn svg, #tp-loop-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+  #tp-title {
+    font-size: 12px;
+    max-width: 160px;
+  }
+  #tp-vol {
+    width: 60px;
+  }
+  /* Selector de fuente (Secuencia/Click/Original) en la barra: compacto en
+     laptop para que entre junto al transporte sin desbordar. */
+  #track-player-bar .source-seg { margin-left: 4px; }
+  #track-player-bar .source-seg-btn { padding: 4px 8px; font-size: 10px; }
+  .tp-transport { gap: 6px; flex-shrink: 0; }
+  .tp-info { gap: 8px; }
+}
+
+/* ── RESPONSIVE por ANCHO ── Pantallas/ventanas angostas (laptop chico o ventana
+   reducida): compacta la barra del reproductor y el stage para que nada se
+   desborde aunque la altura no sea baja. */
+@media (max-width: 1180px) {
+  #stage { grid-template-columns: 290px 1fr 280px; gap: 10px; }
+  #top-modules-grid { grid-template-columns: 290px 1fr; gap: 10px; }
+  #track-player-bar { gap: 12px; padding: 10px 16px; }
+  #track-player-bar .source-seg-btn { padding: 4px 8px; font-size: 10px; }
+  #track-player-bar .source-seg { margin-left: 4px; }
+  #tp-title { max-width: 140px; }
+}
+@media (max-width: 1000px) {
+  #stage { grid-template-columns: 260px 1fr 260px; }
+  /* En la barra, dejar que la info (título/progreso) se encoja primero. */
+  .tp-info { min-width: 0; }
+  #tp-vol { width: 56px; }
+}
+
+
+/* ── Panel de Ajustes (sidebar) en pantallas chicas ──
+   La nav lateral + el contenido se compactan; ambos scrollean si no entran,
+   así nada se corta en laptops de poca altura o ventanas angostas. */
+@media (max-height: 850px) {
+  .sidebar-nav { padding: 40px 6px 10px; flex-basis: 142px; }
+  .sidebar-nav-title { padding-bottom: 6px; }
+  .sidebar-nav .stab { padding: 7px 9px; font-size: 12px; gap: 8px; }
+  .sidebar-scroll { padding: 18px 16px 16px; }
+  .set-launch-desc { font-size: 12px; }
+}
+@media (max-width: 560px) {
+  /* Ventana/pantalla muy angosta → el panel casi a pantalla completa. */
+  #sidebar { width: 100vw; max-width: 100vw; }
+  .sidebar-nav { flex-basis: 130px; }
+}

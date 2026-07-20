@@ -10,6 +10,7 @@
 // Phases 2 & 3 will layer in pan, mute/solo, seek/pause, MP3 export.
 
 import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
+import { forceStereoOutput } from '../audio/stereoOut.js';
 
 let ctx = null;
 let masterGain = null;
@@ -78,6 +79,7 @@ function ensureCtx() {
     try { ctx.close(); } catch (_) {}
     try { ctx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); } catch (_) { ctx = new AC({ latencyHint: 'interactive' }); }
   }
+  forceStereoOutput(ctx);
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.85;
   masterAnalyser = ctx.createAnalyser();

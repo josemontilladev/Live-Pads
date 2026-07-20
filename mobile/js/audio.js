@@ -13,6 +13,7 @@
 import { signGet } from './cloud.js';
 import { SoundTouchNode } from '../vendor/soundtouch-worklet/SoundTouchNode.js';
 import { createTruePan } from './truePan.js';
+import { forceStereoOutput } from './stereoOut.js';
 
 const CACHE_NAME = 'lpm-media-v1';
 
@@ -29,8 +30,15 @@ function ensureSoundTouch(ctx) {
 }
 
 let ctx = null;
+// Diagnostico de la salida: { stereo, maxChannels }. Si el equipo es mono
+// (altavoz unico del movil, "audio mono" de accesibilidad) el paneo no existe.
+export let outputInfo = { stereo: true, maxChannels: 2 };
+
 export function audioCtx() {
-  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    outputInfo = forceStereoOutput(ctx);
+  }
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }

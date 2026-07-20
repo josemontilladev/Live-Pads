@@ -678,6 +678,14 @@
               <button class="sb-btn" id="set-mappings">Ver mapeos activos</button>
               <button class="sb-btn" id="set-midi-rescan" title="Vuelve a buscar tu controlador (si no lo reconoció o lo reconectaste)">Reconectar MIDI</button>
             </div>
+            <div class="sb-card">
+              <div class="sb-field-label">Controlador</div>
+              <p class="set-launch-desc">Si tenés varios dispositivos MIDI conectados, elegí cuál usar. Con «Todos» responde cualquiera.</p>
+              <select class="sb-select" id="set-midi-input" aria-label="Controlador MIDI">
+                <option value="">Todos los controladores</option>
+              </select>
+              <p class="set-hint" id="set-midi-input-state">Buscando dispositivos…</p>
+            </div>
             <div class="set-embed" id="embed-midi"></div>
           </div>
 

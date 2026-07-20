@@ -88,6 +88,18 @@
 .sb-btn--primary { background: var(--accent); color: #000; border-color: var(--accent); }
 .sb-btn--primary:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 
+/* Selector de controlador MIDI (Ajustes → MIDI / Teclado). */
+.sb-card:has(> .sb-select) { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.sb-field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--text-muted); }
+.sb-select {
+  width: 100%; padding: 9px 10px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-size: 13px; cursor: pointer;
+}
+.sb-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.set-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
+.set-hint.is-none { color: #f8a; }
+
 /* ── Modal EMBEBIDO dentro del sidebar ──
    Reparentamos el overlay del modal dentro del panel y lo "aplanamos": sin
    posición fija, sin fondo de velo, sin sombra — para que se vea como una
