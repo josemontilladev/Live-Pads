@@ -199,25 +199,25 @@
   /* SIEMPRE en una sola fila: 4 canales iguales + Maestro más angosto (solo
      tiene Vol). Antes era auto-fit minmax(150px), que en laptops no daba el
      ancho para los 5 y tiraba el Maestro a una segunda fila, comiendo alto. */
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 0.6fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
-/* Laptops: compacta lo justo para que los 5 sigan cabiendo en la fila. */
+/* Laptops: se aprieta el aire, NUNCA el fader. Antes se encogian etiqueta,
+   valor y padding hasta que al riel le quedaban ~50px y se veia cortado; el
+   ancho lo da ahora el apilado (ver .mx-ctrl), asi que aqui basta con esto. */
 @media (max-width: 1500px) {
   .mx-channels { gap: 8px; }
   .mx-channel { padding: 7px 9px; gap: 5px; }
-  .mx-lbl { min-width: 18px; font-size: 10px; }
-  .mx-val { min-width: 32px; font-size: 11.5px; }
   .mx-name { font-size: 11.5px; }
+  .mx-lbl { font-size: 10px; }
+  .mx-val { font-size: 11.5px; }
 }
 @media (max-width: 1250px) {
   #mixer-bar { padding: 10px 11px; gap: 8px; }
   .mx-channels { gap: 6px; }
-  .mx-channel { padding: 6px 7px; }
-  /* El orden (Pan arriba, Vol abajo) y el valor (R100 / 32%) ya identifican
-     cada control, así que a este ancho las etiquetas sobran. */
-  .mx-lbl { display: none; }
-  .mx-val { min-width: 30px; font-size: 11px; }
+  .mx-channel { padding: 6px 8px; }
+  .mx-val { font-size: 11px; }
+  .mx-master .mx-slider { min-width: 70px; }
 }
 .mx-channel {
   background: var(--bg-hover);
@@ -227,21 +227,38 @@
   display: flex; flex-direction: column; gap: 6px;
   min-width: 0;
 }
-/* El canal Maestro (control global) se distingue de las fuentes con un borde
-   de acento y su nombre en color, para que se lea de un vistazo cuál es. */
-.mx-channel--master {
-  justify-content: center;
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover));
-}
-.mx-channel--master .mx-name { color: var(--accent); }
 .mx-name {
   font-size: 12.5px; font-weight: 700; color: var(--text);
   letter-spacing: 0.3px; white-space: nowrap;
 }
-.mx-ctrl { display: flex; align-items: center; gap: 8px; }
-.mx-lbl { font-size: 10.5px; font-weight: 700; color: var(--text-muted); min-width: 22px; }
-.mx-slider { flex: 1; min-width: 0; }
+/* Control APILADO: etiqueta y valor en una linea fina, y el fader debajo a
+   TODO el ancho del canal. En horizontal, la etiqueta (22px) + el valor (38px)
+   + los huecos se comian el riel en pantallas de portatil. */
+.mx-ctrl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mx-ctrl-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 6px; min-width: 0;
+}
+.mx-lbl { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+.mx-slider { width: 100%; min-width: 0; }
+
+/* ── Maestro: vive en el ENCABEZADO, no en la rejilla ──
+   Al sacarlo, los 4 canales reales se reparten todo el ancho (antes cedian
+   una columna a un canal que solo tiene Vol). Aqui si va en horizontal:
+   una sola linea, sin robar alto. */
+.mx-master {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 12px; padding-left: 12px;
+  border-left: 1px solid var(--border);
+  min-width: 190px; max-width: 300px; flex: 0 1 auto;
+}
+.mx-master .mx-name { color: var(--accent); }
+.mx-master .mx-ctrl { flex-direction: row; align-items: center; gap: 8px; flex: 1; }
+.mx-master .mx-lbl { display: none; }         /* el nombre "Maestro" ya lo dice */
+.mx-master .mx-ctrl-head { order: 2; flex: 0 0 auto; }
+.mx-master .mx-slider { order: 1; flex: 1; min-width: 84px; }
+/* El hint cede el sitio: empuja el Maestro al extremo derecho. */
+.mx-title .mx-hint { margin-left: auto; }
 /* El VALOR es lo que el director lee de reojo: más grande y en color pleno
    (no apagado), tabular para que no "baile" al cambiar de cifra. */
 .mx-val {
@@ -264,7 +281,7 @@
     var(--accent) var(--pct, 50%),
     #0b0c0e var(--pct, 50%));
 }
-#mixer-bar .mx-channel--master input.blue-slider {
+#mixer-bar .mx-master input.blue-slider {
   background: linear-gradient(to right,
     color-mix(in srgb, var(--accent) 45%, #fff) 0%,
     var(--accent) var(--pct, 50%),
