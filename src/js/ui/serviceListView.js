@@ -5,10 +5,11 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
-import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist, updateSetlistMeta, duplicateSetlist } from '../data/service.js';
+import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist, updateSetlistMeta, duplicateSetlist, getEffectiveKey, getKeyOverride, setKeyOverride, clearKeyOverride } from '../data/service.js';
 import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { keyChoices, isKnownKey } from '../utils/musicKeys.js';
 import { confirmDialog } from './dialog.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
@@ -305,7 +306,18 @@ function openSetlistItemMenu(anchor, id) {
           title: 'Eliminar setlist',
           message: `¿Eliminar "${s.name}"? Esto no borra las canciones de tu librería.`,
           confirmLabel: 'Eliminar', danger: true,
-          onConfirm: () => { deleteSavedSetlist(id); showServiceChooser(); },
+          onConfirm: () => {
+            const cloudId = deleteSavedSetlist(id);
+            // Propagar el borrado al equipo. Sin esto, el setlist reaparecía en
+            // la siguiente bajada (seguía vivo en la nube) o se quedaba
+            // huérfano en las vistas web.
+            if (cloudId) {
+              import('../cloud/setlistSync.js')
+                .then(m => m.deleteSharedSetlist(cloudId, s.name))
+                .catch(() => {});
+            }
+            showServiceChooser();
+          },
         });
       } },
   ]);
@@ -410,6 +422,10 @@ function buildCard(song, index, activeIdx) {
     showChords: !!song.showChords,
     includeAdd: false,
     includeReorder: true,
+    // Solo en el Servicio el tono es editable: es el contexto donde "hoy lo
+    // tocamos en otro tono" tiene sentido.
+    keyEditable: true,
+    serviceKey: getEffectiveKey(song),
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -429,6 +445,10 @@ export function repaintServiceCard(card, song) {
     showChords: !!song.showChords,
     includeAdd: false,
     includeReorder: true,
+    // Solo en el Servicio el tono es editable: es el contexto donde "hoy lo
+    // tocamos en otro tono" tiene sentido.
+    keyEditable: true,
+    serviceKey: getEffectiveKey(song),
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -436,6 +456,75 @@ export function repaintServiceCard(card, song) {
 
 function findSong(serviceId) {
   return deps.getSongs().find(s => String(s.serviceId) === serviceId);
+}
+
+// ── Tono del servicio ──────────────────────────────────────────────────────
+// El tono de la librería es el "oficial". Aquí se elige en qué tono se toca HOY
+// esa canción, sin tocar el oficial: el override viaja con el setlist a la nube
+// (setlists.song_keys), así que todo el equipo abre el domingo en el mismo tono.
+// Y si el cambio resultó ser permanente, "Fijar como tono de la biblioteca" lo
+// promueve al oficial y se propaga a todos.
+const ICON_CHECK = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICON_UNDO  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
+const ICON_STAR  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+
+// Promueve el tono de hoy a tono OFICIAL de la canción en la librería. Cambia
+// la canción viva (no la copia del setlist), quita el override —ya no hace
+// falta— y deja que el auto-push lo comparta con el equipo.
+function promoteKeyToLibrary(song, newKey) {
+  const live = (getLibrarySongs() || []).find(s =>
+    (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id));
+  if (!live) { window.showToast?.('Esta canción no está en tu librería.', 'info'); return; }
+  live.key = newKey;
+  clearKeyOverride(song);
+  // A disco primero: songs-changed re-renderiza y programa el push a la nube,
+  // pero no escribe canciones_app.json. Sin esto el tono nuevo se perdía al
+  // cerrar la app si el push no llegaba a completarse.
+  deps.persistLibrary?.();
+  try { window.dispatchEvent(new Event('livepads:songs-changed')); } catch (_) {}
+  try { window.dispatchEvent(new Event('livepads:cloud-dirty')); } catch (_) {}
+  window.showToast?.(`✓ «${live.title}» queda en ${newKey} para todo el equipo.`, 'success');
+  renderServiceList();
+}
+
+function openKeyMenu(anchorEl, song, card) {
+  const base = song.key || '';
+  if (!isKnownKey(base)) {
+    window.showToast?.(
+      base ? `El tono "${base}" no se reconoce: editá la canción para poner uno estándar (G, Em, Bb…).`
+           : 'Esta canción no tiene tono. Editala para ponerle uno.',
+      'info');
+    return;
+  }
+  const current = getEffectiveKey(song);
+  const items = [];
+
+  if (getKeyOverride(song)) {
+    items.push({
+      label: `Volver al original (${base})`,
+      icon: ICON_UNDO,
+      onSelect: () => { clearKeyOverride(song); repaintServiceCard(card, song); deps.onKeyChanged?.(song); },
+    });
+    items.push({
+      label: `Fijar ${current} como tono de la biblioteca`,
+      icon: ICON_STAR,
+      onSelect: () => promoteKeyToLibrary(song, current),
+    });
+  }
+
+  keyChoices(base).forEach(({ key, label }) => {
+    items.push({
+      label,
+      icon: key === current ? ICON_CHECK : '',
+      onSelect: () => {
+        setKeyOverride(song, key);
+        repaintServiceCard(card, song);
+        deps.onKeyChanged?.(song);
+      },
+    });
+  });
+
+  openCardMoreMenu(anchorEl, items);
 }
 
 // Callback tras cargar audio (archivo o YouTube) a una canción del Servicio:
@@ -538,7 +627,8 @@ function initDelegation() {
           deps.toggleLyricsAccordion(song, true);
         }
         return;
-      case 'lyrics-fullscreen': e.stopPropagation(); openLyricsFullscreen(song); return;
+      case 'key': e.stopPropagation(); openKeyMenu(actionEl, song, card); return;
+      case 'lyrics-fullscreen': e.stopPropagation(); openLyricsFullscreen(song, { key: getEffectiveKey(song) }); return;
       case 'toggle-chords': deps.toggleChordVisibility(song, true, true); return;
       case 'edit-lyrics':
         deps.openLyricsEditorModal(song, (newLyrics) => {

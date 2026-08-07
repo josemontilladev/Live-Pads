@@ -444,6 +444,41 @@ input.pan-slider {
   margin-top: 2px;
 }
 
+/* Chip de TONO del servicio. En la Librería el tono es texto plano; en el
+   Servicio es un botón: se puede tocar la canción en otro tono solo ese día.
+   Cuando hay override se resalta y muestra el salto ("Mi → G") — un tono
+   cambiado tiene que saltar a la vista de lejos, en un escenario. */
+.gi-key-chip {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0 3px;
+  margin: 0 -3px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: inherit;
+}
+.gi-key-chip:hover,
+.gi-key-chip:focus-visible {
+  color: var(--text);
+  background: var(--bg-elevated, rgba(255, 255, 255, .08));
+  outline: none;
+}
+.gi-key-chip.is-overridden {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+
+/* El menú de tonos son 12 opciones + acciones: que no se salga de la pantalla
+   en una laptop. */
+.card-more-menu {
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+}
+
 /* Title + artist block */
 .gi-song-main {
   display: flex;

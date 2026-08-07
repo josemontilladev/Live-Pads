@@ -1061,7 +1061,11 @@ function bindRestOfApp() {
     clearTimeout(setlistSyncTimer);
     setlistSyncTimer = setTimeout(syncSetlists, 2500);
   });
-  setTimeout(syncSetlists, 8000); // una pasada tras el arranque (ya con canciones)
+  // NO hay pasada de subida al arrancar. Esta versión web sube TODOS los
+  // setlists locales con un PATCH incondicional; abrirla con datos viejos
+  // pisaba los servicios que el equipo había cambiado desde la app de
+  // escritorio. Hasta que este espejo se ponga al día con src/js (sync por
+  // cloudId + solo lo editado), solo publica lo que se toque aquí.
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,

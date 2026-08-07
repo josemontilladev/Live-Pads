@@ -64,7 +64,7 @@ import {
   initService, getServiceSongs, getActiveServiceIndex, setActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
-  serviceNextSong, servicePrevSong, syncServiceWithLibrary
+  serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey
 } from './data/service.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
@@ -240,6 +240,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     openLyricsEditorModal,
     toggleLyricsAccordion,
     toggleChordVisibility,
+    // Cambió el tono con el que se toca esta canción HOY. Si es la que está
+    // activa, hay que re-preparar el pad: de nada sirve que la card diga G si
+    // el pad sigue sonando en Mi. Persistir/publicar lo hace data/service.
+    onKeyChanged: (song) => {
+      const i = getActiveServiceIndex();
+      if (i >= 0 && getServiceSongs()[i] === song) applyGiSong(song);
+    },
+    persistLibrary: persistGiSongs,
     syncLyricsToLibrary: (song) => {
       const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (!giSong) return;
@@ -923,6 +931,10 @@ function bindRestOfApp() {
     persistGiSongs();
     renderGiList(q('#gi-search')?.value || '');
     updateFilterCounts();
+    // Los setlists guardan una COPIA de cada canción. Sin esto, una canción que
+    // actualizó un compañero se refrescaba en la Librería pero el servicio
+    // seguía mostrando (y tocando) el tono, BPM y letra viejos.
+    if (syncServiceWithLibrary()) renderServiceList();
   });
 
   // Recarga la librería DESDE DISCO (sin guardar el store antes): lo usa el
@@ -992,7 +1004,7 @@ function bindRestOfApp() {
     const cloudId = ev?.detail?.cloudId;
     if (!cloudId) return;
     const title = ev?.detail?.title;
-    import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId)).catch(() => {});
+    import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId, title)).catch(() => {});
     // Registra el borrado en el historial del equipo (best-effort).
     import('./cloud/libraries.js').then(({ getActiveLibraryId }) => {
       const libId = getActiveLibraryId();
@@ -1006,7 +1018,14 @@ function bindRestOfApp() {
   // sonando, acumulamos y lo mostramos al parar (no molestar en escenario).
   let pendingActivity = [];
   const isPlayingNow = () => (isTrackLoaded() && isTrackPlaying()) || getMetroRunning();
-  function showActivityToast(changes) {
+  function showActivityToast(all) {
+    const gone = all.filter(c => c.deleted);
+    if (gone.length) {
+      const t = [...new Set(gone.map(c => c.title).filter(Boolean))];
+      if (t.length === 1) showToast(`«${t[0]}» se eliminó de la librería compartida.`, 'info');
+      else if (t.length) showToast(`${t.length} canciones se eliminaron de la librería compartida.`, 'info');
+    }
+    const changes = all.filter(c => !c.deleted);
     const titles = [...new Set(changes.map(c => c.title).filter(Boolean))];
     const names  = [...new Set(changes.map(c => c.byName).filter(Boolean))];
     if (!titles.length) return;
@@ -1027,6 +1046,12 @@ function bindRestOfApp() {
   window.addEventListener('livepads:library-activity', (ev) => {
     const changes = (ev?.detail?.changes) || [];
     if (changes.length) pendingActivity.push(...changes);
+    // Borrados del equipo: la canción ya desapareció de la lista local. Avisar
+    // es obligatorio — que algo se esfume sin explicación asusta en un ensayo.
+    const removed = (ev?.detail?.removed) || [];
+    if (removed.length) {
+      pendingActivity.push(...removed.filter(Boolean).map(t => ({ title: t, deleted: true })));
+    }
     flushActivity();
   });
 
@@ -1054,18 +1079,21 @@ function bindRestOfApp() {
   // la app (sin códigos que pegar). Mismas guardas: sin sesión/red, no hace nada.
   import('./cloud/inviteInbox.js').then(m => m.startInviteInbox()).catch(() => {});
 
-  // Auto-sync de setlists: sube TODOS los guardados a la nube al arrancar y cada
-  // vez que cambian (debounced), para que aparezcan completos en la web y en la
-  // app móvil. Best-effort (sin sesión/red no hace nada).
+  // Auto-sync de setlists: publica los servicios EDITADOS aquí y baja los del
+  // resto del equipo. Best-effort (sin sesión/red no hace nada).
+  //
+  // La pasada del arranque la hace ahora libraryLive (baja primero, publica
+  // después). Antes había aquí un `setTimeout(subirTodos, 8000)` que subía
+  // TODOS los setlists locales sin mirar fechas: arrancar la app con datos
+  // viejos pisaba los servicios que el equipo había cambiado. Ese era el
+  // agujero principal por el que "a veces no se actualizaba".
   let setlistSyncTimer = null;
-  const syncSetlists = () => {
-    import('./cloud/setlistSync.js').then(m => m.autoSyncSetlists()).catch(() => {});
-  };
   window.addEventListener('livepads:setlists-changed', () => {
     clearTimeout(setlistSyncTimer);
-    setlistSyncTimer = setTimeout(syncSetlists, 2500);
+    setlistSyncTimer = setTimeout(() => {
+      import('./cloud/setlistSync.js').then(m => m.autoSyncSetlists()).catch(() => {});
+    }, 2500);
   });
-  setTimeout(syncSetlists, 8000); // una pasada tras el arranque (ya con canciones)
   bindMidiHandlers({
     getEngine: () => engine,
     onKeyClick,
@@ -1915,8 +1943,12 @@ function applyGiSong(song) {
   }
 
   // Update Key
-  if (song.key) {
-    let key = song.key.replace('m', '').trim();
+  // El tono que manda en vivo es el del SERVICIO (si ese día se acordó tocarla
+  // en otro), no el que figura en la librería. Fuera del servicio getEffectiveKey
+  // devuelve song.key, así que la Librería y Stems siguen igual.
+  const liveKey = getEffectiveKey(song);
+  if (liveKey) {
+    let key = liveKey.replace('m', '').trim();
     // Normalizar Do, Re, Mi si vienen así
     const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
     for (let es in esToEn) {
@@ -1963,7 +1995,7 @@ function applyGiSong(song) {
       // unusual jazz extensions). Surface a warning so the user knows
       // why the pad didn't auto-prepare instead of silently failing.
       _songBaseKeySemitone = null;
-      showToast(`Tono "${song.key}" no se reconoce — el pad no se preparó automáticamente.`, 'warning');
+      showToast(`Tono "${liveKey}" no se reconoce — el pad no se preparó automáticamente.`, 'warning');
     }
   } else {
     // La canción no tiene tono definido: deshabilitar la transposición del pad.

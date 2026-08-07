@@ -4,10 +4,10 @@
 import { esc } from '../utils/dom.js';
 import {
   listSavedSetlists, saveCurrentAsSetlist, loadSavedSetlist, deleteSavedSetlist,
-  getServiceSongs,
+  getServiceSongs, markSetlistSynced,
 } from '../data/service.js';
 import { isLoggedIn } from '../cloud/supabase.js';
-import { upsertSharedSetlist, deleteSharedSetlistByName } from '../cloud/setlistSync.js';
+import { upsertSharedSetlist, deleteSharedSetlistByName, deleteSharedSetlist } from '../cloud/setlistSync.js';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 function todayISO() {
@@ -93,6 +93,9 @@ export function openSetlistsModal() {
       if (entry && isLoggedIn()) {
         upsertSharedSetlist(title, date)
           .then((r) => {
+            // Sellar el id de la nube en el setlist local: es lo que permite
+            // renombrarlo después sin crear un duplicado huérfano allá.
+            markSetlistSynced(entry.id, r.id, r.updatedAt);
             const extra = r.skipped ? ` (${r.skipped} sin subir aún — sube tu librería)` : '';
             window.showToast?.(`☁ "${title}" disponible para Cantantes y Producción${extra}.`, 'success');
           })
@@ -111,11 +114,13 @@ export function openSetlistsModal() {
       }
     } else if (act === 'del') {
       const entry = listSavedSetlists().find(s => s.id === id);
-      deleteSavedSetlist(id);
-      // Quitarlo también de la nube (por nombre) para no dejarlo huérfano en
-      // las vistas web del equipo.
-      if (entry?.name && isLoggedIn()) {
-        deleteSharedSetlistByName(entry.name).catch(() => {});
+      const cloudId = deleteSavedSetlist(id);
+      // Quitarlo también de la nube para no dejarlo huérfano en las vistas web
+      // del equipo. Por cloudId cuando lo hay (exacto, sobrevive a renombres);
+      // por nombre solo como respaldo para setlists anteriores a esta versión.
+      if (isLoggedIn()) {
+        if (cloudId) deleteSharedSetlist(cloudId, entry?.name).catch(() => {});
+        else if (entry?.name) deleteSharedSetlistByName(entry.name).catch(() => {});
       }
       render();
     }

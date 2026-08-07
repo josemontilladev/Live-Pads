@@ -54,9 +54,20 @@ async function pullNow() {
   pulling = true;
   try {
     const r = await pullLibrarySongs();
-    if (r && Array.isArray(r.byOthers) && r.byOthers.length) {
+    // Los SERVICIOS viajan en la misma ronda, justo después de las canciones
+    // (que es lo que les da el cloudId con el que se resuelven). Antes solo se
+    // bajaban pulsando "⬇ Bajar" a mano, así que un servicio creado por otro
+    // miembro no aparecía nunca solo — y la subida ciega del arranque llegaba a
+    // pisarlo. autoSyncSetlists baja y luego publica lo que uno editó.
+    try {
+      const { autoSyncSetlists } = await import('./setlistSync.js');
+      await autoSyncSetlists();
+    } catch (_) {}
+    if (r && ((Array.isArray(r.byOthers) && r.byOthers.length) || r.removed)) {
       try {
-        window.dispatchEvent(new CustomEvent('livepads:library-activity', { detail: { changes: r.byOthers } }));
+        window.dispatchEvent(new CustomEvent('livepads:library-activity', {
+          detail: { changes: r.byOthers || [], removed: r.deletedTitles || [] },
+        }));
       } catch (_) {}
     }
     // Conflictos: otro miembro editó una canción que tú también cambiaste sin
