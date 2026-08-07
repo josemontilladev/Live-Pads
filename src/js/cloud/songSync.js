@@ -11,6 +11,7 @@ import { getActiveLibraryId } from './libraries.js';
 import { getSongs, setSongs } from '../state/store.js';
 import { htmlToPlainLyrics } from '../utils/text.js';
 import { logActivity } from './activity.js';
+import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
 
 // Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
 // canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
@@ -78,16 +79,23 @@ function toRow(song, libraryId) {
       cover:      song.cover || null,
     },
   };
-  // Solo se incluye el enlace de YouTube cuando LO HAY: el upsert es
-  // merge-duplicates, así que omitirlo cuando está vacío evita pisar con NULL
-  // un youtube_url ya puesto en la web GI.Setlist. La web usa este campo para
-  // mostrar la carátula.
-  if (song.youtubeUrl && String(song.youtubeUrl).trim()) row.youtube_url = String(song.youtubeUrl).trim();
-  // La LETRA recibe la misma protección: solo viaja cuando la hay. Evita que un
-  // equipo cuya copia local aún no tiene la letra (p. ej. escrita en la web
-  // GI.Setlist y todavía sin bajar) la pise con NULL. Contra: vaciar la letra a
-  // propósito no se propaga (igual que con youtube_url) — caso raro y aceptado.
+  // El enlace de YouTube y la LETRA solo viajan cuando LOS HAY: el upsert es
+  // merge-duplicates, así que omitirlos cuando están vacíos evita que una copia
+  // local que todavía no bajó la letra (p. ej. escrita en la web GI.Setlist)
+  // la pise con NULL.
+  //
+  // La excepción es el borrado INTENCIONADO: si la canción tiene cambios
+  // locales sin subir (dirty) y el campo quedó vacío, es que el usuario lo
+  // vació a propósito → mandamos null explícito para que se propague. Sin esta
+  // distinción, vaciar una letra era invisible para el equipo: se quedaba con
+  // la vieja para siempre.
+  const clearing = isDirty(song);
+  const yt = String(song.youtubeUrl || '').trim();
+  if (yt) row.youtube_url = yt;
+  else if (clearing) row.youtube_url = null;
+
   if (song.lyrics && String(song.lyrics).trim()) row.lyrics = song.lyrics;
+  else if (clearing) row.lyrics = null;
   return row;
 }
 
@@ -208,8 +216,15 @@ async function pushSongsToLibrary(songs, libId) {
   }
 }
 
-async function pushSongsToLibraryCore(songs, libId) {
+async function pushSongsToLibraryCore(allSongs, libId) {
   let created = 0, updated = 0, linked = 0, dupes = 0;
+
+  // Nunca re-subir algo que el equipo borró: eso era exactamente lo que hacía
+  // reaparecer las canciones eliminadas. La caché se refresca en cada bajada.
+  const dead = deletedIds(libId, 'song');
+  const songs = dead.size
+    ? allSongs.filter(s => !(s.cloudId && dead.has(String(s.cloudId))))
+    : allSongs;
 
   // Dedup: antes de crear, vincula las locales sin cloudId que YA existen en la
   // nube (mismo título+artista+tono) para no subir copias. Hace el push
@@ -318,10 +333,12 @@ export async function pullLibrarySongs(opts = {}) {
   const protectIds = opts.protectIds instanceof Set ? opts.protectIds : null;
   const myId = (getUser() || {}).id || null;
   const libId = requireContext();
+  // Lápidas primero: lo que el equipo borró no se baja ni se conserva local.
+  const dead = (await fetchDeletions(libId)).song;
   // Trae el perfil del último editor embebido (updated_by → profiles) para poder
   // decir "quién" cambió. `editor` es el alias del embed; puede venir null.
   const rows = await rest(`/songs?library_id=eq.${libId}&select=*,editor:updated_by(display_name,email)&order=title.asc`);
-  if (!Array.isArray(rows)) return { added: 0, refreshed: 0, linked: 0, byOthers: [] };
+  if (!Array.isArray(rows)) return { added: 0, refreshed: 0, linked: 0, removed: 0, byOthers: [] };
 
   const songs = getSongs().slice();
   const byCloud = new Map();
@@ -342,8 +359,12 @@ export async function pullLibrarySongs(opts = {}) {
   const consumed = new Set();
   const byOthers = [];  // cambios de OTROS miembros, para el aviso
   const conflicts = []; // { cloudId, title, byName, theirs } — otro editó Y yo tengo cambios locales sin subir
-  let added = 0, refreshed = 0, linked = 0;
-  const applyOnto = (target, incoming) => {
+  let added = 0, refreshed = 0, linked = 0, removed = 0;
+  // `keepLocalText` = mi copia tiene texto sin subir que la nube no conoce. Solo
+  // en ese caso una fila sin letra deja intacta la letra local: si mi copia YA
+  // está en sync, una letra vacía en la nube es un borrado deliberado de un
+  // compañero y debe aplicarse (antes se ignoraba y el borrado nunca llegaba).
+  const applyOnto = (target, incoming, keepLocalText) => {
     const localAudio = target.audio;
     const localLyrics = target.lyrics;
     const localCover = target.cover;
@@ -352,14 +373,13 @@ export async function pullLibrarySongs(opts = {}) {
     // Igual que el audio: una fila sin carátula no borra la carátula local (las
     // filas antiguas de la nube no traen `meta.cover`).
     if (!incoming.cover && localCover) target.cover = localCover;
-    // Espejo de la protección del push: una fila de la nube SIN letra no borra
-    // una letra local. (Meses de updates fallidos dejaron filas sin letra en la
-    // nube; sin esta guarda, una bajada "más nueva" —p. ej. tras el PATCH del
-    // video— vaciaría la letra local antes de que el push la subiera.)
-    if ((!incoming.lyrics || !String(incoming.lyrics).trim()) && localLyrics) target.lyrics = localLyrics;
+    if (keepLocalText && (!incoming.lyrics || !String(incoming.lyrics).trim()) && localLyrics) {
+      target.lyrics = localLyrics;
+    }
     target.syncHash = hashOf(target); // local == nube
   };
   for (const row of rows) {
+    if (dead.has(String(row.id))) continue; // borrada por el equipo: ni bajarla
     const incoming = fromRowSynced(row);
     const fromOther = !!(incoming.updatedBy && incoming.updatedBy !== myId);
     const existing = byCloud.get(row.id);
@@ -369,14 +389,20 @@ export async function pullLibrarySongs(opts = {}) {
       // Solo aplicamos si la nube trae algo MÁS NUEVO. Así el poller periódico
       // no re-renderiza ni reescribe a disco cuando no hay cambios.
       if (!isNewer(incoming, existing)) continue;
+      // ¿Tengo ediciones locales sin subir? Con firma sellada es exacto. SIN
+      // firma (canción importada, creada offline o venida de un JSON viejo) el
+      // antiguo isDirty devolvía false y la nube la pisaba EN SILENCIO — una de
+      // las causas reales de "se me perdió el cambio". Sin línea base comparamos
+      // el contenido directamente: si difiere del entrante, hay algo mío que la
+      // nube no tiene.
+      const dirty = existing.syncHash ? isDirty(existing) : hashOf(existing) !== hashOf(incoming);
       // CONFLICTO: otro miembro la cambió (más nueva) y yo tengo ediciones
-      // locales sin subir (contenido ≠ firma sellada). No pisamos: el usuario
-      // decide (mantener la mía / usar la de ellos).
-      if (fromOther && isDirty(existing)) {
+      // locales sin subir. No pisamos: el usuario decide (mía / de ellos).
+      if (fromOther && dirty) {
         conflicts.push({ cloudId: row.id, title: existing.title, byName: incoming.updatedByName, theirs: incoming });
         continue;
       }
-      applyOnto(existing, incoming);
+      applyOnto(existing, incoming, dirty);
       refreshed++;
       if (fromOther) byOthers.push({ title: incoming.title, byName: incoming.updatedByName });
       continue;
@@ -386,7 +412,8 @@ export async function pullLibrarySongs(opts = {}) {
     const k = nkey(incoming);
     const adopt = !consumed.has(k) ? localUntagged.get(k) : null;
     if (adopt && !adopt.cloudId) {
-      applyOnto(adopt, incoming);
+      // La copia local nunca se subió: su texto manda sobre una fila vacía.
+      applyOnto(adopt, incoming, true);
       consumed.add(k);
       linked++;
     } else {
@@ -396,8 +423,18 @@ export async function pullLibrarySongs(opts = {}) {
       if (fromOther) byOthers.push({ title: incoming.title, byName: incoming.updatedByName });
     }
   }
-  if (added || refreshed || linked) { setSongs(songs); notifyUpdated(); }
-  return { added, refreshed, linked, byOthers, conflicts };
+
+  // Borrados del equipo: quitar de la copia local lo que alguien borró. Sin
+  // esto la canción seguía aquí y el auto-push la resucitaba en la nube con el
+  // mismo uuid — el borrado nunca "cuajaba" para nadie.
+  const deletedTitles = [];
+  const kept = songs.filter(s => {
+    if (s.cloudId && dead.has(String(s.cloudId))) { deletedTitles.push(s.title); removed++; return false; }
+    return true;
+  });
+
+  if (added || refreshed || linked || removed) { setSongs(kept); notifyUpdated(); }
+  return { added, refreshed, linked, removed, deletedTitles, byOthers, conflicts };
 }
 
 // ── Resolución de conflictos ────────────────────────────────────────────────
@@ -422,11 +459,15 @@ export async function resolveConflictKeepMine(cloudId) {
   return true;
 }
 
-// Borra una canción de la nube (por cloudId). El borrado local lo hace la UI.
-export async function deleteCloudSong(cloudId) {
+// Borra una canción de la nube (por cloudId) Y deja la lápida. El borrado local
+// lo hace la UI. La lápida es lo que hace que el borrado sea DEFINITIVO para el
+// equipo: sin ella, el primer compañero que aún la tuviera local la re-insertaba
+// con el mismo uuid en su siguiente auto-push.
+export async function deleteCloudSong(cloudId, title) {
   if (!cloudId) return false;
-  requireContext();
+  const libId = requireContext();
   await rest(`/songs?id=eq.${cloudId}`, { method: 'DELETE', prefer: 'return=minimal' });
+  await recordDeletion(libId, 'song', cloudId, title);
   return true;
 }
 
@@ -442,11 +483,16 @@ export async function pushSongYoutubeUrl(song) {
   const rowId = song.cloudId || song._id;
   if (!rowId || !isLoggedIn() || !getActiveLibraryId()) return false;
   try {
-    await rest(`/songs?id=eq.${rowId}`, {
+    // return=representation para SELLAR el updated_at del servidor: sin esto la
+    // marca local quedaba vieja y la siguiente bajada creía que la nube era
+    // "más nueva", aplicando la fila entera encima de la canción local.
+    const res = await rest(`/songs?id=eq.${rowId}`, {
       method: 'PATCH',
       body: { youtube_url: String(song.youtubeUrl).trim() },
-      prefer: 'return=minimal',
+      prefer: 'return=representation',
     });
+    const r = Array.isArray(res) ? res[0] : res;
+    if (r && r.updated_at) { song.cloudUpdatedAt = r.updated_at; song.syncHash = hashOf(song); }
     return true;
   } catch (_) {
     return false;

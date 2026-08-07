@@ -26,6 +26,19 @@ function transposeKeyLabel(key, semis) {
   return SHARP_NOTES[((idx + semis) % 12 + 12) % 12] + (m[2] ? 'm' : '');
 }
 
+// Semitonos entre dos tonos, 0 si alguno no se reconoce (nunca lanza: esto se
+// abre en vivo, un tono raro no puede impedir ver la letra).
+function keyDeltaSafe(from, to) {
+  if (!from || !to || from === to) return 0;
+  const a = transposeKeyLabel(from, 0), b = transposeKeyLabel(to, 0);
+  const idx = (k) => SHARP_NOTES.indexOf(String(k).replace(/m$/i, ''));
+  const ia = idx(a), ib = idx(b);
+  if (ia < 0 || ib < 0) return 0;
+  let d = (ib - ia) % 12;
+  if (d > 5) d -= 12;
+  return d;
+}
+
 let popModal = null;
 
 const LS_FONT   = 'livepads.lyrics.fs.fontSize';
@@ -51,13 +64,24 @@ function readChords(defaultFromSong) {
 }
 function writeChords(b) { localStorage.setItem(LS_CHORDS, b ? '1' : '0'); }
 
-export function openLyricsFullscreen(song) {
+/**
+ * @param {object} song
+ * @param {object} [opts]
+ *   - key: tono con el que se toca HOY (override del servicio). El overlay
+ *     abre ya con los acordes en ese tono y el badge lo muestra; el ▲▼ sigue
+ *     siendo un ajuste efímero encima de eso.
+ */
+export function openLyricsFullscreen(song, opts = {}) {
   if (!song) return;
   close(); // por si ya había uno abierto
 
   let fontSize = readFont();
   let showChords = readChords(song.showChords);
-  let semitones = 0;   // transposición en vivo (no persiste: cada apertura arranca en 0)
+  // Punto de partida: el tono del servicio. Los ▲▼ se cuentan DESDE ahí (0 = "el
+  // tono en el que quedamos"), no desde el tono guardado en la librería.
+  const liveKey = opts.key || song.key || '';
+  const baseSemis = keyDeltaSafe(song.key, liveKey);
+  let semitones = baseSemis;   // transposición absoluta sobre la letra guardada
 
   overlay = document.createElement('div');
   overlay.className = 'lyrics-fs-overlay';
@@ -119,11 +143,14 @@ export function openLyricsFullscreen(song) {
 
   const applyTranspose = () => {
     content.innerHTML = formatLyrics(semitones === 0 ? song.lyrics : transposeAll(song.lyrics, semitones));
-    transVal.textContent = semitones > 0 ? `+${semitones}` : String(semitones);
-    transVal.classList.toggle('is-shifted', semitones !== 0);
+    const rel = semitones - baseSemis;   // 0 = el tono acordado para hoy
+    transVal.textContent = rel > 0 ? `+${rel}` : String(rel);
+    transVal.classList.toggle('is-shifted', rel !== 0);
     if (keyBadge && song.key) keyBadge.textContent = transposeKeyLabel(song.key, semitones);
   };
-  transVal.addEventListener('dblclick', () => { semitones = 0; applyTranspose(); });
+  // Render inicial: si el servicio fijó otro tono, la letra ya abre en ése.
+  applyTranspose();
+  transVal.addEventListener('dblclick', () => { semitones = baseSemis; applyTranspose(); });
 
   overlay.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');

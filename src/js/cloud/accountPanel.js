@@ -752,7 +752,9 @@ async function onClick(e) {
                 btn.textContent = '⟳ Subiendo servicios…';
                 try {
                   const { pushSavedSetlists } = await import('./setlistSync.js');
-                  const r = await pushSavedSetlists();
+                  // Botón manual = "publicá TODO lo mío", aunque no esté sucio.
+                  // La ronda automática, en cambio, solo sube lo editado aquí.
+                  const r = await pushSavedSetlists({ all: true });
                   if (r.pushed) partes.push(`${r.pushed} servicio(s)`);
                 } catch (_) { /* sin setlists guardados */ }
               }

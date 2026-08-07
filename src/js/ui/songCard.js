@@ -7,6 +7,8 @@
 
 import { esc } from '../utils/dom.js';
 import { formatLyrics } from './lyricsFormat.js';
+import { transposeAll } from './chordTransposer.js';
+import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 
 /**
  * @param {object} song
@@ -130,12 +132,34 @@ export function songCardInnerHTML(song, opts) {
   // dan el anclaje visual). `rowNumber` se conserva en la firma por compat.
   // El compás (clave del metrónomo) se muestra SIEMPRE en la card, incluso 4/4.
   const sigMeta = esc(song.timeSig || '4/4');
+  // Tono. En el Servicio es interactivo: se puede cambiar SOLO para ese día sin
+  // tocar el tono oficial de la librería (opts.keyEditable). Cuando hay
+  // override, el chip muestra el salto — "Mi → G" — para que nadie toque en el
+  // tono equivocado por leer la card de pasada.
+  const baseKey = song.key || '';
+  const liveKey = opts.serviceKey || baseKey;
+  const overridden = !!(opts.serviceKey && baseKey && opts.serviceKey !== baseKey);
+  let keyMeta = '';
+  if (opts.keyEditable) {
+    const label = overridden ? `${esc(baseKey)} → ${esc(liveKey)}` : (esc(liveKey) || 'Tono');
+    const title = overridden
+      ? `Hoy en ${liveKey} (en la librería está en ${baseKey}). Clic para cambiar.`
+      : 'Tono de la canción. Clic para tocarla en otro tono solo en este servicio.';
+    keyMeta = `<button type="button" class="gi-key-chip${overridden ? ' is-overridden' : ''}" data-action="key" title="${esc(title)}">${label}</button>`;
+  } else if (baseKey) {
+    keyMeta = esc(baseKey);
+  }
   const metaLine = [
-    song.key   ? esc(song.key)            : '',
+    keyMeta,
     song.bpm   ? `${esc(song.bpm)} BPM`   : '',
     sigMeta,
     song.genre ? esc(song.genre)          : ''
   ].filter(Boolean).join(' · ');
+
+  // Los acordes de la letra siguen al tono del servicio: si hoy se toca en G, el
+  // acordeón muestra los acordes en G. La letra guardada no se toca.
+  const semis = overridden ? keyDelta(baseKey, liveKey) : 0;
+  const lyricsText = (semis) ? transposeAll(song.lyrics || '', semis, prefersFlats(liveKey)) : song.lyrics;
 
   // El texto (carátula + título/artista/meta) ocupa TODO el ancho arriba para
   // que nada se corte en la barra angosta de Pads. Los iconos van en una tira
@@ -168,7 +192,7 @@ export function songCardInnerHTML(song, opts) {
         </button>
       </div>
       <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
-        ${formatLyrics(song.lyrics)}
+        ${formatLyrics(lyricsText)}
       </div>
     </div>
   `;

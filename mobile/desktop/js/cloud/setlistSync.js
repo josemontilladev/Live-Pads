@@ -115,6 +115,11 @@ export async function deleteSharedSetlist(id) {
 export async function autoSyncSetlists() {
   if (!isLoggedIn() || !getActiveLibraryId()) return { pushed: 0, skipped: 0 };
   try {
+    // BAJAR ANTES DE SUBIR. Este espejo sube todos los setlists locales con un
+    // PATCH incondicional; sin refrescar primero, publicaba datos viejos encima
+    // del trabajo del equipo. Bajar deja la copia local al día para que lo que
+    // se publique después ya incluya los cambios de los demás.
+    try { await pullSharedSetlists(); } catch (_) {}
     return await pushSavedSetlists();
   } catch (_) {
     return { pushed: 0, skipped: 0 };
