@@ -32,6 +32,10 @@ let started = false;
 let timer = null;
 let pulling = false;
 let lastLocalEdit = 0;
+// Última ronda que terminó BIEN (ms). Es el dato que responde "¿cuándo fue la
+// última vez que esto habló con la nube?" en el panel Mi cuenta.
+let lastSyncAt = 0;
+export function getLastSyncAt() { return lastSyncAt; }
 
 function markLocalEdit() { lastLocalEdit = Date.now(); }
 
@@ -63,6 +67,7 @@ async function pullNow() {
       const { autoSyncSetlists } = await import('./setlistSync.js');
       await autoSyncSetlists();
     } catch (_) {}
+    lastSyncAt = Date.now();
     if (r && ((Array.isArray(r.byOthers) && r.byOthers.length) || r.removed)) {
       try {
         window.dispatchEvent(new CustomEvent('livepads:library-activity', {

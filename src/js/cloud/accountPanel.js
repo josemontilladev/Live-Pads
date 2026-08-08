@@ -99,8 +99,24 @@ function ensureOverlay() {
   return overlay;
 }
 
+// Mientras el panel está abierto, la línea de estado se refresca sola: así se
+// ve pasar "2 canciones sin publicar" → "Todo publicado" sin cerrar y reabrir,
+// que es justo la duda que trae al usuario aquí.
+let statusTimer = null;
+function startStatusWatch() {
+  if (statusTimer) return;
+  statusTimer = setInterval(() => {
+    if (overlay && !overlay.classList.contains('hidden')) refreshFilesStatus();
+    else stopStatusWatch();
+  }, 10000);
+}
+function stopStatusWatch() {
+  if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+}
+
 function close() {
   if (popModal) { popModal(); popModal = null; }
+  stopStatusWatch();
   if (overlay) overlay.classList.add('hidden');
 }
 
@@ -279,6 +295,7 @@ async function refreshLibs() {
   await renderManage();
   await renderSetlists();
   refreshFilesStatus(); // sin await: no bloquea el panel
+  startStatusWatch();   // …y se mantiene vivo mientras el panel esté abierto
   // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
   try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
 }
@@ -305,8 +322,24 @@ function onSyncDirChange(e) {
   if (e.target?.name === 'sync-dir') refreshFilesStatus();
 }
 
+// "Hace X" en lenguaje humano, para la última ronda de sincronización.
+function haceCuanto(ms) {
+  if (!ms) return null;
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return 'hace unos segundos';
+  const m = Math.round(s / 60);
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `hace ${h} h` : 'hace más de un día';
+}
+
 // Estado de sincronización EN UNA FRASE: ¿está este equipo al día o no?
-// Se evita el detalle técnico (canciones vs archivos) salvo cuando falta algo.
+//
+// Cubre las TRES cosas que viajan a la nube —canciones, servicios y audios—,
+// no solo los archivos. Decir "al día" mirando únicamente los audios era
+// engañoso: podías tener canciones editadas sin publicar y el panel te daba el
+// visto bueno. Como la sincronización es silenciosa, esta línea es el único
+// sitio donde se puede responder con certeza a "¿ya se subió todo?".
 async function refreshFilesStatus() {
   const box = overlay?.querySelector('#acc-sync-status');
   if (!box) return;
@@ -314,22 +347,35 @@ async function refreshFilesStatus() {
   box.className = 'acc-sync-status';
   try {
     const { estadoBiblioteca } = await import('./fileSync.js');
+    const [{ countPendingSongs }, { listSavedSetlists, isSetlistDirty }, { getLastSyncAt }] =
+      await Promise.all([
+        import('./songSync.js'),
+        import('../data/service.js'),
+        import('./libraryLive.js'),
+      ]);
     const s = await estadoBiblioteca();
     const mb = s.cloudBytes / (1024 * 1024);
     const size = mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
 
+    const pendSongs = countPendingSongs();
+    const pendSets = listSavedSetlists().filter(isSetlistDirty).length;
+
     const faltan = [];
+    if (pendSongs) faltan.push(`${pendSongs} canción(es) sin publicar`);
+    if (pendSets)  faltan.push(`${pendSets} servicio(s) sin publicar`);
     if (s.pendingUpload) faltan.push(`${s.pendingUpload} audio(s) sin subir`);
     if (s.pendingDownload) faltan.push(`${s.pendingDownload} audio(s) por traer`);
 
+    const cuando = haceCuanto(getLastSyncAt());
     if (!faltan.length) {
       box.classList.add('ok');
-      box.innerHTML = s.inCloud
-        ? `✓ Este equipo está al día · ${s.inCloud} archivo(s) en la nube (${size})`
-        : '✓ Sin archivos que sincronizar todavía';
+      const detalle = s.inCloud ? ` · ${s.inCloud} archivo(s) en la nube (${size})` : '';
+      box.innerHTML = `✓ Todo publicado${cuando ? ` · sincronizado ${cuando}` : ''}${detalle}`;
     } else {
       box.classList.add('warn');
-      box.innerHTML = `⚠ ${faltan.join(' · ')}`;
+      // Pendiente NO es error: se publica solo en la próxima ronda (~45 s). Se
+      // dice explícitamente para que nadie corra a pulsar botones sin necesidad.
+      box.innerHTML = `⚠ ${faltan.join(' · ')} — se publicará solo en un momento.`;
     }
 
     // Pista junto al checkbox de audios: cuántos moverá según la dirección.
