@@ -166,6 +166,20 @@ function dedupePairsByCloudId(pairs) {
   return [...byId.values()];
 }
 
+// ¿Cuántas canciones de la librería activa tienen algo sin publicar? Son las
+// que nunca llegaron a la nube (sin cloudId) más las editadas aquí desde la
+// última sincronización. Lo usa el panel "Mi cuenta" para poder responder con
+// certeza a "¿ya se subió todo?" — la sincronización es silenciosa, así que
+// tiene que haber al menos un sitio donde mirar.
+export function countPendingSongs() {
+  const libId = getActiveLibraryId();
+  if (!libId) return 0;
+  return getSongs()
+    .filter(s => (s.libraryId || libId) === libId)
+    .filter(s => !s.cloudId || isDirty(s))
+    .length;
+}
+
 function notifyUpdated() {
   try { window.dispatchEvent(new CustomEvent('livepads:library-synced')); } catch (_) {}
 }
