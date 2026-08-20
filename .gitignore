@@ -46,3 +46,4 @@ scripts/stem-poc/*.mp3
 defaults/Original Tracks/
 scripts/brand/.render*.html
 supabase/.temp/
+.playwright-mcp/

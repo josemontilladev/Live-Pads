@@ -1,6 +1,6 @@
 import { esc } from '../utils/dom.js';
 import { wrapTextareaSelection, insertTextAtCursor } from '../utils/text.js';
-import { formatLyrics, highlightSyntax, autoFormatLyrics } from './lyricsFormat.js';
+import { formatLyrics, highlightSyntax, autoFormatLyrics, repairLyrics, cleanPastedLyrics, describeRepair } from './lyricsFormat.js';
 import { transposeAll, keyPrefersFlats } from './chordTransposer.js';
 import { parseChordPage } from '../data/chordImporter.js';
 import { showDialog, confirmDialog, confirmDialogAsync } from './dialog.js';
@@ -53,6 +53,7 @@ function modalHTML(song) {
         <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Envolver selección en [ ]   ·   Ctrl+[">[ ]</button>
         <button type="button" class="format-tool-btn" data-action="clear" title="Limpiar formato de selección">Tx</button>
         <button type="button" class="format-tool-btn autoformat-btn" data-action="autoformat" title="Auto-formato: detecta y marca las secciones (CORO, VERSO…) del texto pegado. Los acordes se reconocen solos.">✨ Auto</button>
+        <button type="button" class="format-tool-btn repair-btn" data-action="repair" title="Reparar letra: limpia lo pegado de la web (caracteres invisibles, basura) y une cada acorde con su sílaba, para que ocupe una línea en vez de dos.">🔧 Reparar</button>
         <div class="toolbar-sep"></div>
         <div class="transpose-group" title="Transponer todos los acordes ±1 semitono">
           <button type="button" class="format-tool-btn transpose-btn" data-action="transpose-down" title="Bajar medio tono">▼</button>
@@ -163,6 +164,46 @@ export function openLyricsEditorModal(song, onSaveCallback) {
   };
 
   textarea.oninput = refreshHighlight;
+
+  // Reemplaza TODO el contenido conservando el deshacer nativo (Ctrl+Z) vía
+  // execCommand: es lo que permite que "Auto" y "Reparar" sean reversibles con
+  // el gesto que el usuario ya conoce, sin implementar un historial propio.
+  const replaceAllText = (nuevo) => {
+    const savedScrollTop = textarea.scrollTop;
+    textarea.focus();
+    textarea.select();
+    let ok = false;
+    try { ok = document.execCommand('insertText', false, nuevo); } catch (_) { ok = false; }
+    if (!ok) textarea.value = nuevo; // fallback (sin undo nativo)
+    textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+    textarea.scrollTop = savedScrollTop;
+    refreshHighlight();
+    textarea.dispatchEvent(new Event('input'));
+  };
+
+  // PEGADO: casi toda la letra entra en la app por aquí, así que es el sitio
+  // donde más rinde limpiar. Se aplica solo la limpieza SEGURA (invisibles,
+  // homoglifos, espacios raros, basura de la web): no se reordena nada ni se
+  // unen acordes, porque pegar no debe reescribirle el texto a nadie. Para eso
+  // está el botón "Reparar", que es explícito y reversible.
+  textarea.addEventListener('paste', (e) => {
+    const crudo = e.clipboardData?.getData('text/plain');
+    if (!crudo) return;
+    const limpio = cleanPastedLyrics(crudo);
+    if (limpio === crudo) return;           // nada que limpiar: pegado normal
+    e.preventDefault();
+    const ok = (() => { try { return document.execCommand('insertText', false, limpio); } catch (_) { return false; } })();
+    if (!ok) {
+      const a = textarea.selectionStart, b = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, a) + limpio + textarea.value.slice(b);
+      textarea.selectionStart = textarea.selectionEnd = a + limpio.length;
+    }
+    refreshHighlight();
+    textarea.dispatchEvent(new Event('input'));
+    const sobra = crudo.length - limpio.length;
+    if (sobra > 0) window.showToast?.('Letra pegada y limpiada (' + sobra + ' caracteres de basura). Pulsa 🔧 Reparar para unir los acordes a la letra.', 'info');
+  });
+
   textarea.onscroll = () => {
     highlight.scrollTop = textarea.scrollTop;
     highlight.scrollLeft = textarea.scrollLeft;
@@ -180,18 +221,25 @@ export function openLyricsEditorModal(song, onSaveCallback) {
           window.showToast?.('No se encontraron secciones nuevas para marcar.', 'info');
           return;
         }
-        // Reemplaza TODO conservando el deshacer nativo (Ctrl+Z) vía execCommand.
-        const savedScrollTop = textarea.scrollTop;
-        textarea.focus();
-        textarea.select();
-        let ok = false;
-        try { ok = document.execCommand('insertText', false, formatted); } catch (_) { ok = false; }
-        if (!ok) textarea.value = formatted; // fallback (sin undo nativo)
-        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
-        textarea.scrollTop = savedScrollTop;
-        refreshHighlight();
-        textarea.dispatchEvent(new Event('input'));
+        replaceAllText(formatted);
         window.showToast?.('✓ Secciones marcadas. Revisa la vista previa (👁).', 'success');
+      } else if (action === 'repair') {
+        // Reparación completa: limpiar lo pegado + marcar secciones + unir cada
+        // acorde con su sílaba. Se cuenta lo que cambió para que el usuario sepa
+        // qué se tocó (y pueda deshacerlo con Ctrl+Z si no le convence).
+        const before = textarea.value;
+        const after = repairLyrics(before);
+        if (after === before) {
+          window.showToast?.('La letra ya está limpia: no hay nada que reparar.', 'info');
+          return;
+        }
+        const d = describeRepair(before, after);
+        replaceAllText(after);
+        const partes = [];
+        if (d.acordesUnidos) partes.push(d.acordesUnidos + ' acorde(s) unidos a su sílaba');
+        if (d.lineasMenos) partes.push(d.lineasMenos + ' línea(s) menos');
+        if (d.limpiados) partes.push(d.limpiados + ' carácter(es) raros limpiados');
+        window.showToast?.('✓ ' + (partes.join(' · ') || 'Letra reparada') + '. Ctrl+Z para deshacer.', 'success');
       } else if (action === 'clear') {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;

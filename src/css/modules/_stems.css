@@ -3237,3 +3237,85 @@ body[data-workspace="stems"] #body {
    quedar desfasado del canvas que se mueve en vivo. */
 .stems-row-lane.is-shifting .stems-clip,
 .stems-row-lane.is-shifting .stems-clip-mask { opacity: 0; }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   MODO COMPACTO — laptops de 12"
+   ─────────────────────────────────────────────────────────────────────────
+   Medido en el peor caso realista (1093×614 = 12" a 125% de escala de
+   Windows): las dos cabeceras se partían en SEIS filas apiladas y se comían
+   349px de 614 —el 57% de la pantalla— antes de mostrar una sola pista. Al
+   timeline le quedaban 200px, y "Loop", la velocidad y parte de "Marcadores"
+   caían fuera del borde derecho (llegaban a x=1163).
+
+   La barra no se reordena: cada id sigue donde estaba porque el mapeo MIDI y
+   los manejadores apuntan a ellos. Lo que se hace es quitar lo que NO es
+   necesario para operar —marca, rótulos de grupo, textos de acciones
+   secundarias, lecturas duplicadas— dejando el icono y su tooltip.
+
+   `font-size: 0` en el botón oculta el texto suelto (no está envuelto en
+   ningún span) sin tocar el SVG, que lleva width/height explícitos.
+
+   Se activa por ANCHO o por ALTO: una pantalla baja sufre lo mismo aunque sea
+   ancha, porque el problema es cuántas filas caben.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 1280px), (max-height: 800px) {
+  /* Decoración pura: lo primero que sobra. */
+  .stems-brand { display: none; }
+
+  /* Lecturas duplicadas: el tiempo ya está en el transporte y el estado se ve
+     en el botón de play. */
+  .stems-tb-right .stems-readout,
+  .stems-tb-right .stems-state-pill { display: none; }
+
+  /* Rótulos de grupo: el contenido ya se explica solo (un select de compás,
+     una fila de marcadores). Los tooltips siguen ahí. */
+  .stems-tools-label,
+  .stems-snap-toggle > span { display: none; }
+
+  /* Rótulos de campo: más pequeños, no ocultos — "BPM" y "Tonalidad" sí
+     hacen falta para saber qué es cada número. */
+  .stems-field > label {
+    font-size: 9px;
+    letter-spacing: 0;
+    opacity: .65;
+  }
+
+  /* Acciones SECUNDARIAS a icono. Las primarias (Importar stems, Añadir
+     marcador, Loop) conservan su texto: son las que se buscan con la vista. */
+  .stems-actions #stems-export,
+  .stems-actions #stems-assign,
+  .stems-actions #stems-detect-sections,
+  .stems-actions #stems-clear-markers,
+  .stems-topbar .stems-bpm-detect {
+    font-size: 0;
+    gap: 0;
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  /* Menos aire en todas partes. */
+  .stems-topbar { padding: 5px 10px; gap: 4px 10px; }
+  .stems-actions { padding: 5px 10px; gap: 6px; }
+  .stems-tools-group { gap: 5px; }
+  .stems-actions-divider { margin: 0 2px; }
+  .stems-project-name { max-width: 120px; }
+
+  /* Nada puede quedar fuera del borde: si aún así no cabe, se envuelve. */
+  .stems-actions { flex-wrap: wrap; }
+  .stems-tools-group { flex-wrap: nowrap; min-width: 0; }
+}
+
+/* Pantallas realmente bajas: además del compactado, se recorta el alto fijo de
+   las cabeceras para que el timeline —lo único que de verdad se trabaja— se
+   quede con lo que sobra. */
+@media (max-height: 700px) {
+  .stems-topbar,
+  .stems-actions {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .stems-topbar .stems-field--pitch .stems-pitch-apply { padding: 2px 6px; }
+  .stems-mixer-console { max-height: 210px; }
+  .stems-mixer-strips { height: 182px; }
+  .stems-lane { min-height: 58px; }
+}
