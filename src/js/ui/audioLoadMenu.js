@@ -7,33 +7,61 @@
 // refresca a su manera (la librería guarda getSongs(); el servicio guarda la
 // lista de servicio y sincroniza a la librería).
 
-import { showDialog } from './dialog.js';
+import { showDialog, confirmDialogAsync } from './dialog.js';
 
 // Descarga el audio original desde una URL de YouTube, lo asigna a `song`
 // (audio.original + youtubeUrl + carátula) y sube el youtubeUrl a la nube.
 // `onAssigned(song)` corre tras asignar.
 export function assignFromYoutube(song, onAssigned) {
   if (!navigator.onLine) { window.showToast?.('Necesitas internet para descargar de YouTube.', 'warning'); return; }
-  showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', async (url) => {
-    if (!url || !url.trim()) return;
-    window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
-    try {
-      const res = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
-      // Compat: antes devolvía un string; ahora { url, cover }.
-      const audioUrl = typeof res === 'string' ? res : res.url;
-      const cover = (res && typeof res === 'object') ? res.cover : null;
-      if (!song.audio) song.audio = {};
-      song.audio.original = audioUrl;
-      if (cover && !song.cover) song.cover = cover; // no piso una carátula previa
-      song.youtubeUrl = url.trim();
-      // Auto-sync del youtubeUrl a la librería activa de Supabase (best-effort).
-      if (navigator.onLine) {
-        import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
+  showDialog('Audio desde YouTube', 'Pega el enlace de YouTube…', (url) => descargar(song, onAssigned, url));
+}
+
+// YouTube exige cuenta para muchas subidas oficiales de sellos. Cuando pasa, en
+// vez de dejar al usuario con un mensaje muerto se le ofrece conectar su cuenta
+// dentro de la app (una sola vez) y se reintenta la MISMA descarga, sin que
+// tenga que volver a pegar el enlace.
+async function descargar(song, onAssigned, url, yaReintentado = false) {
+  if (!url || !url.trim()) return;
+  window.showToast?.('Descargando audio de YouTube… (puede tardar unos segundos)', 'info');
+  try {
+    const res = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
+    // Compat: antes devolvía un string; ahora { url, cover }.
+    const audioUrl = typeof res === 'string' ? res : res.url;
+    const cover = (res && typeof res === 'object') ? res.cover : null;
+    if (!song.audio) song.audio = {};
+    song.audio.original = audioUrl;
+    if (cover && !song.cover) song.cover = cover; // no piso una carátula previa
+    song.youtubeUrl = url.trim();
+    // Auto-sync del youtubeUrl a la librería activa de Supabase (best-effort).
+    if (navigator.onLine) {
+      import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
+    }
+    if (typeof onAssigned === 'function') onAssigned(song);
+    window.showToast?.('Audio original asignado desde YouTube.', 'success');
+  } catch (err) {
+    const msg = err?.message || 'No se pudo descargar el audio.';
+    // El proceso principal marca este caso con una frase estable: las
+    // propiedades del Error no cruzan el puente IPC, solo el mensaje.
+    const necesitaCuenta = /conect[áa] tu cuenta de youtube/i.test(msg);
+    if (necesitaCuenta && !yaReintentado && window.electronAPI?.youtubeLogin) {
+      const ok = await confirmDialogAsync({
+        title: 'YouTube pide tu cuenta',
+        message: 'Este video solo se descarga con una cuenta iniciada (pasa con las subidas oficiales de los sellos). Se abrirá una ventana para que inicies sesión en YouTube. Se hace UNA sola vez: la sesión queda guardada dentro de LivePads y no toca la de tu navegador.',
+        confirmLabel: 'Conectar mi cuenta',
+        danger: false,
+      });
+      if (!ok) return;
+      const r = await window.electronAPI.youtubeLogin();
+      if (!r?.connected) {
+        window.showToast?.('No se detectó la sesión. Asegurate de completar el inicio de sesión antes de cerrar la ventana.', 'warning');
+        return;
       }
-      if (typeof onAssigned === 'function') onAssigned(song);
-      window.showToast?.('Audio original asignado desde YouTube.', 'success');
-    } catch (err) { window.showToast?.(err.message || 'No se pudo descargar el audio.', 'error'); }
-  });
+      window.showToast?.('Cuenta conectada. Reintentando la descarga…', 'info');
+      return descargar(song, onAssigned, url, true);
+    }
+    window.showToast?.(msg, 'error');
+  }
 }
 
 // Lleva el audio original de `song` a Stems (extraer secuencia). El archivo se
