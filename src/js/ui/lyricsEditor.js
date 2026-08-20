@@ -61,7 +61,7 @@ function modalHTML(song) {
           <button type="button" class="format-tool-btn transpose-btn" data-action="transpose-up" title="Subir medio tono">▲</button>
         </div>
         <div class="toolbar-sep"></div>
-        <button type="button" class="format-tool-btn import-url-btn icon-only" data-action="import-url" title="Importar letra+acordes desde URL (LaCuerda.net)" aria-label="Importar URL">
+        <button type="button" class="format-tool-btn import-url-btn icon-only" data-action="import-url" title="Importar letra+acordes desde un enlace (Cifra Club o LaCuerda). Trae la alineación de los acordes intacta, cosa que copiar y pegar destruye." aria-label="Importar URL">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
         <div class="lyrics-preview-spacer"></div>
@@ -321,7 +321,10 @@ export function openLyricsEditorModal(song, onSaveCallback) {
         });
         if (!ok) return;
       }
-      textarea.value = parsed.lyrics;
+      // Lo importado se repara entero: el enlace trae la alineación de los
+      // acordes intacta, así que cada uno se puede anclar a su sílaba con
+      // certeza (al copiar y pegar de la página esa información ya viene rota).
+      textarea.value = repairLyrics(parsed.lyrics);
       refreshHighlight();
       textarea.dispatchEvent(new Event('input'));
       // Autocompletar metadata si la canción aún no la tiene.
@@ -345,7 +348,7 @@ export function openLyricsEditorModal(song, onSaveCallback) {
   const importBtn = overlay.querySelector('[data-action="import-url"]');
   if (importBtn) importBtn.onclick = (e) => {
     e.stopPropagation();
-    showDialog('Importar desde URL', 'https://acordes.lacuerda.net/...', runImport);
+    showDialog('Importar desde URL', 'cifraclub.com… o acordes.lacuerda.net…', runImport);
   };
 
   /* ── Section dropdown with auto-numbering for Verso ── */

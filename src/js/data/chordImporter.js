@@ -1,5 +1,5 @@
 // Parses chord/lyric pages from external sites and converts them to the
-// app's bracketed lyrics format. Currently supports lacuerda.net.
+// app's bracketed lyrics format. Soporta lacuerda.net y cifraclub.com.
 //
 // Output format example:
 //   [VERSO 1]
@@ -151,11 +151,72 @@ export function parseLaCuerda(html) {
   return { title, artist, key, lyrics };
 }
 
+
+// ── Cifra Club ─────────────────────────────────────────────────────────────
+// Es la fuente real de la mayoría de las cifras en español (los rótulos en
+// portugués —"Tom:", "Primeira Parte", "Refrão"— delatan su origen en cualquier
+// librería). Lo que la hace valiosa aquí: dentro del <pre> los acordes van en
+// <b> y LOS ESPACIOS ENTRE ELLOS SON LITERALES, así que la alineación sobre la
+// sílaba llega intacta. Al copiar y pegar desde la página ya renderizada esa
+// alineación se pierde —es exactamente el destrozo que tienen las letras
+// pegadas a mano— y por eso importar por URL da un resultado muy superior.
+//
+// Anclajes elegidos por estabilidad: las clases van minificadas (`_crVx`) y
+// cambian en cada despliegue, así que nos apoyamos en atributos semánticos
+// (`data-chord-content`, JSON-LD de schema.org) y dejamos regex de reserva.
+export function parseCifraClub(html) {
+  if (!html || typeof html !== 'string') throw new Error('HTML vacío');
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // --- Metadatos vía JSON-LD (schema.org) ---
+  let title = '', artist = '';
+  for (const el of doc.querySelectorAll('script[type="application/ld+json"]')) {
+    let data;
+    try { data = JSON.parse(el.textContent); } catch (_) { continue; }
+    const types = [].concat(data['@type'] || []);
+    if (types.includes('MusicComposition') && data.name && !title) title = String(data.name).trim();
+    if (types.includes('MusicRecording')) {
+      const by = data.byArtist && (data.byArtist.name || data.byArtist);
+      if (by && !artist) artist = String(by).trim();
+    }
+  }
+
+  // Reserva: el <title> viene como "Canción - Artista - Cifra Club".
+  if (!title || !artist) {
+    const raw = (doc.querySelector('title')?.textContent || '')
+      .replace(/\s*-\s*Cifra Club\s*$/i, '');
+    const partes = raw.split(/\s+-\s+/);
+    if (!title && partes[0]) title = partes[0].trim();
+    if (!artist && partes[1]) artist = partes[1].trim();
+  }
+  if (!title) title = doc.querySelector('h1')?.textContent.trim() || '';
+
+  // --- Tono ---
+  // El botón del tono lleva un anchor CSS con nombre propio; si cambiara,
+  // buscamos el texto "Tom:" seguido de una nota.
+  let key = doc.querySelector('[data-anchor="--chord-tone"]')?.textContent.trim() || '';
+  if (!/^[A-G][#b]?m?$/.test(key)) {
+    const m = html.match(/Tom<!--\s*-->:\s*<\/span>\s*<button[^>]*>([A-G][#b]?m?)</);
+    key = m ? m[1] : '';
+  }
+  if (!/^[A-G][#b]?m?$/.test(key)) key = '';
+
+  // --- Cuerpo ---
+  // textContent de un <pre> conserva los espacios y los saltos tal cual; es
+  // justo lo que hace falta para que los acordes sigan sobre su sílaba.
+  const pre = doc.querySelector('pre[data-chord-content], pre[data-chord-content="true"]')
+           || doc.querySelector('pre');
+  if (!pre) throw new Error('No se encontró la cifra en esa página');
+  const body = pre.textContent || '';
+
+  return { title, artist, key, lyrics: normalizeBody(body) };
+}
 // Dispatcher — picks the right parser based on URL hostname.
 export function parseChordPage(url, html) {
   let host = '';
   try { host = new URL(url).hostname; } catch {}
+  if (host.includes('cifraclub')) return parseCifraClub(html);
   if (host.includes('lacuerda.net')) return parseLaCuerda(html);
-  // Default: try the lacuerda parser anyway, it's pretty generic
+  // Por defecto se prueba el de lacuerda, que es bastante genérico.
   return parseLaCuerda(html);
 }

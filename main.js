@@ -1671,7 +1671,14 @@ ipcMain.handle('import-midi-map', async () => {
 const CHORD_SOURCE_WHITELIST = new Set([
   'acordes.lacuerda.net',
   'lacuerda.net',
-  'www.lacuerda.net'
+  'www.lacuerda.net',
+  // Cifra Club: es de donde sale la mayoría del repertorio en español. Su
+  // <pre> conserva la alineación de los acordes sobre la sílaba, cosa que
+  // copiar y pegar desde la página renderizada destruye.
+  'www.cifraclub.com.br',
+  'cifraclub.com.br',
+  'www.cifraclub.com',
+  'cifraclub.com'
 ]);
 
 ipcMain.handle('fetch-chord-url', async (_e, url) => {
