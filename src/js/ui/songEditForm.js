@@ -53,7 +53,7 @@ const KEYS_WITH_LABELS = [
 // blanks out the title field when the song is the special "Nueva Canción"
 // placeholder so the user starts with an empty input. Styling lives in
 // _setlist.css (.gi-edit-form, .gi-edit-input, .gi-edit-btn).
-export function songEditFormHTML(song, { placeholderForNewSong = false, showLibrary = true } = {}) {
+export function songEditFormHTML(song, { placeholderForNewSong = false, showLibrary = true, showLyrics = false } = {}) {
   const titleValue = placeholderForNewSong && song.title === 'Nueva Canción' ? '' : (song.title || '');
   const titlePlaceholder = placeholderForNewSong ? 'Título (Requerido)' : 'Título';
   const libraryRow = showLibrary ? libraryRowHTML(song, placeholderForNewSong) : '';
@@ -106,6 +106,14 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
       </details>
   `;
 
+  // Letra y acordes DENTRO del formulario. Se activa en el modal de crear:
+  // antes había que guardar la canción y abrir OTRA ventana solo para pegar
+  // la letra, que es justo lo que se hace al dar de alta una canción.
+  const lyricsSection = showLyrics ? `
+      <label class="gi-edit-lyrics-label">Letra y acordes <span>opcional</span></label>
+      <textarea class="gi-edit-input gi-edit-lyrics edit-lyrics" rows="6" spellcheck="false"
+        placeholder="Pega aquí la letra (o usa el enlace de arriba). Se limpia sola al pegar.">${esc(song.lyrics || '')}</textarea>` : '';
+
   return `
     <div class="gi-edit-form" data-action="edit-form-shell">
       ${libraryRow}
@@ -122,6 +130,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
       </div>
       <input type="text" class="gi-edit-input edit-tags" value="${esc(Array.isArray(song.tags) ? song.tags.join(', ') : '')}" placeholder="Etiquetas (separadas por comas: rápida, navidad…)">
       ${audioSection}
+      ${lyricsSection}
       <div class="gi-edit-actions">
         <button class="gi-edit-btn save" data-action="edit-save">Guardar</button>
         <button class="gi-edit-btn cancel" data-action="edit-cancel">Cancelar</button>

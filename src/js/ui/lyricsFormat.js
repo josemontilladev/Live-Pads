@@ -235,6 +235,18 @@ function bracketChordLine(line) {
   });
 }
 
+// Una línea que mezcla el rótulo de sección con la progresión —"[Intro] E Db
+// Db4", tal como la escribe Cifra Club— no es ni encabezado ni línea de
+// acordes: acababa pintada como letra, con "Intro" flotando como si fuera un
+// acorde. Se parte en dos: el rótulo por un lado y los acordes por otro.
+function splitSectionAndChords(line) {
+  const m = String(line).match(/^\s*\[?\s*([A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ\s.\-]{0,18}?\s*\d?)\s*\]?\s*:?\s+(\S.*)$/);
+  if (!m) return null;
+  if (!detectSectionHeader(m[1])) return null;
+  if (!isChordLine(m[2])) return null;
+  return { header: m[1], chords: m[2] };
+}
+
 // Auto-formatea letra pegada en crudo: (1) convierte los encabezados de sección
 // al formato canónico [SECCIÓN] (con auto-numeración de versos) separándolos con
 // una línea en blanco, y (2) envuelve los acordes de las líneas de solo-acordes
@@ -244,18 +256,30 @@ export function autoFormatLyrics(text) {
   const lines = text.replace(/\r/g, '').split('\n');
   const out = [];
   let versoAuto = 0;
+
+  // Etiqueta canónica de una sección, numerando los versos que no traen número.
+  const etiqueta = (sec) => {
+    if (sec.canon === 'VERSO') {
+      if (sec.num) { versoAuto = Math.max(versoAuto, parseInt(sec.num, 10)); return `VERSO ${sec.num}`; }
+      versoAuto += 1;
+      return `VERSO ${versoAuto}`;
+    }
+    return sec.num ? `${sec.canon} ${sec.num}` : sec.canon;
+  };
+  const aire = () => { if (out.length && out[out.length - 1].trim() !== '') out.push(''); };
+
   for (const raw of lines) {
+    const mixto = splitSectionAndChords(raw);
+    if (mixto) {
+      aire();
+      out.push(`[${etiqueta(detectSectionHeader(mixto.header))}]`);
+      out.push(bracketChordLine(mixto.chords));
+      continue;
+    }
     const sec = detectSectionHeader(raw);
     if (sec) {
-      let label = sec.canon;
-      if (sec.canon === 'VERSO') {
-        if (sec.num) { versoAuto = Math.max(versoAuto, parseInt(sec.num, 10)); label = `VERSO ${sec.num}`; }
-        else { versoAuto += 1; label = `VERSO ${versoAuto}`; }
-      } else if (sec.num) {
-        label = `${sec.canon} ${sec.num}`;
-      }
-      if (out.length && out[out.length - 1].trim() !== '') out.push(''); // aire antes
-      out.push(`[${label}]`);
+      aire();
+      out.push(`[${etiqueta(sec)}]`);
     } else if (isChordLine(raw)) {
       out.push(bracketChordLine(raw));
     } else {

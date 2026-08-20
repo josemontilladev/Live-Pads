@@ -1810,3 +1810,82 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 #now-playing-banner .np-badge--seq  { color: var(--src-seq); }   /* secuencia → verde */
 #now-playing-banner .np-badge--orig { color: var(--src-ref); }   /* original → ámbar */
+
+/* ── Modal "Nueva canción": importar por enlace + letra ────────────────────
+   Dar de alta una canción eran tres paradas (crear → editor de letra → audio).
+   El bloque de importación va ARRIBA porque resuelve el caso en un gesto: el
+   enlace de la cifra trae título, artista, tono y la letra con los acordes
+   todavía alineados sobre su sílaba —justo lo que se pierde al copiar y pegar
+   desde la página ya renderizada. */
+.newsong-import {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue) 26%, transparent);
+  border-radius: 8px;
+}
+.newsong-import-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.newsong-import-row { display: flex; gap: 6px; align-items: center; }
+.newsong-import-input { flex: 1 1 auto; min-width: 0; }
+.newsong-import-btn { flex: 0 0 auto; white-space: nowrap; }
+.newsong-import-hint {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* Campo de letra dentro del formulario de canción. */
+.gi-edit-lyrics-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.gi-edit-lyrics-label span {
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: .6;
+}
+.gi-edit-lyrics {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  /* Monoespaciada: mientras se edita, las columnas de los acordes sobre la
+     letra tienen que verse tal cual son. */
+  font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* En pantallas bajas (12") el modal no puede crecer sin límite. */
+@media (max-height: 800px) {
+  .stems-newsong-modal { max-height: 92vh; overflow-y: auto; }
+  .gi-edit-lyrics { min-height: 70px; }
+  /* Con la letra dentro, el modal ya no cabe entero en 614px de alto. Las
+     acciones se quedan pegadas abajo: tener que hacer scroll para encontrar
+     "Guardar" es de las cosas que más molestan cuando estás apurado. */
+  .stems-newsong-modal .gi-edit-actions {
+    position: sticky;
+    bottom: -20px;                       /* compensa el padding inferior del modal */
+    background: var(--bg-card);
+    padding: 8px 0;
+    margin-bottom: -6px;
+    box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, .6);
+  }
+}
