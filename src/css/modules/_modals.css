@@ -487,13 +487,26 @@ body.lyrics-fs-open { overflow: hidden; }
 }
 
 /* ── LYRICS EDITOR MODAL ── */
+/* La barra crece con el contenido (secciones, Auto, Reparar, transponer,
+   importar, vista previa) y el modal es estrecho: sin wrap, el último botón se
+   salía y pisaba los controles de transposición. Envuelve en varias filas en
+   vez de desbordar. */
 .lyrics-editor-toolbar {
   display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+  row-gap: 6px;
   background: rgba(255,255,255,0.02);
   padding: 7px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   flex-shrink: 0;
+}
+/* El separador vertical no pinta nada al final de una fila envuelta. */
+.lyrics-editor-toolbar .toolbar-sep:last-child { display: none; }
+/* El espaciador que empuja la vista previa a la derecha solo tiene sentido
+   cuando todo cabe en una fila. */
+@media (max-width: 1280px), (max-height: 800px) {
+  .lyrics-preview-spacer { flex-basis: 100%; height: 0; }
 }
 .lyrics-section-select {
   background: rgba(0,0,0,0.4);
@@ -976,6 +989,23 @@ body.lyrics-fs-open { overflow: hidden; }
 .format-tool-btn.autoformat-btn:hover {
   color: #fff;
   background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* "Reparar letra": mismo molde que Auto pero en azul, porque hace algo distinto
+   —limpia lo pegado y une los acordes a la letra— y conviene distinguirlos de
+   un vistazo. Sin el width:auto heredaría los 26px del botón-icono y el texto
+   se partía en dos líneas encima de los controles de al lado. */
+.format-tool-btn.repair-btn {
+  width: auto;
+  padding: 0 9px;
+  gap: 3px;
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  white-space: nowrap;
+}
+.format-tool-btn.repair-btn:hover {
+  color: #fff;
+  background: color-mix(in srgb, var(--blue) 30%, transparent);
 }
 
 
