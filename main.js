@@ -759,7 +759,7 @@ function downloadFileTo(url, dest) {
 
 const YT_DLP_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
 
-async function ensureYtDlp() {
+async function ensureYtDlp(force = false) {
   const binDir = path.join(app.getPath('userData'), 'bin');
   fs.mkdirSync(binDir, { recursive: true });
   const exe = path.join(binDir, 'yt-dlp.exe');
@@ -769,7 +769,11 @@ async function ensureYtDlp() {
     // reemplaza si el descargado es válido; si algo falla, sigue con el actual.
     try {
       const ageDays = (Date.now() - fs.statSync(exe).mtimeMs) / 86_400_000;
-      if (ageDays > 14) {
+      // 3 días, no 14: yt-dlp publica arreglos de YouTube casi cada semana y un
+      // binario de hace un mes falla con "Sign in to confirm you're not a bot"
+      // en las subidas oficiales de sellos. "force" lo baja igualmente cuando
+      // una descarga ya falló: es el último cartucho antes de rendirse.
+      if (force || ageDays > 3) {
         const tmp = exe + '.new';
         await downloadFileTo(YT_DLP_URL, tmp);
         if (fs.existsSync(tmp) && fs.statSync(tmp).size > 1_000_000) fs.renameSync(tmp, exe);
@@ -874,6 +878,99 @@ async function fetchYoutubeCover(videoId) {
   }
 }
 
+
+// ── Cuenta de YouTube DENTRO de la app ─────────────────────────────────────
+// YouTube exige sesión para muchas subidas oficiales de sellos ("Sign in to
+// confirm you're not a bot"). El rescate clásico —leer las cookies de Edge o
+// Chrome— NO funciona en Windows con el navegador abierto: la base de cookies
+// está bloqueada y ni yt-dlp ni nadie puede copiarla (EBUSY). Pedirle al
+// usuario que cierre el navegador a mitad de trabajo no es una solución.
+//
+// Pero LivePads ES Chromium. Así que tiene su propia sesión de YouTube: el
+// usuario inicia sesión UNA vez en una ventana de la app, la sesión queda
+// persistida en su propia partición, y de ahí se exportan las cookies para
+// yt-dlp. Sin bloqueos, sin depender de qué navegador tenga instalado y sin
+// tocar su sesión personal del navegador.
+const YT_PARTITION = 'persist:youtube';
+
+function ytCookiesFile() {
+  return path.join(app.getPath('userData'), 'bin', 'yt-cookies.txt');
+}
+
+// Vuelca las cookies de la sesión de YouTube de la app a un fichero en formato
+// Netscape, que es el que entiende yt-dlp (--cookies). Devuelve la ruta, o null
+// si no hay sesión iniciada.
+async function exportYoutubeCookies() {
+  const { session } = require('electron');
+  let cookies = [];
+  try {
+    cookies = await session.fromPartition(YT_PARTITION).cookies.get({ domain: '.youtube.com' });
+  } catch (_) {
+    return null;
+  }
+  // Sin la cookie de sesión no hay nada que aportar: mejor no escribir un
+  // fichero vacío que haría creer a yt-dlp que sí hay credenciales.
+  const conSesion = cookies.some((c) => /^(SID|__Secure-1PSID|__Secure-3PSID)$/.test(c.name));
+  if (!conSesion) return null;
+
+  const lineas = ['# Netscape HTTP Cookie File', '# Generado por LivePads', ''];
+  for (const c of cookies) {
+    const dominio = c.domain.startsWith('.') ? c.domain : '.' + c.domain;
+    const expira = c.session ? 0 : Math.floor(c.expirationDate || 0);
+    lineas.push([
+      (c.httpOnly ? '#HttpOnly_' : '') + dominio,
+      'TRUE',
+      c.path || '/',
+      c.secure ? 'TRUE' : 'FALSE',
+      String(expira),
+      c.name,
+      c.value,
+    ].join('\t'));
+  }
+  const ruta = ytCookiesFile();
+  fs.mkdirSync(path.dirname(ruta), { recursive: true });
+  fs.writeFileSync(ruta, lineas.join('\n'), 'utf8');
+  return ruta;
+}
+
+// ¿Hay una sesión de YouTube conectada en la app?
+ipcMain.handle('youtube-account-status', async () => {
+  const ruta = await exportYoutubeCookies();
+  return { connected: !!ruta };
+});
+
+// Abre una ventana para iniciar sesión en YouTube. Se resuelve cuando el
+// usuario la cierra. La partición es propia: no toca ni ve la sesión del
+// navegador del usuario.
+ipcMain.handle('youtube-login', async () => {
+  const win = new BrowserWindow({
+    width: 520,
+    height: 700,
+    parent: mainWindow || undefined,
+    modal: false,
+    autoHideMenuBar: true,
+    title: 'Iniciar sesión en YouTube',
+    webPreferences: {
+      partition: YT_PARTITION,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  await win.loadURL('https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F');
+  await new Promise((resolve) => win.on('closed', resolve));
+  const ruta = await exportYoutubeCookies();
+  return { connected: !!ruta };
+});
+
+// Cierra la sesión de YouTube de la app (borra su partición y el fichero).
+ipcMain.handle('youtube-logout', async () => {
+  const { session } = require('electron');
+  try { await session.fromPartition(YT_PARTITION).clearStorageData(); } catch (_) {}
+  try { fs.unlinkSync(ytCookiesFile()); } catch (_) {}
+  return { connected: false };
+});
+
 ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   if (typeof url !== 'string' || !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(url)) {
     throw new Error('Pega un enlace de YouTube válido.');
@@ -924,16 +1021,47 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
     if (dir) { try { await runYtDlp([], dir); done = true; } catch (e) { firstErr = (e && e.message) ? e.message : firstErr; } }
   }
 
-  // 3º: si YouTube exige iniciar sesión ("confirm you're not a bot"), reintenta
-  // con las cookies del navegador (el primero instalado y con sesión), usando
-  // el runtime si ya está disponible. Los navegadores ausentes se saltan.
+  // ¿El fallo huele a que YouTube pide cuenta? Decide los rescates de abajo.
   const authLike = /sign in|not a bot|cookies|consent|account|HTTP Error 403|HTTP Error 429/i.test(firstErr);
+
+  // 3º: con la sesión de YouTube de la PROPIA app. Es la vía fiable: no depende
+  // de qué navegador tenga el usuario ni de que lo tenga cerrado.
+  let hadOwnCookies = false;
+  if (!done && authLike) {
+    const cookieFile = await exportYoutubeCookies();
+    if (cookieFile) {
+      hadOwnCookies = true;
+      const dir = await getDenoDir();
+      try { await runYtDlp(['--cookies', cookieFile], dir); done = true; }
+      catch (e) { firstErr = (e && e.message) ? e.message : firstErr; }
+    }
+  }
+
+  // 4º: cookies del navegador del sistema. Suele fallar en Windows con el
+  // navegador ABIERTO —la base de cookies queda bloqueada (EBUSY)— así que se
+  // deja como reserva y se GUARDA el motivo: tragárselo hacía que el usuario
+  // viera "iniciá sesión" aunque el problema fuese otro.
+  let browserErr = '';
   if (!done && authLike) {
     const dir = await getDenoDir();
     for (const browser of ['edge', 'chrome', 'brave', 'firefox', 'opera', 'vivaldi', 'chromium']) {
       try { await runYtDlp(['--cookies-from-browser', browser], dir); done = true; break; }
-      catch (_) { /* navegador ausente o sin sesión de YouTube → siguiente */ }
+      catch (e) { if (!/could not find/i.test(e.message || '')) browserErr = e.message || ''; }
     }
+  }
+
+  // 5º: yt-dlp añejo. Si la extracción falló por algo que huele a que YouTube
+  // cambió el reproductor, se fuerza la actualización y se prueba una vez más.
+  if (!done && /sign in|not a bot|nsig|player|signature|unable to extract|HTTP Error 403/i.test(firstErr)) {
+    try {
+      const nuevoExe = await ensureYtDlp(true);
+      if (nuevoExe) {
+        const dir = await getDenoDir();
+        const extra = hadOwnCookies ? ['--cookies', await exportYoutubeCookies()] : [];
+        try { await runYtDlp(extra, dir); done = true; }
+        catch (e) { firstErr = (e && e.message) ? e.message : firstErr; }
+      }
+    } catch (_) { /* sin red o falló la actualización */ }
   }
   if (!done) {
     const e = (firstErr || '').toLowerCase();
@@ -942,8 +1070,13 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
       msg = 'Este video está protegido con DRM y no se puede descargar (subida oficial del sello). Usá otro enlace de la misma canción: una versión lyric, en vivo, o una subida no oficial.';
     } else if (/not available|unavailable|is private|been removed|members[- ]only|requested format is not available/.test(e)) {
       msg = 'YouTube no permite descargar este video (DRM, privado, eliminado o restringido). Probá con otro enlace de la misma canción.';
+    } else if (authLike && !hadOwnCookies) {
+      // La UI reconoce este caso por el texto (las propiedades del Error no
+      // sobreviven al puente IPC) y ofrece el botón de conectar la cuenta.
+      msg = 'YouTube pide una cuenta para este video (pasa con las subidas oficiales de los sellos). Conectá tu cuenta de YouTube en la app y reintentá — se hace una sola vez.';
     } else if (authLike) {
-      msg = 'YouTube pidió iniciar sesión para este video. Iniciá sesión en YouTube en Edge o Chrome (y cerrá el navegador) y reintentá, o usá otro enlace.';
+      msg = 'YouTube rechazó la descarga incluso con tu cuenta conectada. Suele ser un video con DRM o restringido: probá con otro enlace de la misma canción.'
+          + (browserErr ? ' (detalle: ' + browserErr.slice(-140) + ')' : '');
     } else {
       msg = firstErr.slice(-300);
     }

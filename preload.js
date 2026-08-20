@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
   assignCoverFile: () => ipcRenderer.invoke('assign-cover-file'),
   downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
+  // Cuenta de YouTube dentro de la app: se inicia sesión una vez y las
+  // cookies quedan en una partición propia, sin tocar la del navegador.
+  youtubeAccountStatus: () => ipcRenderer.invoke('youtube-account-status'),
+  youtubeLogin: () => ipcRenderer.invoke('youtube-login'),
+  youtubeLogout: () => ipcRenderer.invoke('youtube-logout'),
   readAudioFile: (url) => ipcRenderer.invoke('read-audio-file', url),
   getSoundtouchWorklet: () => ipcRenderer.invoke('get-soundtouch-worklet'),
   audioLibraryGet:     ()        => ipcRenderer.invoke('audio-library-get'),
