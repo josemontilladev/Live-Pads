@@ -794,38 +794,57 @@ body.lyrics-fs-open { overflow: hidden; }
 /* En modo lectura centrado (fullscreen "Solo letra") el pill, al ser inline,
    se centra solo con el text-align del contenedor. */
 
+/* Separador entre estrofas. Antes venía como style="height:10px" inline en
+   cada línea vacía; como clase se puede ajustar por contexto (la pantalla
+   completa lo escala en em) y se generan menos bytes por canción. */
+.lyrics-spacer { height: 10px; }
+
+/* Fila de acordes suelta. Tras unir cada acorde con su sílaba, esto solo queda
+   para las progresiones que NO se pueden anclar (varios acordes sin alineación
+   en el original) y para los interludios. Compacta: es una guía, no una línea
+   de letra. white-space:pre conserva la alineación cuando el original la traía. */
 .chord-line {
   color: var(--accent);
   font-weight: 600;
-  font-size: 13px;
-  line-height: 1.15;
-  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.1;
+  margin-top: 6px;
   letter-spacing: 0.6px;
   font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
-  white-space: pre; /* crucial to preserve spaces between chords! */
+  white-space: pre;
+  overflow-x: auto;          /* una progresión larga no ensancha la tarjeta */
+  scrollbar-width: none;
 }
+.chord-line::-webkit-scrollbar { display: none; }
 
 .lyric-line {
   color: var(--text);
   font-size: 13px;
   line-height: 1.5;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-family: var(--font-main), sans-serif;
   letter-spacing: 0.2px;
 }
 
+/* Hueco para el acorde flotante. Ajustado al alto REAL del acorde (11px): con
+   los 18px de antes, unir el acorde a su sílaba no ahorraba nada de alto y la
+   letra seguía igual de larga en pantalla. */
 .lyric-line.has-inline-chords {
-  margin-top: 18px; /* space for the floating chords */
+  margin-top: 14px;
 }
 
+/* Acorde anclado a su sílaba. position:absolute lo saca del flujo (no empuja
+   la letra) pero conserva su posición estática horizontal: cae exactamente
+   sobre el carácter donde se escribió. */
 .inline-chord {
   position: absolute;
-  transform: translateY(-1.35em);
+  white-space: nowrap;
+  transform: translateY(-1.2em);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 700;
   font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
-  font-size: 13px;
-  letter-spacing: 0.3px;
+  font-size: 11px;
+  letter-spacing: 0.2px;
 }
 
 .hide-chords .chord-line {
