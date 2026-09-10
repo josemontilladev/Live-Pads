@@ -526,12 +526,14 @@
         <nav class="sidebar-nav" aria-label="Categorías de ajustes">
           <div class="sidebar-nav-title">Ajustes</div>
           <button class="stab active" data-tab="audio"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>Audio</button>
-          <button class="stab" data-tab="library"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Biblioteca</button>
           <button class="stab" data-tab="midi"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="6" width="18" height="12" rx="2"/><line x1="9" y1="6" x2="9" y2="14"/><line x1="15" y1="6" x2="15" y2="14"/></svg>MIDI / Teclado</button>
           <button class="stab" data-tab="themes"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>Temas</button>
-          <button class="stab" data-tab="service"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>Servicio</button>
+          <button class="stab" data-tab="library"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Biblioteca</button>
           <button class="stab" data-tab="account"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Cuenta</button>
-          <div class="sidebar-nav-sep"></div>
+          <div class="sidebar-nav-title">En vivo</div>
+          <button class="stab" data-tab="preflight"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Pre-vuelo</button>
+          <button class="stab" data-tab="companion"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>Companion</button>
+          <div class="sidebar-nav-title">Ayuda</div>
           <button class="stab" data-tab="shortcuts"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>Atajos</button>
           <button class="stab" data-tab="about"><svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Acerca</button>
         </nav>
@@ -539,24 +541,6 @@
 
           <!-- SECCIÓN: AUDIO -->
           <div id="tab-audio" class="stab-body visible">
-            <div class="sb-label mx-relocated">Ajustes generales</div>
-            <div class="sb-card mx-relocated">
-              <div class="sb-row">
-                <span class="sr-label sr-label--wide">Maestro</span>
-                <button type="button" class="master-mute-btn" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
-                  <svg class="ic-vol" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
-                  <svg class="ic-mute" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
-                </button>
-                <input type="range" id="master-vol" min="0" max="100" value="100" class="blue-slider">
-                <span class="sr-val" id="master-vol-val">100%</span>
-              </div>
-              <div class="sb-row" title="Duración de la transición cruzada al cambiar de tono de pad (sin silencios)">
-                <span class="sr-label sr-label--wide">Crossfade</span>
-                <input type="range" id="pad-crossfade" min="5" max="40" value="20" step="1" class="blue-slider">
-                <span class="sr-val" id="pad-crossfade-val">2.0 s</span>
-              </div>
-            </div>
-
             <div class="sb-label">Ajustes de pad</div>
             <div class="sb-card">
               <div class="sb-row mx-relocated">
@@ -571,22 +555,38 @@
                 <span class="sr-val" id="pad-pan-val">C</span>
               </div>
               <div class="sb-div mx-relocated"></div>
-              <div class="sb-row">
-                <span class="sr-label">Filtro</span>
+              <div class="sb-row" title="Filtro pasa-bajos sobre los pads: cierra el brillo para un colchón más suave">
+                <span class="sr-label sr-label--wide">Filtro</span>
                 <input type="range" id="pad-lpf" min="800" max="18000" value="18000" class="blue-slider">
                 <div class="toggle-sw on" id="lpf-toggle"></div>
               </div>
+              <div class="sb-div"></div>
+              <div class="sb-row" title="Duración de la transición cruzada al cambiar de tono de pad (sin silencios)">
+                <span class="sr-label sr-label--wide">Crossfade</span>
+                <input type="range" id="pad-crossfade" min="5" max="40" value="20" step="1" class="blue-slider">
+                <span class="sr-val" id="pad-crossfade-val">2.0 s</span>
+              </div>
             </div>
+            <p class="set-hint">Volumen, pan y maestro viven en el Mezclador de la pantalla principal; el volumen de cada pad de batería, en su propia baldosa.</p>
 
-            <div class="sb-label">Pads de batería</div>
+            <!-- Sliders canónicos que siguen manejando el motor (los mueve el
+                 Mezclador vía mixerBar.js). Ocultos: el usuario ya no los ve aquí. -->
             <div class="sb-card mx-relocated">
               <div class="sb-row">
-                <span class="sr-label sr-label--xwide">Maestro</span>
+                <span class="sr-label sr-label--wide">Maestro</span>
+                <button type="button" class="master-mute-btn" aria-label="Silenciar maestro" aria-pressed="false" title="Silenciar audio maestro">
+                  <svg class="ic-vol" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>
+                  <svg class="ic-mute" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+                </button>
+                <input type="range" id="master-vol" min="0" max="100" value="100" class="blue-slider">
+                <span class="sr-val" id="master-vol-val">100%</span>
+              </div>
+              <div class="sb-row">
+                <span class="sr-label sr-label--xwide">Maestro batería</span>
                 <input type="range" id="drum-master-vol" min="0" max="100" value="80" class="blue-slider">
                 <span class="sr-val" id="drum-master-vol-val">80%</span>
               </div>
             </div>
-            <div class="sb-card" id="sidebar-drum-volumes"></div>
           </div>
 
           <!-- SECCIÓN: BIBLIOTECA -->
@@ -629,15 +629,23 @@
             <div class="set-embed" id="embed-midi"></div>
           </div>
 
-          <!-- SECCIÓN: SERVICIO -->
-          <div id="tab-service" class="stab-body">
-            <div class="sb-label">Servicio</div>
+          <!-- SECCIÓN: EN VIVO — Pre-vuelo -->
+          <div id="tab-preflight" class="stab-body">
+            <div class="sb-label">Pre-vuelo del servicio</div>
             <div class="sb-card set-launch-card">
-              <p class="set-launch-desc">Verificá que todo esté listo antes de empezar, y mostrá letras y acordes en el teléfono de tu banda por WiFi.</p>
-              <button class="sb-btn" id="set-preflight">Pre-vuelo del servicio</button>
-              <button class="sb-btn" id="set-companion">Companion (móvil)</button>
+              <p class="set-launch-desc">Verificá que todo esté listo antes de empezar: audio, MIDI, secuencias y letras de cada canción del servicio.</p>
+              <button class="sb-btn" id="set-preflight">Revisar de nuevo</button>
             </div>
             <div class="set-embed" id="embed-preflight"></div>
+          </div>
+
+          <!-- SECCIÓN: EN VIVO — Companion -->
+          <div id="tab-companion" class="stab-body">
+            <div class="sb-label">Companion (móvil)</div>
+            <div class="sb-card set-launch-card">
+              <p class="set-launch-desc">Mostrá letras y acordes en el teléfono de tu banda por WiFi, sin instalar nada.</p>
+              <button class="sb-btn" id="set-companion">Abrir panel del Companion</button>
+            </div>
             <div class="set-embed" id="embed-companion"></div>
           </div>
 

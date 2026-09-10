@@ -1641,6 +1641,21 @@ body[data-workspace="stems"] #body {
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
   background: color-mix(in srgb, var(--ok) 10%, transparent);
 }
+/* Rol de stem (voces / batería / bajo / otros): mismo color que la pista. */
+.stems-row--vocals .stems-row-kind,
+.stems-row--drums .stems-row-kind,
+.stems-row--bass .stems-row-kind,
+.stems-row--other .stems-row-kind,
+.stems-row--instrumental .stems-row-kind {
+  color: var(--stem-role, var(--text));
+  border-color: color-mix(in srgb, var(--stem-role, var(--text)) 40%, transparent);
+  background: color-mix(in srgb, var(--stem-role, var(--text)) 10%, transparent);
+}
+.stems-row--vocals, .stems-console-strip--vocals { --stem-role: #ec4899; }
+.stems-row--drums,  .stems-console-strip--drums  { --stem-role: #f97316; }
+.stems-row--bass,   .stems-console-strip--bass   { --stem-role: #3b82f6; }
+.stems-row--other,  .stems-console-strip--other,
+.stems-row--instrumental, .stems-console-strip--instrumental { --stem-role: #a855f7; }
 .stems-row-name {
   appearance: none;
   background: transparent;
@@ -2047,6 +2062,11 @@ body[data-workspace="stems"] #body {
 }
 .stems-console-strip--click .stems-console-strip-kind { color: var(--src-click); }
 .stems-console-strip--guide .stems-console-strip-kind { color: var(--ok); }
+.stems-console-strip--vocals .stems-console-strip-kind,
+.stems-console-strip--drums .stems-console-strip-kind,
+.stems-console-strip--bass .stems-console-strip-kind,
+.stems-console-strip--other .stems-console-strip-kind,
+.stems-console-strip--instrumental .stems-console-strip-kind { color: var(--stem-role); }
 .stems-console-strip-name {
   display: block;
   font-size: 12px;

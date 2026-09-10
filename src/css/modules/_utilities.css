@@ -110,9 +110,6 @@
 .sr-label--wide { min-width: 60px; }
 .sr-label--xwide { min-width: 70px; }
 
-/* Sidebar drum volumes card */
-#sidebar-drum-volumes { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
-
 /* Menu items with accent text */
 .menu-item--accent { color: var(--blue); }
 

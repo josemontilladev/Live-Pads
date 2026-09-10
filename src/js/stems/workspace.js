@@ -81,6 +81,37 @@ function nextStemColor() {
   return c;
 }
 
+// Stem role guessed from the file name ("Song - vocals.wav", "bajo_Song.mp3",
+// "Song (Drums).wav"…). Separators export stems with these tokens; naming the
+// track by role keeps four "Song Name" rows from looking identical.
+const STEM_ROLE_PATTERNS = [
+  ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox)\b/i],
+  ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion)\b/i],
+  ['bass',   /\b(bass|bajo)\b/i],
+  ['other',  /\b(other|otros|instrumental|music|m[uú]sica|accompaniment)\b/i],
+  ['click',  /\b(click|metr[oó]nomo|metronome)\b/i],
+  ['guide',  /\b(guide|gu[ií]a|cues?)\b/i],
+];
+const STEM_ROLE_COLORS = { vocals: '#ec4899', drums: '#f97316', bass: '#3b82f6', other: '#a855f7' };
+function detectStemRole(fileName) {
+  const base = fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+  for (const [kind, re] of STEM_ROLE_PATTERNS) {
+    const m = base.match(re);
+    if (!m) continue;
+    // Drop the token plus the separator glued to it ("Song - vocals" → "Song").
+    let clean = base.replace(new RegExp(`\\s*[-_–—:|(\\[]*\\s*${m[0]}\\s*[)\\]]*\\s*`, 'i'), ' ').replace(/\s{2,}/g, ' ').trim();
+    clean = clean.replace(/^[-_–—:|\s]+|[-_–—:|\s]+$/g, '');
+    return { kind, name: clean || base };
+  }
+  return { kind: 'stem', name: base };
+}
+
+// Badge shown on rows/strips. Used in row, strip and console alike.
+const STEM_KIND_BADGE = {
+  click: 'CLICK', guide: 'GUÍA', midi: 'MIDI',
+  vocals: 'VOCES', drums: 'BATERÍA', bass: 'BAJO', other: 'OTROS', instrumental: 'INSTRUMENTAL',
+};
+
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
 // Cola de archivos que pidió importar otro módulo (ej. giList al
@@ -1677,9 +1708,9 @@ async function importFiles(fileList) {
         updateImportOverlay(done, loaded.length, item.name);
         await new Promise(r => requestAnimationFrame(r));
         const id = `t${nextTrackId++}`;
-        const name = item.name.replace(/\.[^.]+$/, '');
-        await engine.addTrack({ id, name, arrayBuffer: item.arrayBuffer });
-        engine.setTrackColor(id, nextStemColor());
+        const { kind, name } = detectStemRole(item.name);
+        await engine.addTrack({ id, name, arrayBuffer: item.arrayBuffer, kind });
+        engine.setTrackColor(id, STEM_ROLE_COLORS[kind] || nextStemColor());
         const savedPath = await projectStore.saveStem(id, item.name, item.arrayBuffer);
         appendTrackRow(id, savedPath);
       } catch (err) {
@@ -1936,10 +1967,7 @@ function appendConsoleStrip(track) {
 // Etiqueta legible del tipo de pista. Usada en row, strip y console por
 // igual; antes el ternario vivía duplicado en cada builder.
 function kindLabelFor(track) {
-  return track.kind === 'click' ? 'CLICK'
-       : track.kind === 'guide' ? 'GUÍA'
-       : track.kind === 'midi'  ? 'MIDI'
-       : 'AUDIO';
+  return STEM_KIND_BADGE[track.kind] || 'AUDIO';
 }
 
 function buildConsoleStripHtml(track) {

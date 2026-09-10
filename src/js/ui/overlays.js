@@ -12,6 +12,7 @@ export function openSidebarTab(tab) {
   if (stab) stab.classList.add('active');
   const body = q(`#tab-${tab}`);
   if (body) body.classList.add('visible');
+  try { window.dispatchEvent(new CustomEvent('livepads:sidebar-tab', { detail: { tab } })); } catch (_) {}
 }
 
 // Hide every floating overlay (hamburger menu, dialog, dead bank pickers).
