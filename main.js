@@ -390,7 +390,8 @@ function createWindow() {
   // vía, y la cabecera también cubre a los mundos aislados (preload).
   const CSP = [
     "default-src 'self' livepads:",
-    "script-src 'self'",
+    // blob: → AudioWorklets (SoundTouch) y workers que se crean desde código propio.
+    "script-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: livepads: https:",
     "media-src 'self' data: blob: livepads: https:",
