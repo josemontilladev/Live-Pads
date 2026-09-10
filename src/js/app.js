@@ -418,10 +418,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   const giSetlistList = q('#gi-setlist-list');
   const serviceSongsContainer = q('#service-songs-container');
 
+  // Collapsing the header makes the scroller taller, which shrinks its max
+  // scrollTop. If the list overflows by less than the reclaimed height, the
+  // browser clamps the scroll back under the threshold, the header re-expands
+  // and the loop repeats — the last cards become unreachable. Only collapse
+  // when the list overflows well beyond what the header gives back.
+  const header = q('.setlist-header');
+  const headerReclaim = header
+    ? header.offsetHeight + parseFloat(getComputedStyle(header).marginBottom || '0')
+    : 0;
   const wireScrollChrome = (scroller) => {
     if (!scroller || !panelSetlist) return;
     const update = () => {
-      const scrolled = scroller.scrollTop > 8;
+      const collapsed = panelSetlist.classList.contains('songs-scrolled');
+      const overflowExpanded = scroller.scrollHeight - scroller.clientHeight + (collapsed ? headerReclaim : 0);
+      const scrolled = scroller.scrollTop > 8 && overflowExpanded > headerReclaim * 2;
       panelSetlist.classList.toggle('songs-scrolled', scrolled);
       if (scroller === giSongsContainer && giSetlistList) {
         giSetlistList.classList.toggle('scrolled', scrolled);
@@ -566,7 +577,32 @@ function applyNotepadPitchShift(pitchSemitones) {
 // Indicador de tono sonante del pad (arriba del grid). Muestra la nota
 // preparada/activa en grande; si difiere del tono ESCRITO de la canción (porque
 // está transpuesta), muestra "escrito → sonante" (p. ej. C → B).
+// Semitono (0–11) de un tono escrito como "G", "Ab", "Em", "Sol", "Sim"…;
+// -1 si no se reconoce. Misma normalización que prepareNextSongKey().
+function songKeySemitone(rawKey) {
+  if (!rawKey) return -1;
+  let key = String(rawKey).replace('m', '').trim();
+  const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
+  for (const es in esToEn) if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
+  const i = KEYS_SHARP.indexOf(key);
+  return i >= 0 ? i : KEYS_FLAT.indexOf(key);
+}
+
+// Etiqueta "SIG." en la tecla del tono de la siguiente canción del servicio.
+function paintNextSongKeyHint() {
+  qa('.key-btn.next-key').forEach(b => b.classList.remove('next-key'));
+  const idx = getActiveServiceIndex();
+  if (idx < 0) return;
+  const next = getServiceSongs()[idx + 1];
+  if (!next) return;
+  const semi = songKeySemitone(getEffectiveKey(next));
+  if (semi < 0) return;
+  const key = (getUseFlats() ? KEYS_FLAT : KEYS_SHARP)[semi];
+  q(`.key-btn[data-key="${key}"]`)?.classList.add('next-key');
+}
+
 function updateKeyIndicator() {
+  paintNextSongKeyHint();
   const el = q('#key-indicator');
   if (!el) return;
   const sounding = getActiveKey() || getPreparedPadKey();
@@ -740,20 +776,25 @@ function bindSidebarAndTabs() {
   if (btnClose) btnClose.onclick = () => q('#sidebar').classList.remove('open');
 
   qa('.stab').forEach(btn => {
-    btn.onclick = () => {
-      qa('.stab').forEach(b => b.classList.remove('active'));
-      qa('.stab-body').forEach(b => b.classList.remove('visible'));
-      btn.classList.add('active');
-      q(`#tab-${btn.dataset.tab}`).classList.add('visible');
-    };
+    btn.onclick = () => openSidebarTab(btn.dataset.tab);
+  });
+  window.addEventListener('livepads:sidebar-tab', (ev) => {
+    try { localStorage.setItem(SIDEBAR_TAB_KEY, ev.detail.tab); } catch (_) {}
   });
 }
+
+const SIDEBAR_TAB_KEY = 'livepads:sidebar-tab';
+const lastSidebarTab = () => {
+  let t = null;
+  try { t = localStorage.getItem(SIDEBAR_TAB_KEY); } catch (_) {}
+  return t && q(`.stab[data-tab="${t}"]`) ? t : 'audio';
+};
 
 function bindHamburgerMenu() {
   // El botón ☰ ahora ABRE el panel de Ajustes centralizado (antes mostraba un
   // popover). El #menu-popover sigue en el DOM (oculto) solo para reutilizar sus
   // handlers desde los launchers del sidebar.
-  q('#btn-menu').onclick = () => q('#sidebar').classList.add('open');
+  q('#btn-menu').onclick = () => openSidebarTab(lastSidebarTab());
   window.closeMenu = closeAllOverlays;
 
   q('#menu-open-settings').onclick = () => { closeMenu(); openSidebarTab('audio'); };
@@ -901,6 +942,33 @@ function bindHamburgerMenu() {
     closePreflight(); const p = q('#embed-preflight'); if (p) p.innerHTML = '';
     embedModal('embed-companion', () => openCompanionPanel(), '#companion-overlay');
   });
+  // Las secciones que embeben un panel se abren SOLAS al entrar en su pestaña:
+  // el usuario no tiene que pulsar un botón intermedio para ver el contenido.
+  const AUTO_EMBED = {
+    preflight: ['#embed-preflight', '#set-preflight'],
+    companion: ['#embed-companion', '#set-companion'],
+    account:   ['#embed-account',   '#set-account'],
+    midi:      ['#embed-midi',      '#set-mappings'],
+  };
+  window.addEventListener('livepads:sidebar-tab', (ev) => {
+    const spec = AUTO_EMBED[ev.detail.tab];
+    if (!spec) return;
+    const pane = q(spec[0]);
+    const body = q(`#tab-${ev.detail.tab}`);
+    if (!pane || !body) return;
+    if (pane.childElementCount > 0) { body.classList.add('is-embedded'); return; }
+    body.classList.remove('is-embedded');
+    q(spec[1])?.click();
+    // The account panel embeds asynchronously — flag the section (which hides
+    // the now-redundant launcher) only once the panel is really there.
+    let tries = 0;
+    const mark = () => {
+      if (pane.childElementCount > 0) body.classList.add('is-embedded');
+      else if (++tries < 12) setTimeout(mark, 250);
+    };
+    mark();
+  });
+
   // Ojo: se ESPERA a openAccountPanel antes de embeber (crea el overlay y
   // pinta su contenido de forma asíncrona; embeber antes dejaba el panel
   // vacío). Y el error se muestra: el `.catch(()=>{})` de antes lo tragaba,
@@ -1233,6 +1301,7 @@ function bindGlobalHandlers() {
         setActiveServiceIndex(-1);
         qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
         refreshActiveSongHighlights();
+        updateKeyIndicator();
       };
     }
   }

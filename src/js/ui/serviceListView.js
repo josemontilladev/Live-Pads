@@ -239,7 +239,7 @@ export function showServiceCreate(opts = {}) {
           ? `✓ "${entry.name}" creado con ${n} canción${n === 1 ? '' : 'es'}.`
           : `✓ Lista "${entry.name}" creada. Agregá canciones con el botón + de la Librería.`, 'success');
         hideServiceCreate();
-        renderServiceList();
+        renderServiceList({ keepScroll: false });
       }
     }
   };
@@ -256,7 +256,7 @@ function initChooserDelegation() {
     const actEl = e.target.closest('[data-act]');
     if (!actEl) return;
     const act = actEl.dataset.act;
-    if (act === 'current') { hideServiceChooser(); renderServiceList(); return; }
+    if (act === 'current') { hideServiceChooser(); renderServiceList({ keepScroll: false }); return; }
     if (act === 'new') { showServiceCreate(); return; }   // vista inline de creación
     if (act === 'menu') {
       e.stopPropagation();
@@ -282,7 +282,7 @@ function initChooserDelegation() {
       if (loadSavedSetlist(id)) {           // replaceService → re-render del servicio
         window.showToast?.('✓ Setlist cargado.', 'success');
         hideServiceChooser();
-        renderServiceList();
+        renderServiceList({ keepScroll: false });
       }
     }
   });
@@ -294,7 +294,7 @@ function openSetlistItemMenu(anchor, id) {
   if (!s) return;
   openCardMoreMenu(anchor, [
     { label: 'Cargar', onSelect: () => {
-        if (loadSavedSetlist(id)) { window.showToast?.('✓ Setlist cargado.', 'success'); hideServiceChooser(); renderServiceList(); }
+        if (loadSavedSetlist(id)) { window.showToast?.('✓ Setlist cargado.', 'success'); hideServiceChooser(); renderServiceList({ keepScroll: false }); }
       } },
     { label: 'Renombrar / fecha', onSelect: () => { chooserEditId = id; showServiceChooser(); } },
     { label: 'Duplicar', onSelect: () => {
@@ -323,11 +323,15 @@ function openSetlistItemMenu(anchor, id) {
   ]);
 }
 
-export function renderServiceList() {
+// keepScroll: re-renders triggered by sync/reorder/duration updates must not
+// yank the leader back to the top mid-service. Loading a different setlist
+// passes false so the new list starts at the top.
+export function renderServiceList({ keepScroll = true } = {}) {
   const container = q('#service-songs-container');
   const emptyMsg = q('#service-empty-msg');
   if (!container) return;
 
+  const prevScrollTop = keepScroll ? container.scrollTop : 0;
   container.innerHTML = '';
 
   const allSongs = deps.getSongs();
@@ -369,6 +373,7 @@ export function renderServiceList() {
   const fragment = document.createDocumentFragment();
   visible.forEach(({ s, i }) => fragment.appendChild(buildCard(s, i, activeIdx)));
   container.appendChild(fragment);
+  container.scrollTop = prevScrollTop;
 }
 
 // Update the "X canciones · ~Y min" subtitle next to "Tu lista de hoy".

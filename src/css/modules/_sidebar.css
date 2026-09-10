@@ -60,7 +60,8 @@
   font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--text-muted); padding: 0 8px 8px;
 }
-.sidebar-nav-sep { height: 1px; background: var(--border); margin: 8px 8px; flex: 0 0 auto; }
+/* Cada grupo (Ajustes / En vivo / Ayuda) respira respecto al anterior. */
+.sidebar-nav-title:not(:first-child) { margin-top: 18px; }
 .sidebar-nav .stab {
   display: flex; align-items: center; gap: 9px; flex: 0 0 auto; width: 100%;
   padding: 8px 10px; border: none; border-radius: 6px;
@@ -98,6 +99,7 @@
 }
 .sb-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .set-hint { margin: 0; font-size: 12px; color: var(--text-muted); }
+.stab-body > .set-hint { margin-top: 10px; line-height: 1.5; }
 .set-hint.is-none { color: #f8a; }
 
 /* ── Modal EMBEBIDO dentro del sidebar ──
@@ -106,6 +108,13 @@
    sección más del sidebar en vez de un modal centrado. */
 .set-embed { margin-top: 12px; }
 .set-embed:empty { display: none; }
+/* Con el panel ya embebido, el lanzador sobra: el panel trae su propio título.
+   Pre-vuelo conserva el suyo porque "Revisar de nuevo" es una acción útil. */
+#tab-account.is-embedded .set-launch-card,
+#tab-companion.is-embedded .set-launch-card { display: none; }
+#tab-midi.is-embedded #set-mappings { display: none; }
+#tab-account.is-embedded .set-embed,
+#tab-companion.is-embedded .set-embed { margin-top: 0; }
 .embedded-in-sidebar {
   position: static !important; inset: auto !important; z-index: auto !important;
   display: block !important; background: transparent !important; backdrop-filter: none !important;

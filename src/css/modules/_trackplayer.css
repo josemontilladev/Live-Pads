@@ -219,6 +219,13 @@
   .mx-val { font-size: 11px; }
   .mx-master .mx-slider { min-width: 70px; }
 }
+/* Columna central estrecha (≤1100 px): el hint de MIDI cede su sitio al
+   Maestro, que antes se salía del panel por la derecha. */
+@media (max-width: 1100px) {
+  .mx-hint { display: none; }
+  .mx-master { min-width: 0; margin-left: auto; }
+  .mx-master .mx-slider { min-width: 60px; }
+}
 .mx-channel {
   background: var(--bg-hover);
   border: 1px solid var(--border);

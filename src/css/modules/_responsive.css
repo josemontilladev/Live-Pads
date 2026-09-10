@@ -178,6 +178,10 @@
   .drum-btn .drum-label {
     font-size: 11px;
   }
+  /* Compacto: el slider se queda (es el único sitio del volumen por pad);
+     solo cae el porcentaje. */
+  .drum-tile-vol { gap: 0; opacity: 0.7; }
+  .drum-tile-pct { display: none; }
   #drum-volume-tray {
     padding: 10px 14px;
   }
@@ -201,7 +205,9 @@
      título (nombre del servicio) a la izquierda y los iconos juntos a la
      derecha. El título es corto y se trunca con … si hace falta, así los iconos
      no se desbordan ni se apilan. */
-  #service-setlist-list .service-actions-nav { gap: 6px; }
+  #service-setlist-list .service-actions-nav { gap: 3px; }
+  #service-setlist-list .service-nav-btn { width: 25px; height: 25px; }
+  #service-setlist-list .service-actions-text { flex: 1 1 auto; overflow: hidden; margin-right: 6px; }
   .setlist-header {
     margin-bottom: 10px;
   }

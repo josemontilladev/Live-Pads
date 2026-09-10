@@ -312,6 +312,9 @@ export function bindMidiHandlers(deps) {
 
     const keyBtn    = e.target.closest('.key-btn');
     const drumBtn   = e.target.closest('.drum-btn');
+    // The tile's own volume slider maps to the canonical per-pad slider, so
+    // existing "dvol-*" mappings keep working and the tile mirrors them.
+    const drumTileVol = e.target.closest('.drum-tile-vol');
     const metroBtn  = e.target.closest('#btn-metro-main');
     const playSeqBtn = e.target.closest('#tp-play-btn');
     const seqOnlyBtn = e.target.closest('#tp-seqonly-btn');
@@ -333,6 +336,7 @@ export function bindMidiHandlers(deps) {
 
     let target = null;
     if (keyBtn)        target = { action: 'pad',       id: keyBtn.dataset.key };
+    else if (drumTileVol && drumBtn) target = { action: 'slider', id: 'dvol-' + drumBtn.dataset.drum };
     else if (drumBtn)  target = { action: 'drum',      id: drumBtn.dataset.slot };
     else if (metroBtn) target = { action: 'metro' };
     else if (playSeqBtn) target = { action: 'play_seq' };

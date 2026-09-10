@@ -1,6 +1,6 @@
-// Per-pad drum volume sliders. Each drum pad gets two mirrored sliders:
-// one in the main stage (#drum-volumes) and one in the sidebar
-// (#sidebar-drum-volumes). Sliders stay in sync with each other.
+// Per-pad drum volume. The canonical slider lives in the (hidden) #drum-volumes
+// tray — MIDI mappings and the engine hook onto it by id — and each drum tile
+// carries a mirrored slider the user actually touches. Both stay in sync.
 //
 // Decoupled from app.js's `engine`/`syncSlider` globals via initDrumVolumes().
 
@@ -15,12 +15,11 @@ export function initDrumVolumes(injected) {
   deps = { ...deps, ...injected };
 }
 
+// Must run after buildDrumGrid(): it looks up the tile sliders it mirrors.
 export function buildDrumVolumes(pads) {
   const container = q('#drum-volumes');
-  const sbContainer = q('#sidebar-drum-volumes');
-  if (!container || !sbContainer) return;
+  if (!container) return;
   container.innerHTML = '';
-  sbContainer.innerHTML = '';
 
   for (const pad of pads) {
     const item = document.createElement('div');
@@ -33,41 +32,33 @@ export function buildDrumVolumes(pads) {
       <input type="range" min="0" max="100" value="80" id="dvol-${pad.id}">`;
     container.appendChild(item);
 
-    const sbItem = document.createElement('div');
-    sbItem.className = 'sb-row';
-    sbItem.style.padding = '0';
-    sbItem.innerHTML = `<span class="sr-label" id="sb-lbl-dvol-text-${pad.id}" style="min-width:70px;">${esc(pad.label)}</span>
-      <input type="range" min="0" max="100" value="80" id="sb-dvol-${pad.id}" class="blue-slider">
-      <span class="sr-val" id="sb-dpct-${pad.id}">80%</span>`;
-    sbContainer.appendChild(sbItem);
+    const slider = item.querySelector('input');
+    const pctEl  = item.querySelector('.drum-vol-pct');
+    const tile   = q(`#drum-grid .drum-btn[data-drum="${pad.id}"]`);
+    const tileSlider = tile ? tile.querySelector('.drum-tile-slider') : null;
+    const tilePct    = tile ? tile.querySelector('.drum-tile-pct') : null;
 
-    const slider   = item.querySelector('input');
-    const sbSlider = sbItem.querySelector('input');
-    const pctEl    = item.querySelector('.drum-vol-pct');
-    const sbPctEl  = sbItem.querySelector('.sr-val');
-
-    // Pre-cache refs so each oninput tick avoids re-querying the DOM.
-    const writeBoth = (val) => {
+    const writeAll = (val) => {
       const engine = deps.getEngine();
       if (engine) engine.setDrumPadVolume(pad.id, val / 100);
       pctEl.textContent = val + '%';
-      sbPctEl.textContent = val + '%';
+      if (tilePct) tilePct.textContent = val + '%';
     };
 
     slider.oninput = function () {
-      writeBoth(this.value);
-      sbSlider.value = this.value;
+      writeAll(this.value);
       deps.syncSlider(this);
-      deps.syncSlider(sbSlider);
+      if (tileSlider) { tileSlider.value = this.value; deps.syncSlider(tileSlider); }
     };
-    sbSlider.oninput = function () {
-      writeBoth(this.value);
-      slider.value = this.value;
-      deps.syncSlider(this);
-      deps.syncSlider(slider);
-    };
-
+    if (tileSlider) {
+      tileSlider.oninput = function () {
+        writeAll(this.value);
+        slider.value = this.value;
+        deps.syncSlider(this);
+        deps.syncSlider(slider);
+      };
+      deps.syncSlider(tileSlider);
+    }
     deps.syncSlider(slider);
-    deps.syncSlider(sbSlider);
   }
 }

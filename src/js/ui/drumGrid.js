@@ -38,14 +38,22 @@ export function buildDrumGrid(pads) {
   grid.innerHTML = '';
 
   pads.forEach((pad, i) => {
-    const btn = document.createElement('button');
+    // A <div> rather than <button>: the tile hosts its own volume slider and a
+    // range input is not valid (nor reliably interactive) inside a <button>.
+    const btn = document.createElement('div');
     btn.className = 'drum-btn';
+    btn.setAttribute('role', 'button');
+    btn.tabIndex = 0;
     btn.dataset.drum = pad.id;
     btn.dataset.type = pad.type;
     btn.dataset.slot = String(i); // 0-based slot — MIDI/keyboard map by slot so
                                   // bindings survive kit changes (sound changes,
                                   // mapping stays) and never collide.
-    btn.innerHTML = `<span class="drum-label" spellcheck="false">${esc(pad.label)}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>`;
+    btn.innerHTML = `<span class="drum-label" spellcheck="false">${esc(pad.label)}</span><span class="kbd-hint">${KEY_MAP_DRUMS[i]}</span>
+      <div class="drum-tile-vol" title="Volumen de ${esc(pad.label)}">
+        <input type="range" min="0" max="100" value="80" class="blue-slider drum-tile-slider" aria-label="Volumen de ${esc(pad.label)}">
+        <span class="drum-tile-pct">80%</span>
+      </div>`;
 
     if (pad.sample) btn.classList.add('has-sample');
 
@@ -56,18 +64,18 @@ export function buildDrumGrid(pads) {
       pad.label = newLabel;
       const currentKit = KIT_BANKS[deps.getKitBankIdx()];
       if (currentKit && currentKit.isCustom) saveCustomKitsToStorage();
-      // Mirror the new label into the volume rows below the pad.
       const mainLabel = q(`#lbl-dvol-text-${pad.id}`);
       if (mainLabel) mainLabel.textContent = pad.label;
-      const sbLabel = q(`#sb-lbl-dvol-text-${pad.id}`);
-      if (sbLabel) sbLabel.textContent = pad.label;
     });
 
+    const onVolume = (e) => !!e.target.closest('.drum-tile-vol');
     btn.onmousedown = (e) => {
+      if (onVolume(e)) return;
       if (deps.isEditKit() && e.target === lbl) return;
       hitDrum(pad.id, pad.type, btn);
     };
     btn.addEventListener('touchstart', (e) => {
+      if (onVolume(e)) return;
       if (deps.isEditKit() && e.target === lbl) return;
       e.preventDefault();
       hitDrum(pad.id, pad.type, btn);
@@ -77,6 +85,7 @@ export function buildDrumGrid(pads) {
     // dispararse un drum por tener foco en él.
     btn.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;
+      if (onVolume(e)) return;
       if (deps.isEditKit() && e.target === lbl) return;
       e.preventDefault();
       hitDrum(pad.id, pad.type, btn);
