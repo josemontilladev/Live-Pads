@@ -81,36 +81,7 @@ function nextStemColor() {
   return c;
 }
 
-// Stem role guessed from the file name ("Song - vocals.wav", "bajo_Song.mp3",
-// "Song (Drums).wav"…). Separators export stems with these tokens; naming the
-// track by role keeps four "Song Name" rows from looking identical.
-const STEM_ROLE_PATTERNS = [
-  ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox)\b/i],
-  ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion)\b/i],
-  ['bass',   /\b(bass|bajo)\b/i],
-  ['other',  /\b(other|otros|instrumental|music|m[uú]sica|accompaniment)\b/i],
-  ['click',  /\b(click|metr[oó]nomo|metronome)\b/i],
-  ['guide',  /\b(guide|gu[ií]a|cues?)\b/i],
-];
-const STEM_ROLE_COLORS = { vocals: '#ec4899', drums: '#f97316', bass: '#3b82f6', other: '#a855f7' };
-function detectStemRole(fileName) {
-  const base = fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-  for (const [kind, re] of STEM_ROLE_PATTERNS) {
-    const m = base.match(re);
-    if (!m) continue;
-    // Drop the token plus the separator glued to it ("Song - vocals" → "Song").
-    let clean = base.replace(new RegExp(`\\s*[-_–—:|(\\[]*\\s*${m[0]}\\s*[)\\]]*\\s*`, 'i'), ' ').replace(/\s{2,}/g, ' ').trim();
-    clean = clean.replace(/^[-_–—:|\s]+|[-_–—:|\s]+$/g, '');
-    return { kind, name: clean || base };
-  }
-  return { kind: 'stem', name: base };
-}
-
-// Badge shown on rows/strips. Used in row, strip and console alike.
-const STEM_KIND_BADGE = {
-  click: 'CLICK', guide: 'GUÍA', midi: 'MIDI',
-  vocals: 'VOCES', drums: 'BATERÍA', bass: 'BAJO', other: 'OTROS', instrumental: 'INSTRUMENTAL',
-};
+import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;

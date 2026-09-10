@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Sin 'unsafe-eval' ni scripts remotos: solo módulos locales. Los estilos
+       inline siguen permitidos (la UI se pinta con atributos style). Red:
+       Supabase (REST/Realtime/Storage) y descargas de audio/carátulas por https. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: livepads: https:; media-src 'self' data: blob: livepads: https:; font-src 'self' data:; connect-src 'self' data: blob: livepads: https: wss:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'">
   <title>LivePads</title>
   <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
   <link rel="stylesheet" href="css/index.css">
@@ -17,18 +21,7 @@
     <div class="preloader-bar"><div class="preloader-fill"></div></div>
     <div class="preloader-status" id="preloader-status" aria-live="polite"></div>
   </div>
-  <script>
-    // Mostrar la versión instalada debajo del nombre, apenas carga (antes de app.js).
-    (function () {
-      try {
-        window.electronAPI && window.electronAPI.getAppVersion &&
-        window.electronAPI.getAppVersion().then(function (v) {
-          var el = document.getElementById('preloader-version');
-          if (el && v) el.textContent = 'v' + v;
-        }).catch(function () {});
-      } catch (e) {}
-    })();
-  </script>
+  <script src="js/preloaderVersion.js"></script>
 
   <div id="midi-learn-overlay">
     <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo MIDI: Haz clic en un control de la app. (Clic aquí para salir)

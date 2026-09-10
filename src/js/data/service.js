@@ -7,6 +7,7 @@
 
 import { confirmDialog } from '../ui/dialog.js';
 import { getSongs as getLibrarySongs } from '../state/store.js';
+import { cloudSetlistUnchanged } from './setlistDiff.js';
 
 let serviceSongs = [];
 let activeServiceIndex = -1;
@@ -246,8 +247,6 @@ export function markSetlistSynced(localId, cloudId, cloudUpdatedAt) {
 // Nunca pisa una edición local más nueva: si el usuario tocó este setlist
 // después de la última versión publicada, se conserva lo suyo y la subida (que
 // corre en la misma ronda) lo publica. Devuelve 'added' | 'updated' | null.
-const keysSignature = (k) => Object.entries(k || {}).map(([a, b]) => `${a}=${b}`).sort().join('|');
-
 export function upsertSavedSetlistFromCloud({ cloudId, name, date, songs, keys, updatedAt }) {
   const list = Array.isArray(songs) ? songs : [];
   if (!name || !list.length) return null;
@@ -263,16 +262,7 @@ export function upsertSavedSetlistFromCloud({ cloudId, name, date, songs, keys, 
     }
     const nextKeys = keys && typeof keys === 'object' ? { ...keys } : {};
     const nextDate = date || existing.date || null;
-    // La ronda corre al arrancar, al volver el foco y cada 45 s. Si la nube no
-    // trae nada nuevo, no hay que tocar nada: re-montar el servicio le cambia los
-    // serviceId a las tarjetas y re-renderiza la lista bajo el usuario.
-    const unchanged = existing.cloudId === (cloudId || existing.cloudId || null)
-      && existing.cloudUpdatedAt === (updatedAt || existing.cloudUpdatedAt || null)
-      && existing.name === name
-      && (existing.date || null) === nextDate
-      && keysSignature(existing.keys) === keysSignature(nextKeys)
-      && JSON.stringify(existing.songs || []) === JSON.stringify(clean);
-    if (unchanged) return null;
+    if (cloudSetlistUnchanged(existing, { cloudId, name, date, songs: clean, keys: nextKeys, updatedAt })) return null;
     existing.cloudId = cloudId || existing.cloudId || null;
     existing.cloudUpdatedAt = updatedAt || existing.cloudUpdatedAt || null;
     existing.name = name;
