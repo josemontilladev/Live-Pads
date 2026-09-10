@@ -6,7 +6,7 @@
   <!-- Sin 'unsafe-eval' ni scripts remotos: solo módulos locales. Los estilos
        inline siguen permitidos (la UI se pinta con atributos style). Red:
        Supabase (REST/Realtime/Storage) y descargas de audio/carátulas por https. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: livepads: https:; media-src 'self' data: blob: livepads: https:; font-src 'self' data:; connect-src 'self' data: blob: livepads: https: wss:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: livepads: https:; media-src 'self' data: blob: livepads: https:; font-src 'self' data:; connect-src 'self' data: blob: livepads: https: wss:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'">
   <title>LivePads</title>
   <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
   <link rel="stylesheet" href="css/index.css">
