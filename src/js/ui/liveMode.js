@@ -36,7 +36,12 @@ export function refreshLiveStrip() {
   const now = idx >= 0 ? songs[idx] : null;
   const next = idx >= 0 ? songs[idx + 1] : songs[0];
   const set = (id, text) => { const el = q('#' + id); if (el) el.textContent = text; };
-  set('ls-now-title', now ? (now.title || 'Sin título') : 'Nada preparado');
+  const titleEl = q('#ls-now-title');
+  const nowTitle = now ? (now.title || 'Sin título') : 'Nada preparado';
+  if (titleEl && titleEl.textContent !== nowTitle) {
+    titleEl.classList.remove('ls-swap'); void titleEl.offsetWidth; titleEl.classList.add('ls-swap');
+  }
+  set('ls-now-title', nowTitle);
   set('ls-now-artist', now ? (now.artist || '') : (songs.length ? 'Elige una canción del servicio' : 'El servicio está vacío'));
   set('ls-now-key', now ? (getEffectiveKey(now) || '') : '');
   set('ls-next-title', next ? (next.title || 'Sin título') : (songs.length ? 'Fin del servicio' : '—'));

@@ -271,7 +271,7 @@ body[data-workspace="stems"] #body {
 .ssl-search {
   flex-shrink: 0;
   padding: 7px 10px; background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 7px; color: #fff; font-size: 12px; outline: none;
+  border-radius: 7px; color: var(--text); font-size: 12px; outline: none;
 }
 .ssl-search:focus { border-color: var(--accent); }
 .ssl-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
@@ -3018,7 +3018,7 @@ body[data-workspace="stems"] #body {
 .sam-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
 .sam-search {
   margin: 0 16px 10px; padding: 9px 12px; background: var(--bg-hover); border: 1px solid var(--border);
-  border-radius: 8px; color: #fff; font-size: 13px; outline: none;
+  border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
 }
 .sam-search:focus { border-color: var(--accent); }
 .sam-list { overflow-y: auto; padding: 0 8px 10px; display: flex; flex-direction: column; gap: 2px; }

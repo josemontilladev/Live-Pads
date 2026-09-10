@@ -258,3 +258,42 @@ body.midi-learning .drum-btn {
   animation: countin-pulse 0.5s ease-in-out infinite;
   color: var(--accent, #fbae00);
 }
+
+/* ── Cifras que no "bailan": BPM, tiempos, porcentajes, contadores ──────
+   Inter trae tabular-nums; activarlo en todo el documento evita el salto
+   horizontal al pasar de 99 a 100 o de 9:59 a 10:00. */
+body, input, button, select { font-variant-numeric: tabular-nums; }
+
+/* ── Micro-animaciones con propósito ──────────────────────────────────
+   Cada una comunica un cambio de estado; ninguna es decorativa. Todas se
+   apagan con prefers-reduced-motion (bloque de arriba). */
+/* La tarjeta que pasa a ser la SIGUIENTE entra deslizándose y su etiqueta
+   "PRÓXIMA" hace pop. */
+.gi-song-item.queued-next { animation: card-queue-in 0.32s var(--ease-spring); }
+.gi-song-item.queued-next::before { animation: tag-pop 0.28s var(--ease-spring); }
+@keyframes card-queue-in {
+  from { transform: translateX(-6px); box-shadow: 0 0 0 var(--glow); }
+  to   { transform: translateX(0); }
+}
+@keyframes tag-pop {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+/* La canción que se ACTIVA respira una vez (glow que se asienta). */
+.gi-song-item.active-song { animation: card-active-in 0.45s var(--ease-release); }
+@keyframes card-active-in {
+  0%   { box-shadow: 0 0 0 0 var(--glow); }
+  40%  { box-shadow: 0 0 22px 2px var(--glow); }
+  100% { box-shadow: 0 0 14px var(--glow); }
+}
+/* Etiqueta SIG. en la tecla del tono siguiente. */
+.key-btn.next-key::after { animation: tag-pop 0.24s var(--ease-spring); }
+/* Tira del modo en vivo: entra al activar y el título se renueva al cambiar. */
+body.live-mode #live-strip { animation: strip-in 0.35s var(--ease-release); }
+@keyframes strip-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ls-now-title.ls-swap { animation: np-swap-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+/* Slider de volumen de las baldosas: aparece al posar el ratón, sin salto. */
+.drum-tile-vol { transition: opacity 0.18s var(--ease-release); }
