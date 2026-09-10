@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { isCloudEnabled, isLoggedIn, getUser, signOut, invokeFunction, signInWithGoogle, updatePassword, deleteAccount } from './supabase.js';
+import { guardLiveAction } from '../ui/liveGuard.js';
 import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
 import { pushModal } from '../ui/modalStack.js';
 import { withBusy } from '../utils/dom.js';
@@ -91,11 +92,16 @@ async function sendInvite(email, code) {
   }
 }
 
-function ensureOverlay() {
-  if (overlay) return overlay;
-  overlay = el(`<div id="account-overlay" class="hidden"><div class="acc-panel" id="acc-panel"></div></div>`);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  document.body.appendChild(overlay);
+// El overlay es un singleton: como modal cuelga del body; como sección del
+// sidebar se monta dentro de `mount` (sin velo ni cierre por Esc).
+function ensureOverlay(mount = null) {
+  if (!overlay) {
+    overlay = el(`<div id="account-overlay" class="hidden"><div class="acc-panel" id="acc-panel"></div></div>`);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay && !overlay.classList.contains('is-embedded')) close(); });
+  }
+  const target = mount || document.body;
+  if (overlay.parentElement !== target) { if (mount) mount.innerHTML = ''; target.appendChild(overlay); }
+  overlay.classList.toggle('is-embedded', !!mount);
   return overlay;
 }
 
@@ -545,6 +551,7 @@ async function onClick(e) {
       switch (act) {
         case 'close': return close();
         case 'signout':
+          if (!(await guardLiveAction('Cerrar la sesión'))) return;
           await signOut();
           close();
           await openAuthGate();
@@ -897,7 +904,7 @@ async function onClick(e) {
 }
 
 // ── API pública ───────────────────────────────────────────────────────────
-export async function openAccountPanel() {
+export async function openAccountPanel({ mount = null } = {}) {
   if (!isCloudEnabled()) {
     if (window.showToast) window.showToast('La nube no está configurada en esta versión.', 'info');
     return;
@@ -907,7 +914,7 @@ export async function openAccountPanel() {
     const user = await openAuthGate();
     if (!user) return; // eligió seguir en modo local
   }
-  ensureOverlay();
+  ensureOverlay(mount);
   overlay.classList.remove('hidden');
   overlay.removeEventListener('click', onClick);
   overlay.addEventListener('click', onClick);
@@ -915,6 +922,6 @@ export async function openAccountPanel() {
   overlay.removeEventListener('change', onSyncDirChange);
   overlay.addEventListener('change', onSyncDirChange);
   if (popModal) { popModal(); popModal = null; }
-  popModal = pushModal(() => close());
+  if (!mount) popModal = pushModal(() => close());
   await render();
 }

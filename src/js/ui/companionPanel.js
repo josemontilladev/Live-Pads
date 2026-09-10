@@ -15,7 +15,8 @@ let serverStartedAt = 0; // ms timestamp — used to show the firewall hint afte
 const SVG_CLOSE = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const SVG_COPY  = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
-export function openCompanionPanel() {
+// { mount }: pintar como sección dentro de ese contenedor (sin velo ni Esc).
+export function openCompanionPanel({ mount = null } = {}) {
   if (mounted) return;
   if (!window.electronAPI || !window.electronAPI.companionStatus) {
     console.warn('Companion API not exposed via preload');
@@ -84,11 +85,16 @@ export function openCompanionPanel() {
       </div>
     </div>
   `;
-  document.body.appendChild(overlay);
+  if (mount) {
+    overlay.classList.add('is-embedded');
+    mount.innerHTML = '';
+    mount.appendChild(overlay);
+  } else {
+    document.body.appendChild(overlay);
+    popModal = pushModal(() => closeCompanionPanel());
+    overlay.onclick = (e) => { if (e.target === overlay) closeCompanionPanel(); };
+  }
   mounted = overlay;
-  popModal = pushModal(() => closeCompanionPanel());
-
-  overlay.onclick = (e) => { if (e.target === overlay) closeCompanionPanel(); };
   overlay.querySelector('.cp-close').onclick = closeCompanionPanel;
 
   const toggleBtn = overlay.querySelector('#cp-toggle');
@@ -210,7 +216,8 @@ export function closeCompanionPanel() {
   mounted.classList.remove('open');
   const node = mounted;
   mounted = null;
-  setTimeout(() => node.remove(), 200);
+  if (node.classList.contains('is-embedded')) node.remove();
+  else setTimeout(() => node.remove(), 200);
 }
 
 export function isCompanionPanelOpen() { return mounted !== null; }

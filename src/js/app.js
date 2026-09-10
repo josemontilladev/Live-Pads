@@ -1,6 +1,6 @@
 import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
-import { PAD_BANKS, KIT_BANKS } from './data/banks.js';
+import { PAD_BANKS, KIT_BANKS, THEMES } from './data/banks.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
@@ -53,7 +53,8 @@ function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); 
 // a que el usuario termine con el auth gate (inicie sesión o entre sin cuenta).
 let authGateReady = Promise.resolve();
 window.__padsShowTour = () => startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
-import { openSpotlight, isSpotlightOpen, closeSpotlight } from './ui/spotlight.js';
+import { openSpotlight, isSpotlightOpen, closeSpotlight, registerSpotlightProvider } from './ui/spotlight.js';
+import { initLiveMode, toggleLiveMode, isLiveMode } from './ui/liveMode.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
@@ -729,6 +730,8 @@ function bindAll() {
   bindKitControls({ buildBankSelects, loadKitBank });
   bindWindowControls();
   bindSidebarAndTabs();
+  initLiveMode();
+  registerSpotlightProvider(spotlightProviderItems);
   bindHamburgerMenu();
   bindMixerControls({ getEngine: () => engine });
   bindMetronomeControls({
@@ -854,32 +857,14 @@ function bindHamburgerMenu() {
   }
 
   // ── Launchers del panel de Ajustes centralizado (nav lateral) ──────────
-  // En vez de abrir un modal centrado, EMBEBEN el panel dentro del sidebar:
-  // se llama a la misma función "open" del modal (crea su overlay en el body)
-  // y de inmediato se reparenta ese overlay dentro de la sección, aplanándolo
-  // vía CSS (.embedded-in-sidebar). Reutiliza toda la lógica del modal intacta.
-  const embedNow = (containerId, overlaySel) => {
-    const pane = q('#' + containerId);
-    const overlay = document.querySelector(overlaySel);
-    if (!pane || !overlay) return;
-    overlay.onclick = null;                 // sin cierre por clic en el velo
-    overlay.classList.remove('hidden');     // (la cuenta arranca oculta)
-    overlay.classList.add('embedded-in-sidebar');
-    if (overlay.parentElement !== pane) { pane.innerHTML = ''; pane.appendChild(overlay); }
-  };
-  const embedModal = (containerId, openFn, overlaySel) => {
-    const pane = q('#' + containerId);
-    if (pane && pane.querySelector(overlaySel)) return; // ya embebido
-    openFn();
-    embedNow(containerId, overlaySel);
-  };
+  // Cada panel se abre como SECCIÓN nativa del sidebar: la misma función
+  // "open" del modal recibe { mount } y pinta ahí dentro (sin velo ni Esc).
   const wire = (id, fn) => { const b = q(id); if (b) b.onclick = fn; };
   const closeSidebar = () => q('#sidebar')?.classList.remove('open');
 
   // MIDI Learn es una ACCIÓN (resalta la app) → cierra el panel.
   wire('#set-midi-learn', () => { closeSidebar(); q('#menu-midi-learn')?.click(); });
-  // El resto se EMBEBE dentro de su sección del sidebar.
-  wire('#set-mappings',  () => embedModal('embed-midi',       () => openMappingsList(),                     '#mappings-overlay'));
+  wire('#set-mappings',  () => openMappingsList({ mount: q('#embed-midi') }));
   wire('#set-midi-rescan', () => { try { window.__livepadsRescanMidi?.(); } catch (_) {} });
 
   // ── Selector de controlador MIDI ───────────────────────────────────────
@@ -924,13 +909,15 @@ function bindHamburgerMenu() {
   window.addEventListener('livepads:midi-devices', paintMidiInputs);
   setTimeout(paintMidiInputs, 1500);
   // Servicio: Pre-vuelo y Companion son MUTUAMENTE EXCLUSIVOS (uno u otro).
+  // "Revisar de nuevo" cierra y reabre para recalcular los checks.
   wire('#set-preflight', () => {
-    closeCompanionPanel(); const c = q('#embed-companion'); if (c) c.innerHTML = '';
-    embedModal('embed-preflight', () => openPreflight({ getEngine: () => engine }), '#preflight-overlay');
+    closeCompanionPanel();
+    closePreflight();
+    openPreflight({ getEngine: () => engine, mount: q('#embed-preflight') });
   });
   wire('#set-companion', () => {
-    closePreflight(); const p = q('#embed-preflight'); if (p) p.innerHTML = '';
-    embedModal('embed-companion', () => openCompanionPanel(), '#companion-overlay');
+    closePreflight();
+    openCompanionPanel({ mount: q('#embed-companion') });
   });
   // Las secciones que embeben un panel se abren SOLAS al entrar en su pestaña:
   // el usuario no tiene que pulsar un botón intermedio para ver el contenido.
@@ -946,14 +933,14 @@ function bindHamburgerMenu() {
     const pane = q(spec[0]);
     const body = q(`#tab-${ev.detail.tab}`);
     if (!pane || !body) return;
-    if (pane.childElementCount > 0) { body.classList.add('is-embedded'); return; }
-    body.classList.remove('is-embedded');
+    if (pane.childElementCount > 0) { body.classList.add('has-panel'); return; }
+    body.classList.remove('has-panel');
     q(spec[1])?.click();
     // The account panel embeds asynchronously — flag the section (which hides
     // the now-redundant launcher) only once the panel is really there.
     let tries = 0;
     const mark = () => {
-      if (pane.childElementCount > 0) body.classList.add('is-embedded');
+      if (pane.childElementCount > 0) body.classList.add('has-panel');
       else if (++tries < 12) setTimeout(mark, 250);
     };
     mark();
@@ -966,8 +953,7 @@ function bindHamburgerMenu() {
   wire('#set-account', async () => {
     try {
       const m = await import('./cloud/accountPanel.js');
-      await m.openAccountPanel();
-      embedNow('embed-account', '#account-overlay');
+      await m.openAccountPanel({ mount: q('#embed-account') });
     } catch (e) {
       console.error('[LivePads] no se pudo abrir Mi cuenta:', e);
       window.showToast?.(`No se pudo abrir Mi cuenta: ${e && e.message || e}`, 'error');
@@ -975,6 +961,49 @@ function bindHamburgerMenu() {
   });
 }
 
+
+// Entradas dinámicas de la paleta Ctrl+K: paneles del sidebar, modo en vivo,
+// espacio de trabajo, navegación del servicio, temas y canciones del servicio.
+const SIDEBAR_PANELS = [
+  ['audio', 'Ajustes: Audio'], ['midi', 'Ajustes: MIDI / Teclado'], ['themes', 'Ajustes: Temas'],
+  ['library', 'Ajustes: Biblioteca de audios'], ['account', 'Cuenta y librerías'],
+  ['preflight', 'Pre-vuelo del servicio'], ['companion', 'Companion (móvil)'],
+  ['shortcuts', 'Atajos de teclado'], ['about', 'Acerca de LivePads'],
+];
+function spotlightProviderItems() {
+  const items = [];
+  const idx = getActiveServiceIndex();
+  const svc = getServiceSongs();
+  const gotoService = (i) => {
+    q('.s-toggle[data-target="service-setlist-list"]')?.click();
+    const s = svc[i];
+    if (!s) return;
+    setTimeout(() => {
+      const card = q(`#service-songs-container .gi-song-item[data-service-id="${CSS.escape(String(s.serviceId))}"]`);
+      if (card) card.click(); else applyGiSong(s);
+    }, 60);
+  };
+  if (svc[idx + 1]) {
+    const n = svc[idx + 1];
+    items.push({ id: 'svc:next', kind: 'service', featured: true, label: `Siguiente: ${n.title || 'Sin título'}`, sub: `Servicio · ${getEffectiveKey(n) || ''}`, search: 'siguiente canción next', run: () => gotoService(idx + 1) });
+  }
+  items.push({ id: 'cmd:live', kind: 'command', featured: true, label: isLiveMode() ? 'Salir del modo en vivo' : 'Entrar en modo en vivo', sub: 'Ctrl+L', search: 'modo en vivo live directo', run: toggleLiveMode });
+  items.push({ id: 'cmd:panic', kind: 'command', label: 'Pánico: detener todo', sub: 'Esc', search: 'pánico panico detener parar stop todo', run: panicStopAll });
+  items.push({ id: 'cmd:prev', kind: 'command', label: 'Canción anterior del servicio', sub: '↑', search: 'anterior previa servicio', run: servicePrevSong });
+  items.push({ id: 'cmd:next', kind: 'command', label: 'Canción siguiente del servicio', sub: '↓', search: 'siguiente próxima servicio', run: serviceNextSong });
+  items.push({ id: 'cmd:ws-pads', kind: 'command', label: 'Ir a Pads', sub: 'Tab', search: 'pads workspace espacio', run: () => q('.ws-tab[data-workspace="pads"]')?.click() });
+  items.push({ id: 'cmd:ws-stems', kind: 'command', label: 'Ir a Stems', sub: 'Tab', search: 'stems workspace espacio editor', run: () => q('.ws-tab[data-workspace="stems"]')?.click() });
+  for (const [tab, label] of SIDEBAR_PANELS) {
+    items.push({ id: `tab:${tab}`, kind: 'panel', label, sub: 'Panel', search: `${label} ajustes panel abrir`, run: () => openSidebarTab(tab) });
+  }
+  for (const [id, t] of Object.entries(THEMES)) {
+    items.push({ id: `theme:${id}`, kind: 'theme', label: `Tema: ${t.name}`, sub: getCurrentTheme() === id ? 'Tema actual' : (t.desc || 'Tema'), search: `tema theme ${t.name} ${t.desc || ''}`, run: () => applyTheme(id) });
+  }
+  svc.forEach((s, i) => {
+    items.push({ id: `svc:${i}`, kind: 'service', label: `${i + 1}. ${s.title || 'Sin título'}`, sub: `Servicio · ${s.artist || ''}${getEffectiveKey(s) ? ' · ' + getEffectiveKey(s) : ''}`, search: `servicio ${s.title || ''} ${s.artist || ''}`, run: () => gotoService(i) });
+  });
+  return items;
+}
 
 function bindRestOfApp() {
   bindSetlistTabs();
@@ -1722,6 +1751,12 @@ function onKey(e) {
     e.preventDefault();
     if (isSpotlightOpen()) closeSpotlight();
     else openSpotlight();
+    return;
+  }
+  // Ctrl/Cmd+L alterna el modo en vivo (también antes del filtro de inputs).
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'l' || e.key === 'L')) {
+    e.preventDefault();
+    toggleLiveMode();
     return;
   }
 

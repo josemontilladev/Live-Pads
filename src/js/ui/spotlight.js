@@ -24,15 +24,21 @@ const COMMANDS = [
   { id: 'cmd:import',   label: 'Importar librería (JSON)', hint: '',        selector: '#btn-import-gi' },
   { id: 'cmd:export',   label: 'Exportar librería',        hint: '',        selector: '#btn-export-gi' },
   { id: 'cmd:sync',     label: 'Sincronizar con MongoDB',  hint: '',        selector: '#btn-sync-gi' },
-  { id: 'cmd:settings', label: 'Abrir Ajustes',            hint: '',        selector: '#btn-settings-toggle' },
-  { id: 'cmd:help',     label: 'Abrir Atajos',             hint: '?',       selector: '#btn-help' },
-  { id: 'cmd:menu',     label: 'Abrir menú',               hint: '',        selector: '#btn-menu' },
-  { id: 'cmd:preflight',label: 'Pre-vuelo del servicio',   hint: '',        selector: '#menu-preflight', viaMenu: true },
-  { id: 'cmd:mappings', label: 'Mapeos activos',           hint: '',        selector: '#menu-mappings', viaMenu: true },
-  { id: 'cmd:companion',label: 'Companion (móvil)',        hint: '',        selector: '#menu-companion', viaMenu: true },
+  { id: 'cmd:settings', label: 'Abrir Ajustes',            hint: '☰',       selector: '#btn-menu' },
   { id: 'cmd:midilearn',label: 'Modo Mapeo MIDI / Teclado', hint: '',       selector: '#menu-midi-learn', viaMenu: true },
-  { id: 'cmd:about',    label: 'Acerca de Live Pads',      hint: '',        selector: '#menu-about', viaMenu: true },
 ];
+// Paneles, temas, modo en vivo y canciones del servicio los aporta app.js vía
+// registerSpotlightProvider().
+
+// Otros módulos aportan entradas dinámicas (paneles, temas, canciones del
+// servicio…). Cada proveedor devuelve items { id, kind, label, sub, search, run }.
+const providers = [];
+export function registerSpotlightProvider(fn) { providers.push(fn); }
+function providedItems() {
+  const out = [];
+  for (const fn of providers) { try { out.push(...(fn() || [])); } catch (_) {} }
+  return out;
+}
 
 function score(item, term) {
   if (!term) return 0;
@@ -72,11 +78,14 @@ function search(term) {
   const lower = term.trim().toLowerCase();
   const songItems = getSongs().map(buildSongItem);
   const commandItems = COMMANDS.map(buildCommandItem);
-  const pool = [...songItems, ...commandItems];
+  const extra = providedItems();
+  const pool = [...songItems, ...commandItems, ...extra];
 
   if (!lower) {
-    // Empty query → suggest first 8 commands + first 6 songs.
-    return [...commandItems.slice(0, 8), ...songItems.slice(0, 6)];
+    // Sin texto: lo más útil en vivo primero (siguiente canción, modo en
+    // vivo…), luego comandos base y canciones.
+    const featured = extra.filter(i => i.featured);
+    return [...featured, ...commandItems.slice(0, 6), ...songItems.slice(0, 6)];
   }
 
   const scored = pool
@@ -89,6 +98,7 @@ function search(term) {
 function activate(item) {
   if (!item) return;
   closeSpotlight();
+  if (typeof item.run === 'function') { setTimeout(() => item.run(), 0); return; }
   if (item.kind === 'song') {
     // Click the matching card in the library (which runs applyGiSong).
     const sel = `#gi-songs-container .gi-song-item[data-song-id="${CSS.escape(String(item.song.id))}"]`;
@@ -122,6 +132,14 @@ function activate(item) {
   }
 }
 
+const KIND_ICON = {
+  song:    '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+  command: '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/></svg>',
+  service: '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+  theme:   '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>',
+  panel:   '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+};
+
 function paintResults() {
   if (!resultsEl) return;
   if (lastResults.length === 0) {
@@ -130,9 +148,7 @@ function paintResults() {
   }
   resultsEl.innerHTML = lastResults.map((item, idx) => `
     <button class="sp-row ${idx === activeIndex ? 'is-active' : ''}" data-idx="${idx}" type="button">
-      <span class="sp-row-kind ${item.kind}">${item.kind === 'song'
-        ? '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
-        : '<svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10"/></svg>'}</span>
+      <span class="sp-row-kind ${item.kind}">${KIND_ICON[item.kind] || KIND_ICON.command}</span>
       <div class="sp-row-text">
         <span class="sp-row-label">${escapeHtml(item.label)}</span>
         ${item.sub ? `<span class="sp-row-sub">${escapeHtml(item.sub)}</span>` : ''}

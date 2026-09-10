@@ -127,6 +127,7 @@ export function refreshActiveSongHighlights() {
   // Position indicator ("3 / 8") lives in the service meta — refresh on
   // every active change since surgical updates skip the full render.
   refreshServiceMeta();
+  try { window.dispatchEvent(new Event('livepads:song-state')); } catch (_) {}
 }
 
 // Show / hide / populate the "now playing" strip above the setlist tabs.
