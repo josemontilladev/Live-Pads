@@ -47,20 +47,29 @@ async function publish(force = false) {
   const body = { library_id: libId, updated_by: user.id, updated_at: new Date().toISOString(), ...snapshot() };
   const sig = JSON.stringify({ ...body, updated_at: null });
   if (!force && sig === lastPayload) return;
+  if (inflight) { pending = true; return; }
 
-  try {
-    await rest('/now_playing?on_conflict=library_id', {
-      method: 'POST',
-      body,
-      prefer: 'resolution=merge-duplicates,return=minimal',
-    });
-    lastPayload = sig;
-  } catch (e) {
-    const msg = String(e && e.message || e);
-    // 404 / relación inexistente: la BD del equipo aún no tiene la migración.
-    if (/404|does not exist|not found|could not find|schema cache|42P01|PGRST205/i.test(msg)) unsupported = true;
-  }
+  inflight = (async () => {
+    try {
+      await rest('/now_playing?on_conflict=library_id', {
+        method: 'POST',
+        body,
+        prefer: 'resolution=merge-duplicates,return=minimal',
+      });
+      lastPayload = sig;
+    } catch (e) {
+      const msg = String(e && e.message || e);
+      // 404 / relación inexistente: la BD del equipo aún no tiene la migración.
+      if (/404|does not exist|not found|could not find|schema cache|42P01|PGRST205/i.test(msg)) unsupported = true;
+    } finally {
+      inflight = null;
+      if (pending) { pending = false; schedule(); }
+    }
+  })();
+  return inflight;
 }
+let inflight = null;
+let pending = false;
 
 function schedule() {
   clearTimeout(timer);

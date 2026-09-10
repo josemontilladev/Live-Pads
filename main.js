@@ -403,6 +403,9 @@ function createWindow() {
   ].join('; ');
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     if (details.resourceType !== 'mainFrame' && details.resourceType !== 'subFrame') return callback({});
+    // Solo nuestras páginas locales: una URL externa (OAuth, ayuda…) trae su
+    // propia política y no debe heredar la nuestra.
+    if (!/^(file|livepads):/i.test(details.url || '')) return callback({});
     callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } });
   });
 
