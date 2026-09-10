@@ -101,7 +101,7 @@ export function showServiceChooser() {
         <span class="svc-chooser-name">${esc(s.name)}</span>
         <span class="svc-chooser-meta">${fmtChooserDate(s)} · ${(s.songs || []).length} canción(es)</span>
       </span>
-      <button class="svc-chooser-more" data-act="menu" data-id="${esc(s.id)}" title="Opciones" aria-label="Opciones">⋯</button>
+      <button class="svc-chooser-more" data-act="menu" data-id="${esc(s.id)}" title="Opciones" aria-label="Opciones"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
     </div>`;
   };
 
@@ -109,7 +109,7 @@ export function showServiceChooser() {
     <div class="svc-chooser-head">
       <h4>Elegir un setlist</h4>
     </div>
-    <button class="svc-chooser-new" data-act="new">＋ Crear lista nueva</button>
+    <button class="svc-chooser-new" data-act="new"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14" style="vertical-align:-2px;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Crear lista nueva</button>
     ${showSearch ? `<input type="text" class="svc-chooser-search" placeholder="Buscar setlist…" value="${esc(chooserSearch)}">` : ''}
     <div class="svc-chooser-list">
       ${all.length

@@ -44,8 +44,8 @@ export function openSetlistsModal() {
     overlay.innerHTML = `
       <div class="setlists-modal">
         <div class="setlists-head">
-          <h3>📋 Setlists guardados</h3>
-          <button class="setlists-x" data-act="close" aria-label="Cerrar">×</button>
+          <h3>Setlists guardados</h3>
+          <button class="setlists-x" data-act="close" aria-label="Cerrar"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="setlists-save-form">
           <div class="sl-field sl-field--title">
@@ -66,7 +66,7 @@ export function openSetlistsModal() {
                 <span class="setlists-row-meta">${s.date ? fmtDateStr(s.date) : fmtSavedAt(s.savedAt)} · ${(s.songs || []).length} canción(es)</span>
               </div>
               <button class="setlists-load" data-act="load">Cargar</button>
-              <button class="setlists-del" data-act="del" title="Eliminar">×</button>
+              <button class="setlists-del" data-act="del" title="Eliminar" aria-label="Eliminar"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
             </div>`).join('')
             : `<p class="setlists-empty">Todavía no guardaste setlists. Armá tu servicio (abajo) y guardalo acá con su título y fecha.</p>`}
         </div>
