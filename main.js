@@ -385,6 +385,27 @@ function createWindow() {
       mainWindow.loadFile('src/index.html');
     });
 
+  // CSP como cabecera de respuesta (además del <meta> de index.html): con
+  // contextIsolation el aviso de seguridad de Electron solo se apaga por esta
+  // vía, y la cabecera también cubre a los mundos aislados (preload).
+  const CSP = [
+    "default-src 'self' livepads:",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: livepads: https:",
+    "media-src 'self' data: blob: livepads: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' data: blob: livepads: https: wss:",
+    "worker-src 'self' blob:",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join('; ');
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (details.resourceType !== 'mainFrame' && details.resourceType !== 'subFrame') return callback({});
+    callback({ responseHeaders: { ...details.responseHeaders, 'Content-Security-Policy': [CSP] } });
+  });
+
   // Permisos permitidos: MIDI (controladores) y 'media' (micrófono, para el
   // Afinador). Todo lo demás se niega. El acceso real al micro lo sigue
   // gobernando el SO (privacidad de Windows); aquí solo no lo bloqueamos.

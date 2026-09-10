@@ -66,6 +66,7 @@ import {
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
   serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey
 } from './data/service.js';
+import { parseKey } from './utils/musicKeys.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
@@ -577,17 +578,6 @@ function applyNotepadPitchShift(pitchSemitones) {
 // Indicador de tono sonante del pad (arriba del grid). Muestra la nota
 // preparada/activa en grande; si difiere del tono ESCRITO de la canción (porque
 // está transpuesta), muestra "escrito → sonante" (p. ej. C → B).
-// Semitono (0–11) de un tono escrito como "G", "Ab", "Em", "Sol", "Sim"…;
-// -1 si no se reconoce. Misma normalización que prepareNextSongKey().
-function songKeySemitone(rawKey) {
-  if (!rawKey) return -1;
-  let key = String(rawKey).replace('m', '').trim();
-  const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
-  for (const es in esToEn) if (key.startsWith(es)) key = key.replace(es, esToEn[es]);
-  const i = KEYS_SHARP.indexOf(key);
-  return i >= 0 ? i : KEYS_FLAT.indexOf(key);
-}
-
 // Etiqueta "SIG." en la tecla del tono de la siguiente canción del servicio.
 function paintNextSongKeyHint() {
   qa('.key-btn.next-key').forEach(b => b.classList.remove('next-key'));
@@ -595,9 +585,9 @@ function paintNextSongKeyHint() {
   if (idx < 0) return;
   const next = getServiceSongs()[idx + 1];
   if (!next) return;
-  const semi = songKeySemitone(getEffectiveKey(next));
-  if (semi < 0) return;
-  const key = (getUseFlats() ? KEYS_FLAT : KEYS_SHARP)[semi];
+  const parsed = parseKey(getEffectiveKey(next));
+  if (!parsed) return;
+  const key = (getUseFlats() ? KEYS_FLAT : KEYS_SHARP)[parsed.semitone];
   q(`.key-btn[data-key="${key}"]`)?.classList.add('next-key');
 }
 
