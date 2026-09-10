@@ -8,12 +8,12 @@
 //   Cache Storage (las URLs firmadas de R2 cambian en cada petición).
 // ─────────────────────────────────────────────────────────────────────────
 
-const SHELL_CACHE = 'lpm-shell-v1';
+const SHELL_CACHE = 'lpm-shell-v2';
 const PADS_CACHE = 'lpm-pads-v1';
 
 const SHELL = [
   '.', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/app.js', 'js/audio.js', 'js/cloud.js', 'js/config.js',
+  'js/app.js', 'js/audio.js', 'js/cloud.js', 'js/config.js', 'js/live.js',
   'js/metronome.js', 'js/pads.js', 'js/supabase.js',
   'assets/icon.png', 'assets/logo.png',
 ];

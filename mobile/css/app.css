@@ -337,6 +337,31 @@ input[type='range'] { accent-color: var(--accent); height: 30px; width: 100%; }
   color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0.02em;
 }
 .offline-bar:active { opacity: 0.8; }
+
+/* "En vivo ahora": tarjeta con la canción que la cabina tiene preparada. */
+.live-card {
+  width: 100%; margin: 6px 0 4px; padding: 10px 12px; border-radius: var(--radius);
+  display: flex; align-items: center; gap: 12px; text-align: left;
+  background: linear-gradient(120deg, var(--accent-dim), transparent 70%), var(--card);
+  border: 1px solid var(--accent); color: var(--text);
+}
+.live-card:active { opacity: 0.85; }
+.live-dot {
+  flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--muted); box-shadow: 0 0 0 0 transparent;
+}
+.live-card.is-live .live-dot { background: #4ade80; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+}
+.live-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.live-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.live-title { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-artist { font-weight: 500; color: var(--muted); }
+.live-next { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-key { flex: 0 0 auto; font-size: 22px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .live-card.is-live .live-dot { animation: none; } }
 .offline-bar.done {
   background: rgba(134, 239, 172, 0.08); border-color: rgba(134, 239, 172, 0.3); color: #86efac;
 }

@@ -11,6 +11,7 @@ import {
   createSetlist, updateSetlist, deleteSetlist,
 } from './cloud.js';
 import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
+import { startLiveWatch } from './live.js';
 import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, setPadsPan, activePadKey } from './pads.js';
 import {
   startMetronome, stopMetronome, metroRunning,
@@ -223,6 +224,12 @@ async function useLibrary(lib) {
   activeSetlistId = null;
   renderChips._auto = false; // permite auto-seleccionar el setlist de HOY
   await refreshData();
+  // "En vivo ahora": la canción que la cabina tiene preparada; tocar abre esa
+  // canción en el reproductor.
+  startLiveWatch(libraryId, (songId) => {
+    const s = songId ? songs.find(x => x.cloudId === songId) : null;
+    if (s) openSong(s); else toast('Esa canción no está en este repertorio.');
+  });
 }
 
 // ── Selector de repertorio ──────────────────────────────────────────────

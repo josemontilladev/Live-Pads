@@ -110,6 +110,16 @@
     </section>
 
     <div class="lib-tools">
+      <!-- Lo que la cabina publica en la nube (now_playing). Oculto si no hay nada. -->
+      <button id="live-card" class="live-card hidden" type="button" aria-live="polite">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span class="live-body">
+          <span class="live-label">En vivo ahora</span>
+          <span class="live-title" id="live-title"></span>
+          <span class="live-next" id="live-next"></span>
+        </span>
+        <span class="live-key" id="live-key"></span>
+      </button>
       <input type="search" id="search" placeholder="Buscar canción o artista…">
       <div id="setlist-chips" class="chips"></div>
       <button id="btn-offline" class="offline-bar hidden">
