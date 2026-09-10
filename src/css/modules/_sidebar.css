@@ -110,25 +110,29 @@
 .set-embed:empty { display: none; }
 /* Con el panel ya embebido, el lanzador sobra: el panel trae su propio título.
    Pre-vuelo conserva el suyo porque "Revisar de nuevo" es una acción útil. */
-#tab-account.is-embedded .set-launch-card,
-#tab-companion.is-embedded .set-launch-card { display: none; }
-#tab-midi.is-embedded #set-mappings { display: none; }
-#tab-account.is-embedded .set-embed,
-#tab-companion.is-embedded .set-embed { margin-top: 0; }
-.embedded-in-sidebar {
-  position: static !important; inset: auto !important; z-index: auto !important;
-  display: block !important; background: transparent !important; backdrop-filter: none !important;
-  padding: 0 !important; opacity: 1 !important; transform: none !important; pointer-events: auto !important;
+#tab-account.has-panel .set-launch-card,
+#tab-companion.has-panel .set-launch-card { display: none; }
+#tab-midi.has-panel #set-mappings { display: none; }
+#tab-account.has-panel .set-embed,
+#tab-companion.has-panel .set-embed { margin-top: 0; }
+/* Los paneles (Pre-vuelo, Companion, Mapeos, Cuenta) nacen ya dentro de su
+   sección cuando se abren con { mount } — aquí solo se "aplanan": sin velo,
+   sin posición fija, sin sombra. `#sidebar` en el selector da la especificidad
+   necesaria frente a las reglas modales (#x.open .panel) sin recurrir a
+   !important. */
+#sidebar .is-embedded {
+  position: static; inset: auto; z-index: auto;
+  display: block; background: transparent; backdrop-filter: none;
+  padding: 0; opacity: 1; transform: none; pointer-events: auto;
 }
-.embedded-in-sidebar > * {
-  position: static !important; width: 100% !important; max-width: none !important;
-  max-height: none !important; margin: 0 !important; box-shadow: none !important;
-  transform: none !important; border: 1px solid var(--border) !important; border-radius: 8px;
+#sidebar .is-embedded > * {
+  position: static; width: 100%; max-width: none;
+  max-height: none; margin: 0; box-shadow: none;
+  transform: none; border: 1px solid var(--border); border-radius: 8px;
 }
 /* El botón de cerrar del modal se oculta cuando está embebido (la nav manda). */
-.embedded-in-sidebar .cp-close, .embedded-in-sidebar .acc-x,
-.embedded-in-sidebar .pf-close, .embedded-in-sidebar .mp-close,
-.embedded-in-sidebar .preflight-close, .embedded-in-sidebar [aria-label="Cerrar"] { display: none !important; }
+#sidebar .is-embedded .cp-close, #sidebar .is-embedded .acc-x,
+#sidebar .is-embedded .pf-close, #sidebar .is-embedded .mp-close { display: none; }
 
 .stab-body { display: none; }
 .stab-body.visible { display: block; }
@@ -343,31 +347,31 @@
 .sidebar-nav .stab { font-weight: 500; }
 
 /* ── Mapeos activos EMBEBIDOS: filas + footer compactos para el ancho del panel ── */
-.embedded-in-sidebar .mp-row { gap: 6px; padding: 7px 9px; align-items: center; }
-.embedded-in-sidebar .mp-key-kind { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
-.embedded-in-sidebar .mp-key { font-size: 10px; padding: 2px 7px; flex-shrink: 0; }
-.embedded-in-sidebar .mp-target { font-size: 12px; line-height: 1.3; }
-.embedded-in-sidebar .mp-footer { flex-wrap: wrap; gap: 8px; }
-.embedded-in-sidebar .mp-io,
-.embedded-in-sidebar .mp-clear-all { flex: 1 1 auto; padding: 9px 10px; font-size: 12px; }
+.is-embedded .mp-row { gap: 6px; padding: 7px 9px; align-items: center; }
+.is-embedded .mp-key-kind { font-size: 9px; padding: 2px 6px; flex-shrink: 0; }
+.is-embedded .mp-key { font-size: 10px; padding: 2px 7px; flex-shrink: 0; }
+.is-embedded .mp-target { font-size: 12px; line-height: 1.3; }
+.is-embedded .mp-footer { flex-wrap: wrap; gap: 8px; }
+.is-embedded .mp-io,
+.is-embedded .mp-clear-all { flex: 1 1 auto; padding: 9px 10px; font-size: 12px; }
 
 /* ── "Mi cuenta y librerías" EMBEBIDA: filas adaptadas al ancho del sidebar ── */
-.embedded-in-sidebar .acc-row { flex-wrap: wrap; gap: 8px; }
-.embedded-in-sidebar .acc-row > input,
-.embedded-in-sidebar .acc-row > select { min-width: 0; }
+.is-embedded .acc-row { flex-wrap: wrap; gap: 8px; }
+.is-embedded .acc-row > input,
+.is-embedded .acc-row > select { min-width: 0; }
 /* Inputs de texto/correo → ocupan su propia línea (legibles, no apretados). */
-.embedded-in-sidebar #acc-new-lib,
-.embedded-in-sidebar #acc-join-code,
-.embedded-in-sidebar #acc-inv-email { flex: 1 1 100%; }
+.is-embedded #acc-new-lib,
+.is-embedded #acc-join-code,
+.is-embedded #acc-inv-email { flex: 1 1 100%; }
 /* Rol + Invitar comparten la línea siguiente. */
-.embedded-in-sidebar #acc-inv-role { flex: 1 1 auto; }
-.embedded-in-sidebar .acc-btn { white-space: nowrap; }
+.is-embedded #acc-inv-role { flex: 1 1 auto; }
+.is-embedded .acc-btn { white-space: nowrap; }
 /* Bajar / Subir / Guardar servicio → botones a ancho completo (sin texto partido). */
-.embedded-in-sidebar [data-act="pull-songs"],
-.embedded-in-sidebar [data-act="push-songs"],
-.embedded-in-sidebar [data-act="save-setlist"] { flex: 1 1 100%; }
+.is-embedded [data-act="pull-songs"],
+.is-embedded [data-act="push-songs"],
+.is-embedded [data-act="save-setlist"] { flex: 1 1 100%; }
 /* Footer (Renombrar / Eliminar librería) se acomoda en fila. */
-.embedded-in-sidebar .acc-foot { flex-wrap: wrap; gap: 8px; }
-.embedded-in-sidebar .acc-foot .acc-btn { flex: 1 1 auto; }
+.is-embedded .acc-foot { flex-wrap: wrap; gap: 8px; }
+.is-embedded .acc-foot .acc-btn { flex: 1 1 auto; }
 /* Pestañas Cuenta/Librerías/Equipo: que entren sin apretarse. */
-.embedded-in-sidebar .acc-tab { padding: 7px 8px; font-size: 12px; }
+.is-embedded .acc-tab { padding: 7px 8px; font-size: 12px; }

@@ -11,6 +11,7 @@ import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
 import { confirmDialog } from './dialog.js';
+import { livePrefix } from './liveGuard.js';
 import { bindTouchReorder } from '../utils/touchReorder.js';
 import { getCurrentSetlistName, getServiceSongs } from '../data/service.js';
 import {
@@ -473,7 +474,7 @@ function openGiCardMenu(anchorEl, song, card) {
       onSelect: () => {
         confirmDialog({
           title: 'Eliminar canción',
-          message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
+          message: `${livePrefix()}¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
           confirmLabel: 'Eliminar',
           danger: true,
           onConfirm: () => {
@@ -631,7 +632,7 @@ function initDelegation() {
       case 'remove':
         confirmDialog({
           title: 'Eliminar canción',
-          message: `¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
+          message: `${livePrefix()}¿Eliminar "${song.title}" de la librería? Esta acción no se puede deshacer.`,
           confirmLabel: 'Eliminar',
           danger: true,
           onConfirm: () => {

@@ -8,6 +8,7 @@
 import { confirmDialog } from '../ui/dialog.js';
 import { getSongs as getLibrarySongs } from '../state/store.js';
 import { cloudSetlistUnchanged } from './setlistDiff.js';
+import { isLiveAudio, livePrefix, guardLiveAction } from '../ui/liveGuard.js';
 
 let serviceSongs = [];
 let activeServiceIndex = -1;
@@ -113,16 +114,20 @@ export function replaceService(songs, keys) {
 }
 
 export function removeFromService(serviceId) {
-  serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
-  saveServiceSongs();
-  triggerRender();
+  const doRemove = () => {
+    serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
+    saveServiceSongs();
+    triggerRender();
+  };
+  if (!isLiveAudio()) return doRemove();
+  guardLiveAction('Quitar la canción del servicio').then(ok => { if (ok) doRemove(); });
 }
 
 export function clearServiceList() {
   if (serviceSongs.length === 0) return;
   confirmDialog({
     title: 'Vaciar servicio',
-    message: `¿Quitar las ${serviceSongs.length} canciones del set de hoy? La librería no se ve afectada.`,
+    message: `${livePrefix()}¿Quitar las ${serviceSongs.length} canciones del set de hoy? La librería no se ve afectada.`,
     confirmLabel: 'Vaciar',
     danger: true,
     onConfirm: () => {

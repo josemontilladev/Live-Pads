@@ -1,0 +1,72 @@
+/* ── Reloj de la barra superior + Modo en vivo ─────────────────────────── */
+#topbar-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 600; letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-right: 8px;
+  -webkit-app-region: no-drag;
+}
+#btn-live-mode[aria-pressed="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Tira "Ahora / Siguiente": ocupa la celda de los selectores de banco. */
+#live-strip {
+  grid-column: 3; grid-row: 1;
+  display: none;
+  flex-direction: column; gap: 8px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent) inset;
+  min-width: 0;
+}
+body.live-mode #live-strip { display: flex; }
+.ls-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.ls-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-muted); flex: 0 0 auto;
+}
+.ls-clock, .ls-pos { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text-muted); font-size: 12px; }
+.ls-clock { font-size: 20px; color: var(--text); }
+.ls-now-title {
+  font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1;
+}
+.ls-now-artist { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ls-now-key { font-size: 26px; font-weight: 800; color: var(--accent); flex: 0 0 auto; line-height: 1; }
+.ls-next { border-top: 1px solid var(--border); padding-top: 8px; }
+.ls-next-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.ls-next-key { font-size: 15px; font-weight: 700; color: var(--text-muted); flex: 0 0 auto; }
+.ls-exit {
+  margin-top: 2px; align-self: flex-end;
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  font-size: 11px; font-weight: 600; padding: 5px 9px; border-radius: 6px; cursor: pointer;
+}
+.ls-exit:hover { color: var(--text); border-color: var(--border-strong); }
+
+/* Lo que sobra en vivo. */
+body.live-mode #bank-section,
+body.live-mode #mixer-bar,
+body.live-mode .workspace-switcher,
+body.live-mode #btn-piano-pads,
+body.live-mode #btn-tuner-pads,
+body.live-mode .setlist-header,
+body.live-mode .setlist-tabs-toggle,
+body.live-mode .svc-search-row,
+body.live-mode .mx-hint { display: none !important; }
+body.live-mode #panel-setlist.songs-scrolled .setlist-header { display: none !important; }
+
+/* Lo esencial, más grande. */
+body.live-mode #stage { grid-template-columns: 320px 1fr 400px; }
+body.live-mode .key-btn { font-size: 26px; }
+body.live-mode .key-btn.next-key::after { font-size: 10px; }
+body.live-mode .drum-btn .drum-label { font-size: 17px; }
+body.live-mode .drum-tile-vol { opacity: 0.35; }
+body.live-mode .key-indicator .ki-sounding { font-size: 34px; }
+@media (max-width: 1250px) {
+  body.live-mode #stage { grid-template-columns: 290px 1fr 340px; }
+  body.live-mode .key-btn { font-size: 22px; }
+}

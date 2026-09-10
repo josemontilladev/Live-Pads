@@ -9,6 +9,8 @@
 
 import { getMidiMap, getAllMidiMaps, deleteMapping, clearAllMappings, importMidiMaps } from '../midi/midiMap.js';
 import { pushModal } from './modalStack.js';
+import { confirmDialog } from './dialog.js';
+import { livePrefix } from './liveGuard.js';
 
 let mounted = null;
 let popModal = null;
@@ -105,7 +107,8 @@ function rerender() {
   mounted.querySelector('.mp-body').innerHTML = rowsHtml();
 }
 
-export function openMappingsList() {
+// { mount }: pintar como sección dentro de ese contenedor (sin velo ni Esc).
+export function openMappingsList({ mount = null } = {}) {
   if (mounted) return;
 
   const overlay = document.createElement('div');
@@ -128,12 +131,18 @@ export function openMappingsList() {
       </div>
     </div>
   `;
-  document.body.appendChild(overlay);
+  if (mount) {
+    overlay.classList.add('is-embedded');
+    mount.innerHTML = '';
+    mount.appendChild(overlay);
+  } else {
+    document.body.appendChild(overlay);
+    popModal = pushModal(() => closeMappingsList());
+  }
   mounted = overlay;
-  popModal = pushModal(() => closeMappingsList());
 
   overlay.onclick = (e) => {
-    if (e.target === overlay) { closeMappingsList(); return; }
+    if (e.target === overlay && !mount) { closeMappingsList(); return; }
     const clearBtn = e.target.closest('[data-clear]');
     if (clearBtn) {
       deleteMapping(clearBtn.dataset.clear);
@@ -157,11 +166,17 @@ export function openMappingsList() {
       return;
     }
     if (e.target.closest('.mp-clear-all')) {
-      if (confirm('¿Borrar TODOS los mapeos MIDI y de teclado? Tendrás que volver a asignarlos.')) {
-        clearAllMappings();
-        rerender();
-        document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
-      }
+      confirmDialog({
+        title: 'Borrar todos los mapeos',
+        message: `${livePrefix()}¿Borrar TODOS los mapeos MIDI y de teclado? Tendrás que volver a asignarlos.`,
+        confirmLabel: 'Borrar todo',
+        danger: true,
+        onConfirm: () => {
+          clearAllMappings();
+          rerender();
+          document.dispatchEvent(new CustomEvent('livepads:mappings-changed'));
+        },
+      });
       return;
     }
   };
@@ -176,7 +191,8 @@ export function closeMappingsList() {
   mounted.classList.remove('open');
   const node = mounted;
   mounted = null;
-  setTimeout(() => node.remove(), 200);
+  if (node.classList.contains('is-embedded')) node.remove();
+  else setTimeout(() => node.remove(), 200);
 }
 
 export function isMappingsListOpen() { return mounted !== null; }

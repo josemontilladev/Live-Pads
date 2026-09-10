@@ -24,8 +24,11 @@ const SVG_WARN = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2
  *   - getEngine () => SynthEngine
  *   Used to verify the AudioContext is running.
  */
-export function openPreflight(ctx) {
+// ctx.mount: contenedor donde pintar el panel como sección (sin velo, sin
+// Esc, sin botón de cerrar). Sin mount → modal centrado clásico.
+export function openPreflight(ctx = {}) {
   if (mounted) return;
+  const mount = ctx.mount || null;
 
   const checks = runChecks(ctx);
   const warnings = checks.filter(c => !c.ok).length;
@@ -58,11 +61,16 @@ export function openPreflight(ctx) {
       <p class="pf-summary ${warnings === 0 ? 'is-ok' : 'is-warn'}">${overallLabel}</p>
     </div>
   `;
-  document.body.appendChild(overlay);
+  if (mount) {
+    overlay.classList.add('is-embedded');
+    mount.innerHTML = '';
+    mount.appendChild(overlay);
+  } else {
+    document.body.appendChild(overlay);
+    popModal = pushModal(() => closePreflight());
+    overlay.onclick = (e) => { if (e.target === overlay) closePreflight(); };
+  }
   mounted = overlay;
-  popModal = pushModal(() => closePreflight());
-
-  overlay.onclick = (e) => { if (e.target === overlay) closePreflight(); };
   overlay.querySelector('.pf-close').onclick = closePreflight;
 
   requestAnimationFrame(() => overlay.classList.add('open'));
@@ -74,7 +82,8 @@ export function closePreflight() {
   mounted.classList.remove('open');
   const node = mounted;
   mounted = null;
-  setTimeout(() => node.remove(), 200);
+  if (node.classList.contains('is-embedded')) node.remove();
+  else setTimeout(() => node.remove(), 200);
 }
 
 export function isPreflightOpen() { return mounted !== null; }
