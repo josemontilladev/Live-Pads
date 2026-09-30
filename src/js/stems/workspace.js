@@ -3268,7 +3268,7 @@ function selectAllTracks() {
 // Contrae/expande la consola para liberar alto y ver más pistas del timeline.
 // El estado se recuerda entre sesiones (localStorage).
 const CONSOLE_COLLAPSE_KEY = 'stems-console-collapsed';
-function setConsoleCollapsed(collapsed) {
+function setConsoleCollapsed(collapsed, persist = true) {
   const section = document.getElementById('stems-console');
   if (!section) return;
   section.classList.toggle('is-collapsed', collapsed);
@@ -3280,7 +3280,7 @@ function setConsoleCollapsed(collapsed) {
     toggle.title = collapsed ? 'Expandir consola' : 'Contraer consola';
     toggle.setAttribute('aria-label', toggle.title);
   }
-  try { localStorage.setItem(CONSOLE_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {}
+  if (persist) { try { localStorage.setItem(CONSOLE_COLLAPSE_KEY, collapsed ? '1' : '0'); } catch {} }
   // El alto del área de pistas cambió: redibuja la regla/timeline.
   refreshTimelineWidth();
   // Al expandir, los faders recuperan alto: repíntalos por si alguno se creó
@@ -3290,9 +3290,12 @@ function setConsoleCollapsed(collapsed) {
 function wireConsoleCollapse(root) {
   const toggle = root.querySelector('#stems-console-toggle');
   if (!toggle) return;
-  let collapsed = false;
-  try { collapsed = localStorage.getItem(CONSOLE_COLLAPSE_KEY) === '1'; } catch {}
-  setConsoleCollapsed(collapsed);
+  // Sin preferencia guardada, en ventanas bajas la consola arranca contraída
+  // (para dejarle alto al timeline) y NO se guarda como elección del usuario.
+  let pref = null;
+  try { pref = localStorage.getItem(CONSOLE_COLLAPSE_KEY); } catch {}
+  const auto = pref === null && window.innerHeight < 700;
+  setConsoleCollapsed(pref === '1' || auto, !auto);
   toggle.addEventListener('click', () => {
     const section = document.getElementById('stems-console');
     setConsoleCollapsed(!section?.classList.contains('is-collapsed'));
@@ -5557,7 +5560,12 @@ function bindSetlistPanel() {
 
   if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
   // Estado colapsado recordado entre sesiones (igual que la consola).
-  try { if (localStorage.getItem('stems-setlist-collapsed') === '1') panel.classList.add('collapsed'); } catch {}
+  // Panel de canciones: recordamos la elección del usuario; si nunca eligió, en
+  // ventanas angostas arranca contraído para dejarle el ancho al deck y al timeline.
+  try {
+    const pref = localStorage.getItem('stems-setlist-collapsed');
+    if (pref === '1' || (pref === null && window.innerWidth < 1280)) panel.classList.add('collapsed');
+  } catch {}
   const toggleCollapsed = () => {
     const collapsed = panel.classList.toggle('collapsed');
     try { localStorage.setItem('stems-setlist-collapsed', collapsed ? '1' : '0'); } catch {}

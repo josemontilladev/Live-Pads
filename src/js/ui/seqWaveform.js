@@ -91,7 +91,7 @@ export function initSeqWaveform() {
 
 function onLoaded({ audio: a, song: s }) {
   audio = a; song = s || null; peaks = null; duration = 0;
-  root.classList.remove('hidden'); root.classList.add('is-loading');
+  root.classList.remove('hidden', 'is-empty'); root.classList.add('is-loading');
   titleEl.textContent = song ? song.title : '';
   const ready = () => {
     if (audio !== a || !a.buffer) return;
@@ -109,7 +109,8 @@ function onLoaded({ audio: a, song: s }) {
 function onCleared() {
   audio = null; song = null; peaks = null; duration = 0;
   cancelAnimationFrame(raf); raf = 0;
-  root.classList.add('hidden');
+  root.classList.add('is-empty'); root.classList.remove('is-loading');
+  titleEl.textContent = ''; nowEl.textContent = ''; nextEl.textContent = '';
 }
 
 // ── Dibujo ─────────────────────────────────────────────────────────────────

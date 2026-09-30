@@ -12,6 +12,13 @@ test('detecta el rol por sufijo, prefijo, paréntesis y guion bajo', () => {
   assert.deepEqual(detectStemRole('Grita guia.mp3'),                    { kind: 'guide',  name: 'Grita' });
 });
 
+test('detecta teclas y guitarras como roles propios (para practicar «sin teclas»)', () => {
+  assert.deepEqual(detectStemRole('Celebrare - Teclas.wav'), { kind: 'keys', name: 'Celebrare' });
+  assert.deepEqual(detectStemRole('Piano_Grita.mp3'), { kind: 'keys', name: 'Grita' });
+  assert.deepEqual(detectStemRole('Grita (Guitarra).wav'), { kind: 'guitar', name: 'Grita' });
+  assert.deepEqual(detectStemRole('Grita - Acoustic.wav'), { kind: 'guitar', name: 'Grita' });
+});
+
 test('sin token conocido queda como audio genérico con el nombre intacto', () => {
   assert.deepEqual(detectStemRole('Mi Canción.mp3'), { kind: 'stem', name: 'Mi Canción' });
   assert.equal(detectStemRole('').kind, 'stem');
@@ -22,5 +29,5 @@ test('si el nombre es solo el rol, se conserva como nombre', () => {
 });
 
 test('todo rol detectable tiene badge', () => {
-  for (const kind of ['vocals', 'drums', 'bass', 'other', 'click', 'guide']) assert.ok(STEM_KIND_BADGE[kind]);
+  for (const kind of ['vocals', 'drums', 'bass', 'keys', 'guitar', 'other', 'click', 'guide']) assert.ok(STEM_KIND_BADGE[kind]);
 });

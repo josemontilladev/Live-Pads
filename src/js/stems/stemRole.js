@@ -7,17 +7,19 @@ const STEM_ROLE_PATTERNS = [
   ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox)\b/i],
   ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion)\b/i],
   ['bass',   /\b(bass|bajo)\b/i],
+  ['keys',   /\b(keys?|teclas?|teclado|keyboards?|piano|synths?|sintetizador|rhodes|organ|[oó]rgano)\b/i],
+  ['guitar', /\b(guitars?|guitarra|ac[uú]stica|acoustic|el[eé]ctrica|electric)\b/i],
   ['other',  /\b(other|otros|instrumental|music|m[uú]sica|accompaniment)\b/i],
   ['click',  /\b(click|metr[oó]nomo|metronome)\b/i],
   ['guide',  /\b(guide|gu[ií]a|cues?)\b/i],
 ];
 
-export const STEM_ROLE_COLORS = { vocals: '#ec4899', drums: '#f97316', bass: '#3b82f6', other: '#a855f7' };
+export const STEM_ROLE_COLORS = { vocals: '#ec4899', drums: '#f97316', bass: '#3b82f6', other: '#a855f7', keys: '#eab308', guitar: '#22c55e' };
 
 // Badge shown on rows/strips. Used in row, strip and console alike.
 export const STEM_KIND_BADGE = {
   click: 'CLICK', guide: 'GUÍA', midi: 'MIDI',
-  vocals: 'VOCES', drums: 'BATERÍA', bass: 'BAJO', other: 'OTROS', instrumental: 'INSTRUMENTAL',
+  vocals: 'VOCES', drums: 'BATERÍA', bass: 'BAJO', keys: 'TECLAS', guitar: 'GUITARRA', other: 'OTROS', instrumental: 'INSTRUMENTAL',
 };
 
 export function detectStemRole(fileName) {
