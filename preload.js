@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   libraryAudioRepair: () => ipcRenderer.invoke('library-audio-repair'),
   // Biblioteca de archivos en la nube (R2): la transferencia ocurre en main.
   libraryFilesStat: (relPaths) => ipcRenderer.invoke('library-files-stat', relPaths),
+  openLibraryFolder: (relDir) => ipcRenderer.invoke('open-library-folder', relDir),
   r2UploadFile: (args) => ipcRenderer.invoke('r2-upload-file', args),
   r2DownloadFile: (args) => ipcRenderer.invoke('r2-download-file', args),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),

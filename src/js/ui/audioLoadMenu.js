@@ -8,6 +8,7 @@
 // lista de servicio y sincroniza a la librería).
 
 import { showDialog, confirmDialogAsync } from './dialog.js';
+import { needsMp3, compressToMp3, baseName } from '../audio/mp3Encode.js';
 
 // Descarga el audio original desde una URL de YouTube, lo asigna a `song`
 // (audio.original + youtubeUrl + carátula) y sube el youtubeUrl a la nube.
@@ -27,7 +28,20 @@ async function descargar(song, onAssigned, url, yaReintentado = false) {
   try {
     const res = await window.electronAPI.downloadYoutubeAudio({ url: url.trim(), title: song.title });
     // Compat: antes devolvía un string; ahora { url, cover }.
-    const audioUrl = typeof res === 'string' ? res : res.url;
+    let audioUrl = typeof res === 'string' ? res : res.url;
+    // YouTube entrega .m4a: se pasa a MP3 para que el tono se pueda cambiar en
+    // los móviles (y pese menos al sincronizar). Si falla, se conserva el m4a.
+    if (needsMp3(audioUrl) && window.electronAPI?.assignStemsMix) {
+      try {
+        window.showToast?.('Convirtiendo a MP3…', 'info');
+        const ab = await window.electronAPI.readAudioFile(audioUrl);
+        const { buffer } = await compressToMp3(ab);
+        audioUrl = await window.electronAPI.assignStemsMix({ buffer, type: 'original', name: song.title || baseName(audioUrl) });
+      } catch (convErr) {
+        console.warn('[audio] no se pudo convertir a MP3, se conserva el original:', convErr);
+        window.showToast?.('No se pudo convertir a MP3; se usará el audio tal cual (sin cambio de tono en el móvil).', 'warning');
+      }
+    }
     const cover = (res && typeof res === 'object') ? res.cover : null;
     if (!song.audio) song.audio = {};
     song.audio.original = audioUrl;

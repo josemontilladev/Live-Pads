@@ -218,6 +218,9 @@ async function render() {
         <button class="acc-btn acc-btn-full" data-act="sync-toggle" id="acc-sync-toggle">
           ☁ Sincronizar…
         </button>
+        <button class="acc-btn acc-btn-full" data-act="convert-audio" style="margin-top:8px" title="Pasa a MP3 los audios .m4a/.aac para poder cambiar el tono en el móvil">
+          🎚 Convertir audios a MP3 (tono en móvil)
+        </button>
 
         <!-- Desplegable: qué dirección y qué incluir. Un solo botón de acción. -->
         <div class="acc-sync-panel hidden" id="acc-sync-panel">
@@ -763,6 +766,28 @@ async function onClick(e) {
             const slTxt = (sl.added || sl.updated) ? ` · ${sl.added + sl.updated} setlist(s)` : '';
             msg(`Añadidas ${r.added}, actualizadas ${r.refreshed}${r.linked ? `, vinculadas ${r.linked} (ya las tenías)` : ''}${slTxt}.`, 'ok');
             refreshFilesStatus();
+          } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        // ── Convierte a MP3 los .m4a/.aac de la librería (tono en el móvil) ──
+        case 'convert-audio': {
+          const { listConvertible, convertLibraryToMp3, fmtMB } = await import('../audio/convertLibrary.js');
+          const n = listConvertible().length;
+          if (!n) { msg('Todos tus audios ya están en un formato compatible (MP3).', 'ok'); return; }
+          const ok = await confirmDialogAsync({
+            title: 'Convertir audios a MP3',
+            message: `Hay ${n} ${n === 1 ? 'audio' : 'audios'} en .m4a/.aac. Se convertirán a MP3 (192 kbps) para que el tono se pueda cambiar también en el móvil, y se subirán a la nube. Puede tardar unos minutos. Los archivos antiguos se conservan en tu carpeta. ¿Continuar?`,
+            confirmLabel: 'Convertir', danger: false,
+          });
+          if (!ok) return;
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            const r = await convertLibraryToMp3(({ done, total, name }) => {
+              btn.textContent = total ? `⟳ Convirtiendo ${done + 1}/${total}${name ? ' · ' + name : ''}` : '⟳ Convirtiendo…';
+            });
+            msg(`✓ ${r.converted} ${r.converted === 1 ? 'audio convertido' : 'audios convertidos'} a MP3 (${fmtMB(r.before)} → ${fmtMB(r.after)}).${r.failed ? ` ${r.failed} fallaron: ${r.errors.slice(0, 2).join(' · ')}` : ''}`, r.failed ? '' : 'ok');
+            refreshFilesStatus();
+            window.dispatchEvent(new CustomEvent('songs-changed'));
           } finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
