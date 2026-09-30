@@ -1,831 +1,330 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="no-js">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Pads — Plataforma profesional de directo para iglesias</title>
-  <meta name="description" content="Pads ambientales, metrónomo, drums, setlist sincronizado con MongoDB, letras con acordes, mapeo MIDI y Companion móvil. Diseñado para directores de alabanza.">
-  <meta name="theme-color" content="#0a0a14">
+  <title>LivePads — La cabina completa del equipo de alabanza</title>
+  <meta name="description" content="Pads ambientales, metrónomo, secuencias con secciones, editor de stems con IA, letras con acordes y una app móvil para toda la banda. Windows, Android y web.">
+  <meta name="theme-color" content="#0a0a0c">
 
-  <!-- Favicons / app icons -->
   <link rel="icon" type="image/png" href="assets/logo.png">
   <link rel="apple-touch-icon" href="assets/logo.png">
 
-  <!-- Open Graph (Facebook, WhatsApp, Slack, Discord, LinkedIn) -->
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Live Pads">
-  <meta property="og:title" content="Live Pads — Plataforma profesional de directo para iglesias">
-  <meta property="og:description" content="Pads ambientales, metrónomo, setlist, letras con acordes y Companion móvil para la banda. Una sola app para todo el servicio.">
-  <meta property="og:url" content="https://live-pads.vercel.app/">
-  <meta property="og:image" content="https://live-pads.vercel.app/assets/hero.png">
+  <meta property="og:site_name" content="LivePads">
+  <meta property="og:title" content="LivePads — La cabina completa del equipo de alabanza">
+  <meta property="og:description" content="Pads, click, secuencias con secciones, stems con IA y app móvil para la banda. Una sola plataforma para todo el servicio.">
+  <meta property="og:url" content="https://livepads.online/">
+  <meta property="og:image" content="https://livepads.online/assets/hero.png">
   <meta property="og:image:width" content="1920">
   <meta property="og:image:height" content="1032">
   <meta property="og:locale" content="es_ES">
-
-  <!-- Twitter card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Live Pads — Directo profesional para iglesias">
-  <meta name="twitter:description" content="Pads, metrónomo, setlist, letras + Companion móvil para tu banda. Todo en una app.">
-  <meta name="twitter:image" content="https://live-pads.vercel.app/assets/hero.png">
+  <meta name="twitter:title" content="LivePads — La cabina completa del equipo de alabanza">
+  <meta name="twitter:description" content="Pads, click, stems con IA y app móvil para tu banda. Todo en una plataforma.">
+  <meta name="twitter:image" content="https://livepads.online/assets/hero.png">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <!-- Capa de modernización estilo Linear (experimental; quitar para volver). -->
-  <link rel="stylesheet" href="linear.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+  <script>document.documentElement.classList.remove('no-js')</script>
 </head>
 <body>
 
+<!-- Iconos (Lucide) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8M16 13H8M16 17H8"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.75 1.5-1.65 0-.42-.17-.81-.44-1.1-.27-.29-.43-.68-.43-1.1a1.6 1.6 0 0 1 1.65-1.65H16a6 6 0 0 0 6-6c0-4.97-4.5-8.5-10-8.5z"/></symbol>
+  </defs>
+</svg>
+
 <!-- ═══ NAV ═══ -->
 <nav id="nav" class="nav">
-  <div class="nav-inner">
-    <a href="#top" class="nav-brand">
-      <img src="assets/logo.png" alt="Live Pads" class="nav-logo">
-      <span>Live Pads</span>
-    </a>
+  <div class="wrap nav-in">
+    <a href="#top" class="brand"><img src="assets/logo.png" alt="" width="34" height="34"><span>LivePads</span></a>
     <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#tour">Tour</a>
-      <a href="#companion">Companion</a>
-      <a href="#para-quien">Para quién</a>
-      <a href="#atajos">Atajos</a>
+      <a href="#pads">Pads</a>
+      <a href="#stems">Stems</a>
+      <a href="#movil">App móvil</a>
+      <a href="#funciones">Funciones</a>
       <a href="#faq">FAQ</a>
     </div>
-    <div class="nav-actions">
-      <a href="https://demo.livepads.online" class="nav-demo" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
-        Probar demo
-      </a>
-      <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="nav-cta js-download" target="_blank" rel="noopener">Descargar</a>
+    <div class="nav-end">
+      <a href="https://demo.livepads.online" class="btn btn-ghost btn-sm" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
+      <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="btn btn-primary btn-sm js-download" target="_blank" rel="noopener">Descargar</a>
     </div>
   </div>
 </nav>
 
 <!-- ═══ HERO ═══ -->
 <header id="top" class="hero">
-  <div class="hero-glow" aria-hidden="true"></div>
-  <div class="container">
-    <div class="hero-badge">
-      <span class="hero-badge-dot"></span>
-      Edición Profesional · <span class="js-version">v1.0.0</span>
-    </div>
-    <h1 class="hero-title">
-      La cabina del director<br>
-      <span class="accent">de alabanza</span>, en una sola pantalla.
-    </h1>
-    <p class="hero-sub">
-      Pads ambientales continuos, metrónomo sample-accurate, drums
-      MIDI-mapeables, setlist con letras y acordes, y un nuevo
-      <strong>editor de stems con separación por IA</strong> (voz · batería ·
-      bajo · otros) 100% local. Sin ratón, sin latencia, sin silencios entre
-      canciones.
+  <div class="wrap">
+    <span class="pill rv"><i></i><span>Nueva versión · <b class="js-version">v1.0.169</b></span></span>
+    <h1 class="rv">La cabina completa del <span class="grad">equipo de alabanza</span></h1>
+    <p class="lede rv">
+      Pads continuos, click exacto, secuencias con secciones, un <strong>editor de stems con IA</strong>
+      y una <strong>app móvil</strong> donde toda la banda ve el repertorio y los servicios. Sin latencia, sin silencios entre canciones.
     </p>
-    <div class="hero-cta-row">
-      <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="cta cta-primary js-download" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="18" height="18"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Descargar para Windows
-      </a>
-      <a href="https://demo.livepads.online" class="cta cta-ghost" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
-        Probar demo en vivo
-      </a>
+    <div class="cta-row rv">
+      <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="btn btn-primary btn-lg js-download" target="_blank" rel="noopener"><svg class="ico"><use href="#i-monitor"/></svg>Descargar para Windows</a>
+      <a href="https://movil.livepads.online" class="btn btn-ghost btn-lg js-apk" target="_blank" rel="noopener"><svg class="ico"><use href="#i-phone"/></svg>App para Android</a>
     </div>
-    <p class="hero-demo-note">Sin instalar nada — corre en tu navegador.</p>
+    <p class="fine rv">¿Quieres verla primero? <a href="https://demo.livepads.online" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;text-underline-offset:3px">Prueba la demo en tu navegador</a> — sin instalar nada.</p>
 
-    <div class="hero-screenshot">
-      <!-- Mac-window frame (mismo chrome que los tour shots) con el
-           screenshot real de la cabina principal. Hover lift via
-           .mac-window:hover heredado. -->
-      <div class="mac-window hero-mac-window">
-        <div class="mac-chrome"><span></span><span></span><span></span></div>
-        <img src="assets/hero.png" alt="Live Pads — vista principal de la cabina" class="mac-shot">
+    <div class="stage rv">
+      <div class="win">
+        <div class="win-bar"><span></span><span></span><span></span></div>
+        <img src="assets/hero.png" alt="LivePads en Windows: pads, metrónomo, teclas y mezclador en una sola pantalla" width="1920" height="1032">
       </div>
-      <!-- Halo decorativo detrás del screenshot, da profundidad. -->
-      <div class="hero-halo" aria-hidden="true"></div>
+      <div class="phone"><img src="assets/app-player.webp" alt="Reproductor de la app móvil con las secciones de la canción" width="600" height="1298"></div>
     </div>
   </div>
 </header>
 
-<!-- ═══ FEATURES ═══ -->
-<section id="features" class="section">
-  <div class="container">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Características</span>
-      Todo lo que necesita un servicio en vivo
-    </h2>
-    <p class="section-sub">
-      Cada control está pensado para uso con teclado o MIDI — la cabina
-      no necesita ratón. Cero latencia entre canciones, transiciones
-      cruzadas suaves, y un editor de letras con acordes que se
-      transpone con dos clicks.
-    </p>
-
-    <div class="features-grid">
-      <article class="feature-card feature-card--highlight">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M2 12h3l2-7 4 18 3-11 2 5h6"/></svg>
-        </div>
-        <h3>Editor de Stems con IA <span class="feature-tag">Nuevo</span></h3>
-        <p>Separa cualquier canción en <b>voz · batería · bajo · otros</b> con un clic — 100% local, sin nube ni Python. Usa la GPU si está disponible (con fallback a CPU), guarda los stems en MP3 y los mezclas en una línea de tiempo multipista.</p>
-      </article>
-
-      <article class="feature-card feature-card--highlight">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="5" y1="9" x2="5" y2="15"/><line x1="9" y1="5" x2="9" y2="19"/><line x1="13" y1="8" x2="13" y2="16"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="21" y1="10" x2="21" y2="14"/></svg>
-        </div>
-        <h3>Onda con secciones en Pads <span class="feature-tag">Nuevo</span></h3>
-        <p>Ve la forma de onda de la secuencia con sus <b>secciones de color</b> (Intro, Verso, Coro, Puente…), por dónde va la pista y <b>qué sigue con cuenta atrás</b>. Haz clic para saltar, arrastra un nombre para moverlo, añade secciones con un clic. Se guardan con la canción y se sincronizan con tu equipo.</p>
-      </article>
-
-      <article class="feature-card feature-card--highlight">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-        </div>
-        <h3>Pistas por canción para practicar <span class="feature-tag">Nuevo</span></h3>
-        <p>Guarda <b>voz, batería, bajo, teclas, guitarra…</b> por separado en cada canción. Cada músico carga solo lo que necesita y practica con la barra <b>Practicar</b>: «Sin batería», «Solo voces», «Sin teclas»… en un clic.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </div>
-        <h3>Descarga completa y MP3 automático <span class="feature-tag">Nuevo</span></h3>
-        <p>Baja <b>todas las pistas, la secuencia y el original</b> de una canción en un solo ZIP. Los archivos pesados (<b>WAV, AIFF, FLAC</b>) se convierten a MP3 al subirlos: la biblioteca y la nube pesan hasta 85 % menos.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/></svg>
-        </div>
-        <h3>Se ve bien en cualquier monitor <span class="feature-tag">Nuevo</span></h3>
-        <p>Interfaz rediseñada y probada de <b>1024×600 a 2560×1440</b>: los pads, las teclas y el mezclador nunca se aplastan, el texto no se corta y el deck de Stems se reorganiza solo en pantallas pequeñas.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
-        </div>
-        <h3>Click inteligente</h3>
-        <p>Detecta BPM y compás (4/4, 6/8…) y genera un metrónomo que se <b>alinea solo</b> al pulso real — incluso si la música empieza tras un intro en silencio. Elige el <b>patrón de acentos</b> antes de generarlo (qué tiempos suenan fuertes) y 7 sonidos de click.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.8"/><circle cx="12" cy="16" r="1.8"/></svg>
-        </div>
-        <h3>Detección de secciones <span class="feature-tag">Nuevo</span></h3>
-        <p>Sube la canción y, con un clic, la app <b>analiza su estructura</b> (intro · verso · coro · puente) y coloca los marcadores de la guía solos. Tú renombras y ajustas — o los pones a mano si prefieres. La guía hablada se genera al instante.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="22" height="22"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        </div>
-        <h3>Mezclador centralizado <span class="feature-tag">Nuevo</span></h3>
-        <p>Todos los volúmenes y paneos (Pads · Batería · Click · Pista · Maestro) en <b>un solo panel</b>, fáciles de mapear a los faders y perillas de tu controlador MIDI. La configuración de paneo y niveles se <b>guarda entre sesiones</b>.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M3 6h11"/><path d="M3 12h11"/><path d="M3 18h7"/><path d="M15 14l3 3 5-6"/></svg>
-        </div>
-        <h3>De la mezcla a tu setlist <span class="feature-tag">Nuevo</span></h3>
-        <p>Arma tu multitrack en el editor de Stems y <b>asigna la mezcla final directo al slot de Secuencia</b> de cualquier canción — sin exportar y reimportar a mano. Un <b>panel lateral</b> dentro de Stems te muestra todo el setlist y, con clic derecho, le cargas la secuencia o el audio original a cada canción (archivo o YouTube).</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-        </div>
-        <h3>Pads ambientales continuos</h3>
-        <p>3 bancos × 12 notas, crossfade automático de 2s entre tonos. Sin huecos cuando cambias de canción a media intro.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        </div>
-        <h3>Metrónomo con subdivisiones <span class="feature-tag">Nuevo</span></h3>
-        <p>Herramienta <b>flotante, movible y redimensionable</b> en Pads y Stems. <b>Subdivisiones</b> (corcheas, tresillos, semicorcheas…), <b>acentos y silencios por tiempo</b> en un disco radial clickable, nombre de tempo (Allegro, Andante…), tap tempo, BPM tipeable y 7 sonidos. Scheduler sample-accurate (Chris Wilson).</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg>
-        </div>
-        <h3>Drum pads + kits custom</h3>
-        <p>8 pads MIDI-mapeables, edición inline de nombres, asignación de samples MP3 desde disco. Crea tus propios kits sin salir de la app.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        </div>
-        <h3>Setlist con sync en la nube</h3>
-        <p>Importa, exporta y sincroniza con tu base remota. Búsqueda global (título, artista, letra), filtros por tono ("tono:G") y <b>etiquetas</b> ("tag:navidad"), favoritos, drag & drop y <b>auto-avance</b> que encadena el servicio.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        </div>
-        <h3>Carátulas automáticas <span class="feature-tag">Nuevo</span></h3>
-        <p>Cuando agregas el audio original de una canción <b>desde YouTube</b>, Live Pads toma la <b>carátula del video</b> automáticamente. Tu setlist se ve como tu app de música favorita: portada, título, artista y tono de un vistazo, con un diseño de tarjeta renovado.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
-        </div>
-        <h3>Actualizaciones automáticas</h3>
-        <p>La app se mantiene al día sola: descarga las nuevas versiones en segundo plano y se actualiza con un clic. Siempre tienes lo último sin reinstalar nada.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </div>
-        <h3>Letras con acordes <span class="feature-tag">Nuevo</span></h3>
-        <p>Editor con auto-save, importación desde LaCuerda.net, secciones [VERSO] [CORO] con estilo del theme, y un modo <b>pantalla completa tipo teleprompter</b>: letra centrada legible a distancia, A+/A−, <b>tonalidad y BPM a la vista</b> y <b>transposición de acordes en vivo</b> (±semitonos, sin tocar la canción guardada).</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path><line x1="12" y1="3" x2="12" y2="21"></line><line x1="8" y1="3" x2="8" y2="12"></line><line x1="16" y1="3" x2="16" y2="12"></line></svg>
-        </div>
-        <h3>MIDI &amp; teclado mapeables</h3>
-        <p>Asigna cualquier control con modo Learn (CC para faders/perillas). <b>Mapeos independientes para Pads y Stems</b>, con uno único por función, y <b>exporta/importa</b> tu setup para respaldarlo o llevarlo a otra PC.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        </div>
-        <h3>Spotlight Ctrl+K</h3>
-        <p>Búsqueda global instantánea entre canciones y comandos. Fuzzy matching, navegación con flechas, Enter ejecuta. Como Linear o Notion.</p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-        </div>
-        <h3>Companion móvil (PWA)</h3>
-        <p>La banda en escena ve letras y acordes en su teléfono desde la misma WiFi. Cero apps que instalar — escaneas el QR y listo. <a href="#companion">Más abajo →</a></p>
-      </article>
-
-      <article class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="22" height="22"><path d="M12 2.69l5.66 4.2c.49.37.84.9.98 1.5l1.6 7.22c.16.72-.08 1.48-.62 1.95l-4.7 4.07a2.12 2.12 0 0 1-2.92 0l-4.7-4.07c-.54-.47-.78-1.23-.62-1.95l1.6-7.22c.14-.6.49-1.13.98-1.5L12 2.69z"/></svg>
-        </div>
-        <h3>8 temas premium <span class="feature-tag">Nuevo</span></h3>
-        <p>GI.Setlist, Midnight Aurora, Crimson Power, Clean Worship, Deep Sea, Ambient Purple, y los nuevos <b>Linear</b> (violeta técnico) y <b>Code</b> (verde lima). Cambio instantáneo, persistencia, preview on hover.</p>
-      </article>
-
-      <article class="feature-card feature-card--highlight">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-        </div>
-        <h3>Interfaz unificada + Ajustes centralizados <span class="feature-tag">Nuevo</span></h3>
-        <p>Rediseño completo con un <b>lenguaje visual consistente</b> en toda la app (esquinas precisas, foco sutil, densidad). Un <b>único panel de Ajustes</b> con navegación lateral reúne audio, MIDI, temas, servicio, cuenta y atajos — todo en un solo lugar, ordenado.</p>
-      </article>
+<!-- ═══ PLATAFORMAS ═══ -->
+<section class="plats">
+  <div class="wrap plat-grid">
+    <div class="plat rv">
+      <div class="ic"><svg class="ico"><use href="#i-monitor"/></svg></div>
+      <h3>Windows</h3>
+      <p>La cabina completa: pads, click, secuencias, stems con IA, MIDI y letras. Se actualiza sola.</p>
+      <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="btn btn-ghost btn-sm js-download" target="_blank" rel="noopener"><svg class="ico"><use href="#i-download"/></svg>Instalador</a>
+    </div>
+    <div class="plat rv">
+      <div class="ic"><svg class="ico"><use href="#i-phone"/></svg></div>
+      <h3>Android</h3>
+      <p>App nativa: repertorio, servicios, reproductor con pads y click, y todo disponible sin internet.</p>
+      <a href="https://movil.livepads.online" class="btn btn-ghost btn-sm js-apk" target="_blank" rel="noopener"><svg class="ico"><use href="#i-download"/></svg>Descargar APK</a>
+    </div>
+    <div class="plat rv">
+      <div class="ic"><svg class="ico"><use href="#i-globe"/></svg></div>
+      <h3>iPhone y navegador</h3>
+      <p>Sin instalar: abre la versión web, añádela a la pantalla de inicio y úsala como una app.</p>
+      <a href="https://movil.livepads.online" class="btn btn-ghost btn-sm" target="_blank" rel="noopener"><svg class="ico"><use href="#i-globe"/></svg>Abrir versión web</a>
     </div>
   </div>
 </section>
 
-<!-- ═══ TOUR VISUAL ═══ -->
-<section id="tour" class="section section-alt">
-  <div class="container">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Tour visual</span>
-      Pensada para el directo
-    </h2>
-
-    <div class="tour-row">
-      <div class="tour-copy">
-        <span class="tour-num">01</span>
-        <h3>Now Playing siempre visible</h3>
-        <p>Un banner encima del setlist muestra qué canción está sonando con el título en grande. Click → te lleva a la card en la librería. Para que sepas dónde estás sin escanear 80 entradas.</p>
-        <ul class="tour-bullets">
-          <li>Tab "prepara" la siguiente canción sin reproducir</li>
-          <li>Canciones ya pasadas dimmean al 45%</li>
-          <li>Indicador "3 / 8 · ~32 min" del progreso del set</li>
-        </ul>
-      </div>
-      <div class="tour-shot">
-        <div class="mac-window">
-          <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <div class="mk mk-setlist" aria-hidden="true">
-            <div class="mk-st-tabs">
-              <span class="mk-st-tab">Presets</span>
-              <span class="mk-st-tab is-active">Librería</span>
-              <span class="mk-st-tab">Servicio</span>
-            </div>
-            <div class="mk-st-now">
-              <div class="mk-st-now-label">Sonando</div>
-              <div class="mk-st-now-title">Tan Sólo Tú</div>
-              <div class="mk-st-now-meta">Marco Barrientos · BPM 72 · Tono Cm</div>
-            </div>
-            <div class="mk-st-progress">3 / 8 · ~32 min restantes</div>
-            <ul class="mk-st-list">
-              <li class="mk-st-row dimmed"><span class="num">1</span><span class="title">Celebramos</span><span class="key">A</span></li>
-              <li class="mk-st-row dimmed"><span class="num">2</span><span class="title">Bueno Es</span><span class="key">G</span></li>
-              <li class="mk-st-row is-active"><span class="num">3</span><span class="title">Tan Sólo Tú</span><span class="key">Cm</span></li>
-              <li class="mk-st-row queued"><span class="num">4</span><span class="title">Espíritu Santo</span><span class="key">D</span></li>
-              <li class="mk-st-row"><span class="num">5</span><span class="title">Aclamamos Tu Nombre</span><span class="key">F</span></li>
-              <li class="mk-st-row"><span class="num">6</span><span class="title">Eres Mi Refugio</span><span class="key">Em</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
+<!-- ═══ PADS ═══ -->
+<section id="pads" class="sec">
+  <div class="wrap split">
+    <div class="split-copy rv">
+      <span class="eyebrow">Pads · directo</span>
+      <h2>Tu secuencia, vista por secciones</h2>
+      <p class="sub">La onda de la pista muestra Intro, Verso, Coro y Puente en colores, por dónde vas y qué sigue con cuenta atrás. Siempre a la vista, sin quitar espacio a lo que tocas.</p>
+      <ul class="checks">
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Toca para saltar</b> a cualquier sección; arrastra un nombre para moverlo.</span></li>
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Se guardan con la canción</b> y se sincronizan con tu equipo y con la app móvil.</span></li>
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Pads continuos</b> con crossfade de 2 s entre tonos: nunca hay huecos al cambiar de canción.</span></li>
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Se ve bien en cualquier monitor</b>, de 1024×600 a 2560×1440: los pads nunca se aplastan.</span></li>
+      </ul>
     </div>
-
-    <div class="tour-row tour-row--reverse">
-      <div class="tour-copy">
-        <span class="tour-num">02</span>
-        <h3>Editor de letras con acordes</h3>
-        <p>Auto-save cada 1.5s. Importa directamente desde LaCuerda.net con un click. Transpón ±12 semitonos respetando tu notación (sostenidos o bemoles). Pre-vista formateada con secciones [VERSO 1], [CORO], [PUENTE].</p>
-        <ul class="tour-bullets">
-          <li>Ctrl+S guarda y cierra</li>
-          <li>Ctrl+[ envuelve selección en corchetes</li>
-          <li>Vista previa instantánea con toggle</li>
-        </ul>
-      </div>
-      <div class="tour-shot">
-        <div class="mac-window">
-          <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <div class="mk mk-editor" aria-hidden="true">
-            <div class="mk-ed-toolbar">
-              <span class="mk-ed-title">Editor de letras</span>
-              <div class="mk-ed-tools">
-                <span class="mk-ed-tone">Tono <b>Cm</b></span>
-                <button class="mk-ed-btn">−</button>
-                <button class="mk-ed-btn">+</button>
-                <span class="mk-ed-save">Guardado ✓</span>
-              </div>
-            </div>
-            <div class="mk-ed-body">
-              <div class="mk-ed-section">[VERSO 1]</div>
-              <div class="mk-ed-chord">[Cm]      [Ab]</div>
-              <div class="mk-ed-lyric">Tan sólo tú llenas mi ser</div>
-              <div class="mk-ed-chord">[Eb]      [Bb]</div>
-              <div class="mk-ed-lyric">Eres todo lo que necesito</div>
-              <div class="mk-ed-section">[CORO]</div>
-              <div class="mk-ed-chord">[Ab] [Eb] [Bb] [Cm]</div>
-              <div class="mk-ed-lyric">Yo te alabaré, mi corazón</div>
-              <div class="mk-ed-chord">[Ab] [Eb] [Bb]</div>
-              <div class="mk-ed-lyric">Se rinde a ti…</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="tour-row">
-      <div class="tour-copy">
-        <span class="tour-num">03</span>
-        <h3>MIDI &amp; teclado mapeable</h3>
-        <p>Modo Learn: clic en cualquier control, toca una tecla o pad MIDI, listo. La vista "Mapeos activos" muestra todos los enlaces actuales (TECLADO vs MIDI) con un × para borrar individualmente. Sin abrir DevTools.</p>
-        <ul class="tour-bullets">
-          <li>CC support para sliders de volumen / pan</li>
-          <li>Fallback automático: nota MIDI 60-71 → pads C-B</li>
-          <li>El nombre del controlador conectado aparece en topbar</li>
-        </ul>
-      </div>
-      <div class="tour-shot">
-        <div class="mac-window">
-          <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <div class="mk mk-mappings" aria-hidden="true">
-            <div class="mk-mp-header">
-              <span class="mk-mp-title">Mapeos activos</span>
-              <span class="mk-mp-controller">🟢 Akai MPK Mini</span>
-            </div>
-            <div class="mk-mp-filters">
-              <span class="mk-mp-filter is-active">Todos</span>
-              <span class="mk-mp-filter">Teclado</span>
-              <span class="mk-mp-filter">MIDI</span>
-            </div>
-            <ul class="mk-mp-list">
-              <li class="mk-mp-row"><span class="action">Play / Stop maestro</span><span class="src kbd">TECLADO</span><span class="key">Espacio</span><span class="x">×</span></li>
-              <li class="mk-mp-row"><span class="action">Pánico</span><span class="src kbd">TECLADO</span><span class="key">Esc</span><span class="x">×</span></li>
-              <li class="mk-mp-row"><span class="action">Pad C</span><span class="src midi">MIDI</span><span class="key">Nota 60</span><span class="x">×</span></li>
-              <li class="mk-mp-row"><span class="action">Pad G</span><span class="src midi">MIDI</span><span class="key">Nota 67</span><span class="x">×</span></li>
-              <li class="mk-mp-row"><span class="action">Volumen master</span><span class="src midi">MIDI</span><span class="key">CC 7</span><span class="x">×</span></li>
-              <li class="mk-mp-row"><span class="action">Drum 1 (Kick)</span><span class="src kbd">TECLADO</span><span class="key">Q</span><span class="x">×</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="tour-row tour-row--reverse">
-      <div class="tour-copy">
-        <span class="tour-num">04</span>
-        <h3>Pre-vuelo antes del servicio</h3>
-        <p>Antes de empezar, abre el checklist desde el menú. 6 verificaciones: salida de audio activa, banco de pads cargado, kit de drums OK, MIDI mapeado, lista de canciones populada, metadatos BPM y tono completos.</p>
-        <ul class="tour-bullets">
-          <li>Verde ✓ o ámbar ⚠ por fila</li>
-          <li>Resumen final: "Todo listo" o "N por revisar"</li>
-          <li>Detalles inline de qué falta</li>
-        </ul>
-      </div>
-      <div class="tour-shot">
-        <div class="mac-window">
-          <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <div class="mk mk-preflight" aria-hidden="true">
-            <div class="mk-pf-header">PRE-VUELO</div>
-            <p class="mk-pf-sub">Antes de empezar el servicio:</p>
-            <ul class="mk-pf-list">
-              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Salida de audio</b><span>AudioContext activo</span></div></li>
-              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Banco de pads cargado</b><span>Actual: Foundations</span></div></li>
-              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Kit de batería cargado</b><span>Actual: Modern (8 pads)</span></div></li>
-              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>MIDI mapeado</b><span>12 controles asignados</span></div></li>
-              <li class="mk-pf-row ok"><span class="ic">✓</span><div><b>Lista de servicio</b><span>8 canciones cargadas</span></div></li>
-              <li class="mk-pf-row warn"><span class="ic">⚠</span><div><b>Metadata completa</b><span>Faltan datos en 1: Espíritu Santo</span></div></li>
-            </ul>
-            <div class="mk-pf-summary warn">1 cosa por revisar antes de comenzar.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="tour-row">
-      <div class="tour-copy">
-        <span class="tour-num">05</span>
-        <h3>Editor de Stems con IA <span class="feature-tag">Nuevo</span></h3>
-        <p>Importa una canción y, con un clic, sepárala en <strong>voz · batería · bajo · otros</strong> — 100% local, sin nube ni Python. Mézclalas en una línea de tiempo multipista con waveforms a color, paneo y volumen por pista, y un click inteligente que se alinea solo al pulso real de la canción. Cuando termines, <strong>asigna la mezcla directo a una canción</strong> de tu setlist.</p>
-        <ul class="tour-bullets">
-          <li>Separación con GPU (DirectML) y fallback automático a CPU</li>
-          <li>Detección de BPM y compás, marcadores y guía de secciones</li>
-          <li>Panel de setlist integrado: asigna la mezcla a una canción con un clic</li>
-          <li>Exporta la mezcla o cada stem a MP3</li>
-        </ul>
-      </div>
-      <div class="tour-shot">
-        <div class="mac-window">
-          <div class="mac-chrome"><span></span><span></span><span></span></div>
-          <img src="assets/stems.jpg" onerror="this.onerror=null;this.src='assets/hero.png'" alt="Editor de Stems de Live Pads — separación por IA en una línea de tiempo multipista" class="mac-shot" loading="lazy">
-        </div>
+    <div class="shot rv">
+      <div class="card" style="padding:26px">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px"><span>Sublime Gracia</span><span style="color:var(--muted);font-size:12.5px;font-weight:700">Siguiente: Coro en 0:24</span></div>
+        <div class="secnames" style="margin-top:20px"><span style="--f:8;--h:300">Intro</span><span style="--f:14;--h:80">Verso</span><span style="--f:10;--h:170">Pre-coro</span><span style="--f:22;--h:335">Coro</span><span style="--f:14;--h:130">Puente</span><span style="--f:10;--h:205">Final</span></div>
+        <div class="secbar" style="margin-top:6px;height:54px;border-radius:10px"><i style="--f:8;--h:300"></i><i style="--f:14;--h:80"></i><i style="--f:10;--h:170"></i><i style="--f:22;--h:335"></i><i style="--f:14;--h:130"></i><i style="--f:10;--h:205"></i></div>
+        <div class="keys" style="margin-top:22px"><span class="key">C</span><span class="key">Db</span><span class="key">D</span><span class="key">Eb</span><span class="key">E</span><span class="key">F</span><span class="key">Gb</span><span class="key">G</span><span class="key">Ab</span><span class="key on">A</span><span class="key">Bb</span><span class="key">B</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══ COMPANION MÓVIL ═══ -->
-<section id="companion" class="section section-companion">
-  <div class="container">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Companion móvil</span>
-      Letras + acordes en el teléfono de tu banda
-    </h2>
+<!-- ═══ STEMS ═══ -->
+<section id="stems" class="sec">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Stems · practicar y producir</span>
+      <h2>Separa, mezcla y ensaya cada instrumento</h2>
+      <p class="sub">Convierte cualquier canción en voz, batería, bajo y otros con un clic, 100 % local. Mezcla en una línea de tiempo multipista y deja a cada músico practicar solo lo suyo.</p>
+    </div>
+    <div class="shot rv" style="margin-top:56px">
+      <div class="win"><div class="win-bar"><span></span><span></span><span></span></div>
+      <img src="assets/stems.jpg" alt="Editor de stems de LivePads con línea de tiempo multipista" width="1920" height="1032"></div>
+    </div>
+    <div class="bento" style="margin-top:14px">
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-layers"/></svg></div><h3>Pistas por canción<span class="tag">Nuevo</span></h3><p>Guarda <b>voz, batería, bajo, teclas, guitarra…</b> en cada canción y practica con «Sin batería», «Solo voces» o «Sin teclas» en un clic.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-sparkles"/></svg></div><h3>Separación con IA</h3><p>Usa la GPU si hay una disponible, con respaldo automático a CPU. Sin nube, sin Python, sin subir tu música a ningún lado.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-archive"/></svg></div><h3>ZIP y MP3 automático<span class="tag">Nuevo</span></h3><p>Baja todas las pistas de una canción en un ZIP. Los WAV, AIFF y FLAC se convierten a MP3 al subirlos: hasta un <b>85 % menos de peso</b>.</p></div>
+    </div>
+  </div>
+</section>
 
-    <div class="companion-split">
-      <div class="companion-copy">
-        <p class="companion-lede">
-          Activa el Companion desde el menú, escanea el QR con la cámara
-          del teléfono, y la banda en escena ve la canción que disparas
-          en la cabina — con secciones, acordes alineados, y un toggle
-          para ver sólo letra.
-        </p>
+<!-- ═══ APP MÓVIL ═══ -->
+<section id="movil" class="mobile">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">App móvil · nueva</span>
+      <h2>Toda la banda, en el bolsillo</h2>
+      <p class="sub">Rediseñada desde cero: el repertorio, los servicios del equipo y un reproductor completo con pads, click y mezcla para in-ears. Funciona sin internet.</p>
+    </div>
+    <div class="phones rv">
+      <div class="phone"><img src="assets/app-songs.webp" alt="Pestaña Canciones con búsqueda, filtros y En vivo ahora" width="600" height="1298"></div>
+      <div class="phone"><img src="assets/app-player.webp" alt="Reproductor con secciones de la canción, pads, click y mezcla" width="600" height="1298"></div>
+      <div class="phone"><img src="assets/app-services.webp" alt="Pestaña Servicios con el servicio de hoy resaltado" width="600" height="1298"></div>
+    </div>
+    <div class="m-grid">
+      <div class="mini rv"><svg class="ico"><use href="#i-calendar"/></svg><h4>Servicios del equipo</h4><p>El de hoy se abre solo. Arrastra para cambiar el orden y se guarda para todos.</p></div>
+      <div class="mini rv"><svg class="ico"><use href="#i-bookmark"/></svg><h4>Secciones de la pista</h4><p>Las mismas de escritorio: toca Coro o Puente y salta al instante.</p></div>
+      <div class="mini rv"><svg class="ico"><use href="#i-headphones"/></svg><h4>Modo in-ear</h4><p>Música a un oído, click al otro. Volumen y paneo por canal, recordados.</p></div>
+      <div class="mini rv"><svg class="ico"><use href="#i-cloud"/></svg><h4>Sin internet</h4><p>Descarga el servicio completo y úsalo en el templo aunque no haya señal.</p></div>
+    </div>
+    <div class="m-cta rv">
+      <a href="https://movil.livepads.online" class="btn btn-primary btn-lg js-apk" target="_blank" rel="noopener"><svg class="ico"><use href="#i-download"/></svg>Descargar para Android</a>
+      <a href="https://movil.livepads.online" class="btn btn-ghost btn-lg" target="_blank" rel="noopener"><svg class="ico"><use href="#i-globe"/></svg>Versión web (iPhone)</a>
+    </div>
+  </div>
+</section>
 
-        <ul class="companion-bullets">
-          <li>
-            <strong>Misma WiFi, sin nube.</strong>
-            La cabina abre un servidor local en el puerto 3001. Funciona sin internet —
-            ideal si tu local no tiene WiFi estable para datos.
-          </li>
-          <li>
-            <strong>Modo iglesia (Hotspot).</strong>
-            ¿Sin red en el local? La laptop emite su propia WiFi y los teléfonos
-            solo escanean — 100% offline. Un botón abre el permiso del Firewall de
-            Windows de una vez, sin tocar la consola.
-          </li>
-          <li>
-            <strong>Sin app que instalar.</strong>
-            Es una PWA: abre la URL en cualquier navegador del teléfono.
-            "Añadir a la pantalla de inicio" la deja como app nativa.
-          </li>
-          <li>
-            <strong>Pensado para el escenario.</strong>
-            Tamaño de letra ajustable, auto-scroll opcional, pantalla
-            siempre encendida (wake-lock), toggle "Ocultar acordes" para vocalistas.
-          </li>
-          <li>
-            <strong>En vivo.</strong>
-            Un punto verde pulsa cuando la cabina está reproduciendo audio.
-            La banda sabe que el sistema está activo sin tener que mirar atrás.
-          </li>
-        </ul>
+<!-- ═══ FUNCIONES ═══ -->
+<section id="funciones" class="sec" style="padding-top:40px">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Funciones</span>
+      <h2>Todo lo que necesita un servicio en vivo</h2>
+      <p class="sub">Cada control se maneja con teclado o MIDI: la cabina no necesita ratón.</p>
+    </div>
+    <div class="bento">
+      <div class="card hl c4 rv"><div class="ic"><svg class="ico"><use href="#i-layers"/></svg></div><h3>Del multitrack a tu setlist</h3><p>Arma la mezcla en Stems y <b>asígnala directo al slot de Secuencia</b> de cualquier canción, sin exportar y reimportar. Un panel lateral muestra todo el setlist y, con clic derecho, cargas la secuencia o el original (archivo o YouTube) a cada canción.</p>
+        <div class="stemrows"><div class="stemrow"><span>Voz</span><i style="--h:330;--w:88%"></i></div><div class="stemrow"><span>Batería</span><i style="--h:200;--w:100%"></i></div><div class="stemrow"><span>Bajo</span><i style="--h:140;--w:72%"></i></div><div class="stemrow"><span>Teclas</span><i style="--h:40;--w:94%"></i></div></div></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-timer"/></svg></div><h3>Click inteligente</h3><p>Detecta BPM y compás y se <b>alinea solo</b> al pulso real, incluso tras un intro en silencio. Subdivisiones, acentos por tiempo, tap tempo y 7 sonidos.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-keyboard"/></svg></div><h3>MIDI y teclado</h3><p>Modo Learn en un clic, CC para faders y perillas, mapeos separados para Pads y Stems. Exporta tu setup a otra PC.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-text"/></svg></div><h3>Letras con acordes</h3><p>Importa desde LaCuerda, transpone en vivo y usa el modo <b>teleprompter</b> a pantalla completa, legible a distancia.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-sliders"/></svg></div><h3>Mezclador único</h3><p>Pads, batería, click, pista y maestro en un solo panel, mapeable a tu controlador. Los niveles se guardan entre sesiones.</p></div>
+      <div class="card c3 rv"><div class="ic"><svg class="ico"><use href="#i-wifi"/></svg></div><h3>Companion de banda</h3><p>La banda ve letras y acordes de la canción que disparas, en su teléfono, por la misma WiFi. Modo iglesia con hotspot propio: 100 % offline y sin instalar nada.</p></div>
+      <div class="card c3 rv"><div class="ic"><svg class="ico"><use href="#i-cloud"/></svg></div><h3>Nube y equipo</h3><p>Setlists sincronizados, búsqueda global (título, artista, letra), filtros por tono y etiquetas, auto-avance que encadena el servicio y carátulas automáticas desde YouTube.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-search"/></svg></div><h3>Spotlight Ctrl + K</h3><p>Busca canciones y comandos al instante, con navegación por teclado.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-palette"/></svg></div><h3>8 temas</h3><p>Cambio instantáneo y persistente, con vista previa al pasar el cursor.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-zap"/></svg></div><h3>Siempre al día</h3><p>Se actualiza sola en segundo plano y te pide un clic para aplicar.</p></div>
+    </div>
+  </div>
+</section>
 
-        <div class="companion-meta">
-          <span class="companion-chip">LAN only</span>
-          <span class="companion-chip">Sin auth</span>
-          <span class="companion-chip">PWA installable</span>
-          <span class="companion-chip">WebSocket en tiempo real</span>
-        </div>
-      </div>
-
-      <div class="companion-visual">
-        <div class="phone-frame" aria-hidden="true">
-          <div class="phone-notch"></div>
-          <div class="phone-screen">
-            <div class="ph-top">
-              <span class="ph-brand">LivePads <b>Companion</b></span>
-              <div class="ph-right">
-                <span class="ph-chord-toggle">Ocultar acordes</span>
-                <span class="ph-conn">Conectado</span>
-              </div>
-            </div>
-            <div class="ph-meta">
-              <div class="ph-meta-key">A<span class="ph-live"></span></div>
-              <div class="ph-meta-text">
-                <div class="ph-meta-title">Celebramos</div>
-                <div class="ph-meta-artist">Marco Barrientos</div>
-                <div class="ph-meta-bpm">BPM 137</div>
-              </div>
-            </div>
-            <div class="ph-lyrics">
-              <div class="ph-section">VERSO 1</div>
-              <div class="ph-chord">A</div>
-              <div class="ph-lyric">Damos gloria al Padre</div>
-              <div class="ph-chord">D</div>
-              <div class="ph-lyric">Cantamos gloria al Hijo</div>
-              <div class="ph-chord">F#m  A/C#  D</div>
-              <div class="ph-lyric">Gloria al Santo Espíritu de Dios</div>
-              <div class="ph-section">CORO</div>
-              <div class="ph-chord">A</div>
-              <div class="ph-lyric">Cantamos Santo</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="companion-qr-hint">
-          <div class="qr-block">
-            <div class="qr-frame">
-              <svg viewBox="0 0 33 33" xmlns="http://www.w3.org/2000/svg">
-                <path stroke="none" fill="#0a0a14" d="M0 0h7v7H0zM8 0h1v1H8zM10 0h2v1h-2zM14 0h2v1h-2zM18 0h1v1h-1zM20 0h2v1h-2zM26 0h7v7h-7zM0 1h1v1H0zM6 1h1v1H6zM10 1h1v1h-1zM13 1h2v1h-2zM16 1h1v1h-1zM19 1h2v1h-2zM23 1h1v1h-1zM26 1h1v1h-1zM32 1h1v1h-1zM0 2h1v1H0zM2 2h3v1H2zM6 2h1v1H6zM8 2h2v1H8zM11 2h1v1h-1zM13 2h1v1h-1zM15 2h2v1h-2zM18 2h2v1h-2zM21 2h2v1h-2zM26 2h1v1h-1zM28 2h3v1h-3zM32 2h1v1h-1zM0 3h1v1H0zM2 3h3v1H2zM6 3h1v1H6zM8 3h1v1H8zM10 3h3v1h-3zM15 3h1v1h-1zM18 3h2v1h-2zM21 3h1v1h-1zM23 3h2v1h-2zM26 3h1v1h-1zM28 3h3v1h-3zM32 3h1v1h-1zM0 4h1v1H0zM2 4h3v1H2zM6 4h1v1H6zM9 4h2v1H9zM12 4h2v1h-2zM15 4h2v1h-2zM18 4h1v1h-1zM20 4h3v1h-3zM26 4h1v1h-1zM28 4h3v1h-3zM32 4h1v1h-1zM0 5h1v1H0zM6 5h1v1H6zM10 5h3v1h-3zM14 5h2v1h-2zM18 5h1v1h-1zM21 5h3v1h-3zM26 5h1v1h-1zM32 5h1v1h-1zM0 6h7v1H0zM8 6h1v1H8zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h1v1h-1zM24 6h1v1h-1zM26 6h7v1h-7zM8 7h2v1H8zM11 7h1v1h-1zM14 7h2v1h-2zM17 7h2v1h-2zM21 7h2v1h-2zM24 7h1v1h-1zM0 8h2v1H0zM3 8h1v1H3zM5 8h2v1H5zM8 8h1v1H8zM10 8h4v1h-4zM15 8h3v1h-3zM19 8h2v1h-2zM22 8h1v1h-1zM24 8h2v1h-2zM27 8h4v1h-4zM32 8h1v1h-1zM0 9h2v1H0zM4 9h1v1H4zM6 9h3v1H6zM10 9h1v1h-1zM12 9h2v1h-2zM15 9h1v1h-1zM18 9h1v1h-1zM21 9h2v1h-2zM25 9h1v1h-1zM27 9h2v1h-2zM31 9h2v1h-2zM2 10h2v1H2zM5 10h2v1H5zM8 10h1v1H8zM10 10h2v1h-2zM13 10h1v1h-1zM17 10h2v1h-2zM21 10h1v1h-1zM23 10h2v1h-2zM27 10h2v1h-2zM31 10h1v1h-1zM0 11h2v1H0zM5 11h2v1H5zM8 11h2v1H8zM12 11h2v1h-2zM15 11h1v1h-1zM17 11h1v1h-1zM19 11h1v1h-1zM22 11h1v1h-1zM26 11h2v1h-2zM30 11h1v1h-1zM32 11h1v1h-1zM0 12h1v1H0zM4 12h3v1H4zM8 12h2v1H8zM11 12h1v1h-1zM16 12h1v1h-1zM19 12h2v1h-2zM22 12h1v1h-1zM25 12h1v1h-1zM28 12h2v1h-2zM2 13h2v1H2zM7 13h2v1H7zM10 13h1v1h-1zM13 13h4v1h-4zM18 13h2v1h-2zM23 13h2v1h-2zM26 13h1v1h-1zM30 13h1v1h-1zM0 14h2v1H0zM3 14h2v1H3zM6 14h1v1H6zM8 14h2v1H8zM12 14h3v1h-3zM17 14h2v1h-2zM21 14h1v1h-1zM24 14h2v1h-2zM27 14h2v1h-2zM30 14h2v1h-2zM3 15h1v1H3zM6 15h2v1H6zM10 15h1v1h-1zM13 15h2v1h-2zM16 15h2v1h-2zM20 15h2v1h-2zM23 15h1v1h-1zM26 15h2v1h-2zM29 15h1v1h-1zM31 15h2v1h-2zM3 16h2v1H3zM6 16h2v1H6zM9 16h1v1H9zM12 16h3v1h-3zM16 16h1v1h-1zM18 16h2v1h-2zM22 16h1v1h-1zM25 16h2v1h-2zM30 16h1v1h-1zM32 16h1v1h-1zM2 17h1v1H2zM4 17h2v1H4zM7 17h2v1H7zM12 17h1v1h-1zM14 17h2v1h-2zM17 17h1v1h-1zM21 17h2v1h-2zM26 17h2v1h-2zM31 17h1v1h-1zM2 18h2v1H2zM7 18h2v1H7zM11 18h1v1h-1zM15 18h2v1h-2zM20 18h2v1h-2zM23 18h2v1h-2zM27 18h1v1h-1zM29 18h2v1h-2zM0 19h2v1H0zM3 19h1v1H3zM6 19h3v1H6zM10 19h2v1h-2zM13 19h2v1h-2zM18 19h2v1h-2zM22 19h2v1h-2zM26 19h2v1h-2zM30 19h2v1h-2zM2 20h2v1H2zM6 20h1v1H6zM9 20h2v1H9zM12 20h1v1h-1zM14 20h2v1h-2zM17 20h2v1h-2zM20 20h2v1h-2zM23 20h1v1h-1zM25 20h2v1h-2zM28 20h2v1h-2zM31 20h2v1h-2zM0 21h2v1H0zM3 21h2v1H3zM6 21h2v1H6zM10 21h1v1h-1zM13 21h1v1h-1zM16 21h2v1h-2zM19 21h2v1h-2zM23 21h2v1h-2zM26 21h3v1h-3zM30 21h2v1h-2zM2 22h2v1H2zM5 22h2v1H5zM9 22h2v1H9zM12 22h1v1h-1zM14 22h2v1h-2zM17 22h2v1h-2zM21 22h2v1h-2zM24 22h2v1h-2zM27 22h2v1h-2zM30 22h2v1h-2zM8 23h2v1H8zM12 23h2v1h-2zM15 23h1v1h-1zM18 23h2v1h-2zM23 23h1v1h-1zM26 23h1v1h-1zM28 23h1v1h-1zM30 23h2v1h-2zM0 24h7v1H0zM10 24h1v1h-1zM12 24h2v1h-2zM15 24h2v1h-2zM21 24h2v1h-2zM24 24h2v1h-2zM26 24h1v1h-1zM28 24h1v1h-1zM30 24h1v1h-1zM32 24h1v1h-1zM0 25h1v1H0zM6 25h1v1H6zM8 25h2v1H8zM12 25h1v1h-1zM14 25h2v1h-2zM18 25h1v1h-1zM21 25h2v1h-2zM24 25h1v1h-1zM28 25h3v1h-3zM32 25h1v1h-1zM0 26h1v1H0zM2 26h3v1H2zM6 26h1v1H6zM8 26h3v1H8zM13 26h1v1h-1zM16 26h2v1h-2zM19 26h1v1h-1zM21 26h2v1h-2zM24 26h7v1h-7zM32 26h1v1h-1zM0 27h1v1H0zM2 27h3v1H2zM6 27h1v1H6zM8 27h2v1H8zM11 27h2v1h-2zM15 27h1v1h-1zM17 27h2v1h-2zM20 27h2v1h-2zM23 27h1v1h-1zM26 27h2v1h-2zM30 27h1v1h-1zM0 28h1v1H0zM2 28h3v1H2zM6 28h1v1H6zM9 28h2v1H9zM12 28h1v1h-1zM14 28h3v1h-3zM18 28h2v1h-2zM22 28h1v1h-1zM24 28h2v1h-2zM27 28h2v1h-2zM31 28h2v1h-2zM0 29h1v1H0zM6 29h1v1H6zM8 29h2v1H8zM11 29h1v1h-1zM14 29h1v1h-1zM16 29h1v1h-1zM19 29h2v1h-2zM23 29h2v1h-2zM28 29h1v1h-1zM30 29h1v1h-1zM0 30h7v1H0zM9 30h2v1H9zM12 30h2v1h-2zM15 30h1v1h-1zM17 30h2v1h-2zM20 30h2v1h-2zM23 30h1v1h-1zM25 30h2v1h-2zM28 30h3v1h-3zM32 30h1v1h-1z"/>
-              </svg>
-            </div>
-            <div class="qr-caption">
-              <span class="qr-step">1</span> Activa Companion en la cabina<br>
-              <span class="qr-step">2</span> Escanea con la cámara del teléfono
-            </div>
-          </div>
-        </div>
-      </div>
+<!-- ═══ FLUJO ═══ -->
+<section class="sec">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Cómo se usa</span>
+      <h2>De la preparación al directo</h2>
+    </div>
+    <div class="steps">
+      <div class="step rv"><h3>Prepara en casa</h3><p>Sube tus canciones, separa los stems, marca las secciones y arma el servicio. Todo se sincroniza con la nube del equipo.</p></div>
+      <div class="step rv"><h3>Ensaya cada quien lo suyo</h3><p>Cada músico abre la app, descarga el servicio y practica su parte: sin batería, solo voces, en su tono.</p></div>
+      <div class="step rv"><h3>Dirige en vivo</h3><p>Pads, click y secuencia desde la cabina; la banda ve en su teléfono qué suena ahora y qué sigue.</p></div>
     </div>
   </div>
 </section>
 
 <!-- ═══ PARA QUIÉN ═══ -->
-<section id="para-quien" class="section">
-  <div class="container">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Para quién está hecho</span>
-      Diseñado por y para el equipo de cabina
-    </h2>
-
-    <div class="persona-grid">
-      <article class="persona-card">
-        <div class="persona-emoji">🎤</div>
-        <h3>Directores de alabanza</h3>
-        <p>Controla pads, BPM, tono y crossfades sin distraer al equipo. La pantalla del director es la cabina, no un papel impreso.</p>
-        <ul>
-          <li>Atajos de un sólo tecla para cada pad</li>
-          <li>Setlist visible mientras tocas</li>
-          <li>Transposición en vivo si cambia el tono</li>
-        </ul>
-      </article>
-
-      <article class="persona-card">
-        <div class="persona-emoji">🎹</div>
-        <h3>Músicos</h3>
-        <p>Letra con acordes en pantalla grande, transpuesta a tu tono, formateada con secciones claras. Sin papeles que se traspapelan.</p>
-        <ul>
-          <li>Importación rápida desde LaCuerda</li>
-          <li>Acordes Toggle on/off por canción</li>
-          <li>BPM y tono visible siempre</li>
-        </ul>
-      </article>
-
-      <article class="persona-card">
-        <div class="persona-emoji">🎛️</div>
-        <h3>Técnicos de cabina</h3>
-        <p>Mapea cualquier control MIDI desde tu controlador físico. Faders para volumen, pads para drums, knobs para filtros. Una sola fuente de verdad.</p>
-        <ul>
-          <li>Modo Learn intuitivo</li>
-          <li>Soporte CC para sliders</li>
-          <li>Mapeos exportables / portables</li>
-        </ul>
-      </article>
+<section class="sec">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Para quién</span>
+      <h2>Hecho por y para el equipo de cabina</h2>
+    </div>
+    <div class="who">
+      <div class="card rv"><div class="ic"><svg class="ico"><use href="#i-mic"/></svg></div><h3>Directores de alabanza</h3><p>Controla pads, tempo y tono sin distraer al equipo.</p><ul><li>Un atajo por cada pad</li><li>Setlist visible mientras tocas</li><li>Transposición en vivo</li></ul></div>
+      <div class="card rv"><div class="ic"><svg class="ico"><use href="#i-music"/></svg></div><h3>Músicos</h3><p>Tu parte, tu tono y tu mezcla, en el teléfono o en pantalla grande.</p><ul><li>Practica por instrumento</li><li>Letra y acordes siempre a mano</li><li>Descarga para usar sin internet</li></ul></div>
+      <div class="card rv"><div class="ic"><svg class="ico"><use href="#i-users"/></svg></div><h3>Técnicos de cabina</h3><p>Un solo lugar para todos los controles y la mezcla.</p><ul><li>Mapea cualquier control MIDI</li><li>Mezcla e in-ears por canal</li><li>Mapeos exportables</li></ul></div>
     </div>
   </div>
 </section>
 
-<!-- ═══ ATAJOS DESTACADOS ═══ -->
-<section id="atajos" class="section section-alt">
-  <div class="container">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Power-user</span>
-      Sin tocar el ratón
-    </h2>
-    <p class="section-sub">
-      Cada milisegundo cuenta en directo. Estos atajos cubren el 90% del flujo
-      del servicio sin levantar las manos del teclado.
-    </p>
-
-    <div class="shortcuts-grid">
-      <div class="shortcut-card shortcut-card--feature">
-        <kbd class="kbd-big">Ctrl + K</kbd>
-        <h3>Spotlight global</h3>
-        <p>Busca cualquier canción o comando. Fuzzy matching estilo Linear, navegación con flechas, Enter ejecuta.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">Espacio</kbd>
-        <h4>Play / Stop maestro</h4>
-        <p>Pad + track + metrónomo en un solo botón.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">Tab</kbd>
-        <h4>Preparar siguiente</h4>
-        <p>Stagea la siguiente canción sin reproducir.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">1 — =</kbd>
-        <h4>Tocar pad C—B</h4>
-        <p>Fila superior dispara los 12 pads cromáticos.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">Q W E R<br>A S D F</kbd>
-        <h4>Disparar drums</h4>
-        <p>8 pads del kit activo, hit-and-fade.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">↑ ↓ ← →</kbd>
-        <h4>Navegar servicio</h4>
-        <p>Avanza o retrocede en el setlist en vivo.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">Ctrl + N</kbd>
-        <h4>Nueva canción</h4>
-        <p>Inline edit form se abre instantáneamente.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">Esc</kbd>
-        <h4>Pánico</h4>
-        <p>Detiene todo y cierra cualquier modal.</p>
-      </div>
-
-      <div class="shortcut-card">
-        <kbd class="kbd-big">?</kbd>
-        <h4>Ayuda</h4>
-        <p>Lista completa de atajos en el sidebar.</p>
-      </div>
+<!-- ═══ ATAJOS ═══ -->
+<section class="sec">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Sin tocar el ratón</span>
+      <h2>Atajos para cada segundo del servicio</h2>
+    </div>
+    <div class="kbd-row rv">
+      <div class="kbd-item"><kbd>Ctrl + K</kbd>Spotlight</div>
+      <div class="kbd-item"><kbd>Espacio</kbd>Play / Stop maestro</div>
+      <div class="kbd-item"><kbd>Tab</kbd>Preparar siguiente</div>
+      <div class="kbd-item"><kbd>1 — =</kbd>Pads C a B</div>
+      <div class="kbd-item"><kbd>Q W E R · A S D F</kbd>Drums</div>
+      <div class="kbd-item"><kbd>← →</kbd>Navegar el servicio</div>
+      <div class="kbd-item"><kbd>Esc</kbd>Pánico</div>
+      <div class="kbd-item"><kbd>?</kbd>Ayuda</div>
     </div>
   </div>
 </section>
 
 <!-- ═══ FAQ ═══ -->
-<section id="faq" class="section">
-  <div class="container container-narrow">
-    <h2 class="section-title">
-      <span class="section-eyebrow">Preguntas frecuentes</span>
-      Lo que suelen preguntar
-    </h2>
-
-    <details class="faq-item" open>
-      <summary>¿En qué sistemas operativos funciona?</summary>
-      <p>Por ahora solo Windows (instalador NSIS de 250 MB). Está construido en Electron, así que un build para macOS y Linux es trivial — pídelo cuando lo necesites.</p>
-    </details>
-
-    <details class="faq-item">
-      <summary>¿Necesito internet?</summary>
-      <p>No. La app funciona 100% offline. Solo necesitas internet si quieres sincronizar el setlist con tu base remota de MongoDB (opcional, configurable en <code>%APPDATA%\LivePads\config.json</code>).</p>
-    </details>
-
-    <details class="faq-item">
-      <summary>¿Funciona con cualquier controlador MIDI?</summary>
-      <p>Sí. Usa el modo "MIDI Learn": click en cualquier control de la app, toca tu pad / tecla / knob, listo. Soporta NoteOn, CC y mappings de teclado para los que prefieren tocar todo desde el portátil.</p>
-    </details>
-
-    <details class="faq-item">
-      <summary>¿De dónde salen las letras y acordes?</summary>
-      <p>Tres opciones: (1) escribirlas a mano en el editor con auto-save, (2) importar desde una URL de LaCuerda.net con un click, (3) sincronizar con tu base de MongoDB si ya las tienes ahí.</p>
-    </details>
-
-    <details class="faq-item">
-      <summary>¿Cómo persiste mi configuración entre arranques?</summary>
-      <p>Todo se guarda en <code>%APPDATA%\LivePads\</code>: librería de canciones, kits personalizados, mapeos MIDI/teclado, preferencias de tema, último banco de pads usado.</p>
-    </details>
-
+<section id="faq" class="sec">
+  <div class="wrap">
+    <div class="head-c rv">
+      <span class="eyebrow">Preguntas frecuentes</span>
+      <h2>Lo que suelen preguntar</h2>
+    </div>
+    <div class="faq rv">
+      <details open><summary>¿En qué dispositivos funciona?<svg class="ico"><use href="#i-down"/></svg></summary><p>La cabina completa es para Windows. La app móvil es nativa para Android y, en iPhone, funciona desde el navegador como app web. Todas usan la misma cuenta y el mismo repertorio.</p></details>
+      <details><summary>¿Necesito internet?<svg class="ico"><use href="#i-down"/></svg></summary><p>No para tocar. La cabina funciona sin conexión y la app móvil usa lo que hayas descargado. Internet solo sirve para sincronizar el repertorio y los servicios con tu equipo.</p></details>
+      <details><summary>¿Las secciones y los stems llegan a la app móvil?<svg class="ico"><use href="#i-down"/></svg></summary><p>Las secciones sí: las marcas en escritorio y aparecen en el reproductor del teléfono. Los stems por canción son, por ahora, de escritorio.</p></details>
+      <details><summary>¿Funciona con cualquier controlador MIDI?<svg class="ico"><use href="#i-down"/></svg></summary><p>Sí. Con el modo Learn haces clic en un control de la app, tocas tu pad, tecla o perilla, y queda asignado. Soporta notas, CC y atajos de teclado.</p></details>
+      <details><summary>¿De dónde salen las letras y los acordes?<svg class="ico"><use href="#i-down"/></svg></summary><p>Puedes escribirlas en el editor, importarlas desde una URL de LaCuerda.net o sincronizarlas si ya las tienes en tu cuenta.</p></details>
+      <details><summary>¿Dónde se guarda mi configuración?<svg class="ico"><use href="#i-down"/></svg></summary><p>En tu equipo, en <code>%APPDATA%\LivePads\</code>: librería, kits, mapeos, tema y último banco de pads. El repertorio compartido vive en tu cuenta.</p></details>
+    </div>
   </div>
 </section>
 
-<!-- ═══ DOWNLOAD CTA ═══ -->
-<section id="download" class="section download-section">
-  <div class="container container-narrow">
-    <div class="download-card">
-      <img src="assets/logo.png" alt="" class="download-logo">
+<!-- ═══ CTA FINAL ═══ -->
+<section id="download" class="final">
+  <div class="wrap">
+    <div class="final-card rv">
+      <img class="lg" src="assets/logo.png" alt="" width="76" height="76">
       <h2>¿Listo para tu próximo servicio?</h2>
-      <p>Pruébalo en el navegador sin instalar nada, o descarga la versión completa. Tu librería existente (si tienes una) se importa directo desde un .json.</p>
-      <div class="download-actions">
-        <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="cta cta-primary cta-large js-download" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="20" height="20"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Descargar para Windows
-        </a>
-        <a href="https://demo.livepads.online" class="cta cta-ghost cta-large" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="20" height="20"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none"/></svg>
-          Probar demo en vivo
-        </a>
+      <p>Descárgala gratis, o pruébala primero en el navegador sin instalar nada.</p>
+      <div class="cta-row">
+        <a href="https://github.com/josemontilladev/Live-Pads/releases/latest" class="btn btn-primary btn-lg js-download" target="_blank" rel="noopener"><svg class="ico"><use href="#i-monitor"/></svg>Windows</a>
+        <a href="https://movil.livepads.online" class="btn btn-ghost btn-lg js-apk" target="_blank" rel="noopener"><svg class="ico"><use href="#i-phone"/></svg>Android</a>
+        <a href="https://demo.livepads.online" class="btn btn-ghost btn-lg" target="_blank" rel="noopener"><svg class="ico"><use href="#i-play"/></svg>Demo</a>
       </div>
-      <p class="download-fineprint">
-        Windows 10/11 · Edición Profesional <span class="js-version">v1.0.0</span>
-      </p>
+      <p class="fine">Windows 10/11 · Edición Profesional <span class="js-version">v1.0.169</span></p>
     </div>
   </div>
 </section>
 
 <!-- ═══ FOOTER ═══ -->
-<footer class="footer">
-  <div class="container">
-    <div class="footer-row">
-      <div class="footer-brand">
-        <img src="assets/logo.png" alt="Live Pads" class="footer-logo">
-        <div>
-          <strong>Live Pads</strong>
-          <p>Plataforma profesional de directo para iglesias.</p>
-        </div>
-      </div>
-      <div class="footer-links">
-        <a href="#features">Features</a>
-        <a href="#tour">Tour</a>
-        <a href="#companion">Companion</a>
-        <a href="#atajos">Atajos</a>
-        <a href="#faq">FAQ</a>
-        <a href="privacidad.html">Privacidad</a>
-        <a href="terminos.html">Términos</a>
-      </div>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <a href="#top" class="brand"><img src="assets/logo.png" alt="" width="34" height="34"><span>LivePads</span></a>
+    <div class="foot-links">
+      <a href="#pads">Pads</a><a href="#stems">Stems</a><a href="#movil">App móvil</a><a href="#funciones">Funciones</a><a href="#faq">FAQ</a>
+      <a href="privacidad.html">Privacidad</a><a href="terminos.html">Términos</a>
     </div>
-    <div class="footer-bottom">
-      © 2026 Live Pads · Construido con Electron, Web Audio + amor por el directo.
-      · <a href="privacidad.html">Política de Privacidad</a> · <a href="terminos.html">Términos de Servicio</a>
-    </div>
+    <p class="copy">© 2026 LivePads · Plataforma profesional de directo para iglesias.</p>
   </div>
 </footer>
 
-<!-- ═══ MODAL "PRÓXIMAMENTE" ═══ -->
-<div id="soon-modal" class="soon-modal" hidden>
-  <div class="soon-backdrop" data-close="1"></div>
-  <div class="soon-panel" role="dialog" aria-modal="true" aria-labelledby="soon-title">
-    <button class="soon-close" data-close="1" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-    <div class="soon-icon">
-      <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="34" height="34"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    </div>
-    <h3 id="soon-title">Próximamente…</h3>
-    <p>
-      Estamos cerrando los últimos detalles antes del lanzamiento.
-      Vuelve pronto — esto sale en cuestión de semanas.
-    </p>
-    <button class="cta cta-primary soon-ok" data-close="1">Entendido</button>
-  </div>
-</div>
-
-<script src="script.js"></script>
-<!-- Descarga dinámica: apunta los botones al instalador .exe de la última
-     release de GitHub y actualiza el número de versión. Sin mantenimiento por
-     release. Si la API falla, el href de respaldo lleva a la página de Releases. -->
-<script>
-(function () {
-  var REPO = 'josemontilladev/Live-Pads';
-  fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (rel) {
-      if (!rel) return;
-      var ver = (rel.tag_name || '').trim();
-      if (ver) {
-        var v = ver.charAt(0) === 'v' ? ver : ('v' + ver);
-        document.querySelectorAll('.js-version').forEach(function (el) { el.textContent = v; });
-      }
-      var exe = (rel.assets || []).filter(function (a) { return /\.exe$/i.test(a.name); })[0];
-      if (exe && exe.browser_download_url) {
-        document.querySelectorAll('.js-download').forEach(function (el) {
-          el.setAttribute('href', exe.browser_download_url);
-        });
-      }
-    })
-    .catch(function () { /* deja el href de respaldo (página de Releases) */ });
-})();
-</script>
-<!-- Google Analytics (GA4) — panel privado en analytics.google.com -->
+<script src="site.js"></script>
+<!-- Google Analytics (GA4) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-85NZS8LHJK"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -833,24 +332,22 @@
   gtag('js', new Date());
   gtag('config', 'G-85NZS8LHJK');
 </script>
-<!-- GA4: eventos de CTA (demo / descarga) con la sección de origen. -->
 <script>
 (function () {
   function track(name, params) { try { gtag('event', name, params || {}); } catch (e) {} }
   function loc(a) {
     if (a.closest('nav')) return 'nav';
     if (a.closest('.hero')) return 'hero';
+    if (a.closest('#movil')) return 'movil';
     if (a.closest('#download')) return 'final';
     return 'other';
   }
   document.addEventListener('click', function (e) {
     var a = e.target.closest('a'); if (!a) return;
     var href = a.getAttribute('href') || '';
-    if (a.classList.contains('js-download') || /releases|\.exe/i.test(href)) {
-      track('download_click', { location: loc(a) });
-    } else if (href.indexOf('demo.livepads.online') > -1) {
-      track('demo_click', { location: loc(a) });
-    }
+    if (a.classList.contains('js-apk')) track('apk_click', { location: loc(a) });
+    else if (a.classList.contains('js-download') || /releases|\.exe/i.test(href)) track('download_click', { location: loc(a) });
+    else if (href.indexOf('demo.livepads.online') > -1) track('demo_click', { location: loc(a) });
   }, true);
 })();
 </script>
