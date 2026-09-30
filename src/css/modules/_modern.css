@@ -1,0 +1,184 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Capa "Moderna" (v2)
+   Se importa DESPUÉS de _linear y ANTES de _responsive. Solo estilo:
+   no cambia estructura ni lógica, y respeta los colores de cada tema
+   (--accent, --bg-*). Para volver atrás: quitar el @import de index.css.
+
+   Objetivos: superficies con profundidad sutil, esquinas más amables,
+   tipografía Inter afinada (cifras tabulares, suavizado), feedback táctil
+   claro en pads (crítico en vivo), foco visible, scrollbars discretas,
+   y rendimiento (contención de layout/paint en paneles independientes).
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: dark;
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --surface-1: color-mix(in srgb, var(--bg-card) 92%, white 3%);
+  --surface-2: color-mix(in srgb, var(--bg-surface) 96%, white 2%);
+  --elev-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 6px 18px rgba(0, 0, 0, 0.28);
+  --elev-2: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 32px rgba(0, 0, 0, 0.4);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Tipografía ─────────────────────────────────────────────────── */
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  font-family: var(--font-main);
+  font-feature-settings: 'cv11', 'ss03', 'calt';   /* a de una planta, comillas limpias */
+  letter-spacing: -0.005em;
+}
+/* Números que cambian (BPM, tiempos, porcentajes) sin "bailar". */
+#bpm-display, .drum-tile-pct, .drum-vol-pct, #topbar-clock, .stems-timecode,
+[id*="time"], [id*="Time"], [class*="-pct"], [class*="readout"], .stems-tb-time {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv11';
+}
+h1, h2, h3, .setlist-title { letter-spacing: -0.02em; }
+
+/* ── Superficies (paneles) ──────────────────────────────────────── */
+#panel-setlist, #panel-metro, #panel-drums, #panel-keys, #bank-section, #mixer-bar,
+.stems-deck, #sidebar-inner {
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  border-color: var(--border);
+  box-shadow: var(--elev-1);
+}
+/* Los paneles se pintan/maquetan de forma independiente → menos trabajo por frame. */
+#panel-setlist, #panel-keys, #panel-drums, #mixer-bar, #bank-section {
+  contain: layout paint style;
+}
+
+/* ── Botones y campos ───────────────────────────────────────────── */
+.icon-btn, .kit-action-btn, .stems-btn, .metro-dropdown, .gi-search-input, .ssl-search,
+.stems-mini-select, .stems-snap-select, .stems-field, select, input:not([type="range"]):not([type="checkbox"]):not([type="radio"]), textarea {
+  border-radius: var(--r-md);
+}
+.stems-btn { font-weight: 650; letter-spacing: -0.005em; }
+.stems-btn--primary, .kit-action-btn:hover {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.icon-btn { transition: background 0.14s var(--ease-out), transform 0.14s var(--ease-out), color 0.14s; }
+.icon-btn:hover { background: var(--glass-h); }
+.icon-btn:active { transform: scale(0.94); }
+
+/* Foco visible y consistente (accesible con teclado / MIDI). */
+:where(button, [role="button"], a, input, select, textarea):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 85%, white 10%);
+  outline-offset: 2px;
+}
+
+/* ── Selector de workspace (Pads / Stems) ───────────────────────── */
+.workspace-switcher {
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+}
+.workspace-switcher .ws-tab { border-radius: 999px; font-weight: 700; letter-spacing: -0.01em; }
+.ws-indicator { border-radius: 999px; }
+
+/* ── PADS: batería ──────────────────────────────────────────────── */
+.drum-grid { gap: 14px; }
+.drum-btn {
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, var(--surface-1), var(--bg-surface));
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-1);
+  transition: transform 0.12s var(--ease-out), border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.drum-btn:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.drum-btn.hit, .drum-btn:active {
+  transform: scale(0.985);
+  background: linear-gradient(180deg, var(--accent2), var(--accent));
+  box-shadow: 0 0 0 1px var(--accent), 0 0 34px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.drum-btn .drum-label { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* ── PADS: notas ────────────────────────────────────────────────── */
+.key-btn {
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 60%),
+    linear-gradient(180deg, var(--surface-1), var(--bg-surface));
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-1);
+  font-weight: 700;
+  transition: transform 0.14s var(--ease-out), border-color 0.15s, background 0.15s, box-shadow 0.2s;
+}
+.key-btn:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.key-btn:active { transform: scale(0.98); }
+.key-btn.active {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 30px color-mix(in srgb, var(--accent) 45%, transparent), var(--elev-1);
+}
+
+/* ── Mezclador y sliders ────────────────────────────────────────── */
+.drum-vol-item { border-radius: var(--r-md); background: var(--glass); }
+input[type="range"] { accent-color: var(--accent); }
+
+/* ── Lista de canciones ─────────────────────────────────────────── */
+.gi-song-item {
+  border-radius: var(--r-md);
+  transition: transform 0.14s var(--ease-out), border-color 0.15s, background 0.15s;
+  /* Bibliotecas de cientos de canciones: pintar solo lo visible. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+.gi-song-item:hover { transform: translateX(2px); }
+
+/* ── STEMS ──────────────────────────────────────────────────────── */
+.stems-actions--unified { gap: 10px; row-gap: 8px; padding: 8px 14px; }
+.stems-actions-primary, .stems-marker-add { border-radius: var(--r-md); }
+.stems-row, .stems-console-strip { border-radius: var(--r-md); }
+/* Cada fila de pista pinta de forma independiente (waveforms pesadas). */
+.stems-row { contain: layout paint; }
+
+/* Mezclas rápidas para practicar (barra sobre el timeline). */
+.stems-quickmix {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 6px 14px; border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.012);
+}
+.stems-quickmix[hidden] { display: none; }
+.stems-quickmix-label { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-right: 4px; }
+.stems-quickmix button {
+  font: inherit; font-size: 12px; font-weight: 650; color: var(--text);
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--border);
+  transition: background 0.14s, border-color 0.14s, transform 0.12s var(--ease-out);
+}
+.stems-quickmix button:hover { background: var(--glass-h); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+.stems-quickmix button:active { transform: scale(0.96); }
+.stems-quickmix button.is-on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+
+/* ── Menús, diálogos y toasts ───────────────────────────────────── */
+.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu, .stems-generators-pop {
+  border-radius: var(--r-md);
+  box-shadow: var(--elev-2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+.stems-assign-modal, .stems-modal, .modal-content, .acc-modal {
+  border-radius: var(--r-xl);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Scrollbars discretas ───────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14); border-radius: 999px;
+  border: 3px solid transparent; background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); background-clip: content-box; border: 3px solid transparent; }
+
+::selection { background: color-mix(in srgb, var(--accent) 40%, transparent); color: inherit; }
+
+/* Menos movimiento si el sistema lo pide. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -9,7 +9,7 @@ import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
-import { Mp3Encoder } from '../../vendor/lamejs.js';
+import { audioBufferToMp3 } from '../audio/mp3Encode.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
@@ -360,6 +360,7 @@ export async function mount() {
   if (!root) return;
   root.innerHTML = SHELL_HTML;
   wireTopbarEvents(root);
+  wireQuickMix();
   wireArrangeEvents(root);
   wireSeekClicks(root);
   wireRangeSelect(root);
@@ -555,7 +556,7 @@ const SHELL_HTML = `
         </button>
         <button class="stems-btn stems-btn--ghost" id="stems-save-song-stems" disabled title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-          Guardar pistas en canción
+          Guardar pistas
         </button>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
         <span class="stems-actions-divider" aria-hidden="true"></span>
@@ -663,6 +664,8 @@ const SHELL_HTML = `
       </div>
     </header>
    </div>
+
+    <div class="stems-quickmix" id="stems-quickmix" hidden aria-label="Mezclas rápidas para practicar"></div>
 
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
@@ -2261,12 +2264,71 @@ function syncRowStripSolo(id, on) {
 function applyTrackMute(id, on) {
   engine.setTrackMuted(id, on);
   syncConsoleStripMute(id, on); syncRowStripMute(id, on);
-  reflectSoloHighlights(); scheduleSave();
+  reflectSoloHighlights(); scheduleSave(); refreshQuickMix();
 }
+// ── Mezclas rápidas para practicar ──────────────────────────────────────────
+// Agrupa las pistas por rol (voces, batería, bajo…) y ofrece, con un clic:
+//   · "Quitar X": silencia ese grupo (toca todo menos lo tuyo).
+//   · "Solo X":   deja únicamente ese grupo (estudia solo tu parte).
+//   · "Todo":     restablece (sin mute, sin solo).
+function quickMixGroups() {
+  const groups = new Map();
+  for (const t of engine.getTracks()) {
+    const role = t.kind && t.kind !== 'stem' ? t.kind : null;
+    const key = role || `t:${t.id}`;
+    const label = role ? (STEM_KIND_BADGE[role] || role).toLowerCase() : (t.name || 'pista');
+    if (!groups.has(key)) groups.set(key, { key, label, tracks: [] });
+    groups.get(key).tracks.push(t);
+  }
+  return [...groups.values()];
+}
+
+function refreshQuickMix() {
+  const el = document.getElementById('stems-quickmix');
+  if (!el) return;
+  const groups = quickMixGroups();
+  if (groups.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const chip = (act, g, on) => `<button type="button" class="${on ? 'is-on' : ''}" data-act="${act}" data-key="${esc(g.key)}" aria-pressed="${on}">${act === 'mute' ? 'Sin ' : 'Solo '}${esc(g.label)}</button>`;
+  const anyMuted = groups.some(g => g.tracks.some(t => t.muted));
+  const anySolo = groups.some(g => g.tracks.some(t => t.soloed));
+  el.hidden = false;
+  el.innerHTML =
+    `<span class="stems-quickmix-label">Practicar</span>` +
+    `<button type="button" data-act="reset" class="${anyMuted || anySolo ? '' : 'is-on'}">Todo</button>` +
+    groups.map(g => chip('mute', g, g.tracks.every(t => t.muted))).join('') +
+    `<span class="stems-actions-divider" aria-hidden="true"></span>` +
+    groups.map(g => chip('solo', g, g.tracks.every(t => t.soloed))).join('');
+}
+
+function wireQuickMix() {
+  const el = document.getElementById('stems-quickmix');
+  if (!el || el.dataset.wired) return;
+  el.dataset.wired = '1';
+  el.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const groups = quickMixGroups();
+    if (btn.dataset.act === 'reset') {
+      for (const g of groups) for (const t of g.tracks) { applyTrackMute(t.id, false); applyTrackSolo(t.id, false); }
+      return;
+    }
+    const g = groups.find(x => x.key === btn.dataset.key);
+    if (!g) return;
+    if (btn.dataset.act === 'mute') {
+      const on = !g.tracks.every(t => t.muted);
+      for (const t of g.tracks) applyTrackMute(t.id, on);
+    } else {
+      const on = !g.tracks.every(t => t.soloed);
+      for (const t of g.tracks) applyTrackSolo(t.id, on);
+    }
+  });
+}
+
 function applyTrackSolo(id, on) {
   engine.setTrackSoloed(id, on);
   syncConsoleStripSolo(id, on); syncRowStripSolo(id, on);
-  reflectSoloHighlights(); scheduleSave();
+  reflectSoloHighlights(); scheduleSave(); refreshQuickMix();
 }
 function applyTrackPan(id, v) {
   engine.setTrackPan(id, v / 100);
@@ -3061,31 +3123,6 @@ async function addSeparatedTrack(name, channels, sampleRate, kind) {
 
 // Encode an AudioBuffer to MP3 (192 kbps stereo) via lamejs. Returns an
 // ArrayBuffer for projectStore.saveStem.
-function audioBufferToMp3(buffer) {
-  const sr = buffer.sampleRate, BLOCK = 1152;
-  const left = buffer.getChannelData(0);
-  const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
-  const enc = new Mp3Encoder(2, sr, 192);
-  const lp = new Int16Array(BLOCK), rp = new Int16Array(BLOCK);
-  const chunks = [];
-  for (let i = 0; i < left.length; i += BLOCK) {
-    const n = Math.min(BLOCK, left.length - i);
-    for (let s = 0; s < n; s++) {
-      const l = left[i + s], r = right[i + s];
-      lp[s] = Math.max(-32768, Math.min(32767, l < 0 ? l * 32768 : l * 32767));
-      rp[s] = Math.max(-32768, Math.min(32767, r < 0 ? r * 32768 : r * 32767));
-    }
-    const buf = enc.encodeBuffer(lp.subarray(0, n), rp.subarray(0, n));
-    if (buf.length) chunks.push(buf);
-  }
-  const flush = enc.flush();
-  if (flush.length) chunks.push(flush);
-  let total = 0; for (const c of chunks) total += c.length;
-  const out = new Uint8Array(total);
-  let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
-  return out.buffer;
-}
-
 async function removeTrackById(id) {
   const row = trackRows.get(id);
   engine.removeTrack(id);
@@ -5136,6 +5173,7 @@ function refreshTransport() {
   if (assignBtn) assignBtn.disabled = !hasTracks;
   const saveStemsBtn = document.getElementById('stems-save-song-stems');
   if (saveStemsBtn) saveStemsBtn.disabled = !hasTracks;
+  refreshQuickMix();
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
   const c2 = document.getElementById('stems-console-count');

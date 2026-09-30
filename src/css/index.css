@@ -26,4 +26,6 @@
    de radio (--r-lg/--r-md) están alineados con _base.css — si cambias uno,
    cambia el otro: la guía de diseño vive en linear.app-DESIGN.md. */
 @import url('./modules/_linear.css');
+/* Capa moderna v2 (superficies, tipografía, foco, rendimiento). Reversible. */
+@import url('./modules/_modern.css');
 @import url('./modules/_responsive.css');

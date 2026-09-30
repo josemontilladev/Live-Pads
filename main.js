@@ -496,7 +496,7 @@ function readAudioFileSafe(filePath) {
 ipcMain.handle('open-audio-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
-    filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'aac'] }],
+    filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac', 'aif', 'aiff'] }],
   });
   if (result.canceled) return null;
   const filePath = result.filePaths[0];
@@ -512,7 +512,7 @@ ipcMain.handle('open-audio-file', async () => {
 ipcMain.handle('open-audio-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'aac'] }],
+    filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac', 'aif', 'aiff'] }],
   });
   if (result.canceled) return null;
   const out = [];
@@ -2205,6 +2205,20 @@ ipcMain.handle('stems-save-file', async (_e, { id, name, buffer } = {}) => {
   const absPath = path.join(app.getPath('userData'), relPath);
   fs.writeFileSync(absPath, Buffer.from(buffer));
   return toLivepadsUrl(relPath);
+});
+
+// Guarda un ZIP (descarga completa de las pistas de una canción).
+ipcMain.handle('save-zip-file', async (_e, { suggestedName, buffer } = {}) => {
+  if (!buffer) throw new Error('Buffer vacío');
+  const cleanName = String(suggestedName || 'pistas').replace(/[^a-z0-9._ -]/gi, '_');
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Guardar descarga completa',
+    defaultPath: `${cleanName}.zip`,
+    filters: [{ name: 'ZIP', extensions: ['zip'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  fs.writeFileSync(result.filePath, Buffer.from(buffer));
+  return result.filePath;
 });
 
 ipcMain.handle('stems-export-mp3', async (_e, { suggestedName, buffer } = {}) => {

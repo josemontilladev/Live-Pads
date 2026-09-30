@@ -166,6 +166,25 @@ export async function bajarBiblioteca(onProgress) {
   return { downloaded, failed, total: missing.length };
 }
 
+// Baja solo estas rutas (las que falten en esta PC). Devuelve { downloaded, failed }.
+export async function bajarRutas(paths, onProgress) {
+  const libId = requireContext();
+  const { missing } = await window.electronAPI.libraryFilesStat(paths);
+  let downloaded = 0, failed = 0;
+  for (let i = 0; i < missing.length; i++) {
+    onProgress?.({ done: i, total: missing.length, file: missing[i] });
+    try {
+      const url = await signUrl(libId, missing[i], 'get');
+      await window.electronAPI.r2DownloadFile({ url, relPath: missing[i] });
+      downloaded++;
+    } catch (err) {
+      console.warn('[fileSync] no se pudo bajar', missing[i], err?.message || err);
+      failed++;
+    }
+  }
+  return { downloaded, failed, total: missing.length };
+}
+
 // ── Estado: para pintar "142/169 en la nube · faltan 3 aquí" ───────────────
 export async function estadoBiblioteca() {
   const libId = requireContext();
