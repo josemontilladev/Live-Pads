@@ -244,3 +244,20 @@ h2 { font-size: clamp(30px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.0
   .pill i { animation: none; }
   .rv { opacity: 1; transform: none; transition: none; }
 }
+
+/* ── Páginas legales ───────────────────────────────────────────── */
+.legal { padding: 130px 0 0; }
+.legal-card { max-width: 800px; margin: 0 auto; padding: clamp(26px, 5vw, 52px); border-radius: var(--r-lg); border: 1px solid var(--line); background: linear-gradient(180deg, var(--s2), var(--s1)); }
+.legal h1 { font-size: clamp(30px, 5vw, 44px); letter-spacing: -.04em; margin: 0 0 6px; max-width: none; line-height: 1.08; }
+.legal .updated { color: var(--dim); font-size: 13.5px; margin-bottom: 30px; }
+.legal h2 { font-size: 20px; letter-spacing: -.02em; margin: 36px 0 10px; }
+.legal p, .legal li { color: var(--muted); font-size: 15.5px; }
+.legal p { margin: 10px 0; }
+.legal ul { padding-left: 22px; margin: 10px 0; }
+.legal li { margin: 7px 0; }
+.legal strong { color: var(--text); }
+.legal a { color: var(--amber); text-underline-offset: 3px; }
+.legal .note { background: var(--s3); border: 1px solid var(--line2); border-radius: 14px; padding: 16px 18px; margin: 24px 0; }
+.legal-back { display: inline-flex; align-items: center; gap: 8px; margin: 0 auto 22px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.legal-back:hover { color: var(--text); }
+.legal-wrap { max-width: 800px; margin: 0 auto; }
