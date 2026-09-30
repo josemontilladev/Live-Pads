@@ -38,7 +38,8 @@ export function collectReferencedPaths(songs) {
   const set = new Set();
   (songs || getSongs()).forEach((s) => {
     const a = s.audio || {};
-    [a.original, a.sequence, s.cover].forEach((u) => {
+    const stemUrls = Array.isArray(a.stems) ? a.stems.map((st) => st && st.url) : [];
+    [a.original, a.sequence, s.cover, ...stemUrls].forEach((u) => {
       const rel = urlToRelPath(u);
       if (rel) set.add(rel);
     });

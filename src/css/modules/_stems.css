@@ -331,6 +331,34 @@ body[data-workspace="stems"] #body {
 }
 .ssl-tag.seq  { color: #10b981; background: rgba(16, 185, 129, 0.16); }
 .ssl-tag.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.16); }
+.ssl-tag.stems { color: #a78bfa; background: rgba(167, 139, 250, 0.18); }
+
+/* ── Pistas por canción (stems para practicar) ─────────────────────── */
+.sst-modal { width: min(560px, calc(100vw - 32px)); max-height: min(78vh, 720px); display: flex; flex-direction: column; }
+.sst-sub { padding: 0 16px 10px; font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.sst-list { overflow-y: auto; padding: 0 10px 8px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.sst-row {
+  display: grid; grid-template-columns: 22px 10px 1fr auto; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; background: var(--bg-elev, rgba(255,255,255,0.04));
+  border: 1px solid transparent; cursor: pointer; text-align: left; color: var(--text);
+}
+.sst-row:hover { border-color: rgba(255,255,255,0.08); }
+.sst-row.is-off { opacity: 0.55; }
+.sst-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.sst-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sst-color, #a855f7); }
+.sst-name { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sst-name input {
+  background: transparent; border: none; color: var(--text); font-size: 13px; font-weight: 700;
+  padding: 0; width: 100%; outline: none; border-bottom: 1px dashed transparent;
+}
+.sst-name input:focus { border-bottom-color: var(--accent); }
+.sst-kind { font-size: 9.5px; font-weight: 700; letter-spacing: 0.4px; color: var(--text-muted); text-transform: uppercase; }
+.sst-del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 14px; line-height: 1; }
+.sst-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+.sst-empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.sst-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; }
+.sst-foot .spacer { flex: 1; }
+.sst-count { font-size: 11px; color: var(--text-muted); }
 .ssl-hint { font-size: 10px; color: var(--text-muted); line-height: 1.35; flex-shrink: 0; }
 .ssl-empty { padding: 14px 4px; text-align: center; color: var(--text-muted); font-size: 11px; }
 
