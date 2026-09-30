@@ -6,6 +6,7 @@
 // persiste el servicio y espeja a la librería; Stems refresca su panel).
 
 import { assignFromYoutube } from './audioLoadMenu.js';
+import { shouldCompress, compressToMp3, baseName, fmtMB } from '../audio/mp3Encode.js';
 
 const ICO_UP  = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 19V6"/><path d="M5 12l7-7 7 7"/></svg>';
 const ICO_YT  = '<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M23 12s0-3.8-.5-5.6a3 3 0 0 0-2.1-2.1C18.6 3.8 12 3.8 12 3.8s-6.6 0-8.4.5A3 3 0 0 0 1.5 6.4C1 8.2 1 12 1 12s0 3.8.5 5.6a3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1C23 15.8 23 12 23 12zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z"/></svg>';
@@ -17,11 +18,20 @@ async function loadSlotFromFile(song, slot, onAssigned) {
   try {
     const file = await window.electronAPI.openAudioFile();
     if (!file || !file.path) return;
-    const url = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type: slot });
+    let url, note = '';
+    if (shouldCompress(file.name) && file.buffer && window.electronAPI.assignStemsMix) {
+      // WAV/AIFF/FLAC → MP3: la app y la nube pesan una fracción.
+      window.showToast?.(`Comprimiendo «${file.name}» a MP3…`, 'info');
+      const { buffer, before, after } = await compressToMp3(file.buffer);
+      url = await window.electronAPI.assignStemsMix({ buffer, type: slot, name: baseName(file.name) });
+      note = ` (${fmtMB(before)} → ${fmtMB(after)})`;
+    } else {
+      url = await window.electronAPI.assignAudioFile({ sourcePath: file.path, type: slot });
+    }
     if (!song.audio) song.audio = {};
     song.audio[slot] = url;
     onAssigned?.(song);
-    window.showToast?.(`✓ ${slot === 'original' ? 'Original' : 'Secuencia'} cargada en «${song.title}».`, 'success');
+    window.showToast?.(`✓ ${slot === 'original' ? 'Original' : 'Secuencia'} cargada en «${song.title}»${note}.`, 'success');
   } catch (e) {
     window.showToast?.('No se pudo cargar el audio: ' + (e.message || e), 'error');
   }

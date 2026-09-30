@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Stems por canción (pistas separadas para practicar).
   assignSongStem: (data) => ipcRenderer.invoke('assign-song-stem', data),
   saveSongStem: (data) => ipcRenderer.invoke('save-song-stem', data),
+  saveZipFile: (data) => ipcRenderer.invoke('save-zip-file', data),
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
   stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),
   stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),

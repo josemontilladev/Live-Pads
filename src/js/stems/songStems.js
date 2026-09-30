@@ -19,6 +19,8 @@ import { pushModal } from '../ui/modalStack.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
+import { shouldCompress, compressToMp3, baseName, fmtMB } from '../audio/mp3Encode.js';
+import { createZip } from '../utils/zip.js';
 
 const FALLBACK_COLORS = ['#f59e0b', '#22c55e', '#06b6d4', '#e11d48', '#84cc16', '#8b5cf6', '#f97316', '#14b8a6'];
 
@@ -73,11 +75,22 @@ export async function addStemFilesToSong(song) {
   const files = await window.electronAPI.openAudioFiles();
   if (!files || !files.length) return [];
   const added = [];
+  let savedBytes = 0, compressed = 0;
   for (const f of files) {
     try {
-      const url = await window.electronAPI.assignSongStem({ sourcePath: f.path, songSlug: songSlug(song) });
       const role = detectStemRole(f.name);
-      added.push(attachStem(song, { url, name: role.name || f.name, kind: role.kind }));
+      let url;
+      if (shouldCompress(f.name) && f.buffer && window.electronAPI.saveSongStem) {
+        // WAV/AIFF/FLAC → MP3 192 kbps antes de guardar: la app y la nube pesan mucho menos.
+        showToast(`Comprimiendo «${f.name}» a MP3…`, 'info');
+        const { buffer, before, after } = await compressToMp3(f.buffer);
+        url = await window.electronAPI.saveSongStem({ buffer, songSlug: songSlug(song), name: baseName(f.name), ext: 'mp3' });
+        savedBytes += before - after;
+        compressed++;
+      } else {
+        url = await window.electronAPI.assignSongStem({ sourcePath: f.path, songSlug: songSlug(song) });
+      }
+      added.push(attachStem(song, { url, name: role.name || baseName(f.name), kind: role.kind }));
     } catch (e) {
       console.error('No se pudo añadir el stem', f.name, e);
       showToast(`No se pudo añadir «${f.name}»: ${e.message || e}`, 'error');
@@ -85,9 +98,79 @@ export async function addStemFilesToSong(song) {
   }
   if (added.length) {
     persist(song);
-    showToast(`✓ ${added.length} ${added.length === 1 ? 'pista añadida' : 'pistas añadidas'} a «${song.title}».`, 'success');
+    const extra = compressed ? ` · ${compressed} ${compressed === 1 ? 'archivo comprimido' : 'archivos comprimidos'} a MP3 (−${fmtMB(savedBytes)})` : '';
+    showToast(`✓ ${added.length} ${added.length === 1 ? 'pista añadida' : 'pistas añadidas'} a «${song.title}»${extra}.`, 'success');
   }
   return added;
+}
+
+// ── Descarga completa (ZIP) ────────────────────────────────────────────────
+const safeFile = (s) => String(s || 'audio').normalize('NFC').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 80) || 'audio';
+const extOf = (url) => { const m = String(url).match(/\.([a-z0-9]{2,5})(?:[?#]|$)/i); return m ? m[1].toLowerCase() : 'mp3'; };
+
+/** Todos los audios de la canción (pistas + secuencia + original) listos para empaquetar. */
+export function collectSongAudioEntries(song) {
+  const out = [];
+  const stems = getSongStems(song);
+  stems.forEach((st, i) => out.push({ folder: 'Pistas', name: `${String(i + 1).padStart(2, '0')} - ${safeFile(st.name)}.${extOf(st.url)}`, url: st.url, rel: livepadsRel(st.url) }));
+  if (song.audio?.sequence) out.push({ folder: '', name: `Secuencia.${extOf(song.audio.sequence)}`, url: song.audio.sequence, rel: livepadsRel(song.audio.sequence) });
+  if (song.audio?.original) out.push({ folder: '', name: `Original.${extOf(song.audio.original)}`, url: song.audio.original, rel: livepadsRel(song.audio.original) });
+  return out;
+}
+
+function livepadsRel(url) {
+  const m = String(url || '').match(/^livepads:\/\/app\/(.+)$/i);
+  if (!m) return null;
+  try { return decodeURIComponent(m[1]); } catch (_) { return m[1]; }
+}
+
+/**
+ * Empaqueta TODOS los audios de la canción en un ZIP (carpeta con Pistas/,
+ * Secuencia y Original) y pide dónde guardarlo. Si a esta PC le faltan
+ * archivos, los baja antes de la nube (mismo repertorio compartido).
+ * `onProgress(texto)` es opcional (para el diálogo).
+ */
+export async function downloadSongAudioZip(song, onProgress = () => {}) {
+  const entries = collectSongAudioEntries(song);
+  if (!entries.length) { showToast('Esta canción no tiene audios para descargar.', 'info'); return false; }
+  if (!window.electronAPI?.saveZipFile || !window.electronAPI?.readAudioFile) {
+    showToast('Esta versión de la app no puede guardar ZIP.', 'error');
+    return false;
+  }
+  // 1) Traer de la nube lo que falte en este equipo.
+  const rels = entries.map(e => e.rel).filter(Boolean);
+  if (rels.length) {
+    try {
+      const { present, missing } = await window.electronAPI.libraryFilesStat(rels);
+      if (missing?.length) {
+        onProgress(`Descargando ${missing.length} ${missing.length === 1 ? 'archivo' : 'archivos'} de la nube…`);
+        const { bajarRutas } = await import('../cloud/fileSync.js');
+        await bajarRutas(missing, (p) => onProgress(`Descargando ${p.done + 1}/${p.total}…`));
+      }
+    } catch (e) { console.warn('[songStems] sin nube:', e?.message || e); }
+  }
+  // 2) Leer y empaquetar.
+  const root = safeFile(`${song.title || 'Cancion'}${song.artist ? ' - ' + song.artist : ''}`);
+  const zip = createZip();
+  let n = 0, skipped = [];
+  for (const e of entries) {
+    try {
+      onProgress(`Empaquetando ${n + 1}/${entries.length}: ${e.name}`);
+      const ab = await window.electronAPI.readAudioFile(e.url);
+      if (!ab) throw new Error('vacío');
+      zip.add(`${root}/${e.folder ? e.folder + '/' : ''}${e.name}`, ab);
+      n++;
+    } catch (err) {
+      skipped.push(e.name);
+    }
+  }
+  if (!n) { showToast('No se pudo leer ningún audio (¿falta sincronizar la biblioteca?).', 'error'); return false; }
+  const bytes = zip.finish();
+  onProgress('Guardando…');
+  const saved = await window.electronAPI.saveZipFile({ suggestedName: root, buffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) });
+  if (!saved) return false;
+  showToast(`✓ ${n} ${n === 1 ? 'audio guardado' : 'audios guardados'} en ZIP (${fmtMB(bytes.length)})${skipped.length ? ` · ${skipped.length} no disponibles: ${skipped.join(', ')}` : ''}.`, skipped.length ? 'warning' : 'success');
+  return true;
 }
 
 export function removeStem(song, stemId) {
@@ -122,6 +205,7 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
       <div class="sst-list"></div>
       <div class="sst-foot">
         <button class="stems-btn stems-btn--ghost" data-act="add">+ Añadir pistas…</button>
+        <button class="stems-btn stems-btn--ghost" data-act="zip" title="Descarga un ZIP con todas las pistas, la secuencia y el original de esta canción">⬇ Descargar todo (.zip)</button>
         <span class="sst-count"></span>
         <span class="spacer"></span>
         <button class="stems-btn stems-btn--ghost" data-act="all">Todas</button>
@@ -200,6 +284,13 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
     const added = await addStemFilesToSong(song);
     added.forEach(s => selected.add(s.id));
     render();
+  };
+  const zipBtn = overlay.querySelector('[data-act="zip"]');
+  zipBtn.onclick = async () => {
+    const label = zipBtn.textContent;
+    zipBtn.disabled = true;
+    try { await downloadSongAudioZip(song, (t) => { zipBtn.textContent = t; }); }
+    finally { zipBtn.disabled = false; zipBtn.textContent = label; }
   };
   overlay.querySelector('[data-act="all"]').onclick = () => { getSongStems(song).forEach(s => selected.add(s.id)); render(); };
   overlay.querySelector('[data-act="none"]').onclick = () => { selected.clear(); render(); };
