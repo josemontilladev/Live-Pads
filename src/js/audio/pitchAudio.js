@@ -80,6 +80,9 @@ export class PitchAudio extends EventTarget {
   // Punto de conexión hacia el siguiente nodo (panner, destino, etc.)
   get output() { return this._gain; }
 
+  /** AudioBuffer decodificado (para dibujar la onda); null hasta que cargue. */
+  get buffer() { return this._buffer; }
+
   // ── HTMLAudioElement-compatible API ──────────────────────────────────────
   get src() { return this._src; }
   set src(url) {

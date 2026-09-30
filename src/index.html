@@ -466,6 +466,35 @@
       </button>
     </div>
 
+    <!-- ═══ ONDA + SECCIONES de la pista en reproducción ═══ -->
+    <section id="seq-wave" class="hidden" aria-label="Forma de onda y secciones de la pista">
+      <header class="sw-head">
+        <span class="sw-title"></span>
+        <span class="sw-now"></span>
+        <span class="sw-next"></span>
+        <div class="sw-actions">
+          <button type="button" class="sw-btn sw-btn--accent" id="sw-add" title="Marcar una sección en la posición actual (Intro, Verso, Coro…)">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Sección
+          </button>
+          <button type="button" class="sw-btn sw-btn--icon" id="sw-collapse" title="Contraer / expandir la onda" aria-label="Contraer o expandir la onda">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="sw-stage">
+        <div class="sw-markers"></div>
+        <div class="sw-wave">
+          <div class="sw-regions"></div>
+          <canvas id="sw-canvas"></canvas>
+          <div class="sw-played"><canvas id="sw-canvas-played"></canvas></div>
+          <div class="sw-playhead"></div>
+        </div>
+        <div class="sw-ruler"></div>
+        <div class="sw-loading">Analizando onda…</div>
+      </div>
+    </section>
+
     <!-- ═══ TRACK PLAYER (Secuencias / Original) ═══ -->
     <div id="track-player-bar">
       <div class="tp-transport">

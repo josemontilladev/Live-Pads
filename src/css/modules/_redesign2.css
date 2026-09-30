@@ -129,3 +129,7 @@
 #tab-library > .sb-label:first-child,
 #tab-midi > .sb-label:first-child { display: none; }
 .stab-body .sb-card + .sb-card { margin-top: 12px; }
+
+/* Un solo scroll: el contenido de Acerca fluye dentro de .sidebar-scroll. */
+#sidebar .about-sidebar-panel { max-height: none !important; overflow: visible !important; padding: 0 0 8px; }
+.sidebar-scroll { scrollbar-gutter: stable; }

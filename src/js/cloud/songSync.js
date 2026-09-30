@@ -46,7 +46,10 @@ function syncContent(s) {
   ]);
 }
 function hashOf(s) {
-  const str = syncContent(s);
+  // Las secciones (markers) solo cuentan cuando existen: así las canciones sin
+  // ellas conservan su firma anterior y no aparecen como "modificadas".
+  const mk = Array.isArray(s.markers) && s.markers.length ? '|m' + JSON.stringify(s.markers) : '';
+  const str = syncContent(s) + mk;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);
@@ -74,6 +77,8 @@ function toRow(song, libraryId) {
       showChords: !!song.showChords,
       audio:      song.audio || null,
       timeSig:    song.timeSig || null,
+      // Secciones de la pista (Intro, Verso, Coro…) para la onda de Pads.
+      markers:    Array.isArray(song.markers) && song.markers.length ? song.markers : null,
       // La CARÁTULA viaja como ruta ("livepads://app/Covers/x.jpg"). Los bytes
       // van a R2 (fileSync.js): sin esta ruta, otra PC no sabría qué bajar.
       cover:      song.cover || null,
@@ -118,6 +123,7 @@ function fromRow(row) {
     showChords: !!m.showChords,
     audio:      m.audio || { sequence: null, original: null },
     timeSig:    m.timeSig || '4/4',
+    markers:    Array.isArray(m.markers) ? m.markers : [],
     cover:      m.cover || null,
     cloudUpdatedAt: row.updated_at || null,
     updatedBy:      row.updated_by || null,

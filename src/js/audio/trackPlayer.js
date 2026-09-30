@@ -186,6 +186,7 @@ const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el 
 // siguiente carga arranca de inmediato, así el viejo se desvanece mientras el
 // nuevo entra (mini-crossfade) en vez de cortar en seco.
 export function cleanupTrackAudio() {
+  try { window.dispatchEvent(new CustomEvent('livepads:track-cleared')); } catch (_) {}
   if (!audio) return;
   const old = audio;
   const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
@@ -366,6 +367,8 @@ async function startTrackPlayback(url, title, type) {
   currentType = type;
   connectPanGraph();
   paintPitchUI();
+  // La onda con secciones (ui/seqWaveform.js) escucha este evento.
+  try { window.dispatchEvent(new CustomEvent('livepads:track-loaded', { detail: { audio, song: currentSong, type } })); } catch (_) {}
 
   // The pan graph routes audio through the context, so a suspended context
   // means silence. Resume on every play start, whatever triggered it
