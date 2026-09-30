@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0a0a0c">
   <title>LivePads Móvil</title>
   <script>
     // Auto-cambio: PC/laptop (pantalla ancha + ratón) → la UI completa de Pads
@@ -27,7 +27,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icon.png">
   <link rel="apple-touch-icon" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <!-- Mismo estilo que la app de Android (se carga después y solo sobrescribe el aspecto). -->
+  <link rel="stylesheet" href="css/modern.css">
 </head>
 <body>
 
@@ -59,6 +64,7 @@
         <button class="lib-title" id="lib-picker" aria-label="Cambiar de repertorio">
           <img src="assets/logo.png" alt="" class="lib-logo">
           <span class="lib-title-txt">
+            <span class="lib-big">Canciones</span>
             <h2 id="lib-name">Repertorio
               <svg class="ico caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </h2>
@@ -332,5 +338,6 @@
 
   <div id="toast" class="toast hidden"></div>
   <script type="module" src="js/app.js"></script>
+  <script src="js/deck.js" defer></script>
 </body>
 </html>
