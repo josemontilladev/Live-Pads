@@ -5362,6 +5362,8 @@ async function assignMixToSong(mp3Bytes, suggestedName, preChosen) {
     });
     if (!song.audio) song.audio = {};
     song.audio[slot] = url;
+    // Los marcadores de Stems pasan a la canción: Pads los muestra sobre la onda.
+    if (markers.length) song.markers = markers.map(m => ({ id: m.id || ('m' + Math.random().toString(36).slice(2, 8)), label: m.label, t: Math.round(m.atSec * 10) / 10 }));
     if (window.electronAPI?.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs());
     window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     const slotLabel = slot === 'original' ? 'Original' : 'Secuencia';
