@@ -69,6 +69,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsRemoveFile: (url) => ipcRenderer.invoke('stems-remove-file', url),
   stemsExportMp3: (data) => ipcRenderer.invoke('stems-export-mp3', data),
   assignStemsMix: (data) => ipcRenderer.invoke('assign-stems-mix', data),
+  // Stems por canción (pistas separadas para practicar).
+  assignSongStem: (data) => ipcRenderer.invoke('assign-song-stem', data),
+  saveSongStem: (data) => ipcRenderer.invoke('save-song-stem', data),
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
   stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),
   stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),

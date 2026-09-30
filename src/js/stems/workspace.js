@@ -82,6 +82,7 @@ function nextStemColor() {
 }
 
 import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
+import { getSongStems, hasSongStems, attachStem, persistSong, songSlug, openSongStemsDialog } from './songStems.js';
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
@@ -551,6 +552,10 @@ const SHELL_HTML = `
         <button class="stems-btn stems-btn--primary" id="stems-assign" disabled title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           Asignar a canción
+        </button>
+        <button class="stems-btn stems-btn--ghost" id="stems-save-song-stems" disabled title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+          Guardar pistas en canción
         </button>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
         <span class="stems-actions-divider" aria-hidden="true"></span>
@@ -1402,6 +1407,9 @@ function wireArrangeEvents(root) {
     if (engine.getTracks().length === 0) return;
     await runExport();
   };
+  const saveStemsBtn = root.querySelector('#stems-save-song-stems');
+  if (saveStemsBtn) saveStemsBtn.onclick = saveTimelineAsSongStems;
+
   root.querySelector('#stems-assign').onclick = async () => {
     if (engine.getTracks().length === 0) return;
     // Elegir la canción + slot ANTES de renderizar: el picker aparece al
@@ -5126,6 +5134,8 @@ function refreshTransport() {
   if (exportBtn) exportBtn.disabled = !hasTracks;
   const assignBtn = document.getElementById('stems-assign');
   if (assignBtn) assignBtn.disabled = !hasTracks;
+  const saveStemsBtn = document.getElementById('stems-save-song-stems');
+  if (saveStemsBtn) saveStemsBtn.disabled = !hasTracks;
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
   const c2 = document.getElementById('stems-console-count');
@@ -5260,7 +5270,7 @@ async function assignMixToSong(mp3Bytes, suggestedName, preChosen) {
 
 // Modal: toggle de slot (Secuencia/Original) + buscador + lista de canciones de
 // la librería. Resuelve { song, slot } al elegir, o null si se cancela.
-function pickSongAndSlot() {
+function pickSongAndSlot({ withSlot = true, title = 'Asignar mezcla a…', hint = '' } = {}) {
   return new Promise((resolve) => {
     const songs = getSongs();
     let slot = 'sequence';
@@ -5270,10 +5280,11 @@ function pickSongAndSlot() {
     overlay.innerHTML = `
       <div class="stems-assign-modal" role="dialog" aria-modal="true" aria-label="Asignar mezcla a una canción">
         <div class="sam-head">
-          <span class="sam-title">Asignar mezcla a…</span>
+          <span class="sam-title">${esc(title)}</span>
           <button class="sam-close" aria-label="Cerrar">&times;</button>
         </div>
-        <div class="sam-slot" role="group" aria-label="Slot destino">
+        ${hint ? `<div class="sst-sub">${esc(hint)}</div>` : ''}
+        <div class="sam-slot" role="group" aria-label="Slot destino" ${withSlot ? '' : 'hidden'}>
           <button class="sam-slot-btn active" data-slot="sequence">Secuencia</button>
           <button class="sam-slot-btn" data-slot="original">Original</button>
         </div>
@@ -5298,11 +5309,13 @@ function pickSongAndSlot() {
       const rows = songs.filter(s => !f || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(f));
       if (!rows.length) { listEl.innerHTML = `<div class="sam-empty">Sin resultados</div>`; return; }
       listEl.innerHTML = rows.map(s => {
-        const has = s.audio && s.audio[slot];
+        const has = withSlot ? (s.audio && s.audio[slot]) : getSongStems(s).length;
+        const hasLabel = withSlot ? 'reemplaza' : `${has} pistas`;
+        const hasTitle = withSlot ? 'Ya tiene audio en este slot — se reemplaza' : 'Ya tiene pistas separadas';
         return `<button class="sam-row" data-id="${esc(String(s.id))}">
           <span class="sam-row-title">${esc(s.title || 'Sin título')}</span>
           <span class="sam-row-meta">${esc(s.artist || '')}${s.key ? ' · ' + esc(s.key) : ''}</span>
-          ${has ? `<span class="sam-row-has" title="Ya tiene audio en este slot — se reemplaza">reemplaza</span>` : ''}
+          ${has ? `<span class="sam-row-has" title="${hasTitle}">${hasLabel}</span>` : ''}
         </button>`;
       }).join('');
     };
@@ -5392,9 +5405,11 @@ function renderSetlistPanel(filter = '') {
     // derecha, que lee en positivo ("ya la tiene") sin parecer deshabilitada.
     const showSeqBadge  = hasSeq  && slotKey !== 'sequence';
     const showOrigBadge = hasOrig && slotKey !== 'original';
+    const nStems = getSongStems(s).length;
     const badges =
       `${showSeqBadge  ? '<span class="ssl-tag seq" title="Ya tiene Secuencia asignada">Sec</span>' : ''}` +
-      `${showOrigBadge ? '<span class="ssl-tag orig" title="Ya tiene Original asignado">Orig</span>' : ''}`;
+      `${showOrigBadge ? '<span class="ssl-tag orig" title="Ya tiene Original asignado">Orig</span>' : ''}` +
+      `${nStems ? `<span class="ssl-tag stems" title="${nStems} pistas separadas para practicar">Pistas·${nStems}</span>` : ''}`;
     const check = isDone
       ? `<span class="ssl-check ${slotKey === 'original' ? 'orig' : 'seq'}" title="Ya tiene ${slotLabel} — clic para reemplazar">✓</span>`
       : '';
@@ -5402,9 +5417,9 @@ function renderSetlistPanel(filter = '') {
     const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : '', s.genre || ''].filter(Boolean).join(' · ');
     const rowTitle = isSlot
       ? `Asignar la mezcla a «${esc(s.title || '')}» como ${slotLabel} · clic derecho para cargar un archivo`
-      : (hasSeq || hasOrig)
-        ? `Clic para reproducir «${esc(s.title || '')}» en el timeline · clic derecho para asignar audio`
-        : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia u original`;
+      : (hasSeq || hasOrig || nStems)
+        ? `Clic para reproducir «${esc(s.title || '')}» en el timeline${nStems ? ' o practicar por pistas' : ''} · clic derecho para asignar audio`
+        : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia, original o pistas separadas`;
     return `<button class="ssl-row" data-id="${esc(String(s.id))}" title="${rowTitle}">
       ${ssCoverHtml(s)}
       <span class="ssl-row-info">
@@ -5475,9 +5490,12 @@ function bindSetlistPanel() {
       // ninguno, abre el menú para asignarlo (mismo que el clic derecho).
       const hasSeq = !!song.audio?.sequence;
       const hasOrig = !!song.audio?.original;
-      if (hasSeq && hasOrig) openPlayInTimelineMenu(row, song);
+      const hasStems = hasSongStems(song);
+      const options = (hasSeq ? 1 : 0) + (hasOrig ? 1 : 0) + (hasStems ? 1 : 0);
+      if (options > 1) openPlayInTimelineMenu(row, song);
       else if (hasSeq) loadSongAudioIntoTimeline(song, 'sequence');
       else if (hasOrig) loadSongAudioIntoTimeline(song, 'original');
+      else if (hasStems) openSongStemsDialog(song, { onLoad: loadSongStemsIntoTimeline });
       else openSongAudioMenu(row, song);
       return;
     }
@@ -5513,16 +5531,124 @@ function openSongAudioMenu(anchorEl, song) {
     window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     refreshSetlistPanelKeepingSearch();
   };
-  openCardMoreMenu(anchorEl, audioMenuItems(song, onAssigned));
+  const ICO_STEMS = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>';
+  const n = getSongStems(song).length;
+  openCardMoreMenu(anchorEl, [
+    ...audioMenuItems(song, onAssigned),
+    { label: n ? `Pistas separadas (${n}) · practicar` : 'Pistas separadas (para practicar)…', icon: ICO_STEMS, onSelect: () => openSongStemsDialog(song, { onLoad: loadSongStemsIntoTimeline }) },
+  ]);
+}
+
+// ── Pistas por canción: cargar al timeline / guardar desde el timeline ──────
+
+// Carga las pistas elegidas de una canción como tracks independientes (cada
+// una con su M/S, volumen y pan) y arranca la reproducción: modo práctica.
+async function loadSongStemsIntoTimeline(song, stems) {
+  if (!stems || !stems.length) return;
+  if (engine.getTracks().length > 0) {
+    const ok = await confirmDialogAsync({
+      title: 'Practicar con pistas',
+      message: `Esto vaciará el proyecto actual y cargará ${stems.length} ${stems.length === 1 ? 'pista' : 'pistas'} de «${song.title}». ¿Continuar?`,
+      confirmLabel: 'Cargar', danger: true,
+    });
+    if (!ok) return;
+    await resetProject();
+  }
+  showImportOverlay(stems.length);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let done = 0, loaded = 0;
+  for (const st of stems) {
+    try {
+      updateImportOverlay(done, stems.length, st.name || '');
+      await new Promise(r => requestAnimationFrame(r));
+      const arrayBuffer = await window.electronAPI.readAudioFile(st.url);
+      const id = `t${nextTrackId++}`;
+      const kind = st.kind && st.kind !== 'stem' ? st.kind : undefined;
+      await engine.addTrack({ id, name: st.name || 'Pista', arrayBuffer, kind });
+      engine.setTrackColor(id, st.color || STEM_ROLE_COLORS[st.kind] || nextStemColor());
+      const fname = `${String(song.title || 'cancion').replace(/[^\w.-]+/g, '_')}-${String(st.name || 'pista').replace(/[^\w.-]+/g, '_')}.mp3`;
+      const savedPath = await projectStore.saveStem(id, fname, arrayBuffer);
+      appendTrackRow(id, savedPath);
+      loaded++;
+    } catch (err) {
+      console.error('No se pudo cargar la pista', st, err);
+      const raw = String(err && err.message || err);
+      toast(/ENOENT|no such file|not found|fuera de la carpeta/i.test(raw)
+        ? `«${st.name}» todavía no está en esta PC. Sincroniza la biblioteca (Cuenta → Bajar biblioteca) o pide que la suban.`
+        : `No se pudo cargar «${st.name}»: ${raw}`);
+    }
+    done++;
+    updateImportOverlay(done, stems.length, '');
+  }
+  await new Promise(r => setTimeout(r, 250));
+  hideImportOverlay();
+  if (!loaded) return;
+  projectName = song.title || 'Mi proyecto';
+  const nameInput = document.getElementById('stems-project-name');
+  if (nameInput) nameInput.value = projectName;
+  refreshTransport();
+  requestAnimationFrame(repaintAllFaders);
+  scheduleSave();
+  engine.seek(0);
+  engine.play();
+  showToast(`▶ ${loaded} ${loaded === 1 ? 'pista' : 'pistas'} de «${song.title}». Usa M/S en cada una para practicar.`, 'success');
+}
+
+// Guarda cada pista de audio del timeline como pista separada de una canción
+// (MP3 192 kbps en Stems/<canción>/), y las registra en song.audio.stems.
+async function saveTimelineAsSongStems() {
+  const tracks = engine.getTracks().filter(t => engine.getTrackBuffer(t.id));
+  if (!tracks.length) { showToast('No hay pistas de audio en el timeline.', 'info'); return; }
+  if (!window.electronAPI?.saveSongStem) { showToast('Esta versión de la app no puede guardar pistas por canción.', 'error'); return; }
+  const choice = await pickSongAndSlot({ withSlot: false, title: 'Guardar pistas en…', hint: 'Cada pista del timeline se guarda por separado en la canción elegida.' });
+  if (!choice) return;
+  const { song } = choice;
+  const existing = getSongStems(song);
+  if (existing.length) {
+    const replace = await confirmDialogAsync({
+      title: 'La canción ya tiene pistas',
+      message: `«${song.title}» ya tiene ${existing.length} ${existing.length === 1 ? 'pista' : 'pistas'}. ¿Reemplazarlas por las ${tracks.length} del timeline? (Si cancelas, se añaden sin borrar las existentes).`,
+      confirmLabel: 'Reemplazar', danger: true,
+    });
+    if (replace) song.audio.stems = [];
+  }
+  showImportOverlay(tracks.length);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let done = 0, saved = 0;
+  for (const t of tracks) {
+    try {
+      updateImportOverlay(done, tracks.length, `Guardando ${t.name || 'pista'}…`);
+      await new Promise(r => requestAnimationFrame(r));
+      const mp3 = audioBufferToMp3(engine.getTrackBuffer(t.id));
+      const url = await window.electronAPI.saveSongStem({ buffer: mp3, songSlug: songSlug(song), name: t.name || 'pista', ext: 'mp3' });
+      attachStem(song, { url, name: t.name || 'Pista', kind: t.kind, color: t.color });
+      saved++;
+    } catch (err) {
+      console.error('No se pudo guardar la pista', t, err);
+      toast(`No se pudo guardar «${t.name || 'pista'}»: ${err.message || err}`);
+    }
+    done++;
+    updateImportOverlay(done, tracks.length, '');
+  }
+  await new Promise(r => setTimeout(r, 250));
+  hideImportOverlay();
+  if (saved) {
+    persistSong(song);
+    refreshSetlistPanelKeepingSearch();
+    showToast(`✓ ${saved} ${saved === 1 ? 'pista guardada' : 'pistas guardadas'} en «${song.title}». Ya se pueden practicar por separado.`, 'success');
+  }
 }
 
 // Cuando una canción tiene secuencia Y original, el clic izquierdo abre un menú
 // para elegir cuál cargar/reproducir en el timeline.
 function openPlayInTimelineMenu(anchorEl, song) {
   const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><polygon points="6,4 20,12 6,20"/></svg>';
+  const ICO_STEMS = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>';
+  const n = getSongStems(song).length;
   openCardMoreMenu(anchorEl, [
-    { label: 'Reproducir secuencia', icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'sequence') },
-    { label: 'Reproducir original',  icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'original') },
+    ...(song.audio?.sequence ? [{ label: 'Reproducir secuencia', icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'sequence') }] : []),
+    ...(song.audio?.original ? [{ label: 'Reproducir original',  icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'original') }] : []),
+    ...(n ? [{ label: `Practicar por pistas (${n})`, icon: ICO_STEMS, onSelect: () => openSongStemsDialog(song, { onLoad: loadSongStemsIntoTimeline }) }] : []),
   ]);
 }
 

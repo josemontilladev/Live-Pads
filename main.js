@@ -157,7 +157,7 @@ function saveToBoth(relativeSubPath, contentString) {
 // Lo que SÍ se redirige a la carpeta custom: Sequences/, Original Tracks/.
 // Lo que NO: UserDrums/ (samples del kit, app-data, no librería de usuario).
 const AUDIO_LIBRARY_CFG_FILE = 'audio-library.json';
-const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers'];
+const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers', 'Stems'];
 
 function readAudioLibraryConfig() {
   try {
@@ -321,7 +321,7 @@ function rewritePaths(obj) {
     // subfolders. Detect the subfolder and rebase as a livepads:// URL.
     if (val.startsWith('file:///')) {
       const normalizedVal = val.replace(/\\/g, '/');
-      const knownSubs = ['UserDrums/', 'Sequences/', 'Original%20Tracks/', 'Original Tracks/'];
+      const knownSubs = ['UserDrums/', 'Sequences/', 'Original%20Tracks/', 'Original Tracks/', 'Stems/'];
       for (const sub of knownSubs) {
         const idx = normalizedVal.indexOf('/' + sub);
         if (idx !== -1) return toLivepadsUrl(normalizedVal.slice(idx + 1));
@@ -734,6 +734,51 @@ ipcMain.handle('assign-audio-file', async (_e, { sourcePath, type } = {}) => {
     copyToBoth(sourcePath, relPath);
   }
 
+  return toLivepadsUrl(relPath);
+});
+
+// ── Stems POR CANCIÓN (pistas separadas para practicar) ──────────────────
+// Cada canción puede tener N pistas independientes (voz, batería, bajo, teclas…)
+// en Stems/<slug-de-la-canción>/<nombre>__<hash>.<ext>. Viven en la carpeta de
+// audios de la librería (se sincronizan por OneDrive y suben a R2 como los
+// demás archivos) y se referencian desde song.audio.stems[] con URLs livepads://.
+function songStemsFolder(songSlug) {
+  const slug = String(songSlug || 'cancion')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'cancion';
+  return path.join('Stems', slug);
+}
+
+// Copia un archivo de audio del disco como stem de la canción. Devuelve la URL.
+ipcMain.handle('assign-song-stem', async (_e, { sourcePath, songSlug } = {}) => {
+  if (typeof sourcePath !== 'string' || !fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
+    throw new Error('sourcePath inválido');
+  }
+  const relPath = path.join(songStemsFolder(songSlug), contentAddressedName(sourcePath));
+  if (!fs.existsSync(path.join(getAudioLibraryRoot(), relPath))) copyToBoth(sourcePath, relPath);
+  return toLivepadsUrl(relPath);
+});
+
+// Guarda un stem renderizado desde el timeline (buffer MP3/WAV) como pista de la
+// canción. Escritura atómica y nombre por contenido, igual que assign-stems-mix.
+ipcMain.handle('save-song-stem', async (_e, { buffer, songSlug, name, ext } = {}) => {
+  if (!buffer) throw new Error('Buffer vacío');
+  const buf = Buffer.from(buffer);
+  const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
+  const stem = String(name || 'pista')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
+    .slice(0, 60) || 'pista';
+  const safeExt = /^\.?(mp3|wav|ogg|m4a|aac|flac)$/i.test(String(ext || '')) ? String(ext).replace(/^\./, '') : 'mp3';
+  const relPath = path.join(songStemsFolder(songSlug), `${stem}__${hash}.${safeExt}`);
+  const dest = path.join(getAudioLibraryRoot(), relPath);
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const tmp = dest + '.livepads-tmp';
+    fs.writeFileSync(tmp, buf);
+    fs.renameSync(tmp, dest);
+  }
   return toLivepadsUrl(relPath);
 });
 
