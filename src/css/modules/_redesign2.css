@@ -1,0 +1,131 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Rediseño v3 (parte 2): tarjetas, panel lateral y Stems.
+   Se importa después de _redesign.css. Solo estilo.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── TARJETAS DE CANCIÓN (Librería y Servicio) ──────────────────── */
+.gi-song-item {
+  padding: 12px 12px 10px; border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--surface-1), var(--bg-surface));
+  border: 1px solid var(--border); box-shadow: none;
+}
+.gi-song-item:hover {
+  transform: none; border-color: var(--border-strong);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 88%, white 4%), var(--bg-surface));
+}
+.gi-song-row { gap: 12px; align-items: center; }
+.gi-song-cover { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.35); overflow: hidden; }
+.gi-song-title { font-size: 14.5px; font-weight: 750; line-height: 1.25; letter-spacing: -0.015em; }
+.gi-song-artist { font-size: 12px; margin-top: 1px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gi-song-meta-line { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.gi-chip {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .01em; line-height: 1;
+  color: var(--text-muted); background: rgba(255,255,255,.06); font-variant-numeric: tabular-nums;
+}
+.gi-chip--key { color: var(--on-accent); background: var(--accent); font-weight: 800; padding: 0 9px; }
+.gi-chip--genre { color: color-mix(in srgb, var(--accent) 85%, white 15%); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+
+/* Fila de acciones: botones con etiqueta y estado (verde = secuencia, ámbar = original). */
+.gi-song-actions { gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.06); }
+.gi-song-actions .action-btn {
+  width: auto; min-width: 30px; height: 28px; padding: 0 9px; gap: 6px; border-radius: 8px;
+  background: rgba(255,255,255,.05); color: var(--text-muted); font-size: 11.5px; font-weight: 700;
+}
+.gi-song-actions .action-btn svg { width: 14px; height: 14px; }
+.gi-song-actions .action-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+.gi-song-actions .btn-lyrics::after { content: "Letra"; }
+.gi-song-actions .btn-seq::after { content: "Sec"; }
+.gi-song-actions .btn-orig::after { content: "Orig"; }
+.gi-song-actions .btn-lyrics.no-lyrics { opacity: .55; }
+.gi-song-actions .btn-lyrics.lyrics-open, .gi-song-actions .btn-lyrics.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
+}
+.gi-song-actions .btn-seq, .gi-song-actions .btn-orig { opacity: .5; }
+.gi-song-actions .btn-seq.has-audio { opacity: 1; color: var(--src-seq); background: color-mix(in srgb, var(--src-seq) 14%, transparent); }
+.gi-song-actions .btn-orig.has-audio { opacity: 1; color: var(--src-ref); background: color-mix(in srgb, var(--src-ref) 14%, transparent); }
+.gi-song-actions .btn-add, .gi-song-actions .btn-more { margin-left: auto; width: 30px; padding: 0; }
+.gi-song-actions .btn-add + .btn-more { margin-left: 0; }
+.gi-song-actions .btn-add::after, .gi-song-actions .btn-more::after { content: none; }
+
+/* Letra desplegada: panel propio, cómodo de leer. */
+.gi-lyrics-accordion.open {
+  margin: 12px -2px 0; padding: 12px 14px 14px; border-top: 0; border-radius: var(--r-md);
+  background: rgba(0,0,0,.34); border: 1px solid rgba(255,255,255,.06);
+}
+.lyrics-accordion-header {
+  justify-content: flex-end; gap: 2px; padding: 3px; width: max-content; margin: 0 0 10px auto;
+  border-radius: 999px; background: rgba(255,255,255,.05);
+}
+.lyrics-edit-btn, .chord-toggle-btn, .lyrics-fs-btn { width: 28px; height: 28px; border-radius: 50%; }
+.chord-toggle-btn.active { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.lyric-line { font-size: 14px; line-height: 1.6; letter-spacing: 0; margin-bottom: 3px; }
+.lyric-line.has-inline-chords { margin-top: 20px; }
+.inline-chord { font-size: 12px; font-weight: 800; transform: translateY(-1.3em); }
+.chord-line { font-size: 12.5px; font-weight: 700; margin-top: 8px; letter-spacing: .5px; }
+.section-header-line { font-size: 9.5px; padding: 3px 9px; border-radius: 999px; margin-top: 16px; letter-spacing: 1.4px; }
+
+/* ── PANEL LATERAL · Ajustes (menú ☰) ───────────────────────────── */
+#sidebar { width: 660px; }
+#sidebar-overlay { background: rgba(0,0,0,.55); backdrop-filter: blur(3px); }
+#sidebar-inner {
+  border-radius: 0 var(--r-xl) var(--r-xl) 0; border-right: 1px solid var(--border-strong);
+  background: linear-gradient(180deg, var(--surface-1), var(--bg-sidebar) 70%);
+  box-shadow: 30px 0 80px rgba(0,0,0,.6); overflow: hidden;
+}
+.sidebar-close-btn {
+  top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  background: var(--glass-h); color: var(--text-muted);
+  transition: background .14s, color .14s, transform .14s var(--ease-out);
+}
+.sidebar-close-btn:hover { background: var(--glass-a); color: var(--text); transform: rotate(90deg); }
+
+.sidebar-nav { flex: 0 0 210px; padding: 22px 12px 14px; gap: 3px; background: rgba(0,0,0,.28); }
+.sidebar-nav::before {
+  content: "Live Pads"; display: block; padding: 2px 10px 18px;
+  font-size: 17px; font-weight: 800; letter-spacing: -0.03em; color: var(--text);
+}
+.sidebar-nav-title { padding: 0 10px 6px; font-size: 10px; font-weight: 800; letter-spacing: .14em; opacity: .75; }
+.sidebar-nav-title:not(:first-of-type) { margin-top: 20px; }
+.sidebar-nav .stab { gap: 12px; padding: 7px 10px; border-radius: 12px; font-size: 13.5px; font-weight: 650; color: var(--text-muted); }
+.sidebar-nav .stab svg {
+  width: 30px; height: 30px; padding: 7px; border-radius: 9px; background: var(--glass-h); opacity: 1;
+  transition: background .14s, color .14s;
+}
+.sidebar-nav .stab:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.sidebar-nav .stab.active { background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--text); }
+.sidebar-nav .stab.active svg { background: var(--accent); color: var(--on-accent); }
+
+.sidebar-scroll { padding: 30px 32px 32px; }
+.stab-body.visible::before {
+  display: block; margin: 0 0 22px; padding-right: 44px;
+  font-size: 26px; font-weight: 800; letter-spacing: -0.035em; color: var(--text);
+}
+#tab-audio::before { content: "Audio"; }
+#tab-midi::before { content: "MIDI y teclado"; }
+#tab-themes::before { content: "Temas"; }
+#tab-library::before { content: "Biblioteca"; }
+#tab-account::before { content: "Cuenta"; }
+#tab-preflight::before { content: "Pre-vuelo"; }
+#tab-companion::before { content: "Companion"; }
+#tab-shortcuts::before { content: "Atajos"; }
+#tab-about::before { content: "Acerca de LivePads"; }
+
+.sb-label { margin: 22px 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+.sb-label:first-child { margin-top: 0; }
+.sb-card { padding: 4px 18px; border-radius: var(--r-lg); background: var(--glass); border: 1px solid var(--border); box-shadow: none; }
+.sb-card .sb-row { min-height: 50px; }
+.sb-card .sb-div { opacity: .5; }
+.sr-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.sr-val { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text-muted); }
+.sb-btn { border-radius: 10px; padding: 11px 16px; }
+.sb-btn--primary { box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 28%, transparent); }
+.set-launch-card { border-radius: var(--r-lg); background: var(--glass); border: 1px solid var(--border); padding: 18px; }
+.toggle-sw { width: 44px; height: 26px; border-radius: 999px; }
+.set-hint { line-height: 1.6; font-size: 12.5px; }
+
+/* Sin títulos duplicados: el encabezado grande ya nombra la sección. */
+#tab-themes > .sb-label:first-child,
+#tab-library > .sb-label:first-child,
+#tab-midi > .sb-label:first-child { display: none; }
+.stab-body .sb-card + .sb-card { margin-top: 12px; }

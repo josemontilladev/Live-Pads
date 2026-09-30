@@ -147,14 +147,15 @@ export function songCardInnerHTML(song, opts) {
       : 'Tono de la canción. Clic para tocarla en otro tono solo en este servicio.';
     keyMeta = `<button type="button" class="gi-key-chip${overridden ? ' is-overridden' : ''}" data-action="key" title="${esc(title)}">${label}</button>`;
   } else if (baseKey) {
-    keyMeta = esc(baseKey);
+    keyMeta = `<span class="gi-chip gi-chip--key">${esc(baseKey)}</span>`;
   }
+  // Metadatos como chips (tono destacado · BPM · compás · género).
   const metaLine = [
     keyMeta,
-    song.bpm   ? `${esc(song.bpm)} BPM`   : '',
-    sigMeta,
-    song.genre ? esc(song.genre)          : ''
-  ].filter(Boolean).join(' · ');
+    song.bpm   ? `<span class="gi-chip">${esc(song.bpm)} BPM</span>` : '',
+    `<span class="gi-chip">${sigMeta}</span>`,
+    song.genre ? `<span class="gi-chip gi-chip--genre">${esc(song.genre)}</span>` : ''
+  ].filter(Boolean).join('');
 
   // Los acordes de la letra siguen al tono del servicio: si hoy se toca en G, el
   // acordeón muestra los acordes en G. La letra guardada no se toca.
