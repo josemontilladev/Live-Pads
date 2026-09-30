@@ -1384,6 +1384,18 @@ ipcMain.handle('library-files-stat', async (_e, relPaths) => {
   return { present, missing };
 });
 
+// Abre en el explorador la carpeta de la biblioteca (p. ej. "Stems/<canción>").
+// Solo rutas dentro de las subcarpetas de la biblioteca (libraryRelToAbs valida).
+ipcMain.handle('open-library-folder', async (_e, relDir) => {
+  const rel = String(relDir || 'Stems').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+  const abs = libraryRelToAbs(rel);
+  if (!abs) throw new Error('Carpeta no permitida');
+  fs.mkdirSync(abs, { recursive: true });
+  const err = await shell.openPath(abs);
+  if (err) throw new Error(err);
+  return { path: abs };
+});
+
 const CONTENT_TYPES = {
   '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.wav': 'audio/wav',
   '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.aac': 'audio/aac',

@@ -173,6 +173,33 @@ export async function downloadSongAudioZip(song, onProgress = () => {}) {
   return true;
 }
 
+// ── Pistas en ESTA PC vs. solo en la nube ──────────────────────────────────
+// Las pistas viven en <carpeta de la librería>/Stems/<canción>/ (por defecto la
+// carpeta de datos de la app, que sobrevive a las actualizaciones; se puede
+// cambiar en Ajustes → Biblioteca). Quien las sube las deja ahí y se sincronizan
+// a la nube; los demás miembros las bajan a su propia carpeta.
+
+/** Conjunto de rutas relativas de [stems] que ya existen en esta PC. */
+export async function stemsPresentLocally(stems) {
+  const rels = stems.map(s => livepadsRel(s.url)).filter(Boolean);
+  if (!rels.length || !window.electronAPI?.libraryFilesStat) return new Set();
+  try {
+    const { present } = await window.electronAPI.libraryFilesStat(rels);
+    return new Set((present || []).map(f => f.path));
+  } catch (_) { return new Set(); }
+}
+
+/**
+ * Baja de la nube las pistas que falten en esta PC y las guarda en su carpeta.
+ * Devuelve { downloaded, failed, total }. `onProgress(texto)` opcional.
+ */
+export async function downloadStemsToPC(stems, onProgress = () => {}) {
+  const rels = stems.map(s => livepadsRel(s.url)).filter(Boolean);
+  if (!rels.length) return { downloaded: 0, failed: 0, total: 0 };
+  const { bajarRutas } = await import('../cloud/fileSync.js');
+  return bajarRutas(rels, (p) => onProgress(`Descargando ${p.done + 1}/${p.total}…`));
+}
+
 export function removeStem(song, stemId) {
   if (!song?.audio?.stems) return;
   song.audio.stems = song.audio.stems.filter(s => s.id !== stemId);
@@ -202,9 +229,14 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
         <button class="sam-close" aria-label="Cerrar">&times;</button>
       </div>
       <div class="sst-sub">Marca las pistas que quieres oír y cárgalas al timeline. Ahí puedes silenciar, poner en solo o ajustar el volumen de cada una mientras practicas.</div>
+      <div class="sst-folder">
+        <span class="sst-folder-path">Las pistas se guardan en la carpeta de tu biblioteca.</span>
+        <button type="button" class="stems-btn stems-btn--ghost" data-act="folder" title="Abrir la carpeta donde se guardan las pistas de esta canción">📂 Abrir carpeta</button>
+      </div>
       <div class="sst-list"></div>
       <div class="sst-foot">
         <button class="stems-btn stems-btn--ghost" data-act="add">+ Añadir pistas…</button>
+        <button class="stems-btn stems-btn--ghost" data-act="dl" title="Guarda en esta PC las pistas que solo están en la nube (quedan en tu carpeta de la biblioteca)">☁ Descargar a esta PC</button>
         <button class="stems-btn stems-btn--ghost" data-act="zip" title="Descarga un ZIP con todas las pistas, la secuencia y el original de esta canción">⬇ Descargar todo (.zip)</button>
         <span class="sst-count"></span>
         <span class="spacer"></span>
@@ -219,6 +251,19 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
   const countEl = overlay.querySelector('.sst-count');
   const loadBtn = overlay.querySelector('[data-act="load"]');
   const selected = new Set(getSongStems(song).map(s => s.id));
+  let local = new Set();       // rutas relativas presentes en esta PC
+  const dlBtn = overlay.querySelector('[data-act="dl"]');
+
+  const refreshLocal = async () => {
+    local = await stemsPresentLocally(getSongStems(song));
+    render();
+  };
+  // Dónde se guardan (ruta real) — para que se sepa qué carpeta es.
+  window.electronAPI?.audioLibraryGet?.().then((info) => {
+    const root = info?.effectivePath;
+    const el = overlay.querySelector('.sst-folder-path');
+    if (root && el) el.textContent = `Se guardan en: ${root.replace(/[\\/]+$/, '')}\\Stems\\${songSlug(song)}`;
+  }).catch(() => {});
 
   const pop = pushModal(() => close(), modal);
   const close = () => { try { pop(); } catch (_) {} overlay.remove(); };
@@ -236,14 +281,19 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
           <span class="sst-name">
             <input type="text" value="${esc(st.name)}" data-rename spellcheck="false" title="Clic para renombrar">
             <span class="sst-kind">${esc(STEM_KIND_BADGE[st.kind] || 'PISTA')}</span>
+            ${local.has(livepadsRel(st.url)) ? '<span class="sst-loc is-local" title="Ya está en esta PC">✓ En esta PC</span>' : '<span class="sst-loc" title="Solo está en la nube: descárgala para tenerla aquí">☁ En la nube</span>'}
           </span>
           <button type="button" class="sst-del" data-del title="Quitar esta pista de la canción">&times;</button>
         </label>`).join('');
     }
     countEl.textContent = stems.length ? `${selected.size} de ${stems.length} seleccionadas` : '';
     loadBtn.disabled = selected.size === 0 || typeof onLoad !== 'function';
+    const missingN = stems.filter(s => !local.has(livepadsRel(s.url))).length;
+    dlBtn.disabled = missingN === 0;
+    dlBtn.textContent = missingN ? `☁ Descargar a esta PC (${missingN})` : '✓ Todas en esta PC';
   };
   render();
+  refreshLocal();
 
   overlay.querySelector('.sam-close').onclick = close;
   overlay.onclick = (e) => { if (e.target === overlay) close(); };
@@ -292,11 +342,35 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
     try { await downloadSongAudioZip(song, (t) => { zipBtn.textContent = t; }); }
     finally { zipBtn.disabled = false; zipBtn.textContent = label; }
   };
+  overlay.querySelector('[data-act="folder"]').onclick = async () => {
+    const first = getSongStems(song).map(s => livepadsRel(s.url)).find(Boolean);
+    const dir = first ? first.replace(/\/[^/]*$/, '') : 'Stems';
+    try { await window.electronAPI.openLibraryFolder(dir); }
+    catch (e) { showToast('No se pudo abrir la carpeta: ' + (e.message || e), 'error'); }
+  };
+  dlBtn.onclick = async () => {
+    const stems = getSongStems(song).filter(s => !local.has(livepadsRel(s.url)));
+    if (!stems.length) return;
+    dlBtn.disabled = true;
+    try {
+      const r = await downloadStemsToPC(stems, (t) => { dlBtn.textContent = t; });
+      showToast(r.failed ? `${r.downloaded} descargadas, ${r.failed} no disponibles aún en la nube.` : `✓ ${r.downloaded} ${r.downloaded === 1 ? 'pista guardada' : 'pistas guardadas'} en tu carpeta de la biblioteca.`, r.failed ? 'warning' : 'success');
+    } catch (e) {
+      showToast('No se pudo descargar: ' + (e.message || e), 'error');
+    } finally { await refreshLocal(); }
+  };
   overlay.querySelector('[data-act="all"]').onclick = () => { getSongStems(song).forEach(s => selected.add(s.id)); render(); };
   overlay.querySelector('[data-act="none"]').onclick = () => { selected.clear(); render(); };
-  loadBtn.onclick = () => {
+  loadBtn.onclick = async () => {
     const chosen = getSongStems(song).filter(s => selected.has(s.id));
     if (!chosen.length) return;
+    // Si alguna no está en esta PC, se baja antes de cargar (queda guardada para la próxima).
+    const missing = chosen.filter(s => !local.has(livepadsRel(s.url)));
+    if (missing.length) {
+      loadBtn.disabled = true;
+      try { await downloadStemsToPC(missing, (t) => { loadBtn.textContent = t; }); }
+      catch (e) { showToast('Sin conexión con la nube: se cargarán solo las que ya están en esta PC.', 'warning'); }
+    }
     close();
     onLoad?.(song, chosen);
   };
