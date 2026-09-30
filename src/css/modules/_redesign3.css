@@ -1,0 +1,88 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Rediseño v3 (parte 3): STEMS · practicar y producir.
+   Solo estilo. Se importa después de _redesign2.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Deck: tempo · compás · tono · transporte ───────────────────── */
+.stems-deck { background: linear-gradient(180deg, var(--surface-1), var(--surface-2)); box-shadow: var(--elev-1); }
+.stems-topbar { padding: 10px 14px; gap: 10px; align-items: center; flex-wrap: nowrap; }
+.stems-tb-left { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; }
+.stems-tb-mid { flex: 0 0 auto; margin-left: auto; }
+.stems-brand { display: none; }
+.stems-tb-left .stems-field { padding-left: 8px; padding-right: 8px; gap: 6px; }
+.stems-tb-left .stems-field > label { letter-spacing: .06em; }
+.stems-brand { font-size: 12px; font-weight: 800; letter-spacing: .14em; color: var(--text-muted); }
+.stems-brand span { color: var(--accent); }
+.stems-field { border-radius: var(--r-md); background: rgba(255,255,255,.04); border: 1px solid var(--border); }
+.stems-field > label {
+  font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted);
+}
+.stems-field input, .stems-field select { font-weight: 700; font-variant-numeric: tabular-nums; }
+.stems-bpm-detect { border-radius: 999px; font-weight: 700; }
+
+/* Transporte: píldora con play grande y tiempo destacado. */
+.stems-tb-mid {
+  gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px;
+  background: rgba(0,0,0,.28); border: 1px solid var(--border);
+}
+.stems-tb-btn { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.06); }
+.stems-tb-btn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.stems-tb-btn--play {
+  width: 46px; height: 46px; background: linear-gradient(180deg, var(--accent2), var(--accent)); color: var(--on-accent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.stems-tb-btn--play:hover:not(:disabled) { background: linear-gradient(180deg, var(--accent2), var(--accent)); filter: brightness(1.08); }
+.stems-tb-btn--play.is-playing { box-shadow: 0 0 0 2px var(--accent), 0 0 28px color-mix(in srgb, var(--accent) 55%, transparent); }
+.stems-tb-time { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; margin-left: 4px; }
+.stems-tb-time-sep { opacity: .4; margin: 0 4px; }
+.stems-tb-mid .stems-readout { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; padding-left: 10px; border-left: 1px solid var(--border); }
+.stems-tb-mid .stems-readout .label { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
+.stems-tb-mid .stems-readout .value { font-size: 13px; font-weight: 700; color: var(--accent); }
+.stems-state-pill { margin-left: 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.06); color: var(--text-muted); }
+.stems-state-pill[data-state="play"] { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+
+/* ── Barras de acciones ─────────────────────────────────────────── */
+.stems-actions--unified { padding: 8px 14px 10px; gap: 8px 10px; background: rgba(255,255,255,.015); }
+.stems-actions-primary { padding: 4px; gap: 6px; border-radius: var(--r-md); background: rgba(255,255,255,.04); }
+.stems-project-name { font-size: 14px; font-weight: 800; letter-spacing: -0.02em; }
+.stems-tools-group {
+  display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: var(--r-md);
+  background: rgba(255,255,255,.035); border: 1px solid var(--border);
+}
+.stems-tools-label { font-size: 9.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); padding: 0 6px; }
+.stems-btn { height: 32px; border-radius: 9px; }
+.stems-btn--primary { font-weight: 800; }
+.stems-actions-divider { display: none; }
+.stems-project-name { width: 170px; flex: 0 1 170px; }
+.stems-tb-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* Zoom del timeline. */
+.stems-zoomctl { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
+.stems-zoomctl .stems-zoom-btn { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: var(--text); cursor: pointer; }
+.stems-zoomctl .stems-zoom-btn:hover { background: rgba(255,255,255,.1); }
+.stems-zoomctl .stems-zoom-fit { width: auto; padding: 0 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+.stems-zoom-readout { min-width: 40px; text-align: center; font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.stems-help-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255,255,255,.04); font-weight: 800; }
+
+/* ── Barra "Practicar" ──────────────────────────────────────────── */
+.stems-quickmix { padding: 9px 4px; border-bottom: 0; background: transparent; gap: 7px; }
+.stems-quickmix-label { color: var(--accent); margin-right: 6px; }
+.stems-quickmix button { height: 30px; padding: 0 13px; font-weight: 700; }
+.stems-quickmix button[data-act="mute"].is-on { background: color-mix(in srgb, var(--danger) 85%, black); color: #fff; border-color: transparent; }
+.stems-quickmix button[data-act="solo"].is-on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.stems-quickmix button[data-act="reset"].is-on { background: rgba(255,255,255,.14); color: var(--text); border-color: var(--border-strong); }
+
+/* ── Timeline y pistas ──────────────────────────────────────────── */
+.stems-arrange { border-radius: var(--r-lg); border: 1px solid var(--border); background: rgba(0,0,0,.35); }
+.stems-head-row { background: rgba(255,255,255,.03); }
+.stems-head-spacer-label { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }
+.stems-row { border-bottom: 1px solid rgba(255,255,255,.05); }
+.stems-row-name { font-size: 14px; font-weight: 800; letter-spacing: -0.02em; }
+.stems-row-strip .stems-btn, .stems-row-strip button.m, .stems-row-strip button.s { border-radius: 8px; }
+.stems-playhead { width: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+
+/* ── Consola ────────────────────────────────────────────────────── */
+.stems-console { height: var(--stems-console-h, min(270px, 31vh)); background: linear-gradient(180deg, var(--surface-2), var(--bg-surface)); border-radius: var(--r-lg); border: 1px solid var(--border); }
+.stems-console-header { padding: 8px 14px; }
+.stems-console-strip { background: rgba(255,255,255,.03); border: 1px solid var(--border); }
+.stems-console-strip-name { font-size: 13px; }

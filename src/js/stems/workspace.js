@@ -10,6 +10,7 @@ import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
 import { audioBufferToMp3 } from '../audio/mp3Encode.js';
+import { createZip } from '../utils/zip.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
@@ -537,6 +538,11 @@ const SHELL_HTML = `
         <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
           <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
         </span>
+        <div class="stems-readout">
+          <span class="label">Timecode</span>
+          <span class="value mono" id="stems-timecode">00:00.000</span>
+        </div>
+        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
       </div>
     </header>
 
@@ -570,6 +576,7 @@ const SHELL_HTML = `
             <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
             <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
             <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
+            <button data-proj-cmd="export-tracks" class="stems-proj-item">Exportar cada pista (.zip)</button>
           </div>
         </div>
       </div>
@@ -645,6 +652,16 @@ const SHELL_HTML = `
       <div class="stems-tb-right">
         <!-- Zoom del timeline (Alt+rueda) y altura de pistas (Ctrl+rueda) se
              manejan con rueda/teclado, así que no llevan botones. -->
+        <div class="stems-zoomctl" role="group" aria-label="Zoom del timeline">
+          <button class="stems-zoom-btn" id="stems-zoom-out" type="button" title="Alejar (Alt+rueda)" aria-label="Alejar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span class="stems-zoom-readout" id="stems-zoom-readout" title="Nivel de zoom">100%</span>
+          <button class="stems-zoom-btn" id="stems-zoom-in" type="button" title="Acercar (Alt+rueda)" aria-label="Acercar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar toda la canción a la pantalla">Ajustar</button>
+        </div>
         <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
         <label class="stems-snap-toggle" title="Imán: al arrastrar/marcar, ajusta a la subdivisión elegida">
           <span>Snap</span>
@@ -656,11 +673,6 @@ const SHELL_HTML = `
             <option value="bar">Compás</option>
           </select>
         </label>
-        <div class="stems-readout">
-          <span class="label">Timecode</span>
-          <span class="value mono" id="stems-timecode">00:00.000</span>
-        </div>
-        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
       </div>
     </header>
    </div>
@@ -1403,7 +1415,27 @@ function wireArrangeEvents(root) {
       openSaveAsModal();
     } else if (cmd === 'open') {
       openProjectsModal();
+    } else if (cmd === 'export-tracks') {
+      exportTracksZip();
     }
+  });
+
+  // Zoom con botones (además de Alt+rueda).
+  const zoomBy = (factor) => {
+    const arrange = document.getElementById('stems-arrange');
+    if (!arrange) return;
+    const r = arrange.getBoundingClientRect();
+    animateZoomTo(PX_PER_SEC * factor, r.left + r.width / 2);
+  };
+  root.querySelector('#stems-zoom-in')?.addEventListener('click', () => zoomBy(1.35));
+  root.querySelector('#stems-zoom-out')?.addEventListener('click', () => zoomBy(1 / 1.35));
+  root.querySelector('#stems-zoom-fit')?.addEventListener('click', () => {
+    const arrange = document.getElementById('stems-arrange');
+    const dur = projectDurationSec();
+    if (!arrange || !dur) return;
+    setZoom((arrange.clientWidth - STRIP_WIDTH - 40) / dur);
+    arrange.scrollLeft = 0;
+    requestAnimationFrame(() => { for (const id of trackRows.keys()) drawTrackWaveform(id); });
   });
 
   root.querySelector('#stems-export').onclick = async () => {
@@ -3123,6 +3155,42 @@ async function addSeparatedTrack(name, channels, sampleRate, kind) {
 
 // Encode an AudioBuffer to MP3 (192 kbps stereo) via lamejs. Returns an
 // ArrayBuffer for projectStore.saveStem.
+// Exporta CADA pista por separado (MP3) en un ZIP: para llevar los stems a otra
+// app/DAW, a otro equipo o a los músicos. Respeta el nombre de cada pista.
+async function exportTracksZip() {
+  const tracks = engine.getTracks().filter(t => engine.getTrackBuffer(t.id));
+  if (!tracks.length) { showToast('No hay pistas para exportar.', 'info'); return; }
+  if (!window.electronAPI?.saveZipFile) { showToast('Esta versión de la app no puede guardar ZIP.', 'error'); return; }
+  showImportOverlay(tracks.length);
+  const titleEl = document.getElementById('stems-import-title');
+  const prev = titleEl ? titleEl.textContent : '';
+  if (titleEl) titleEl.textContent = 'Exportando pistas…';
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  try {
+    const zip = createZip();
+    let done = 0;
+    for (const t of tracks) {
+      updateImportOverlay(done, tracks.length, t.name || 'pista');
+      await new Promise(r => requestAnimationFrame(r));
+      const mp3 = audioBufferToMp3(engine.getTrackBuffer(t.id));
+      const safe = String(t.name || 'pista').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'pista';
+      zip.add(`${String(done + 1).padStart(2, '0')} - ${safe}.mp3`, mp3);
+      done++;
+      updateImportOverlay(done, tracks.length, '');
+    }
+    const bytes = zip.finish();
+    const name = `${projectName || 'pistas'} - pistas`;
+    const saved = await window.electronAPI.saveZipFile({ suggestedName: name, buffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) });
+    if (saved) showToast(`✓ ${tracks.length} pistas exportadas (${(bytes.length / 1048576).toFixed(1)} MB).`, 'success');
+  } catch (e) {
+    console.error('Export de pistas falló', e);
+    toast('No se pudieron exportar las pistas: ' + (e.message || e));
+  } finally {
+    hideImportOverlay();
+    if (titleEl) titleEl.textContent = prev || 'Importando stems…';
+  }
+}
+
 async function removeTrackById(id) {
   const row = trackRows.get(id);
   engine.removeTrack(id);
