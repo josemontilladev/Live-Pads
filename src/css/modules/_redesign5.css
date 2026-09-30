@@ -1,0 +1,82 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Rediseño v3 (parte 5): SE VE BIEN EN CUALQUIER MONITOR.
+   Principio: el presupuesto vertical es finito. Lo que se toca en vivo (pads,
+   teclas, mezclador) nunca se aplasta: lo secundario se compacta o se oculta
+   según el ALTO de la ventana, y el contenido nunca se recorta.
+   Se importa la última (antes de _responsive).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Onda de secciones: compacta y proporcional al alto ─────────── */
+#seq-wave { margin: 0 14px 8px; padding: 8px 14px 10px; gap: 6px; border-radius: var(--r-lg); }
+.sw-head { min-height: 26px; }
+.sw-stage { position: relative; }
+.sw-wave { height: clamp(44px, 7vh, 72px); }
+/* Nombres de sección y regla DENTRO de la onda: no ocupan alto propio. */
+.sw-markers { position: absolute; left: 0; right: 0; top: 4px; height: 20px; z-index: 3; pointer-events: none; }
+.sw-pill { pointer-events: auto; top: 0; height: 18px; font-size: 9.5px; padding: 0 8px; }
+.sw-ruler {
+  position: absolute; left: 0; right: 0; bottom: 3px; height: 12px; margin: 0; z-index: 2; pointer-events: none;
+}
+.sw-ruler span { font-size: 9.5px; color: rgba(255,255,255,.55); text-shadow: 0 1px 2px rgba(0,0,0,.8); padding: 0 2px; }
+.sw-ruler span:first-child { left: 6px !important; }
+.sw-title { max-width: 26%; }
+.sw-loading { inset: 0; }
+
+/* ── Estado de 1 línea cuando no cabe: solo cabecera de la onda ──── */
+@media (max-height: 700px) {
+  #seq-wave .sw-stage { display: none; }
+  #seq-wave { padding-bottom: 8px; }
+}
+
+/* ── Alto medio (≈ portátiles 1366×768 / 1280×720): compactar ────── */
+@media (max-height: 860px) {
+  #stage { gap: 10px; }
+  #panel-metro { padding: 10px 16px; gap: 14px; }
+  #panel-metro .metro-main-btn { height: 46px; width: 68px; border-radius: 13px; }
+  .metro-bpm-big { font-size: 34px; }
+  #bank-section { padding: 10px 16px; gap: 6px; }
+  #panel-keys { padding: 12px; }
+  .key-grid { gap: 8px; }
+  #mixer-bar { padding: 8px 12px 10px; }
+  .mx-hint { display: none; }
+  .mx-channel { padding: 6px 10px; }
+  .drum-grid { gap: 10px; }
+  .drum-btn { padding: 8px 10px; }
+  .drum-btn .drum-label { font-size: 15px; }
+  .key-indicator { padding: 4px 10px; }
+  .gi-song-item { padding: 9px 11px 8px; }
+  .gi-song-cover { width: 44px; height: 44px; flex-basis: 44px; }
+  .gi-song-meta-line { margin-top: 5px; }
+  .gi-song-actions { margin-top: 7px; padding-top: 7px; }
+  .gi-song-actions .action-btn { height: 26px; }
+}
+
+/* ── Alto bajo (< 780): cada pieza en su mínimo legible ──────────── */
+@media (max-height: 780px) {
+  .mx-channel .mx-ctrl:first-of-type { display: none; }       /* oculta Pan; Vol sigue visible */
+  .mx-channel { padding: 6px 10px 8px; }
+  .mx-channels { gap: 8px; }
+  #panel-metro .hm-section--sounds { gap: 4px; }
+  .drum-btn .drum-tile-vol { display: none; }                  /* el volumen por pad vive en el mezclador */
+  .drum-btn { justify-content: center; }
+  .drum-btn .drum-label { margin: 0; }
+  .key-btn { font-size: 18px; }
+  .kbd-hint { font-size: 9px; padding: 1px 5px; top: 6px; right: 6px; }
+}
+@media (max-height: 640px) {
+  #panel-metro .hm-section--sounds .hm-clickseq { display: none; }
+  #mixer-bar .mx-title { display: none; }
+  .key-indicator { display: none !important; }
+  #panel-keys { padding: 8px; }
+  .key-grid { gap: 6px; }
+  .key-btn { font-size: 16px; min-height: 0; padding: 0; }
+  .key-grid { grid-auto-rows: minmax(0, 1fr); }
+  #stage { gap: 8px; }
+}
+
+/* ── Ancho bajo ─────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  .stems-topbar { flex-wrap: wrap; row-gap: 8px; }
+  .stems-tb-left { flex: 1 1 100%; flex-wrap: wrap; row-gap: 6px; }
+  .stems-tb-mid { margin-left: 0; flex: 1 1 auto; justify-content: center; }
+}
