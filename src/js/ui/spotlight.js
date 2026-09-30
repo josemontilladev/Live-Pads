@@ -23,7 +23,7 @@ const COMMANDS = [
   { id: 'cmd:new',      label: 'Nueva canción',           hint: 'Ctrl+N',  selector: '#btn-add-gi-song' },
   { id: 'cmd:import',   label: 'Importar librería (JSON)', hint: '',        selector: '#btn-import-gi' },
   { id: 'cmd:export',   label: 'Exportar librería',        hint: '',        selector: '#btn-export-gi' },
-  { id: 'cmd:sync',     label: 'Sincronizar con MongoDB',  hint: '',        selector: '#btn-sync-gi' },
+  { id: 'cmd:sync',     label: 'Sincronizar librería',  hint: '',        selector: '#btn-sync-gi' },
   { id: 'cmd:settings', label: 'Abrir Ajustes',            hint: '☰',       selector: '#btn-menu' },
   { id: 'cmd:midilearn',label: 'Modo Mapeo MIDI / Teclado', hint: '',       selector: '#menu-midi-learn', viaMenu: true },
 ];

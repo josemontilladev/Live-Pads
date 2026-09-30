@@ -28,4 +28,5 @@
 @import url('./modules/_linear.css');
 /* Capa moderna v2 (superficies, tipografía, foco, rendimiento). Reversible. */
 @import url('./modules/_modern.css');
+@import url('./modules/_redesign.css');
 @import url('./modules/_responsive.css');

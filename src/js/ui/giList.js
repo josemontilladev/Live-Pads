@@ -169,7 +169,7 @@ export function renderGiList(filter = '', editSongId = null) {
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="42" height="42"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </div>
         <h4>Tu librería está vacía</h4>
-        <p>Trae tus canciones desde MongoDB, importa un .json o crea una manualmente.</p>
+        <p>Crea tu primera canción, importa un .json o inicia sesión para traer tu repertorio compartido.</p>
         <div class="empty-cta-row">
           <button type="button" class="empty-cta" data-empty-action="sync">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>

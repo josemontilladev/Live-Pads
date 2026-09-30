@@ -79,6 +79,7 @@ import {
 import { bindMidiHandlers } from './midi/midiBindings.js';
 import { hydrateCustomKitsInto } from './data/customKits.js';
 import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
+import { htmlToPlainLyrics } from './utils/text.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
 // la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';

@@ -1,0 +1,164 @@
+/* ═══════════════════════════════════════════════════════════════════
+   LivePads — Rediseño v3 ("Studio")
+   Capa FINAL (después de _modern, antes de _responsive). Solo estilo.
+   · Cada pad de batería tiene su color (se reconoce sin leer).
+   · Jerarquía clara: lo que se toca en vivo es grande; lo demás, discreto.
+   · Superficies con profundidad, tipografía y espaciado consistentes.
+   Reversible: quitar el @import de index.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --pad-0: #fb923c; --pad-1: #38bdf8; --pad-2: #facc15; --pad-3: #f472b6;
+  --pad-4: #a78bfa; --pad-5: #34d399; --pad-6: #fb7185; --pad-7: #2dd4bf;
+  --panel-pad: 20px;
+}
+
+/* ── Barra superior ─────────────────────────────────────────────── */
+#topbar { backdrop-filter: blur(14px) saturate(1.2); }
+.topbar-logo-text { font-weight: 800; letter-spacing: -0.03em; font-size: 15px; }
+#topbar-clock { font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.topbar-actions .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+.topbar-actions .icon-btn:hover { background: var(--glass-a); color: var(--text); }
+
+/* ── PADS · Transporte / metrónomo ──────────────────────────────── */
+#panel-metro {
+  padding: 18px var(--panel-pad);
+  border-radius: var(--r-xl);
+  gap: 26px;
+}
+#panel-metro .metro-main-btn {
+  width: 96px; height: 60px; border-radius: 16px;
+  background: linear-gradient(180deg, var(--accent2), var(--accent));
+  color: var(--on-accent);
+  box-shadow: 0 1px 0 rgba(255,255,255,.45) inset, 0 10px 26px color-mix(in srgb, var(--accent) 35%, transparent);
+  transition: transform .14s var(--ease-out), box-shadow .2s;
+}
+#panel-metro .metro-main-btn:hover { transform: translateY(-1px); }
+#panel-metro .metro-main-btn:active { transform: scale(.97); }
+.metro-bpm-big {
+  font-size: 46px; font-weight: 800; letter-spacing: -0.04em; line-height: 1;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.metro-adj { width: 34px; height: 34px; border-radius: 50%; background: var(--glass-h); border: 1px solid var(--border); }
+.metro-adj:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.tap-btn { border-radius: 8px; font-weight: 800; letter-spacing: .1em; }
+.metro-mult-btn { border-radius: 8px; font-weight: 800; min-width: 46px; }
+#metro-bpm-live { font-weight: 700; color: var(--text-muted); letter-spacing: .02em; }
+.hm-clickseq { font-size: 12.5px; color: var(--text-muted); }
+.hm-clickseq:hover span { color: var(--text); }
+.hm-section--sounds .metro-dropdown { font-weight: 650; }
+
+/* ── PADS · Batería: cada pad con su color ──────────────────────── */
+.drum-btn { --pad-c: var(--accent); display: flex; flex-direction: column; align-items: stretch; overflow: hidden; }
+.drum-btn[data-slot="0"] { --pad-c: var(--pad-0); }
+.drum-btn[data-slot="1"] { --pad-c: var(--pad-1); }
+.drum-btn[data-slot="2"] { --pad-c: var(--pad-2); }
+.drum-btn[data-slot="3"] { --pad-c: var(--pad-3); }
+.drum-btn[data-slot="4"] { --pad-c: var(--pad-4); }
+.drum-btn[data-slot="5"] { --pad-c: var(--pad-5); }
+.drum-btn[data-slot="6"] { --pad-c: var(--pad-6); }
+.drum-btn[data-slot="7"] { --pad-c: var(--pad-7); }
+.drum-btn {
+  background:
+    radial-gradient(130% 100% at 50% 0%, color-mix(in srgb, var(--pad-c) 16%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--surface-1), var(--bg-surface));
+  border-color: color-mix(in srgb, var(--pad-c) 22%, var(--border));
+}
+/* Barra de color superior: identidad del pad. */
+.drum-btn::before {
+  content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 3px;
+  border-radius: 0 0 4px 4px; background: var(--pad-c); opacity: .85;
+}
+.drum-btn:hover { border-color: color-mix(in srgb, var(--pad-c) 65%, transparent); }
+.drum-btn .drum-label {
+  margin: auto 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+  text-align: center; color: var(--text);
+}
+.drum-btn .drum-tile-vol { opacity: .35; }
+.drum-btn:hover .drum-tile-vol, .drum-btn:focus-within .drum-tile-vol { opacity: 1; }
+.drum-btn .drum-tile-slider { accent-color: var(--pad-c); }
+.kbd-hint {
+  top: 10px; right: 10px; font-size: 10.5px; font-weight: 800; padding: 2px 7px;
+  border-radius: 6px; background: rgba(255,255,255,.08); color: var(--text-muted); opacity: 1;
+  border: 1px solid var(--border);
+}
+.drum-btn.hit, .drum-btn:active {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pad-c) 92%, white 8%), var(--pad-c));
+  border-color: var(--pad-c);
+  box-shadow: 0 0 0 1px var(--pad-c), 0 0 42px color-mix(in srgb, var(--pad-c) 60%, transparent);
+}
+.drum-btn.hit .drum-label, .drum-btn:active .drum-label { color: #0a0a14; }
+.drum-btn.hit .kbd-hint { background: rgba(0,0,0,.18); color: rgba(0,0,0,.75); border-color: transparent; }
+.drum-btn.hit::before { background: rgba(0,0,0,.25); }
+.drum-btn.has-sample .drum-label::after { display: none; }
+
+/* ── PADS · Notas (teclado de 12) ───────────────────────────────── */
+#panel-keys { padding: var(--panel-pad); border-radius: var(--r-xl); }
+.key-grid { gap: 12px; }
+.key-btn { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+/* Sostenidos/bemoles: más oscuros, como las teclas negras. */
+.key-btn:is([data-key*="#"], [data-key*="b"]) {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255,255,255,.03), transparent 60%),
+    linear-gradient(180deg, #101010, #070707);
+  color: var(--text-muted);
+}
+.key-btn:is([data-key*="#"], [data-key*="b"]):hover { color: var(--text); }
+.key-btn.active, .key-btn.active:is([data-key*="#"], [data-key*="b"]) {
+  background: linear-gradient(180deg, var(--accent2), var(--accent)); color: var(--on-accent);
+}
+.key-btn.prepared { border-color: var(--accent); }
+#pad-volume-tray, #bank-section { border-radius: var(--r-lg); }
+.bank-label, .tray-header { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); }
+
+/* ── Mezclador ──────────────────────────────────────────────────── */
+#mixer-bar { padding: 14px 16px; border-radius: var(--r-xl); }
+.mx-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.mx-hint { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: .7; }
+.mx-channel { border-radius: var(--r-md); background: var(--glass); border: 1px solid var(--border); padding: 10px 12px; }
+.mx-name { font-size: 12px; font-weight: 800; letter-spacing: .02em; }
+.mx-val { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ── Lista de canciones (sidebar) ───────────────────────────────── */
+.setlist-title { font-size: 18px; font-weight: 800; }
+.gi-song-item { padding: 8px 12px 6px; border-radius: var(--r-md); }
+.gi-song-cover { border-radius: 10px; }
+.gi-song-title { font-weight: 750; letter-spacing: -0.015em; }
+.gi-song-artist { color: var(--text-muted); }
+.gi-song-meta-line { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.gi-song-actions { gap: 4px; padding-top: 2px; margin-top: 4px; }
+.gi-song-actions .action-btn { width: 28px; height: 26px; border-radius: 8px; }
+.gi-song-item.active-song {
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 12%, var(--bg-card)), var(--bg-surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), var(--elev-1);
+}
+.setlist-tabs-toggle { border-radius: 999px; padding: 3px; }
+.s-toggle { border-radius: 999px; font-weight: 700; }
+
+/* ── Reproductor inferior ───────────────────────────────────────── */
+#track-player-bar { backdrop-filter: blur(14px); }
+#track-player-bar .tp-play { border-radius: 50%; box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* ── STEMS ──────────────────────────────────────────────────────── */
+.stems-deck { border-radius: var(--r-xl); }
+.stems-row-name, .stems-console-strip-name { font-weight: 750; letter-spacing: -0.01em; }
+.stems-console-strip { border-radius: var(--r-md); }
+
+/* ── Pantallas medianas: el transporte debe caber sin invadir el panel vecino ── */
+@media (max-width: 1440px) {
+  #panel-metro { gap: 14px; padding: 14px 16px; }
+  #panel-metro .metro-main-btn { width: 72px; height: 52px; border-radius: 14px; }
+  .metro-bpm-big { font-size: 38px; }
+  .hm-clickseq { font-size: 11.5px; line-height: 1.15; }
+  .hm-clickseq span { white-space: normal; }
+  .drum-btn .drum-label { font-size: 17px; }
+}
+@media (max-width: 1280px) {
+  #panel-metro { gap: 10px; padding: 12px 12px; }
+  #panel-metro .metro-main-btn { width: 60px; height: 46px; }
+  .metro-bpm-big { font-size: 32px; }
+  .hm-section--sounds { min-width: 0; }
+  .hm-clickseq { font-size: 11px; }
+  .drum-btn .drum-label { font-size: 15px; }
+}
