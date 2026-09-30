@@ -102,6 +102,8 @@ function onLoaded({ audio: a, song: s }) {
   };
   if (a.buffer) ready(); else a.addEventListener('loadedmetadata', ready, { once: true });
   a.addEventListener('play', startLoop);
+  // Si el audio no carga (archivo movido/dañado) la franja no debe quedarse en «Analizando…».
+  a.addEventListener('error', () => { if (audio === a) onCleared(); }, { once: true });
 }
 
 function onCleared() {
