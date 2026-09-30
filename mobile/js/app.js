@@ -478,13 +478,13 @@ function renderSongs() {
       <span class="song-info">
         <b>${esc(s.title)}</b>
         <small>${esc(s.artist || '—')}</small>
+        <span class="song-pills">${s.bpm ? `<span class="pill">${esc(String(s.bpm))} BPM</span>` : ''}${s.sequencePath ? '<span class="pill seq">SEC</span>' : ''}${s.originalPath ? '<span class="pill ori">ORI</span>' : ''}</span>
       </span>
       <span class="song-meta">
         <span class="song-meta-top">
           <span class="offline-dot" data-cid="${s.cloudId}" title="Disponible sin internet"></span>
           <span class="key-badge">${esc(s.key || '—')}</span>
         </span>
-        ${s.bpm ? `<span class="bpm-badge">${esc(String(s.bpm))} BPM</span>` : ''}
       </span>
     </div>`).join('');
   if (ordering) {

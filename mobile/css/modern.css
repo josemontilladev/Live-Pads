@@ -1,0 +1,182 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LivePads Móvil — mismo estilo que la app de Android (capas oscuras + ámbar,
+   Inter, tarjetas con degradado y borde fino, etiquetas y consola por pestañas).
+   Se carga DESPUÉS de app.css: solo sobrescribe el aspecto, no la lógica.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0a0a0c;
+  --surface: #131316;
+  --card: #1a1a1f;
+  --pressed: #232329;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --accent: #fbae00;
+  --accent-2: #ffc83d;
+  --accent-dim: rgba(251, 174, 0, 0.14);
+  --on-accent: #141000;
+  --radius: 18px;
+  --grad: linear-gradient(180deg, #1a1a1f, #131316);
+}
+html, body { background: var(--bg); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+meta { display: none; }
+
+/* ── Botones redondos de cabecera (como la app) ─────────────────────────── */
+.icon-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--card); }
+.icon-btn .ico { width: 19px; height: 19px; }
+
+/* ── Login ──────────────────────────────────────────────────────────────── */
+.login-logo { box-shadow: 0 0 60px -4px rgba(251, 174, 0, 0.32); border-radius: 22px; }
+.login-box h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.04em; }
+.btn-primary { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent); border-radius: 14px; font-weight: 800; box-shadow: 0 8px 26px rgba(251, 174, 0, 0.25); }
+#login-form input { border-radius: 14px; background: var(--surface); }
+.btn-google { border-radius: 14px; }
+
+/* ── Cabecera de la lista: título grande ────────────────────────────────── */
+.lib-head { background: rgba(10, 10, 12, 0.92); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: none; padding-top: calc(14px + env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+.lib-logo { display: none; }
+.lib-title-txt { display: flex; flex-direction: column; min-width: 0; }
+.lib-big { font-size: 30px; font-weight: 900; letter-spacing: -0.04em; line-height: 1.05; }
+.lib-title h2 { display: inline; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.lib-title h2 .caret { width: 13px; height: 13px; }
+.lib-sub { display: inline; font-size: 13px; font-weight: 600; margin-left: 4px; }
+.lib-sub::before { content: '· '; }
+#screen-setlist .lib-big { display: none; }
+
+/* ── Buscar y chips (estilo píldora) ────────────────────────────────────── */
+#search, #sl-search, #sl-name { height: 50px; border-radius: 16px; background: var(--surface); padding: 0 16px; }
+.chips { padding: 10px 2px 8px; }
+.chip { height: 38px; padding: 0 15px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--card); color: var(--text); display: inline-flex; align-items: center; }
+.chip.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.chip .hoy { border-radius: 4px; }
+
+/* ── Barra de descarga (tarjeta) ────────────────────────────────────────── */
+.offline-bar {
+  height: 52px; padding: 0 16px; justify-content: flex-start; border-radius: 16px;
+  background: var(--grad); border: 1px solid var(--border); color: var(--text); font-size: 13.5px; letter-spacing: 0;
+}
+.offline-bar .ico { color: var(--accent); }
+.offline-bar.done { background: rgba(134, 239, 172, 0.08); border-color: rgba(134, 239, 172, 0.3); color: #86efac; }
+.offline-bar.done .ico { color: #86efac; }
+
+/* ── En vivo ahora ──────────────────────────────────────────────────────── */
+.live-card {
+  padding: 16px; border-radius: 20px; border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, rgba(154, 160, 173, 0.12), var(--surface));
+}
+.live-card.is-live { border-color: rgba(74, 222, 128, 0.4); background: linear-gradient(135deg, rgba(74, 222, 128, 0.14), var(--surface)); }
+.live-label { color: var(--muted); font-weight: 900; letter-spacing: 0.13em; }
+.live-card.is-live .live-label { color: #4ade80; }
+.live-title { font-size: 18px; font-weight: 900; letter-spacing: -0.02em; }
+.live-key { font-size: 30px; font-weight: 900; letter-spacing: -0.04em; }
+
+/* ── Tarjetas de canción ────────────────────────────────────────────────── */
+.song-list { gap: 8px; }
+.song-card {
+  padding: 10px; border-radius: 18px; background: var(--grad); border: 1px solid var(--border);
+  contain-intrinsic-size: 0 84px;
+}
+.song-card:active { background: var(--card); transform: scale(0.985); }
+.song-cover { width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #26262d, #17171b); font-weight: 900; font-size: 20px; }
+.song-info b { font-size: 15.5px; font-weight: 800; letter-spacing: -0.015em; }
+.song-info small { font-size: 12.5px; margin-top: 1px; }
+.song-pills { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.pill {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 800; color: var(--muted); background: rgba(255, 255, 255, 0.06); font-variant-numeric: tabular-nums;
+}
+.pill.seq { color: #22c55e; background: rgba(34, 197, 94, 0.12); }
+.pill.ori { color: var(--accent); background: rgba(251, 174, 0, 0.12); }
+.song-meta { align-self: stretch; justify-content: center; }
+.song-meta-top { flex-direction: column-reverse; align-items: flex-end; gap: 8px; }
+.key-badge { min-width: 36px; padding: 3px 8px; border-radius: 8px; font-size: 12.5px; font-weight: 800; background: var(--accent-dim); border: 1px solid rgba(251, 174, 0, 0.28); }
+.offline-dot { width: 10px; height: 10px; }
+.bpm-badge { display: none; }
+.skel-box { background: linear-gradient(100deg, #1a1a1f 30%, #232329 50%, #1a1a1f 70%); background-size: 200% 100%; }
+
+/* ── Reproductor ────────────────────────────────────────────────────────── */
+#screen-player { background: linear-gradient(180deg, rgba(251, 174, 0, 0.10), var(--bg) 46%) no-repeat, var(--bg); }
+.pl-head { background: transparent; border-bottom: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.pl-title h2 { font-size: 15px; font-weight: 800; }
+.pl-cover, .pl-cover-fallback {
+  border-radius: 26px;
+  box-shadow: 0 0 50px -6px rgba(251, 174, 0, 0.2), 0 16px 34px rgba(0, 0, 0, 0.55);
+}
+.pl-cover-fallback { background: linear-gradient(135deg, #26262d, #17171b); }
+.pl-body .pl-title-big { text-align: center; }
+
+.seg { padding: 4px; gap: 4px; border-radius: 18px; background: var(--surface); overflow: visible; }
+.seg-btn { height: 46px; border-radius: 13px; font-size: 13.5px; font-weight: 800; color: var(--text); }
+.seg-btn.active { color: var(--on-accent); }
+.seg-btn[data-mode="sequence"].active { background: #22c55e; color: #05230f; }
+.seg-btn[data-mode="click"].active { background: #3b82f6; color: #eaf1ff; }
+.seg-btn[data-mode="original"].active { background: var(--accent); color: var(--on-accent); }
+
+.transpose { border-radius: 16px; background: var(--surface); padding: 4px 6px; flex: 1; justify-content: space-between; height: 52px; }
+.tr-label { font-size: 14px; }
+.tr-label b { color: var(--text); font-size: 17px; font-weight: 900; }
+.tool-toggle { width: 52px; height: 52px; border-radius: 16px; background: var(--surface); }
+.mini-btn { width: 42px; height: 42px; border-radius: 12px; background: var(--card); }
+
+.pl-transport { gap: 14px; padding: 14px 0 8px; }
+.round-btn { width: 54px; height: 54px; background: var(--grad); border: 1px solid var(--border); }
+.round-btn.big {
+  width: 78px; height: 78px; border: none; color: var(--on-accent);
+  background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 10px 28px rgba(251, 174, 0, 0.38);
+}
+.nav-btn { border-radius: 14px; background: var(--grad); }
+
+/* Barra de posición: pista gruesa con relleno ámbar y cabezal blanco */
+.pl-progress { margin-top: 10px; }
+#pl-seek { -webkit-appearance: none; appearance: none; background: transparent; height: 30px; --p: 0%; }
+#pl-seek::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--accent) var(--p), rgba(255, 255, 255, 0.12) var(--p)); }
+#pl-seek::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(251, 174, 0, 0.22); border: none; }
+#pl-seek::-moz-range-track { height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.12); }
+#pl-seek::-moz-range-progress { height: 10px; border-radius: 5px; background: var(--accent); }
+#pl-seek::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: none; box-shadow: 0 0 0 5px rgba(251, 174, 0, 0.22); }
+.pl-progress span { color: var(--text); font-weight: 700; }
+.pl-progress span:last-child { color: var(--muted); font-weight: 500; }
+
+/* ── Consola con pestañas (Pads · Click · Mezcla) ───────────────────────── */
+.pl-panels { margin-top: 6px; padding: 12px; border-radius: 22px; background: var(--grad); border: 1px solid var(--border); }
+.deck-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 16px; background: rgba(10, 10, 12, 0.6); }
+.deck-tab { flex: 1; height: 42px; border-radius: 12px; border: 1px solid transparent; background: transparent; color: var(--muted); font-weight: 800; font-size: 13.5px; }
+.deck-tab.active { background: var(--card); border-color: var(--border-strong); color: var(--text); }
+.pl-panels .panel { background: transparent; border: none; padding: 0; margin: 0; }
+.pl-panels .panel.deck-hidden { display: none; }
+.pl-panels .panel > h3, .pl-panels .panel .metro-top h3, .pl-panels .panel .panel-row h3 { display: none; }
+.pl-panels .panel .metro-top { justify-content: flex-end; }
+.mix-ch { background: rgba(10, 10, 12, 0.5); border: 1px solid var(--border); border-radius: 16px; padding: 10px 14px 6px; margin-bottom: 10px; }
+.mix-ch:last-of-type { border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.mix-name { font-size: 14px; font-weight: 800; }
+.metro-sig, .sub-btn { border-radius: 12px; }
+.bpm-val { font-size: 44px; font-weight: 900; letter-spacing: -0.05em; min-width: 96px; }
+.btn-toggle { height: 50px; border-radius: 16px; background: var(--card); }
+.btn-toggle.on { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+.beat-dot { width: 24px; height: 24px; background: var(--card); }
+
+.pads-grid { gap: 8px; }
+.pad-btn { height: 66px; border-radius: 14px; font-size: 21px; font-weight: 900; letter-spacing: -0.03em; background: linear-gradient(180deg, var(--pressed), var(--card)); }
+.pad-btn.on { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent); box-shadow: 0 6px 20px rgba(251, 174, 0, 0.35); }
+.pad-btn.song-key { border-color: rgba(251, 174, 0, 0.5); }
+
+/* ── Hojas y avisos ─────────────────────────────────────────────────────── */
+.sheet-card { background: var(--surface); border-color: var(--border-strong); border-radius: 26px 26px 0 0; }
+.sheet-item { border-radius: 16px; background: var(--grad); }
+.btn-ghost { border-radius: 14px; }
+.toast { background: var(--pressed); border-color: var(--border-strong); border-radius: 14px; }
+.net-banner { border-radius: 14px; }
+.install-banner { border-radius: 20px; background: var(--grad); border-color: var(--border-strong); }
+.install-yes { background: var(--accent); color: var(--on-accent); border-radius: 12px; }
+
+/* ── Mini reproductor flotante (móvil / tableta) ────────────────────────── */
+@media (max-width: 999px) {
+  .mini {
+    left: 10px; right: 10px; width: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 8px 8px 10px; border-radius: 22px; border: 1px solid var(--border-strong);
+    background: rgba(27, 27, 32, 0.96); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  }
+  .mini-cover { border-radius: 10px; background: linear-gradient(135deg, #26262d, #17171b); }
+  .mini-play { background: linear-gradient(180deg, var(--accent-2), var(--accent)); color: var(--on-accent); }
+  .mini-mode { border-radius: 10px; }
+}
+.mini-status { background: none; }
