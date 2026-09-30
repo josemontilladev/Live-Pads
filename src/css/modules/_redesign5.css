@@ -80,3 +80,78 @@
   .stems-tb-left { flex: 1 1 100%; flex-wrap: wrap; row-gap: 6px; }
   .stems-tb-mid { margin-left: 0; flex: 1 1 auto; justify-content: center; }
 }
+
+/* ── Onda: estado vacío (siempre visible, una sola línea) ───────── */
+.sw-empty { display: none; align-items: center; gap: 9px; font-size: 12px; color: var(--text-muted); }
+.sw-empty svg { color: var(--accent); flex: 0 0 auto; }
+.sw-empty b { color: var(--text); font-weight: 800; }
+#seq-wave.is-empty { padding: 8px 14px; opacity: .85; }
+#seq-wave.is-empty .sw-stage, #seq-wave.is-empty .sw-actions, #seq-wave.is-empty .sw-title,
+#seq-wave.is-empty .sw-now, #seq-wave.is-empty .sw-next { display: none; }
+#seq-wave.is-empty .sw-empty { display: inline-flex; }
+
+/* ── Stems · deck: el transporte pasa a otra fila si no cabe (nunca se monta) ── */
+.stems-topbar { flex-wrap: wrap; row-gap: 8px; }
+.stems-tb-left { flex: 1 1 620px; min-width: 0; flex-wrap: wrap; row-gap: 6px; }
+.stems-tb-mid { flex: 0 0 auto; margin-left: auto; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   STEMS en pantallas pequeñas: el deck se adapta al ANCHO REAL del área
+   (container query), aprovechando cada píxel sin montar controles.
+   ═══════════════════════════════════════════════════════════════════ */
+.stems-main { container-type: inline-size; container-name: stems; }
+
+@container stems (max-width: 1180px) {
+  .stems-topbar { padding: 8px 10px; gap: 8px; }
+  .stems-tb-left { flex: 1 1 auto; gap: 6px; }
+  .stems-tb-left .stems-field { padding: 0 8px; height: 38px; gap: 6px; }
+  .stems-tb-left .stems-field > label { font-size: 9px; letter-spacing: .05em; }
+  .stems-tb-left .stems-field--select select { min-width: 0; }
+  .stems-tb-mid { padding: 4px 12px 4px 6px; min-height: 48px; gap: 4px; }
+  .stems-tb-mid .stems-tb-btn { width: 32px; height: 32px; }
+  .stems-tb-mid .stems-tb-btn--play { width: 40px; height: 40px; margin: 0 2px; }
+  .stems-tb-time { font-size: 14px; min-width: 76px; }
+  .stems-tb-mid .stems-readout { display: none; }
+  .stems-actions--unified { padding: 6px 10px 8px; gap: 6px 8px; }
+  .stems-actions-primary { gap: 4px; padding: 3px; }
+  .stems-project-name { width: 130px; flex-basis: 130px; font-size: 13px; }
+  .stems-tools-label { display: none; }
+  .stems-tools-group { padding: 3px 4px; gap: 4px; }
+  .stems-btn { height: 30px; padding-left: 9px; padding-right: 9px; }
+  .stems-tb-right { margin-left: 0; gap: 6px; }
+  .stems-quickmix { padding: 6px 2px; gap: 5px; }
+  .stems-quickmix button { height: 26px; padding: 0 10px; font-size: 11.5px; }
+  .stems-quickmix-label { display: none; }
+}
+@container stems (max-width: 860px) {
+  .stems-tb-left .stems-field--pitch > label, .stems-tb-left .stems-field--select > label { display: none; }
+  .stems-tb-left .stems-bpm-detect { padding: 0 8px; }
+  .stems-tb-time #stems-tb-total, .stems-tb-time-sep { display: none; }
+  .stems-project-name { width: 96px; flex-basis: 96px; }
+  .stems-zoomctl .stems-zoom-fit { display: none; }
+  .stems-zoom-readout { display: none; }
+  .stems-btn--primary svg + * { }
+}
+
+/* ── Pads en anchos medianos: opciones del metrónomo en 2 columnas ── */
+@media (max-width: 1300px) {
+  /* El metrónomo pasa a 2 filas: [play · BPM] arriba, [compás · opciones] abajo. */
+  #panel-metro { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "play bpm" "compas sounds"; align-items: center; gap: 8px 16px; }
+  #panel-metro .hm-play { grid-area: play; }
+  #panel-metro .hm-bpm { grid-area: bpm; min-width: 0; }
+  #panel-metro .hm-compas { grid-area: compas; display: flex; flex-direction: row; align-items: center; gap: 8px; }
+  #panel-metro .hm-section--sounds { grid-area: sounds; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; align-items: center; min-width: 0; }
+  #panel-metro .hm-section--sounds .hm-clickseq { font-size: 10.5px; line-height: 1.15; }
+  #panel-metro .hm-section--sounds .metro-dropdown { min-width: 0; width: 100%; }
+  #panel-metro .metro-mult-row { display: flex; gap: 4px; }
+}
+@media (max-width: 1300px) and (max-height: 720px) {
+  .key-indicator { display: none !important; }
+  #panel-keys { padding: 8px; }
+  .key-grid { gap: 6px; grid-auto-rows: minmax(0, 1fr); }
+  .key-btn { min-height: 0; }
+}
+
+/* La onda de Pads no existe en Stems (su reproductor es otro). */
+body:has(#workspace-stems:not(.hidden)) #seq-wave { display: none !important; }
+@media (max-width: 1300px) { #panel-metro .hm-compas .metro-sig-select { min-width: 68px; width: 68px; } }
