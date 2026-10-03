@@ -33,4 +33,6 @@
 @import url('./modules/_redesign3.css');
 @import url('./modules/_redesign4.css');
 @import url('./modules/_redesign5.css');
+/* Stems: tarjetas modernas (lista, cabecera de pista, canal de consola). */
+@import url('./modules/_redesign6.css');
 @import url('./modules/_responsive.css');

@@ -450,6 +450,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   q('#sidebar').classList.remove('open');
 
+  // Sincronización de arranque: con el preloader aún visible, baja lo nuevo del
+  // repertorio (canciones, servicios, carátulas) y dice qué está haciendo. Tiene
+  // tope de tiempo: sin red ni sesión no retrasa nada (el login no se espera: la
+  // sesión se restaura al principio del arranque).
+  try {
+    const { bootSyncOnce } = await import('./cloud/libraryLive.js');
+    await bootSyncOnce({ onStatus: bootStatus, maxMs: 12000 });
+    bootStatus('Todo al día');
+  } catch (_) {}
+
   // Hide preloader smoothly
   setTimeout(() => {
     const preloader = q('#preloader');
@@ -931,6 +941,15 @@ function bindHamburgerMenu() {
     midi:      ['#embed-midi',      '#set-mappings'],
   };
   window.addEventListener('livepads:sidebar-tab', (ev) => {
+    // Cuenta y librerías ya NO viven apretadas en el menú lateral: se abren como
+    // Centro de cuenta en la pantalla principal (también desde el chip de arriba).
+    if (ev.detail.tab === 'account') {
+      q('#sidebar')?.classList.remove('open');
+      import('./cloud/accountPanel.js').then((m) => m.openAccountPanel()).catch((e) => {
+        window.showToast?.(`No se pudo abrir Mi cuenta: ${(e && e.message) || e}`, 'error');
+      });
+      return;
+    }
     const spec = AUTO_EMBED[ev.detail.tab];
     if (!spec) return;
     const pane = q(spec[0]);
@@ -1025,6 +1044,17 @@ function bindRestOfApp() {
     // actualizó un compañero se refrescaba en la Librería pero el servicio
     // seguía mostrando (y tocando) el tono, BPM y letra viejos.
     if (syncServiceWithLibrary()) renderServiceList();
+  });
+
+  // Descarga automática de carátulas y audios (sin pulsar "Sincronizar"): un aviso
+  // al empezar y otro al terminar; el progreso fino vive en el panel Mi cuenta.
+  window.addEventListener('livepads:file-sync', (ev) => {
+    const d = (ev && ev.detail) || {};
+    if (d.finished) {
+      showToast(d.failed ? `Archivos al día (${d.downloaded} descargados, ${d.failed} fallaron).` : `${d.downloaded} archivo(s) descargados: carátulas y audios al día.`, d.failed ? 'info' : 'success');
+    } else if (d.announce && d.total) {
+      showToast(`Descargando ${d.total} archivo(s) del repertorio en segundo plano…`, 'info');
+    }
   });
 
   // Recarga la librería DESDE DISCO (sin guardar el store antes): lo usa el
@@ -1165,6 +1195,8 @@ function bindRestOfApp() {
   // Arranca el motor de bajada automática (arranque/focus/intervalo). Se
   // auto-protege: sin sesión / librería / red no hace nada.
   import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
+  // Chip de cuenta (avatar + librería activa) en la barra superior.
+  import('./cloud/accountChip.js').then(m => m.startAccountChip()).catch(() => {});
   // "Qué suena ahora" → nube (para el móvil de la banda fuera de la WiFi).
   import('./cloud/nowPlaying.js').then(m => m.startNowPlayingPublisher()).catch(() => {});
   // Buzón de invitaciones: si alguien te invitó por email, te aparece dentro de
