@@ -35,8 +35,9 @@ import { initLibrarySelector } from './cloud/librarySelector.js';
 
 // Pads workspace guided tour (mirrors the Stems one). Targets stable static
 // elements in the Pads layout. Its own one-time localStorage flag.
-const PADS_TOUR_KEY = 'livepads-pads-tour-seen-v2';
+const PADS_TOUR_KEY = 'livepads-pads-tour-seen-v3';
 const PADS_TOUR_STEPS = [
+  { target: '#btn-account-chip', title: 'Tu cuenta y tu repertorio', body: 'Aquí ves con qué cuenta y repertorio trabajas. Al tocarlo abres <b>Mi cuenta</b>: cambiar de librería, <b>invitar al equipo</b> (solo ver o editar) y sincronizar. La app <b>sincroniza sola</b> al abrir: canciones, servicios, carátulas y audios (los audios siguen bajando en segundo plano).' },
   { target: '#key-grid',        title: 'Pads de adoración',     body: 'Los 12 tonos. Pulsa uno para lanzar un colchón continuo; al cambiar de tono hace <b>crossfade</b> automático, sin silencios. También responden al teclado/MIDI.' },
   { target: '#pad-bank-select', title: 'Bancos de sonido',      body: 'Cambia el carácter del pad (cálido, etéreo, etc.). Cada banco tiene los 12 tonos precargados para que el cambio sea instantáneo.' },
   { target: '#bpm-display',     title: 'Metrónomo',             body: 'Tempo, <b>compás</b> (4/4, 3/4, 6/8…), sonido del click y multiplicador 1x/2x. Cada canción puede llevar su compás y al lanzarla el metrónomo lo adopta. Timing sample-accurate.' },
@@ -45,6 +46,7 @@ const PADS_TOUR_STEPS = [
   { target: '#src-seq',         title: 'Reproductor y fuentes', body: 'Elige la fuente: <b>Secuencia</b>, <b>Click</b> u <b>Original</b>. El Play reproduce o pausa según lo seleccionado, y el botón de al lado controla <b>solo la secuencia</b> — todo mapeable a MIDI.' },
   { target: '#gi-search',       title: 'Setlist y librería',    body: 'Busca por título, artista, letra, <b>tono:G</b> o <b>tag:navidad</b>. Cada card muestra tono · BPM · compás; al pulsarla, el metrónomo toma su tempo, compás y tono. Arma el servicio arrastrando.' },
   { target: '.ws-tab[data-workspace="stems"]', title: 'Editor de Stems', body: 'La pestaña Stems abre el editor con <b>separación por IA</b> (voz/batería/bajo/otros), recorte y fades por clip, y click inteligente alineado a la canción.' },
+  { target: '#btn-live-mode',  title: 'Modo en vivo',          body: 'Deja solo lo esencial para el servicio: el setlist, la canción en curso y la siguiente, con la letra y los acordes. Se activa y se sale con <b>Ctrl+L</b>.' },
   { target: '#btn-menu',        title: 'Menú y Ajustes',        body: 'Desde aquí: <b>Mapeo MIDI/Teclado (Learn)</b>, temas, atajos de teclado, companion y más. Casi todo se controla sin ratón — mapea cualquier control a tu controlador.' },
 ];
 function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); }
