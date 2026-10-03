@@ -195,20 +195,23 @@
   background: color-mix(in srgb, var(--accent) 14%, #000);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
-.gi-lyrics-accordion .chord-line {
+.lyrics-text-content .chord-line {
   display: block;
-  width: fit-content;
+  width: auto;
   max-width: 100%;
-  margin-top: 10px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  margin: 12px 0 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: .4px;
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 11%, #000);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
+/* La fila de acordes queda pegada a la línea de letra que acompaña. */
+.lyrics-text-content .chord-line + .lyric-line { margin-top: 2px; }
 .gi-lyrics-accordion .section-header-line {
   margin-top: 24px;
   margin-bottom: 8px;
@@ -329,3 +332,56 @@
   #account-overlay:not(.is-embedded) .acc-tab-panel:not(.hidden) { grid-template-columns: 1fr; }
   #account-overlay:not(.is-embedded) .acc-tab-panel { border-left: none; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Pulido global: tipografía ligera y tamaños contenidos en TODA la app.
+   (Los pesos numéricos del resto de módulos ya bajaron un paso; aquí se fija la
+   escala base y se corrigen los textos más grandes.)
+   ═══════════════════════════════════════════════════════════════════ */
+body { font-weight: 400; }
+b, strong, th, h1, h2, h3, h4, h5, h6 { font-weight: 600; }
+button, input, select, textarea { font-weight: 500; }
+
+/* Etiquetas micro: ni mayúsculas sostenidas ni tracking ancho (salvo secciones de letra). */
+.section-header-line { text-transform: uppercase; letter-spacing: 1.2px; }
+
+/* Pads de batería: nombre más pequeño y fino. */
+.drum-label { font-size: 16px; font-weight: 500; letter-spacing: 0; }
+.metro-bpm-big { font-weight: 500; }
+
+/* Selectores nativos con el estilo oscuro de la app (antes salían blancos). */
+select {
+  color-scheme: dark;
+  background-color: var(--bg-card, #141414);
+  color: var(--text, #fff);
+  border: 1px solid var(--border-strong, rgba(255,255,255,.15));
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+option { background: #141414; color: #fff; }
+
+/* ═══ Letra con acordes: sin huecos al ocultar acordes (card, editor y pantalla completa) ═══ */
+.lyrics-text-content.hide-chords .lyric-line,
+.lyrics-text-content.hide-chords .lyric-line.has-inline-chords,
+.lfs-content.hide-chords .lyric-line,
+.lfs-content.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
+.hide-chords .chord-line, .hide-chords .inline-chord { display: none !important; }
+/* Líneas en blanco consecutivas no apilan huecos grandes. */
+.lyrics-text-content .lyrics-spacer + .lyrics-spacer,
+.lfs-content .lyrics-spacer + .lyrics-spacer { display: none; }
+.lyrics-text-content.hide-chords .chord-line + .lyrics-spacer { display: none; }
+/* Que una palabra larga o un acorde no rompa el ancho de la tarjeta. */
+.lyrics-text-content .lyric-line { overflow-wrap: anywhere; }
+
+/* Cada encabezado de sección en su propia línea (antes, dos seguidos se juntaban en
+   una fila al ocultar los acordes y descuadraban el espacio). */
+.lyrics-text-content .section-header-line { display: flex; width: fit-content; }
+/* Al ocultar acordes, una sección que solo tenía acordes (p. ej. un INTRO) no deja
+   un título vacío. */
+.lyrics-text-content.hide-chords .section-header-line:has(+ .chord-line + .lyrics-spacer),
+.lyrics-text-content.hide-chords .section-header-line:has(+ .chord-line + .section-header-line),
+.lyrics-text-content.hide-chords .section-header-line:has(+ .chord-line:last-child) { display: none; }
+.lyrics-text-content.hide-chords > .section-header-line:first-child + .chord-line + .lyrics-spacer + .section-header-line { margin-top: 0; }

@@ -87,9 +87,9 @@
   align-items: center;
   gap: 7px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  text-transform: none;
   color: var(--accent);
 }
 .pk-inst {
@@ -99,7 +99,7 @@
   border-radius: 7px;
   padding: 4px 8px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .pk-reverb {
@@ -109,7 +109,7 @@
   background: var(--bg-card);
   color: var(--text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
@@ -139,7 +139,7 @@
 .pk-oct-label {
   min-width: 62px;
   text-align: center;
-  font-size: 11px; font-weight: 700;
+  font-size: 11px; font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
 }
@@ -147,7 +147,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px; font-weight: 600; letter-spacing: 1px;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.2px;
   color: var(--text-muted);
 }
 .pk-vol .stems-range { width: 110px; }
@@ -162,7 +162,7 @@
   border-radius: 999px;
   background: var(--bg-card);
   color: var(--text);
-  font-size: 11px; font-weight: 700;
+  font-size: 11px; font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -225,7 +225,7 @@
 .pk-white:last-child { border-top-right-radius: 4px; margin-right: 0; }
 .pk-white .pk-name {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   color: #8a8a93;
   pointer-events: none;
 }
@@ -236,7 +236,7 @@
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
   background: rgba(0, 0, 0, 0.07);
   border-radius: 3px;

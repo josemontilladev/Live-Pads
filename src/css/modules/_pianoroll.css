@@ -73,9 +73,9 @@
   align-items: center;
   gap: 7px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  text-transform: none;
   color: var(--accent);
 }
 .pr-snap {
@@ -83,9 +83,9 @@
   align-items: center;
   gap: 6px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.5px;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--text-muted);
 }
 .pr-snap select {
@@ -124,8 +124,8 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 .pr-legend-title {
-  font-size: 10px; font-weight: 600; letter-spacing: 1px;
-  text-transform: uppercase; color: var(--accent);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.2px;
+  text-transform: none; color: var(--accent);
   padding: 2px 4px 6px;
 }
 .pr-legend-row {
@@ -137,7 +137,7 @@
   flex-shrink: 0;
   min-width: 78px;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px; font-weight: 700;
+  font-size: 10px; font-weight: 600;
   color: var(--text-muted);
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -153,7 +153,7 @@
   background: var(--bg-card);
   color: var(--text);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
@@ -175,7 +175,7 @@
   border-radius: 7px;
   background: var(--bg-card);
   color: var(--text-muted);
-  font-size: 12px; font-weight: 700;
+  font-size: 12px; font-weight: 600;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
@@ -210,7 +210,7 @@
   justify-content: flex-end;
   padding-right: 6px;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   border-bottom: 1px solid rgba(0, 0, 0, 0.4);
   background: linear-gradient(180deg, #f6f6f6, #e9e9e9);
@@ -245,7 +245,7 @@
   align-items: center;
   padding-left: 4px;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   border-left: 1px solid rgba(255, 255, 255, 0.12);
   pointer-events: none;
@@ -293,7 +293,7 @@
   top: 50%;
   transform: translateY(-50%);
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   color: #fff;
   pointer-events: none;

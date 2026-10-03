@@ -171,7 +171,7 @@ input:not([type="range"]), select, textarea { border-radius: 6px; }
 /* Chips/badges: misma caja en Librería (Pads) y Stems. */
 .gi-badge, .stems-row-kind {
   padding: 2px 7px;
-  font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.5px;
   border-radius: 5px;
 }
 
