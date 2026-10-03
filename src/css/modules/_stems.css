@@ -62,7 +62,7 @@ body[data-workspace="stems"] #body {
   background: transparent;
   color: var(--text-muted);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.4px;
   padding: 6px 14px;
   border-radius: 7px;
@@ -194,9 +194,9 @@ body[data-workspace="stems"] #body {
   writing-mode: vertical-rl;
   transform: rotate(180deg);    /* lee de abajo hacia arriba */
   font-size: 11px;
-  font-weight: 600;             /* mismo estilo discreto/ligero que el expandido */
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-weight: 500;             /* mismo estilo discreto/ligero que el expandido */
+  letter-spacing: 0.2px;
+  text-transform: none;
   color: var(--text-muted);
 }
 .ssl-rail-count {
@@ -210,7 +210,7 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
   flex-shrink: 0;
@@ -229,7 +229,7 @@ body[data-workspace="stems"] #body {
 }
 .ssl-add:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .ssl-add svg { width: 16px; height: 16px; }
-.ssl-title { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
+.ssl-title { font-size: 11px; font-weight: 500; letter-spacing: 0.5px; text-transform: none; color: var(--text-muted); }
 
 /* Encabezado del panel (expandido): icono música plano + título + botón contraer.
    El icono (.ssl-title-icon) y el título (.ssl-title-label) comparten estilo con
@@ -238,8 +238,8 @@ body[data-workspace="stems"] #body {
 .ssl-title-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
 .ssl-title-icon svg { width: 16px; height: 16px; }
 .ssl-title-label {
-  font-size: 11px; font-weight: 600; letter-spacing: 1.2px;
-  text-transform: uppercase; color: var(--text-muted);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.2px;
+  text-transform: none; color: var(--text-muted);
 }
 .ssl-collapse-btn {
   margin-left: auto;
@@ -264,7 +264,7 @@ body[data-workspace="stems"] #body {
 .ssl-slot { display: flex; gap: 3px; flex: 1; min-width: 0; }
 .ssl-slot-btn {
   flex: 1; padding: 6px; border: 1px solid var(--border); background: var(--bg-hover);
-  border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer;
+  border-radius: 6px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .ssl-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
@@ -289,7 +289,7 @@ body[data-workspace="stems"] #body {
   flex-shrink: 0;
   width: 19px; height: 19px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600; line-height: 1;
+  font-size: 11px; font-weight: 500; line-height: 1;
 }
 .ssl-check.seq  { color: #10b981; background: rgba(16, 185, 129, 0.18); }
 .ssl-check.orig { color: #f59e0b; background: rgba(245, 158, 11, 0.18); }
@@ -313,10 +313,10 @@ body[data-workspace="stems"] #body {
 }
 .ssl-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ssl-cover.no-cover { background: var(--song-tint, rgba(255, 255, 255, 0.06)); }
-.ssl-cover-fallback { font-size: 21px; font-weight: 600; color: rgba(255, 255, 255, 0.88); text-transform: uppercase; }
+.ssl-cover-fallback { font-size: 21px; font-weight: 500; color: rgba(255, 255, 255, 0.88); text-transform: none; }
 .ssl-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .ssl-row-title {
-  font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.25;
+  font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.25;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ssl-row-artist { font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -326,7 +326,7 @@ body[data-workspace="stems"] #body {
    lenguaje de color que el selector de Fuente (Secuencia/Click/Ref). */
 .ssl-tags { display: flex; gap: 3px; flex-shrink: 0; }
 .ssl-tag {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.2px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.2px;
   padding: 1px 5px; border-radius: 4px; line-height: 1.5;
 }
 .ssl-tag.seq  { color: #10b981; background: rgba(16, 185, 129, 0.16); }
@@ -348,11 +348,11 @@ body[data-workspace="stems"] #body {
 .sst-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sst-color, #a855f7); }
 .sst-name { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .sst-name input {
-  background: transparent; border: none; color: var(--text); font-size: 13px; font-weight: 700;
+  background: transparent; border: none; color: var(--text); font-size: 13px; font-weight: 600;
   padding: 1px 0; line-height: 1.3; height: 20px; width: 100%; outline: none; border-bottom: 1px dashed transparent;
 }
 .sst-name input:focus { border-bottom-color: var(--accent); }
-.sst-kind { font-size: 9.5px; font-weight: 700; letter-spacing: 0.4px; color: var(--text-muted); text-transform: uppercase; }
+.sst-kind { font-size: 9.5px; font-weight: 600; letter-spacing: 0.4px; color: var(--text-muted); text-transform: none; }
 .sst-del { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 6px; border-radius: 6px; font-size: 14px; line-height: 1; }
 .sst-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
 .sst-empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
@@ -389,11 +389,11 @@ body[data-workspace="stems"] #body {
   color: var(--accent);
 }
 .newsong-head-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.newsong-head-title { margin: 0; font-size: 16px; font-weight: 800; color: var(--text); line-height: 1.15; }
+.newsong-head-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); line-height: 1.15; }
 .newsong-head-sub   { font-size: 11.5px; color: var(--text-muted); }
 /* Cheat-sheet de atajos del timeline */
 .stems-newsong-modal.stems-shortcuts { width: 460px; }
-.stems-shortcuts-title { margin: 0 0 14px; font-size: 14px; font-weight: 600; color: var(--text); }
+.stems-shortcuts-title { margin: 0 0 14px; font-size: 14px; font-weight: 500; color: var(--text); }
 .stems-shortcuts-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
 .stems-shortcut-row {
   display: grid; grid-template-columns: 175px 1fr; align-items: center; gap: 12px;
@@ -402,14 +402,14 @@ body[data-workspace="stems"] #body {
 .stems-shortcut-row:nth-child(odd) { background: rgba(255,255,255,0.025); }
 .stems-shortcut-row kbd {
   justify-self: start;
-  font: 600 11px/1.4 'Consolas', monospace;
+  font: 500 11px/1.4 'Consolas', monospace;
   color: var(--accent);
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--border);
   border-radius: 5px; padding: 2px 7px; white-space: nowrap;
 }
 .stems-shortcut-row span { font-size: 13px; color: var(--text-muted); }
-.stems-help-btn { font-weight: 600; }
+.stems-help-btn { font-weight: 500; }
 .stems-help-btn:hover { color: var(--accent); }
 
 /* Card shell shared by the bento blocks. Overflow is set per-component
@@ -447,7 +447,7 @@ body[data-workspace="stems"] #body {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent);
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
   pointer-events: none;
@@ -476,15 +476,15 @@ body[data-workspace="stems"] #body {
 
 .stems-brand {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent);
-  letter-spacing: 1.2px;
+  letter-spacing: 0.2px;
   white-space: nowrap;
 }
 .stems-brand span {
   color: var(--text);
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   font-size: 11px;
 }
 
@@ -544,7 +544,7 @@ body[data-workspace="stems"] #body {
   background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
   color: var(--accent);
 }
-.stems-speed.is-off-normal .stems-speed-select { color: var(--accent); font-weight: 600; }
+.stems-speed.is-off-normal .stems-speed-select { color: var(--accent); font-weight: 500; }
 
 /* Leaves del topbar (sin wrapper interno) — 32px, igual altura que un
    button standalone. La fila luce alineada visualmente. */
@@ -605,7 +605,7 @@ body[data-workspace="stems"] #body {
   font-size: 11px;
   letter-spacing: 0.3px;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 500;
   font-family: var(--font-main);
 }
 .stems-field input {
@@ -614,7 +614,7 @@ body[data-workspace="stems"] #body {
   border: none;
   color: var(--text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   width: 46px;
   font-family: var(--font-main);
   text-align: center;
@@ -628,7 +628,7 @@ body[data-workspace="stems"] #body {
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   color: var(--accent);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: var(--font-main);
   letter-spacing: 0.3px;
   padding: 4px 9px;
@@ -654,7 +654,7 @@ body[data-workspace="stems"] #body {
   border: none;
   color: var(--text);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: var(--font-main);
   cursor: pointer;
   padding: 0 4px;
@@ -697,7 +697,7 @@ body[data-workspace="stems"] #body {
   min-width: 24px;
   text-align: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   user-select: none;
   cursor: pointer;
@@ -708,7 +708,7 @@ body[data-workspace="stems"] #body {
   margin-left: 6px; height: 24px; padding: 0 10px;
   border: none; border-radius: 7px;
   background: var(--accent-grad); color: #0a0a14;
-  font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.3px;
   cursor: pointer; transition: filter 0.15s;
 }
 .stems-pitch-apply:hover { filter: brightness(1.08); }
@@ -786,7 +786,7 @@ body[data-workspace="stems"] #body {
   padding: 0 4px;
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .stems-tb-time #stems-tb-cur { color: var(--text); }
@@ -809,13 +809,13 @@ body[data-workspace="stems"] #body {
 }
 .stems-readout .label {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.3px;
   color: var(--text-muted);
 }
 .stems-readout .value {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--accent);
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -838,7 +838,7 @@ body[data-workspace="stems"] #body {
   color: var(--text);
   width: 22px; height: 22px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   border-radius: 4px;
   display: inline-flex;
@@ -862,8 +862,8 @@ body[data-workspace="stems"] #body {
   border: 1px solid var(--border);
   background: var(--bg-card);
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
   cursor: pointer;
   user-select: none;
@@ -877,7 +877,7 @@ body[data-workspace="stems"] #body {
   -webkit-appearance: none;
   background: var(--bg-card); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--r-md);
-  font: 600 11px/1 var(--font-main); letter-spacing: 0.3px;
+  font: 500 11px/1 var(--font-main); letter-spacing: 0.3px;
   padding: 6px 24px 6px 10px; cursor: pointer; outline: none;
   color-scheme: dark;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -892,8 +892,8 @@ body[data-workspace="stems"] #body {
   display: inline-flex;
   align-items: center;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.3px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   padding: 0 12px;            /* height viene de la regla unificada */
   border-radius: 999px;
   background: rgba(255,255,255,0.05);
@@ -1004,7 +1004,7 @@ body[data-workspace="stems"] #body {
   background: transparent;
   color: var(--text);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.1px;
   padding: 5px 8px;
   border-radius: 6px;
@@ -1031,7 +1031,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-tools-label {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.3px;
   color: var(--text-muted);
   margin-right: 4px;
@@ -1042,7 +1042,7 @@ body[data-workspace="stems"] #body {
   color: var(--on-accent);
   border-color: var(--accent);
   box-shadow: 0 0 14px var(--glow);
-  font-weight: 600;
+  font-weight: 500;
 }
 .stems-btn--accent:hover {
   background: var(--accent-grad);
@@ -1084,7 +1084,7 @@ body[data-workspace="stems"] #body {
   border-radius: var(--r-md);
   padding: 8px 12px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: var(--font-main);
   cursor: pointer;
   display: inline-flex;
@@ -1126,7 +1126,7 @@ body[data-workspace="stems"] #body {
   color: var(--text);
   font-family: var(--font-main);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 6px 24px 6px 10px;
   cursor: pointer;
   outline: none;
@@ -1161,9 +1161,9 @@ body[data-workspace="stems"] #body {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
-.stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--text); }
+.stems-cloud-panel h3 { margin: 0 0 8px; font-size: 16px; font-weight: 500; color: var(--text); }
 .stems-cloud-panel p { margin: 0 0 16px; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
-.stems-cloud-panel label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin: 10px 0 5px; letter-spacing: 0.3px; }
+.stems-cloud-panel label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 10px 0 5px; letter-spacing: 0.3px; }
 .stems-cloud-panel select, .stems-cloud-panel input {
   width: 100%; padding: 9px 12px; border-radius: 8px;
   background: var(--bg-surface); border: 1px solid var(--border);
@@ -1181,7 +1181,7 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card);
   color: var(--text-muted);
   font-family: var(--font-main);
-  font-size: 11px; font-weight: 600;
+  font-size: 11px; font-weight: 500;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
 }
@@ -1283,13 +1283,13 @@ body[data-workspace="stems"] #body {
 }
 .stems-head-spacer-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.3px;
   color: var(--accent);
 }
 .stems-head-spacer-count {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -1328,8 +1328,8 @@ body[data-workspace="stems"] #body {
   font-family: ui-monospace, Consolas, monospace;
   pointer-events: none;
 }
-.stems-tick-bar { font-size: 11px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
-.stems-tick-time { font-size: 10px; font-weight: 600; color: var(--accent); opacity: 0.8; }
+.stems-tick-bar { font-size: 11px; font-weight: 500; color: var(--text); letter-spacing: 0.2px; }
+.stems-tick-time { font-size: 10px; font-weight: 500; color: var(--accent); opacity: 0.8; }
 
 /* Markers layer — sits inside the head-tl so it scrolls horizontally
    with the ruler. Each marker's vertical line extends down through the
@@ -1381,7 +1381,7 @@ body[data-workspace="stems"] #body {
   border: 1px solid color-mix(in srgb, var(--ok) 55%, transparent);
   color: var(--ok);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.4px;
   padding: 2px 6px;
   margin-left: 2px;
@@ -1460,7 +1460,7 @@ body[data-workspace="stems"] #body {
   padding: 0;
   font: inherit;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1.5px;
@@ -1479,7 +1479,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-empty[hidden] { display: none; }
 .stems-empty-icon { color: var(--accent); opacity: 0.55; margin-bottom: 10px; }
-.stems-empty h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); font-weight: 700; }
+.stems-empty h3 { margin: 0 0 6px; font-size: 16px; color: var(--text); font-weight: 600; }
 .stems-empty p  { margin: 0; font-size: 13px; }
 .stems-empty strong { color: var(--accent); }
 
@@ -1538,10 +1538,10 @@ body[data-workspace="stems"] #body {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 .stems-sel-bar[hidden] { display: none; }
-.stems-sel-count { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.stems-sel-count { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; }
 .stems-sel-del {
   background: linear-gradient(135deg, #f87171 0%, var(--danger) 100%); color: #fff; border: none;
-  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer;
   transition: filter 0.15s;
 }
 .stems-sel-del:hover { filter: brightness(1.08); }
@@ -1619,7 +1619,7 @@ body[data-workspace="stems"] #body {
   background: linear-gradient(180deg, var(--bg-hover), var(--bg-surface));
   color: var(--text-muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.2s;
@@ -1650,10 +1650,10 @@ body[data-workspace="stems"] #body {
   display: inline-block;
   align-self: flex-start;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
-  text-transform: uppercase;
+  text-transform: none;
   padding: 1px 6px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
@@ -1690,7 +1690,7 @@ body[data-workspace="stems"] #body {
   border: 1px solid transparent;
   color: var(--text);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 1px 4px;
   margin-left: -4px;
   border-radius: 4px;
@@ -1777,7 +1777,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-vol-readout {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
   text-align: right;
@@ -1791,7 +1791,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-pan-letter {
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--accent);
   opacity: 0.7;
@@ -1957,13 +1957,13 @@ body[data-workspace="stems"] #body {
 .stems-console-toggle:active { transform: translateY(0.5px); }
 .stems-console-title {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.3px;
   color: var(--accent);
 }
 .stems-console-count {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text-muted);
   font-family: ui-monospace, Consolas, monospace;
 }
@@ -1980,9 +1980,9 @@ body[data-workspace="stems"] #body {
 /* Botón "Seleccionar todas". */
 .stems-console-selall {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.4px;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--text-muted);
   background: transparent;
   border: 1px solid var(--border);
@@ -2084,8 +2084,8 @@ body[data-workspace="stems"] #body {
 .stems-console-strip-head:active { cursor: grabbing; }
 .stems-console-strip-kind {
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
 }
 .stems-console-strip--click .stems-console-strip-kind { color: var(--src-click); }
@@ -2098,7 +2098,7 @@ body[data-workspace="stems"] #body {
 .stems-console-strip-name {
   display: block;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   width: 100%;
   max-width: 100%;
@@ -2119,13 +2119,13 @@ body[data-workspace="stems"] #body {
 }
 .stems-console-pan-label {
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
 }
 .stems-console-pan-readout {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text);
   text-align: right;
@@ -2218,7 +2218,7 @@ body[data-workspace="stems"] #body {
 
 .stems-console-strip-readout {
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.4px;
   color: var(--text);
   font-family: ui-monospace, Consolas, monospace;
@@ -2240,8 +2240,8 @@ body[data-workspace="stems"] #body {
   align-items: center;
   gap: 10px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
 }
 .stems-master .stems-range { width: 150px; }
@@ -2256,7 +2256,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-master-readout {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   font-family: ui-monospace, Consolas, monospace;
   color: var(--text-muted);
   min-width: 36px;
@@ -2340,8 +2340,8 @@ body[data-workspace="stems"] #body {
 #stems-loop-toggle::after {
   content: "OFF";
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
   margin-left: 2px;
   opacity: 0.7;
@@ -2394,16 +2394,16 @@ body[data-workspace="stems"] #body {
 .stems-tour-step {
   display: inline-block;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   color: var(--accent);
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 6px;
 }
 .stems-tour-card h3 {
   margin: 0 0 8px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
 }
 .stems-tour-card p {
@@ -2412,7 +2412,7 @@ body[data-workspace="stems"] #body {
   line-height: 1.5;
   color: var(--text-muted);
 }
-.stems-tour-card p b { color: var(--text); font-weight: 700; }
+.stems-tour-card p b { color: var(--text); font-weight: 600; }
 .stems-tour-actions {
   display: flex;
   justify-content: flex-end;
@@ -2466,7 +2466,7 @@ body[data-workspace="stems"] #body {
   background: var(--accent);
   color: #111;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.4;
   letter-spacing: 0.02em;
 }
@@ -2493,9 +2493,9 @@ body[data-workspace="stems"] #body {
   background: var(--bg-card); border: 1px solid var(--border-strong);
   border-radius: var(--r-md); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
 }
-.stems-range-bar .srb-label { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
+.stems-range-bar .srb-label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-right: 4px; white-space: nowrap; }
 .stems-range-bar button {
-  font-size: 11px; font-weight: 700; color: var(--text);
+  font-size: 11px; font-weight: 600; color: var(--text);
   background: var(--bg-hover); border: 1px solid var(--border);
   border-radius: 7px; padding: 5px 10px; cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -2523,13 +2523,13 @@ body[data-workspace="stems"] #body {
   top: 6px;
   font-size: 12px;
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 .stems-marker--loop-end::after { content: "⤴"; }
 
 .stems-save-pill {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 3px 9px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--ok) 14%, transparent);
@@ -2603,11 +2603,11 @@ body[data-workspace="stems"] #body {
 .stems-marker-ctx { min-width: 230px; }
 .smc-section-label {
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--text-muted);
   padding: 6px 10px 4px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .smc-type-grid {
   display: grid;
@@ -2628,7 +2628,7 @@ body[data-workspace="stems"] #body {
   border-radius: 6px;
   color: var(--text);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   transition: background 0.12s, border-color 0.12s, color 0.12s, opacity 0.12s, transform 0.12s;
 }
 .stems-context-menu .smc-type-btn:hover {
@@ -2682,7 +2682,7 @@ body[data-workspace="stems"] #body {
   padding: 1px 5px;
   margin-left: 4px;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.5px;
   color: var(--on-accent);
   background: var(--accent);
@@ -2700,7 +2700,7 @@ body[data-workspace="stems"] #body {
 .stems-btn.stems-loop-ab {
   min-width: 26px;
   padding: 4px 8px;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 11px;
 }
 .stems-btn.stems-loop-ab.is-set {
@@ -2710,7 +2710,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-ctx-hint {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   margin-left: 6px;
   opacity: 0.8;
@@ -2747,7 +2747,7 @@ body[data-workspace="stems"] #body {
   border: none;
   color: var(--text);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 8px 12px;
   border-radius: 5px;
   cursor: pointer;
@@ -2782,7 +2782,7 @@ body[data-workspace="stems"] #body {
 .stems-modal-card h3 {
   margin: 0 0 8px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
 }
 .stems-modal-card p {
@@ -2846,7 +2846,7 @@ body[data-workspace="stems"] #body {
 .stems-modal-row-info { display: flex; flex-direction: column; min-width: 0; }
 .stems-modal-row-name {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -2933,13 +2933,13 @@ body[data-workspace="stems"] #body {
   animation: stemsSpin 0.7s linear infinite;
 }
 .stems-sep-toast-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.stems-sep-toast-text strong { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.3px; }
+.stems-sep-toast-text strong { font-size: 12px; font-weight: 500; color: var(--text); letter-spacing: 0.3px; }
 .stems-sep-toast-name {
   font-size: 11px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .stems-sep-toast-pct {
-  font-size: 11px; font-weight: 700; color: var(--accent);
+  font-size: 11px; font-weight: 600; color: var(--accent);
   font-family: ui-monospace, Consolas, monospace; flex-shrink: 0;
 }
 .stems-sep-toast-cancel {
@@ -2977,7 +2977,7 @@ body[data-workspace="stems"] #body {
 .stems-export-panel h3 {
   margin: 0 0 10px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
 }
 .stems-export-stage {
@@ -3006,7 +3006,7 @@ body[data-workspace="stems"] #body {
   margin-top: 16px;
   padding: 6px 16px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border);
@@ -3034,13 +3034,13 @@ body[data-workspace="stems"] #body {
   overflow: hidden;
 }
 .sam-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
-.sam-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.sam-title { font-size: 14px; font-weight: 500; color: var(--text); }
 .sam-close { background: transparent; border: none; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .sam-close:hover { color: var(--text); }
 .sam-slot { display: flex; gap: 4px; padding: 0 16px 10px; }
 .sam-slot-btn {
   flex: 1; padding: 8px; border: 1px solid var(--border); background: var(--bg-hover);
-  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer;
+  border-radius: 8px; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .sam-slot-btn.active { background: var(--accent-grad); color: #000; border-color: var(--accent); }
@@ -3055,9 +3055,9 @@ body[data-workspace="stems"] #body {
   padding: 9px 10px; border: none; background: transparent; border-radius: 7px; cursor: pointer; width: 100%;
 }
 .sam-row:hover { background: var(--bg-hover); }
-.sam-row-title { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 60%; }
+.sam-row-title { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 60%; }
 .sam-row-meta { font-size: 11px; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sam-row-has { font-size: 9px; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
+.sam-row-has { font-size: 9px; font-weight: 500; color: #f59e0b; text-transform: none; letter-spacing: 0.4px; flex-shrink: 0; }
 .sam-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
 
 /* ── Modal de transpose selectivo (elegir qué pistas transponer) ──────────── */
@@ -3072,7 +3072,7 @@ body[data-workspace="stems"] #body {
   border-radius: var(--r-lg); padding: 18px; box-shadow: 0 24px 70px rgba(0,0,0,0.5);
 }
 .stt-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.stt-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.stt-head h3 { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
 .stt-x { background: transparent; border: none; color: var(--text-muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
 .stt-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
 .stt-hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0 0 12px; }
@@ -3083,11 +3083,11 @@ body[data-workspace="stems"] #body {
 }
 .stt-row:hover { border-color: var(--border-strong); }
 .stt-row input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-.stt-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stt-kind { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+.stt-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stt-kind { font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: none; color: var(--text-muted); }
 .stt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .stt-btn {
-  padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
   background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); border-radius: 8px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
 }
 .stt-btn:hover { background: rgba(255,255,255,0.12); }
@@ -3120,7 +3120,7 @@ body[data-workspace="stems"] #body {
 .stems-click-mult { display: inline-flex; gap: 2px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px; }
 .stems-mult-btn {
   border: none; background: transparent; color: var(--text-muted);
-  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 4px; cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
 .stems-mult-btn:hover { color: var(--text); }
@@ -3138,7 +3138,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-metro-pop.hidden { display: none; }
 .stems-metro-pop-title {
-  font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.2px; text-transform: none;
   color: var(--text-muted); padding: 4px 8px 6px;
 }
 .stems-metro-opt {
@@ -3149,7 +3149,7 @@ body[data-workspace="stems"] #body {
 }
 .stems-metro-opt:hover { background: var(--bg-hover); color: var(--text); }
 .stems-metro-opt.is-on { color: var(--accent); }
-.stems-metro-opt.is-on::after { content: '✓'; font-weight: 700; }
+.stems-metro-opt.is-on::after { content: '✓'; font-weight: 600; }
 
 /* M/S del strip de la fila: el par va a la IZQUIERDA de la fila de acciones,
    los iconos (separar/exportar/eliminar) se quedan a la derecha. */
@@ -3274,7 +3274,7 @@ body[data-workspace="stems"] #body {
   padding: 2px 7px;
   border-radius: 5px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--bg);
   background: var(--accent);
@@ -3369,7 +3369,7 @@ body[data-workspace="stems"] #body {
 }
 
 /* Pistas por canción: estado local/nube y carpeta */
-.sst-loc { align-self: flex-start; justify-self: start; width: fit-content; font-size: 10.5px; font-weight: 700; color: var(--text-muted); padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); white-space: nowrap; }
+.sst-loc { align-self: flex-start; justify-self: start; width: fit-content; font-size: 10.5px; font-weight: 600; color: var(--text-muted); padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); white-space: nowrap; }
 .sst-loc.is-local { color: #4ade80; background: rgba(74,222,128,0.12); }
 .sst-folder { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); }
 .sst-folder-path { flex: 1; min-width: 0; font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

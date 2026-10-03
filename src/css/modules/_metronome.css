@@ -55,7 +55,7 @@
 }
 .hm-clickseq {
   display: flex; align-items: center; gap: 6px;
-  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  font-size: 10px; font-weight: 500; color: var(--text-muted);
   cursor: pointer; user-select: none; white-space: nowrap;
 }
 /* Checkbox custom: caja redondeada que se llena con el gradiente de acento y

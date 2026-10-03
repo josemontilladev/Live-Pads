@@ -84,7 +84,7 @@
 /* ── Onda: estado vacío (siempre visible, una sola línea) ───────── */
 .sw-empty { display: none; align-items: center; gap: 9px; font-size: 12px; color: var(--text-muted); }
 .sw-empty svg { color: var(--accent); flex: 0 0 auto; }
-.sw-empty b { color: var(--text); font-weight: 800; }
+.sw-empty b { color: var(--text); font-weight: 600; }
 #seq-wave.is-empty { padding: 8px 14px; opacity: .85; }
 #seq-wave.is-empty .sw-stage, #seq-wave.is-empty .sw-actions, #seq-wave.is-empty .sw-title,
 #seq-wave.is-empty .sw-now, #seq-wave.is-empty .sw-next { display: none; }

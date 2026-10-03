@@ -21,16 +21,16 @@
 .preloader-title {
   font-family: 'Montserrat', sans-serif;
   font-size: 26px;
-  font-weight: 600;
+  font-weight: 500;
   color: #fff;
-  letter-spacing: 2px;
+  letter-spacing: 0.2px;
 }
 .preloader-version {
   margin-top: 7px;
   font-family: 'Inter', sans-serif;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.2px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
   color: var(--text-muted, #a3a3a3);
 }
 .preloader-bar {
@@ -68,7 +68,7 @@
   z-index: 10000;
   display: none;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.3px;
   box-shadow: 0 4px 18px var(--glow), 0 0 0 1px rgba(0, 0, 0, 0.2);
   cursor: pointer;

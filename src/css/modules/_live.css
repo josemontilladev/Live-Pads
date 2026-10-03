@@ -1,7 +1,7 @@
 /* ── Reloj de la barra superior + Modo en vivo ─────────────────────────── */
 #topbar-clock {
   font-variant-numeric: tabular-nums;
-  font-size: 13px; font-weight: 600; letter-spacing: 0.4px;
+  font-size: 13px; font-weight: 500; letter-spacing: 0.4px;
   color: var(--text-muted);
   margin-right: 8px;
   -webkit-app-region: no-drag;
@@ -26,24 +26,24 @@
 body.live-mode #live-strip { display: flex; }
 .ls-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
 .ls-label {
-  font-size: 10px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.2px; text-transform: none;
   color: var(--text-muted); flex: 0 0 auto;
 }
-.ls-clock, .ls-pos { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text-muted); font-size: 12px; }
+.ls-clock, .ls-pos { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-muted); font-size: 12px; }
 .ls-clock { font-size: 20px; color: var(--text); }
 .ls-now-title {
-  font-size: 19px; font-weight: 700; color: var(--text); line-height: 1.2;
+  font-size: 19px; font-weight: 600; color: var(--text); line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1;
 }
 .ls-now-artist { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ls-now-key { font-size: 26px; font-weight: 800; color: var(--accent); flex: 0 0 auto; line-height: 1; }
+.ls-now-key { font-size: 26px; font-weight: 600; color: var(--accent); flex: 0 0 auto; line-height: 1; }
 .ls-next { border-top: 1px solid var(--border); padding-top: 8px; }
 .ls-next-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
-.ls-next-key { font-size: 15px; font-weight: 700; color: var(--text-muted); flex: 0 0 auto; }
+.ls-next-key { font-size: 15px; font-weight: 600; color: var(--text-muted); flex: 0 0 auto; }
 .ls-exit {
   margin-top: 2px; align-self: flex-end;
   background: transparent; border: 1px solid var(--border); color: var(--text-muted);
-  font-size: 11px; font-weight: 600; padding: 5px 9px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; font-weight: 500; padding: 5px 9px; border-radius: 6px; cursor: pointer;
 }
 .ls-exit:hover { color: var(--text); border-color: var(--border-strong); }
 

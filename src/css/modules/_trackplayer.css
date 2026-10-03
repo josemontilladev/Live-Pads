@@ -92,7 +92,7 @@
   min-width: 24px;
   text-align: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
   user-select: none;
   cursor: pointer;
@@ -119,7 +119,7 @@
 #tp-progress { margin: 0; display: block; flex: 1; min-width: 0; height: 7px; border-radius: 4px; }
 #tp-title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -131,7 +131,7 @@
 .tp-time {
   display: flex; align-items: baseline; gap: 4px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -142,7 +142,7 @@
 /* Tiempo restante: lo más glanceable en vivo → pill en color de acento. */
 .tp-remain {
   margin-left: 8px; padding: 1px 8px; border-radius: 6px;
-  font-size: 13px; font-weight: 800; color: var(--accent);
+  font-size: 13px; font-weight: 600; color: var(--accent);
   background: color-mix(in srgb, var(--accent) 13%, transparent);
 }
 
@@ -185,13 +185,13 @@
 }
 .mx-title {
   display: flex; align-items: center; gap: 8px;
-  color: var(--text); font-size: 13px; font-weight: 600;
+  color: var(--text); font-size: 13px; font-weight: 500;
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
 }
 .mx-hint {
   margin-left: auto;
-  font-size: 10px; font-weight: 600; color: var(--text-muted);
+  font-size: 10px; font-weight: 500; color: var(--text-muted);
   letter-spacing: 0.2px; white-space: nowrap;
 }
 .mx-channels {
@@ -235,7 +235,7 @@
   min-width: 0;
 }
 .mx-name {
-  font-size: 12.5px; font-weight: 700; color: var(--text);
+  font-size: 12.5px; font-weight: 600; color: var(--text);
   letter-spacing: 0.3px; white-space: nowrap;
 }
 /* Control APILADO: etiqueta y valor en una linea fina, y el fader debajo a
@@ -246,7 +246,7 @@
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 6px; min-width: 0;
 }
-.mx-lbl { font-size: 10.5px; font-weight: 700; color: var(--text-muted); }
+.mx-lbl { font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
 .mx-slider { width: 100%; min-width: 0; }
 
 /* ── Maestro: vive en el ENCABEZADO, no en la rejilla ──
@@ -271,7 +271,7 @@
 .mx-val {
   font-size: 12.5px; color: var(--text);
   min-width: 38px; text-align: right;
-  font-variant-numeric: tabular-nums; font-weight: 700;
+  font-variant-numeric: tabular-nums; font-weight: 600;
 }
 
 /* ── Faders del mezclador: riel hundido + cap metálico ────────────────
@@ -323,7 +323,7 @@
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   pointer-events: none;
   z-index: 100;
   box-shadow: 0 4px 12px var(--glow);
@@ -341,7 +341,7 @@
    in app.js. Same look, but parseable + themable from one place. */
 #bpm-inline-input {
   font-size: 34px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--accent);
   background: var(--glow);
   border: 1px solid var(--border-strong);

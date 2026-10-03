@@ -2873,7 +2873,7 @@ async function openHarmonyMenu(anchor, id) {
     ? `Tonalidad: ${effKey} (${isMinorKey(effKey) ? 'menor' : 'mayor'}) ${sourceNote}`
     : 'Fija una tonalidad arriba para activar opciones diatónicas';
   const diatonicHtml = hasKey ? `
-    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:1px;">DIATÓNICAS (${effKey})</div>
+    <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--accent);font-size:10px;font-weight:600;letter-spacing:1px;">DIATÓNICAS (${effKey})</div>
     ${HARMONY_DIATONIC.map((d, idx) => {
       const semis = resolveDiatonic(d, effKey);
       return `<button data-dia="${idx}" data-st="${semis}">${d.label} (${semis > 0 ? '+' : ''}${semis} st)</button>`;
@@ -2884,7 +2884,7 @@ async function openHarmonyMenu(anchor, id) {
   menu.innerHTML = `
     <div class="stems-ctx-hint" style="padding:6px 10px;color:var(--text-muted);font-size:11px;">${modeNote}</div>
     ${diatonicHtml}
-    <div class="stems-ctx-hint" style="padding:4px 10px;color:var(--text-muted);font-size:10px;font-weight:800;letter-spacing:1px;">INTERVALOS FIJOS</div>
+    <div class="stems-ctx-hint" style="padding:4px 10px;color:var(--text-muted);font-size:10px;font-weight:600;letter-spacing:1px;">INTERVALOS FIJOS</div>
     ${HARMONY_PRESETS.map(p => `
       <button data-st="${p.semitones}">${p.label}</button>
     `).join('')}

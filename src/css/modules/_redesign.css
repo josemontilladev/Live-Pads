@@ -15,8 +15,8 @@
 
 /* ── Barra superior ─────────────────────────────────────────────── */
 #topbar { backdrop-filter: blur(14px) saturate(1.2); }
-.topbar-logo-text { font-weight: 800; letter-spacing: -0.03em; font-size: 15px; }
-#topbar-clock { font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.topbar-logo-text { font-weight: 600; letter-spacing: -0.03em; font-size: 15px; }
+#topbar-clock { font-weight: 500; color: var(--text-muted); letter-spacing: 0.02em; }
 .topbar-actions .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
 .topbar-actions .icon-btn:hover { background: var(--glass-a); color: var(--text); }
 
@@ -36,14 +36,14 @@
 #panel-metro .metro-main-btn:hover { transform: translateY(-1px); }
 #panel-metro .metro-main-btn:active { transform: scale(.97); }
 .metro-bpm-big {
-  font-size: 46px; font-weight: 800; letter-spacing: -0.04em; line-height: 1;
+  font-size: 46px; font-weight: 600; letter-spacing: -0.04em; line-height: 1;
   color: var(--text); font-variant-numeric: tabular-nums;
 }
 .metro-adj { width: 34px; height: 34px; border-radius: 50%; background: var(--glass-h); border: 1px solid var(--border); }
 .metro-adj:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-.tap-btn { border-radius: 8px; font-weight: 800; letter-spacing: .1em; }
-.metro-mult-btn { border-radius: 8px; font-weight: 800; min-width: 46px; }
-#metro-bpm-live { font-weight: 700; color: var(--text-muted); letter-spacing: .02em; }
+.tap-btn { border-radius: 8px; font-weight: 600; letter-spacing: .1em; }
+.metro-mult-btn { border-radius: 8px; font-weight: 600; min-width: 46px; }
+#metro-bpm-live { font-weight: 600; color: var(--text-muted); letter-spacing: .02em; }
 .hm-clickseq { font-size: 12.5px; color: var(--text-muted); }
 .hm-clickseq:hover span { color: var(--text); }
 .hm-section--sounds .metro-dropdown { font-weight: 650; }
@@ -71,14 +71,14 @@
 }
 .drum-btn:hover { border-color: color-mix(in srgb, var(--pad-c) 65%, transparent); }
 .drum-btn .drum-label {
-  margin: auto 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em;
+  margin: auto 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em;
   text-align: center; color: var(--text);
 }
 .drum-btn .drum-tile-vol { opacity: .35; }
 .drum-btn:hover .drum-tile-vol, .drum-btn:focus-within .drum-tile-vol { opacity: 1; }
 .drum-btn .drum-tile-slider { accent-color: var(--pad-c); }
 .kbd-hint {
-  top: 10px; right: 10px; font-size: 10.5px; font-weight: 800; padding: 2px 7px;
+  top: 10px; right: 10px; font-size: 10.5px; font-weight: 600; padding: 2px 7px;
   border-radius: 6px; background: rgba(255,255,255,.08); color: var(--text-muted); opacity: 1;
   border: 1px solid var(--border);
 }
@@ -95,7 +95,7 @@
 /* ── PADS · Notas (teclado de 12) ───────────────────────────────── */
 #panel-keys { padding: var(--panel-pad); border-radius: var(--r-xl); }
 .key-grid { gap: 12px; }
-.key-btn { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.key-btn { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 /* Sostenidos/bemoles: más oscuros, como las teclas negras. */
 .key-btn:is([data-key*="#"], [data-key*="b"]) {
   background:
@@ -109,18 +109,18 @@
 }
 .key-btn.prepared { border-color: var(--accent); }
 #pad-volume-tray, #bank-section { border-radius: var(--r-lg); }
-.bank-label, .tray-header { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--text-muted); }
+.bank-label, .tray-header { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: none; color: var(--text-muted); }
 
 /* ── Mezclador ──────────────────────────────────────────────────── */
 #mixer-bar { padding: 14px 16px; border-radius: var(--r-xl); }
-.mx-title { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.mx-title { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: none; }
 .mx-hint { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: .7; }
 .mx-channel { border-radius: var(--r-md); background: var(--glass); border: 1px solid var(--border); padding: 10px 12px; }
-.mx-name { font-size: 12px; font-weight: 800; letter-spacing: .02em; }
-.mx-val { font-variant-numeric: tabular-nums; font-weight: 700; }
+.mx-name { font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.mx-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 
 /* ── Lista de canciones (sidebar) ───────────────────────────────── */
-.setlist-title { font-size: 18px; font-weight: 800; }
+.setlist-title { font-size: 18px; font-weight: 600; }
 .gi-song-item { padding: 8px 12px 6px; border-radius: var(--r-md); }
 .gi-song-cover { border-radius: 10px; }
 .gi-song-title { font-weight: 750; letter-spacing: -0.015em; }
@@ -134,7 +134,7 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), var(--elev-1);
 }
 .setlist-tabs-toggle { border-radius: 999px; padding: 3px; }
-.s-toggle { border-radius: 999px; font-weight: 700; }
+.s-toggle { border-radius: 999px; font-weight: 600; }
 
 /* ── Reproductor inferior ───────────────────────────────────────── */
 #track-player-bar { backdrop-filter: blur(14px); }
