@@ -166,6 +166,42 @@ export async function bajarBiblioteca(onProgress) {
   return { downloaded, failed, total: missing.length };
 }
 
+const IMG_RE = /\.(jpe?g|png|webp|gif|avif)$/i;
+
+// Bajada AUTOMÁTICA de lo que falte en esta PC (la usa libraryLive al arrancar y
+// en cada ronda). Carátulas primero (son pequeñas y se ven al instante), luego el
+// audio. `shouldStop()` permite abortar (sin red, cambio de librería…).
+// `onImages()` se llama al terminar las carátulas para refrescar la lista.
+export async function bajarFaltantesAuto({ onProgress, onImages, shouldStop, imagesOnly = false } = {}) {
+  const libId = requireContext();
+  const cloud = await listCloudFiles(libId);
+  if (!cloud.length) return { downloaded: 0, failed: 0, total: 0 };
+  const { missing } = await window.electronAPI.libraryFilesStat(cloud.map((r) => r.path));
+  if (!missing.length) return { downloaded: 0, failed: 0, total: 0 };
+  const ordered = imagesOnly
+    ? missing.filter((p) => IMG_RE.test(p))
+    : [...missing.filter((p) => IMG_RE.test(p)), ...missing.filter((p) => !IMG_RE.test(p))];
+  if (!ordered.length) return { downloaded: 0, failed: 0, total: 0 };
+  const nImg = missing.filter((p) => IMG_RE.test(p)).length;
+  let downloaded = 0, failed = 0;
+  for (let i = 0; i < ordered.length; i++) {
+    if (shouldStop && shouldStop()) break;
+    onProgress?.({ done: i, total: ordered.length, file: ordered[i] });
+    try {
+      const url = await signUrl(libId, ordered[i], 'get');
+      await window.electronAPI.r2DownloadFile({ url, relPath: ordered[i] });
+      downloaded++;
+    } catch (err) {
+      console.warn('[fileSync] auto: no se pudo bajar', ordered[i], err?.message || err);
+      failed++;
+    }
+    if (i + 1 === nImg && nImg > 0) onImages?.();
+  }
+  if (nImg === 0 || ordered.length === nImg) onImages?.();
+  onProgress?.({ done: ordered.length, total: ordered.length });
+  return { downloaded, failed, total: ordered.length };
+}
+
 // Baja solo estas rutas (las que falten en esta PC). Devuelve { downloaded, failed }.
 export async function bajarRutas(paths, onProgress) {
   const libId = requireContext();

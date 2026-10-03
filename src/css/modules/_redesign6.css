@@ -1,0 +1,331 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Stems — tarjetas modernas (lista de canciones, cabecera de pista y canal de
+   consola). Capa de sobreescritura: va después de _redesign5 y antes de
+   _responsive. Solo estilos; el markup no cambia. Reversible quitando el @import.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Lista de canciones (panel izquierdo de Stems) ───────────────── */
+.ssl-list { gap: 8px; padding: 2px 2px 8px; }
+
+.ssl-row {
+  padding: 10px 40px 10px 10px;
+  gap: 12px;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  transition: background .18s, border-color .18s, transform .18s, box-shadow .18s;
+}
+.ssl-row:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.035));
+  border-color: color-mix(in srgb, var(--song-accent, var(--accent)) 55%, var(--border));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.35);
+}
+.ssl-row:active { transform: translateY(0); }
+.ssl-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.ssl-cover {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border-left: none;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 3px 8px rgba(0,0,0,.4);
+}
+.ssl-cover::after {            /* tono de la canción: punto en la esquina */
+  content: ""; position: absolute; right: 4px; bottom: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--song-accent, var(--accent));
+  box-shadow: 0 0 0 2px rgba(0,0,0,.55);
+}
+.ssl-cover-fallback { font-size: 20px; font-weight: 500; }
+
+.ssl-row-info { gap: 3px; }
+.ssl-row-title { font-size: 13.5px; font-weight: 500; letter-spacing: -.1px; line-height: 1.25; }
+.ssl-row-artist { font-size: 11.5px; font-weight: 400; }
+.ssl-row-meta { margin-top: 2px; gap: 6px; flex-wrap: wrap; }
+.ssl-meta-music {
+  font-size: 10.5px; font-weight: 500; letter-spacing: .2px;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,255,255,.06); color: var(--text-muted);
+  max-width: 100%;
+}
+.ssl-tags { gap: 4px; flex-wrap: wrap; }
+.ssl-tag {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .3px;
+  padding: 2px 7px; border-radius: 999px; line-height: 1.4;
+}
+.ssl-tag.seq  { color: #34d399; background: rgba(52,211,153,.14); box-shadow: inset 0 0 0 1px rgba(52,211,153,.25); }
+.ssl-tag.orig { color: #fbbf24; background: rgba(251,191,36,.13); box-shadow: inset 0 0 0 1px rgba(251,191,36,.25); }
+.ssl-tag.stems { color: #a78bfa; background: rgba(167,139,250,.15); box-shadow: inset 0 0 0 1px rgba(167,139,250,.28); }
+
+.ssl-lyrics { top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 8px; background: rgba(255,255,255,.04); }
+.ssl-check { right: 9px; bottom: 9px; }
+
+/* ── Cabecera de cada pista (columna izquierda del timeline) ─────── */
+.stems-row-strip {
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)), var(--bg-card);
+  padding: 10px 12px;
+  gap: 8px;
+}
+.stems-row-kind {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  display: inline-block; width: fit-content;
+}
+.stems-row-meta { display: flex; flex-direction: column; gap: 3px; }
+.stems-row-name { font-size: 13px; font-weight: 500; letter-spacing: -.1px; }
+.stems-row-color { border-radius: 50%; width: 18px; height: 18px; }
+.stems-row-color::-webkit-color-swatch { border-radius: 50%; }
+.stems-row-actions { gap: 4px; }
+.stems-row-export, .stems-row-remove {
+  opacity: .75; border-radius: 8px;
+  width: 24px; height: 24px;
+}
+.stems-row-strip:hover .stems-row-export,
+.stems-row-strip:hover .stems-row-remove { opacity: 1; }
+.stems-ms { width: 26px; height: 26px; border-radius: 8px; font-weight: 600; font-size: 12px; }
+
+/* ── Canal de la consola (mezclador de pistas) ───────────────────── */
+.stems-console-strips { gap: 10px; padding: 10px 14px 12px; }
+.stems-console-strip {
+  flex: 0 0 116px; width: 116px; min-width: 116px; max-width: 116px;
+  gap: 8px;
+  padding: 12px 10px 10px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--track-color, var(--accent)) 10%, transparent) 0%, transparent 38%),
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.015)),
+    var(--bg-card);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 6px 14px rgba(0,0,0,.35);
+}
+.stems-console-strip::before { height: 3px; border-radius: 16px 16px 0 0; background: var(--track-color, var(--accent)); opacity: .85; }
+.stems-console-strip:hover { border-color: color-mix(in srgb, var(--track-color, var(--accent)) 60%, var(--border)); }
+
+.stems-console-strip-head { gap: 5px; }
+.stems-console-strip-kind {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .7px;
+  padding: 2px 9px; border-radius: 999px;
+  background: rgba(255,255,255,.07);
+}
+.stems-console-strip-name { font-size: 12.5px; font-weight: 500; letter-spacing: -.1px; }
+
+.stems-console-pan-row { gap: 4px; }
+.stems-console-pan-label { font-size: 9px; font-weight: 500; letter-spacing: .6px; }
+.stems-console-pan-readout { font-weight: 500; }
+
+.stems-console-ms-row { gap: 6px; }
+.stems-console-ms-row .stems-ms { width: 30px; height: 26px; border-radius: 9px; }
+
+.stems-cfader-track { width: 10px; background: rgba(0,0,0,.55); border-radius: 6px; }
+.stems-cfader-fill {
+  width: 10px; border-radius: 6px;
+  background: linear-gradient(0deg, color-mix(in srgb, var(--track-color, var(--accent)) 70%, #000), var(--track-color, var(--accent)));
+  box-shadow: 0 0 10px color-mix(in srgb, var(--track-color, var(--accent)) 45%, transparent);
+}
+.stems-cfader-handle { width: 40px; height: 20px; border-radius: 7px; }
+
+.stems-console-strip-readout {
+  justify-self: center;
+  font-size: 12px; font-weight: 500;
+  padding: 2px 10px; border-radius: 999px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--border);
+}
+
+/* Cabecera de la consola */
+.stems-console-header { font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Tarjetas del servicio (modo en vivo): las flechas de orden suben a la
+   esquina superior derecha para que la fila Letra · Sec · Orig tenga TODO el
+   ancho y no se corte.
+   ═══════════════════════════════════════════════════════════════════ */
+.gi-song-item { position: relative; }
+.gi-song-actions { position: static; }
+.gi-song-actions .btn-move-up,
+.gi-song-actions .btn-move-down {
+  position: absolute;
+  top: 8px;
+  width: 24px; height: 24px; min-width: 0;
+  padding: 0; margin: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  z-index: 2;
+}
+.gi-song-actions .btn-move-down { right: 9px; }
+.gi-song-actions .btn-move-up   { right: 37px; }
+.gi-song-actions .btn-move-up:hover,
+.gi-song-actions .btn-move-down:hover { background: rgba(255,255,255,.12); color: var(--accent); border-color: var(--accent); }
+.gi-song-actions .btn-move-up::after,
+.gi-song-actions .btn-move-down::after { content: none; }
+/* El título no pasa por debajo de las flechas. */
+.gi-song-item:has(.btn-move-up) .gi-song-main { padding-right: 62px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Letra con acordes (acordeón de la tarjeta) — más grande, con aire y los
+   acordes como etiquetas sobre su sílaba, para leerla de un vistazo en vivo.
+   ═══════════════════════════════════════════════════════════════════ */
+.gi-lyrics-accordion .lyrics-text-content {
+  padding: 6px 2px 10px;
+  color: #f3f3f3;
+}
+.gi-lyrics-accordion .lyric-line {
+  font-size: 14.5px;
+  line-height: 1.7;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-bottom: 2px;
+  color: #f3f3f3;
+}
+.gi-lyrics-accordion .lyric-line.has-inline-chords { margin-top: 26px; }
+.gi-lyrics-accordion .inline-chord {
+  transform: translateY(-1.55em);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1px;
+  padding: 0 5px;
+  border-radius: 6px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, #000);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.gi-lyrics-accordion .chord-line {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, #000);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.gi-lyrics-accordion .section-header-line {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-size: 10px;
+  padding: 3px 11px;
+}
+.gi-lyrics-accordion .section-header-line:first-child { margin-top: 0; }
+.gi-lyrics-accordion .lyrics-spacer { height: 6px; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Centro de cuenta (Mi cuenta · Librerías · Equipo) en la pantalla principal:
+   panel ancho con navegación a la izquierda y tarjetas a la derecha. Solo cuando
+   NO va embebido en el menú lateral.
+   ═══════════════════════════════════════════════════════════════════ */
+.acc-chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  height: 36px; padding: 0 10px 0 5px; margin-right: 6px;
+  max-width: 260px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.acc-chip:hover { background: rgba(255,255,255,.09); border-color: var(--accent); }
+.acc-chip-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-grad, var(--accent)); color: var(--on-accent, #0a0a14);
+  font-size: 12px; font-weight: 700;
+}
+.acc-chip-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; line-height: 1.15; }
+.acc-chip-text b { font-size: 12px; font-weight: 600; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-chip-text i { font-style: normal; font-size: 10.5px; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-chip-caret { font-size: 10px; color: var(--text-muted); }
+.acc-chip.is-guest { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+
+#account-overlay:not(.is-embedded) { background: rgba(0,0,0,.62); backdrop-filter: blur(3px); }
+#account-overlay:not(.is-embedded) .acc-panel {
+  width: min(1100px, 96vw);
+  height: min(780px, 92vh);
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    "head  head"
+    "user  main"
+    "tabs  main"
+    "msg   main";
+  align-content: stretch;
+  border-radius: 20px;
+}
+#account-overlay:not(.is-embedded) .acc-head {
+  grid-area: head; margin: 0; padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+}
+#account-overlay:not(.is-embedded) .acc-head h3 { font-size: 17px; font-weight: 600; }
+#account-overlay:not(.is-embedded) .acc-user {
+  grid-area: user; margin: 16px 16px 8px; flex-wrap: wrap;
+  background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 14px;
+}
+#account-overlay:not(.is-embedded) .acc-user .acc-btn { width: 100%; margin-top: 4px; }
+#account-overlay:not(.is-embedded) .acc-tabs {
+  grid-area: tabs; align-self: start;
+  flex-direction: column; gap: 4px; margin: 0 16px; padding: 0;
+  background: transparent; border: none;
+}
+#account-overlay:not(.is-embedded) .acc-tab {
+  flex: none; text-align: left; padding: 11px 14px; font-size: 13.5px; font-weight: 500;
+  border-radius: 12px; border: 1px solid transparent;
+}
+#account-overlay:not(.is-embedded) .acc-tab.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent); box-shadow: none;
+}
+#account-overlay:not(.is-embedded) .acc-msg { grid-area: msg; margin: 8px 16px 14px; }
+
+/* Contenido: tarjetas en dos columnas, con scroll propio */
+#account-overlay:not(.is-embedded) .acc-tab-panel {
+  grid-area: main;
+  overflow-y: auto;
+  padding: 18px 22px 24px;
+  border-left: 1px solid var(--border);
+}
+#account-overlay:not(.is-embedded) .acc-tab-panel:not(.hidden) {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-content: start;
+}
+#account-overlay:not(.is-embedded) .acc-section {
+  margin: 0; padding: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
+  border: 1px solid var(--border); border-radius: 16px;
+}
+#account-overlay:not(.is-embedded) .acc-section > h4 {
+  font-size: 12px; font-weight: 600; letter-spacing: .6px; margin-bottom: 12px; text-transform: none;
+  color: var(--text);
+}
+#account-overlay:not(.is-embedded) .acc-section.acc-danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger) 5%, transparent); }
+#account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="equipo"]:not(.hidden) { grid-template-columns: minmax(0, 1fr); }
+#account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="librerias"] .acc-section:last-child { grid-column: 1 / -1; }
+#account-overlay:not(.is-embedded) .acc-lib-list { display: flex; flex-direction: column; gap: 8px; }
+#account-overlay:not(.is-embedded) .acc-lib {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.03); cursor: pointer;
+}
+#account-overlay:not(.is-embedded) .acc-lib.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#account-overlay:not(.is-embedded) .acc-lib .lib-name { font-weight: 500; flex: 1; }
+#account-overlay:not(.is-embedded) .lib-badge {
+  font-size: 10.5px; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.07); color: var(--text-muted);
+}
+@media (max-width: 860px) {
+  #account-overlay:not(.is-embedded) .acc-panel { grid-template-columns: 1fr; grid-template-areas: "head" "user" "tabs" "main" "msg"; grid-template-rows: auto auto auto 1fr auto; }
+  #account-overlay:not(.is-embedded) .acc-tabs { flex-direction: row; }
+  #account-overlay:not(.is-embedded) .acc-tab-panel:not(.hidden) { grid-template-columns: 1fr; }
+  #account-overlay:not(.is-embedded) .acc-tab-panel { border-left: none; }
+}
