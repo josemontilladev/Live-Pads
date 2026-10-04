@@ -288,3 +288,51 @@ html.gsap .hero .rv { opacity: 1; }
   .scroll-progress { display: none; }
 }
 .spot { position: relative; }
+
+
+/* ═══ Pulido v5: tipografía más fina, cinta, cifras, línea de tiempo, botones ═══ */
+h1 { font-weight: 800; letter-spacing: -.04em; }
+h2 { font-weight: 700; letter-spacing: -.035em; }
+.btn { position: relative; overflow: hidden; }
+.btn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.28) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.btn-primary:hover::after { transform: translateX(120%); }
+
+/* Cinta de funciones que corre sola */
+.marquee { overflow: hidden; border-block: 1px solid var(--line); background: rgba(255,255,255,.015); padding: 16px 0; margin-top: 30px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.marquee-track { display: flex; width: max-content; gap: 14px; animation: marquee 48s linear infinite; }
+.marquee span { flex: 0 0 auto; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--s1); color: var(--muted); font-size: 14px; font-weight: 500; white-space: nowrap; }
+.marquee span:nth-child(3n+1) { color: var(--text); border-color: rgba(251,174,0,.28); }
+@keyframes marquee { to { transform: translateX(-50%); } }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* Cifras */
+.stats { padding: 70px 0 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat { padding: 26px 24px; border-radius: var(--r-lg); border: 1px solid var(--line); background: linear-gradient(180deg, var(--s2), var(--s1)); }
+.stat b { display: block; font-size: clamp(40px, 5vw, 60px); line-height: 1; font-weight: 700; letter-spacing: -.04em; background: linear-gradient(180deg, var(--amber2), var(--amber)); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 10px; color: var(--muted); font-size: 14.5px; line-height: 1.45; }
+
+/* Flujo: la línea se llena al bajar y enciende cada paso */
+.steps-track { position: relative; height: 2px; margin: 52px 0 -2px; background: var(--line); border-radius: 2px; }
+.steps-track i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg, var(--amber), var(--amber2)); border-radius: 2px; box-shadow: 0 0 12px rgba(251,174,0,.5); }
+.steps-track b { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--bg); border: 2px solid var(--line2); transition: border-color .35s, background .35s, box-shadow .35s; }
+.steps-track b:nth-of-type(1) { left: 16.6%; } .steps-track b:nth-of-type(2) { left: 50%; } .steps-track b:nth-of-type(3) { left: 83.3%; }
+.steps-track b.on { border-color: var(--amber); background: var(--amber); box-shadow: 0 0 0 5px rgba(251,174,0,.18); }
+.steps { margin-top: 26px; }
+.step { transition: border-color .35s, background .35s; }
+.step.on { border-color: rgba(251,174,0,.35); }
+
+/* Menú: sección activa */
+.nav-links a.active { color: var(--text); background: rgba(255,255,255,.07); }
+
+/* Preguntas: el cuerpo se despliega con altura animada (lo hace motion.js) */
+.faq details p { overflow: hidden; }
+
+@media (max-width: 860px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps-track { display: none; }
+  .steps { margin-top: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+}

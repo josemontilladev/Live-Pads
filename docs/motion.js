@@ -137,9 +137,80 @@
     gsap.from(phones, { y: 60, opacity: 0, duration: 0.9, ease: 'power3.out', stagger: 0.15, scrollTrigger: { trigger: '.phones', start: 'top 88%', once: true } });
   }
 
-  // ── Pasos del flujo: número que se enciende al llegar ───────────────────
-  gsap.utils.toArray('.steps .step').forEach(function (s, i) {
-    gsap.from(s, { x: i % 2 ? 40 : -40, opacity: 0, duration: 0.9, ease: 'power3.out', scrollTrigger: { trigger: s, start: 'top 88%', once: true } });
+  // ── Flujo: la línea de tiempo se llena con el scroll y enciende cada paso ──
+  var track = document.querySelector('.steps-track');
+  if (track) {
+    var fill = track.querySelector('i'), dots = track.querySelectorAll('b'), cards = document.querySelectorAll('.steps .step');
+    ScrollTrigger.create({
+      trigger: '.steps', start: 'top 80%', end: 'bottom 55%', scrub: 0.4,
+      onUpdate: function (self) {
+        gsap.set(fill, { scaleX: self.progress });
+        [0.1, 0.5, 0.9].forEach(function (th, i) {
+          var on = self.progress >= th * 0.9;
+          if (dots[i]) dots[i].classList.toggle('on', on);
+          if (cards[i]) cards[i].classList.toggle('on', on);
+        });
+      },
+    });
+  }
+
+  // ── Cifras: cuentan hasta su valor al entrar ───────────────────────────
+  gsap.utils.toArray('.stat b[data-count]').forEach(function (el) {
+    var end = parseInt(el.dataset.count, 10) || 0, o = { v: 0 };
+    el.textContent = '0';
+    ScrollTrigger.create({
+      trigger: el, start: 'top 90%', once: true,
+      onEnter: function () { gsap.to(o, { v: end, duration: 1.4, ease: 'power2.out', onUpdate: function () { el.textContent = Math.round(o.v); } }); },
+    });
+  });
+
+  // ── Menú: marca la sección que estás viendo ─────────────────────────────
+  var links = document.querySelectorAll('.nav-links a[href^="#"]');
+  links.forEach(function (a) {
+    var sec = document.querySelector(a.getAttribute('href'));
+    if (!sec) return;
+    ScrollTrigger.create({
+      trigger: sec, start: 'top 45%', end: 'bottom 45%',
+      onToggle: function (self) { a.classList.toggle('active', self.isActive); },
+    });
+  });
+
+  // ── Títulos de sección: se revelan palabra por palabra ─────────────────
+  gsap.utils.toArray('.head-c h2, .split-copy h2, .final-card h2').forEach(function (h) {
+    if (h.dataset.split) return;
+    h.dataset.split = '1';
+    var ws = [];
+    (function split(node) {
+      Array.prototype.slice.call(node.childNodes).forEach(function (n) {
+        if (n.nodeType === 3) {
+          var frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach(function (part) {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+            var o = document.createElement('span'); o.className = 'w-o';
+            var i = document.createElement('span'); i.className = 'w-i'; i.textContent = part;
+            o.appendChild(i); frag.appendChild(o); ws.push(i);
+          });
+          node.replaceChild(frag, n);
+        } else if (n.nodeType === 1) { split(n); }
+      });
+    })(h);
+    gsap.from(ws, { yPercent: 110, opacity: 0, duration: 0.9, ease: 'power4.out', stagger: 0.05, scrollTrigger: { trigger: h, start: 'top 88%', once: true } });
+  });
+
+  // ── Preguntas frecuentes: apertura con altura animada ──────────────────
+  document.querySelectorAll('.faq details').forEach(function (d) {
+    var sum = d.querySelector('summary'), body = d.querySelector('p');
+    if (!sum || !body) return;
+    sum.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (d.open) {
+        gsap.to(body, { height: 0, opacity: 0, duration: 0.3, ease: 'power2.inOut', onComplete: function () { d.open = false; gsap.set(body, { clearProps: 'height,opacity' }); } });
+      } else {
+        d.open = true;
+        gsap.fromTo(body, { height: 0, opacity: 0 }, { height: 'auto', opacity: 1, duration: 0.4, ease: 'power2.out', onComplete: function () { gsap.set(body, { clearProps: 'height' }); } });
+      }
+    });
   });
 
   // ── Tarjeta final: entra con escala y el brillo sigue al scroll ─────────
@@ -160,17 +231,6 @@
         c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
         c.style.setProperty('--my', (e.clientY - r.top) + 'px');
       });
-    });
-    // Botones grandes "magnéticos".
-    document.querySelectorAll('.btn-lg, .nav .btn-primary').forEach(function (b) {
-      var qx = gsap.quickTo(b, 'x', { duration: 0.4, ease: 'power3' });
-      var qy = gsap.quickTo(b, 'y', { duration: 0.4, ease: 'power3' });
-      b.addEventListener('pointermove', function (e) {
-        var r = b.getBoundingClientRect();
-        qx((e.clientX - (r.left + r.width / 2)) * 0.22);
-        qy((e.clientY - (r.top + r.height / 2)) * 0.3);
-      });
-      b.addEventListener('pointerleave', function () { qx(0); qy(0); });
     });
     // El escenario del hero se inclina un poco con el ratón.
     if (stage) {
