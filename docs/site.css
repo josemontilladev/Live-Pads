@@ -261,3 +261,30 @@ h2 { font-size: clamp(30px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -.0
 .legal-back { display: inline-flex; align-items: center; gap: 8px; margin: 0 auto 22px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .legal-back:hover { color: var(--text); }
 .legal-wrap { max-width: 800px; margin: 0 auto; }
+
+/* ═══ Movimiento (motion.js: Lenis + GSAP). Todo es opcional. ═══ */
+.scroll-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg, var(--amber2), var(--amber), #ff8a00); box-shadow: 0 0 14px rgba(251, 174, 0, .55); pointer-events: none; }
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+/* GSAP anima la aparición: se anula la transición CSS para que no pelee con él. */
+html.gsap .rv { opacity: 1; transform: none; transition: none; }
+html.gsap .rv:not(.in) { opacity: 0; }
+html.gsap .hero .rv { opacity: 1; }
+/* Titular dividido en palabras */
+.w-o { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+.w-i { display: inline-block; will-change: transform; }
+.grad .w-i { background: linear-gradient(100deg, var(--amber2), var(--amber) 60%, #ff8a00); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .04em; }
+/* Resplandor que sigue al cursor */
+.spot { --mx: 50%; --my: 50%; }
+.spot::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(260px circle at var(--mx) var(--my), rgba(251, 174, 0, .13), transparent 70%);
+}
+.spot:hover::before { opacity: 1; }
+.btn { will-change: transform; }
+.stage, .win, .phone { will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .scroll-progress { display: none; }
+}
+.spot { position: relative; }
