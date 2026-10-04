@@ -308,6 +308,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initSeqWaveform(); // onda + secciones sobre el reproductor
   initPracticeMode(); // modo práctica: velocidad sin cambiar el tono + tramo A–B
+  // El click sigue la velocidad elegida en el modo práctica.
+  window.addEventListener('livepads:practice-rate', (ev) => {
+    const r = Number(ev && ev.detail && ev.detail.rate) || 1;
+    if (metro) metro.tempoScale = r;
+  });
   // Hook the track player to app.js helpers so it stays decoupled.
   initTrackPlayer({
     // Un solo AudioContext para Pads+Pista (menos hilos de audio y latencia
@@ -1643,7 +1648,7 @@ function cancelCountIn() {
 function doCountIn(onDone) {
   if (countingIn || !engine || !engine.ctx) { onDone(); return; }
   const beats = metro.beats || 4;
-  const interval = 60 / (metro.bpm || 120);
+  const interval = 60 / ((metro.bpm || 120) * (metro.tempoScale || 1));
   const t0 = engine.ctx.currentTime + 0.06;
   for (let i = 0; i < beats; i++) {
     const accent = i === 0 || (Array.isArray(metro.accents) && metro.accents.includes(i));

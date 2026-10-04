@@ -26,6 +26,7 @@ export class Metronome {
     this._tapTimes = [];
     this.onBeat  = null;
     this.multiplier = 1;
+    this.tempoScale = 1;   // modo práctica: el click sigue la velocidad de la pista (0.25–2)
     this.volume  = 0.8;
     this.sound   = 'logic';
     this.accents = []; // sin acento por defecto; el usuario marca los que quiera
@@ -139,7 +140,7 @@ export class Metronome {
   }
 
   _advanceBeat() {
-    const interval = 60 / (this.bpm * this.multiplier); // seconds
+    const interval = 60 / (this.bpm * this.multiplier * (this.tempoScale || 1)); // seconds
     this._nextNoteTime += interval;
     this.currentBeat = (this.currentBeat + 1) % this.beats;
   }

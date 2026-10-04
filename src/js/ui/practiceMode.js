@@ -71,7 +71,12 @@ function setOpen(v) {
 
 function reset() {
   rate = 1; A = B = null; loopOn = false;
+  announceRate();
   paint();
+}
+
+function announceRate() {
+  try { window.dispatchEvent(new CustomEvent('livepads:practice-rate', { detail: { rate } })); } catch (_) {}
 }
 
 function need() {
@@ -85,6 +90,7 @@ function setRate(r) {
   if (!need()) return;
   rate = Math.max(MIN_RATE, Math.min(MAX_RATE, Math.round(r * 20) / 20));
   try { audio.playbackRate = rate; } catch (_) {}
+  announceRate();
   paint();
 }
 
@@ -140,6 +146,9 @@ function paint() {
   lp.setAttribute('aria-pressed', loopOn ? 'true' : 'false');
   $('#sp-clear').disabled = A == null && B == null;
   panel.classList.toggle('has-slow', rate !== 1);
+  const bpm = parseInt((document.getElementById('bpm-display') || {}).textContent, 10);
+  const clk = $('#sp-click');
+  if (clk) clk.textContent = Number.isFinite(bpm) ? `Click a ${Math.round(bpm * rate)} BPM (${bpm} × ${Math.round(rate * 100)} %)` : 'El click sigue la velocidad';
   // El botón de la cabecera avisa si hay algo activo aunque el panel esté cerrado.
   btn.classList.toggle('is-active', rate !== 1 || loopOn);
   btn.querySelector('.sw-practice-state').textContent = rate !== 1 ? rr + '%' : (loopOn ? 'A–B' : '');
