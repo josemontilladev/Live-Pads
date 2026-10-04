@@ -802,6 +802,9 @@ const SIDEBAR_TAB_KEY = 'livepads:sidebar-tab';
 const lastSidebarTab = () => {
   let t = null;
   try { t = localStorage.getItem(SIDEBAR_TAB_KEY); } catch (_) {}
+  // «Cuenta» ya no es un panel del menú lateral (abre el Centro de cuenta aparte): el ☰
+  // nunca debe reabrir en esa pestaña, o solo se vería la ventana de cuenta.
+  if (t === 'account') t = null;
   return t && q(`.stab[data-tab="${t}"]`) ? t : 'audio';
 };
 
