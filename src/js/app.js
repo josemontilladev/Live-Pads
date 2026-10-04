@@ -83,6 +83,7 @@ import { hydrateCustomKitsInto } from './data/customKits.js';
 import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giSetlistLoader.js';
 import { htmlToPlainLyrics } from './utils/text.js';
 import { initSeqWaveform } from './ui/seqWaveform.js';
+import { initPracticeMode } from './ui/practiceMode.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
 // la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';
@@ -306,6 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDrumVolumes({ getEngine: () => engine, syncSlider });
 
   initSeqWaveform(); // onda + secciones sobre el reproductor
+  initPracticeMode(); // modo práctica: velocidad sin cambiar el tono + tramo A–B
   // Hook the track player to app.js helpers so it stays decoupled.
   initTrackPlayer({
     // Un solo AudioContext para Pads+Pista (menos hilos de audio y latencia

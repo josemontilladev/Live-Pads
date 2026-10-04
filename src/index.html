@@ -474,6 +474,10 @@
         <span class="sw-now"></span>
         <span class="sw-next"></span>
         <div class="sw-actions">
+          <button type="button" class="sw-btn" id="sw-practice" aria-pressed="false" title="Modo práctica: reproduce más lento (sin cambiar el tono) y repite un tramo A–B">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.3 17a9 9 0 1 1 17.4 0"/></svg>
+            Práctica <span class="sw-practice-state"></span>
+          </button>
           <button type="button" class="sw-btn sw-btn--accent" id="sw-add" title="Marcar una sección en la posición actual (Intro, Verso, Coro…)">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Sección
@@ -493,6 +497,31 @@
         </div>
         <div class="sw-ruler"></div>
         <div class="sw-loading">Analizando onda…</div>
+      </div>
+      <div class="sw-practice" hidden>
+        <div class="sp-group">
+          <span class="sp-label">Velocidad</span>
+          <button type="button" class="sp-btn sp-btn--round" id="sp-slower" title="Más lento (−5 %)" aria-label="Más lento">−</button>
+          <span class="sp-rate" id="sp-rate" title="Doble clic para volver a 100 %">100%</span>
+          <button type="button" class="sp-btn sp-btn--round" id="sp-faster" title="Más rápido (+5 %)" aria-label="Más rápido">+</button>
+          <div class="sp-chips" role="group" aria-label="Velocidades rápidas">
+            <button type="button" class="sp-chip" data-rate="0.5">50</button>
+            <button type="button" class="sp-chip" data-rate="0.6">60</button>
+            <button type="button" class="sp-chip" data-rate="0.7">70</button>
+            <button type="button" class="sp-chip" data-rate="0.8">80</button>
+            <button type="button" class="sp-chip" data-rate="0.9">90</button>
+            <button type="button" class="sp-chip" data-rate="1">100</button>
+          </div>
+        </div>
+        <div class="sp-group">
+          <span class="sp-label">Repetir tramo</span>
+          <button type="button" class="sp-btn sp-btn--ab" id="sp-a" title="Marcar el inicio (A) en la posición actual — atajo [">A</button>
+          <button type="button" class="sp-btn sp-btn--ab" id="sp-b" title="Marcar el final (B) en la posición actual — atajo ]">B</button>
+          <span class="sp-read" id="sp-read">Sin tramo</span>
+          <button type="button" class="sp-btn" id="sp-loop" aria-pressed="false" title="Repetir el tramo A–B sin cortes — atajo \">Bucle A–B</button>
+          <button type="button" class="sp-btn sp-btn--ghost" id="sp-clear" title="Quitar el tramo" disabled>Limpiar</button>
+        </div>
+        <span class="sp-hint"><b>[</b> A · <b>]</b> B · <b>\</b> bucle &nbsp;·&nbsp; El tono no cambia al bajar la velocidad. <i class="sp-warn">El click y los pads no siguen la velocidad.</i></span>
       </div>
     </section>
 

@@ -63,6 +63,9 @@ export class PitchAudio extends EventTarget {
     this._playing = false;
     this._loop = false;
     this._pitchSemitones = 0;
+    this._rate = 1;                 // velocidad (modo práctica), tono intacto
+    this._loopA = null;             // tramo A–B (segundos) para repetir
+    this._loopB = null;
     this._volume = 1;
     this._src = '';
     this._loadPromise = null;
@@ -147,7 +150,67 @@ export class PitchAudio extends EventTarget {
   get loop() { return this._loop; }
   set loop(v) {
     this._loop = !!v;
-    if (this._source) { try { this._source.loop = this._loop; } catch (_) {} }
+    if (this._source) this._applyLoopToSource(this._source);
+  }
+
+  // ── Práctica: velocidad sin cambiar el tono + tramo A–B en bucle ──────────
+  get playbackRate() { return this._rate; }
+  set playbackRate(r) {
+    const v = Math.max(0.25, Math.min(2, Number(r) || 1));
+    if (v === this._rate) return;
+    const wasNeed = this._needsST();
+    if (this._playing && this._source) {
+      // Reanclar el reloj en la posición actual para que el tiempo no salte.
+      this._startOffset = this._currentTime || 0;
+      this._startCtx = this._ctx.currentTime;
+      try { this._source.playbackRate.value = v; } catch (_) {}
+    }
+    this._rate = v;
+    if (!this._playing) return;
+    if (this._needsST() === wasNeed && this._stNode) { this._pushStParams(); return; }
+    this._rerouteSmooth();
+  }
+
+  get loopRegion() { return this._loopA == null ? null : { a: this._loopA, b: this._loopB }; }
+  /** Repite el tramo [a,b] (segundos) sin cortes. null/clear para quitarlo. */
+  setLoopRegion(a, b) {
+    const d = this.duration;
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b - a < 0.2) { this.clearLoopRegion(); return; }
+    this._loopA = Math.max(0, a);
+    this._loopB = Number.isFinite(d) ? Math.min(d, b) : b;
+    if (this._source) {
+      // Reanclar para que el cálculo de posición use el tramo desde ya.
+      if (this._playing) { this._startOffset = this._currentTime || 0; this._startCtx = this._ctx.currentTime; }
+      this._applyLoopToSource(this._source);
+    }
+  }
+  clearLoopRegion() {
+    const had = this._loopA != null;
+    this._loopA = this._loopB = null;
+    if (this._source) {
+      if (had && this._playing) { this._startOffset = this._currentTime || 0; this._startCtx = this._ctx.currentTime; }
+      this._applyLoopToSource(this._source);
+    }
+  }
+  _applyLoopToSource(src) {
+    try {
+      if (this._loopA != null) {
+        src.loopStart = this._loopA;
+        src.loopEnd = this._loopB;
+        src.loop = true;
+      } else {
+        src.loopStart = 0;
+        src.loopEnd = 0;
+        src.loop = this._loop;
+      }
+    } catch (_) {}
+  }
+  _needsST() { return this._pitchSemitones !== 0 || this._rate !== 1; }
+  _pushStParams() {
+    const st = this._stNode;
+    if (!st) return;
+    try { st.pitchSemitones.value = this._pitchSemitones; } catch (_) {}
+    try { const p = st.parameters.get('playbackRate'); if (p) p.value = this._rate; } catch (_) {}
   }
 
   get paused() { return !this._playing; }
@@ -156,19 +219,21 @@ export class PitchAudio extends EventTarget {
   get pitchSemitones() { return this._pitchSemitones; }
   set pitchSemitones(n) {
     const s = Number(n) || 0;
-    const was = this._pitchSemitones;
+    const wasNeed = this._needsST();
     this._pitchSemitones = s;
     if (!this._playing) return;
-    const crossing = (was === 0) !== (s === 0);
-    if (!crossing && s !== 0 && this._stNode) {
-      // Sigue transponiendo (≠0 → ≠0): solo actualizar el param, sin re-rutear
+    if (this._needsST() === wasNeed && this._stNode) {
+      // Sigue necesitando el procesador: solo actualizar los parámetros, sin re-rutear
       // (evita un click por desconectar/reconectar).
-      try { this._stNode.pitchSemitones.value = s; } catch (_) {}
+      this._pushStParams();
       return;
     }
-    // Cruza el 0 (inserta/quita el SoundTouchNode) → re-rutear. El cambio de
-    // topología en seco metía un click audible: micro-fade del gain (~12ms)
-    // a ambos lados del re-ruteo — inaudible como fade, mata el pop.
+    this._rerouteSmooth();
+  }
+
+  // Cambia la topología (inserta/quita el SoundTouchNode) con un micro-fade de ~12 ms
+  // a ambos lados: inaudible como fade, mata el pop del re-ruteo en seco.
+  _rerouteSmooth() {
     const g = this._gain && this._gain.gain;
     if (g && this._ctx) {
       const now = this._ctx.currentTime;
@@ -217,10 +282,13 @@ export class PitchAudio extends EventTarget {
     if (!this._buffer) return;
     const src = this._ctx.createBufferSource();
     src.buffer = this._buffer;
-    src.loop = this._loop;
+    try { src.playbackRate.value = this._rate; } catch (_) {}
+    this._applyLoopToSource(src);
     this._source = src;
     this._startCtx = this._ctx.currentTime;
     this._startOffset = this._currentTime || 0;
+    // Con un tramo A–B activo, si se arranca pasado B se entra por A.
+    if (this._loopA != null && this._startOffset >= this._loopB) this._startOffset = this._loopA;
     src.onended = () => {
       if (src !== this._source) return;        // quedó obsoleto (seek/stop)
       // Con loop nativo el source no dispara 'ended'; esto solo corre al final real.
@@ -253,13 +321,13 @@ export class PitchAudio extends EventTarget {
   _routeOutput() {
     if (!this._source) return;
     try { this._source.disconnect(); } catch (_) {}
-    if (this._pitchSemitones !== 0) {
+    if (this._needsST()) {
       const st = this._ensureStNode();
       if (st) {
         try { st.disconnect(); } catch (_) {}
         this._source.connect(st);
         st.connect(this._gain);
-        try { st.pitchSemitones.value = this._pitchSemitones; } catch (_) {}
+        this._pushStParams();
         return;
       }
       this._scheduleReroute(); // worklet no listo aún → re-rutear cuando lo esté
@@ -291,7 +359,7 @@ export class PitchAudio extends EventTarget {
     const reg = _workletReg.get(this._ctx) || ensureWorklet(this._ctx);
     reg.promise.then(() => {
       this._rerouteScheduled = false;
-      if (this._playing && this._pitchSemitones !== 0) this._routeOutput();
+      if (this._playing && this._needsST()) this._routeOutput();
     }).catch(() => { this._rerouteScheduled = false; });
   }
 
@@ -301,9 +369,12 @@ export class PitchAudio extends EventTarget {
     let lastEmit = 0;
     const tick = () => {
       if (!this._source) return;
-      let t = this._startOffset + (this._ctx.currentTime - this._startCtx);
+      let t = this._startOffset + (this._ctx.currentTime - this._startCtx) * this._rate;
       const dur = this._buffer ? this._buffer.duration : 0;
-      if (this._loop && dur > 0) t = t % dur;
+      if (this._loopA != null && t >= this._loopA) {
+        const len = Math.max(0.05, this._loopB - this._loopA);
+        t = this._loopA + ((t - this._loopA) % len);
+      } else if (this._loop && dur > 0) t = t % dur;
       else if (dur > 0 && t > dur) t = dur;
       this._currentTime = t;
       const now = this._ctx.currentTime;

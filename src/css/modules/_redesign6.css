@@ -385,3 +385,54 @@ option { background: #141414; color: #fff; }
 .lyrics-text-content.hide-chords .section-header-line:has(+ .chord-line + .section-header-line),
 .lyrics-text-content.hide-chords .section-header-line:has(+ .chord-line:last-child) { display: none; }
 .lyrics-text-content.hide-chords > .section-header-line:first-child + .chord-line + .lyrics-spacer + .section-header-line { margin-top: 0; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Modo práctica (velocidad + tramo A–B) — discreto: una franja fina bajo la onda.
+   ═══════════════════════════════════════════════════════════════════ */
+#sw-practice { display: inline-flex; align-items: center; gap: 6px; }
+#sw-practice.is-active, #sw-practice[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sw-practice-state { font-size: 10.5px; font-weight: 600; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.sw-practice-state:empty { display: none; }
+
+.sw-practice {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;
+  margin-top: 8px; padding: 9px 12px;
+  background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 12px;
+}
+.sw-practice[hidden] { display: none; }
+.sp-group { display: flex; align-items: center; gap: 6px; }
+.sp-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
+.sp-btn {
+  height: 26px; padding: 0 11px; font-size: 11.5px; font-weight: 500;
+  background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.sp-btn:hover:not(:disabled) { background: rgba(255,255,255,.1); }
+.sp-btn:disabled { opacity: .4; cursor: default; }
+.sp-btn--round { width: 26px; padding: 0; border-radius: 50%; font-size: 15px; line-height: 1; }
+.sp-btn--ab { width: 28px; padding: 0; font-weight: 600; }
+.sp-btn--ab.is-set { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--accent); }
+.sp-btn.is-on { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #0a0a14); }
+.sp-btn--ghost { background: transparent; }
+.sp-rate { min-width: 40px; text-align: center; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sp-chips { display: flex; gap: 3px; margin-left: 4px; }
+.sp-chip {
+  height: 24px; min-width: 32px; padding: 0 7px; font-size: 11px; font-weight: 500;
+  background: transparent; border: 1px solid var(--border); border-radius: 999px; color: var(--text-muted); cursor: pointer;
+}
+.sp-chip:hover { color: var(--text); border-color: var(--border-strong); }
+.sp-chip.is-on { color: var(--on-accent, #0a0a14); background: var(--accent); border-color: var(--accent); }
+.sp-read { font-size: 12px; color: var(--text-muted); min-width: 118px; font-variant-numeric: tabular-nums; }
+.sp-hint { flex: 1 1 100%; font-size: 10.5px; color: var(--text-muted); opacity: .8; }
+.sp-hint b { color: var(--text); font-weight: 600; padding: 0 3px; border: 1px solid var(--border); border-radius: 4px; }
+.sp-warn { display: none; font-style: normal; color: #fbbf24; }
+.sw-practice.has-slow .sp-warn { display: inline; }
+
+/* Tramo A–B sobre la onda */
+.sw-ab { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.sw-ab.hidden { display: none; }
+.sw-ab-fill { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--accent) 16%, transparent); border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+.sw-ab:not(.is-looping) .sw-ab-fill { background: color-mix(in srgb, var(--accent) 7%, transparent); border-style: dashed; opacity: .8; }
+.sw-ab-h { position: absolute; top: 0; bottom: 0; width: 16px; margin-left: -8px; cursor: ew-resize; pointer-events: auto; display: flex; align-items: flex-start; justify-content: center; }
+.sw-ab-h b { margin-top: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); color: var(--on-accent, #0a0a14); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.5); }
