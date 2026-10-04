@@ -2273,36 +2273,75 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
   }
 }
 
-if (window.electronAPI && window.electronAPI.onUpdateReady) {
-  window.electronAPI.onUpdateReady((info) => {
-    const st = document.getElementById('update-status');
-    if (st) {
-      st.className = 'about-update-status';
-      st.textContent = '✓ Descarga completa — listo para reiniciar';
-      // Show "what's new" in the Info panel when the release carries notes.
-      const notes = info && info.notes ? String(info.notes).trim() : '';
-      const prev = document.getElementById('update-notes');
-      if (prev) prev.remove();
-      if (notes) {
-        const nb = document.createElement('div');
-        nb.id = 'update-notes';
-        nb.className = 'about-update-notes';
-        nb.innerHTML = `<strong>Novedades v${(info && info.version) || ''}</strong><br>${notes.replace(/\n/g, '<br>')}`;
-        st.insertAdjacentElement('afterend', nb);
-      }
+// Actualización lista: aviso inferior + botón fijo en la barra superior + botón en
+// «Acerca». El botón fijo no desaparece al cerrar el aviso, así siempre se puede aplicar.
+function showUpdateReady(info) {
+  const version = info && info.version ? ` (v${info.version})` : '';
+  const install = () => window.electronAPI.installUpdate();
+
+  // 1) Botón fijo arriba
+  let pill = document.getElementById('update-pill');
+  if (!pill) {
+    pill = document.createElement('button');
+    pill.id = 'update-pill';
+    pill.type = 'button';
+    pill.className = 'update-pill';
+    const host = document.querySelector('#topbar .topbar-actions');
+    if (host) host.insertBefore(pill, host.firstChild); else document.body.appendChild(pill);
+    pill.onclick = install;
+  }
+  pill.innerHTML = `<span class="update-pill-dot"></span>Reiniciar para actualizar${version}`;
+  pill.title = 'Hay una versión nueva descargada: reinicia LivePads para aplicarla';
+
+  // 2) Estado + botón en «Acerca»
+  const st = document.getElementById('update-status');
+  if (st) {
+    st.className = 'about-update-status';
+    st.textContent = '✓ Descarga completa — listo para reiniciar';
+    let b = document.getElementById('update-restart-about');
+    if (!b) {
+      b = document.createElement('button');
+      b.id = 'update-restart-about';
+      b.className = 'sb-btn sb-btn--primary';
+      b.textContent = 'Reiniciar e instalar ahora';
+      st.insertAdjacentElement('afterend', b);
+      b.onclick = install;
     }
-    if (document.getElementById('update-banner')) return;
-    const bar = document.createElement('div');
-    bar.id = 'update-banner';
-    bar.className = 'update-banner';
-    bar.innerHTML = `
-      <span>Actualización lista${info && info.version ? ` (v${info.version})` : ''} — reinicia para aplicarla.</span>
-      <button id="update-restart">Reiniciar ahora</button>
-      <button id="update-later" class="update-banner__later" aria-label="Más tarde">✕</button>`;
-    document.body.appendChild(bar);
-    requestAnimationFrame(() => bar.classList.add('is-in'));
-    bar.querySelector('#update-restart').onclick = () => window.electronAPI.installUpdate();
-    bar.querySelector('#update-later').onclick = () => bar.remove();
-  });
+    const notes = info && info.notes ? String(info.notes).trim() : '';
+    const prev = document.getElementById('update-notes');
+    if (prev) prev.remove();
+    if (notes) {
+      const nb = document.createElement('div');
+      nb.id = 'update-notes';
+      nb.className = 'about-update-notes';
+      nb.innerHTML = `<strong>Novedades v${(info && info.version) || ''}</strong><br>${notes.replace(/\n/g, '<br>')}`;
+      b.insertAdjacentElement('afterend', nb);
+    }
+  }
+
+  // 3) Aviso inferior (se puede cerrar; el botón de arriba se queda)
+  if (document.getElementById('update-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'update-banner';
+  bar.className = 'update-banner';
+  bar.innerHTML = `
+    <span>Actualización lista${version} — reinicia para aplicarla.</span>
+    <button id="update-restart">Reiniciar ahora</button>
+    <button id="update-later" class="update-banner__later" aria-label="Más tarde">✕</button>`;
+  document.body.appendChild(bar);
+  requestAnimationFrame(() => bar.classList.add('is-in'));
+  bar.querySelector('#update-restart').onclick = install;
+  bar.querySelector('#update-later').onclick = () => bar.remove();
+}
+
+window.__showUpdateReady = showUpdateReady; // (también sirve para probar la interfaz)
+if (window.electronAPI && window.electronAPI.onUpdateReady) {
+  window.electronAPI.onUpdateReady(showUpdateReady);
+  // Si ya había una descarga lista (p. ej. tras recargar la ventana), mostrarla.
+  if (window.electronAPI.getUpdateStatus) {
+    window.addEventListener('DOMContentLoaded', () => {
+      window.electronAPI.getUpdateStatus().then((info) => { if (info) showUpdateReady(info); }).catch(() => {});
+    });
+  }
 }
 

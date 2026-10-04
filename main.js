@@ -2504,6 +2504,8 @@ app.whenReady().then(() => {
   }
 
   checkForUpdates();
+  // Quien deja la app abierta días también recibe la actualización: se revisa cada 30 min.
+  setInterval(checkForUpdates, 30 * 60 * 1000);
 });
 
 // Auto-update via electron-updater + GitHub Releases. Only in the packaged
@@ -2511,6 +2513,7 @@ app.whenReady().then(() => {
 // never block startup. Downloads in the background and installs on quit.
 let _autoUpdater = null;
 let _updaterWired = false;
+let _updateReady = null;   // { version, notes } cuando ya se descargó una actualización
 // Lazily load electron-updater and register its event listeners once. Events
 // are forwarded to the renderer: live download progress, ready-to-install,
 // and errors — so the UI can show a real progress bar and clear feedback.
@@ -2535,7 +2538,8 @@ function getAutoUpdater() {
       let notes = info && info.releaseNotes;
       if (Array.isArray(notes)) notes = notes.map(n => (n && n.note) || '').join('\n');
       if (typeof notes === 'string') notes = notes.replace(/<[^>]+>/g, '').trim().slice(0, 600);
-      send('update-ready', { version: info && info.version, notes: notes || '' });
+      _updateReady = { version: info && info.version, notes: notes || '' };
+      send('update-ready', _updateReady);
     });
     autoUpdater.on('error', (err) => send('update-error', { message: (err && err.message) || String(err) }));
   }
@@ -2557,6 +2561,9 @@ ipcMain.handle('update-install', () => {
 });
 
 ipcMain.handle('app-version', () => app.getVersion());
+
+// ¿Hay ya una actualización descargada? (la UI lo pregunta al abrir o recargar)
+ipcMain.handle('update-status', () => _updateReady);
 
 // Manual "check for updates" from the Info panel. Returns a status the
 // renderer can show. In dev (not packaged) there's nothing to check. When an
