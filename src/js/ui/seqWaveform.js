@@ -17,6 +17,7 @@ import { computePeaks } from '../stems/waveform.js';
 import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog } from './dialog.js';
+import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
 
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
 const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente', 'Instrumental', 'Solo', 'Interludio', 'Tag', 'Final', 'Outro'];
@@ -44,6 +45,22 @@ export function sectionHue(label) {
   return h % 360;
 }
 
+/** Solo propietarios y editores pueden tocar las secciones (la nube rechaza al resto). */
+function guardEdit() {
+  if (canEditActiveLibrary()) return true;
+  window.showToast?.('Solo los editores pueden cambiar las secciones. Tu rol en esta librería es «Solo ver».', 'info');
+  return false;
+}
+function applyRole() {
+  if (!root) return;
+  const ok = canEditActiveLibrary();
+  root.classList.toggle('is-readonly', !ok);
+  if (addBtn) {
+    addBtn.disabled = !ok;
+    addBtn.title = ok ? 'Marcar una sección en la posición actual (Intro, Verso, Coro…)' : 'Solo los editores pueden marcar secciones';
+  }
+}
+
 function getMarkers() {
   if (!song) return [];
   if (!Array.isArray(song.markers)) song.markers = [];
@@ -54,6 +71,12 @@ function sortedMarkers() { return [...getMarkers()].sort((a, b) => a.t - b.t); }
 function persist() {
   if (!song) return;
   song.markers = sortedMarkers();
+  // La onda puede estar mostrando la copia de la canción dentro de un servicio: las
+  // secciones se guardan también en la canción de la librería, que es la que se sincroniza.
+  try {
+    const lib = getSongs().find((x) => x !== song && ((song.cloudId && x.cloudId === song.cloudId) || (x.id != null && x.id === song.id)));
+    if (lib) lib.markers = song.markers.map((m) => ({ ...m }));
+  } catch (_) {}
   try { if (window.electronAPI && window.electronAPI.saveGiSetlist) window.electronAPI.saveGiSetlist(getSongs()); } catch (_) {}
   window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id, markers: true } }));
 }
@@ -84,9 +107,27 @@ export function initSeqWaveform() {
     e.preventDefault(); openMarkerMenu(e.clientX, e.clientY, pill.dataset.id);
   });
   window.addEventListener('livepads:track-loaded', (e) => onLoaded(e.detail));
+  // Secciones que marcó otro editor: llegan con la sincronización y se ven sin recargar la pista.
+  window.addEventListener('livepads:library-synced', onLibrarySynced);
+  const refreshRole = () => { refreshMyRole().then(applyRole).catch(() => {}); };
+  window.addEventListener('livepads:libraries-changed', refreshRole);
+  refreshRole(); setTimeout(refreshRole, 4000);
+  applyRole();
   window.addEventListener('livepads:track-cleared', onCleared);
   window.addEventListener('livepads:songs-changed', (e) => { if (e.detail && e.detail.markers) return; if (song) renderMarkers(); });
   new ResizeObserver(() => { if (peaks && stage.clientWidth !== lastW) { drawWave(); renderMarkers(); } }).observe(stage);
+}
+
+function onLibrarySynced() {
+  refreshMyRole().then(applyRole).catch(() => {});
+  if (!song || !audio || !duration) return;
+  try {
+    const lib = getSongs().find((x) => x !== song && ((song.cloudId && x.cloudId === song.cloudId) || (x.id != null && x.id === song.id)));
+    if (lib && JSON.stringify(lib.markers || []) !== JSON.stringify(song.markers || [])) {
+      song.markers = (lib.markers || []).map((m) => ({ ...m }));
+    }
+  } catch (_) {}
+  drawWave(); renderMarkers();
 }
 
 function onLoaded({ audio: a, song: s }) {
@@ -114,7 +155,15 @@ function onCleared() {
 }
 
 // ── Dibujo ─────────────────────────────────────────────────────────────────
-function drawOn(canvas, color, dim) {
+function hueAt(t, ms) {
+  let cur = null;
+  for (let i = 0; i < ms.length; i++) { if (ms[i].t <= t + 0.001) cur = ms[i]; else break; }
+  return cur ? sectionHue(cur.label) : null;
+}
+
+// Dibuja las barras de la onda. Con secciones, CADA barra toma el color de su sección
+// (no es una capa encima: el propio espectro cambia de color). `lit` = parte ya tocada.
+function drawOn(canvas, fallback, lit) {
   const dpr = window.devicePixelRatio || 1;
   const w = stage.clientWidth, h = wrap.clientHeight;
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
@@ -124,12 +173,18 @@ function drawOn(canvas, color, dim) {
   ctx.clearRect(0, 0, w, h);
   const n = peaks.length / 2, mid = h / 2, amp = mid - 3;
   const bar = 2, gap = 1, step = bar + gap, cols = Math.floor(w / step);
-  ctx.fillStyle = color;
+  const ms = duration ? sortedMarkers() : [];
+  let lastHue = -2;
   for (let i = 0; i < cols; i++) {
     const a = Math.floor((i / cols) * n), b = Math.max(a + 1, Math.floor(((i + 1) / cols) * n));
     let mn = 0, mx = 0;
     for (let j = a; j < b && j < n; j++) { if (peaks[j * 2] < mn) mn = peaks[j * 2]; if (peaks[j * 2 + 1] > mx) mx = peaks[j * 2 + 1]; }
-    const top = Math.max(1, Math.max(Math.abs(mn), mx) * amp * (dim ? 1 : 1));
+    const top = Math.max(1, Math.max(Math.abs(mn), mx) * amp);
+    const hue = ms.length ? hueAt((i / cols) * duration, ms) : null;
+    if (hue !== lastHue) {
+      lastHue = hue;
+      ctx.fillStyle = hue == null ? fallback : (lit ? `hsl(${hue} 78% 60%)` : `hsl(${hue} 62% 56% / .62)`);
+    }
     ctx.fillRect(i * step, mid - top, bar, top * 2);
   }
 }
@@ -138,8 +193,8 @@ function drawWave() {
   if (!peaks || root.classList.contains('is-collapsed')) return;
   lastW = stage.clientWidth;
   const cs = getComputedStyle(root);
-  drawOn(canvasBase, 'rgba(255,255,255,0.32)', true);
-  drawOn(canvasPlayed, cs.getPropertyValue('--sw-played').trim() || '#fbae00', false);
+  drawOn(canvasBase, 'rgba(255,255,255,0.32)', false);
+  drawOn(canvasPlayed, cs.getPropertyValue('--sw-played').trim() || '#fbae00', true);
   playedClip.style.width = '0%';
   drawRuler();
 }
@@ -165,6 +220,7 @@ function renderMarkers() {
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
   markersEl.querySelectorAll('.sw-pill').forEach(bindPill);
+  if (peaks) drawWave();      // el espectro toma el color de cada sección
   tick(true);
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -222,6 +278,7 @@ function bindPill(pill) {
     if (e.button !== 0) return;
     e.preventDefault();
     const m = getMarkers().find(x => x.id === pill.dataset.id); if (!m) return;
+    if (!canEditActiveLibrary()) { seekTo(m.t); return; }   // solo lectura: el clic salta a la sección
     const startX = e.clientX; let moved = false;
     pill.setPointerCapture(e.pointerId);
     const move = (ev) => {
@@ -242,7 +299,7 @@ function bindPill(pill) {
 }
 
 function addMarker(label) {
-  if (!song || !audio) return;
+  if (!song || !audio || !guardEdit()) return;
   const t = Math.round((audio.currentTime || 0) * 10) / 10;
   getMarkers().push({ id: uid(), label, t });
   persist(); renderMarkers();
@@ -250,7 +307,7 @@ function addMarker(label) {
 }
 
 function openAddMenu(anchor) {
-  if (!song || !audio) return;
+  if (!song || !audio || !guardEdit()) return;
   const items = QUICK_LABELS.map(label => ({ label, onSelect: () => addMarker(label) }));
   items.push({ label: 'Otro nombre…', onSelect: () => showDialog('Nombre de la sección', 'Ej. Coda, Tag 2…', (v) => { v = (v || '').trim(); if (v) addMarker(v); }) });
   openCardMoreMenu(anchor, items);
@@ -258,6 +315,7 @@ function openAddMenu(anchor) {
 
 function openMarkerMenu(x, y, id) {
   const m = getMarkers().find(v => v.id === id); if (!m) return;
+  if (!canEditActiveLibrary()) { openContextMenu(x, y, [{ label: 'Ir a esta sección', onSelect: () => seekTo(m.t) }]); return; }
   openContextMenu(x, y, [
     { label: 'Ir a esta sección', onSelect: () => seekTo(m.t) },
     { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; persist(); renderMarkers(); } }) },

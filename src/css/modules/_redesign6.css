@@ -452,3 +452,10 @@ option { background: #141414; color: #fff; }
 @keyframes update-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .update-pill { animation: none; } }
 #update-restart-about { margin-top: 10px; width: 100%; background: var(--accent); color: var(--on-accent, #0a0a14); border-color: var(--accent); }
+
+
+/* ═══ Onda por secciones: el espectro lleva el color; la franja de fondo queda casi imperceptible ═══ */
+.sw-region { background: hsl(var(--h) 70% 55% / .05) !important; border-left-color: hsl(var(--h) 70% 55% / .55) !important; }
+.sw-region.is-current { background: hsl(var(--h) 70% 55% / .09) !important; }
+#seq-wave.is-readonly .sw-pill { cursor: pointer; }
+#seq-wave.is-readonly #sw-add { opacity: .45; cursor: not-allowed; }

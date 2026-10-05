@@ -391,7 +391,9 @@ export async function pullLibrarySongs(opts = {}) {
     const localMarkers = target.markers;
     Object.assign(target, incoming, { id: target.id });
     // Las secciones (markers) locales no se borran por una fila de la nube que aún no las trae.
-    if ((!incoming.markers || !incoming.markers.length) && Array.isArray(localMarkers) && localMarkers.length) target.markers = localMarkers;
+    // Solo si MI copia tiene cambios sin subir (keepLocalText); si estoy al día, que un
+    // compañero quite todas las secciones también se aplica.
+    if (keepLocalText && (!incoming.markers || !incoming.markers.length) && Array.isArray(localMarkers) && localMarkers.length) target.markers = localMarkers;
     if (localAudio && (localAudio.sequence || localAudio.original)) target.audio = localAudio;
     // Igual que el audio: una fila sin carátula no borra la carátula local (las
     // filas antiguas de la nube no traen `meta.cover`).

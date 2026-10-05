@@ -181,3 +181,40 @@ export async function ensureActiveLibrary() {
   setActiveLibraryId(active.id);
   return active;
 }
+
+
+// ── Rol en la librería activa (para decidir qué se puede editar) ───────────
+// 'owner' | 'editor' | 'viewer' | 'local' (sin sesión o sin librería en la nube).
+let _role = { libId: null, uid: null, role: null };
+
+export function getCachedRole() {
+  const u = getUser();
+  if (!u || !getActiveLibraryId()) return 'local';
+  if (_role.libId === getActiveLibraryId() && _role.uid === u.id && _role.role) return _role.role;
+  return null; // aún sin averiguar
+}
+
+export async function refreshMyRole() {
+  const u = getUser();
+  const libId = getActiveLibraryId();
+  if (!u || !libId) { _role = { libId: null, uid: null, role: 'local' }; return 'local'; }
+  try {
+    const lib = (getCachedLibraries() || []).find((l) => l.id === libId);
+    let role = lib && lib.owner_id === u.id ? 'owner' : null;
+    if (!role) {
+      const rows = await rest(`/memberships?select=role&library_id=eq.${libId}&user_id=eq.${u.id}&limit=1`);
+      role = (Array.isArray(rows) && rows[0] && rows[0].role) || null;
+    }
+    if (role) _role = { libId, uid: u.id, role };
+    return role;
+  } catch (_) {
+    return getCachedRole(); // sin red: conserva lo último que se sabía
+  }
+}
+
+/** ¿Puede este usuario modificar el contenido compartido (canciones, secciones…)?
+ *  Optimista mientras no se sepa el rol (la nube lo rechazaría igualmente). */
+export function canEditActiveLibrary() {
+  const r = getCachedRole();
+  return r == null || r === 'local' || r === 'owner' || r === 'editor';
+}
