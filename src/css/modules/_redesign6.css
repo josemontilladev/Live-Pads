@@ -514,3 +514,15 @@ option { background: #141414; color: #fff; }
 .ll-head { justify-content: flex-start; gap: 12px; }
 .ll-titles { flex: 1 1 auto; }
 .ll-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+
+/* Letra en vivo — sincronizar a mano */
+.ll-btn--sync { margin-left: auto; }
+.ll-syncbar { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: rgba(190,242,100,.06); }
+.ll-syncbar.hidden { display: none; }
+.ll-syncinfo { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.ll-syncbtns { display: flex; gap: 6px; }
+.ll-btn--mark { flex: 1 1 auto; height: 40px; font-size: 13px; font-weight: 500; color: #0b0f06; background: var(--accent); border-color: var(--accent); }
+.ll-btn--mark:hover { filter: brightness(1.08); }
+#panel-lyrics.is-syncing .lyric-line { opacity: .5; cursor: default; }
+#panel-lyrics.is-syncing .lyric-line.ll-marked { opacity: .35; }
+#panel-lyrics.is-syncing .lyric-line.ll-next { opacity: 1; background: rgba(190,242,100,.12); border-left-color: var(--accent); }

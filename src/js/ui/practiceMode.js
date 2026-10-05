@@ -38,9 +38,9 @@ export function initPracticeMode() {
   hA = $('.sw-ab-h--a', overlay); hB = $('.sw-ab-h--b', overlay);
   bindHandle(hA, 'A'); bindHandle(hB, 'B');
 
-  let open = false;
-  try { open = localStorage.getItem(OPEN_KEY) === '1'; } catch (_) {}
-  setOpen(open);
+  // Siempre arranca cerrado: la pantalla de Pads se ve limpia y la práctica se abre a demanda.
+  try { localStorage.removeItem(OPEN_KEY); } catch (_) {}
+  setOpen(false);
   btn.onclick = () => { setOpen(!root.classList.contains('is-practice')); };
 
   // Velocidad
@@ -66,7 +66,6 @@ function setOpen(v) {
   root.classList.toggle('is-practice', v);
   panel.hidden = !v;
   btn.setAttribute('aria-pressed', v ? 'true' : 'false');
-  try { localStorage.setItem(OPEN_KEY, v ? '1' : '0'); } catch (_) {}
 }
 
 function reset() {

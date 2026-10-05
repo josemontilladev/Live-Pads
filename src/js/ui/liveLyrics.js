@@ -32,7 +32,9 @@ let timer = null;
 let userScrollUntil = 0;
 let sized = 16, showChords = true, follow = true, auto = true;
 let lastActiveId = null;
-let timingKind = 'none'; // 'sections' | 'whole' | 'none'
+let timingKind = 'none'; // 'manual' | 'sections' | 'whole' | 'none'
+let syncing = null;      // { els, times, idx } mientras se sincroniza a mano
+const LEAD = 0.3;        // la línea se ilumina un poco antes, para leerla a tiempo
 
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
@@ -65,6 +67,15 @@ export function initLiveLyrics() {
       <button type="button" class="ll-btn ll-btn--icon" id="ll-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
       <button type="button" class="ll-btn" id="ll-follow" title="Seguir la canción mientras suena (karaoke) y mantener la línea actual centrada">Seguir</button>
       <button type="button" class="ll-btn" id="ll-auto" title="Abrir la letra automáticamente al elegir una canción">Auto</button>
+      <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="Marca a mano cuándo empieza cada línea mientras suena la pista: el karaoke queda exacto">Sincronizar</button>
+    </div>
+    <div class="ll-syncbar hidden">
+      <div class="ll-syncinfo"></div>
+      <div class="ll-syncbtns">
+        <button type="button" class="ll-btn ll-btn--mark" id="ll-mark">Marcar línea</button>
+        <button type="button" class="ll-btn" id="ll-undo">Atrás</button>
+        <button type="button" class="ll-btn" id="ll-sync-cancel">Cancelar</button>
+      </div>
     </div>
     <div class="ll-body lyrics-text-content"></div>
     <footer class="ll-hint"></footer>`;
@@ -85,6 +96,10 @@ export function initLiveLyrics() {
   bodyEl.addEventListener('wheel', () => { userScrollUntil = Date.now() + 6000; }, { passive: true });
   bodyEl.addEventListener('pointerdown', () => { userScrollUntil = Date.now() + 6000; });
   bodyEl.addEventListener('click', onLineClick);
+  panel.querySelector('#ll-sync').onclick = () => (syncing ? stopSync(false) : startSync());
+  panel.querySelector('#ll-mark').onclick = markLine;
+  panel.querySelector('#ll-undo').onclick = undoMark;
+  panel.querySelector('#ll-sync-cancel').onclick = () => stopSync(false);
 
   // Al elegir OTRA canción, la letra reemplaza a las tarjetas (si «Auto» está activo).
   const cs = currentSong(); lastActiveId = cs ? cs.id : null;
@@ -179,6 +194,25 @@ function lineWeight(el) {
   return Math.max(8, (c.textContent || '').trim().length);
 }
 
+// Tiempos exactos tomados a mano («Sincronizar»): se guardan por canción y solo valen
+// mientras la letra no cambie.
+const TT_PREFIX = 'livepads-linetimes-';
+function hashStr(str) { let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return String(h); }
+function loadManual(count) {
+  if (!song) return null;
+  try {
+    const o = JSON.parse(localStorage.getItem(TT_PREFIX + song.id) || 'null');
+    if (o && o.h === hashStr(String(song.lyrics || '')) && Array.isArray(o.t) && o.t.length === count) return o.t;
+  } catch (_) {}
+  return null;
+}
+function saveManual(times) {
+  try { localStorage.setItem(TT_PREFIX + song.id, JSON.stringify({ h: hashStr(String(song.lyrics || '')), t: times })); } catch (_) {}
+}
+function clearManual() { try { localStorage.removeItem(TT_PREFIX + song.id); } catch (_) {} }
+
+const SEC_PER_CHAR = 0.22; // tope: una línea no «dura» más que cantarla despacio
+
 function rebuildTiming() {
   lines = []; active = -1;
   if (!bodyEl || !song) return;
@@ -198,13 +232,25 @@ function rebuildTiming() {
   const total = lyricSecs.reduce((n, s) => n + s.els.length, 0);
   if (!total) { timingKind = 'none'; paintHint(); return; }
 
+  // 0) Tiempos tomados a mano: exactos.
+  const allEls = lyricSecs.flatMap((s) => s.els);
+  const manual = loadManual(allEls.length);
+  if (manual) {
+    timingKind = 'manual';
+    allEls.forEach((el, i) => lines.push({ el, start: manual[i] }));
+    lines.sort((x, y) => x.start - y.start);
+    paintHint();
+    tickNow(true);
+    return;
+  }
+
   // 2) Marcadores (secciones de la onda) → tiempo de inicio de cada sección de la letra.
   const ms = (Array.isArray(song.markers) ? song.markers : []).slice().sort((a, b) => a.t - b.t);
   const used = new Set();
   const cMs = ms.map((m) => ({ ...m, canon: canonOf(m.label) }));
   const startOf = new Map(); // sec → t
   const sameCount = ms.length && (secs.filter((s) => s.label).length === ms.length);
-  secs.forEach((s, i) => {
+  secs.forEach((s) => {
     if (!s.label) return;
     let j = cMs.findIndex((m, k) => !used.has(k) && m.canon === s.canon);
     if (j < 0) j = cMs.findIndex((m, k) => !used.has(k) && m.canon.split('|')[0] === s.canon.split('|')[0]);
@@ -215,8 +261,7 @@ function rebuildTiming() {
   if (startOf.size && dur) {
     timingKind = 'sections';
     // Secciones con letra y sin tiempo propio: se reparten entre sus vecinas con tiempo.
-    const withLyrics = lyricSecs;
-    const anchors = withLyrics.map((s) => (startOf.has(s) ? startOf.get(s) : null));
+    const anchors = lyricSecs.map((s) => (startOf.has(s) ? startOf.get(s) : null));
     for (let i = 0; i < anchors.length; i++) {
       if (anchors[i] != null) continue;
       let p = i - 1; while (p >= 0 && anchors[p] == null) p--;
@@ -226,10 +271,24 @@ function rebuildTiming() {
       const span = (n < anchors.length ? n : anchors.length) - (p >= 0 ? p : -1);
       anchors[i] = t0 + ((t1 - t0) * (i - (p >= 0 ? p : -1))) / Math.max(1, span);
     }
-    withLyrics.forEach((s, i) => {
-      const t0 = anchors[i];
-      const t1 = i + 1 < anchors.length ? anchors[i + 1] : dur;
-      distribute(s.els, t0, Math.max(t0 + 1, t1));
+    // Apariciones: cada sección de la letra una vez, más las REPETICIONES (el coro que la
+    // pista canta de nuevo y en la letra aparece una sola vez) que tengan marcador propio.
+    const occ = lyricSecs.map((s, i) => ({ sec: s, t0: anchors[i] }));
+    cMs.forEach((m, k) => {
+      if (used.has(k)) return;
+      const host = lyricSecs.find((s) => s.canon === m.canon) || lyricSecs.find((s) => s.canon && s.canon.split('|')[0] === m.canon.split('|')[0] && !/INSTR|INTRO|OUTRO|FINAL/.test(m.canon));
+      if (host) occ.push({ sec: host, t0: m.t });
+    });
+    occ.sort((x, y) => x.t0 - y.t0);
+    const times = ms.map((m) => m.t);
+    occ.forEach((o, i) => {
+      // Termina en el siguiente marcador (sea del tipo que sea: un «Instrumental» corta la
+      // sección) o en la siguiente aparición, lo que llegue primero.
+      const nextMark = times.find((t) => t > o.t0 + 0.5);
+      const nextOcc = i + 1 < occ.length ? occ[i + 1].t0 : null;
+      const cands = [nextMark, nextOcc].filter((v) => v != null && v > o.t0);
+      const end = cands.length ? Math.min(...cands) : dur;
+      distribute(o.sec.els, o.t0, Math.max(o.t0 + 1, end));
     });
   } else if (dur) {
     timingKind = 'whole';
@@ -246,16 +305,19 @@ function rebuildTiming() {
 function distribute(els, t0, t1) {
   const w = els.map(lineWeight);
   const sum = w.reduce((a, b) => a + b, 0) || 1;
+  // La sección puede traer un tramo instrumental al final: no se estira la letra sobre él.
+  const span = Math.min(t1 - t0, sum * SEC_PER_CHAR);
   let acc = 0;
   els.forEach((el, i) => {
-    lines.push({ el, start: t0 + ((t1 - t0) * acc) / sum });
+    lines.push({ el, start: t0 + (span * acc) / sum });
     acc += w[i];
   });
 }
 
 function paintHint() {
   const msg = {
-    sections: 'Karaoke por secciones · el tiempo de cada línea es una estimación. Toca una línea para saltar a ella.',
+    manual: 'Letra sincronizada a mano · exacta. Toca una línea para saltar a ella.',
+    sections: 'Karaoke por secciones · el tiempo de cada línea es una estimación. Usa «Sincronizar» para dejarla exacta.',
     whole: 'Karaoke aproximado: marca las secciones en la onda (Intro, Verso, Coro…) para afinarlo.',
     none: audio ? '' : 'Reproduce una pista (Sec u Orig) para seguir la letra mientras suena.',
   }[timingKind];
@@ -263,21 +325,24 @@ function paintHint() {
 }
 
 // ── Seguimiento mientras suena ─────────────────────────────────────────────
-function startTimer() { if (!timer) timer = setInterval(() => tickNow(false), 160); }
+function startTimer() { if (!timer) timer = setInterval(() => tickNow(false), 90); }
 function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
 
 function tickNow(force) {
-  if (!panel || panel.classList.contains('hidden') || !lines.length || !audio) return;
+  if (!panel || panel.classList.contains('hidden') || !lines.length || !audio || syncing) return;
   const playing = !audio.paused;
   if (!playing && !force) return;
   const t = audio.currentTime || 0;
   let lo = 0, hi = lines.length - 1, idx = -1;
-  while (lo <= hi) { const mid = (lo + hi) >> 1; if (lines[mid].start <= t + 0.05) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (lines[mid].start <= t + LEAD) { idx = mid; lo = mid + 1; } else hi = mid - 1; }
   if (idx === active && !force) return;
   active = idx;
-  lines.forEach((l, i) => {
-    l.el.classList.toggle('ll-now', i === idx);
-    l.el.classList.toggle('ll-past', i < idx);
+  const nowEl = idx >= 0 ? lines[idx].el : null;
+  const pastEls = new Set();
+  for (let i = 0; i < idx; i++) if (lines[i].el !== nowEl) pastEls.add(lines[i].el);
+  lines.forEach((l) => {
+    l.el.classList.toggle('ll-now', l.el === nowEl);
+    l.el.classList.toggle('ll-past', pastEls.has(l.el));
   });
   if (idx >= 0 && follow && Date.now() > userScrollUntil) {
     const el = lines[idx].el;
@@ -289,7 +354,63 @@ function tickNow(force) {
 
 function onLineClick(e) {
   const el = e.target.closest('.lyric-line');
-  if (!el || !audio) return;
+  if (!el || !audio || syncing) return;
   const l = lines.find((x) => x.el === el);
   if (l) { try { audio.currentTime = l.start; } catch (_) {} active = -1; tickNow(true); }
+}
+
+// ── Sincronizar a mano ─────────────────────────────────────────────────────
+// Con la pista sonando, se pulsa «Marcar línea» justo cuando empieza a cantarse cada una.
+// Al terminar, el karaoke usa esos tiempos exactos (quedan guardados en este equipo).
+function syncUi() {
+  const bar = panel.querySelector('.ll-syncbar');
+  bar.classList.toggle('hidden', !syncing);
+  panel.classList.toggle('is-syncing', !!syncing);
+  panel.querySelector('#ll-sync').classList.toggle('is-on', !!syncing);
+  if (!syncing) return;
+  const { els, idx } = syncing;
+  panel.querySelector('.ll-syncinfo').textContent = `Línea ${Math.min(idx + 1, els.length)} de ${els.length} · pulsa «Marcar línea» cuando empiece a cantarse la resaltada.`;
+  els.forEach((el, i) => { el.classList.toggle('ll-next', i === idx); el.classList.toggle('ll-marked', i < idx); el.classList.remove('ll-now', 'll-past'); });
+  const el = els[idx];
+  if (el) bodyEl.scrollTo({ top: Math.max(0, el.offsetTop - bodyEl.clientHeight * 0.34), behavior: 'smooth' });
+}
+
+function startSync() {
+  if (!audio || audio.paused === undefined) { hintEl.textContent = 'Carga una pista (Sec u Orig) y ponla a sonar para sincronizar la letra.'; return; }
+  const els = Array.from(bodyEl.querySelectorAll('.lyric-line'));
+  if (!els.length) { hintEl.textContent = 'Esta canción no tiene letra para sincronizar.'; return; }
+  syncing = { els, times: [], idx: 0 };
+  try { audio.currentTime = 0; } catch (_) {}
+  if (audio.paused) { try { const p = audio.play(); if (p && p.catch) p.catch(() => {}); } catch (_) {} }
+  syncUi();
+}
+
+function markLine() {
+  if (!syncing || !audio) return;
+  syncing.times[syncing.idx] = Math.max(0, (audio.currentTime || 0) - 0.1); // compensa el tiempo de reacción
+  syncing.idx++;
+  if (syncing.idx >= syncing.els.length) { stopSync(true); return; }
+  syncUi();
+}
+
+function undoMark() {
+  if (!syncing || syncing.idx === 0) return;
+  syncing.idx--;
+  syncing.times.length = syncing.idx;
+  syncUi();
+}
+
+function stopSync(save) {
+  if (!syncing) return;
+  const { els, times } = syncing;
+  els.forEach((el) => el.classList.remove('ll-next', 'll-marked'));
+  syncing = null;
+  syncUi();
+  if (save && song) {
+    // Los tiempos deben ir en orden creciente.
+    for (let i = 1; i < times.length; i++) if (times[i] < times[i - 1]) times[i] = times[i - 1];
+    saveManual(times);
+    hintEl.textContent = 'Letra sincronizada ✓';
+  }
+  rebuildTiming();
 }
