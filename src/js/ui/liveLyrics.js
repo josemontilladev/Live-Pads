@@ -60,6 +60,10 @@ export function initLiveLyrics() {
         Canciones
       </button>
       <div class="ll-titles"><b class="ll-title">Letra</b><span class="ll-sub"></span></div>
+      <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="Enseña a la app cuándo empieza a cantarse cada línea: el karaoke queda exacto">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        Sincronizar
+      </button>
     </header>
     <div class="ll-tools">
       <button type="button" class="ll-btn" id="ll-chords" title="Mostrar u ocultar los acordes">Acordes</button>
@@ -67,13 +71,16 @@ export function initLiveLyrics() {
       <button type="button" class="ll-btn ll-btn--icon" id="ll-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
       <button type="button" class="ll-btn" id="ll-follow" title="Seguir la canción mientras suena (karaoke) y mantener la línea actual centrada">Seguir</button>
       <button type="button" class="ll-btn" id="ll-auto" title="Abrir la letra automáticamente al elegir una canción">Auto</button>
-      <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="Marca a mano cuándo empieza cada línea mientras suena la pista: el karaoke queda exacto">Sincronizar</button>
     </div>
     <div class="ll-syncbar hidden">
-      <div class="ll-syncinfo"></div>
+      <div class="ll-synctop"><b>Sincronizar letra</b><span class="ll-syncstep"></span></div>
+      <div class="ll-syncwhy">Escucha la canción y pulsa el botón grande justo cuando empiece a cantarse esta línea:</div>
+      <div class="ll-syncline"></div>
       <div class="ll-syncbtns">
-        <button type="button" class="ll-btn ll-btn--mark" id="ll-mark">Marcar línea</button>
-        <button type="button" class="ll-btn" id="ll-undo">Atrás</button>
+        <button type="button" class="ll-btn ll-btn--mark" id="ll-mark">Ya empezó ▸</button>
+      </div>
+      <div class="ll-syncsec">
+        <button type="button" class="ll-btn" id="ll-undo">← Línea anterior</button>
         <button type="button" class="ll-btn" id="ll-sync-cancel">Cancelar</button>
       </div>
     </div>
@@ -362,6 +369,12 @@ function onLineClick(e) {
 // ── Sincronizar a mano ─────────────────────────────────────────────────────
 // Con la pista sonando, se pulsa «Marcar línea» justo cuando empieza a cantarse cada una.
 // Al terminar, el karaoke usa esos tiempos exactos (quedan guardados en este equipo).
+function plainLine(el) {
+  const c = el.cloneNode(true);
+  c.querySelectorAll('.inline-chord').forEach((n) => n.remove());
+  return (c.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
 function syncUi() {
   const bar = panel.querySelector('.ll-syncbar');
   bar.classList.toggle('hidden', !syncing);
@@ -369,14 +382,15 @@ function syncUi() {
   panel.querySelector('#ll-sync').classList.toggle('is-on', !!syncing);
   if (!syncing) return;
   const { els, idx } = syncing;
-  panel.querySelector('.ll-syncinfo').textContent = `Línea ${Math.min(idx + 1, els.length)} de ${els.length} · pulsa «Marcar línea» cuando empiece a cantarse la resaltada.`;
-  els.forEach((el, i) => { el.classList.toggle('ll-next', i === idx); el.classList.toggle('ll-marked', i < idx); el.classList.remove('ll-now', 'll-past'); });
-  const el = els[idx];
+  const el = els[Math.min(idx, els.length - 1)];
+  panel.querySelector('.ll-syncstep').textContent = `${Math.min(idx + 1, els.length)} de ${els.length}`;
+  panel.querySelector('.ll-syncline').textContent = el ? plainLine(el) : '';
+  els.forEach((e, i) => { e.classList.toggle('ll-next', i === idx); e.classList.toggle('ll-marked', i < idx); e.classList.remove('ll-now', 'll-past'); });
   if (el) bodyEl.scrollTo({ top: Math.max(0, el.offsetTop - bodyEl.clientHeight * 0.34), behavior: 'smooth' });
 }
 
 function startSync() {
-  if (!audio || audio.paused === undefined) { hintEl.textContent = 'Carga una pista (Sec u Orig) y ponla a sonar para sincronizar la letra.'; return; }
+  if (!audio || audio.paused === undefined) { hintEl.textContent = 'Primero carga la pista de la canción (botón Sec u Orig) y luego pulsa Sincronizar.'; return; }
   const els = Array.from(bodyEl.querySelectorAll('.lyric-line'));
   if (!els.length) { hintEl.textContent = 'Esta canción no tiene letra para sincronizar.'; return; }
   syncing = { els, times: [], idx: 0 };
