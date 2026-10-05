@@ -459,3 +459,58 @@ option { background: #141414; color: #fff; }
 .sw-region.is-current { background: hsl(var(--h) 70% 55% / .09) !important; }
 #seq-wave.is-readonly .sw-pill { cursor: pointer; }
 #seq-wave.is-readonly #sw-add { opacity: .45; cursor: not-allowed; }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Letra en vivo: columna propia en Pads (≥1500 px) o panel flotante en pantallas más angostas.
+   ═══════════════════════════════════════════════════════════════════ */
+#sw-lyrics.is-active, #sw-lyrics[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#sw-lyrics { display: inline-flex; align-items: center; gap: 6px; }
+
+#panel-lyrics {
+  --ll-size: 16px;
+  display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg);
+  overflow: hidden;
+}
+#panel-lyrics.hidden { display: none; }
+.ll-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.ll-titles { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.ll-title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ll-sub { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ll-tools { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.ll-btn { height: 26px; padding: 0 9px; font-size: 11.5px; font-weight: 500; background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.ll-btn:hover { background: rgba(255,255,255,.1); color: var(--text); }
+.ll-btn--icon { width: 28px; padding: 0; }
+.ll-btn.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ll-body { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 16px 120px; scroll-behavior: auto; }
+.ll-empty { color: var(--text-muted); font-size: 13.5px; line-height: 1.5; padding: 24px 6px; text-align: center; }
+.ll-hint { flex: 0 0 auto; padding: 8px 14px; border-top: 1px solid var(--border); font-size: 10.5px; color: var(--text-muted); min-height: 30px; }
+.ll-hint:empty { display: none; }
+
+/* Tipografía de la letra (escala con A− / A+) */
+.ll-body .lyric-line { font-size: var(--ll-size); line-height: 1.75; margin-bottom: 3px; padding: 1px 0 1px 10px; margin-left: -10px; border-left: 3px solid transparent; border-radius: 4px; cursor: pointer; transition: opacity .25s, color .25s, background .25s, border-color .25s; }
+.ll-body .lyric-line.has-inline-chords { margin-top: calc(var(--ll-size) * 1.9); }
+.ll-body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
+.ll-body .inline-chord { font-size: calc(var(--ll-size) * .78); }
+.ll-body .chord-line { font-size: calc(var(--ll-size) * .84); }
+.ll-body .section-header-line { margin-top: calc(var(--ll-size) * 1.5); }
+
+/* Karaoke: lo ya cantado se atenúa; la línea actual se ilumina */
+.ll-body .lyric-line.ll-past { opacity: .42; }
+.ll-body .lyric-line.ll-now {
+  opacity: 1; color: #fff; font-weight: 500;
+  border-left-color: var(--accent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 85%);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Con espacio: columna propia a la derecha de los pads */
+@media (min-width: 1500px) {
+  #stage.has-lyrics { grid-template-columns: 340px minmax(0, 1fr) 350px 400px; }
+  #panel-lyrics { grid-column: 4; grid-row: 1 / -1; }
+}
+/* Pantallas angostas: panel flotante que no tapa la barra del reproductor */
+@media (max-width: 1499px) {
+  #panel-lyrics { position: fixed; right: 16px; top: 72px; bottom: 214px; width: min(380px, 36vw); z-index: 900; box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+}

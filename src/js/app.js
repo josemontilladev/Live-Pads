@@ -84,6 +84,7 @@ import { loadGiSetlistFromFile as loadGiSetlistFromFileModule } from './data/giS
 import { htmlToPlainLyrics } from './utils/text.js';
 import { initSeqWaveform } from './ui/seqWaveform.js';
 import { initPracticeMode } from './ui/practiceMode.js';
+import { initLiveLyrics } from './ui/liveLyrics.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
 // la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';
@@ -308,6 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   initSeqWaveform(); // onda + secciones sobre el reproductor
   initPracticeMode(); // modo práctica: velocidad sin cambiar el tono + tramo A–B
+  initLiveLyrics();   // letra con acordes en vivo (karaoke) en su propia columna
   // El click sigue la velocidad elegida en el modo práctica.
   window.addEventListener('livepads:practice-rate', (ev) => {
     const r = Number(ev && ev.detail && ev.detail.rate) || 1;
