@@ -21,6 +21,7 @@ const OPEN_KEY = 'livepads-livelyrics-open';
 const SIZE_KEY = 'livepads-livelyrics-size';
 const CHORDS_KEY = 'livepads-livelyrics-chords';
 const FOLLOW_KEY = 'livepads-livelyrics-follow';
+const AUTO_KEY = 'livepads-livelyrics-auto';
 
 let panel, bodyEl, titleEl, subEl, hintEl, btn;
 let audio = null;
@@ -29,7 +30,8 @@ let lines = [];          // [{ el, start }]  (start en segundos, estimado)
 let active = -1;
 let timer = null;
 let userScrollUntil = 0;
-let sized = 16, showChords = true, follow = true;
+let sized = 16, showChords = true, follow = true, auto = true;
+let lastActiveId = null;
 let timingKind = 'none'; // 'sections' | 'whole' | 'none'
 
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } };
@@ -43,6 +45,7 @@ export function initLiveLyrics() {
   sized = Math.max(12, Math.min(30, parseInt(ls(SIZE_KEY, '16'), 10) || 16));
   showChords = ls(CHORDS_KEY, '1') !== '0';
   follow = ls(FOLLOW_KEY, '1') !== '0';
+  auto = ls(AUTO_KEY, '1') !== '0';
 
   panel = document.createElement('aside');
   panel.id = 'panel-lyrics';
@@ -50,15 +53,19 @@ export function initLiveLyrics() {
   panel.setAttribute('aria-label', 'Letra en vivo');
   panel.innerHTML = `
     <header class="ll-head">
+      <button type="button" class="ll-back" id="ll-close" title="Volver a la lista de canciones (al elegir otra canción, la letra vuelve a abrirse sola)">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Canciones
+      </button>
       <div class="ll-titles"><b class="ll-title">Letra</b><span class="ll-sub"></span></div>
-      <div class="ll-tools">
-        <button type="button" class="ll-btn" id="ll-chords" title="Mostrar u ocultar los acordes">Acordes</button>
-        <button type="button" class="ll-btn ll-btn--icon" id="ll-smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
-        <button type="button" class="ll-btn ll-btn--icon" id="ll-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
-        <button type="button" class="ll-btn" id="ll-follow" title="Seguir la canción mientras suena (karaoke) y mantener la línea actual centrada">Seguir</button>
-        <button type="button" class="ll-btn ll-btn--icon" id="ll-close" title="Cerrar" aria-label="Cerrar">✕</button>
-      </div>
     </header>
+    <div class="ll-tools">
+      <button type="button" class="ll-btn" id="ll-chords" title="Mostrar u ocultar los acordes">Acordes</button>
+      <button type="button" class="ll-btn ll-btn--icon" id="ll-smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+      <button type="button" class="ll-btn ll-btn--icon" id="ll-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
+      <button type="button" class="ll-btn" id="ll-follow" title="Seguir la canción mientras suena (karaoke) y mantener la línea actual centrada">Seguir</button>
+      <button type="button" class="ll-btn" id="ll-auto" title="Abrir la letra automáticamente al elegir una canción">Auto</button>
+    </div>
     <div class="ll-body lyrics-text-content"></div>
     <footer class="ll-hint"></footer>`;
   stage.appendChild(panel);
@@ -72,13 +79,23 @@ export function initLiveLyrics() {
   panel.querySelector('#ll-chords').onclick = () => { showChords = !showChords; lsSet(CHORDS_KEY, showChords ? '1' : '0'); paintTools(); };
   panel.querySelector('#ll-smaller').onclick = () => setSize(sized - 1);
   panel.querySelector('#ll-bigger').onclick = () => setSize(sized + 1);
+  panel.querySelector('#ll-auto').onclick = () => { auto = !auto; lsSet(AUTO_KEY, auto ? '1' : '0'); paintTools(); };
   panel.querySelector('#ll-follow').onclick = () => { follow = !follow; lsSet(FOLLOW_KEY, follow ? '1' : '0'); paintTools(); if (follow) active = -1; };
   // Si la persona desplaza la letra a mano, el seguimiento automático se pausa unos segundos.
   bodyEl.addEventListener('wheel', () => { userScrollUntil = Date.now() + 6000; }, { passive: true });
   bodyEl.addEventListener('pointerdown', () => { userScrollUntil = Date.now() + 6000; });
   bodyEl.addEventListener('click', onLineClick);
 
-  window.addEventListener('livepads:song-state', refresh);
+  // Al elegir OTRA canción, la letra reemplaza a las tarjetas (si «Auto» está activo).
+  const cs = currentSong(); lastActiveId = cs ? cs.id : null;
+  window.addEventListener('livepads:song-state', () => {
+    const s = currentSong();
+    if (s && s.id !== lastActiveId) {
+      lastActiveId = s.id;
+      if (auto && panel.classList.contains('hidden')) setOpen(true);
+    }
+    refresh();
+  });
   window.addEventListener('livepads:songs-changed', refresh);
   window.addEventListener('livepads:library-synced', refresh);
   window.addEventListener('livepads:track-loaded', (e) => {
@@ -112,6 +129,7 @@ function setSize(n) {
 function paintTools() {
   panel.querySelector('#ll-chords').classList.toggle('is-on', showChords);
   panel.querySelector('#ll-follow').classList.toggle('is-on', follow);
+  panel.querySelector('#ll-auto').classList.toggle('is-on', auto);
   bodyEl.classList.toggle('hide-chords', !showChords);
 }
 

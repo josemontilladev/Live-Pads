@@ -505,12 +505,12 @@ option { background: #141414; color: #fff; }
   text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Con espacio: columna propia a la derecha de los pads */
-@media (min-width: 1500px) {
-  #stage.has-lyrics { grid-template-columns: 340px minmax(0, 1fr) 350px 400px; }
-  #panel-lyrics { grid-column: 4; grid-row: 1 / -1; }
-}
-/* Pantallas angostas: panel flotante que no tapa la barra del reproductor */
-@media (max-width: 1499px) {
-  #panel-lyrics { position: fixed; right: 16px; top: 72px; bottom: 214px; width: min(380px, 36vw); z-index: 900; box-shadow: 0 24px 60px rgba(0,0,0,.55); }
-}
+/* La letra OCUPA el lugar de las tarjetas (columna izquierda) mientras hay una canción
+   seleccionada; «← Canciones» devuelve las tarjetas. */
+#stage.has-lyrics #panel-setlist { display: none; }
+#panel-lyrics { grid-column: 1; grid-row: 1 / -1; }
+.ll-back { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px 0 6px; flex: 0 0 auto; font-size: 12px; font-weight: 500; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; transition: background .15s, border-color .15s; }
+.ll-back:hover { background: rgba(255,255,255,.12); border-color: var(--accent); }
+.ll-head { justify-content: flex-start; gap: 12px; }
+.ll-titles { flex: 1 1 auto; }
+.ll-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
