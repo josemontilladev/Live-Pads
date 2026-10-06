@@ -2053,6 +2053,9 @@ function applyGiSong(song) {
 
   // Sync active library song id in the store.
   setActiveSongId(song.id);
+  // Aviso de «el usuario eligió esta canción» (aunque ya fuera la activa): la Letra en vivo
+  // se reabre si se había cerrado con «‹ Canciones».
+  try { window.dispatchEvent(new CustomEvent('livepads:song-picked', { detail: { id: song.id } })); } catch (_) {}
 
   // Nueva canción → la fuente del Play maestro vuelve a "Secuencia" por defecto.
   masterSource = 'sequence';

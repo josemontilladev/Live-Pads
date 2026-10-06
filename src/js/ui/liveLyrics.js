@@ -119,6 +119,12 @@ export function initLiveLyrics() {
     }
     refresh();
   });
+  // Tocar de nuevo la tarjeta de la canción activa también reabre la letra (tras «‹ Canciones»).
+  window.addEventListener('livepads:song-picked', (e) => {
+    const id = e.detail && e.detail.id;
+    if (id != null) lastActiveId = id;
+    if (auto && panel.classList.contains('hidden')) setOpen(true);
+  });
   window.addEventListener('livepads:songs-changed', refresh);
   window.addEventListener('livepads:library-synced', refresh);
   window.addEventListener('livepads:track-loaded', (e) => {
