@@ -23,7 +23,7 @@ const CHORDS_KEY = 'livepads-livelyrics-chords';
 const FOLLOW_KEY = 'livepads-livelyrics-follow';
 const AUTO_KEY = 'livepads-livelyrics-auto';
 
-let panel, bodyEl, titleEl, subEl, hintEl, btn;
+let panel, bodyEl, titleEl, subEl, metaEl, hintEl, btn;
 let audio = null;
 let song = null;
 let lines = [];          // [{ el, start }]  (start en segundos, estimado)
@@ -59,7 +59,7 @@ export function initLiveLyrics() {
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Canciones
       </button>
-      <div class="ll-titles"><b class="ll-title">Letra</b><span class="ll-sub"></span></div>
+      <div class="ll-titles"><b class="ll-title">Letra</b><span class="ll-sub"></span><span class="ll-meta"></span></div>
       <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="Enseña a la app cuándo empieza a cantarse cada línea: el karaoke queda exacto">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
         Sincronizar
@@ -90,6 +90,7 @@ export function initLiveLyrics() {
   bodyEl = panel.querySelector('.ll-body');
   titleEl = panel.querySelector('.ll-title');
   subEl = panel.querySelector('.ll-sub');
+  metaEl = panel.querySelector('.ll-meta');
   hintEl = panel.querySelector('.ll-hint');
 
   btn.onclick = () => setOpen(panel.classList.contains('hidden'));
@@ -126,6 +127,12 @@ export function initLiveLyrics() {
     if (audio && !audio.buffer) { const a = audio; a.addEventListener('loadedmetadata', () => { if (audio === a) rebuildTiming(); }, { once: true }); }
   });
   window.addEventListener('livepads:track-cleared', () => { audio = null; rebuildTiming(); });
+
+  // El tempo puede cambiar en vivo (− / + / TAP): el encabezado lo sigue.
+  const bpmEl = document.getElementById('bpm-display');
+  if (bpmEl) new MutationObserver(paintMeta).observe(bpmEl, { childList: true, characterData: true, subtree: true });
+  const sigEl = document.getElementById('metro-sig-select');
+  if (sigEl) sigEl.addEventListener('change', paintMeta);
 
   setOpen(ls(OPEN_KEY, '0') === '1');
   paintTools();
@@ -172,13 +179,15 @@ function refresh() {
   if (!s) {
     titleEl.textContent = 'Letra en vivo';
     subEl.textContent = '';
+    if (metaEl) metaEl.textContent = '';
     bodyEl.innerHTML = '<div class="ll-empty">Elige una canción de la lista: aquí verás su letra y acordes mientras tocas.</div>';
     lines = []; active = -1; hintEl.textContent = '';
     return;
   }
   titleEl.textContent = s.title || 'Sin título';
   const baseKey = s.key || '';
-  subEl.textContent = [liveKey || baseKey, s.artist].filter(Boolean).join(' · ');
+  subEl.textContent = s.artist || '';
+  paintMeta();
   if (!s.lyrics || !String(s.lyrics).trim()) {
     bodyEl.innerHTML = '<div class="ll-empty">Esta canción aún no tiene letra. Ábrela en la tarjeta (lápiz) para agregarla.</div>';
     lines = []; active = -1; hintEl.textContent = '';
@@ -188,6 +197,21 @@ function refresh() {
   const text = semis ? transposeAll(s.lyrics, semis, prefersFlats(liveKey)) : s.lyrics;
   bodyEl.innerHTML = formatLyrics(text);
   rebuildTiming();
+}
+
+// BPM · tono · compás de la canción activa, en una línea discreta bajo el título.
+function paintMeta() {
+  if (!metaEl) return;
+  const s = song || currentSong();
+  if (!s) { metaEl.textContent = ''; return; }
+  const bpmTxt = (document.getElementById('bpm-display')?.textContent || '').trim();
+  const bpm = parseInt(bpmTxt, 10) || parseInt(s.bpm, 10) || 0;
+  const base = s.key || '', live = getEffectiveKey(s) || base;
+  const key = base && live && base !== live ? `${base} → ${live}` : live;
+  const sigSel = document.getElementById('metro-sig-select');
+  const sig = s.timeSig || (sigSel && sigSel.value ? `${sigSel.value}/4` : '');
+  const bits = [bpm ? `<b>${bpm}</b> BPM` : '', key ? `<b>${key}</b>` : '', sig ? `<b>${sig}</b>` : ''].filter(Boolean);
+  metaEl.innerHTML = bits.join('<i>·</i>');
 }
 
 // ── Tiempos estimados por línea ────────────────────────────────────────────

@@ -539,3 +539,9 @@ option { background: #141414; color: #fff; }
 .ll-back { order: 1; }
 .ll-btn--sync { order: 2; }
 .ll-head .ll-titles { order: 3; flex: 1 0 100%; min-width: 0; }
+
+/* Letra en vivo: BPM · tono · compás, discreto bajo el título */
+.ll-meta { display: flex; align-items: center; gap: 7px; margin-top: 3px; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.ll-meta:empty { display: none; }
+.ll-meta b { font-weight: 500; color: var(--text); opacity: .85; }
+.ll-meta i { font-style: normal; opacity: .45; }
