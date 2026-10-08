@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -398,7 +398,8 @@ function createWindow() {
     "font-src 'self' data:",
     "connect-src 'self' data: blob: livepads: https: wss:",
     "worker-src 'self' blob:",
-    "frame-src 'none'",
+    // Solo el reproductor oficial de YouTube (vía la página player.html de GI) para los acordes de videos.
+    "frame-src https://gi-setlist.vercel.app https://www.youtube.com https://www.youtube-nocookie.com",
     "object-src 'none'",
     "base-uri 'self'",
   ].join('; ');
@@ -413,13 +414,27 @@ function createWindow() {
   // Permisos permitidos: MIDI (controladores) y 'media' (micrófono, para el
   // Afinador). Todo lo demás se niega. El acceso real al micro lo sigue
   // gobernando el SO (privacidad de Windows); aquí solo no lo bloqueamos.
-  const ALLOWED = new Set(['midi', 'midiSysex', 'media', 'audioCapture']);
+  const ALLOWED = new Set(['midi', 'midiSysex', 'media', 'audioCapture', 'display-capture']);
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
     return ALLOWED.has(permission);
   });
 
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     return callback(ALLOWED.has(permission));
+  });
+
+  // El reproductor de YouTube trata como robot al navegador que se anuncia como «Electron»: LivePads se presenta
+  // como el Chrome que realmente lleva dentro (cabecera y navigator.userAgent). Nada en la app depende de esa marca.
+  const plainUA = mainWindow.webContents.session.getUserAgent().replace(/\s*(Electron|LivePads|livepads)\/\S+/g, '');
+  mainWindow.webContents.session.setUserAgent(plainUA);
+
+  // «Detectar acordes» de un video de YouTube: escucha el SONIDO DEL PC (loopback de Windows) mientras el
+  // reproductor oficial suena, sin micrófono. getDisplayMedia exige una fuente de video: se entrega la
+  // pantalla y el renderer la apaga al instante (solo usa el audio).
+  mainWindow.webContents.session.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] })
+      .then((sources) => (sources.length ? callback({ video: sources[0], audio: 'loopback' }) : callback({})))
+      .catch(() => callback({}));
   });
 
   // Cuando el renderer termina de cargar, entrega cualquier deep-link pendiente

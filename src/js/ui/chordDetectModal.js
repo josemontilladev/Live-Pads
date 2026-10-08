@@ -20,7 +20,8 @@
 import { pushModal } from './modalStack.js';
 import { CHORD_SR, chordName, keyName, pitchClasses, makeResampler } from '../chords/chordEngine.js';
 import { analyzeInWorker, releaseChordWorker } from '../chords/chordWorker.js';
-import { chordPrefs, saveChordPrefs, cacheGet, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached } from '../chords/trackChords.js';
+import { chordPrefs, saveChordPrefs, cacheGet, cachePut, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached } from '../chords/trackChords.js';
+import { youtubeId, youtubeTitle, createYtPlayer, startLoopback, createScanBuffer } from '../chords/ytScan.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 
 let prefs = chordPrefs();
@@ -216,11 +217,19 @@ function renderResult() {
   paintNow(true);
 }
 
-function isSyncedToTrack() {
-  if (!source || source.kind !== 'track') return false;
-  const info = trackInfo();
-  return !!(info && info.id === source.id);
+/** Reloj del resultado mostrado: la pista cargada o el video de YouTube (null si no está). */
+function clock() {
+  if (!source) return null;
+  if (source.kind === 'track') {
+    const info = trackInfo();
+    if (!info || info.id !== source.id) return null;
+    const a = getTrackAudio();
+    return { t: a.currentTime || 0, seek: (s) => { a.currentTime = s; } };
+  }
+  if (source.kind === 'yt' && yt && yt.id === source.ytId) return { t: yt.p.now(), seek: (s) => yt.p.seek(s) };
+  return null;
 }
+function isSyncedToTrack() { return !!clock(); }
 function segIndexAt(t) {
   const s = analysis.seg;
   for (let i = 0; i < s.length; i++) if (t >= s[i].s && t < s[i].e) return i;
@@ -228,9 +237,9 @@ function segIndexAt(t) {
 }
 function paintNow(force) {
   if (!analysis || !overlay) return;
-  const synced = isSyncedToTrack();
-  const audio = synced ? getTrackAudio() : null;
-  const t = audio ? audio.currentTime : 0;
+  const c = clock();
+  const synced = !!c;
+  const t = c ? c.t : 0;
   const si = synced ? segIndexAt(t) : -1;
   if (si !== lastSegIdx || force) {
     lastSegIdx = si;
@@ -241,7 +250,7 @@ function paintNow(force) {
     for (let k = Math.max(0, si + 1); k < segs.length; k++) { if (segs[k].r >= 0 && nameOf(segs[k]) !== nameOf(cur)) { next = segs[k]; break; } }
     $('.chd-now').textContent = synced ? nameOf(cur) : '—';
     $('.chd-next').textContent = synced && next ? nameOf(next) : '—';
-    $('.chd-now-lbl').textContent = synced ? 'AHORA' : 'Reproduce la pista para seguir los acordes';
+    $('.chd-now-lbl').textContent = synced ? 'AHORA' : (source && source.kind === 'yt' ? 'Dale play al video para seguir los acordes' : 'Reproduce la pista para seguir los acordes');
     $('.chd-diagram').innerHTML = pianoSvg(synced ? cur : null);
   }
   // Compás actual resaltado + autoscroll suave
@@ -402,6 +411,158 @@ function renderLive() {
 }
 function pianoSvgLive(c) { const s = shift; shift = 0; const svg = pianoSvg(c); shift = s; return svg; }
 
+// ── YouTube: video oficial + escaneo con el sonido del PC ──
+let yt = null; // { id, title, p (reproductor), scan }
+
+function setYtStatus(text, kind) {
+  const el = $('.chd-ytstatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = `chd-ytstatus${kind ? ' ' + kind : ''}`;
+}
+function updateYtButtons() {
+  if (!overlay) return;
+  const scanning = !!(yt && yt.scan);
+  $('.chd-ytscan').classList.toggle('hidden', scanning);
+  $('.chd-ytscan').disabled = !yt || !yt.p || !yt.p.state.ready;
+  $('.chd-ytstop').classList.toggle('hidden', !scanning);
+  $('.chd-ytcancel').classList.toggle('hidden', !scanning);
+  $('.chd-ytprog').classList.toggle('hidden', !scanning);
+}
+function openYt(url) {
+  const id = youtubeId(url);
+  if (!id) { $('.chd-ytbox').classList.remove('hidden'); setYtStatus('Ese enlace no parece de un video de YouTube.', 'error'); return; }
+  if (yt && yt.id === id) return;
+  closeYt();
+  $('.chd-ytbox').classList.remove('hidden');
+  yt = { id, title: '', p: null, scan: null };
+  yt.p = createYtPlayer($('.chd-ytvideo'), id, onYtChange);
+  $('.chd-yttitle').textContent = 'Video de YouTube';
+  youtubeTitle(id).then((t) => {
+    if (!yt || yt.id !== id || !t) return;
+    yt.title = t;
+    $('.chd-yttitle').textContent = t;
+    if (source && source.kind === 'yt' && source.ytId === id) { source.title = t; renderResult(); }
+  });
+  const cached = cacheGet('yt.' + id);
+  if (cached) {
+    showResult(cached, { kind: 'yt', id: 'yt.' + id, ytId: id, title: 'Video de YouTube' });
+    $('.chd-ytscan').textContent = 'Volver a escanear';
+    setYtStatus('Acordes listos: dale play al video y se van marcando.');
+  } else {
+    $('.chd-ytscan').textContent = 'Escanear canción';
+    setYtStatus('Este video aún no tiene acordes. Escanéalo una vez: suena entero mientras LivePads escucha el sonido del PC.');
+  }
+  updateYtButtons();
+}
+function onYtChange() {
+  if (!yt) return;
+  updateYtButtons();
+  const st = yt.p.state;
+  if (st.error) { setYtStatus(st.error, 'error'); if (yt.scan) cancelYtScan(true); return; }
+  if (yt.scan && (st.ended || (st.duration > 0 && yt.p.now() >= st.duration - 0.4))) finishYtScan();
+}
+async function startYtScan() {
+  if (!yt || yt.scan) return;
+  if (!yt.p.state.ready) { setYtStatus('Espera a que cargue el video…'); return; }
+  // Todo lo que suene en el PC entra al escaneo: se pausa la pista de LivePads.
+  try { const a = getTrackAudio(); if (a && !a.paused) a.pause(); } catch (_) {}
+  setYtStatus('Pidiendo el sonido del PC…');
+  const cur = yt;
+  const scan = { sb: null, stop: null, level: 0, live: '', liveBusy: false, finishing: false };
+  try {
+    scan.stop = await startLoopback((chunk, level) => {
+      scan.level = scan.level * 0.6 + level * 0.4;
+      const d = cur.p.state.duration;
+      if (!scan.sb && d > 0) scan.sb = createScanBuffer(d);
+      if (scan.sb) scan.sb.write(chunk, cur.p.now(), cur.p.state.playing);
+    });
+  } catch (e) {
+    setYtStatus('No se pudo escuchar el sonido del PC. ' + ((e && e.message) || ''), 'error');
+    return;
+  }
+  if (yt !== cur) { scan.stop(); return; }
+  yt.scan = scan;
+  yt.p.seek(0);
+  yt.p.play();
+  scan.timer = setInterval(ytScanTick, 400);
+  scan.liveTimer = setInterval(ytLivePreview, 1500);
+  setYtStatus('Escuchando el video… no pongas otro sonido en el PC mientras tanto.');
+  updateYtButtons();
+}
+function ytScanTick() {
+  if (!yt || !yt.scan) return;
+  const st = yt.p.state, d = st.duration || 0;
+  const pct = d ? Math.min(1, yt.p.now() / d) : 0;
+  $('.chd-ytprog .chd-bar-fill').style.width = `${Math.round(pct * 100)}%`;
+  $('.chd-ytlive b').textContent = yt.scan.live || '…';
+  $('.chd-ytlive span').textContent = st.playing && yt.scan.level < 0.003
+    ? 'No se oye nada: sube el volumen del video (no lo silencies).'
+    : `Escuchando · ${Math.round(pct * 100)} % del video`;
+  if (st.duration > 0 && yt.p.now() >= st.duration - 0.4) finishYtScan();
+}
+async function ytLivePreview() {
+  const scan = yt && yt.scan;
+  if (!scan || !scan.sb || scan.liveBusy || scan.sb.head < CHORD_SR * 4) return;
+  scan.liveBusy = true;
+  try {
+    const end = Math.min(scan.sb.buf.length, Math.round(scan.sb.head));
+    const a = await analyzeInWorker(scan.sb.buf.slice(Math.max(0, end - CHORD_SR * 8), end));
+    for (let k = a.seg.length - 1; k >= 0; k--) {
+      const sg = a.seg[k];
+      if (sg.r < 0) continue;
+      if (sg.e >= a.d - 1.6) scan.live = chordName(sg, { latin: prefs.latin, basic: true });
+      break;
+    }
+  } catch (_) {
+  } finally { scan.liveBusy = false; }
+}
+function stopYtCapture(scan) {
+  clearInterval(scan.timer); clearInterval(scan.liveTimer);
+  try { if (scan.stop) scan.stop(); } catch (_) {}
+}
+async function finishYtScan() {
+  const scan = yt && yt.scan;
+  if (!scan || scan.finishing) return;
+  scan.finishing = true;
+  const cur = yt;
+  stopYtCapture(scan);
+  cur.p.pause();
+  cur.scan = null;
+  updateYtButtons();
+  const cov = scan.sb ? scan.sb.coverage() : 0;
+  if (!scan.sb || cov < 0.08) { setYtStatus('No se escuchó lo suficiente del video. Sube el volumen y vuelve a intentarlo.', 'error'); return; }
+  setYtStatus('Analizando lo escuchado…');
+  try {
+    const r = await analyzeInWorker(scan.sb.take(), (p, l) => setProgress(p, l));
+    r.coverage = cov;
+    cachePut('yt.' + cur.id, r);
+    if (yt !== cur || !overlay) return;
+    showResult(r, { kind: 'yt', id: 'yt.' + cur.id, ytId: cur.id, title: cur.title || 'Video de YouTube' });
+    cur.p.seek(0);
+    $('.chd-ytscan').textContent = 'Volver a escanear';
+    setYtStatus(cov < 0.9 ? `Listo (se escuchó el ${Math.round(cov * 100)} % del video). Dale play y los acordes se van marcando.` : 'Listo: dale play al video y los acordes se van marcando.');
+  } catch (e) {
+    if (overlay) setYtStatus('No se pudo analizar lo escuchado. ' + ((e && e.message) || ''), 'error');
+  } finally { if (overlay) setProgress(null); }
+}
+function cancelYtScan(silent) {
+  if (!yt || !yt.scan) return;
+  stopYtCapture(yt.scan);
+  yt.scan = null;
+  yt.p.pause();
+  if (!silent) setYtStatus('Escaneo cancelado.');
+  updateYtButtons();
+}
+function closeYt() {
+  if (!yt) return;
+  if (yt.scan) stopYtCapture(yt.scan);
+  if (yt.p) yt.p.destroy();
+  if (source && source.kind === 'yt') { analysis = null; source = null; renderResult(); }
+  yt = null;
+  const box = $('.chd-ytbox'); if (box) box.classList.add('hidden');
+}
+
 // ── Abrir / cerrar ──
 function ensureCss() {
   if (document.getElementById('chd-css')) return;
@@ -428,6 +589,7 @@ export function openChordDetect() {
       <div class="chd-tabs">
         <button type="button" class="chd-tab" data-tab="track">Pista cargada</button>
         <button type="button" class="chd-tab" data-tab="file">Abrir archivo</button>
+        <button type="button" class="chd-tab" data-tab="yt">YouTube</button>
         <button type="button" class="chd-tab" data-tab="live">En vivo</button>
       </div>
 
@@ -440,6 +602,29 @@ export function openChordDetect() {
           <strong>Elegir un archivo de audio</strong>
           <span>MP3, M4A, WAV, OGG o FLAC · también puedes arrastrarlo aquí</span>
         </label>
+      </div>
+      <div class="chd-pane hidden" data-pane="yt">
+        <div class="chd-ytrow">
+          <input class="chd-yturl" type="text" spellcheck="false" placeholder="Pega el enlace de YouTube (youtube.com/watch?v=… o youtu.be/…)">
+          <button type="button" class="acc-btn chd-ytopen">Abrir</button>
+        </div>
+        <div class="chd-ytbox hidden">
+          <div class="chd-ytvideo"></div>
+          <div class="chd-ytside">
+            <div class="chd-yttitle"></div>
+            <div class="chd-ytstatus"></div>
+            <div class="chd-ytprog hidden">
+              <div class="chd-bar"><div class="chd-bar-fill"></div></div>
+              <div class="chd-ytlive"><b>…</b><span></span></div>
+            </div>
+            <div class="chd-ytbtns">
+              <button type="button" class="acc-btn chd-ytscan">Escanear canción</button>
+              <button type="button" class="acc-btn chd-ytstop hidden">Terminar aquí</button>
+              <button type="button" class="chd-ytcancel hidden">Cancelar</button>
+            </div>
+          </div>
+        </div>
+        <div class="chd-note">El video suena en el reproductor oficial de YouTube (no se descarga nada). Para escanearlo, LivePads escucha el sonido del PC una sola vez; después los acordes van sincronizados con el video.</div>
       </div>
       <div class="chd-pane hidden" data-pane="live">
         <div class="chd-live">
@@ -498,12 +683,17 @@ export function openChordDetect() {
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) runFile(f); });
   $('.chd-live-btn').onclick = () => (live ? stopLive() : startLive());
+  $('.chd-ytopen').onclick = () => openYt($('.chd-yturl').value);
+  $('.chd-yturl').addEventListener('keydown', (e) => { if (e.key === 'Enter') openYt($('.chd-yturl').value); });
+  $('.chd-ytscan').onclick = startYtScan;
+  $('.chd-ytstop').onclick = () => finishYtScan();
+  $('.chd-ytcancel').onclick = () => cancelYtScan();
   // Clic en un compás: la pista salta ahí (si es la pista analizada).
   $('.chd-sheet').addEventListener('click', (e) => {
     const b = e.target.closest('.chd-barcell');
-    if (!b || !isSyncedToTrack()) return;
-    const audio = getTrackAudio();
-    if (audio) { audio.currentTime = parseFloat(b.dataset.t) || 0; paintNow(true); }
+    const c = clock();
+    if (!b || !c) return;
+    c.seek(parseFloat(b.dataset.t) || 0); paintNow(true);
   });
   // Si cambian de canción con el panel abierto, se refresca la pestaña.
   window.addEventListener('livepads:track-loaded', onTrackLoaded);
@@ -516,6 +706,7 @@ function onTrackLoaded() { if (overlay && prefs.tab === 'track') setTimeout(() =
 export function closeChordDetect() {
   if (!overlay) return;
   stopLive();
+  closeYt();
   stopSync();
   releaseChordWorker();
   busy = false;
