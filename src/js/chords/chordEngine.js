@@ -265,6 +265,31 @@ export function chordEngineFactory() {
       binW[k - loBin] = Math.exp(-d * d / (2 * 0.18 * 0.18));
       binIsBass[k - loBin] = hz < 150 ? 1 : 0;
     }
+    // Parte armónica: mediana en el tiempo (±4 cuadros ≈ ±0,4 s) de cada frecuencia. Las notas sostenidas
+    // sobreviven y los golpes de batería (que duran un instante) se van, así no ensucian el cromagrama.
+    {
+      const R = 4;
+      const win = new Float64Array(2 * R + 1);
+      const harm = new Array(nC);
+      for (let t = 0; t < nC; t++) {
+        const t0 = Math.max(0, t - R), t1 = Math.min(nC - 1, t + R);
+        const n = t1 - t0 + 1;
+        const h = new Float64Array(nBins);
+        for (let k = 0; k < nBins; k++) {
+          // ordenación por inserción de ≤ 9 valores
+          for (let i = 0; i < n; i++) {
+            const v = frames[t0 + i][k];
+            let j = i - 1;
+            while (j >= 0 && win[j] > v) { win[j + 1] = win[j]; j--; }
+            win[j + 1] = v;
+          }
+          h[k] = win[n >> 1];
+        }
+        harm[t] = h;
+        if (t % 128 === 0) progress(0.70 + 0.02 * t / nC, 'Escuchando la armonía…');
+      }
+      for (let t = 0; t < nC; t++) frames[t] = harm[t];
+    }
     const chroma = new Array(nC), bassC = new Array(nC);
     const energy = new Float64Array(nC);
     for (let t = 0; t < nC; t++) {
@@ -272,7 +297,7 @@ export function chordEngineFactory() {
       const f = frames[t];
       let e = 0;
       for (let i = 0; i < f.length; i++) {
-        const v = Math.sqrt(f[i]) * binW[i];
+        const v = Math.pow(f[i], 0.33) * binW[i]; // compresión suave: las notas suaves cuentan casi como las fuertes
         e += f[i];
         if (binIsBass[i]) { b[binPc[i]] += v; c[binPc[i]] += v * 0.6; }
         else c[binPc[i]] += v;
@@ -414,7 +439,7 @@ export function chordEngineFactory() {
       }
 
       // Viterbi: quedarse es mucho más probable que cambiar
-      const stay = 0, change = -4.5;
+      const stay = 0, change = -8.0; // cambiar de acorde «cuesta»: hacen falta varios pulsos de evidencia
       let dp = nB ? Float64Array.from(emit[0]) : new Float64Array(nS);
       const bp = new Array(nB);
       for (let i = 1; i < nB; i++) {
@@ -504,8 +529,8 @@ export function chordEngineFactory() {
       if (last && sameChord(last, s)) last.e = s.e;
       else merged.push({ ...s });
     }
-    // Acordes de menos de pulso y medio casi siempre son ruido: se funden con el anterior
-    const minDur = 1.5 * 60 / bpm;
+    // Acordes de menos de 2 pulsos casi siempre son ruido: se funden con el anterior
+    const minDur = 2.0 * 60 / bpm;
     let changed = true;
     while (changed && merged.length > 2) {
       changed = false;
@@ -540,7 +565,7 @@ export function chordEngineFactory() {
     if (onProgress) onProgress(1, 'Listo');
     const r3 = (v) => Math.round(v * 1000) / 1000;
     return {
-      v: 1, d: duration, bpm, k: keyPc, m: isMinor, t: tune * 100, db: downbeat,
+      v: 2, d: duration, bpm, k: keyPc, m: isMinor, t: tune * 100, db: downbeat,
       beats: beats.map(r3),
       seg: merged.map(s => ({ s: r3(s.s), e: r3(s.e), r: s.r, q: s.q, b: s.b })),
       w: wave.map(v => Math.round(v * 100)),

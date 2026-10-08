@@ -23,7 +23,15 @@ export function saveChordPrefs(p) {
 }
 
 export function cacheGet(id) {
-  try { const s = localStorage.getItem(LS_CACHE + id); return s ? JSON.parse(s) : null; } catch (_) { return null; }
+  try {
+    const s = localStorage.getItem(LS_CACHE + id);
+    if (!s) return null;
+    const r = JSON.parse(s);
+    // Motor mejorado (v2): lo analizado con el anterior se vuelve a analizar; un escaneo de YouTube no se puede
+    // repetir solo, así que esos se conservan.
+    if ((r.v || 1) < 2 && !String(id).startsWith('yt.')) return null;
+    return r;
+  } catch (_) { return null; }
 }
 export function cacheDel(id) { try { localStorage.removeItem(LS_CACHE + id); } catch (_) {} }
 export function cachePut(id, result) {
