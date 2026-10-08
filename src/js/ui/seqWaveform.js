@@ -18,6 +18,7 @@ import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog } from './dialog.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
+import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane } from './chordLane.js';
 
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
 const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente', 'Instrumental', 'Solo', 'Interludio', 'Tag', 'Final', 'Outro'];
@@ -100,6 +101,7 @@ export function initSeqWaveform() {
     if (!c) requestAnimationFrame(() => { drawWave(); renderMarkers(); });
   };
   addBtn.onclick = () => openAddMenu(addBtn);
+  initChordLane(root, (t) => seekTo(t));
 
   wrap.addEventListener('pointerdown', onWavePointerDown);
   markersEl.addEventListener('contextmenu', (e) => {
@@ -115,7 +117,7 @@ export function initSeqWaveform() {
   applyRole();
   window.addEventListener('livepads:track-cleared', onCleared);
   window.addEventListener('livepads:songs-changed', (e) => { if (e.detail && e.detail.markers) return; if (song) renderMarkers(); });
-  new ResizeObserver(() => { if (peaks && stage.clientWidth !== lastW) { drawWave(); renderMarkers(); } }).observe(stage);
+  new ResizeObserver(() => { if (peaks && stage.clientWidth !== lastW) { drawWave(); renderMarkers(); renderLane(); } }).observe(stage);
 }
 
 function onLibrarySynced() {
@@ -130,7 +132,7 @@ function onLibrarySynced() {
   drawWave(); renderMarkers();
 }
 
-function onLoaded({ audio: a, song: s }) {
+function onLoaded({ audio: a, song: s, type }) {
   audio = a; song = s || null; peaks = null; duration = 0;
   root.classList.remove('hidden', 'is-empty'); root.classList.add('is-loading');
   titleEl.textContent = song ? song.title : '';
@@ -140,6 +142,7 @@ function onLoaded({ audio: a, song: s }) {
     peaks = computePeaks(a.buffer, 2400);
     root.classList.remove('is-loading');
     drawWave(); renderMarkers(); startLoop();
+    laneTrackLoaded({ audio: a, song: s, type });
   };
   if (a.buffer) ready(); else a.addEventListener('loadedmetadata', ready, { once: true });
   a.addEventListener('play', startLoop);
@@ -152,6 +155,7 @@ function onCleared() {
   cancelAnimationFrame(raf); raf = 0;
   root.classList.add('is-empty'); root.classList.remove('is-loading');
   titleEl.textContent = ''; nowEl.textContent = ''; nextEl.textContent = '';
+  laneCleared();
 }
 
 // ── Dibujo ─────────────────────────────────────────────────────────────────
@@ -244,6 +248,7 @@ function tick(force) {
   const pct = (t / duration) * 100;
   playheadEl.style.left = pct + '%';
   playedClip.style.width = pct + '%';
+  laneTick(t);
   // Sección actual / siguiente (solo si cambió el segundo, para no tocar el DOM en cada frame).
   const sec = Math.floor(t);
   if (!force && sec === lastCur) return;

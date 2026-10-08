@@ -31,6 +31,7 @@ self.onmessage = (ev) => {
     if (!job) return;
     if (type === 'progress') { if (job.onProgress) job.onProgress(ev.data.p, ev.data.l); return; }
     pending.delete(id);
+    scheduleIdleStop();
     if (type === 'done') job.resolve(ev.data.result);
     else job.reject(new Error(ev.data.error || 'Error al analizar'));
   };
@@ -53,7 +54,20 @@ export function analyzeInWorker(samples, onProgress) {
   });
 }
 
+// Sin trabajos, el worker se apaga solo al rato (no deja memoria ocupada).
+let idleTimer = null;
+function scheduleIdleStop() {
+  clearTimeout(idleTimer);
+  if (pending.size === 0) idleTimer = setTimeout(() => { if (pending.size === 0) stopChordWorker(); }, 20000);
+}
+
+/** Apaga el worker solo si nadie más lo está usando (p. ej. la franja de acordes del espectro). */
+export function releaseChordWorker() {
+  if (pending.size === 0) stopChordWorker();
+}
+
 export function stopChordWorker() {
+  clearTimeout(idleTimer);
   if (worker) { try { worker.terminate(); } catch (_) {} }
   worker = null;
   if (workerUrl) { try { URL.revokeObjectURL(workerUrl); } catch (_) {} }

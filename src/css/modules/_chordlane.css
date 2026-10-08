@@ -1,0 +1,21 @@
+/* Franja de acordes del espectro (botón «Acordes» de la onda). Compacta: solo
+   ocupa alto cuando está encendida; el acorde actual y el siguiente van en la
+   cabecera, así se ven aunque la onda esté oculta por falta de alto. */
+.sw-chords { position: relative; height: 20px; margin-bottom: 3px; display: none; overflow: hidden; }
+#seq-wave.has-chords .sw-chords { display: block; }
+.sw-ch {
+  position: absolute; top: 2px; height: 16px; line-height: 16px; padding: 0 5px;
+  font-size: 11px; font-weight: 700; color: #e8e8e8; white-space: nowrap; cursor: pointer;
+  border-left: 1.5px solid rgba(255, 255, 255, .35);
+}
+.sw-ch:hover { color: #fff; border-left-color: #fff; }
+.sw-ch.no-label { color: transparent; padding: 0; width: 0; }
+.sw-ch.is-current { z-index: 2; background: var(--accent); color: var(--on-accent); border-left-color: var(--accent); border-radius: 3px; padding: 0 5px; width: auto; }
+.sw-ch-msg { font-size: 11px; color: var(--text-muted); line-height: 20px; padding-left: 2px; }
+
+.sw-chordnow { display: none; align-items: baseline; gap: 6px; white-space: nowrap; }
+#seq-wave.has-chords .sw-chordnow { display: inline-flex; }
+.sw-chordnow b { color: var(--accent); font-size: 15px; font-weight: 800; min-width: 22px; }
+.sw-chordnow span { color: var(--text-muted); font-size: 11.5px; }
+#sw-chords[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+@media (max-height: 700px) { #seq-wave.has-chords .sw-chords { display: none; } }

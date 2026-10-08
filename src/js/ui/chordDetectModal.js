@@ -19,67 +19,14 @@
 
 import { pushModal } from './modalStack.js';
 import { CHORD_SR, chordName, keyName, pitchClasses, makeResampler } from '../chords/chordEngine.js';
-import { analyzeInWorker, stopChordWorker } from '../chords/chordWorker.js';
+import { analyzeInWorker, releaseChordWorker } from '../chords/chordWorker.js';
+import { chordPrefs, saveChordPrefs, cacheGet, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached } from '../chords/trackChords.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 
-const LS_PREFS = 'livepads.chords';
-const LS_CACHE = 'livepads.chords.v1.';
-const MAX_CACHE = 40;
-
-let prefs = { basic: true, latin: false, tab: 'track' };
-try { Object.assign(prefs, JSON.parse(localStorage.getItem(LS_PREFS) || '{}')); } catch (_) {}
-function savePrefs() { try { localStorage.setItem(LS_PREFS, JSON.stringify(prefs)); } catch (_) {} }
+let prefs = chordPrefs();
+function savePrefs() { saveChordPrefs({ ...chordPrefs(), basic: prefs.basic, latin: prefs.latin, tab: prefs.tab }); }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-// ── Caché de resultados (localStorage, con límite) ──
-function cacheGet(id) {
-  try { const s = localStorage.getItem(LS_CACHE + id); return s ? JSON.parse(s) : null; } catch (_) { return null; }
-}
-function cachePut(id, result) {
-  try {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith(LS_CACHE)) keys.push(k);
-    }
-    // Si hay demasiados, se borran los más viejos (guardamos la fecha dentro).
-    if (keys.length >= MAX_CACHE) {
-      keys.map(k => { let at = 0; try { at = JSON.parse(localStorage.getItem(k)).at || 0; } catch (_) {} return [k, at]; })
-        .sort((a, b) => a[1] - b[1]).slice(0, keys.length - MAX_CACHE + 1)
-        .forEach(([k]) => { try { localStorage.removeItem(k); } catch (_) {} });
-    }
-    localStorage.setItem(LS_CACHE + id, JSON.stringify({ ...result, at: Date.now() }));
-  } catch (_) { /* sin espacio: simplemente no se guarda */ }
-}
-
-// ── Audio → mono 11 025 Hz ──
-// AudioBuffer (cualquier frecuencia y canales) → mono 11 025 Hz con el
-// remuestreo nativo del navegador (filtrado correcto, rapidísimo).
-async function bufferToMono(buffer) {
-  const len = Math.max(1, Math.ceil(buffer.duration * CHORD_SR));
-  const off = new OfflineAudioContext(1, len, CHORD_SR);
-  const src = off.createBufferSource();
-  src.buffer = buffer;
-  src.connect(off.destination);
-  src.start();
-  const out = await off.startRendering();
-  return out.getChannelData(0).slice();
-}
-// Archivo → decodificado directamente a 11 025 Hz y promediado a mono.
-async function fileToMono(arrayBuffer) {
-  const off = new OfflineAudioContext(1, 1, CHORD_SR);
-  const buf = await off.decodeAudioData(arrayBuffer);
-  if (buf.numberOfChannels === 1) return buf.getChannelData(0).slice();
-  const n = buf.length, out = new Float32Array(n);
-  for (let c = 0; c < buf.numberOfChannels; c++) {
-    const d = buf.getChannelData(c);
-    for (let i = 0; i < n; i++) out[i] += d[i];
-  }
-  const g = 1 / buf.numberOfChannels;
-  for (let i = 0; i < n; i++) out[i] *= g;
-  return out;
-}
 
 // ── Estado del panel ──
 let overlay = null, popModal = null;
@@ -146,7 +93,7 @@ function trackInfo() {
   if (!audio || !song) return null;
   const type = getCurrentType();
   const buf = audio.buffer;
-  return { audio, song, type, buf, id: `${song.id || song.title}.${type}.${buf ? Math.round(buf.duration) : 0}` };
+  return { audio, song, type, buf, id: trackChordId(song, type, buf) };
 }
 
 function renderTrackPane() {
@@ -178,9 +125,7 @@ async function runTrack(force) {
   busy = true; setStatus(''); renderTrackPane();
   try {
     setProgress(0.02, 'Preparando el audio…');
-    const x = await bufferToMono(info.buf);
-    const r = await analyzeInWorker(x, (p, l) => setProgress(p, l));
-    cachePut(info.id, r);
+    const r = await analyzeBufferCached(info.id, info.buf, (p, l) => setProgress(p, l), force);
     showResult(r, { kind: 'track', id: info.id, title: info.song.title, songId: info.song.id, type: info.type });
   } catch (e) {
     if (overlay && String(e && e.message) !== 'cancelado') setStatus('No se pudo analizar el audio. ' + ((e && e.message) || ''), 'error');
@@ -199,9 +144,7 @@ async function runFile(file) {
   busy = true; setStatus('');
   try {
     setProgress(0.02, 'Leyendo el archivo…');
-    const x = await fileToMono(await file.arrayBuffer());
-    const r = await analyzeInWorker(x, (p, l) => setProgress(p, l));
-    cachePut(id, r);
+    const r = await analyzeFileCached(id, file, (p, l) => setProgress(p, l));
     showResult(r, { kind: 'file', id, title });
   } catch (e) {
     if (overlay && String(e && e.message) !== 'cancelado') setStatus('No se pudo leer ese archivo. Prueba con un MP3, M4A o WAV.', 'error');
@@ -546,7 +489,7 @@ export function openChordDetect() {
     seg.querySelectorAll('button').forEach(b => b.onclick = () => { prefs[key] = b.dataset.v === '1'; savePrefs(); paint(); renderResult(); renderLive(); });
   });
   $('.chd-run-track').onclick = () => runTrack(false);
-  $('.chd-reanalyze').onclick = () => { if (source && source.kind === 'track') runTrack(true); else if (source) { try { localStorage.removeItem(LS_CACHE + source.id); } catch (_) {} setStatus('Vuelve a elegir el archivo para analizarlo de nuevo.'); } };
+  $('.chd-reanalyze').onclick = () => { if (source && source.kind === 'track') runTrack(true); else if (source) { cacheDel(source.id); setStatus('Vuelve a elegir el archivo para analizarlo de nuevo.'); } };
   overlay.querySelectorAll('[data-sh]').forEach(b => b.onclick = () => { shift = Math.max(-11, Math.min(11, shift + parseInt(b.dataset.sh, 10))); renderResult(); });
   const input = $('.chd-drop input');
   input.onchange = () => { const f = input.files && input.files[0]; input.value = ''; runFile(f); };
@@ -574,7 +517,7 @@ export function closeChordDetect() {
   if (!overlay) return;
   stopLive();
   stopSync();
-  stopChordWorker();
+  releaseChordWorker();
   busy = false;
   window.removeEventListener('livepads:track-loaded', onTrackLoaded);
   if (popModal) { popModal(); popModal = null; }
