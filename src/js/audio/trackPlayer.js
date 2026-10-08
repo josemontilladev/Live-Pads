@@ -83,6 +83,7 @@ export function initTrackPlayer(d) {
 export const isTrackLoaded  = () => !!(audio && audio.src);
 export const isTrackPlaying = () => !!(audio && !audio.paused);
 export const getCurrentSong = () => currentSong;
+export const getTrackAudio  = () => audio;        // PitchAudio (su .buffer es el AudioBuffer ya decodificado)
 export const getCurrentType = () => currentType;
 export const getTrackPitch  = () => currentPitch;
 

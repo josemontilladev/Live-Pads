@@ -735,6 +735,10 @@ function bindAll() {
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
+  // Detector de acordes: módulo + motor + CSS se cargan SOLO al abrirlo (no pesa al arrancar).
+  q('#btn-chords-pads')?.addEventListener('click', () => {
+    import('./ui/chordDetectModal.js').then(m => m.openChordDetect()).catch(e => console.error('[LivePads] acordes:', e));
+  });
 
   // Doble clic en CUALQUIER slider de paneo → vuelve al centro (0). Delegado
   // para cubrir todos (mezclador, metro, pads, batería) sin wiring individual;
