@@ -54,6 +54,14 @@ function effectivePlan(c) {
   return LIMITS[c.plan] ? c.plan : 'free';
 }
 
+// Días que quedan: redondeado (tolera unos minutos de diferencia de reloj con el
+// servidor); el último día cuenta como 1 hasta que se acaba.
+function daysLeft(until) {
+  const d = (new Date(until).getTime() - Date.now()) / 864e5;
+  if (d <= 0) return 0;
+  return d > 1 ? Math.round(d) : 1;
+}
+
 function emit() {
   window.dispatchEvent(new CustomEvent('livepads:plan-changed', { detail: getPlanInfo() }));
 }
@@ -81,7 +89,7 @@ export function getPlanInfo() {
     libraryId: current?.extra?.library_id || null,
     interval: current?.extra?.interval || null,
     trialDaysLeft: plan === 'pro' && current?.status === 'trial' && current.until
-      ? Math.max(0, Math.ceil((new Date(current.until).getTime() - Date.now()) / 864e5)) : null,
+      ? daysLeft(current.until) : null,
   };
 }
 
@@ -144,12 +152,15 @@ export async function initLicense() {
     }
   } catch (_) {}
   emit();
+  const fresh = refreshLicense({ force: true }).catch(() => {});
+  if (isLoggedIn() && !valid(current) && navigator.onLine) {
+    await Promise.race([fresh, new Promise((r) => setTimeout(r, 5000))]);
+  }
   onAuthChange(() => {
     if (!isLoggedIn()) { current = null; try { localStorage.removeItem(CACHE_KEY); } catch (_) {} emit(); return; }
     if (!valid(current)) current = null;
     refreshLicense({ force: true }).catch(() => {});
   });
-  refreshLicense({ force: true }).catch(() => {});
   setInterval(() => { if (navigator.onLine) refreshLicense({ force: true }).catch(() => {}); }, REFRESH_MS);
 }
 

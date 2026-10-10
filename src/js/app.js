@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
   authGateReady = initAuthGate().catch(() => {});
-  initLicense().catch(() => {});
+  const licenseReady = initLicense().catch(() => {});
   // Si el plan cambia (prueba terminada, pago, cancelación) la app se ajusta en caliente.
   window.addEventListener('livepads:plan-changed', () => {
     try {
@@ -169,6 +169,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cur = PAD_BANKS[getPadBankIdx()];
       if (cur && cur.id !== FREE_PAD_BANK && !hasFeature('padBanks')) loadPadBank(getPadBankIdx(), { silent: true });
       if (document.body.dataset.workspace === 'stems' && !hasFeature('stems')) applyWorkspace('pads', { silent: true });
+      // Si el plan llegó tarde y ahora sí incluye todo: vuelve a lo que la persona tenía elegido.
+      if (hasFeature('padBanks')) {
+        const saved = parseInt(localStorage.getItem('lastPadBankIdx'));
+        if (!isNaN(saved) && saved !== getPadBankIdx()) loadPadBank(saved, { silent: true });
+      }
+      if (hasFeature('cloud')) import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
       q('#btn-chords-pads')?.classList.toggle('lp-locked', !hasFeature('chords'));
       document.querySelector('.ws-tab[data-workspace="stems"]')?.classList.toggle('lp-locked', !hasFeature('stems'));
     } catch (_) {}
@@ -399,6 +405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
   });
 
+  await licenseReady;
   buildBankSelects();
   
   // Restore last selected Pad Bank or default to Chris Rocha (index 2)
@@ -515,6 +522,7 @@ function buildBankSelects() {
 
 /* ── PAD BANK ── */
 function loadPadBank(idx, { silent = false } = {}) {
+  let forcedByPlan = false;
   // Plan Gratis: solo el banco de Chris Rocha.
   const want = PAD_BANKS[((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length];
   if (want && want.id !== FREE_PAD_BANK && !hasFeature('padBanks')) {
@@ -527,6 +535,7 @@ function loadPadBank(idx, { silent = false } = {}) {
     }
     if (free < 0) return;
     idx = free;
+    forcedByPlan = true;
   }
   setPadBankIdx(((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length);
   const bank = PAD_BANKS[getPadBankIdx()];
@@ -535,8 +544,8 @@ function loadPadBank(idx, { silent = false } = {}) {
   engine.setPadBank(bank);
   if (getActiveKey()) engine.playPad(getActiveKey());
   
-  // Save last selected Pad Bank persistently
-  localStorage.setItem('lastPadBankIdx', getPadBankIdx());
+  // Save last selected Pad Bank persistently (no si fue un cambio forzado por el plan)
+  if (!forcedByPlan) localStorage.setItem('lastPadBankIdx', getPadBankIdx());
 }
 
 let lastDrumGridSig = null; // pad-layout signature of the currently-mounted drum grid
@@ -1295,9 +1304,11 @@ function bindWorkspaceSwitcher() {
 }
 function applyWorkspace(name, { silent = false } = {}) {
   let valid = name === 'stems' ? 'stems' : 'pads';
+  let forcedByPlan = false;
   if (valid === 'stems' && !hasFeature('stems')) {
     if (!silent) requireFeature('stems');
     valid = 'pads';
+    forcedByPlan = silent;
   }
   // Hiding logic lives in CSS now: `body[data-workspace="stems"]` hides
   // all Pads-only chrome (#stage, #track-player-bar, #now-playing-banner)
@@ -1329,7 +1340,7 @@ function applyWorkspace(name, { silent = false } = {}) {
   // Switch the active MIDI map so Pads and Stems use fully independent
   // mappings (a control mapped in one never fires in the other).
   setMidiScope(valid);
-  try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
+  if (!forcedByPlan) { try { localStorage.setItem(WS_KEY, valid); } catch (e) {} }
 
   // First-run tutorial fires the very first time the user enters each
   // workspace. After that it can be re-launched manually. Entering Stems
