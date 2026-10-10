@@ -49,3 +49,20 @@
     })
     .catch(function () {});
 })();
+
+/* Precios: mensual / anual */
+(function () {
+  var t = document.querySelector('.price-toggle');
+  if (!t) return;
+  t.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-period]');
+    if (!b) return;
+    var p = b.getAttribute('data-period');
+    t.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    document.querySelectorAll('.card.price .amount[data-month]').forEach(function (a) {
+      a.querySelector('b').textContent = a.getAttribute('data-' + p);
+      var s = a.querySelector('span');
+      s.textContent = s.getAttribute('data-' + p);
+    });
+  });
+})();
