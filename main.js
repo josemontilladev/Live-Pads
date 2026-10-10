@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell, safeStorage, desktopCapturer, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -363,7 +363,10 @@ function createWindow() {
       nodeIntegration: false,
       // userData assets (audio samples, sequences) are served via the
       // privileged livepads:// protocol — see registerLivepadsProtocol().
-      webSecurity: true
+      webSecurity: true,
+      // Herramientas de desarrollador solo en desarrollo (`npm run dev`): en la
+      // app instalada no se pueden abrir (protege los planes y la sesión).
+      devTools: !app.isPackaged,
     },
   });
   // Arrancar maximizada (pantalla completa con la barra de título custom
@@ -2444,8 +2447,41 @@ function resolveLivepadsUrl(reqUrl) {
   return contained;
 }
 
+// App instalada: no se deja controlar desde fuera. Abrirla con puertos de
+// depuración (DevTools remoto) o con flags del motor JS la cierra al instante.
+if (app.isPackaged && ['remote-debugging-port', 'remote-debugging-pipe', 'inspect', 'inspect-brk', 'inspect-port', 'js-flags', 'remote-allow-origins']
+  .some((sw) => app.commandLine.hasSwitch(sw))) {
+  app.exit(0);
+}
+
+// Endurecimiento de todas las ventanas: sin <webview>, sin abrir DevTools en
+// la app instalada y sin navegar fuera de la app en la ventana principal.
+app.on('web-contents-created', (_e, contents) => {
+  contents.on('will-attach-webview', (ev) => ev.preventDefault());
+  // Ventanas emergentes: nunca dentro de la app; los enlaces web van al navegador.
+  contents.setWindowOpenHandler(({ url }) => {
+    if (/^https:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
+    return { action: 'deny' };
+  });
+  // La ventana principal solo muestra la app (file://); recargar sigue permitido.
+  contents.on('will-navigate', (ev, url) => {
+    if (contents.getType() !== 'window' || url.startsWith('file://')) return;
+    if (contents === mainWindow?.webContents) {
+      ev.preventDefault();
+      if (/^(https:|mailto:)/i.test(url)) shell.openExternal(url).catch(() => {});
+    }
+  });
+  if (app.isPackaged) {
+    contents.on('devtools-opened', () => { try { contents.closeDevTools(); } catch (_) {} });
+  }
+});
+
 app.whenReady().then(() => {
   if (!gotSingleInstanceLock) return; // 2da instancia: ya reenvió su deep-link y se cierra
+
+  // App instalada: sin el menú por defecto de Electron (sus atajos ocultos
+  // abren DevTools / recargan). Copiar y pegar siguen funcionando en Windows.
+  if (app.isPackaged) Menu.setApplicationMenu(null);
 
   // Registra a LivePads como manejador del esquema livepads:// en el SO (para
   // que los enlaces de invitación abran la app). En dev (electron .) hay que
@@ -2576,6 +2612,19 @@ ipcMain.handle('update-install', () => {
 });
 
 ipcMain.handle('app-version', () => app.getVersion());
+
+// Versión mínima permitida (actualización obligatoria). La publica la web:
+// https://livepads.online/app-version.json → { "min": "1.0.185", "message": "…" }.
+// Sin conexión devuelve null y la app no se bloquea (se puede tocar offline).
+ipcMain.handle('min-version', async () => {
+  try {
+    const r = await net.fetch(`https://livepads.online/app-version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && typeof j.min === 'string' ? { min: j.min, message: typeof j.message === 'string' ? j.message : '' } : null;
+  } catch (_) { return null; }
+});
+ipcMain.handle('is-packaged', () => app.isPackaged);
 
 // ¿Hay ya una actualización descargada? (la UI lo pregunta al abrir o recargar)
 ipcMain.handle('update-status', () => _updateReady);

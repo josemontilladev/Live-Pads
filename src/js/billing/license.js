@@ -164,5 +164,3 @@ export async function initLicense() {
   setInterval(() => { if (navigator.onLine) refreshLicense({ force: true }).catch(() => {}); }, REFRESH_MS);
 }
 
-// Solo para pruebas automáticas: fija una licencia sin firma.
-export function __setTestPlan(c) { if (!window.__LP_TEST) return; current = c; emit(); }

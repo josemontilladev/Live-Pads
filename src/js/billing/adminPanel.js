@@ -199,7 +199,7 @@ export function openAdminPanel() {
   if (overlay) return;
   ensureCss();
   overlay = document.createElement('div');
-  overlay.id = 'plans-overlay';
+  overlay.id = 'admin-overlay';
   overlay.className = 'adm-overlay';
   overlay.innerHTML = '<div class="pl-panel adm-panel" role="dialog" aria-label="Administrar suscripciones"></div>';
   overlay.addEventListener('click', onClick);

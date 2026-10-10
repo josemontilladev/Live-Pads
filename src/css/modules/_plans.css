@@ -1,12 +1,12 @@
 /* Ventana de planes — se carga solo al abrirla (billing/plansModal.js). */
-#plans-overlay {
+#plans-overlay, #plans-announce, #admin-overlay {
   position: fixed; inset: 0; z-index: 8700;
   background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity 0.18s ease;
   -webkit-app-region: no-drag;
 }
-#plans-overlay.open { opacity: 1; }
+#plans-overlay.open, #plans-announce.open, #admin-overlay.open { opacity: 1; }
 .pl-panel {
   width: min(860px, 96vw); max-height: calc(100vh - 40px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 12px;
@@ -100,3 +100,29 @@
 .adm-amount { font-size: 14px; font-weight: 600; }
 .adm-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .adm-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+
+/* Aviso de novedades (billing/announce.js) */
+.pl-announce { width: min(520px, 94vw); }
+.pl-ann-title { margin: 6px 0 0; font-size: 20px; font-weight: 600; }
+.pl-ann-body { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-muted); }
+.pl-ann-body b { color: var(--text); font-weight: 600; }
+.pl-announce .pl-foot { justify-content: flex-end; margin-top: 4px; }
+
+/* Actualización obligatoria (ui/forceUpdate.js): por encima de todo */
+#force-update {
+  position: fixed; inset: 0; z-index: 2147483000;
+  background: rgba(5, 5, 8, 0.94); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  -webkit-app-region: no-drag;
+}
+.fu-card {
+  width: min(480px, 92vw); padding: 28px; border-radius: 14px; text-align: center;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.fu-card h2 { margin: 4px 0 0; font-size: 20px; font-weight: 600; }
+.fu-card p { margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+.fu-card .fu-ver { font-size: 12px; opacity: .8; }
+.fu-bar { width: 100%; height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin-top: 6px; }
+.fu-bar i { display: block; height: 100%; width: 0; background: var(--blue); transition: width .3s ease; }
+.fu-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }

@@ -95,6 +95,20 @@ Deno.serve(async (req) => {
   if (op === 'put' && role !== 'owner' && role !== 'editor')
     return json({ error: 'Necesitas permiso de edición para subir archivos' }, 403);
 
+  // 2b) Subir a la nube es parte de Pro/Iglesia: se comprueba aquí, en el
+  //     servidor (la app también lo bloquea, pero eso se podría saltar).
+  //     Bajar sigue abierto a cualquier miembro (apps móviles, cantantes).
+  if (op === 'put') {
+    const eRes = await fetch(`${URL_}/rest/v1/rpc/lp_entitlement`, {
+      method: 'POST',
+      headers: { apikey: ANON, Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const ent = eRes.ok ? await eRes.json() : null;
+    if (!ent || ent.plan === 'free')
+      return json({ error: 'Subir audios a la nube es parte de LivePads Pro', code: 'plan_required' }, 402);
+  }
+
   // 3) Firmar la URL de R2 (S3-compatible, SigV4).
   const client = new AwsClient({
     accessKeyId: KEY_ID,

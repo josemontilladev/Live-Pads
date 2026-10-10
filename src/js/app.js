@@ -161,7 +161,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
   authGateReady = initAuthGate().catch(() => {});
+  // Actualización obligatoria: si la web exige una versión más nueva, bloquea hasta actualizar.
+  import('./ui/forceUpdate.js').then(m => m.startForceUpdateWatch()).catch(() => {});
   const licenseReady = initLicense().catch(() => {});
+  // Aviso de una sola vez: «ahora hay planes» (texto según el plan de cada uno).
+  authGateReady.then(() => licenseReady).then(() => setTimeout(() => {
+    import('./billing/announce.js').then(m => m.maybeAnnouncePlans()).catch(() => {});
+  }, 2500));
   // Si el plan cambia (prueba terminada, pago, cancelación) la app se ajusta en caliente.
   window.addEventListener('livepads:plan-changed', () => {
     try {

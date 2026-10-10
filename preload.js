@@ -88,6 +88,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate: () => ipcRenderer.invoke('update-install'),
   getUpdateStatus: () => ipcRenderer.invoke('update-status'),
   getAppVersion: () => ipcRenderer.invoke('app-version'),
+  getMinVersion: () => ipcRenderer.invoke('min-version'),
+  isPackaged: () => ipcRenderer.invoke('is-packaged'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   onStemsSeparateProgress: (cb) => {
     const handler = (_e, payload) => cb(payload);
