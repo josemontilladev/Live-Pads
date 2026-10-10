@@ -25,6 +25,7 @@ import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteShar
 import { listActivity } from './activity.js';
 import { requireFeature, getPlanInfo, openPlans } from '../billing/license.js';
 import { PLAN_NAMES } from '../billing/plans.js';
+import { isAdminEmail } from './config.js';
 
 // Sección "Mi plan" (solo cuando las suscripciones están activadas).
 function planSectionHTML() {
@@ -39,6 +40,7 @@ function planSectionHTML() {
         <h4>Mi plan</h4>
         <div class="acc-empty">${escapeHtml(line)}${info.founder ? ' · Fundador' : ''}</div>
         <button class="acc-btn acc-btn-full" data-act="open-plans">${info.plan === 'free' || info.status === 'trial' ? 'Ver planes' : 'Administrar suscripción'}</button>
+        ${isAdminEmail(getUser()?.email) ? '<button class="acc-btn ghost acc-btn-full" data-act="open-admin" style="margin-top:8px">Panel de administración</button>' : ''}
       </div>`;
 }
 
@@ -578,6 +580,10 @@ async function onClick(e) {
           close();
           await openAuthGate();
           return;
+        case 'open-admin': {
+          import('../billing/adminPanel.js').then((m) => m.openAdminPanel()).catch(() => {});
+          return;
+        }
         case 'open-plans': {
           openPlans();
           return;

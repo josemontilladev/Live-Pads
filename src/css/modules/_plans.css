@@ -71,3 +71,32 @@
   font-size: 9px; font-weight: 700; letter-spacing: 0.04em; line-height: 1;
   padding: 2px 4px; border-radius: 4px; background: var(--blue); color: #000; pointer-events: none;
 }
+
+/* Panel de administración (billing/adminPanel.js) */
+.adm-panel { width: min(1000px, 96vw); }
+.adm-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 720px) { .adm-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.adm-stats > div { padding: 10px; border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 2px; }
+.adm-stats b { font-size: 18px; font-weight: 600; }
+.adm-stats span { font-size: 11px; color: var(--text-muted); }
+.adm-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.adm-bar .pl-seg { align-self: auto; }
+.adm-q { flex: 1; min-width: 180px; padding: 6px 10px; border-radius: 6px; background: var(--bg-1, #111); color: var(--text); border: 1px solid var(--border-strong); font: inherit; font-size: 13px; }
+.adm-filter { padding: 6px 8px; border-radius: 6px; background: var(--bg-1, #111); color: var(--text); border: 1px solid var(--border-strong); font: inherit; font-size: 13px; }
+.adm-msg { min-height: 16px; font-size: 13px; color: var(--text-muted); }
+.adm-msg.ok { color: #4ade80; }
+.adm-msg.error { color: #f87171; }
+.adm-list { display: flex; flex-direction: column; gap: 6px; min-height: 120px; }
+.adm-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 270px; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.adm-pay { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+@media (max-width: 720px) { .adm-row { grid-template-columns: 1fr; } }
+.adm-who, .adm-plan { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adm-who b { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-who span, .adm-until { font-size: 11px; color: var(--text-muted); }
+.adm-badge { align-self: flex-start; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-strong); }
+.adm-paid { background: color-mix(in srgb, #22c55e 18%, transparent); border-color: color-mix(in srgb, #22c55e 45%, transparent); }
+.adm-comp { background: color-mix(in srgb, var(--blue) 18%, transparent); border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.adm-trial { background: color-mix(in srgb, #60a5fa 15%, transparent); border-color: color-mix(in srgb, #60a5fa 40%, transparent); }
+.adm-amount { font-size: 14px; font-weight: 600; }
+.adm-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.adm-empty { padding: 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
