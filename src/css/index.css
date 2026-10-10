@@ -36,4 +36,5 @@
 /* Stems: tarjetas modernas (lista, cabecera de pista, canal de consola). */
 @import url('./modules/_redesign6.css');
 @import url('./modules/_chordlane.css');
+@import url('./modules/_plans.css');
 @import url('./modules/_responsive.css');

@@ -23,6 +23,7 @@
 import { pullLibrarySongs, isPushInFlight } from './songSync.js';
 import { isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
+import { hasFeature } from '../billing/license.js';
 
 const POLL_MS = 45000;            // ronda periódica
 const STARTUP_DELAY_MS = 4000;    // respiro tras arrancar antes del primer intento
@@ -140,6 +141,7 @@ async function pullNow() {
 // los audios (pesados) bajando en segundo plano. Nunca bloquea más de `maxMs`:
 // sin sesión, sin red o con la nube lenta, la app abre igual con lo que hay local.
 export async function bootSyncOnce({ onStatus = () => {}, maxMs = 12000 } = {}) {
+  if (!hasFeature('cloud')) return null;
   if (!isLoggedIn() || !getActiveLibraryId()) return;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   const t0 = Date.now();
@@ -181,6 +183,7 @@ export async function bootSyncOnce({ onStatus = () => {}, maxMs = 12000 } = {}) 
 
 // Arranca el sincronizador. Idempotente: llamarlo varias veces no duplica.
 export function startLibraryLiveSync() {
+  if (!hasFeature('cloud')) return;
   if (started) return;
   started = true;
 

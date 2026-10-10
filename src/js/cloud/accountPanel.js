@@ -23,6 +23,24 @@ import {
 } from './libraries.js';
 import { saveServiceAsSetlist, listSharedSetlists, loadSharedSetlist, deleteSharedSetlist } from './setlistSync.js';
 import { listActivity } from './activity.js';
+import { requireFeature, getPlanInfo, openPlans } from '../billing/license.js';
+import { PLAN_NAMES } from '../billing/plans.js';
+
+// Sección "Mi plan" (solo cuando las suscripciones están activadas).
+function planSectionHTML() {
+  const info = getPlanInfo();
+  if (!info.enabled) return '';
+  let line = `Plan ${PLAN_NAMES[info.plan]}`;
+  if (info.status === 'trial') line = `Prueba Pro · ${info.trialDaysLeft} día${info.trialDaysLeft === 1 ? '' : 's'}`;
+  else if (info.source === 'church') line = 'Iglesia · incluido por tu librería';
+  else if (info.source === 'comp') line = 'Pro · cortesía del equipo GI';
+  return `
+      <div class="acc-section">
+        <h4>Mi plan</h4>
+        <div class="acc-empty">${escapeHtml(line)}${info.founder ? ' · Fundador' : ''}</div>
+        <button class="acc-btn acc-btn-full" data-act="open-plans">${info.plan === 'free' || info.status === 'trial' ? 'Ver planes' : 'Administrar suscripción'}</button>
+      </div>`;
+}
 
 let overlay = null;
 let popModal = null;
@@ -173,6 +191,7 @@ async function render() {
 
     <!-- TAB: CUENTA — acceso, contraseña, eliminar cuenta -->
     <div class="acc-tab-panel ${state.activeTab !== 'cuenta' ? 'hidden' : ''}" data-panel="cuenta">
+      ${planSectionHTML()}
       <div class="acc-section">
         <h4>Acceso rápido</h4>
         ${u && hasGoogleIdentity(u)
@@ -559,6 +578,10 @@ async function onClick(e) {
           close();
           await openAuthGate();
           return;
+        case 'open-plans': {
+          openPlans();
+          return;
+        }
         case 'change-pass': {
           showDialog('Cambiar contraseña', 'Nueva contraseña (mín. 6)', async (val) => {
             const pass = (val || '').trim();
@@ -801,6 +824,7 @@ async function onClick(e) {
           return;
         }
         case 'sync-run': {
+          if (!requireFeature('cloud')) return;
           const panel = overlay.querySelector('#acc-sync-panel');
           const dir = panel?.querySelector('input[name="sync-dir"]:checked')?.value || 'down';
           const want = (item) => !!panel?.querySelector(`input[data-item="${item}"]`)?.checked;

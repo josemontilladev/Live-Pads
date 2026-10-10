@@ -12,6 +12,7 @@ import { getSongs, setSongs } from '../state/store.js';
 import { htmlToPlainLyrics } from '../utils/text.js';
 import { logActivity } from './activity.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
+import { hasFeature } from '../billing/license.js';
 
 // Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
 // canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
@@ -216,6 +217,7 @@ export async function pushLibrarySongs() {
 // (misma BD de Supabase) las vea sin pulsar "Subir". Best-effort: sin sesión ni
 // librería activa, no hace nada (no lanza). Idempotente (dedup + upsert).
 export async function autoPushActiveLibrary() {
+  if (!hasFeature('cloud')) return;
   if (!isLoggedIn()) return { created: 0, updated: 0, linked: 0 };
   const libId = getActiveLibraryId();
   if (!libId) return { created: 0, updated: 0, linked: 0 };

@@ -34,6 +34,7 @@ import {
 } from '../data/service.js';
 import { getSongs } from '../state/store.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
+import { hasFeature } from '../billing/license.js';
 
 function requireContext() {
   if (!isLoggedIn()) throw new Error('Inicia sesión para usar la nube.');
@@ -196,6 +197,7 @@ export async function deleteSharedSetlist(id, title) {
 // pisaría el trabajo del equipo con datos que aún no se habían actualizado.
 // Best-effort: sin sesión/librería/red no hace nada y no lanza.
 export async function autoSyncSetlists() {
+  if (!hasFeature('cloud')) return;
   if (!isLoggedIn() || !getActiveLibraryId()) return { pushed: 0, skipped: 0, added: 0, updated: 0 };
   let down = { added: 0, updated: 0, removed: 0 };
   try { down = await pullSharedSetlists(); } catch (_) {}

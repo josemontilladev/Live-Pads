@@ -15,6 +15,7 @@ import {
 import { exportGiSetlistToFile } from '../data/giSetlistLoader.js';
 import { renderGiList, getLibraryScope } from './giList.js';
 import { openNewSongModal } from './newSongModal.js';
+import { limitOf, requireRoom } from '../billing/license.js';
 
 /**
  * @param {Object} deps
@@ -63,10 +64,15 @@ function bindImportExport(deps) {
           finish();
           return;
         }
-        const imported = json.data.songs.map((s, idx) => {
+        let imported = json.data.songs.map((s, idx) => {
           if (!s.id) s.id = 'song_imp_' + idx + '_' + Date.now();
           return s;
         });
+        const maxSongs = limitOf('songs');
+        if (imported.length > maxSongs) {
+          requireRoom('songs', 0, imported.length, `El plan Gratis permite hasta ${maxSongs} canciones: se importarán solo las primeras ${maxSongs}.`);
+          imported = imported.slice(0, maxSongs);
+        }
 
         const commit = () => {
           setSongs(imported);

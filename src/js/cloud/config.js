@@ -27,3 +27,8 @@ export const ADMIN_EMAILS = ['montillajose221@gmail.com'];
 export function isAdminEmail(email) {
   return !!email && ADMIN_EMAILS.map(e => e.toLowerCase()).includes(String(email).toLowerCase());
 }
+
+// Suscripciones (Gratis / Pro / Iglesia). Mientras sea false la app se
+// comporta como siempre (todo desbloqueado). Se enciende cuando el servidor
+// de cobros (funciones `billing` y `paypal-webhook`) esté desplegado.
+export const BILLING_ENABLED = false;

@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { getTrackPitch } from '../audio/trackPlayer.js';
+import { hasFeature, requireFeature } from '../billing/license.js';
 
 const LS_PREFS = 'livepads.chords';
 let root, lane, nowEl, nextEl, btn, seek = () => {};
@@ -39,6 +40,7 @@ export function initChordLane(rootEl, seekFn) {
   on = !!prefs().lane;
   paintOn();
   btn.onclick = () => {
+    if (!on && !requireFeature('chords')) return;
     on = !on;
     try { localStorage.setItem(LS_PREFS, JSON.stringify({ ...prefs(), lane: on })); } catch (_) {}
     paintOn();
@@ -74,7 +76,7 @@ export function laneCleared() {
 
 async function request() {
   const t = track;
-  if (!on || !t || !t.audio || !t.audio.buffer) return;
+  if (!on || !t || !t.audio || !t.audio.buffer || !hasFeature('chords')) return;
   await mods();
   if (track !== t) return;
   id = T.trackChordId(t.song, t.type, t.audio.buffer);

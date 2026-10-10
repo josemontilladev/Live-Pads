@@ -1,6 +1,8 @@
 import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS, THEMES } from './data/banks.js';
+import { FREE_PAD_BANK } from './billing/plans.js';
+import { hasFeature, requireFeature, initLicense } from './billing/license.js';
 import { q, qa, esc } from './utils/dom.js';
 import { openLyricsEditorModal } from './ui/lyricsEditor.js';
 import { TIME_SIG_BEATS as SONG_TIME_SIG_BEATS } from './ui/songEditForm.js';
@@ -159,6 +161,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Pantalla de bienvenida / login (si la nube está activada y no hay sesión).
   // No bloquea el arranque: el audio y la UI se preparan detrás del overlay.
   authGateReady = initAuthGate().catch(() => {});
+  initLicense().catch(() => {});
+  // Si el plan cambia (prueba terminada, pago, cancelación) la app se ajusta en caliente.
+  window.addEventListener('livepads:plan-changed', () => {
+    try {
+      buildBankSelects();
+      const cur = PAD_BANKS[getPadBankIdx()];
+      if (cur && cur.id !== FREE_PAD_BANK && !hasFeature('padBanks')) loadPadBank(getPadBankIdx(), { silent: true });
+      if (document.body.dataset.workspace === 'stems' && !hasFeature('stems')) applyWorkspace('pads', { silent: true });
+      q('#btn-chords-pads')?.classList.toggle('lp-locked', !hasFeature('chords'));
+      document.querySelector('.ws-tab[data-workspace="stems"]')?.classList.toggle('lp-locked', !hasFeature('stems'));
+    } catch (_) {}
+  });
 
   // Feedback de arranque: el preloader muestra QUÉ se está cargando (antes la
   // barra corría a ciegas y en boots lentos no se sabía si estaba colgado).
@@ -390,7 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Restore last selected Pad Bank or default to Chris Rocha (index 2)
   const savedPadIdx = localStorage.getItem('lastPadBankIdx');
   if (savedPadIdx !== null) {
-    loadPadBank(parseInt(savedPadIdx));
+    loadPadBank(parseInt(savedPadIdx), { silent: true });
   } else {
     loadPadBank(2); // Chris Rocha por defecto
   }
@@ -487,7 +501,8 @@ function buildBankSelects() {
   const padSel = q('#pad-bank-select');
   const kitSel = q('#kit-bank-select');
   if (padSel) {
-    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
+    const lockPads = !hasFeature('padBanks');
+    padSel.innerHTML = PAD_BANKS.map((b, i) => `<option value="${i}">${esc(b.name)}${lockPads && b.id !== FREE_PAD_BANK ? ' · PRO' : ''}</option>`).join('');
     padSel.value = getPadBankIdx();
     padSel.onchange = (e) => loadPadBank(parseInt(e.target.value));
   }
@@ -499,7 +514,20 @@ function buildBankSelects() {
 }
 
 /* ── PAD BANK ── */
-function loadPadBank(idx) {
+function loadPadBank(idx, { silent = false } = {}) {
+  // Plan Gratis: solo el banco de Chris Rocha.
+  const want = PAD_BANKS[((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length];
+  if (want && want.id !== FREE_PAD_BANK && !hasFeature('padBanks')) {
+    const free = PAD_BANKS.findIndex(b => b.id === FREE_PAD_BANK);
+    if (!silent) {
+      requireFeature('padBanks');
+      const sel = q('#pad-bank-select');
+      if (sel) sel.value = getPadBankIdx();
+      return;
+    }
+    if (free < 0) return;
+    idx = free;
+  }
   setPadBankIdx(((idx % PAD_BANKS.length) + PAD_BANKS.length) % PAD_BANKS.length);
   const bank = PAD_BANKS[getPadBankIdx()];
   const padSel = q('#pad-bank-select');
@@ -737,6 +765,7 @@ function bindAll() {
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
   // Detector de acordes: módulo + motor + CSS se cargan SOLO al abrirlo (no pesa al arrancar).
   q('#btn-chords-pads')?.addEventListener('click', () => {
+    if (!requireFeature('chords')) return;
     import('./ui/chordDetectModal.js').then(m => m.openChordDetect()).catch(e => console.error('[LivePads] acordes:', e));
   });
 
@@ -1259,13 +1288,17 @@ function bindWorkspaceSwitcher() {
   const tabs = qa('.ws-tab');
   if (!tabs.length) return;
   const stored = localStorage.getItem(WS_KEY) || 'pads';
-  applyWorkspace(stored);
+  applyWorkspace(stored, { silent: true });
   tabs.forEach(tab => {
     tab.onclick = () => applyWorkspace(tab.dataset.workspace);
   });
 }
-function applyWorkspace(name) {
-  const valid = name === 'stems' ? 'stems' : 'pads';
+function applyWorkspace(name, { silent = false } = {}) {
+  let valid = name === 'stems' ? 'stems' : 'pads';
+  if (valid === 'stems' && !hasFeature('stems')) {
+    if (!silent) requireFeature('stems');
+    valid = 'pads';
+  }
   // Hiding logic lives in CSS now: `body[data-workspace="stems"]` hides
   // all Pads-only chrome (#stage, #track-player-bar, #now-playing-banner)
   // while keeping the fixed #sidebar reachable so the gear / ? buttons

@@ -14,12 +14,15 @@ import { pushModal } from './modalStack.js';
 import { cleanPastedLyrics, repairLyrics } from './lyricsFormat.js';
 import { parseChordPage } from '../data/chordImporter.js';
 import { confirmDialogAsync } from './dialog.js';
+import { getSongs } from '../state/store.js';
+import { requireRoom } from '../billing/license.js';
 
 // Fuentes soportadas por el importador (la lista blanca real vive en main.js,
 // que es quien hace la petición; esto es solo el texto de ayuda).
 const FUENTES = 'cifraclub.com · lacuerda.net';
 
 export function openNewSongModal({ onSaved, defaults = {} } = {}) {
+  if (!requireRoom('songs', getSongs().length)) return;
   const newSong = {
     id: 'song_' + Date.now(),
     addedAt: Date.now(),
