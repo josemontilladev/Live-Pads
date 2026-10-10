@@ -95,10 +95,12 @@ begin
      and c.current_period_end > t
      and c.library_id is not null
      and (c.user_id = uid or uid in (
-           select m.user_id from public.memberships m
-            where m.library_id = c.library_id
-            order by (m.user_id = c.user_id) desc, m.created_at, m.user_id
-            limit c.seats))
+           select x.user_id from (
+             select m.user_id,
+                    row_number() over (order by (m.user_id = c.user_id) desc, m.created_at, m.user_id) as rn
+               from public.memberships m
+              where m.library_id = c.library_id) x
+            where x.rn <= c.seats))
    order by c.current_period_end desc
    limit 1;
   if found then
