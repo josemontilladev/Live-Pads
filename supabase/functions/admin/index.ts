@@ -4,7 +4,7 @@
 // Panel de administración de suscripciones (solo correos de ADMIN_EMAILS).
 // La app la llama con el JWT del administrador y { action, ... }:
 //   overview                      → resumen (por plan) + lista de cuentas
-//   payments  { limit? }          → últimos cobros/eventos
+//   payments  { limit?, beforeId?, userId? } → historial (paginado / por usuario)
 //   grant_comp  { userId }        → Pro de cortesía sin fecha de fin
 //   revoke_comp { userId }        → quita la cortesía
 //   extend_trial { userId, days } → alarga (o da) la prueba de Pro
@@ -120,7 +120,11 @@ Deno.serve(async (req) => {
   try {
     switch (body.action || 'overview') {
       case 'overview': {
-        const [users, subs] = await Promise.all([authUsers(), db('lp_subscriptions?select=*')]);
+        const [users, subs, sales] = await Promise.all([
+          authUsers(),
+          db('lp_subscriptions?select=*'),
+          db('lp_payments?select=event,amount,created_at&event=in.(%22PAYMENT.SALE.COMPLETED%22,%22PAYMENT.SALE.REFUNDED%22,%22PAYMENT.SALE.REVERSED%22)&limit=10000'),
+        ]);
         const byId = new Map((subs || []).map((s: any) => [s.user_id, s]));
         const now = Date.now();
         const stats = { total: 0, paid: 0, comp: 0, trial: 0, free: 0, mrr: 0, founders: 0 };
@@ -149,13 +153,37 @@ Deno.serve(async (req) => {
           };
         }).sort((a, b) => String(b.created).localeCompare(String(a.created)));
         stats.mrr = Math.round(stats.mrr * 100) / 100;
-        return json({ stats, rows });
+        // Dinero cobrado: total y del mes en curso (cobros menos reembolsos/contracargos)
+        const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
+        let total = 0, month = 0, salesCount = 0;
+        for (const p of sales || []) {
+          const v = Number(p.amount) || 0;
+          const sign = p.event === 'PAYMENT.SALE.COMPLETED' ? 1 : -1;
+          if (sign > 0) salesCount++;
+          total += sign * Math.abs(v);
+          if (Date.parse(p.created_at) >= monthStart.getTime()) month += sign * Math.abs(v);
+        }
+        const revenue = { total: Math.round(total * 100) / 100, month: Math.round(month * 100) / 100, sales: salesCount };
+        const newThisMonth = rows.filter((r) => Date.parse(r.created) >= monthStart.getTime()).length;
+        return json({ stats: { ...stats, newThisMonth }, revenue, rows });
       }
 
       case 'payments': {
         const limit = Math.min(Math.max(Number(body.limit) || 50, 1), 200);
-        const rows = await db(`lp_payments?select=id,user_id,event,amount,currency,created_at,provider_sub_id&order=id.desc&limit=${limit}`);
-        return json({ rows });
+        const before = Number(body.beforeId) || 0;
+        const filters = [
+          before > 0 ? `id=lt.${before}` : '',
+          validUid ? `user_id=eq.${uid}` : '',
+        ].filter(Boolean).map((f) => '&' + f).join('');
+        const rows = await db(`lp_payments?select=id,user_id,event,amount,currency,created_at,provider_sub_id,raw&order=id.desc&limit=${limit}${filters}`);
+        // Sin el evento crudo de PayPal (pesado); solo un par de datos útiles.
+        const slim = (rows || []).map((r: any) => ({
+          id: r.id, user_id: r.user_id, event: r.event, amount: r.amount, currency: r.currency,
+          created_at: r.created_at, provider_sub_id: r.provider_sub_id,
+          plan: r.raw?.plan || r.raw?.resource?.plan_id || null,
+          days: r.raw?.days || null, interval: r.raw?.interval || null,
+        }));
+        return json({ rows: slim, more: slim.length === limit });
       }
 
       case 'grant_comp': {
