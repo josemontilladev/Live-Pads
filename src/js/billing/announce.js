@@ -72,6 +72,7 @@ export async function maybeAnnouncePlans() {
       <div class="pl-head"><h3>Novedades</h3><button class="pl-close" type="button" aria-label="Cerrar">✕</button></div>
       <h2 class="pl-ann-title">${m.title}</h2>
       <p class="pl-ann-body">${m.body}</p>
+      <p class="pl-mission">🙏 Cada suscripción sirve para seguir mejorando LivePads y ser de bendición para toda la comunidad cristiana: más funciones, más innovación y una app que evoluciona cada día hasta ser la app definitiva para la alabanza en las iglesias.</p>
       <div class="pl-foot">
         ${m.cta ? `<button type="button" class="acc-btn pl-ann-cta">${m.cta}</button>` : ''}
         <button type="button" class="acc-btn ghost pl-ann-ok">Entendido</button>

@@ -11,8 +11,9 @@
 //   sync_team                     → cortesía para todos los miembros de las
 //                                   librerías del administrador (= SQL 0015)
 //
-// Secret opcional: ADMIN_EMAILS (separados por coma). Por defecto, el correo
-// del administrador de LivePads.
+// Secrets: ADMIN_KEY (obligatoria; segunda llave que solo tiene la app de
+// administración del teléfono) y ADMIN_EMAILS opcional (separados por coma;
+// por defecto, el correo del administrador de LivePads).
 // Desplegar:  supabase functions deploy admin
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,19 @@ Deno.serve(async (req) => {
   if (!uRes.ok) return json({ error: 'Sesión inválida' }, 401);
   const me = await uRes.json();
   if (!admins().includes(String(me.email || '').toLowerCase())) return json({ error: 'Solo para administradores' }, 403);
+
+  // Segunda llave: la app de administración envía una clave secreta propia.
+  // Sin ella no basta con tener la sesión del administrador.
+  const KEY = Deno.env.get('ADMIN_KEY') || '';
+  if (!KEY) return json({ error: 'Falta configurar ADMIN_KEY en el servidor' }, 503);
+  const given = req.headers.get('x-admin-key') || '';
+  const a = new TextEncoder().encode(given), b = new TextEncoder().encode(KEY);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] || 0) ^ (b[i] || 0);
+  if (diff !== 0) {
+    await new Promise((r) => setTimeout(r, 800)); // frena los intentos a ciegas
+    return json({ error: 'Clave de administrador incorrecta' }, 403);
+  }
 
   let body: { action?: string; userId?: string; days?: number; limit?: number };
   try { body = await req.json(); } catch { body = {}; }

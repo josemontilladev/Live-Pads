@@ -119,6 +119,7 @@ function render() {
       ${isLoggedIn() ? '<button type="button" class="acc-btn ghost sm pl-refresh">Ya pagué · comprobar</button>' : ''}
     </div>
     <div class="pl-msg" aria-live="polite"></div>
+    <div class="pl-mission">🙏 Cada suscripción sirve para seguir mejorando LivePads y ser de bendición para toda la comunidad cristiana: más funciones, más innovación y una app que evoluciona cada día hasta ser la app definitiva para la alabanza en las iglesias.</div>
     <div class="pl-legal">Pagos seguros con PayPal. Cancela cuando quieras desde aquí o desde PayPal.</div>
   `;
 }
