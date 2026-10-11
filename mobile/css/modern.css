@@ -180,3 +180,17 @@ meta { display: none; }
   .mini-mode { border-radius: 10px; }
 }
 .mini-status { background: none; }
+
+/* Plan de la cuenta (js/plan.js) */
+.plan-chip { height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line, rgba(255,255,255,.14)); background: var(--card); color: var(--muted, #aab); font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .02em; cursor: pointer; white-space: nowrap; }
+.plan-chip.is-pro { color: #141000; background: var(--accent, #fbae00); border-color: transparent; }
+.plan-card { max-height: 86vh; overflow-y: auto; }
+.plan-status { font-size: 14px; line-height: 1.55; margin: 0 0 14px; text-align: center; }
+.plan-buy { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.plan-buy s { opacity: .6; font-weight: 500; margin-right: 4px; }
+.plan-note { font-size: 12px; opacity: .7; text-align: center; margin: 4px 0 12px; }
+.plan-mission { font-size: 12.5px; line-height: 1.5; opacity: .85; text-align: center; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(251,174,0,.25); background: rgba(251,174,0,.07); margin: 0 0 10px; }
+.plan-msg { font-size: 13px; text-align: center; min-height: 16px; margin: 0 0 8px; }
+.plan-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.plan-foot .btn-ghost { flex: 1 1 auto; text-align: center; text-decoration: none; }
+#plan-sheet { z-index: 2147483000; }

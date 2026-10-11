@@ -12,6 +12,7 @@ import {
 } from './cloud.js';
 import { Player, loadCoverUrl, audioCtx, isSongCached, prefetchSong } from './audio.js';
 import { startLiveWatch } from './live.js';
+import { initPlan } from './plan.js';
 import { PAD_KEYS, togglePad, startPad, stopPads, setPadsVolume, setPadsPan, activePadKey } from './pads.js';
 import {
   startMetronome, stopMetronome, metroRunning,
@@ -180,6 +181,7 @@ $('btn-logout').addEventListener('click', () => {
 // ── Biblioteca ──────────────────────────────────────────────────────────
 async function enterLibrary() {
   show('library');
+  initPlan(); // plan de la cuenta (chip + aviso de una vez); no bloquea nada
   // Pinta al instante desde caché mientras llega la red.
   const cachedLib = getActiveLibraryId();
   let painted = false;
