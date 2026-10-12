@@ -268,7 +268,7 @@ async function refreshData() {
 
 $('btn-refresh').addEventListener('click', async () => {
   toast('Actualizando…');
-  try { await refreshData(); toast(`✓ ${songs.length} canciones`); }
+  try { await refreshData(); toast(`✓ ${songs.length} canci${songs.length === 1 ? 'ón' : 'ones'}`); }
   catch (_) { toast('Sin conexión'); }
 });
 
@@ -460,7 +460,7 @@ function renderSkeleton(n = 8) {
 
 function renderSongs() {
   const list = visibleSongs();
-  $('lib-count').textContent = `${list.length} canciones`;
+  $('lib-count').textContent = `${list.length} canci${list.length === 1 ? 'ón' : 'ones'}`;
   const box = $('song-list');
   if (!list.length) {
     box.innerHTML = `<div class="empty">
@@ -535,7 +535,7 @@ async function updateOfflineBar(list) {
     bar.classList.add('done');
     // Icono ✓ (descargado)
     ico.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
-    $('offline-txt').textContent = withAudio.length ? `${withAudio.length} listas sin internet · pads incluidos` : 'Pads listos sin internet';
+    $('offline-txt').textContent = withAudio.length ? `${withAudio.length} lista${withAudio.length === 1 ? '' : 's'} sin internet · pads incluidos` : 'Pads listos sin internet';
   } else {
     bar.classList.remove('hidden', 'done');
     ico.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
