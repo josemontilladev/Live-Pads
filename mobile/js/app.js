@@ -512,23 +512,34 @@ async function markOfflineDots(list) {
 }
 
 // Barra de descarga: cuántas de la vista faltan por bajar.
+const OFFLINE_ASSETS = () => [...PAD_KEYS.map(k => `assets/pads/${k}.mp3`), 'assets/click/cowbell-accent.mp3', 'assets/click/cowbell.mp3'];
+
+// ¿Están guardados los 12 pads y el click? (los guarda el Service Worker)
+async function padsCached() {
+  try {
+    for (const u of OFFLINE_ASSETS()) if (!(await caches.match(new Request(u).url))) return false;
+    return true;
+  } catch (_) { return false; }
+}
+
 async function updateOfflineBar(list) {
   const bar = $('btn-offline');
   const withAudio = list.filter(s => s.sequencePath || s.originalPath);
-  if (!withAudio.length) { bar.classList.add('hidden'); return; }
   let missing = 0;
   for (const s of withAudio) if (!(await isSongCached(libraryId, s))) missing++;
+  const padsOk = await padsCached();
+  if (!withAudio.length && padsOk) { bar.classList.add('hidden'); return; }
   const ico = $('offline-ico');
-  if (!missing) {
+  if (!missing && padsOk) {
     bar.classList.remove('hidden');
     bar.classList.add('done');
     // Icono ✓ (descargado)
     ico.innerHTML = '<polyline points="20 6 9 17 4 12"/>';
-    $('offline-txt').textContent = `${withAudio.length} listas sin internet`;
+    $('offline-txt').textContent = withAudio.length ? `${withAudio.length} listas sin internet · pads incluidos` : 'Pads listos sin internet';
   } else {
     bar.classList.remove('hidden', 'done');
     ico.innerHTML = '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
-    $('offline-txt').textContent = `Descargar ${missing} para usar sin internet`;
+    $('offline-txt').textContent = missing ? `Descargar ${missing} para usar sin internet` : 'Descargar pads para usar sin internet';
   }
 }
 
@@ -538,14 +549,23 @@ $('btn-offline').addEventListener('click', async () => {
   if (bar.classList.contains('done') || bar.dataset.busy) return;
   const list = visibleSongs().filter(s => s.sequencePath || s.originalPath);
   bar.dataset.busy = '1';
-  let done = 0;
+  let done = 0, failed = 0;
   for (const s of list) {
     $('offline-txt').textContent = `Descargando ${++done}/${list.length}…`;
     try { await prefetchSong(libraryId, s); } catch (_) {}
-    document.querySelectorAll(`.offline-dot[data-cid="${s.cloudId}"]`).forEach(el => el.classList.add('ready'));
+    // El punto verde solo si el audio quedó guardado de verdad.
+    const ready = await isSongCached(libraryId, s);
+    if (!ready) failed++;
+    document.querySelectorAll(`.offline-dot[data-cid="${s.cloudId}"]`).forEach(el => el.classList.toggle('ready', ready));
   }
+  // Pads (12 tonos) y sonidos del click: también sin internet.
+  $('offline-txt').textContent = 'Preparando pads y click…';
+  await Promise.all(OFFLINE_ASSETS().map(u => fetch(u).then(r => r.ok && r.arrayBuffer()).catch(() => null)));
+  await new Promise(r => setTimeout(r, 300)); // que el Service Worker termine de guardarlos
   delete bar.dataset.busy;
-  toast('✓ Descargadas para usar sin internet');
+  toast(failed
+    ? `⚠ No se pudieron descargar ${failed} canción${failed === 1 ? '' : 'es'}. Revisa la conexión e inténtalo otra vez.`
+    : '✓ Descargadas para usar sin internet');
   updateOfflineBar(visibleSongs());
 });
 

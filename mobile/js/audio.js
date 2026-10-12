@@ -58,7 +58,6 @@ export async function loadFileBlob(libraryId, relPath, { onState } = {}) {
     const url = await signGet(libraryId, relPath);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Descarga falló (${res.status})`);
-    const resForCache = res.clone();
     const ct = res.headers.get('Content-Type') || 'application/octet-stream';
     const total = Number(res.headers.get('Content-Length')) || 0;
 
@@ -80,8 +79,9 @@ export async function loadFileBlob(libraryId, relPath, { onState } = {}) {
       blob = await res.blob();
     }
     onState?.('procesando', 100);
-    // Guardar sin bloquear la reproducción.
-    cache.put(key, new Response(resForCache.body, { headers: { 'Content-Type': ct } })).catch(() => {});
+    // Guardar en la caché (se espera: así "descargada" significa de verdad
+    // disponible sin internet). Se guarda el blob ya leído.
+    try { await cache.put(key, new Response(blob, { headers: { 'Content-Type': ct } })); } catch (_) {}
     return blob;
   } catch (err) {
     // Sin Cache API (contexto raro) → directo a red.
