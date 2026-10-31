@@ -14,7 +14,7 @@ import * as stemLibrary from '../cloud/stemLibrary.js';
 import { detectTempoMeter } from './bpmDetector.js';
 import { analyzeChords, keyName, CHORD_SR } from '../chords/chordEngine.js';
 import { audioBufferToWav } from './clickGenerator.js';
-import { guessFromFilename, exactTempo, slugify, safeFileName, UNPITCHED } from './loopMeta.js';
+import { guessFromFilename, pickTempo, slugify, safeFileName, UNPITCHED } from './loopMeta.js';
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 
@@ -56,10 +56,25 @@ async function analyzeFile(file) {
   const bytes = await file.arrayBuffer();
   const buffer = await decode(bytes);
   const guess = guessFromFilename(file.name);
-  const detected = guess.bpmHint || detectTempoMeter(buffer)?.bpmFloat || 120;
-  const { bpm, bars } = exactTempo(buffer.duration, detected);
+  const detected = guess.bpmHint ? null : (detectTempoMeter(buffer)?.bpmFloat || null);
+  const { bpm, bars } = pickTempo(buffer.duration, detected, { hintBpm: guess.bpmHint });
   const key = UNPITCHED.has(guess.instrument) ? null : await detectKey(buffer);
-  return { file, bytes, buffer, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null };
+  return { file, bytes, buffer, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null,
+    hintBpm: guess.bpmHint, detectedBpm: detected };
+}
+
+// Los loops de un pack suelen compartir tempo: el BPM fiable (el del nombre de
+// algún archivo) corrige a los que solo tienen el del detector.
+function harmonizeTempo(rows) {
+  const hints = rows.map((r) => r.hintBpm).filter(Boolean);
+  if (!hints.length) return;
+  const counts = new Map();
+  hints.forEach((h) => counts.set(h, (counts.get(h) || 0) + 1));
+  const packBpm = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  for (const r of rows) {
+    if (r.hintBpm || r.edited) continue;
+    Object.assign(r, pickTempo(r.buffer.duration, r.detectedBpm, { packBpm }));
+  }
 }
 
 // Duración esperada vs real: si no cuadra, el loop se desfasaría en el editor.
@@ -110,6 +125,9 @@ export function openPackUploader({ onChanged } = {}) {
           <div class="spu-note">MP3 y M4A no: añaden silencio al principio y el loop se desfasaría.</div>
         </div>
         <div class="stb-grid-wrap"><table class="stb-grid" data-ref="rows"></table></div>
+        <div class="spu-progress" data-ref="progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="spu-progress-bar" data-ref="bar"></div>
+        </div>
         <footer class="stb-foot">
           <label><input type="checkbox" data-ref="publish"> Publicar al terminar</label>
           <span class="stb-total" data-ref="status"></span>
@@ -183,13 +201,26 @@ export function openPackUploader({ onChanged } = {}) {
       try { state.rows.push(await analyzeFile(f)); renderRows(); }
       catch (e) { console.warn('No se pudo analizar', f.name, e); showToast(`No se pudo leer ${f.name}.`, 'error'); }
     }
+    harmonizeTempo(state.rows);
+    renderRows();
     ref('status').textContent = '';
   }
 
   // ── Subida ──
   async function upload() {
     state.busy = true; refreshButton();
-    const status = (t) => { ref('status').textContent = t; };
+    // Progreso por bytes: audio + escucha previa (~¼ del audio) + portada.
+    const total = state.rows.reduce((n, r) => n + r.bytes.byteLength * 1.25, 0) + (state.cover?.size || 0);
+    let done = 0, label = '';
+    const pct = () => Math.min(100, Math.round((done / Math.max(1, total)) * 100));
+    const paint = () => {
+      ref('progress').hidden = false;
+      ref('bar').style.width = `${pct()}%`;
+      ref('progress').setAttribute('aria-valuenow', String(pct()));
+      ref('status').textContent = label ? `${label} · ${pct()} %` : '';
+    };
+    const status = (t) => { label = t; paint(); };
+    const advance = (bytes) => { done += bytes; paint(); };
     try {
       let pack;
       if (mode() === 'existing') {
@@ -205,6 +236,7 @@ export function openPackUploader({ onChanged } = {}) {
         status('Subiendo portada…');
         coverPath = `${pack.slug}/cover.${IMAGE_TYPES[state.cover.type]}`;
         await stemLibrary.adminUpload(coverPath, await state.cover.arrayBuffer(), state.cover.type);
+        advance(state.cover.size);
       }
       const saved = await stemLibrary.adminSavePack({
         slug: pack.slug, title: pack.title, description: pack.description || '', genre: pack.genre || '',
@@ -221,9 +253,11 @@ export function openPackUploader({ onChanged } = {}) {
         const ct = /\.flac$/i.test(name) ? 'audio/flac' : 'audio/wav';
         const audioPath = `${pack.slug}/${name}`;
         await stemLibrary.adminUpload(audioPath, r.bytes, ct);
+        advance(r.bytes.byteLength);
         const preview = audioBufferToWav(await renderMono(r.buffer, 24000));
         const previewPath = `${pack.slug}/preview/${name.replace(/\.flac$/i, '.wav')}`;
         await stemLibrary.adminUpload(previewPath, preview, 'audio/wav');
+        advance(r.bytes.byteLength * 0.25);
         loops.push({
           title: r.title, instrument: r.instrument, section: r.section, bpm: r.bpm, bars: r.bars,
           musical_key: r.key || null, beats_per_bar: 4, tier: r.tier || pack.tier,
@@ -237,14 +271,15 @@ export function openPackUploader({ onChanged } = {}) {
       showToast(`Pack "${saved.title}" subido con ${loops.length} loop${loops.length === 1 ? '' : 's'}${ref('publish').checked ? ' y publicado' : ' (borrador)'}.`, 'success');
       state.rows = []; state.cover = null;
       ref('coverPreview').textContent = 'Sin portada'; ref('coverPreview').style.backgroundImage = '';
-      renderRows(); status('');
+      renderRows();
       await loadPacks();
       onChanged?.();
     } catch (e) {
       console.warn('Subida de pack falló:', e);
       showToast(`No se pudo subir: ${e.message}`, 'error');
-      status('');
     } finally {
+      label = ''; ref('status').textContent = '';
+      ref('progress').hidden = true; ref('bar').style.width = '0%';
       state.busy = false; refreshButton();
     }
   }
@@ -301,7 +336,7 @@ export function openPackUploader({ onChanged } = {}) {
       const r = state.rows[Number(t.closest('[data-row]').dataset.row)];
       const f = t.dataset.f;
       r[f] = (f === 'bpm' || f === 'bars') ? Number(t.value) : (t.value || null);
-      if (f === 'bpm' || f === 'bars') renderRows();
+      if (f === 'bpm' || f === 'bars') { r.edited = true; renderRows(); }
     }
   });
   overlay.addEventListener('input', (e) => {

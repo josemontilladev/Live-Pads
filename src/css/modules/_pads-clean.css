@@ -6,6 +6,11 @@
      · El chip del tono deja el acento (lima = acción o "suena").
    ═══════════════════════════════════════════════════════════════════ */
 
+/* Librería / Servicio: radio concéntrico. Los botones van a 6 px (radio
+   Linear, con !important en _linear.css para toda la app); el contenedor era
+   una píldora y no casaba. Contenedor = 6 px + 3 px de padding = 9 px. */
+.setlist-tabs-toggle { border-radius: 9px; }
+
 /* Menú hamburguesa: nombre + descripción corta */
 .sidebar-nav .stab .stab-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.2; text-align: left; }
 .sidebar-nav .stab .stab-text small {

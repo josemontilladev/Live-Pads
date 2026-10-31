@@ -198,6 +198,11 @@
 }
 .spu-drop.is-over { border-color: var(--accent); color: var(--text); }
 .spu-check { text-align: center; font-weight: 700; }
+.spu-modal td select[data-f="instrument"],
+.spu-modal td select[data-f="section"] { min-width: 112px; }
+.spu-progress { height: 6px; border-radius: 999px; background: var(--bg-hover); overflow: hidden; flex-shrink: 0; }
+.spu-progress[hidden] { display: none; }
+.spu-progress-bar { height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .25s ease; }
 .spu-packs { display: flex; flex-direction: column; gap: 8px; }
 .spu-packrow {
   display: flex; align-items: center; gap: 12px; padding: 8px;

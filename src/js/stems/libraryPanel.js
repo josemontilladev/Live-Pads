@@ -276,6 +276,9 @@ export function mountLibraryPanel(host, api) {
   }
 
   function renderLoops() {
+    // El proyecto pudo cargarse (o cambiar de BPM/tono) después de abrir el
+    // panel: la cabecera se recalcula junto con los ajustes de cada loop.
+    renderProject();
     const list = ref('list');
     if (!state.loops.length) {
       list.innerHTML = state.packs.length

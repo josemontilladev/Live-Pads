@@ -50,6 +50,37 @@ export function exactTempo(durationSec, approxBpm, beatsPerBar = 4) {
   return { bpm, bars, error: Math.abs(bpm - approxBpm) / approxBpm };
 }
 
+const MUSICAL_BARS = [1, 2, 4, 8, 16, 32];
+
+/**
+ * Tempo de un loop al subirlo. El detector de BPM falla con sonidos
+ * sostenidos (pads, bajos), así que se ordena la confianza:
+ *   1. BPM escrito en el nombre del archivo.
+ *   2. El tempo del pack (otro archivo del lote con BPM fiable), si este loop
+ *      dura un número entero de compases a ese tempo.
+ *   3. Compases "musicales" (1, 2, 4, 8, 16, 32) con un tempo razonable
+ *      (60–190), el más cercano a lo detectado.
+ * @returns {{ bpm:number, bars:number }}
+ */
+export function pickTempo(durationSec, detectedBpm, { hintBpm = null, packBpm = null, beatsPerBar = 4 } = {}) {
+  const exact = (bpm) => { const { bpm: b, bars } = exactTempo(durationSec, bpm, beatsPerBar); return { bpm: b, bars }; };
+  if (hintBpm) return exact(hintBpm);
+  if (packBpm) {
+    const barsFloat = durationSec * packBpm / 60 / beatsPerBar;
+    if (Math.round(barsFloat) >= 1 && Math.abs(barsFloat - Math.round(barsFloat)) < 0.03) return exact(packBpm);
+  }
+  const ref = detectedBpm > 0 ? detectedBpm : 100;
+  let best = null;
+  for (const bars of MUSICAL_BARS) {
+    const bpm = bars * beatsPerBar * 60 / durationSec;
+    if (bpm < 60 || bpm > 190) continue;
+    const d = Math.abs(Math.log(bpm / ref));
+    if (!best || d < best.d) best = { bars, bpm, d };
+  }
+  if (!best) return exact(ref);
+  return { bpm: Math.round(best.bpm * 100) / 100, bars: best.bars };
+}
+
 /** "Pack Adoración 2026" → "pack-adoracion-2026" */
 export function slugify(text) {
   return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
