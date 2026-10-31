@@ -84,6 +84,18 @@ function nextStemColor() {
 
 import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
 import { getSongStems, hasSongStems, attachStem, persistSong, songSlug, openSongStemsDialog } from './songStems.js';
+import { mountLibraryPanel, LOOP_DRAG_TYPE } from './libraryPanel.js';
+import { fitLoop } from './loopFit.js';
+import { renderLoop } from './loopRender.js';
+import { ensureLoopLocal } from '../cloud/stemLibrary.js';
+import { hasFeature, requireFeature } from '../billing/license.js';
+
+// Plan Gratis: el editor se abre para armar secuencias con los loops GRATIS de
+// la Biblioteca. Meter audio propio (importar, cargar de la librería, separar)
+// o sacarlo (exportar, asignar, guardar pistas) es Pro.
+function proOnly(what) {
+  return requireFeature('stems', `${what} es parte de LivePads Pro. Con el plan Gratis puedes armar secuencias con los loops gratis de la Biblioteca.`);
+}
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
@@ -371,6 +383,7 @@ export async function mount() {
   wireConsoleCollapse(root);
   wireConsoleResize(root);
   wirePiano(root);
+  wireLibrary(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -463,7 +476,7 @@ const SHELL_HTML = `
         <span class="stems-brand">LIVEPADS <span>STEMS</span></span>
         <div class="stems-field stems-field--bpm">
           <label>BPM</label>
-          <input type="number" id="stems-bpm" min="20" max="300" value="120">
+          <input type="number" id="stems-bpm" min="20" max="300" value="120" aria-label="BPM del proyecto">
           <button class="stems-bpm-detect" id="stems-bpm-detect" title="Detectar BPM de la primera pista importada">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
             Detectar
@@ -552,18 +565,34 @@ const SHELL_HTML = `
     <header class="stems-actions stems-actions--unified">
       <div class="stems-actions-primary">
         <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
-        <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Exportar MP3
+        <button class="stems-btn stems-btn--ghost" id="stems-library-toggle" title="Loops listos para tu secuencia: se ajustan solos al BPM y al tono del proyecto">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Biblioteca
         </button>
-        <button class="stems-btn stems-btn--primary" id="stems-assign" disabled title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          Asignar a canción
-        </button>
-        <button class="stems-btn stems-btn--ghost" id="stems-save-song-stems" disabled title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-          Guardar pistas
-        </button>
+        <!-- Salidas de la mezcla agrupadas en un menú: deja un solo botón
+             principal (Importar) y la fila cabe en menos líneas. Los botones
+             conservan sus IDs (handlers, habilitado y mapeo MIDI). -->
+        <div class="stems-generators-wrap">
+          <button class="stems-btn stems-btn--ghost" id="stems-export-trigger" type="button" disabled title="Exportar o asignar la mezcla" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-generators-pop hidden" id="stems-export-pop" role="menu">
+            <button class="stems-btn stems-btn--subtle" id="stems-assign" disabled role="menuitem" title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              Asignar a canción
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-export" disabled role="menuitem" title="Exporta la mezcla completa a un archivo MP3">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar MP3
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-save-song-stems" disabled role="menuitem" title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+              Guardar pistas en canción
+            </button>
+          </div>
+        </div>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
         <span class="stems-actions-divider" aria-hidden="true"></span>
         <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto">
@@ -584,7 +613,7 @@ const SHELL_HTML = `
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tools-group">
-        <span class="stems-tools-label">Pistas</span>
+        <span class="stems-tools-label">Click y guía</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
         <div class="stems-generators-wrap">
@@ -677,7 +706,6 @@ const SHELL_HTML = `
     </header>
    </div>
 
-    <div class="stems-quickmix" id="stems-quickmix" hidden aria-label="Mezclas rápidas para practicar"></div>
 
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
@@ -702,7 +730,8 @@ const SHELL_HTML = `
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="56" height="56"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             </div>
             <h3>Sin pistas aún</h3>
-            <p>Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
+            <p class="stems-empty-pro">Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
+            <p class="stems-empty-free">Abre la <button type="button" class="stems-empty-link" id="stems-empty-library">Biblioteca</button> y arrastra loops gratis para armar tu secuencia.</p>
           </div>
         </div>
 
@@ -1339,14 +1368,50 @@ function setRowHeight(next) {
   scheduleSave();
 }
 
+// Menú desplegable de la barra (Generar, Exportar): position:fixed calculado
+// contra el botón para escapar del overflow:hidden del .stems-deck; se cierra
+// al hacer clic fuera o al elegir una acción.
+function wireToolbarPopover(trigger, pop) {
+  if (!trigger || !pop) return;
+  const close = () => {
+    pop.classList.add('hidden');
+    trigger.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('mousedown', onDoc, true);
+  };
+  const onDoc = (ev) => {
+    if (trigger.contains(ev.target) || pop.contains(ev.target)) return;
+    close();
+  };
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    if (!pop.classList.contains('hidden')) { close(); return; }
+    pop.classList.remove('hidden');
+    trigger.setAttribute('aria-expanded', 'true');
+    const r = trigger.getBoundingClientRect();
+    pop.style.left = `${r.left}px`;
+    pop.style.top  = `${r.bottom + 4}px`;
+    requestAnimationFrame(() => {
+      const pr = pop.getBoundingClientRect();
+      if (pr.right > window.innerWidth) pop.style.left = `${window.innerWidth - pr.width - 8}px`;
+    });
+    setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
+  };
+  pop.addEventListener('click', (e) => {
+    if (e.target.closest('button')) close();
+  });
+}
+
 // ── Wiring: arrange + actions ──────────────────────────────────────
 function wireArrangeEvents(root) {
   const fileInput = root.querySelector('#stems-file-input');
-  root.querySelector('#stems-import').onclick = () => fileInput.click();
+  // El plan se comprueba ANTES de abrir el selector de archivos (importFiles lo
+  // vuelve a comprobar para el arrastre y las importaciones pendientes).
+  const pickFiles = () => { if (proOnly('Importar tus propios audios')) fileInput.click(); };
+  root.querySelector('#stems-import').onclick = pickFiles;
   // Same trigger from the inline "Importar stems" link inside the empty state
   // (uses event delegation since the empty state is recreated on resetProject).
   root.addEventListener('click', (e) => {
-    if (e.target.closest('#stems-empty-import')) fileInput.click();
+    if (e.target.closest('#stems-empty-import')) pickFiles();
   });
   fileInput.onchange = (e) => importFiles(e.target.files);
 
@@ -1447,6 +1512,7 @@ function wireArrangeEvents(root) {
 
   root.querySelector('#stems-assign').onclick = async () => {
     if (engine.getTracks().length === 0) return;
+    if (!proOnly('Asignar la mezcla a una canción')) return;
     // Elegir la canción + slot ANTES de renderizar: el picker aparece al
     // instante y, si se cancela, no se desperdicia el render de la mezcla.
     const choice = await pickSongAndSlot();
@@ -1496,40 +1562,8 @@ function wireArrangeEvents(root) {
   };
 
   // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
-  const genTrigger = root.querySelector('#stems-generators-trigger');
-  const genPop = root.querySelector('#stems-generators-pop');
-  if (genTrigger && genPop) {
-    const closeGenPop = () => {
-      genPop.classList.add('hidden');
-      genTrigger.setAttribute('aria-expanded', 'false');
-      document.removeEventListener('mousedown', onDocGen, true);
-    };
-    const onDocGen = (ev) => {
-      if (genTrigger.contains(ev.target) || genPop.contains(ev.target)) return;
-      closeGenPop();
-    };
-    genTrigger.onclick = (e) => {
-      e.stopPropagation();
-      const isOpen = !genPop.classList.contains('hidden');
-      if (isOpen) { closeGenPop(); return; }
-      genPop.classList.remove('hidden');
-      genTrigger.setAttribute('aria-expanded', 'true');
-      // position:fixed → calculamos coords contra el rect del trigger
-      // para que el popover escape del overflow:hidden del .stems-deck.
-      const r = genTrigger.getBoundingClientRect();
-      genPop.style.left = `${r.left}px`;
-      genPop.style.top  = `${r.bottom + 4}px`;
-      requestAnimationFrame(() => {
-        const pr = genPop.getBoundingClientRect();
-        if (pr.right > window.innerWidth) genPop.style.left = `${window.innerWidth - pr.width - 8}px`;
-      });
-      setTimeout(() => document.addEventListener('mousedown', onDocGen, true), 0);
-    };
-    // Cerrar también al elegir una acción adentro.
-    genPop.addEventListener('click', (e) => {
-      if (e.target.closest('button')) closeGenPop();
-    });
-  }
+  wireToolbarPopover(root.querySelector('#stems-generators-trigger'), root.querySelector('#stems-generators-pop'));
+  wireToolbarPopover(root.querySelector('#stems-export-trigger'), root.querySelector('#stems-export-pop'));
 
   root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
   root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
@@ -1677,6 +1711,7 @@ export function cancelImport() {
 
 async function importFiles(fileList) {
   if (!fileList || !fileList.length) return;
+  if (!proOnly('Importar tus propios audios')) return;
   const files = Array.from(fileList).filter(f =>
     f.type.startsWith('audio/') || /\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(f.name)
   );
@@ -2315,44 +2350,68 @@ function quickMixGroups() {
   return [...groups.values()];
 }
 
+// "Practicar": selector compacto en la celda de cabecera de las pistas (antes
+// era una fila de chips que ocupaba una franja entera). Cada opción deja una
+// mezcla EXACTA (Todo / Sin X / Solo X); si la mezcla se tocó a mano en la
+// consola, el selector muestra "Mezcla propia".
+function quickMixState(groups) {
+  const allMuted = (g) => g.tracks.every(t => t.muted);
+  const anyMuted = (g) => g.tracks.some(t => t.muted);
+  const allSolo = (g) => g.tracks.every(t => t.soloed);
+  const anySolo = (g) => g.tracks.some(t => t.soloed);
+  if (!groups.some(anyMuted) && !groups.some(anySolo)) return 'reset';
+  const soloed = groups.filter(anySolo);
+  if (soloed.length === 1 && allSolo(soloed[0]) && !groups.some(anyMuted)) return `solo:${soloed[0].key}`;
+  const muted = groups.filter(anyMuted);
+  if (muted.length === 1 && allMuted(muted[0]) && !groups.some(anySolo)) return `mute:${muted[0].key}`;
+  return 'custom';
+}
+
 function refreshQuickMix() {
-  const el = document.getElementById('stems-quickmix');
-  if (!el) return;
+  const cell = document.querySelector('.stems-head-spacer');
+  if (!cell) return;
   const groups = quickMixGroups();
-  if (groups.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  const chip = (act, g, on) => `<button type="button" class="${on ? 'is-on' : ''}" data-act="${act}" data-key="${esc(g.key)}" aria-pressed="${on}">${act === 'mute' ? 'Sin ' : 'Solo '}${esc(g.label)}</button>`;
-  const anyMuted = groups.some(g => g.tracks.some(t => t.muted));
-  const anySolo = groups.some(g => g.tracks.some(t => t.soloed));
-  el.hidden = false;
-  el.innerHTML =
-    `<span class="stems-quickmix-label">Practicar</span>` +
-    `<button type="button" data-act="reset" class="${anyMuted || anySolo ? '' : 'is-on'}">Todo</button>` +
-    groups.map(g => chip('mute', g, g.tracks.every(t => t.muted))).join('') +
-    `<span class="stems-actions-divider" aria-hidden="true"></span>` +
-    groups.map(g => chip('solo', g, g.tracks.every(t => t.soloed))).join('');
+  let sel = cell.querySelector('#stems-practice');
+  if (groups.length < 2) {
+    if (sel) cell.innerHTML = '<span class="stems-head-spacer-label">Pistas</span>';
+    return;
+  }
+  const state = quickMixState(groups);
+  const opts = [
+    `<option value="reset">Todo</option>`,
+    ...groups.map(g => `<option value="mute:${esc(g.key)}">Sin ${esc(g.label)}</option>`),
+    ...groups.map(g => `<option value="solo:${esc(g.key)}">Solo ${esc(g.label)}</option>`),
+    state === 'custom' ? `<option value="custom" disabled>Mezcla propia</option>` : '',
+  ].join('');
+  if (!sel) {
+    cell.innerHTML = `<label class="stems-practice" title="Practicar: escucha sin tu instrumento o solo una parte">
+      <span class="stems-head-spacer-label">Practicar</span>
+      <select id="stems-practice" class="stems-mini-select" aria-label="Practicar: elegir qué pistas suenan"></select>
+    </label>`;
+    sel = cell.querySelector('#stems-practice');
+  }
+  sel.innerHTML = opts;
+  sel.value = state;
 }
 
 function wireQuickMix() {
-  const el = document.getElementById('stems-quickmix');
-  if (!el || el.dataset.wired) return;
-  el.dataset.wired = '1';
-  el.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
+  const cell = document.querySelector('.stems-head-spacer');
+  if (!cell || cell.dataset.wired) return;
+  cell.dataset.wired = '1';
+  cell.addEventListener('change', (e) => {
+    if (e.target.id !== 'stems-practice') return;
+    // Las claves de grupo pueden llevar ":" (p. ej. "t:t1"): cortar solo en el primero.
+    const v = e.target.value;
+    const i = v.indexOf(':');
+    const act = i < 0 ? v : v.slice(0, i);
+    const key = i < 0 ? '' : v.slice(i + 1);
     const groups = quickMixGroups();
-    if (btn.dataset.act === 'reset') {
-      for (const g of groups) for (const t of g.tracks) { applyTrackMute(t.id, false); applyTrackSolo(t.id, false); }
-      return;
-    }
-    const g = groups.find(x => x.key === btn.dataset.key);
-    if (!g) return;
-    if (btn.dataset.act === 'mute') {
-      const on = !g.tracks.every(t => t.muted);
-      for (const t of g.tracks) applyTrackMute(t.id, on);
-    } else {
-      const on = !g.tracks.every(t => t.soloed);
-      for (const t of g.tracks) applyTrackSolo(t.id, on);
+    const target = groups.find(g => g.key === key);
+    for (const g of groups) {
+      for (const t of g.tracks) {
+        applyTrackMute(t.id, act === 'mute' && g === target);
+        applyTrackSolo(t.id, act === 'solo' && g === target);
+      }
     }
   });
 }
@@ -2954,6 +3013,7 @@ let separating = false;
 let lastSeparation = null;
 async function onSeparateTrack(id, mode = '2stem') {
   if (separating) return;
+  if (!proOnly('Separar pistas con IA')) return;
   if (!window.electronAPI?.stemsSeparate) {
     toast('La separación de stems no está disponible en esta versión.', 'warning');
     return;
@@ -3592,6 +3652,108 @@ async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan
   return id;
 }
 
+// ── Biblioteca de stems: loops oficiales ajustados al proyecto ─────────────
+// El panel (libraryPanel.js) explora y escucha; aquí se baja el loop, se ajusta
+// a BPM/tono y entra al timeline como una pista más (con deshacer). La pista
+// queda guardada en el proyecto como cualquier otra, así que suena sin internet.
+let libraryPanel = null;
+
+// Color por instrumento, con la misma paleta de roles que los stems separados.
+const LOOP_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', keys: 'keys', pad: 'keys', synth: 'keys', guitar: 'guitar', vocals: 'vocals' };
+
+function barSnap(sec, mode = 'floor') {
+  const barSec = (60 / bpmFloat) * beatsPerBar;
+  const n = mode === 'round' ? Math.round(sec / barSec) : Math.floor(sec / barSec + 1e-6);
+  return Math.max(0, n) * barSec;
+}
+
+async function addLoopFromLibrary(loop, { atSec, repeats = 1 } = {}) {
+  // El servidor también lo exige; esto evita la descarga y avisa al momento.
+  if (loop.tier !== 'free' && !proOnly('Este loop')) return;
+  const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
+  let url;
+  try {
+    url = await ensureLoopLocal(loop);
+  } catch (e) {
+    if (e.code === 'plan_required') {
+      showToast('Este pack es parte de LivePads Pro.', 'info');
+      import('../billing/plansModal.js')
+        .then((m) => m.openPlansModal({ reason: 'Los packs Pro de la biblioteca de stems son parte de LivePads Pro.' }))
+        .catch(() => {});
+      return;
+    }
+    console.warn('No se pudo bajar el loop:', e);
+    showToast('No se pudo descargar el loop. ¿Hay internet?', 'error');
+    return;
+  }
+  try {
+    // El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master
+    // activo, appendTrackRow ya lleva la pista nueva al mismo tono que el resto.
+    const fit = fitLoop(
+      { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
+      { bpm: bpmFloat, key: projectKey, beatsPerBar }
+    );
+    const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
+    const buffer = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats });
+    const role = LOOP_ROLE[loop.instrument];
+    const spec = { buffer, name: loop.title, color: role ? STEM_ROLE_COLORS[role] : undefined, offsetSec: at };
+    let id = await addAudioTrackFromBuffer(spec);
+    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    locateTrackRow(id, { scroll: true });
+    pushHistory('Agregar loop',
+      async () => { try { await removeTrackById(id); } catch (_) {} scheduleSave(); },
+      async () => { id = await addAudioTrackFromBuffer(spec); refreshTimelineWidth(); scheduleSave(); });
+    const bar = Math.round(at / ((60 / bpmFloat) * beatsPerBar)) + 1;
+    showToast(`Loop "${loop.title}" agregado en el compás ${bar}. Ctrl+Z para deshacer.`, 'success');
+  } catch (e) {
+    console.warn('No se pudo agregar el loop:', e);
+    showToast('No se pudo procesar el loop.', 'error');
+  }
+}
+
+function wireLibrary(root) {
+  // Panel lateral derecho, hermano de .stems-main dentro de .stems-shell
+  // (espejo del panel de Canciones a la izquierda).
+  const host = root.querySelector('.stems-shell');
+  if (!host) return;
+  libraryPanel = mountLibraryPanel(host, {
+    getProject: () => ({ bpm: bpmFloat, key: projectKey, beatsPerBar }),
+    getTransport: () => ({ playing: engine.isCurrentlyPlaying(), sec: engine.getCurrentSec() }),
+    getAudioOut: () => ({ ctx: engine.getAudioContext(), dest: engine.getMasterGain() }),
+    addLoop: addLoopFromLibrary,
+    canUsePro: () => hasFeature('stems'),
+    requirePro: () => proOnly('Este loop'),
+  });
+  const btn = root.querySelector('#stems-library-toggle');
+  if (btn) btn.onclick = () => libraryPanel.toggle();
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('#stems-empty-library')) libraryPanel.open();
+  });
+  // Con Gratis el estado vacío invita a la Biblioteca en vez de a importar.
+  const paintPlan = () => root.classList.toggle('is-free-plan', !hasFeature('stems'));
+  paintPlan();
+  window.addEventListener('livepads:plan-changed', paintPlan);
+
+  // Soltar un loop sobre el timeline: entra en el compás más cercano. La regla
+  // (.stems-head-tl) comparte el origen horizontal con todas las pistas.
+  const arrange = root.querySelector('#stems-arrange');
+  const isLoopDrag = (e) => Array.from(e.dataTransfer?.types || []).includes(LOOP_DRAG_TYPE);
+  arrange?.addEventListener('dragover', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  arrange?.addEventListener('drop', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    const loop = libraryPanel.getLoop(e.dataTransfer.getData(LOOP_DRAG_TYPE));
+    const tl = root.querySelector('.stems-head-tl');
+    if (!loop || !tl) return;
+    const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
+    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats() });
+  });
+}
+
 // ── Selección de un RANGO de tiempo (silenciar / fade / exportar el tramo) ──
 let rangeStart = null, rangeEnd = null;
 function rangeActive() { return rangeStart != null && rangeEnd != null && rangeEnd > rangeStart + 0.01; }
@@ -3697,6 +3859,7 @@ async function applyRange(op) {
 // rango). Si hay pistas seleccionadas, exporta esas; si no, toda la mezcla.
 async function exportRange() {
   if (!rangeActive()) return;
+  if (!proOnly('Exportar')) return;
   const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
   const onlyTrackIds = selectedTrackIds.size ? [...selectedTrackIds] : null;
   const toastUi = showSepToast(`Exportando tramo ${formatTime(a)}–${formatTime(b)}`);
@@ -5244,6 +5407,8 @@ function refreshTransport() {
   if (assignBtn) assignBtn.disabled = !hasTracks;
   const saveStemsBtn = document.getElementById('stems-save-song-stems');
   if (saveStemsBtn) saveStemsBtn.disabled = !hasTracks;
+  const exportTrigger = document.getElementById('stems-export-trigger');
+  if (exportTrigger) exportTrigger.disabled = !hasTracks;
   refreshQuickMix();
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
@@ -5298,6 +5463,7 @@ function refreshTotalTime() {
 
 // ── Export ────────────────────────────────────────────────────────
 async function runExport(opts = {}) {
+  if (!proOnly(opts.assign ? 'Asignar la mezcla a una canción' : 'Exportar')) return;
   if (engine.isCurrentlyPlaying()) engine.stop();
   const overlay = document.getElementById('stems-export-overlay');
   const fill    = document.getElementById('stems-export-fill');
@@ -5661,6 +5827,7 @@ function openSongAudioMenu(anchorEl, song) {
 // una con su M/S, volumen y pan) y arranca la reproducción: modo práctica.
 async function loadSongStemsIntoTimeline(song, stems) {
   if (!stems || !stems.length) return;
+  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
   if (engine.getTracks().length > 0) {
     const ok = await confirmDialogAsync({
       title: 'Practicar con pistas',
@@ -5713,6 +5880,7 @@ async function loadSongStemsIntoTimeline(song, stems) {
 // Guarda cada pista de audio del timeline como pista separada de una canción
 // (MP3 192 kbps en Stems/<canción>/), y las registra en song.audio.stems.
 async function saveTimelineAsSongStems() {
+  if (!proOnly('Guardar las pistas en una canción')) return;
   const tracks = engine.getTracks().filter(t => engine.getTrackBuffer(t.id));
   if (!tracks.length) { showToast('No hay pistas de audio en el timeline.', 'info'); return; }
   if (!window.electronAPI?.saveSongStem) { showToast('Esta versión de la app no puede guardar pistas por canción.', 'error'); return; }
@@ -5773,6 +5941,7 @@ function openPlayInTimelineMenu(anchorEl, song) {
 // pide confirmación porque vacía el proyecto actual: mezclar una mezcla
 // terminada con stems crudos no tiene sentido. Mismo patrón que importFiles.
 async function loadSongAudioIntoTimeline(song, type) {
+  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
   const url = song?.audio?.[type];
   if (!url) { showToast('Esa canción no tiene ese audio asignado.', 'info'); return; }
   const typeLabel = type === 'sequence' ? 'Secuencia' : 'Original';

@@ -82,6 +82,7 @@ function render() {
           <li>Hasta 10 canciones</li>
           <li>Pad de Chris Rocha</li>
           <li>Metrónomo, afinador y modo en vivo</li>
+          <li>Editor de Stems con los loops gratis de la Biblioteca</li>
         </ul>
         ${info.plan === 'free' ? '<div class="pl-tag">Tu plan</div>' : ''}
       </div>
@@ -91,7 +92,8 @@ function render() {
         <ul>
           <li>Canciones ilimitadas</li>
           <li>Todos los bancos de pads</li>
-          <li>Stems (multipistas)</li>
+          <li>Stems completo: tus audios, separación con IA y exportar</li>
+          <li>Todos los loops de la Biblioteca de stems</li>
           <li>Detector de acordes y YouTube</li>
           <li>Sincronización en la nube</li>
         </ul>

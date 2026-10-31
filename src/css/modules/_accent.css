@@ -1,0 +1,61 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Disciplina del color de acento.
+
+   El lima significa UNA cosa: "acción principal o algo que está sonando".
+   Antes también marcaba estados seleccionados, botones secundarios y
+   etiquetas, y todo competía por la atención. Aquí:
+     · estados seleccionados (1x/2x, filtros, acentos) → gris elevado
+     · acciones secundarias (importar/exportar setlist) → contorno
+     · etiquetas (Consola, Maestro, AUDIO, timecode, regla) → texto
+     · metrónomo: neutro en reposo, lima solo mientras suena (el Play
+       principal de Pads es el de la barra inferior)
+   Los rellenos de los sliders siguen en acento: indican un valor.
+   Va después de las capas de rediseño para ganarles sin !important,
+   salvo .accent-btn, que ya trae !important de _sidebar.css.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Estados seleccionados */
+#panel-metro .metro-mult-btn.active,
+#workspace-stems .stems-mult-btn.is-on,
+#workspace-stems .ssl-slot-btn.active,
+#workspace-stems .stems-accent-chip.is-on {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/* Acciones secundarias del setlist (el "+" de agregar sigue en acento) */
+#btn-import-gi.accent-btn,
+#btn-export-gi.accent-btn {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border-strong) !important;
+}
+#btn-import-gi.accent-btn:hover,
+#btn-export-gi.accent-btn:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+/* Etiquetas: informan, no llaman a la acción */
+#mixer-bar .mx-master .mx-name,
+#workspace-stems .stems-console-title { color: var(--text); }
+#workspace-stems .stems-row-kind { color: var(--text-muted); }
+#workspace-stems .stems-tick-time { color: var(--text-muted); opacity: 1; }
+#workspace-stems #stems-timecode { color: var(--text); }
+
+/* Metrónomo: neutro en reposo, acento mientras suena */
+#panel-metro .metro-main-btn {
+  background: var(--bg-hover);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+#panel-metro .metro-main-btn:hover { border-color: var(--accent); color: var(--accent); }
+#panel-metro .metro-main-btn.running {
+  background: linear-gradient(180deg, var(--accent2), var(--accent));
+  color: var(--on-accent);
+  border-color: transparent;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .45) inset, 0 10px 26px color-mix(in srgb, var(--accent) 35%, transparent);
+}

@@ -1,0 +1,189 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Biblioteca de stems — panel lateral DERECHO del editor, gemelo del de
+   Canciones (.stems-setlist) a la izquierda: misma tarjeta redondeada y,
+   contraído, el mismo riel (icono, texto vertical, flecha, contador; las
+   piezas reusan las clases .ssl-rail-* de _stems.css).
+
+   A diferencia del de Canciones, este se anima: el ancho transiciona y el
+   contenido se desvanece. El contenido (.stl-body) mantiene su ancho
+   mientras el panel se estrecha, así no se reacomoda a media animación.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stems-library {
+  --stl-w: 340px;
+  position: relative;
+  width: var(--stl-w);
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  color: var(--text);
+  font-size: 13px;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.28s ease;
+}
+.stems-library.collapsed {
+  width: 42px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-surface)), var(--bg-surface) 55%);
+}
+
+.stl-body {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--stl-w);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  opacity: 1;
+  transition: opacity 0.18s ease 0.08s;
+}
+.stems-library.collapsed .stl-body {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+}
+
+/* Riel (contraído): misma composición que .stems-setlist.collapsed .ssl-rail. */
+.stl-rail {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, visibility 0s linear 0.12s, color 0.15s;
+}
+.stems-library.collapsed .stl-rail {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease 0.12s, visibility 0s, color 0.15s;
+}
+.stl-rail:hover { color: var(--accent); }
+.stl-rail:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: var(--r-lg); }
+.stl-rail:hover .ssl-rail-chevron {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-card));
+}
+.stl-rail .ssl-rail-count[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stems-library, .stl-body, .stl-rail { transition: none; }
+}
+
+/* Estado vacío del editor: con Gratis invita a la Biblioteca, con Pro a importar. */
+.stems-empty-free { display: none; }
+.is-free-plan .stems-empty-free { display: block; }
+.is-free-plan .stems-empty-pro { display: none; }
+
+.stl-project { color: var(--text-muted); font-size: 12px; }
+.stl-project b { color: var(--text); }
+.stl-warn { color: var(--accent2); }
+
+.stl-packs {
+  display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0;
+  scrollbar-width: thin;
+}
+.stl-packs:empty { display: none; }
+.stl-chip {
+  flex: none; padding: 5px 10px; border-radius: 999px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.stl-chip:hover { color: var(--text); border-color: var(--border-strong); }
+.stl-chip.active { color: var(--text); border-color: var(--accent); background: var(--bg-hover); }
+
+/* Marca GRATIS / PRO de cada loop. Para el administrador es un botón. */
+.stl-tier {
+  display: inline-block; padding: 1px 5px; margin-right: 4px; border-radius: 4px;
+  font-family: inherit; font-size: 9px; font-weight: 800; line-height: 1.4;
+  letter-spacing: 0.04em; vertical-align: 1px;
+  border: 1px solid transparent;
+}
+.stl-tier--pro { background: var(--accent2); color: #1a1300; }
+.stl-tier--free { background: transparent; color: var(--text); border-color: var(--border-strong); }
+.stl-tier.is-admin { cursor: pointer; }
+.stl-tier.is-admin:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.stl-loop.is-locked { cursor: default; }
+.stl-loop.is-locked .stl-loop-title { color: var(--text-muted); }
+.stl-add--locked { color: var(--text-muted); }
+.stl-add--locked:hover { background: var(--accent2); border-color: var(--accent2); color: #1a1300; }
+
+.stl-filters {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0;
+}
+.stl-filters .stl-search { grid-column: 1 / -1; }
+.stl-filters input,
+.stl-filters select,
+.stl-foot select {
+  min-width: 0; padding: 6px 8px; border-radius: 6px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text); font: inherit;
+}
+.stl-filters input:focus,
+.stl-filters select:focus { outline: none; border-color: var(--accent); }
+
+.stl-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  margin: 0 -6px; padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+.stl-empty { padding: 28px 12px; text-align: center; color: var(--text-muted); line-height: 1.5; }
+
+.stl-loop {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 6px; border-radius: 8px; cursor: grab;
+}
+.stl-loop:hover { background: var(--bg-hover); }
+.stl-loop:active { cursor: grabbing; }
+.stl-loop.is-playing { background: var(--bg-hover); box-shadow: inset 2px 0 0 var(--accent); }
+.stl-loop.is-busy { opacity: 0.55; pointer-events: none; }
+
+.stl-play,
+.stl-add {
+  flex: none; display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  color: var(--text); cursor: pointer;
+}
+.stl-play:hover { border-color: var(--accent); color: var(--accent); }
+.stl-add { border-radius: 6px; }
+.stl-add:hover { background: var(--accent); border-color: var(--accent); color: #0a0a14; }
+
+.stl-loop-main { flex: 1; min-width: 0; }
+.stl-loop-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stl-loop-meta { margin-top: 2px; color: var(--text-muted); font-size: 11.5px; }
+.stl-loop-fit { margin-top: 2px; color: var(--text-muted); font-size: 11px; opacity: 0.8; }
+.stl-loop-fit.is-warn { color: var(--accent2); opacity: 1; }
+
+.stl-tag {
+  display: inline-block; padding: 0 5px; margin-right: 4px; border-radius: 4px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  font-size: 10.5px; color: var(--text);
+}
+.stl-tag--drums, .stl-tag--perc { border-color: #f97316; }
+.stl-tag--bass { border-color: #3b82f6; }
+.stl-tag--keys, .stl-tag--pad, .stl-tag--synth { border-color: #eab308; }
+.stl-tag--guitar { border-color: #22c55e; }
+.stl-tag--vocals { border-color: #ec4899; }
+
+.stl-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+  padding-top: 10px; border-top: 1px solid var(--border);
+  color: var(--text-muted); font-size: 12px;
+}
+.stl-foot label { display: flex; align-items: center; gap: 6px; color: var(--text); }
+.stl-foot-hint { flex: 1; min-width: 160px; }
+.stl-foot-plan { flex-basis: 100%; color: var(--text-muted); line-height: 1.45; }
+.stl-foot-plan[hidden] { display: none; }
