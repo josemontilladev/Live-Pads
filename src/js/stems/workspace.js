@@ -84,6 +84,18 @@ function nextStemColor() {
 
 import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
 import { getSongStems, hasSongStems, attachStem, persistSong, songSlug, openSongStemsDialog } from './songStems.js';
+import { mountLibraryPanel, LOOP_DRAG_TYPE } from './libraryPanel.js';
+import { fitLoop } from './loopFit.js';
+import { renderLoop } from './loopRender.js';
+import { ensureLoopLocal } from '../cloud/stemLibrary.js';
+import { hasFeature, requireFeature } from '../billing/license.js';
+
+// Plan Gratis: el editor se abre para armar secuencias con los loops GRATIS de
+// la Biblioteca. Meter audio propio (importar, cargar de la librería, separar)
+// o sacarlo (exportar, asignar, guardar pistas) es Pro.
+function proOnly(what) {
+  return requireFeature('stems', `${what} es parte de LivePads Pro. Con el plan Gratis puedes armar secuencias con los loops gratis de la Biblioteca.`);
+}
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
@@ -371,6 +383,7 @@ export async function mount() {
   wireConsoleCollapse(root);
   wireConsoleResize(root);
   wirePiano(root);
+  wireLibrary(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -552,6 +565,10 @@ const SHELL_HTML = `
     <header class="stems-actions stems-actions--unified">
       <div class="stems-actions-primary">
         <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
+        <button class="stems-btn stems-btn--ghost" id="stems-library-toggle" title="Loops listos para tu secuencia: se ajustan solos al BPM y al tono del proyecto">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Biblioteca
+        </button>
         <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar MP3
@@ -702,7 +719,8 @@ const SHELL_HTML = `
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="56" height="56"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             </div>
             <h3>Sin pistas aún</h3>
-            <p>Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
+            <p class="stems-empty-pro">Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
+            <p class="stems-empty-free">Abre la <button type="button" class="stems-empty-link" id="stems-empty-library">Biblioteca</button> y arrastra loops gratis para armar tu secuencia.</p>
           </div>
         </div>
 
@@ -1342,11 +1360,14 @@ function setRowHeight(next) {
 // ── Wiring: arrange + actions ──────────────────────────────────────
 function wireArrangeEvents(root) {
   const fileInput = root.querySelector('#stems-file-input');
-  root.querySelector('#stems-import').onclick = () => fileInput.click();
+  // El plan se comprueba ANTES de abrir el selector de archivos (importFiles lo
+  // vuelve a comprobar para el arrastre y las importaciones pendientes).
+  const pickFiles = () => { if (proOnly('Importar tus propios audios')) fileInput.click(); };
+  root.querySelector('#stems-import').onclick = pickFiles;
   // Same trigger from the inline "Importar stems" link inside the empty state
   // (uses event delegation since the empty state is recreated on resetProject).
   root.addEventListener('click', (e) => {
-    if (e.target.closest('#stems-empty-import')) fileInput.click();
+    if (e.target.closest('#stems-empty-import')) pickFiles();
   });
   fileInput.onchange = (e) => importFiles(e.target.files);
 
@@ -1447,6 +1468,7 @@ function wireArrangeEvents(root) {
 
   root.querySelector('#stems-assign').onclick = async () => {
     if (engine.getTracks().length === 0) return;
+    if (!proOnly('Asignar la mezcla a una canción')) return;
     // Elegir la canción + slot ANTES de renderizar: el picker aparece al
     // instante y, si se cancela, no se desperdicia el render de la mezcla.
     const choice = await pickSongAndSlot();
@@ -1677,6 +1699,7 @@ export function cancelImport() {
 
 async function importFiles(fileList) {
   if (!fileList || !fileList.length) return;
+  if (!proOnly('Importar tus propios audios')) return;
   const files = Array.from(fileList).filter(f =>
     f.type.startsWith('audio/') || /\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(f.name)
   );
@@ -2954,6 +2977,7 @@ let separating = false;
 let lastSeparation = null;
 async function onSeparateTrack(id, mode = '2stem') {
   if (separating) return;
+  if (!proOnly('Separar pistas con IA')) return;
   if (!window.electronAPI?.stemsSeparate) {
     toast('La separación de stems no está disponible en esta versión.', 'warning');
     return;
@@ -3592,6 +3616,108 @@ async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan
   return id;
 }
 
+// ── Biblioteca de stems: loops oficiales ajustados al proyecto ─────────────
+// El panel (libraryPanel.js) explora y escucha; aquí se baja el loop, se ajusta
+// a BPM/tono y entra al timeline como una pista más (con deshacer). La pista
+// queda guardada en el proyecto como cualquier otra, así que suena sin internet.
+let libraryPanel = null;
+
+// Color por instrumento, con la misma paleta de roles que los stems separados.
+const LOOP_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', keys: 'keys', pad: 'keys', synth: 'keys', guitar: 'guitar', vocals: 'vocals' };
+
+function barSnap(sec, mode = 'floor') {
+  const barSec = (60 / bpmFloat) * beatsPerBar;
+  const n = mode === 'round' ? Math.round(sec / barSec) : Math.floor(sec / barSec + 1e-6);
+  return Math.max(0, n) * barSec;
+}
+
+async function addLoopFromLibrary(loop, { atSec, repeats = 1 } = {}) {
+  // El servidor también lo exige; esto evita la descarga y avisa al momento.
+  if (loop.tier !== 'free' && !proOnly('Este loop')) return;
+  const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
+  let url;
+  try {
+    url = await ensureLoopLocal(loop);
+  } catch (e) {
+    if (e.code === 'plan_required') {
+      showToast('Este pack es parte de LivePads Pro.', 'info');
+      import('../billing/plansModal.js')
+        .then((m) => m.openPlansModal({ reason: 'Los packs Pro de la biblioteca de stems son parte de LivePads Pro.' }))
+        .catch(() => {});
+      return;
+    }
+    console.warn('No se pudo bajar el loop:', e);
+    showToast('No se pudo descargar el loop. ¿Hay internet?', 'error');
+    return;
+  }
+  try {
+    // El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master
+    // activo, appendTrackRow ya lleva la pista nueva al mismo tono que el resto.
+    const fit = fitLoop(
+      { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
+      { bpm: bpmFloat, key: projectKey, beatsPerBar }
+    );
+    const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
+    const buffer = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats });
+    const role = LOOP_ROLE[loop.instrument];
+    const spec = { buffer, name: loop.title, color: role ? STEM_ROLE_COLORS[role] : undefined, offsetSec: at };
+    let id = await addAudioTrackFromBuffer(spec);
+    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    locateTrackRow(id, { scroll: true });
+    pushHistory('Agregar loop',
+      async () => { try { await removeTrackById(id); } catch (_) {} scheduleSave(); },
+      async () => { id = await addAudioTrackFromBuffer(spec); refreshTimelineWidth(); scheduleSave(); });
+    const bar = Math.round(at / ((60 / bpmFloat) * beatsPerBar)) + 1;
+    showToast(`Loop "${loop.title}" agregado en el compás ${bar}. Ctrl+Z para deshacer.`, 'success');
+  } catch (e) {
+    console.warn('No se pudo agregar el loop:', e);
+    showToast('No se pudo procesar el loop.', 'error');
+  }
+}
+
+function wireLibrary(root) {
+  // Panel lateral derecho, hermano de .stems-main dentro de .stems-shell
+  // (espejo del panel de Canciones a la izquierda).
+  const host = root.querySelector('.stems-shell');
+  if (!host) return;
+  libraryPanel = mountLibraryPanel(host, {
+    getProject: () => ({ bpm: bpmFloat, key: projectKey, beatsPerBar }),
+    getTransport: () => ({ playing: engine.isCurrentlyPlaying(), sec: engine.getCurrentSec() }),
+    getAudioOut: () => ({ ctx: engine.getAudioContext(), dest: engine.getMasterGain() }),
+    addLoop: addLoopFromLibrary,
+    canUsePro: () => hasFeature('stems'),
+    requirePro: () => proOnly('Este loop'),
+  });
+  const btn = root.querySelector('#stems-library-toggle');
+  if (btn) btn.onclick = () => libraryPanel.toggle();
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('#stems-empty-library')) libraryPanel.open();
+  });
+  // Con Gratis el estado vacío invita a la Biblioteca en vez de a importar.
+  const paintPlan = () => root.classList.toggle('is-free-plan', !hasFeature('stems'));
+  paintPlan();
+  window.addEventListener('livepads:plan-changed', paintPlan);
+
+  // Soltar un loop sobre el timeline: entra en el compás más cercano. La regla
+  // (.stems-head-tl) comparte el origen horizontal con todas las pistas.
+  const arrange = root.querySelector('#stems-arrange');
+  const isLoopDrag = (e) => Array.from(e.dataTransfer?.types || []).includes(LOOP_DRAG_TYPE);
+  arrange?.addEventListener('dragover', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  arrange?.addEventListener('drop', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    const loop = libraryPanel.getLoop(e.dataTransfer.getData(LOOP_DRAG_TYPE));
+    const tl = root.querySelector('.stems-head-tl');
+    if (!loop || !tl) return;
+    const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
+    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats() });
+  });
+}
+
 // ── Selección de un RANGO de tiempo (silenciar / fade / exportar el tramo) ──
 let rangeStart = null, rangeEnd = null;
 function rangeActive() { return rangeStart != null && rangeEnd != null && rangeEnd > rangeStart + 0.01; }
@@ -3697,6 +3823,7 @@ async function applyRange(op) {
 // rango). Si hay pistas seleccionadas, exporta esas; si no, toda la mezcla.
 async function exportRange() {
   if (!rangeActive()) return;
+  if (!proOnly('Exportar')) return;
   const a = Math.min(rangeStart, rangeEnd), b = Math.max(rangeStart, rangeEnd);
   const onlyTrackIds = selectedTrackIds.size ? [...selectedTrackIds] : null;
   const toastUi = showSepToast(`Exportando tramo ${formatTime(a)}–${formatTime(b)}`);
@@ -5298,6 +5425,7 @@ function refreshTotalTime() {
 
 // ── Export ────────────────────────────────────────────────────────
 async function runExport(opts = {}) {
+  if (!proOnly(opts.assign ? 'Asignar la mezcla a una canción' : 'Exportar')) return;
   if (engine.isCurrentlyPlaying()) engine.stop();
   const overlay = document.getElementById('stems-export-overlay');
   const fill    = document.getElementById('stems-export-fill');
@@ -5661,6 +5789,7 @@ function openSongAudioMenu(anchorEl, song) {
 // una con su M/S, volumen y pan) y arranca la reproducción: modo práctica.
 async function loadSongStemsIntoTimeline(song, stems) {
   if (!stems || !stems.length) return;
+  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
   if (engine.getTracks().length > 0) {
     const ok = await confirmDialogAsync({
       title: 'Practicar con pistas',
@@ -5713,6 +5842,7 @@ async function loadSongStemsIntoTimeline(song, stems) {
 // Guarda cada pista de audio del timeline como pista separada de una canción
 // (MP3 192 kbps en Stems/<canción>/), y las registra en song.audio.stems.
 async function saveTimelineAsSongStems() {
+  if (!proOnly('Guardar las pistas en una canción')) return;
   const tracks = engine.getTracks().filter(t => engine.getTrackBuffer(t.id));
   if (!tracks.length) { showToast('No hay pistas de audio en el timeline.', 'info'); return; }
   if (!window.electronAPI?.saveSongStem) { showToast('Esta versión de la app no puede guardar pistas por canción.', 'error'); return; }
@@ -5773,6 +5903,7 @@ function openPlayInTimelineMenu(anchorEl, song) {
 // pide confirmación porque vacía el proyecto actual: mezclar una mezcla
 // terminada con stems crudos no tiene sentido. Mismo patrón que importFiles.
 async function loadSongAudioIntoTimeline(song, type) {
+  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
   const url = song?.audio?.[type];
   if (!url) { showToast('Esa canción no tiene ese audio asignado.', 'info'); return; }
   const typeLabel = type === 'sequence' ? 'Secuencia' : 'Original';

@@ -25,7 +25,7 @@ export const PLAN_NAMES = { free: 'Gratis', pro: 'Pro', church: 'Iglesia' };
 export const FEATURE_TEXT = {
   songs: 'El plan Gratis permite hasta 10 canciones.',
   padBanks: 'El plan Gratis incluye el pad de Chris Rocha. Los demás bancos son parte de Pro.',
-  stems: 'Stems (multipistas) es parte de Pro.',
+  stems: 'Stems completo (tus audios, separación con IA y exportar) y los loops PRO son parte de Pro.',
   chords: 'El detector de acordes es parte de Pro.',
   cloud: 'Sincronizar con tu equipo en la nube es parte de Pro.',
 };
