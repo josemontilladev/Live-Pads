@@ -61,6 +61,23 @@ export async function setLoopTier(loopId, tier) {
   return await rpc('stem_loop_set_tier', { p_loop_id: loopId, p_tier: tier });
 }
 
+// ── Métricas de uso (tabla stem_loop_events) ────────────────────────────────
+// Se anota sin esperar y sin molestar: si falla (sin red, migración sin
+// aplicar), el editor sigue igual. La escucha previa cuenta una vez por loop y
+// sesión, para que repetirla no infle los números.
+const previewed = new Set();
+export function trackLoopEvent(loopId, event) {
+  if (!isLoggedIn() || !loopId) return;
+  if (event === 'preview') {
+    if (previewed.has(loopId)) return;
+    previewed.add(loopId);
+  }
+  rest('/stem_loop_events', { method: 'POST', body: { loop_id: loopId, event }, prefer: 'return=minimal' }).catch(() => {});
+}
+
+/** Administrador: loops más usados en los últimos `days` días. */
+export const adminStats = (days = 30) => rpc('stem_library_stats', { p_days: days });
+
 // Subir y publicar packs desde la app (Edge Function stem-library-admin, que
 // vuelve a comprobar que quien llama es administrador).
 async function admin(action, payload = {}) {

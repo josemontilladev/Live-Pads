@@ -97,6 +97,7 @@ export function openPackUploader({ onChanged } = {}) {
       <div class="spu-tabs" role="tablist">
         <button type="button" class="is-on" data-tab="upload" role="tab">Subir pack</button>
         <button type="button" data-tab="packs" role="tab">Mis packs</button>
+        <button type="button" data-tab="stats" role="tab">Uso</button>
       </div>
 
       <section data-pane="upload" class="spu-pane">
@@ -138,6 +139,16 @@ export function openPackUploader({ onChanged } = {}) {
       <section data-pane="packs" class="spu-pane" hidden>
         <div class="spu-packs" data-ref="packList"><div class="stb-empty">Cargando…</div></div>
       </section>
+
+      <section data-pane="stats" class="spu-pane" hidden>
+        <div class="stb-bar">
+          <label>Periodo
+            <select data-ref="statsDays"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option></select>
+          </label>
+          <span class="spu-note">"Agregado" = entró a un proyecto en el editor. "Escuchado" = escucha previa (una vez por persona y sesión).</span>
+        </div>
+        <div class="stb-grid-wrap"><table class="stb-grid" data-ref="stats"></table></div>
+      </section>
     </div>`;
   document.body.appendChild(overlay);
   const ref = (n) => overlay.querySelector(`[data-ref="${n}"]`);
@@ -165,6 +176,28 @@ export function openPackUploader({ onChanged } = {}) {
         if (url && el) el.style.backgroundImage = `url("${url}")`;
       }).catch(() => {});
     }
+  }
+
+  // ── Uso (métricas) ──
+  async function loadStats() {
+    const table = ref('stats');
+    table.innerHTML = '<tbody><tr><td class="stb-empty">Cargando…</td></tr></tbody>';
+    let rows;
+    try { rows = await stemLibrary.adminStats(Number(ref('statsDays').value)); }
+    catch (e) {
+      table.innerHTML = `<tbody><tr><td class="stb-empty">No se pudo cargar: ${esc(e.message)}. ¿Está aplicada la migración 0018?</td></tr></tbody>`;
+      return;
+    }
+    if (!rows?.length) {
+      table.innerHTML = '<tbody><tr><td class="stb-empty">Todavía no hay uso registrado en este periodo.</td></tr></tbody>';
+      return;
+    }
+    table.innerHTML = `
+      <thead><tr><th>#</th><th>Loop</th><th>Pack</th><th>Instrumento</th><th>Agregado</th><th>Escuchado</th><th>Personas</th></tr></thead>
+      <tbody>${rows.map((r, i) => `<tr>
+        <td>${i + 1}</td><td>${esc(r.title)}</td><td>${esc(r.pack_title)}</td><td>${esc(INSTRUMENTS[r.instrument] || r.instrument)}</td>
+        <td><b>${r.adds}</b></td><td>${r.previews}</td><td>${r.users}</td>
+      </tr>`).join('')}</tbody>`;
   }
 
   // ── Filas de loops ──
@@ -305,6 +338,7 @@ export function openPackUploader({ onChanged } = {}) {
     else if (tab) {
       overlay.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
       overlay.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== tab; });
+      if (tab === 'stats') loadStats();
     }
   });
 
@@ -315,6 +349,7 @@ export function openPackUploader({ onChanged } = {}) {
       ref('newpack').hidden = mode() !== 'new';
       renderRows();
     } else if (t === ref('existing') || t === ref('tier')) renderRows();
+    else if (t === ref('statsDays')) loadStats();
     else if (t === ref('filesInput')) { await addFiles(t.files); t.value = ''; }
     else if (t === ref('coverInput')) {
       const f = t.files[0];

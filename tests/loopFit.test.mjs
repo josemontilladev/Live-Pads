@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fitLoop, loopSemitones, pickTempoFactor, barsToSamples, needsProcessing } from '../src/js/stems/loopFit.js';
+import { fitLoop, loopSemitones, pickTempoFactor, barsToSamples, needsProcessing, isCompatible } from '../src/js/stems/loopFit.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
 
@@ -69,6 +69,14 @@ test('fitLoop usa varispeed solo en loops sin tono y con poco cambio de tempo', 
   const pad = fitLoop({ loopBpm: 72, loopKey: 'G', bars: 4 }, { bpm: 74, key: 'G' });
   assert.equal(pad.varispeed, false);
   near(pad.stPitch, -12 * Math.log2(74 / 72));
+});
+
+test('isCompatible: poco estiramiento, poca transposición y mismo compás', () => {
+  assert.equal(isCompatible(fitLoop({ loopBpm: 72, loopKey: 'G', bars: 4 }, { bpm: 76, key: 'A' })), true);   // 5.5 %, +2
+  assert.equal(isCompatible(fitLoop({ loopBpm: 72, loopKey: 'G', bars: 4 }, { bpm: 82, key: 'G' })), false);  // 14 %
+  assert.equal(isCompatible(fitLoop({ loopBpm: 72, loopKey: 'G', bars: 4 }, { bpm: 72, key: 'C' })), false);  // +5 st
+  assert.equal(isCompatible(fitLoop({ loopBpm: 140, bars: 4 }, { bpm: 72 })), true);                          // medio tiempo
+  assert.equal(isCompatible(fitLoop({ loopBpm: 72, bars: 4, beatsPerBar: 3 }, { bpm: 72, beatsPerBar: 4 })), false);
 });
 
 test('barsToSamples cuadra la rejilla al sample', () => {

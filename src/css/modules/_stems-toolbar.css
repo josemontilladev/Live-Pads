@@ -1,4 +1,23 @@
 /* ═══════════════════════════════════════════════════════════════════
+   Regla del timeline: los marcadores tienen su propia franja (18 px) bajo
+   los números de compás. Antes ocupaban los 40 px de la regla, centrados, y
+   tapaban "5.1.00" y su tiempo. Todo lo que colgaba "debajo de la regla"
+   (líneas de marcador, loop, rango, margen de scroll) baja a 58 px.
+   ═══════════════════════════════════════════════════════════════════ */
+#workspace-stems .stems-head-tl { height: 58px; }
+#workspace-stems .stems-ruler { inset: 0 0 18px 0; }
+#workspace-stems .stems-marker-layer {
+  inset: 40px 0 0 0;
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  border-top: 1px solid var(--border);
+}
+#workspace-stems .stems-marker { top: 0; height: 18px; }
+#workspace-stems .stems-marker-lines,
+#workspace-stems .stems-loop-overlay,
+#workspace-stems .stems-range-overlay { top: 58px; }
+#workspace-stems .stems-row { scroll-margin-top: 62px; }
+
+/* ═══════════════════════════════════════════════════════════════════
    Barra de Stems: Velocidad (1.00×) y Snap con el mismo estilo que el
    resto de botones de la barra (referencia: "Loop" — 30 px de alto, radio
    9 px, texto 11 px/650). Antes la velocidad medía 38 px y Snap tenía un

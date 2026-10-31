@@ -132,6 +132,16 @@ try {
     assert(!r.acento, `el metrónomo en reposo no debería ir con el color de acento (${r.accent})`);
   });
 
+  await check('Pads: sin pista, la barra inferior solo muestra la guía', async () => {
+    const r = await evaluate(`(() => {
+      const bar = document.getElementById('track-player-bar');
+      const shown = (sel) => getComputedStyle(bar.querySelector(sel)).display !== 'none';
+      return { conPista: bar.classList.contains('has-track'), progreso: shown('#tp-progress'), tiempos: shown('.tp-time'), titulo: document.getElementById('tp-title').textContent };
+    })()`);
+    assert(!r.conPista && !r.progreso && !r.tiempos, `barra sin pista: ${JSON.stringify(r)}`);
+    assert(/elige una canción/.test(r.titulo), `título: "${r.titulo}"`);
+  });
+
   await check('Stems abre con plan Gratis (sin ventana de planes)', async () => {
     await evaluate(`document.querySelector('button[data-workspace=stems]').click()`);
     await waitFor(`document.body.dataset.workspace === 'stems' && document.getElementById('stems-library')`, 15000);

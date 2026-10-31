@@ -50,6 +50,9 @@
         "releaseType": "release"
       }
     ],
+    "releaseInfo": {
+      "releaseNotesFile": "NOVEDADES.md"
+    },
     "asar": true,
     "compression": "maximum",
     "directories": {

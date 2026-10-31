@@ -64,7 +64,8 @@ Migraciones 0001–0004 · Edge Function desplegada · secrets RESEND_API_KEY/IN
 - Landing: descarga + versión **dinámicas** (API GitHub) → no requiere redeploy por release.
 
 ### Operaciones
-- Release: `npm version patch` → `git push --follow-tags`. Antes: revertir `defaults/*.json` ensuciados en dev (`git checkout -- defaults/...`).
+- Release: `npm version patch` → `git push --follow-tags`. Antes: revertir `defaults/*.json` ensuciados en dev (`git checkout -- defaults/...`) y **actualizar `NOVEDADES.md`**: es el texto de la versión en GitHub y lo que la app muestra como "Novedades" al actualizarse (`build.releaseInfo.releaseNotesFile`). Si la versión trae algo que anunciar en la app, cambiar también `EDITION` e `ITEMS` en `src/js/ui/whatsNew.js`.
+- CI (`.github/workflows/release.yml`, Node 22): `npm test` + `npm run test:ui` antes de compilar; si fallan, no se publica.
 - Regenerar iconos: `electron scripts/brand/render-logo.js` (sin `ELECTRON_RUN_AS_NODE`).
 - Tras editar plantilla de invitación: `supabase functions deploy send-invite`.
 - Borrado de releases/tags GitHub: vía API con el token del credential manager (`git credential fill`).

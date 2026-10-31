@@ -25,8 +25,25 @@
 #btn-live-mode.has-label { width: auto; padding: 0 10px; gap: 6px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
 #btn-live-mode .live-label { font-size: 12px; font-weight: 650; }
 
+/* Barra inferior sin pista: sin progreso, tiempos ni "cerrar"; solo la guía */
+#track-player-bar:not(.has-track) #tp-progress,
+#track-player-bar:not(.has-track) .tp-time,
+#track-player-bar:not(.has-track) #tp-close-btn { display: none; }
+#track-player-bar:not(.has-track) #tp-title { color: var(--text-muted); font-weight: 500; max-width: none; flex: 1 1 auto; }
+
 /* La franja de onda/secciones vacía no ocupa sitio en Pads */
 #seq-wave.is-empty { display: none; }
+
+/* Mezclador: la ayuda de MIDI pasó a tooltip; "Maestro" se sigue pegando a la derecha */
+#mixer-bar .mx-title .mx-master { margin-left: auto; }
+
+/* Género: etiqueta informativa, neutra (antes en acento) */
+.gi-chip.gi-chip--genre {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid transparent;
+  font-weight: 600;
+}
 
 /* Tono de la canción: dato, no acción */
 .gi-chip.gi-chip--key {

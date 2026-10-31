@@ -89,7 +89,7 @@ import { fitLoop, barsToSamples } from './loopFit.js';
 import { planMerge, mergeChannel } from './loopMerge.js';
 import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
-import { ensureLoopLocal } from '../cloud/stemLibrary.js';
+import { ensureLoopLocal, trackLoopEvent } from '../cloud/stemLibrary.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
 
 // Plan Gratis: el editor se abre para armar secuencias con los loops GRATIS de
@@ -3742,6 +3742,8 @@ async function buildStructureFromLibrary(plan) {
     async () => { for (const op of ops.slice().reverse()) await op.undo(); showMarkers(false); afterLoopEdit(); },
     async () => { for (const op of ops) await op.redo(); showMarkers(true); afterLoopEdit(); });
   showToast(`Secuencia armada: ${plan.sections.length} secciones, ${tracks.length} instrumento${tracks.length > 1 ? 's' : ''}. Ctrl+Z para deshacer.`, 'success');
+  // Uso: cada loop distinto que entró en la secuencia cuenta como "agregado".
+  new Set([...parts.keys()].map((k) => k.split('|')[0])).forEach((id) => trackLoopEvent(id, 'add'));
   return true;
 }
 
@@ -3861,6 +3863,7 @@ async function addLoopFromLibrary(loop, { atSec, repeats = 1, sameTrack = true }
       async () => { await op.redo(); afterLoopEdit(); });
     const bar = Math.round(at / ((60 / bpmFloat) * beatsPerBar)) + 1;
     showToast(`Loop "${loop.title}" agregado en el compás ${bar}. Ctrl+Z para deshacer.`, 'success');
+    trackLoopEvent(loop.id, 'add');
   } catch (e) {
     console.warn('No se pudo agregar el loop:', e);
     showToast('No se pudo procesar el loop.', 'error');
@@ -3873,7 +3876,7 @@ function wireLibrary(root) {
   const host = root.querySelector('.stems-shell');
   if (!host) return;
   libraryPanel = mountLibraryPanel(host, {
-    getProject: () => ({ bpm: bpmFloat, key: projectKey, beatsPerBar }),
+    getProject: () => ({ bpm: bpmFloat, key: projectKey, beatsPerBar, beatValue }),
     getTransport: () => ({ playing: engine.isCurrentlyPlaying(), sec: engine.getCurrentSec() }),
     getAudioOut: () => ({ ctx: engine.getAudioContext(), dest: engine.getMasterGain() }),
     addLoop: addLoopFromLibrary,
@@ -3884,6 +3887,9 @@ function wireLibrary(root) {
   });
   const btn = root.querySelector('#stems-library-toggle');
   if (btn) btn.onclick = () => libraryPanel.toggle();
+  // "Probar la Biblioteca" desde «Qué hay de nuevo» (app.js).
+  window.addEventListener('livepads:open-library', () => libraryPanel.open());
+  if (window.__lpOpenLibrary) { window.__lpOpenLibrary = false; libraryPanel.open(); }
   root.addEventListener('click', (e) => {
     if (e.target.closest('#stems-empty-library')) libraryPanel.open();
   });
@@ -3908,7 +3914,8 @@ function wireLibrary(root) {
     const tl = root.querySelector('.stems-head-tl');
     if (!loop || !tl) return;
     const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
-    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats(), sameTrack: libraryPanel.getSameTrack() });
+    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats(), sameTrack: libraryPanel.getSameTrack() })
+      .then(() => libraryPanel.markRecent(loop.id));
   });
 }
 

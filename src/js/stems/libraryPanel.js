@@ -21,7 +21,7 @@
 
 import * as stemLibrary from '../cloud/stemLibrary.js';
 import { isLoggedIn } from '../cloud/supabase.js';
-import { fitLoop } from './loopFit.js';
+import { fitLoop, isCompatible } from './loopFit.js';
 import { renderLoop } from './loopRender.js';
 import { openStructureBuilder } from './structureBuilder.js';
 import { openPackUploader } from './packUploader.js';
@@ -72,15 +72,15 @@ export function mountLibraryPanel(host, api) {
     <div class="ssl-title-row">
       <span class="ssl-title-icon" aria-hidden="true">${SVG_BOOK}</span>
       <span class="ssl-title-label">Biblioteca de stems</span>
+      <!-- Administrar (solo admin): botón redondo gemelo del de contraer. -->
+      <button class="ssl-collapse-btn stl-admin-btn" type="button" data-act="admin" data-ref="admin" hidden title="Administrar biblioteca: subir packs, publicar y ver el uso" aria-label="Administrar biblioteca">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </button>
       <button class="ssl-collapse-btn" type="button" data-act="close" title="Contraer biblioteca" aria-label="Contraer biblioteca">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 6 15 12 9 18"/></svg>
       </button>
     </div>
     <div class="stl-project" data-ref="project"></div>
-    <button type="button" class="stl-admin" data-act="admin" data-ref="admin" hidden title="Subir packs y publicarlos (solo administrador)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Administrar biblioteca
-    </button>
     <div class="stl-packs" data-ref="packs"></div>
     <div class="stl-packcard" data-ref="packcard" hidden></div>
     <div class="stl-filters">
@@ -98,6 +98,12 @@ export function mountLibraryPanel(host, api) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
       Armar por secciones
     </button>
+    <div class="stl-views" data-ref="views" role="group" aria-label="Vista de la biblioteca">
+      <button type="button" class="is-on" data-view="all">Todos</button>
+      <button type="button" data-view="compat" title="Loops que suenan naturales en tu proyecto: poco estiramiento de tempo y poca transposición">Compatibles</button>
+      <button type="button" data-view="fav">★ Favoritos</button>
+      <button type="button" data-view="recent">Recientes</button>
+    </div>
     <div class="stl-list" data-ref="list"></div>
     <footer class="stl-foot">
       <label>Repetir
@@ -116,8 +122,24 @@ export function mountLibraryPanel(host, api) {
   host.appendChild(el);
 
   const ref = (n) => el.querySelector(`[data-ref="${n}"]`);
-  const state = { packId: '', packs: [], loops: [], loaded: false, busyId: null, admin: false };
+  const state = { packId: '', packs: [], loops: [], loaded: false, busyId: null, admin: false, view: 'all' };
   const isLocked = (loop) => loop.tier !== 'free' && !api.canUsePro();
+
+  // Favoritos y recientes: preferencias de este equipo (como el resto del panel).
+  const FAV_KEY = 'stems-library-favs', RECENT_KEY = 'stems-library-recent';
+  const readList = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (_) { return []; } };
+  const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
+  const favs = new Set(readList(FAV_KEY));
+  let recent = readList(RECENT_KEY);   // ids, el más reciente primero
+  function toggleFav(id) {
+    favs.has(id) ? favs.delete(id) : favs.add(id);
+    writeList(FAV_KEY, [...favs]);
+    renderLoops();
+  }
+  function markRecent(id) {
+    recent = [id, ...recent.filter((x) => x !== id)].slice(0, 30);
+    writeList(RECENT_KEY, recent);
+  }
   const loopsById = new Map();
 
   // ── Escucha previa ────────────────────────────────────────────────────────
@@ -166,6 +188,7 @@ export function mountLibraryPanel(host, api) {
       }
       src.start(when);
       preview.src = src;
+      stemLibrary.trackLoopEvent(loop.id, 'preview');
     } catch (e) {
       console.warn('Escucha previa falló:', e);
       showToast('No se pudo cargar la escucha previa. ¿Hay internet?', 'error');
@@ -229,11 +252,13 @@ export function mountLibraryPanel(host, api) {
 
   // ── Render ───────────────────────────────────────────────────────────────
   function renderProject() {
+    // Contexto en chips: a qué se ajustan los loops (tempo, tono y compás).
     const p = api.getProject();
     const key = p.key
-      ? `en <b>${esc(p.key)}</b>`
-      : '<span class="stl-warn">sin tono definido (los loops no se transponen)</span>';
-    ref('project').innerHTML = `Se ajustan a <b>${Math.round(p.bpm * 100) / 100} BPM</b> ${key}`;
+      ? `<span class="stl-ctx-chip">${esc(p.key)}</span>`
+      : '<span class="stl-ctx-chip is-warn" title="Sin tono definido: los loops no se transponen. Elige la tonalidad del proyecto arriba.">Sin tono</span>';
+    ref('project').innerHTML = `<span class="stl-ctx-label">Ajustados a tu proyecto</span>
+      <span class="stl-ctx-chip">${Math.round(p.bpm * 100) / 100} BPM</span>${key}<span class="stl-ctx-chip">${p.beatsPerBar || 4}/${p.beatValue || 4}</span>`;
   }
 
   function renderPacks() {
@@ -280,14 +305,42 @@ export function mountLibraryPanel(host, api) {
     // panel: la cabecera se recalcula junto con los ajustes de cada loop.
     renderProject();
     const list = ref('list');
+    // Catálogo vacío: se ocultan filtros, armado y pie (no sirven sin loops) y
+    // queda una tarjeta clara; el administrador tiene el atajo para subir.
+    const emptyCatalog = !state.packs.length;
+    el.classList.toggle('is-empty-catalog', emptyCatalog);
+    if (emptyCatalog) {
+      list.innerHTML = `<div class="stl-empty stl-empty--catalog">
+        <div class="stl-empty-icon">${SVG_BOOK}</div>
+        <b>${state.admin ? 'La biblioteca está vacía' : 'Pronto habrá loops aquí'}</b>
+        <span>${state.admin
+          ? 'Sube tu primer pack de loops: los usuarios lo verán aquí en cuanto lo publiques.'
+          : 'Estamos preparando packs de loops listos para tus secuencias. Vuelve pronto.'}</span>
+        ${state.admin ? '<button type="button" class="stb-btn stb-btn--primary" data-act="admin">Subir tu primer pack</button>' : ''}
+      </div>`;
+      return;
+    }
     if (!state.loops.length) {
-      list.innerHTML = state.packs.length
-        ? '<div class="stl-empty">No hay loops con esos filtros.</div>'
-        : '<div class="stl-empty">La biblioteca todavía no tiene packs publicados.</div>';
+      list.innerHTML = '<div class="stl-empty">No hay loops con esos filtros.</div>';
       return;
     }
     const project = api.getProject();
-    list.innerHTML = state.loops.map((l) => {
+    let shown = state.loops;
+    if (state.view === 'compat') shown = shown.filter((l) => isCompatible(fitLoop(loopSpec(l), project)));
+    else if (state.view === 'fav') shown = shown.filter((l) => favs.has(l.id));
+    else if (state.view === 'recent') {
+      const order = new Map(recent.map((id, i) => [id, i]));
+      shown = shown.filter((l) => order.has(l.id)).sort((a, b) => order.get(a.id) - order.get(b.id));
+    }
+    if (!shown.length) {
+      list.innerHTML = `<div class="stl-empty">${{
+        compat: `Ningún loop encaja de forma natural en ${Math.round(project.bpm)} BPM${project.key ? ' en ' + esc(project.key) : ''}. Prueba "Todos": se ajustan igual, solo que se estiran más.`,
+        fav: 'Marca con ★ los loops que más uses y aparecerán aquí.',
+        recent: 'Aquí verás los últimos loops que agregues al proyecto.',
+      }[state.view] || 'No hay loops con esos filtros.'}</div>`;
+      return;
+    }
+    list.innerHTML = shown.map((l) => {
       const fit = fitLoop(loopSpec(l), project);
       const free = l.tier === 'free';
       const tierLabel = free ? 'GRATIS' : 'PRO';
@@ -310,6 +363,7 @@ export function mountLibraryPanel(host, api) {
           </div>
           <div class="stl-loop-fit${warn ? ' is-warn' : ''}" ${warn ? `title="${esc(warn)}"` : ''}>${esc(fitTxt)}${warn ? ' ⚠' : ''}</div>
         </div>
+        <button type="button" class="stl-fav${favs.has(l.id) ? ' is-on' : ''}" data-act="fav" aria-pressed="${favs.has(l.id)}" title="${favs.has(l.id) ? 'Quitar de favoritos' : 'Añadir a favoritos'}">★</button>
         ${locked
           ? `<button type="button" class="stl-add stl-add--locked" data-act="add" title="Este loop es parte de LivePads Pro">${SVG_LOCK}</button>`
           : `<button type="button" class="stl-add" data-act="add" title="Agregar en el compás del cursor">${SVG_PLUS}</button>`}
@@ -344,6 +398,7 @@ export function mountLibraryPanel(host, api) {
     setBusy(loop.id, true);
     try {
       await api.addLoop(loop, { atSec, repeats: getRepeats(), sameTrack: getSameTrack() });
+      markRecent(loop.id);
     } finally {
       setBusy(loop.id, false);
       state.busyId = null;
@@ -408,6 +463,13 @@ export function mountLibraryPanel(host, api) {
       loadLoops();
       return;
     }
+    const view = e.target.closest('[data-view]');
+    if (view) {
+      state.view = view.dataset.view;
+      el.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('is-on', b === view));
+      renderLoops();
+      return;
+    }
     const row = e.target.closest('.stl-loop');
     const loop = row && loopsById.get(row.dataset.loop);
     if (!loop) return;
@@ -415,6 +477,7 @@ export function mountLibraryPanel(host, api) {
     if (act === 'preview') playPreview(loop);
     else if (act === 'add') add(loop);
     else if (act === 'tier' && state.admin) toggleTier(loop);
+    else if (act === 'fav') toggleFav(loop.id);
   });
 
   el.addEventListener('dragstart', (e) => {
@@ -481,7 +544,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, close, toggle, stopPreview, getRepeats, getSameTrack,
+    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.

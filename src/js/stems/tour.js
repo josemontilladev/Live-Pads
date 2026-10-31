@@ -17,6 +17,16 @@ const STEPS = [
     body: 'Arrastra archivos de audio (WAV, MP3, OGG, AAC) o usa este botón. Cada uno se añade como una pista nueva con su waveform.'
   },
   {
+    target: '#stems-library-toggle',
+    title: 'Biblioteca de stems',
+    body: 'Loops listos para tu secuencia que se <b>ajustan solos</b> a tu BPM y tono. Escúchalos y arrástralos a un compás del timeline; con el plan Gratis usas los marcados <b>GRATIS</b>.'
+  },
+  {
+    target: '#stems-library',
+    title: 'Armar por secciones',
+    body: 'Dentro de la Biblioteca, <b>Armar por secciones</b> crea la secuencia completa a partir de una estructura (Intro, Verso, Coro…): una pista por instrumento y los marcadores puestos.'
+  },
+  {
     target: '#stems-arrange',
     title: 'Recorte, fades y consola',
     body: 'Sobre cada pista de la línea de tiempo: las asas de los <b>bordes</b> recortan inicio/fin y las de las <b>esquinas</b> hacen <b>fade in/out</b> (no destructivo, respetado al exportar). Abajo, la <b>consola</b> mezcla volumen, paneo, mute y solo de cada stem.'

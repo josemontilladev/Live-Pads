@@ -10,6 +10,8 @@ import { formatLyrics } from './lyricsFormat.js';
 import { transposeAll } from './chordTransposer.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 
+const capitalizeFirst = (s) => { const t = String(s).trim(); return t.charAt(0).toLocaleUpperCase('es') + t.slice(1); };
+
 /**
  * @param {object} song
  * @param {object} opts
@@ -154,7 +156,9 @@ export function songCardInnerHTML(song, opts) {
     keyMeta,
     song.bpm   ? `<span class="gi-chip">${esc(song.bpm)} BPM</span>` : '',
     `<span class="gi-chip">${sigMeta}</span>`,
-    song.genre ? `<span class="gi-chip gi-chip--genre">${esc(song.genre)}</span>` : ''
+    // Mayúscula inicial solo al mostrar ("alabanza" y "Alabanza" se ven igual);
+    // el dato guardado no se toca.
+    song.genre ? `<span class="gi-chip gi-chip--genre">${esc(capitalizeFirst(song.genre))}</span>` : ''
   ].filter(Boolean).join('');
 
   // Los acordes de la letra siguen al tono del servicio: si hoy se toca en G, el

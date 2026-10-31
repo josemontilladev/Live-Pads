@@ -88,6 +88,15 @@ export function fitLoop(loop, project) {
   return { ratio, semitones, stPitch, varispeed, bars, effectiveBpm, factor, quality, warnings };
 }
 
+/**
+ * ¿Suena natural en el proyecto? Poco estiramiento (≤ 8 %, contando medio o
+ * doble tiempo), poca transposición (≤ 2 semitonos) y el mismo compás. Es el
+ * filtro "Compatibles" de la Biblioteca.
+ */
+export function isCompatible(fit) {
+  return Math.abs(fit.ratio - 1) <= 0.08 && Math.abs(fit.semitones) <= 2 && !fit.warnings.includes('meter');
+}
+
 /** ¿Hace falta procesar el audio, o se puede usar tal cual? */
 export function needsProcessing(fit) {
   return Math.abs(fit.ratio - 1) > 1e-4 || fit.semitones !== 0;

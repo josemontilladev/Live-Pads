@@ -17,6 +17,13 @@ import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 
+// Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
+// _pads-clean.css) y el título indica cómo cargar una.
+const EMPTY_TITLE = 'Sin pista · elige una canción y pulsa Sec u Orig';
+function setHasTrack(on) {
+  q('#track-player-bar')?.classList.toggle('has-track', on);
+}
+
 let audio = null;            // PitchAudio (API tipo HTMLAudioElement + pitchSemitones)
 let currentType = null;
 let currentSong = null;
@@ -381,6 +388,7 @@ async function startTrackPlayback(url, title, type) {
   audio.onerror = async (e) => {
     console.error('Error loading audio:', safeUrl, e);
     if (els.title) els.title.textContent = 'Audio no encontrado';
+    setHasTrack(false);
     // El archivo falta/se movió/está dañado: ofrecer REASIGNAR aquí mismo en vez
     // de mandar al usuario a editar la canción. La canción + slot ya los tenemos.
     const song = currentSong;
@@ -408,6 +416,7 @@ async function startTrackPlayback(url, title, type) {
   };
 
   if (els.title) els.title.textContent = title + (type === 'sequence' ? ' (Secuencia)' : ' (Original)');
+  setHasTrack(true);
 
   // El icono SIEMPRE refleja el estado real, aunque play/pause venga por otra
   // vía (fin de pista, auto-avance, atajos): así no queda "pegado". Incluye
@@ -494,7 +503,8 @@ async function startTrackPlayback(url, title, type) {
 
   if (els.closeBtn) els.closeBtn.onclick = () => {
     cleanupTrackAudio();
-    if (els.title)    els.title.textContent = 'Ninguna pista cargada';
+    if (els.title)    els.title.textContent = EMPTY_TITLE;
+    setHasTrack(false);
     if (els.timeCur)  els.timeCur.textContent = '0:00';
     if (els.timeTot)  els.timeTot.textContent = '0:00';
     if (els.progress) { els.progress.value = 0; deps.syncSlider(els.progress); }

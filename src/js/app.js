@@ -167,6 +167,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Aviso de una sola vez: «ahora hay planes» (texto según el plan de cada uno).
   authGateReady.then(() => licenseReady).then(() => setTimeout(() => {
     import('./billing/announce.js').then(m => m.maybeAnnouncePlans()).catch(() => {});
+    // «Qué hay de nuevo» tras una actualización (no coincide con el de planes:
+    // si ese está abierto, espera a la próxima vez).
+    import('./ui/whatsNew.js').then(m => m.maybeShowWhatsNew({
+      onTryLibrary: () => {
+        window.__lpOpenLibrary = true;   // por si Stems aún no está montado
+        applyWorkspace('stems');
+        window.dispatchEvent(new Event('livepads:open-library'));
+      },
+    })).catch(() => {});
   }, 2500));
   // Si el plan cambia (prueba terminada, pago, cancelación) la app se ajusta en caliente.
   window.addEventListener('livepads:plan-changed', () => {
