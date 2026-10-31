@@ -476,7 +476,7 @@ const SHELL_HTML = `
         <span class="stems-brand">LIVEPADS <span>STEMS</span></span>
         <div class="stems-field stems-field--bpm">
           <label>BPM</label>
-          <input type="number" id="stems-bpm" min="20" max="300" value="120">
+          <input type="number" id="stems-bpm" min="20" max="300" value="120" aria-label="BPM del proyecto">
           <button class="stems-bpm-detect" id="stems-bpm-detect" title="Detectar BPM de la primera pista importada">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
             Detectar
@@ -601,7 +601,7 @@ const SHELL_HTML = `
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tools-group">
-        <span class="stems-tools-label">Pistas</span>
+        <span class="stems-tools-label">Click y guía</span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
         <div class="stems-generators-wrap">
