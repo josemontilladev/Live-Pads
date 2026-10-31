@@ -37,9 +37,9 @@ const STEPS = [
     body: 'Click derecho en dos marcadores → "Marcar como inicio/fin de loop". Activa este botón para repetir esa sección durante el ensayo.'
   },
   {
-    target: '#stems-export',
-    title: 'Exportar a MP3',
-    body: 'Cuando la mezcla esté lista, exporta a MP3 para asignarla como secuencia en una canción del setlist de Pads.'
+    target: '#stems-export-trigger',
+    title: 'Exportar la mezcla',
+    body: 'Cuando la mezcla esté lista, asígnala a una canción del setlist de Pads o expórtala a MP3 desde este menú.'
   }
 ];
 

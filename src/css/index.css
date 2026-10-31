@@ -38,4 +38,6 @@
 @import url('./modules/_chordlane.css');
 @import url('./modules/_plans.css');
 @import url('./modules/_stemlibrary.css');
+@import url('./modules/_accent.css');
+@import url('./modules/_setlist-compact.css');
 @import url('./modules/_responsive.css');
