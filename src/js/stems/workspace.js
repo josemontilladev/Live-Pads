@@ -84,8 +84,10 @@ function nextStemColor() {
 
 import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
 import { getSongStems, hasSongStems, attachStem, persistSong, songSlug, openSongStemsDialog } from './songStems.js';
-import { mountLibraryPanel, LOOP_DRAG_TYPE } from './libraryPanel.js';
-import { fitLoop } from './loopFit.js';
+import { mountLibraryPanel, LOOP_DRAG_TYPE, instrumentLabel } from './libraryPanel.js';
+import { fitLoop, barsToSamples } from './loopFit.js';
+import { planMerge, mergeChannel } from './loopMerge.js';
+import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
 import { ensureLoopLocal } from '../cloud/stemLibrary.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
@@ -203,6 +205,10 @@ const peaksCache = new Map();  // trackId → Float32Array peaks
 // audio auto-renderizado (freeze) en el engine para sonar/mezclar/exportar.
 const trackNotes = new Map();  // trackId → [{ midi, velocity, startSec, durationSec }]
 const trackInstrument = new Map(); // trackId → instrumento (piano/rhodes/pad/lead/bass)
+// trackId → instrumento del loop de la Biblioteca (drums, bass, pad…). Marca las
+// pistas "de loops" para que los loops nuevos del mismo instrumento se sumen a
+// ellas en vez de crear una pista por loop.
+const trackLoopInstrument = new Map();
 let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
@@ -3264,6 +3270,7 @@ async function removeTrackById(id) {
   originalBuffers.delete(id);
   trackNotes.delete(id);
   trackInstrument.delete(id);
+  trackLoopInstrument.delete(id);
   if (trackRows.size === 0) {
     const empty = document.getElementById('stems-empty');
     if (empty) empty.hidden = false;
@@ -3639,9 +3646,9 @@ function sliceBuffer(buffer, startSec, endSec) {
 
 // Crea una pista de audio NUEVA desde un buffer (al final de la lista) y la
 // persiste. Hereda color/pan/volumen si se pasan. Usado por dividir y pegar.
-async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume }) {
+async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume, kind = 'stem' }) {
   const id = `t${nextTrackId++}`;
-  await engine.addTrack({ id, name: name || 'Pista', audioBuffer: buffer, kind: 'stem', offsetSec });
+  await engine.addTrack({ id, name: name || 'Pista', audioBuffer: buffer, kind, offsetSec });
   engine.setTrackColor(id, color || nextStemColor());
   if (typeof pan === 'number') engine.setTrackPan(id, pan);
   if (typeof volume === 'number') engine.setTrackVolume(id, volume);
@@ -3663,46 +3670,195 @@ const LOOP_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', keys: 'keys', p
 
 function barSnap(sec, mode = 'floor') {
   const barSec = (60 / bpmFloat) * beatsPerBar;
-  const n = mode === 'round' ? Math.round(sec / barSec) : Math.floor(sec / barSec + 1e-6);
+  // Tolerancia de 1/1000 de compás: el largo de una pista va redondeado a
+  // muestras y puede pasarse del compás por una fracción de muestra.
+  const n = mode === 'round' ? Math.round(sec / barSec)
+          : mode === 'ceil' ? Math.ceil(sec / barSec - 1e-3)
+          : Math.floor(sec / barSec + 1e-3);
   return Math.max(0, n) * barSec;
 }
 
-async function addLoopFromLibrary(loop, { atSec, repeats = 1 } = {}) {
+// Armado por secciones (structureBuilder.js entrega el plan). Dos fases para
+// no dejar nada a medias si falla la red: 1) se prepara TODO el audio en
+// memoria — una pista completa por instrumento, con silencio donde no hay
+// loop —; 2) solo entonces se colocan las pistas y los marcadores, con un único
+// deshacer.
+async function buildStructureFromLibrary(plan) {
+  const { starts, totalBars } = sectionStarts(plan.sections);
+  const barSec = (60 / bpmFloat) * beatsPerBar;
+  const startSec = plan.start === 'cursor' ? barSnap(engine.getCurrentSec())
+                 : plan.start === 'end' ? barSnap(engine.getDurationSec(), 'ceil')
+                 : 0;
+  const sr = engine.getAudioContext().sampleRate;
+  const totalLen = barsToSamples(totalBars, beatsPerBar, bpmFloat, sr);
+  const parts = new Map();   // `${loopId}|${bars}` → AudioBuffer (un loop se reusa en varias secciones)
+  const tracks = [];         // { loop, buffer }
+
+  showToast('Armando la secuencia…', 'info');
+  try {
+    for (const inst of plan.instruments) {
+      let out = null, firstLoop = null;
+      for (let r = 0; r < plan.sections.length; r++) {
+        const loop = plan.pick(r, inst);
+        if (!loop) continue;
+        const bars = plan.sections[r].bars;
+        const key = `${loop.id}|${bars}`;
+        let part = parts.get(key);
+        if (!part) {
+          part = await prepareLoopBuffer(loop, { totalBars: bars });
+          if (part.sampleRate !== sr) part = await resampleTo(part, sr);
+          parts.set(key, part);
+        }
+        if (!out) out = new AudioBuffer({ numberOfChannels: 2, length: totalLen, sampleRate: sr });
+        const at = barsToSamples(starts[r], beatsPerBar, bpmFloat, sr);
+        for (let c = 0; c < 2; c++) {
+          const src = part.getChannelData(Math.min(c, part.numberOfChannels - 1));
+          out.getChannelData(c).set(src.subarray(0, Math.max(0, Math.min(src.length, totalLen - at))), at);
+        }
+        firstLoop = firstLoop || loop;
+      }
+      if (out) tracks.push({ loop: firstLoop, buffer: out });
+    }
+  } catch (e) {
+    reportLoopError(e);
+    return false;
+  }
+  if (!tracks.length) { showToast('No hay loops elegidos para armar.', 'info'); return false; }
+
+  const ops = [];
+  for (const t of tracks) ops.push(await placeLoopBuffer(t.loop, t.buffer, startSec, { sameTrack: true }));
+  const newMarkers = !plan.addMarkers ? [] : plan.sections.map((s, r) => {
+    const cue = findCueById(SECTION_TYPES.find((x) => x.id === s.type)?.cue);
+    return cue ? { id: `m${nextMarkerId++}`, cueId: cue.id, label: cue.label, url: cue.url, atSec: startSec + starts[r] * barSec } : null;
+  }).filter(Boolean);
+  const showMarkers = (on) => {
+    const ids = new Set(newMarkers.map((m) => m.id));
+    markers = on ? markers.filter((m) => !ids.has(m.id)).concat(newMarkers) : markers.filter((m) => !ids.has(m.id));
+    redrawMarkers(); scheduleGuideSync();
+  };
+  showMarkers(true);
+  afterLoopEdit();
+  pushHistory('Armar por secciones',
+    async () => { for (const op of ops.slice().reverse()) await op.undo(); showMarkers(false); afterLoopEdit(); },
+    async () => { for (const op of ops) await op.redo(); showMarkers(true); afterLoopEdit(); });
+  showToast(`Secuencia armada: ${plan.sections.length} secciones, ${tracks.length} instrumento${tracks.length > 1 ? 's' : ''}. Ctrl+Z para deshacer.`, 'success');
+  return true;
+}
+
+// Descarga el loop (o lo toma de la caché), lo ajusta a BPM/tono y lo repite.
+// El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master activo,
+// appendTrackRow lleva la pista nueva al mismo tono que el resto. Lanza un Error
+// con code 'plan_required' si el loop es Pro y la cuenta no.
+async function prepareLoopBuffer(loop, { repeats = 1, totalBars } = {}) {
+  const url = await ensureLoopLocal(loop);
+  const fit = fitLoop(
+    { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
+    { bpm: bpmFloat, key: projectKey, beatsPerBar }
+  );
+  const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
+  return renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats, totalBars });
+}
+
+function reportLoopError(e) {
+  if (e?.code === 'plan_required') {
+    proOnly('Este loop');
+    return;
+  }
+  console.warn('No se pudo preparar el loop:', e);
+  showToast('No se pudo preparar el loop. ¿Hay internet?', 'error');
+}
+
+function findLoopTrack(instrument) {
+  for (const [id, inst] of trackLoopInstrument) if (inst === instrument && trackRows.has(id)) return id;
+  return null;
+}
+
+async function resampleTo(buffer, sampleRate) {
+  const off = new OfflineAudioContext(buffer.numberOfChannels, Math.max(1, Math.round(buffer.duration * sampleRate)), sampleRate);
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.connect(off.destination);
+  src.start();
+  return off.startRendering();
+}
+
+// Coloca un loop ya ajustado. Con `sameTrack`, si ya hay una pista de loops de
+// ese instrumento, el loop se FUNDE en ella (loopMerge.js) en vez de crear una
+// pista por loop. Con transpose master activo se crea pista nueva: fundir audio
+// ya transpuesto con audio sin transponer lo desafinaría.
+// Devuelve { id, undo, redo } para que el llamador arme el historial.
+async function placeLoopBuffer(loop, buffer, atSec, { sameTrack = true } = {}) {
+  const role = LOOP_ROLE[loop.instrument];
+  const target = sameTrack && currentStemsPitch === 0 ? findLoopTrack(loop.instrument) : null;
+
+  if (target) {
+    const t = engine.getTracks().find(x => x.id === target);
+    const prevBuf = engine.getTrackBuffer(target);
+    const prev = {
+      buffer: prevBuf, offset: t.offsetSec || 0,
+      start: t.trimStartSec || 0, end: t.trimEndSec != null ? t.trimEndSec : prevBuf.duration,
+      fadeIn: t.fadeInSec || 0, fadeOut: t.fadeOutSec || 0,
+    };
+    const loopBuf = buffer.sampleRate === prevBuf.sampleRate ? buffer : await resampleTo(buffer, prevBuf.sampleRate);
+    const plan = planMerge({ offsetSec: prev.offset, trimStartSec: prev.start, trimEndSec: prev.end, sampleRate: prevBuf.sampleRate }, atSec, loopBuf.length);
+    const channels = Math.max(prevBuf.numberOfChannels, loopBuf.numberOfChannels);
+    const merged = new AudioBuffer({ numberOfChannels: channels, length: plan.length, sampleRate: prevBuf.sampleRate });
+    for (let c = 0; c < channels; c++) {
+      mergeChannel(merged.getChannelData(c),
+        prevBuf.getChannelData(Math.min(c, prevBuf.numberOfChannels - 1)),
+        loopBuf.getChannelData(Math.min(c, loopBuf.numberOfChannels - 1)), plan);
+    }
+    // Si la pista se recreó (deshacer/rehacer encadenados), buscarla de nuevo.
+    const apply = async (buf, offset, clip) => {
+      const id = trackRows.has(target) ? target : findLoopTrack(loop.instrument);
+      if (!id) return;
+      await setTrackBufferPersist(id, buf, offset);
+      engine.setTrackTrimEnd(id, clip.end);
+      engine.setTrackTrimStart(id, clip.start);
+      engine.setTrackFadeIn(id, clip.fadeIn);
+      engine.setTrackFadeOut(id, clip.fadeOut);
+      drawTrackWaveform(id);
+    };
+    const mergedClip = { start: 0, end: merged.duration, fadeIn: 0, fadeOut: 0 };
+    await apply(merged, plan.offsetSec, mergedClip);
+    return {
+      id: target,
+      undo: () => apply(prev.buffer, prev.offset, prev),
+      redo: () => apply(merged, plan.offsetSec, mergedClip),
+    };
+  }
+
+  const spec = {
+    buffer, offsetSec: atSec, kind: role || 'other',
+    // Con "misma pista" la pista acabará con varios loops: se nombra por instrumento.
+    name: sameTrack ? instrumentLabel(loop.instrument) : loop.title,
+    color: role ? STEM_ROLE_COLORS[role] : undefined,
+  };
+  let id = await addAudioTrackFromBuffer(spec);
+  trackLoopInstrument.set(id, loop.instrument);
+  return {
+    get id() { return id; },
+    undo: async () => { try { await removeTrackById(id); } catch (_) {} },
+    redo: async () => { id = await addAudioTrackFromBuffer(spec); trackLoopInstrument.set(id, loop.instrument); },
+  };
+}
+
+function afterLoopEdit() { refreshTimelineWidth(); refreshTransport(); scheduleSave(); }
+
+async function addLoopFromLibrary(loop, { atSec, repeats = 1, sameTrack = true } = {}) {
   // El servidor también lo exige; esto evita la descarga y avisa al momento.
   if (loop.tier !== 'free' && !proOnly('Este loop')) return;
   const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
-  let url;
+  let buffer;
+  try { buffer = await prepareLoopBuffer(loop, { repeats }); }
+  catch (e) { reportLoopError(e); return; }
   try {
-    url = await ensureLoopLocal(loop);
-  } catch (e) {
-    if (e.code === 'plan_required') {
-      showToast('Este pack es parte de LivePads Pro.', 'info');
-      import('../billing/plansModal.js')
-        .then((m) => m.openPlansModal({ reason: 'Los packs Pro de la biblioteca de stems son parte de LivePads Pro.' }))
-        .catch(() => {});
-      return;
-    }
-    console.warn('No se pudo bajar el loop:', e);
-    showToast('No se pudo descargar el loop. ¿Hay internet?', 'error');
-    return;
-  }
-  try {
-    // El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master
-    // activo, appendTrackRow ya lleva la pista nueva al mismo tono que el resto.
-    const fit = fitLoop(
-      { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
-      { bpm: bpmFloat, key: projectKey, beatsPerBar }
-    );
-    const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
-    const buffer = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats });
-    const role = LOOP_ROLE[loop.instrument];
-    const spec = { buffer, name: loop.title, color: role ? STEM_ROLE_COLORS[role] : undefined, offsetSec: at };
-    let id = await addAudioTrackFromBuffer(spec);
-    refreshTimelineWidth(); refreshTransport(); scheduleSave();
-    locateTrackRow(id, { scroll: true });
+    const op = await placeLoopBuffer(loop, buffer, at, { sameTrack });
+    afterLoopEdit();
+    locateTrackRow(op.id, { scroll: true });
     pushHistory('Agregar loop',
-      async () => { try { await removeTrackById(id); } catch (_) {} scheduleSave(); },
-      async () => { id = await addAudioTrackFromBuffer(spec); refreshTimelineWidth(); scheduleSave(); });
+      async () => { await op.undo(); afterLoopEdit(); },
+      async () => { await op.redo(); afterLoopEdit(); });
     const bar = Math.round(at / ((60 / bpmFloat) * beatsPerBar)) + 1;
     showToast(`Loop "${loop.title}" agregado en el compás ${bar}. Ctrl+Z para deshacer.`, 'success');
   } catch (e) {
@@ -3723,6 +3879,8 @@ function wireLibrary(root) {
     addLoop: addLoopFromLibrary,
     canUsePro: () => hasFeature('stems'),
     requirePro: () => proOnly('Este loop'),
+    hasTracks: () => engine.getTracks().length > 0,
+    buildStructure: buildStructureFromLibrary,
   });
   const btn = root.querySelector('#stems-library-toggle');
   if (btn) btn.onclick = () => libraryPanel.toggle();
@@ -3750,7 +3908,7 @@ function wireLibrary(root) {
     const tl = root.querySelector('.stems-head-tl');
     if (!loop || !tl) return;
     const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
-    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats() });
+    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats(), sameTrack: libraryPanel.getSameTrack() });
   });
 }
 
@@ -4117,6 +4275,7 @@ function snapshotTrackForDelete(id) {
     buffer: engine.getTrackBuffer(id),
     notes: trackNotes.get(id) ? trackNotes.get(id).slice() : null,
     instrument: trackInstrument.get(id) || null,
+    loopInstrument: trackLoopInstrument.get(id) || null,
   };
 }
 
@@ -4131,6 +4290,7 @@ async function recreateTrack(snap) {
   engine.setTrackSoloed(snap.id, snap.soloed);
   if (snap.notes) trackNotes.set(snap.id, snap.notes);
   if (snap.instrument) trackInstrument.set(snap.id, snap.instrument);
+  if (snap.loopInstrument) trackLoopInstrument.set(snap.id, snap.loopInstrument);
   let savedPath = '';
   try { savedPath = (await projectStore.saveStem(snap.id, 'restore.wav', audioBufferToWav(snap.buffer))) || ''; } catch (_) {}
   appendTrackRow(snap.id, savedPath);
@@ -6046,6 +6206,7 @@ async function doSave() {
         // Pistas MIDI: guardamos las notas editables (el audio va por `path`).
         notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
         instrument: t.kind === 'midi' ? (trackInstrument.get(t.id) || 'piano') : undefined,
+        loopInstrument: trackLoopInstrument.get(t.id) || undefined,
       };
     });
     await projectStore.saveCurrent({
@@ -6167,6 +6328,7 @@ async function rehydrate(state) {
       // Pistas MIDI: restaura las notas ANTES de pintar la fila (drawMidiRow las usa).
       if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
       if (t.kind === 'midi') trackInstrument.set(t.id, t.instrument || 'piano');
+      if (t.loopInstrument) trackLoopInstrument.set(t.id, t.loopInstrument);
       appendTrackRow(t.id, t.path);
     } catch (e) {
       console.warn('Could not restore stem', t.id, e);
@@ -6369,6 +6531,7 @@ async function resetProject() {
   originalBuffers.clear();
   trackNotes.clear();
   trackInstrument.clear();
+  trackLoopInstrument.clear();
   // Limpiar el historial: si no, un Ctrl+Z tras "Nuevo" intentaría restaurar
   // pistas del proyecto anterior (ids viejos / stems ya borrados) → roto.
   clearHistory();

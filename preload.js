@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openLibraryFolder: (relDir) => ipcRenderer.invoke('open-library-folder', relDir),
   r2UploadFile: (args) => ipcRenderer.invoke('r2-upload-file', args),
   r2DownloadFile: (args) => ipcRenderer.invoke('r2-download-file', args),
+  r2PutBytes: (args) => ipcRenderer.invoke('r2-put-bytes', args),
   syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
   pushMongoSetlist: (songs) => ipcRenderer.invoke('push-mongo-setlist', songs),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),

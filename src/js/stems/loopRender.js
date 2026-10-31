@@ -87,8 +87,10 @@ async function stretch(buffer, fit) {
  *   beatsPerBar: compás del loop
  *   projectBpm:  tempo del proyecto (define la rejilla)
  *   repeats:     cuántas vueltas seguidas (1 por defecto)
+ *   totalBars:   en vez de vueltas, llenar exactamente N compases (la última
+ *                vuelta se corta si sobra). Lo usa el armado por secciones.
  */
-export async function renderLoop(buffer, fit, { beatsPerBar = 4, projectBpm, repeats = 1, onProgress } = {}) {
+export async function renderLoop(buffer, fit, { beatsPerBar = 4, projectBpm, repeats = 1, totalBars, onProgress } = {}) {
   if (!buffer) throw new Error('Falta el audio del loop.');
   try { buffer = await capSampleRate(buffer, MAX_RENDER_RATE); } catch (_) {}
   const sr = buffer.sampleRate;
@@ -102,8 +104,9 @@ export async function renderLoop(buffer, fit, { beatsPerBar = 4, projectBpm, rep
   onProgress?.(0.8);
 
   const loopLen = barsToSamples(fit.bars, beatsPerBar, projectBpm, sr);
-  const n = Math.max(1, Math.floor(repeats));
-  const out = new AudioBuffer({ numberOfChannels: channels, length: loopLen * n, sampleRate: sr });
+  const total = totalBars > 0 ? barsToSamples(totalBars, beatsPerBar, projectBpm, sr) : 0;
+  const n = total ? Math.ceil(total / loopLen) : Math.max(1, Math.floor(repeats));
+  const out = new AudioBuffer({ numberOfChannels: channels, length: total || loopLen * n, sampleRate: sr });
 
   for (let c = 0; c < channels; c++) {
     const src = source.getChannelData(Math.min(c, source.numberOfChannels - 1));
@@ -113,9 +116,12 @@ export async function renderLoop(buffer, fit, { beatsPerBar = 4, projectBpm, rep
     const one = src.subarray(offset, offset + avail);
     for (let r = 0; r < n; r++) {
       const base = r * loopLen;
-      dst.set(one, base);
-      const fadeFrom = Math.max(0, avail - SEAM_FADE);
-      for (let i = fadeFrom; i < avail; i++) dst[base + i] *= (avail - i) / SEAM_FADE;
+      // La última vuelta puede no caber entera (totalBars): se corta con fade.
+      const take = Math.min(avail, out.length - base);
+      if (take <= 0) break;
+      dst.set(one.subarray(0, take), base);
+      const fadeFrom = Math.max(0, take - SEAM_FADE);
+      for (let i = fadeFrom; i < take; i++) dst[base + i] *= (take - i) / SEAM_FADE;
     }
   }
   onProgress?.(1);

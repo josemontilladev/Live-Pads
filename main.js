@@ -1461,6 +1461,29 @@ ipcMain.handle('r2-download-file', async (_e, { url, relPath }) => {
   return { size: buf.length };
 });
 
+// Sube bytes (no un archivo de la biblioteca) con una URL prefirmada de R2.
+// Lo usa el panel de administración de la biblioteca de stems: audio, escucha
+// previa y portada se generan en el renderer. Va por aquí porque desde el
+// renderer el PUT a R2 lo bloquearía CORS. Solo acepta URLs de R2 por HTTPS.
+ipcMain.handle('r2-put-bytes', async (_e, { url, bytes, contentType }) => {
+  let u;
+  try { u = new URL(url); } catch (_) { throw new Error('URL inválida'); }
+  if (u.protocol !== 'https:' || !u.hostname.endsWith('.r2.cloudflarestorage.com')) {
+    throw new Error('Destino no permitido');
+  }
+  const body = Buffer.from(bytes);
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': contentType || 'application/octet-stream', 'Content-Length': String(body.length) },
+    body,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`R2 rechazó la subida (${res.status}) ${t.slice(0, 120)}`);
+  }
+  return { size: body.length };
+});
+
 // Repara: (1) vincula huérfanos a canciones cuyo título coincide con el nombre
 // del archivo (si el slot está vacío/roto); (2) limpia las referencias rotas
 // que queden. Escribe la BD de forma atómica. Devuelve { linked, cleared }.

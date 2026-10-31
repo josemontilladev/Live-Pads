@@ -23,6 +23,8 @@ import * as stemLibrary from '../cloud/stemLibrary.js';
 import { isLoggedIn } from '../cloud/supabase.js';
 import { fitLoop } from './loopFit.js';
 import { renderLoop } from './loopRender.js';
+import { openStructureBuilder } from './structureBuilder.js';
+import { openPackUploader } from './packUploader.js';
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 
@@ -75,7 +77,12 @@ export function mountLibraryPanel(host, api) {
       </button>
     </div>
     <div class="stl-project" data-ref="project"></div>
+    <button type="button" class="stl-admin" data-act="admin" data-ref="admin" hidden title="Subir packs y publicarlos (solo administrador)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Administrar biblioteca
+    </button>
     <div class="stl-packs" data-ref="packs"></div>
+    <div class="stl-packcard" data-ref="packcard" hidden></div>
     <div class="stl-filters">
       <input class="stl-search" data-ref="text" type="search" placeholder="Buscar loop…" aria-label="Buscar loop">
       <select data-ref="instrument" aria-label="Instrumento">
@@ -87,6 +94,10 @@ export function mountLibraryPanel(host, api) {
         ${Object.entries(SECTIONS).filter(([v]) => v !== 'any').map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
     </div>
+    <button type="button" class="stl-build" data-act="build" data-ref="build" hidden title="Elige una estructura (Intro, Verso, Coro…) y arma la secuencia completa con loops de la biblioteca">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
+      Armar por secciones
+    </button>
     <div class="stl-list" data-ref="list"></div>
     <footer class="stl-foot">
       <label>Repetir
@@ -94,6 +105,9 @@ export function mountLibraryPanel(host, api) {
           <option value="1">1 vez</option><option value="2">2 veces</option>
           <option value="4" selected>4 veces</option><option value="8">8 veces</option>
         </select>
+      </label>
+      <label class="stl-same" title="Activado: cada loop se suma a la pista de su instrumento (una pista de batería, una de bajo…). Desactivado: cada loop crea su propia pista.">
+        <input type="checkbox" data-ref="same" checked> Sumar a la pista de su instrumento
       </label>
       <span class="stl-foot-hint">Arrastra un loop a un compás o usa <b>+</b> para el cursor.</span>
       <span class="stl-foot-plan" data-ref="plan" hidden>Plan Gratis: usa los loops <b>GRATIS</b>. Los <b>PRO</b>, importar tus audios y exportar son parte de Pro.</span>
@@ -166,6 +180,16 @@ export function mountLibraryPanel(host, api) {
     return { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar };
   }
 
+  // Tras subir o publicar desde el panel de administración: catálogo de nuevo.
+  async function reloadCatalog() {
+    coverUrls.clear();
+    state.packs = await stemLibrary.listPacks({ refresh: true }).catch(() => state.packs);
+    if (state.packId && !state.packs.some((p) => p.id === state.packId)) state.packId = '';
+    const count = ref('count'); count.hidden = true;   // que se recalcule el total
+    renderPacks();
+    await loadLoops();
+  }
+
   async function loadPacks() {
     try {
       state.packs = await stemLibrary.listPacks();
@@ -214,8 +238,41 @@ export function mountLibraryPanel(host, api) {
 
   function renderPacks() {
     const chips = [{ id: '', title: 'Todos' }, ...state.packs].map((p) =>
-      `<button type="button" class="stl-chip${p.id === state.packId ? ' active' : ''}" data-pack="${esc(p.id)}">${esc(p.title)}</button>`).join('');
+      `<button type="button" class="stl-chip${p.id === state.packId ? ' active' : ''}" data-pack="${esc(p.id)}">${
+        p.cover_path ? `<span class="stl-chip-cover" data-cover="${esc(p.id)}"></span>` : ''}${esc(p.title)}</button>`).join('');
     ref('packs').innerHTML = chips;
+    renderPackCard();
+    paintCovers();
+  }
+
+  // Portadas: se bajan una vez a la caché local y se pintan donde haya un
+  // [data-cover] de ese pack (chip y tarjeta).
+  const coverUrls = new Map();
+  function paintCovers() {
+    for (const p of state.packs) {
+      if (!p.cover_path) continue;
+      const apply = (url) => {
+        if (!url) return;
+        el.querySelectorAll(`[data-cover="${CSS.escape(p.id)}"]`).forEach((n) => { n.style.backgroundImage = `url("${url}")`; });
+      };
+      if (coverUrls.has(p.id)) { apply(coverUrls.get(p.id)); continue; }
+      coverUrls.set(p.id, null);
+      stemLibrary.ensureCoverLocal(p).then((url) => { coverUrls.set(p.id, url); apply(url); }).catch(() => {});
+    }
+  }
+
+  function renderPackCard() {
+    const card = ref('packcard');
+    const p = state.packs.find((x) => x.id === state.packId);
+    if (!p) { card.hidden = true; card.innerHTML = ''; return; }
+    card.hidden = false;
+    card.innerHTML = `
+      <div class="stl-packcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}</div>
+      <div class="stl-packcard-info">
+        <b>${esc(p.title)}</b>
+        ${p.description ? `<span>${esc(p.description)}</span>` : ''}
+        <span class="stl-packcard-meta">${[p.genre, p.mood].filter(Boolean).map(esc).join(' · ')}</span>
+      </div>`;
   }
 
   function renderLoops() {
@@ -283,14 +340,37 @@ export function mountLibraryPanel(host, api) {
     state.busyId = loop.id;
     setBusy(loop.id, true);
     try {
-      await api.addLoop(loop, { atSec, repeats: getRepeats() });
+      await api.addLoop(loop, { atSec, repeats: getRepeats(), sameTrack: getSameTrack() });
     } finally {
       setBusy(loop.id, false);
       state.busyId = null;
     }
   }
 
+  // "Armar por secciones": usa el catálogo completo (no solo lo filtrado en la
+  // lista) y, con plan Gratis, solo los loops GRATIS.
+  async function openBuilder() {
+    stopPreview();
+    let all;
+    try { all = await stemLibrary.listLoops({}); }
+    catch (e) { showToast('No se pudo cargar la biblioteca. Revisa tu conexión.', 'error'); return; }
+    const usable = api.canUsePro() ? all : all.filter((l) => l.tier === 'free');
+    if (!usable.length) { showToast('Todavía no hay loops que puedas usar para armar una secuencia.', 'info'); return; }
+    openStructureBuilder({
+      loops: usable, packs: state.packs, packId: state.packId,
+      project: api.getProject(), hasTracks: api.hasTracks(),
+      labels: (k) => INSTRUMENTS[k] || k,
+      onBuild: api.buildStructure,
+    });
+  }
+
   function getRepeats() { return Number(ref('repeats').value) || 1; }
+  function getSameTrack() { return ref('same').checked; }
+  const SAME_KEY = 'stems-library-same-track';
+  try { if (localStorage.getItem(SAME_KEY) === '0') ref('same').checked = false; } catch (_) {}
+  ref('same').addEventListener('change', () => {
+    try { localStorage.setItem(SAME_KEY, ref('same').checked ? '1' : '0'); } catch (_) {}
+  });
 
   // Administrador: alterna GRATIS ↔ PRO. Se pinta al momento y se revierte si
   // el servidor lo rechaza.
@@ -312,6 +392,12 @@ export function mountLibraryPanel(host, api) {
   el.addEventListener('click', (e) => {
     if (e.target.closest('[data-act="close"]')) { close(); return; }
     if (e.target.closest('[data-act="open"]')) { open(); return; }
+    if (e.target.closest('[data-act="build"]')) { openBuilder(); return; }
+    if (e.target.closest('[data-act="admin"]')) {
+      stopPreview();
+      openPackUploader({ onChanged: () => reloadCatalog() });
+      return;
+    }
     const chip = e.target.closest('.stl-chip');
     if (chip) {
       state.packId = chip.dataset.pack;
@@ -365,9 +451,11 @@ export function mountLibraryPanel(host, api) {
     renderProject();
     ref('plan').hidden = api.canUsePro();
     if (!isLoggedIn()) { renderLoggedOut(); return; }
+    ref('build').hidden = false;
     if (!state.loaded) {
       state.loaded = true;
       state.admin = await stemLibrary.isLibraryAdmin();
+      ref('admin').hidden = !state.admin;
       await loadPacks();
       await loadLoops();
     } else {
@@ -390,7 +478,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, close, toggle, stopPreview, getRepeats,
+    open, close, toggle, stopPreview, getRepeats, getSameTrack,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.
