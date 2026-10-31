@@ -139,14 +139,15 @@
 .stems-console-header { font-weight: 500; }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Tarjetas del servicio (modo en vivo): las flechas de orden suben a la
-   esquina superior derecha para que la fila Letra · Sec · Orig tenga TODO el
-   ancho y no se corte.
+   Tarjetas del servicio (modo en vivo): las flechas de orden van en la
+   esquina superior derecha de la TARJETA (.gi-song-order, fuera de la tira de
+   botones): así la fila Letra · Sec · Orig tiene todo el ancho y, cuando esa
+   tira flota al pasar el ratón, las flechas no le caen encima.
    ═══════════════════════════════════════════════════════════════════ */
 .gi-song-item { position: relative; }
 .gi-song-actions { position: static; }
-.gi-song-actions .btn-move-up,
-.gi-song-actions .btn-move-down {
+.gi-song-order .btn-move-up,
+.gi-song-order .btn-move-down {
   position: absolute;
   top: 8px;
   width: 24px; height: 24px; min-width: 0;
@@ -158,12 +159,13 @@
   color: var(--text-muted);
   z-index: 2;
 }
-.gi-song-actions .btn-move-down { right: 9px; }
-.gi-song-actions .btn-move-up   { right: 37px; }
-.gi-song-actions .btn-move-up:hover,
-.gi-song-actions .btn-move-down:hover { background: rgba(255,255,255,.12); color: var(--accent); border-color: var(--accent); }
-.gi-song-actions .btn-move-up::after,
-.gi-song-actions .btn-move-down::after { content: none; }
+.gi-song-order .btn-move-down { right: 9px; }
+.gi-song-order .btn-move-up   { right: 37px; }
+.gi-song-order .btn-move-up:hover,
+.gi-song-order .btn-move-down:hover { background: rgba(255,255,255,.12); color: var(--accent); border-color: var(--accent); }
+.gi-song-order .btn-move-up::after,
+.gi-song-order .btn-move-down::after { content: none; }
+.gi-song-order { display: contents; }
 /* El título no pasa por debajo de las flechas. */
 .gi-song-item:has(.btn-move-up) .gi-song-main { padding-right: 62px; }
 

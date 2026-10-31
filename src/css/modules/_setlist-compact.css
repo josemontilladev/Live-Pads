@@ -42,3 +42,31 @@
 @media (prefers-reduced-motion: reduce) {
   .gi-song-item .gi-song-actions { transition: none; }
 }
+
+/* Servicio: pintar todas las tarjetas siempre. content-visibility (útil en una
+   librería de cientos) daba a las tarjetas fuera de vista una altura provisional
+   de 72 px; al redibujar la lista (p. ej. al descubrir la duración de una
+   canción) la altura total caía, el scroll no se podía restaurar y la lista
+   "saltaba" hacia arriba unos segundos después de abrir una canción del final. */
+#service-songs-container .gi-song-item {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+
+/* Flechas de orden (servicio): como la tira de botones, en las tarjetas no
+   activas solo aparecen al pasar el ratón o al enfocar la tarjeta. */
+.gi-song-item:not(.active-song) .gi-song-order .action-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .14s ease;
+}
+.gi-song-item:not(.active-song):hover .gi-song-order .action-btn,
+.gi-song-item:not(.active-song):focus-within .gi-song-order .action-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* La tira flotante, un poco más abajo: no roza el chip del compás. */
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
+  bottom: 4px;
+  padding: 3px;
+}

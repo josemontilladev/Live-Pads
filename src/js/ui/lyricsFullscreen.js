@@ -1,10 +1,16 @@
-// Overlay de pantalla completa para la letra — pensado para uso en vivo
-// (legible desde lejos, con A+/A− y toggle de acordes en línea). Una sola
-// instancia a la vez; abre/cierra con API explícita y Escape.
+// Letra a pantalla completa — para leer en vivo, desde lejos.
 //
-// Persistencia (localStorage):
-//   livepads.lyrics.fs.fontSize  → número 18..56
-//   livepads.lyrics.fs.chords    → '1' | '0'  (mostrar acordes por defecto)
+//   · Fondo sólido; la barra (título, tono, BPM, controles) se oculta sola
+//     cuando no se mueve el ratón y vuelve al moverlo o al pulsar una tecla.
+//   · "Ajustar": calcula el tamaño de letra para que la canción ENTERA quepa en
+//     pantalla (sin desplazarse durante la canción). A+/A− lo desactivan.
+//   · 1 o 2 columnas; cada sección (Intro, Verso, Coro…) es un bloque que no
+//     se parte entre columnas.
+//   · Transponer −/+ (efímero, sobre el tono del servicio) y acordes sí/no.
+//   · Teclas: + / − tamaño · C acordes · F ajustar · 2 columnas ·
+//     ↓ / ↑ / Espacio desplazar · Esc cerrar.
+//
+// Preferencias (localStorage): livepads.lyrics.fs.fontSize · .chords · .cols · .fit
 
 import { esc } from '../utils/dom.js';
 import { formatLyrics } from './lyricsFormat.js';
@@ -39,169 +45,245 @@ function keyDeltaSafe(from, to) {
   return d;
 }
 
-let popModal = null;
-
-const LS_FONT   = 'livepads.lyrics.fs.fontSize';
+const LS_FONT = 'livepads.lyrics.fs.fontSize';
 const LS_CHORDS = 'livepads.lyrics.fs.chords';
+const LS_COLS = 'livepads.lyrics.fs.cols';
+const LS_FIT = 'livepads.lyrics.fs.fit';
 const FONT_MIN = 18;
-const FONT_MAX = 56;
+const FONT_MAX = 72;
 const FONT_STEP = 2;
-const FONT_DEFAULT = 28;
+const FONT_DEFAULT = 32;
+// "Ajustar" no baja de aquí: más pequeño ya no se lee desde el escenario. Si la
+// canción no cabe ni así, queda en este tamaño y se desplaza.
+const FIT_MIN = 26;
+const IDLE_MS = 3000;
+
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+};
 
 let overlay = null;
+let popModal = null;
+let cleanup = [];
 
-function readFont() {
-  const n = parseInt(localStorage.getItem(LS_FONT) || '', 10);
-  if (Number.isFinite(n) && n >= FONT_MIN && n <= FONT_MAX) return n;
-  return FONT_DEFAULT;
+// La salida de formatLyrics es una lista plana de líneas; aquí se agrupa por
+// sección (desde cada cabecera hasta la siguiente) para que una sección nunca
+// quede partida entre dos columnas.
+function groupSections(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const out = document.createElement('div');
+  let sec = null;
+  const open = () => { sec = document.createElement('section'); sec.className = 'lyr-sec'; out.appendChild(sec); };
+  for (const node of [...tmp.childNodes]) {
+    if (node.nodeType === 1 && node.classList.contains('section-header-line')) open();
+    else if (!sec) open();
+    sec.appendChild(node);
+  }
+  // Los espacios en blanco al final de cada sección no suman altura.
+  out.querySelectorAll('.lyr-sec').forEach((s) => {
+    while (s.lastElementChild && s.lastElementChild.classList.contains('lyrics-spacer')) s.lastElementChild.remove();
+    if (!s.childElementCount) s.remove();
+  });
+  return out.innerHTML;
 }
-function writeFont(n) { localStorage.setItem(LS_FONT, String(n)); }
-function readChords(defaultFromSong) {
-  const v = localStorage.getItem(LS_CHORDS);
-  if (v === '1') return true;
-  if (v === '0') return false;
-  return !!defaultFromSong;
-}
-function writeChords(b) { localStorage.setItem(LS_CHORDS, b ? '1' : '0'); }
 
 /**
  * @param {object} song
  * @param {object} [opts]
- *   - key: tono con el que se toca HOY (override del servicio). El overlay
- *     abre ya con los acordes en ese tono y el badge lo muestra; el ▲▼ sigue
- *     siendo un ajuste efímero encima de eso.
+ *   - key: tono con el que se toca HOY (override del servicio). Abre ya con los
+ *     acordes en ese tono; −/+ es un ajuste efímero encima de eso.
  */
 export function openLyricsFullscreen(song, opts = {}) {
   if (!song) return;
-  close(); // por si ya había uno abierto
+  close();
 
-  let fontSize = readFont();
-  let showChords = readChords(song.showChords);
-  // Punto de partida: el tono del servicio. Los ▲▼ se cuentan DESDE ahí (0 = "el
-  // tono en el que quedamos"), no desde el tono guardado en la librería.
+  const storedFont = parseInt(ls.get(LS_FONT) || '', 10);
+  let fontSize = Number.isFinite(storedFont) && storedFont >= FONT_MIN && storedFont <= FONT_MAX ? storedFont : FONT_DEFAULT;
+  const chordsPref = ls.get(LS_CHORDS);
+  let showChords = chordsPref === '1' ? true : chordsPref === '0' ? false : !!song.showChords;
+  let cols = ls.get(LS_COLS) === '1' ? 1 : ls.get(LS_COLS) === '2' ? 2 : (window.innerWidth >= 1280 ? 2 : 1);
+  let fit = ls.get(LS_FIT) !== '0';
   const liveKey = opts.key || song.key || '';
   const baseSemis = keyDeltaSafe(song.key, liveKey);
-  let semitones = baseSemis;   // transposición absoluta sobre la letra guardada
+  let semitones = baseSemis;
 
   overlay = document.createElement('div');
-  overlay.className = 'lyrics-fs-overlay';
+  overlay.className = 'lyr-fs';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', 'Letra a pantalla completa');
   overlay.innerHTML = `
-    <div class="lfs-bar">
-      <div class="lfs-meta">
-        <div class="lfs-title">${esc(song.title || 'Sin título')}</div>
-        <div class="lfs-artist">${esc(song.artist || '')}</div>
+    <header class="lyr-bar">
+      <div class="lyr-song">
+        <div class="lyr-title">${esc(song.title || 'Sin título')}</div>
+        ${song.artist ? `<div class="lyr-artist">${esc(song.artist)}</div>` : ''}
       </div>
-      <div class="lfs-info">
-        ${song.key ? `<span class="lfs-badge lfs-badge--key" title="Tonalidad">${esc(song.key)}</span>` : ''}
-        ${song.bpm ? `<span class="lfs-badge" title="Tempo">${esc(song.bpm)} BPM</span>` : ''}
+      <div class="lyr-facts">
+        ${song.key ? `<div class="lyr-fact"><span>Tono</span><b data-ref="key">${esc(liveKey || song.key)}</b></div>` : ''}
+        ${song.bpm ? `<div class="lyr-fact"><span>BPM</span><b>${esc(song.bpm)}</b></div>` : ''}
       </div>
-      <div class="lfs-controls">
-        <div class="lfs-trans" role="group" aria-label="Transponer acordes" title="Transponer acordes ± semitonos">
-          <button type="button" class="lfs-btn" data-act="trans-down" aria-label="Bajar un semitono">▼</button>
-          <span class="lfs-trans-val" aria-live="polite">0</span>
-          <button type="button" class="lfs-btn" data-act="trans-up" aria-label="Subir un semitono">▲</button>
+      <div class="lyr-tools">
+        ${song.key ? `<div class="lyr-group" role="group" aria-label="Transponer acordes" title="Transponer acordes (doble clic en el número: volver al tono del servicio)">
+          <em>Tono</em>
+          <button type="button" data-act="trans-down" aria-label="Bajar un semitono">−</button>
+          <span class="lyr-val" data-ref="trans">0</span>
+          <button type="button" data-act="trans-up" aria-label="Subir un semitono">+</button>
+        </div>` : ''}
+        <div class="lyr-group" role="group" aria-label="Tamaño de letra">
+          <em>Tamaño</em>
+          <button type="button" data-act="font-down" aria-label="Letra más pequeña" title="Más pequeña (−)">A−</button>
+          <span class="lyr-val" data-ref="font">${fontSize}</span>
+          <button type="button" data-act="font-up" aria-label="Letra más grande" title="Más grande (+)">A+</button>
         </div>
-        <button type="button" class="lfs-btn" data-act="font-down" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
-        <span class="lfs-font-val" aria-live="polite">${fontSize}</span>
-        <button type="button" class="lfs-btn" data-act="font-up" title="Letra más grande" aria-label="Letra más grande">A+</button>
-        <button type="button" class="lfs-btn lfs-chord-toggle ${showChords ? 'active' : ''}" data-act="toggle-chords">${showChords ? 'Con acordes' : 'Solo letra'}</button>
-        <button type="button" class="lfs-btn lfs-close" data-act="close" title="Cerrar (Esc)" aria-label="Cerrar">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <button type="button" class="lyr-toggle" data-act="fit" title="Ajustar: que la canción entera quepa en pantalla (F)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          Ajustar
+        </button>
+        <button type="button" class="lyr-toggle" data-act="cols" title="Una o dos columnas (2)">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="7.5" height="16" rx="1.5"/><rect x="13.5" y="4" width="7.5" height="16" rx="1.5"/></svg>
+          <span data-ref="colsLabel">2 columnas</span>
+        </button>
+        <button type="button" class="lyr-toggle" data-act="chords" title="Mostrar u ocultar acordes (C)">Acordes</button>
+        <button type="button" class="lyr-close" data-act="close" title="Cerrar (Esc)" aria-label="Cerrar">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="18" height="18" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-    </div>
-    <div class="lfs-scroll">
-      <div class="lfs-content ${showChords ? '' : 'hide-chords'}" style="font-size:${fontSize}px;">
-        ${formatLyrics(song.lyrics)}
-      </div>
-    </div>
-  `;
+    </header>
+    <main class="lyr-scroll" data-ref="scroll">
+      <div class="lyr-content" data-ref="content"></div>
+    </main>
+    <footer class="lyr-hint">+ / − tamaño · F ajustar · 2 columnas · C acordes · ↓ ↑ desplazar · Esc cerrar</footer>`;
   document.body.appendChild(overlay);
   document.body.classList.add('lyrics-fs-open');
 
-  const fontVal   = overlay.querySelector('.lfs-font-val');
-  const content   = overlay.querySelector('.lfs-content');
-  const chordBtn  = overlay.querySelector('.lfs-chord-toggle');
+  const ref = (n) => overlay.querySelector(`[data-ref="${n}"]`);
+  const scroll = ref('scroll'), content = ref('content');
 
-  const applyFont = () => {
-    content.style.fontSize = fontSize + 'px';
-    fontVal.textContent = fontSize;
-    writeFont(fontSize);
-  };
-  const applyChords = () => {
+  // ── Pintado ──
+  function renderText() {
+    const text = semitones === 0 ? song.lyrics : transposeAll(song.lyrics || '', semitones);
+    content.innerHTML = groupSections(formatLyrics(text));
+  }
+  function paintState() {
     content.classList.toggle('hide-chords', !showChords);
-    chordBtn.classList.toggle('active', showChords);
-    chordBtn.textContent = showChords ? 'Con acordes' : 'Solo letra';
-    writeChords(showChords);
+    content.classList.toggle('is-two-cols', cols === 2);
+    content.style.fontSize = `${fontSize}px`;
+    ref('font').textContent = fontSize;
+    ref('colsLabel').textContent = cols === 2 ? '2 columnas' : '1 columna';
+    overlay.querySelector('[data-act="fit"]').classList.toggle('is-on', fit);
+    overlay.querySelector('[data-act="cols"]').classList.toggle('is-on', cols === 2);
+    overlay.querySelector('[data-act="chords"]').classList.toggle('is-on', showChords);
+    const trans = ref('trans');
+    if (trans) {
+      const rel = semitones - baseSemis;   // 0 = el tono acordado para hoy
+      trans.textContent = rel > 0 ? `+${rel}` : String(rel);
+      trans.classList.toggle('is-shifted', rel !== 0);
+    }
+    const key = ref('key');
+    if (key && song.key) key.textContent = transposeKeyLabel(song.key, semitones);
+  }
+  // El tamaño más grande con el que todo cabe en el alto visible.
+  function fitToScreen() {
+    if (!fit) return;
+    const cs = getComputedStyle(scroll);
+    const avail = scroll.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    let lo = FIT_MIN, hi = FONT_MAX, best = FIT_MIN;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      content.style.fontSize = `${mid}px`;
+      if (content.scrollHeight <= avail && content.scrollWidth <= content.clientWidth + 1) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    fontSize = best;
+    content.style.fontSize = `${fontSize}px`;
+    ref('font').textContent = fontSize;
+  }
+  function refresh({ rerender = false } = {}) {
+    if (rerender) renderText();
+    paintState();
+    fitToScreen();
+  }
+  const savePrefs = () => {
+    ls.set(LS_FONT, String(fontSize)); ls.set(LS_CHORDS, showChords ? '1' : '0');
+    ls.set(LS_COLS, String(cols)); ls.set(LS_FIT, fit ? '1' : '0');
   };
-  const transVal  = overlay.querySelector('.lfs-trans-val');
-  const keyBadge  = overlay.querySelector('.lfs-badge--key');
-  // Doble clic en el número → volver a 0 (mismo gesto que el transposer de Stems).
 
-  const applyTranspose = () => {
-    content.innerHTML = formatLyrics(semitones === 0 ? song.lyrics : transposeAll(song.lyrics, semitones));
-    const rel = semitones - baseSemis;   // 0 = el tono acordado para hoy
-    transVal.textContent = rel > 0 ? `+${rel}` : String(rel);
-    transVal.classList.toggle('is-shifted', rel !== 0);
-    if (keyBadge && song.key) keyBadge.textContent = transposeKeyLabel(song.key, semitones);
+  // ── Barra que se oculta sola ──
+  let idleTimer = 0;
+  const wake = () => {
+    if (!overlay) return;
+    overlay.classList.remove('is-idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      // No esconder mientras el ratón está sobre la barra (usándola).
+      if (overlay && !overlay.querySelector('.lyr-bar:hover')) overlay.classList.add('is-idle');
+    }, IDLE_MS);
   };
-  // Render inicial: si el servicio fijó otro tono, la letra ya abre en ése.
-  applyTranspose();
-  transVal.addEventListener('dblclick', () => { semitones = baseSemis; applyTranspose(); });
+  overlay.addEventListener('mousemove', wake);
 
+  // ── Acciones ──
+  function act(name) {
+    switch (name) {
+      case 'font-up': fit = false; fontSize = Math.min(FONT_MAX, fontSize + FONT_STEP); break;
+      case 'font-down': fit = false; fontSize = Math.max(FONT_MIN, fontSize - FONT_STEP); break;
+      case 'fit': fit = !fit; break;
+      case 'cols': cols = cols === 2 ? 1 : 2; break;
+      case 'chords': showChords = !showChords; break;
+      case 'trans-up': semitones = Math.min(11, semitones + 1); refresh({ rerender: true }); return;
+      case 'trans-down': semitones = Math.max(-11, semitones - 1); refresh({ rerender: true }); return;
+      case 'close': close(); return;
+      default: return;
+    }
+    refresh();
+    savePrefs();
+  }
   overlay.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
-    if (!btn) {
-      // click en backdrop (zona oscura fuera del contenido) → cerrar
-      if (e.target === overlay) close();
-      return;
-    }
-    switch (btn.dataset.act) {
-      case 'font-up':
-        fontSize = Math.min(FONT_MAX, fontSize + FONT_STEP); applyFont(); return;
-      case 'font-down':
-        fontSize = Math.max(FONT_MIN, fontSize - FONT_STEP); applyFont(); return;
-      case 'toggle-chords':
-        showChords = !showChords; applyChords(); return;
-      case 'trans-up':
-        semitones = Math.min(11, semitones + 1); applyTranspose(); return;
-      case 'trans-down':
-        semitones = Math.max(-11, semitones - 1); applyTranspose(); return;
-      case 'close':
-        close(); return;
-    }
+    if (btn) act(btn.dataset.act);
   });
+  ref('trans')?.addEventListener('dblclick', () => { semitones = baseSemis; refresh({ rerender: true }); });
 
-  popModal = pushModal(() => close());
+  // Escape lo gestiona modalStack; aquí el resto de atajos.
+  const onKey = (e) => {
+    if (!overlay) return;
+    wake();
+    const page = scroll.clientHeight * 0.8;
+    const k = e.key;
+    if (k === '+' || k === '=') act('font-up');
+    else if (k === '-' || k === '_') act('font-down');
+    else if (k === 'c' || k === 'C') act('chords');
+    else if (k === 'f' || k === 'F') act('fit');
+    else if (k === '2') act('cols');
+    else if (k === 'ArrowDown' || k === 'PageDown' || k === ' ') { e.preventDefault(); scroll.scrollBy({ top: page, behavior: 'smooth' }); }
+    else if (k === 'ArrowUp' || k === 'PageUp') { e.preventDefault(); scroll.scrollBy({ top: -page, behavior: 'smooth' }); }
+    else if (k === 'Home') scroll.scrollTo({ top: 0, behavior: 'smooth' });
+    else return;
+    e.stopPropagation();
+  };
   window.addEventListener('keydown', onKey, true);
-}
+  let resizeRaf = 0;
+  const onResize = () => { cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(() => overlay && fitToScreen()); };
+  window.addEventListener('resize', onResize);
+  cleanup = [
+    () => window.removeEventListener('keydown', onKey, true),
+    () => window.removeEventListener('resize', onResize),
+    () => clearTimeout(idleTimer),
+  ];
 
-function onKey(e) {
-  if (!overlay) return;
-  // Escape lo gestiona modalStack; aquí solo los atajos.
-  if (e.key === '+' || e.key === '=') {
-    const up = overlay.querySelector('[data-act="font-up"]');
-    if (up) up.click();
-  } else if (e.key === '-' || e.key === '_') {
-    const down = overlay.querySelector('[data-act="font-down"]');
-    if (down) down.click();
-  } else if (e.key === 'c' || e.key === 'C') {
-    const tog = overlay.querySelector('[data-act="toggle-chords"]');
-    if (tog) tog.click();
-  }
+  refresh({ rerender: true });
+  // Las fuentes pueden terminar de cargar después: reajustar una vez.
+  document.fonts?.ready?.then(() => overlay && fitToScreen());
+  wake();
+  popModal = pushModal(() => close());
 }
 
 function close() {
   if (popModal) { popModal(); popModal = null; }
-  if (overlay) {
-    overlay.remove();
-    overlay = null;
-  }
+  cleanup.forEach((fn) => { try { fn(); } catch (_) {} });
+  cleanup = [];
+  if (overlay) { overlay.remove(); overlay = null; }
   document.body.classList.remove('lyrics-fs-open');
-  window.removeEventListener('keydown', onKey, true);
 }
 
 export function closeLyricsFullscreen() { close(); }

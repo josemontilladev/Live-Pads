@@ -180,8 +180,8 @@ export function songCardInnerHTML(song, opts) {
         ${(includeAdd && opts.inService) ? INSERVICE_BADGE_HTML : ''}
       </div>
     </div>
+    ${includeReorder ? `<div class="gi-song-order">${MOVE_BTNS_HTML}</div>` : ''}
     <div class="gi-song-actions">
-      ${includeReorder ? MOVE_BTNS_HTML : ''}
       <button class="action-btn btn-lyrics ${lyricsCls}" data-action="toggle-lyrics" title="${lyricsTitle}">${ICON_LYRICS}</button>
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Secuencia Split-Track">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Canción Original">${ICON_ORIG}</button>

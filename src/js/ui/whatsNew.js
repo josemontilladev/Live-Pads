@@ -10,15 +10,14 @@
 import { pushModal } from './modalStack.js';
 
 const SEEN_KEY = 'lp.whatsnew.seen';
-const EDITION = '2026-11-practica-2';
+const EDITION = '2026-11-letra';
 // Señal de que la app ya se usaba antes (la escribe app.js desde hace meses).
 const USED_BEFORE_KEY = 'livepads-active-workspace';
 
 const ITEMS = [
-  ['🎙️', 'Grábate mejor', 'Cuenta de entrada, escucharte con audífonos y "Calibrar latencia" para que tus tomas caigan exactas (▾ junto al botón ●).'],
-  ['🔁', 'Varias tomas en loop', 'Con el loop A-B activo, cada vuelta queda como una pasada: suena la última y comparas las demás con Solo.'],
-  ['🔔', 'Avisos de la comunidad', 'Te avisamos cuando tu pack se aprueba o se rechaza, y puedes corregir tus loops sin volver a subirlos.'],
-  ['⚑', 'Reportar loops', 'Si un loop de la comunidad tiene problemas de derechos o calidad, repórtalo y el equipo lo revisa.'],
+  ['📖', 'Letra a pantalla completa, nueva', 'Tono y BPM a la vista, "Ajustar" para que la canción quepa en pantalla, una o dos columnas y una barra que se oculta sola mientras lees.'],
+  ['📋', 'Servicio más estable', 'La lista ya no salta hacia arriba al abrir una canción del final, y las flechas de orden no tapan los botones.'],
+  ['🎙️', 'Grábate encima', 'En Stems, el botón ● (o la tecla R) graba tu micrófono sobre el proyecto. Calibra la latencia en ▾ la primera vez.'],
 ];
 
 export function maybeShowWhatsNew({ onTryLibrary } = {}) {
