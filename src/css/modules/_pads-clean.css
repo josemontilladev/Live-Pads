@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Pads limpio — la pantalla del culto en vivo: menos ruido, todo claro.
+     · Menú: cada opción con una línea que explica qué hace.
+     · "Modo en vivo" con texto visible: es el atajo a la vista mínima.
+     · La franja de onda/secciones solo aparece con una pista cargada.
+     · El chip del tono deja el acento (lima = acción o "suena").
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Menú hamburguesa: nombre + descripción corta */
+.sidebar-nav .stab .stab-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.2; text-align: left; }
+.sidebar-nav .stab .stab-text small {
+  font-size: 10.5px; font-weight: 450; color: var(--text-muted); opacity: .85;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 1100px) {
+  .sidebar-nav .stab .stab-text small { display: none; }
+}
+
+/* "Modo en vivo" con etiqueta visible */
+#btn-live-mode.has-label { width: auto; padding: 0 10px; gap: 6px; display: inline-flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
+#btn-live-mode .live-label { font-size: 12px; font-weight: 650; }
+
+/* La franja de onda/secciones vacía no ocupa sitio en Pads */
+#seq-wave.is-empty { display: none; }
+
+/* Tono de la canción: dato, no acción */
+.gi-chip.gi-chip--key {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font-weight: 700;
+}
