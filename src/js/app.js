@@ -1428,9 +1428,11 @@ function bindGlobalHandlers() {
 function toggleMetro() {
   setMetroRunning(metro.toggle());
   const btn = q('#btn-metro-main');
+  // Icono de metrónomo (no un triángulo de Play): el Play de la canción es el
+  // de la barra inferior, y dos "Play" iguales confundían cuál lanzar.
   btn.innerHTML = getMetroRunning()
     ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>';
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9 3h6l3.5 18h-13z"/><path d="M12 15l5-8"/><path d="M8 15h8"/></svg>';
   btn.classList.toggle('running', getMetroRunning());
   if (!getMetroRunning()) {
     qa('.beat-dot').forEach(d => d.classList.remove('on'));

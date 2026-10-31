@@ -1,0 +1,44 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Setlist compacto (Pads).
+
+   La tira de acciones (Letra / Sec / Orig / ⋮) ocupaba una fila entera en
+   cada tarjeta: a 768 px de alto cabían ~3 canciones. Ahora solo la canción
+   activa (y la que tiene la letra abierta) la muestra en línea; en el resto
+   aparece al pasar el ratón o al enfocarla con el teclado, FLOTANDO a la
+   derecha, para que la lista no salte bajo el cursor. Flota ABAJO (sobre
+   los chips) y solo con iconos, para no tapar nunca título ni artista; cada
+   botón conserva su tooltip.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.gi-song-item { position: relative; }
+
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity .14s ease, transform .14s ease;
+  z-index: 2;
+}
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-actions,
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+/* En el menú flotante, botones solo-icono (el texto lo añade _redesign2.css). */
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions .action-btn::after {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gi-song-item .gi-song-actions { transition: none; }
+}
