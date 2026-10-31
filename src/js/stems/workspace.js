@@ -569,18 +569,30 @@ const SHELL_HTML = `
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           Biblioteca
         </button>
-        <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Exportar MP3
-        </button>
-        <button class="stems-btn stems-btn--primary" id="stems-assign" disabled title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          Asignar a canción
-        </button>
-        <button class="stems-btn stems-btn--ghost" id="stems-save-song-stems" disabled title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-          Guardar pistas
-        </button>
+        <!-- Salidas de la mezcla agrupadas en un menú: deja un solo botón
+             principal (Importar) y la fila cabe en menos líneas. Los botones
+             conservan sus IDs (handlers, habilitado y mapeo MIDI). -->
+        <div class="stems-generators-wrap">
+          <button class="stems-btn stems-btn--ghost" id="stems-export-trigger" type="button" disabled title="Exportar o asignar la mezcla" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-generators-pop hidden" id="stems-export-pop" role="menu">
+            <button class="stems-btn stems-btn--subtle" id="stems-assign" disabled role="menuitem" title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              Asignar a canción
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-export" disabled role="menuitem" title="Exporta la mezcla completa a un archivo MP3">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar MP3
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-save-song-stems" disabled role="menuitem" title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+              Guardar pistas en canción
+            </button>
+          </div>
+        </div>
         <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
         <span class="stems-actions-divider" aria-hidden="true"></span>
         <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto">
@@ -694,7 +706,6 @@ const SHELL_HTML = `
     </header>
    </div>
 
-    <div class="stems-quickmix" id="stems-quickmix" hidden aria-label="Mezclas rápidas para practicar"></div>
 
     <main class="stems-arrange" id="stems-arrange">
       <div class="stems-arrange-inner" id="stems-arrange-inner">
@@ -1357,6 +1368,39 @@ function setRowHeight(next) {
   scheduleSave();
 }
 
+// Menú desplegable de la barra (Generar, Exportar): position:fixed calculado
+// contra el botón para escapar del overflow:hidden del .stems-deck; se cierra
+// al hacer clic fuera o al elegir una acción.
+function wireToolbarPopover(trigger, pop) {
+  if (!trigger || !pop) return;
+  const close = () => {
+    pop.classList.add('hidden');
+    trigger.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('mousedown', onDoc, true);
+  };
+  const onDoc = (ev) => {
+    if (trigger.contains(ev.target) || pop.contains(ev.target)) return;
+    close();
+  };
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    if (!pop.classList.contains('hidden')) { close(); return; }
+    pop.classList.remove('hidden');
+    trigger.setAttribute('aria-expanded', 'true');
+    const r = trigger.getBoundingClientRect();
+    pop.style.left = `${r.left}px`;
+    pop.style.top  = `${r.bottom + 4}px`;
+    requestAnimationFrame(() => {
+      const pr = pop.getBoundingClientRect();
+      if (pr.right > window.innerWidth) pop.style.left = `${window.innerWidth - pr.width - 8}px`;
+    });
+    setTimeout(() => document.addEventListener('mousedown', onDoc, true), 0);
+  };
+  pop.addEventListener('click', (e) => {
+    if (e.target.closest('button')) close();
+  });
+}
+
 // ── Wiring: arrange + actions ──────────────────────────────────────
 function wireArrangeEvents(root) {
   const fileInput = root.querySelector('#stems-file-input');
@@ -1518,40 +1562,8 @@ function wireArrangeEvents(root) {
   };
 
   // Popover "Generar" — agrupa Click + Guía para descongestionar la fila.
-  const genTrigger = root.querySelector('#stems-generators-trigger');
-  const genPop = root.querySelector('#stems-generators-pop');
-  if (genTrigger && genPop) {
-    const closeGenPop = () => {
-      genPop.classList.add('hidden');
-      genTrigger.setAttribute('aria-expanded', 'false');
-      document.removeEventListener('mousedown', onDocGen, true);
-    };
-    const onDocGen = (ev) => {
-      if (genTrigger.contains(ev.target) || genPop.contains(ev.target)) return;
-      closeGenPop();
-    };
-    genTrigger.onclick = (e) => {
-      e.stopPropagation();
-      const isOpen = !genPop.classList.contains('hidden');
-      if (isOpen) { closeGenPop(); return; }
-      genPop.classList.remove('hidden');
-      genTrigger.setAttribute('aria-expanded', 'true');
-      // position:fixed → calculamos coords contra el rect del trigger
-      // para que el popover escape del overflow:hidden del .stems-deck.
-      const r = genTrigger.getBoundingClientRect();
-      genPop.style.left = `${r.left}px`;
-      genPop.style.top  = `${r.bottom + 4}px`;
-      requestAnimationFrame(() => {
-        const pr = genPop.getBoundingClientRect();
-        if (pr.right > window.innerWidth) genPop.style.left = `${window.innerWidth - pr.width - 8}px`;
-      });
-      setTimeout(() => document.addEventListener('mousedown', onDocGen, true), 0);
-    };
-    // Cerrar también al elegir una acción adentro.
-    genPop.addEventListener('click', (e) => {
-      if (e.target.closest('button')) closeGenPop();
-    });
-  }
+  wireToolbarPopover(root.querySelector('#stems-generators-trigger'), root.querySelector('#stems-generators-pop'));
+  wireToolbarPopover(root.querySelector('#stems-export-trigger'), root.querySelector('#stems-export-pop'));
 
   root.querySelector('#stems-add-click').onclick = () => onAddClickTrack();
   root.querySelector('#stems-add-marker').onclick = () => onAddMarker();
@@ -2338,44 +2350,64 @@ function quickMixGroups() {
   return [...groups.values()];
 }
 
+// "Practicar": selector compacto en la celda de cabecera de las pistas (antes
+// era una fila de chips que ocupaba una franja entera). Cada opción deja una
+// mezcla EXACTA (Todo / Sin X / Solo X); si la mezcla se tocó a mano en la
+// consola, el selector muestra "Mezcla propia".
+function quickMixState(groups) {
+  const allMuted = (g) => g.tracks.every(t => t.muted);
+  const anyMuted = (g) => g.tracks.some(t => t.muted);
+  const allSolo = (g) => g.tracks.every(t => t.soloed);
+  const anySolo = (g) => g.tracks.some(t => t.soloed);
+  if (!groups.some(anyMuted) && !groups.some(anySolo)) return 'reset';
+  const soloed = groups.filter(anySolo);
+  if (soloed.length === 1 && allSolo(soloed[0]) && !groups.some(anyMuted)) return `solo:${soloed[0].key}`;
+  const muted = groups.filter(anyMuted);
+  if (muted.length === 1 && allMuted(muted[0]) && !groups.some(anySolo)) return `mute:${muted[0].key}`;
+  return 'custom';
+}
+
 function refreshQuickMix() {
-  const el = document.getElementById('stems-quickmix');
-  if (!el) return;
+  const cell = document.querySelector('.stems-head-spacer');
+  if (!cell) return;
   const groups = quickMixGroups();
-  if (groups.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
-  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-  const chip = (act, g, on) => `<button type="button" class="${on ? 'is-on' : ''}" data-act="${act}" data-key="${esc(g.key)}" aria-pressed="${on}">${act === 'mute' ? 'Sin ' : 'Solo '}${esc(g.label)}</button>`;
-  const anyMuted = groups.some(g => g.tracks.some(t => t.muted));
-  const anySolo = groups.some(g => g.tracks.some(t => t.soloed));
-  el.hidden = false;
-  el.innerHTML =
-    `<span class="stems-quickmix-label">Practicar</span>` +
-    `<button type="button" data-act="reset" class="${anyMuted || anySolo ? '' : 'is-on'}">Todo</button>` +
-    groups.map(g => chip('mute', g, g.tracks.every(t => t.muted))).join('') +
-    `<span class="stems-actions-divider" aria-hidden="true"></span>` +
-    groups.map(g => chip('solo', g, g.tracks.every(t => t.soloed))).join('');
+  let sel = cell.querySelector('#stems-practice');
+  if (groups.length < 2) {
+    if (sel) cell.innerHTML = '<span class="stems-head-spacer-label">Pistas</span>';
+    return;
+  }
+  const state = quickMixState(groups);
+  const opts = [
+    `<option value="reset">Todo</option>`,
+    ...groups.map(g => `<option value="mute:${esc(g.key)}">Sin ${esc(g.label)}</option>`),
+    ...groups.map(g => `<option value="solo:${esc(g.key)}">Solo ${esc(g.label)}</option>`),
+    state === 'custom' ? `<option value="custom" disabled>Mezcla propia</option>` : '',
+  ].join('');
+  if (!sel) {
+    cell.innerHTML = `<label class="stems-practice" title="Practicar: escucha sin tu instrumento o solo una parte">
+      <span class="stems-head-spacer-label">Practicar</span>
+      <select id="stems-practice" class="stems-mini-select" aria-label="Practicar: elegir qué pistas suenan"></select>
+    </label>`;
+    sel = cell.querySelector('#stems-practice');
+  }
+  sel.innerHTML = opts;
+  sel.value = state;
 }
 
 function wireQuickMix() {
-  const el = document.getElementById('stems-quickmix');
-  if (!el || el.dataset.wired) return;
-  el.dataset.wired = '1';
-  el.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
+  const cell = document.querySelector('.stems-head-spacer');
+  if (!cell || cell.dataset.wired) return;
+  cell.dataset.wired = '1';
+  cell.addEventListener('change', (e) => {
+    if (e.target.id !== 'stems-practice') return;
+    const [act, key] = e.target.value.split(':');
     const groups = quickMixGroups();
-    if (btn.dataset.act === 'reset') {
-      for (const g of groups) for (const t of g.tracks) { applyTrackMute(t.id, false); applyTrackSolo(t.id, false); }
-      return;
-    }
-    const g = groups.find(x => x.key === btn.dataset.key);
-    if (!g) return;
-    if (btn.dataset.act === 'mute') {
-      const on = !g.tracks.every(t => t.muted);
-      for (const t of g.tracks) applyTrackMute(t.id, on);
-    } else {
-      const on = !g.tracks.every(t => t.soloed);
-      for (const t of g.tracks) applyTrackSolo(t.id, on);
+    const target = groups.find(g => g.key === key);
+    for (const g of groups) {
+      for (const t of g.tracks) {
+        applyTrackMute(t.id, act === 'mute' && g === target);
+        applyTrackSolo(t.id, act === 'solo' && g === target);
+      }
     }
   });
 }
@@ -5371,6 +5403,8 @@ function refreshTransport() {
   if (assignBtn) assignBtn.disabled = !hasTracks;
   const saveStemsBtn = document.getElementById('stems-save-song-stems');
   if (saveStemsBtn) saveStemsBtn.disabled = !hasTracks;
+  const exportTrigger = document.getElementById('stems-export-trigger');
+  if (exportTrigger) exportTrigger.disabled = !hasTracks;
   refreshQuickMix();
   const count = engine.getTracks().length;
   const countText = `${count} ${count === 1 ? 'pista' : 'pistas'}`;
