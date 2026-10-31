@@ -90,6 +90,8 @@ import { planMerge, mergeChannel } from './loopMerge.js';
 import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
 import { ensureLoopLocal, trackLoopEvent } from '../cloud/stemLibrary.js';
+import { openQuickStart } from './quickStart.js';
+import { startTake, listInputs } from './takeRecorder.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
 
 // Plan Gratis: el editor se abre para armar secuencias con los loops GRATIS de
@@ -554,6 +556,9 @@ const SHELL_HTML = `
         </button>
         <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
         <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Pausa" disabled>${SVG_PLAY}</button>
+        <button class="stems-tb-btn stems-tb-btn--rec" id="stems-rec" title="Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Clic derecho: elegir entrada." aria-label="Grabarte encima" disabled>
+          <span class="stems-rec-dot" aria-hidden="true"></span>
+        </button>
         <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
           <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
         </span>
@@ -736,6 +741,11 @@ const SHELL_HTML = `
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" fill="none" width="56" height="56"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             </div>
             <h3>Sin pistas aún</h3>
+            <button type="button" class="stems-quick-btn" id="stems-empty-quick">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
+              Armar una canción en 1 minuto
+            </button>
+            <p class="stems-empty-sub">Eliges tempo, tono y estructura; LivePads la arma con loops de la Biblioteca.</p>
             <p class="stems-empty-pro">Arrastra stems o usa <button type="button" class="stems-empty-link" id="stems-empty-import">Importar stems</button>.</p>
             <p class="stems-empty-free">Abre la <button type="button" class="stems-empty-link" id="stems-empty-library">Biblioteca</button> y arrastra loops gratis para armar tu secuencia.</p>
           </div>
@@ -1142,6 +1152,9 @@ function wireTopbarEvents(root) {
     else { resumeAutoFollow(); engine.play(); }
   };
   root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
+  const recBtn = root.querySelector('#stems-rec');
+  recBtn.onclick = () => toggleTake();
+  recBtn.oncontextmenu = (e) => { e.preventDefault(); openTakeInputMenu(e.clientX, e.clientY); };
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
   // pausa, queda en 0. (Stop, en cambio, detiene.)
   root.querySelector('#stems-restart').onclick = () => { resumeAutoFollow(); engine.seek(0); };
@@ -3523,6 +3536,7 @@ async function rebounceMidiTrack(id) {
 // ── Cheat-sheet de atajos del timeline ────────────────────────────
 const STEMS_SHORTCUTS = [
   ['Espacio', 'Reproducir / pausar'],
+  ['R', 'Grabarte encima (empezar / terminar la toma)'],
   ['Clic en el timeline', 'Mover el cursor y enfocar la pista'],
   ['Ctrl + clic en pista', 'Seleccionar varias'],
   ['Ctrl + A', 'Seleccionar todas las pistas'],
@@ -3870,6 +3884,135 @@ async function addLoopFromLibrary(loop, { atSec, repeats = 1, sameTrack = true }
   }
 }
 
+// ── Practicar: grabarse encima ─────────────────────────────────────
+// Suena el proyecto (con la mezcla de "Practicar": sin tu instrumento, en loop
+// A-B…) y se graba el micrófono. Al parar, la toma entra como pista nueva
+// "Mi toma N" en su sitio exacto del timeline (takeRecorder compensa la
+// latencia), para escucharte con el resto. Ctrl+Z la descarta.
+const TAKE_INPUT_KEY = 'stems-take-input';
+let takeSession = null;   // { rec, raf, fromSec, finishing }
+
+const takeInputId = () => { try { return localStorage.getItem(TAKE_INPUT_KEY) || ''; } catch (_) { return ''; } };
+
+function micErrorMessage(e) {
+  if (e?.name === 'NotAllowedError') return 'LivePads no tiene permiso para usar el micrófono. Revísalo en la configuración de privacidad de Windows.';
+  if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') return 'No se encontró la entrada de audio. Clic derecho en ● para elegir otra.';
+  return `No se pudo abrir el micrófono: ${e?.message || e}`;
+}
+
+async function openTakeInputMenu(x, y) {
+  const inputs = await listInputs();
+  const current = takeInputId();
+  const pick = (id) => { try { localStorage.setItem(TAKE_INPUT_KEY, id); } catch (_) {} };
+  openContextMenu(x, y, [
+    { label: `${current ? '' : '✓ '}Entrada predeterminada de Windows`, onSelect: () => pick('') },
+    ...inputs.filter((d) => d.id && d.id !== 'default').map((d) => ({ label: `${d.id === current ? '✓ ' : ''}${d.label}`, onSelect: () => pick(d.id) })),
+  ]);
+}
+
+function paintTake(on) {
+  const btn = document.getElementById('stems-rec');
+  if (!btn) return;
+  btn.classList.toggle('is-recording', on);
+  btn.title = on ? 'Grabando… clic (o R, o Espacio) para terminar la toma' : 'Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Clic derecho: elegir entrada.';
+  if (!on) btn.style.removeProperty('--lvl');
+  document.getElementById('workspace-stems')?.classList.toggle('is-recording', on);
+}
+
+function nextTakeName() {
+  let n = 0;
+  for (const t of engine.getTracks()) {
+    const m = /^Mi toma (\d+)$/.exec(t.name || '');
+    if (m) n = Math.max(n, Number(m[1]));
+  }
+  return `Mi toma ${n + 1}`;
+}
+
+async function toggleTake() {
+  if (takeSession) { if (!takeSession.finishing) await finishTake(); return; }
+  if (!engine.getTracks().length) { showToast('Agrega pistas antes de grabarte encima.', 'info'); return; }
+  if (Math.abs(engine.getPlaybackRate() - 1) > 0.001) { showToast('Para grabarte, deja la velocidad en 1.00x.', 'info'); return; }
+  const ctx = engine.getAudioContext();
+  if (ctx.state === 'suspended') await ctx.resume();
+  const wasPlaying = engine.isCurrentlyPlaying();
+  // Sin reproducir: arranca un compás antes del cursor para entrar a tiempo.
+  if (!wasPlaying) {
+    const barSec = (60 / bpmFloat) * beatsPerBar;
+    engine.seek(Math.max(0, barSnap(engine.getCurrentSec()) - barSec));
+  }
+  const fromSec = engine.getCurrentSec();
+  let anchor = null;   // { t, sec }: une el reloj del audio con el timeline
+  let rec;
+  try {
+    rec = await startTake(ctx, { deviceId: takeInputId(), toTimeline: (t) => anchor.sec + (t - anchor.t) });
+  } catch (e) {
+    showToast(micErrorMessage(e), 'error');
+    return;
+  }
+  if (!wasPlaying) { resumeAutoFollow(); engine.play(); }
+  anchor = { t: ctx.currentTime, sec: engine.getCurrentSec() };
+  takeSession = { rec, raf: 0, fromSec: wasPlaying ? anchor.sec : fromSec, finishing: false };
+  paintTake(true);
+  const btn = document.getElementById('stems-rec');
+  const meter = () => {
+    if (!takeSession) return;
+    btn?.style.setProperty('--lvl', takeSession.rec.level().toFixed(3));
+    takeSession.raf = requestAnimationFrame(meter);
+  };
+  meter();
+}
+
+async function finishTake() {
+  const s = takeSession;
+  if (!s || s.finishing) return;
+  s.finishing = true;
+  cancelAnimationFrame(s.raf);
+  if (engine.isCurrentlyPlaying()) engine.pause();
+  let r = null;
+  try { r = await s.rec.stop(); } catch (e) { console.warn('La toma falló:', e); }
+  takeSession = null;
+  paintTake(false);
+  applyPlayingState(engine.isCurrentlyPlaying());
+  if (!r) { showToast('La toma quedó vacía.', 'info'); return; }
+  let { buffer, startSec } = r;
+  // Lo grabado antes de que empezara a sonar no sirve: se recorta.
+  if (startSec < s.fromSec) { buffer = sliceBuffer(buffer, s.fromSec - startSec, buffer.duration); startSec = s.fromSec; }
+  if (!buffer || buffer.duration < 0.3) { showToast('La toma quedó vacía.', 'info'); return; }
+  const spec = { buffer, name: nextTakeName(), color: '#ff5d5d', offsetSec: Math.max(0, startSec), kind: 'stem' };
+  let id = await addAudioTrackFromBuffer(spec);
+  afterLoopEdit();
+  locateTrackRow(id, { scroll: true });
+  pushHistory('Grabar toma',
+    async () => { try { await removeTrackById(id); } catch (_) {} afterLoopEdit(); },
+    async () => { id = await addAudioTrackFromBuffer(spec); afterLoopEdit(); });
+  showToast(`"${spec.name}" grabada. Dale Play para escucharte; Ctrl+Z la descarta.`, 'success');
+}
+
+// "Armar una canción en 1 minuto" (estado vacío): fija tempo y tono por los
+// mismos controles de la barra (así quedan en el historial y se guardan) y
+// abre "Armar por secciones" con la plantilla elegida.
+function startQuickSong(root) {
+  const bpmInput = root.querySelector('#stems-bpm');
+  const keySel = root.querySelector('#stems-key');
+  openQuickStart({
+    bpm: bpmFloat, key: keySel?.value || '', keyOptionsHtml: keySel?.innerHTML || '<option value="">Sin tono</option>',
+    onStart: ({ bpm: v, key, preset }) => {
+      if (bpmInput && v !== bpm) {
+        bpmInput.dispatchEvent(new Event('focus'));
+        bpmInput.value = String(v);
+        bpmInput.dispatchEvent(new Event('input'));
+        bpmInput.dispatchEvent(new Event('change'));
+      }
+      if (keySel && (key || '') !== keySel.value) {
+        keySel.value = key || '';
+        keySel.dispatchEvent(new Event('change'));
+      }
+      libraryPanel.open();
+      libraryPanel.openBuilder({ preset });
+    },
+  });
+}
+
 function wireLibrary(root) {
   // Panel lateral derecho, hermano de .stems-main dentro de .stems-shell
   // (espejo del panel de Canciones a la izquierda).
@@ -3881,7 +4024,7 @@ function wireLibrary(root) {
     getAudioOut: () => ({ ctx: engine.getAudioContext(), dest: engine.getMasterGain() }),
     addLoop: addLoopFromLibrary,
     canUsePro: () => hasFeature('stems'),
-    requirePro: () => proOnly('Este loop'),
+    requirePro: (what = 'Este loop') => proOnly(what),
     hasTracks: () => engine.getTracks().length > 0,
     buildStructure: buildStructureFromLibrary,
   });
@@ -3892,6 +4035,7 @@ function wireLibrary(root) {
   if (window.__lpOpenLibrary) { window.__lpOpenLibrary = false; libraryPanel.open(); }
   root.addEventListener('click', (e) => {
     if (e.target.closest('#stems-empty-library')) libraryPanel.open();
+    if (e.target.closest('#stems-empty-quick')) startQuickSong(root);
   });
   // Con Gratis el estado vacío invita a la Biblioteca en vez de a importar.
   const paintPlan = () => root.classList.toggle('is-free-plan', !hasFeature('stems'));
@@ -4418,6 +4562,13 @@ function wireTrackSelection(root) {
     if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
       e.preventDefault();
       pasteTracks();
+      return;
+    }
+    // R → grabarse encima (empezar / terminar la toma).
+    if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!trackRows.size && !takeSession) return;
+      e.preventDefault();
+      toggleTake();
       return;
     }
     // Alt+S / Alt+M → solo / silenciar la(s) pista(s) enfocada(s).
@@ -5568,6 +5719,8 @@ function refreshTransport() {
   const hasTracks = engine.getTracks().length > 0;
   document.getElementById('stems-play').disabled  = !hasTracks;
   document.getElementById('stems-stop').disabled  = !hasTracks;
+  const recBtn = document.getElementById('stems-rec');
+  if (recBtn) recBtn.disabled = !hasTracks && !takeSession;
   const exportBtn = document.getElementById('stems-export');
   if (exportBtn) exportBtn.disabled = !hasTracks;
   const assignBtn = document.getElementById('stems-assign');
@@ -5601,6 +5754,10 @@ function applyPlayingState(playing) {
     playBtn.disabled = !hasTracks;
   }
   if (stopBtn)  stopBtn.disabled  = !hasTracks;
+  const recBtn = document.getElementById('stems-rec');
+  if (recBtn) recBtn.disabled = !hasTracks && !takeSession;
+  // Pausa/stop durante una toma = terminar la toma.
+  if (!playing && takeSession && !takeSession.finishing) finishTake();
   const restartBtn = document.getElementById('stems-restart');
   if (restartBtn) restartBtn.disabled = !hasTracks;
   if (pill) {

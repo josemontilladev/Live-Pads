@@ -65,3 +65,21 @@
 }
 #workspace-stems .stems-speed-select:focus-visible,
 #workspace-stems .stems-snap-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── Grabarte encima (●) ───────────────────────────────────────────
+   Punto rojo apagado en reposo; grabando, se enciende y un anillo crece
+   con el nivel de entrada (--lvl 0..1) para saber que el micro "oye". */
+#stems-rec { position: relative; }
+#stems-rec .stems-rec-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #ff5d5d; opacity: .75; transition: opacity .15s ease, transform .15s ease;
+}
+#stems-rec:hover:not(:disabled) .stems-rec-dot { opacity: 1; }
+#stems-rec:disabled .stems-rec-dot { background: var(--text-muted); opacity: .4; }
+#stems-rec.is-recording {
+  border-color: #ff5d5d;
+  box-shadow: 0 0 0 calc(2px + var(--lvl, 0) * 6px) color-mix(in srgb, #ff5d5d 35%, transparent);
+}
+#stems-rec.is-recording .stems-rec-dot { opacity: 1; animation: stems-rec-pulse 1s ease-in-out infinite; }
+@keyframes stems-rec-pulse { 50% { transform: scale(.78); } }
+@media (prefers-reduced-motion: reduce) { #stems-rec.is-recording .stems-rec-dot { animation: none; } }

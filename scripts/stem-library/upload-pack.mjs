@@ -27,8 +27,10 @@
 // llevar el suyo. Después se cambia desde la app (panel Biblioteca, cuenta de
 // administrador) sin volver a subir nada.
 //
-// Volver a subir el mismo slug lo REEMPLAZA (sube los archivos y rehace la
-// lista de loops), así que el script es idempotente.
+// Volver a subir el mismo slug lo ACTUALIZA: sube los archivos, actualiza los
+// loops que ya existían (sin perder la marca GRATIS/PRO puesta desde la app),
+// añade los nuevos y quita los que ya no están en pack.json. Es idempotente.
+// (Necesita la migración 0019: índice único por pack + archivo.)
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname, basename, dirname } from 'node:path';
@@ -159,9 +161,24 @@ async function upload(cfg, dir) {
       published: !!pack.published, sort: pack.sort || 0, updated_at: new Date().toISOString(),
     },
   });
-  await db(cfg, `/stem_loops?pack_id=eq.${saved.id}`, { method: 'DELETE' });
-  await db(cfg, '/stem_loops', { method: 'POST', body: rows.map((r) => ({ ...r, pack_id: saved.id })) });
-  console.log(`Listo: ${rows.length} loops ${pack.published ? 'publicados' : 'en borrador (published: false)'}.`);
+  // Un loop = (pack, archivo). Los que ya existían se ACTUALIZAN conservando su
+  // id (métricas, favoritos) y la marca GRATIS/PRO cambiada desde la app; los
+  // que ya no están en pack.json se quitan (con sus archivos).
+  const before = await db(cfg, `/stem_loops?pack_id=eq.${saved.id}&select=id,audio_path,preview_path,tier`);
+  const prev = new Map(before.map((l) => [l.audio_path, l]));
+  for (const r of rows) if (prev.has(r.audio_path)) r.tier = prev.get(r.audio_path).tier;
+  await db(cfg, '/stem_loops?on_conflict=pack_id,audio_path', {
+    method: 'POST', prefer: 'resolution=merge-duplicates',
+    body: rows.map((r) => ({ ...r, pack_id: saved.id })),
+  });
+  const keep = new Set(rows.map((r) => r.audio_path));
+  const gone = before.filter((l) => !keep.has(l.audio_path));
+  for (const l of gone) {
+    for (const k of [l.audio_path, l.preview_path].filter(Boolean)) await del(cfg, k);
+    await db(cfg, `/stem_loops?id=eq.${l.id}`, { method: 'DELETE' });
+  }
+  const kept = rows.filter((r) => prev.has(r.audio_path)).length;
+  console.log(`Listo: ${rows.length - kept} nuevos, ${kept} actualizados (con su marca), ${gone.length} quitados · ${pack.published ? 'publicado' : 'en borrador (published: false)'}.`);
 }
 
 async function remove(cfg, slug) {

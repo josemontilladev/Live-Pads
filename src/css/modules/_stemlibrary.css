@@ -117,10 +117,41 @@
 .stl-add--locked { color: var(--text-muted); }
 .stl-add--locked:hover { background: var(--accent2); border-color: var(--accent2); color: #1a1300; }
 
-.stl-filters {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-shrink: 0;
+/* Sin conexión: el loop que aún no está en este equipo no se puede usar. */
+.stl-loop.is-unavailable { opacity: .45; cursor: default; }
+.stl-loop.is-unavailable .stl-add, .stl-loop.is-unavailable .stl-play { pointer-events: none; }
+/* Punto "ya está en este equipo" junto al título */
+.stl-dl-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-left: 6px; vertical-align: middle;
+  background: var(--text-muted); opacity: .8;
 }
-.stl-filters .stl-search { grid-column: 1 / -1; }
+.stl-offline {
+  flex-shrink: 0; padding: 7px 10px; border-radius: 8px; font-size: 11.5px; line-height: 1.45;
+  color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border-strong);
+}
+.stl-offline b { color: var(--accent2); }
+.stl-offline[hidden] { display: none; }
+/* Tarjeta del pack: autor de la comunidad y descarga para usar sin conexión */
+.stl-packcard-info .stl-community { color: var(--text); font-size: 11.5px; font-weight: 650; }
+.stl-dl {
+  align-self: flex-start; margin-top: 4px; padding: 4px 9px; border-radius: 6px; cursor: pointer;
+  font: inherit; font-size: 11.5px; font-weight: 600;
+  background: transparent; border: 1px solid var(--border-strong); color: var(--text);
+}
+.stl-dl:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.stl-dl:disabled { cursor: default; color: var(--text-muted); }
+.stl-dl.is-done { border-style: dashed; }
+
+/* Fila 1: búsqueda + sensación · fila 2: instrumento + sección (tres selectores
+   en una fila cortaban "Instrumento" con el panel a su ancho normal). */
+.stl-filters {
+  display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 6px; flex-shrink: 0;
+  grid-template-areas: "search feel" "inst sect";
+}
+.stl-filters .stl-search { grid-area: search; }
+.stl-filters [data-ref="feel"] { grid-area: feel; }
+.stl-filters [data-ref="instrument"] { grid-area: inst; }
+.stl-filters [data-ref="section"] { grid-area: sect; }
 .stl-filters input,
 .stl-filters select,
 .stl-foot select {
@@ -372,3 +403,101 @@
 .stl-same input { accent-color: var(--accent); }
 .stl-foot-plan { flex-basis: 100%; color: var(--text-muted); line-height: 1.45; }
 .stl-foot-plan[hidden] { display: none; }
+
+/* ── Administración: editor de packs, moderación, comunidad y uso ─── */
+.spu-intro { margin: 0; color: var(--text-muted); font-size: 12.5px; line-height: 1.5; }
+.spu-badge {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px;
+  border-radius: 999px; background: var(--accent2); color: #1a1300; font-size: 11px; font-weight: 800;
+}
+.spu-badge[hidden] { display: none; }
+.spu-rights { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+.spu-rights input { margin-top: 2px; accent-color: var(--accent); flex: none; }
+.spu-packrow { flex-wrap: wrap; }
+.spu-packhead {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0;
+  background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.spu-chev { color: var(--text-muted); transition: transform .2s ease; }
+.spu-packrow.is-open .spu-chev { transform: rotate(180deg); }
+.spu-status {
+  flex: none; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: var(--bg-hover); color: var(--text-muted);
+}
+.spu-status.is-pending { color: var(--accent2); }
+.spu-status.is-ok { color: var(--accent); }
+.spu-status.is-bad { color: #ff6b6b; }
+.spu-editor {
+  flex-basis: 100%; display: flex; flex-direction: column; gap: 10px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.spu-pack--edit { grid-template-columns: 2fr 3fr 1fr 1.3fr 1fr auto; align-items: end; }
+.spu-note-box {
+  padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.45;
+  background: var(--bg-hover); border-left: 3px solid var(--accent2);
+}
+.spu-review, .spu-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.spu-review input {
+  flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; font: inherit; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.spu-danger:hover { border-color: #ff6b6b; color: #ff6b6b; }
+.spu-loops tr.is-dirty td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.spu-loops .spu-save:disabled { opacity: .4; cursor: default; }
+.spu-loops td select { min-width: 92px; }
+.spu-play { width: 26px; height: 26px; font-size: 10px; }
+.spu-muted { color: var(--text-muted); font-size: 11px; }
+.spu-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.spu-kpis:empty { display: none; }
+.spu-kpi {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: var(--r-md);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.spu-kpi b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.spu-kpi span { color: var(--text-muted); font-size: 11.5px; }
+
+/* ── Editor vacío: "Armar una canción en 1 minuto" ─────────────────── */
+.stems-quick-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
+  padding: 10px 16px; border-radius: 9px; cursor: pointer;
+  background: var(--accent); border: 1px solid var(--accent); color: var(--on-accent, #0a0a14);
+  font: inherit; font-weight: 700; font-size: 14px;
+}
+.stems-quick-btn:hover { filter: brightness(1.06); }
+.stems-empty-sub { color: var(--text-muted); font-size: 12.5px; margin-bottom: 6px !important; }
+
+.sqs-modal { width: min(560px, 100%); }
+.sqs-field { display: flex; flex-direction: column; gap: 6px; }
+.sqs-label { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.sqs-field select {
+  padding: 7px 8px; border-radius: 6px; font: inherit; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.sqs-tempos { display: flex; flex-wrap: wrap; gap: 6px; align-items: stretch; }
+.sqs-tempos button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 72px; padding: 6px 10px;
+  border-radius: 8px; cursor: pointer; font: inherit;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text);
+}
+.sqs-tempos button b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.sqs-tempos button span { font-size: 11px; color: var(--text-muted); }
+.sqs-tempos button.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.sqs-custom { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.sqs-custom input {
+  width: 72px; padding: 7px 8px; border-radius: 6px; font: inherit; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.sqs-presets { display: grid; gap: 6px; }
+.sqs-preset {
+  display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.sqs-preset:has(input:checked) { border-color: var(--accent); }
+.sqs-preset input { margin-top: 3px; accent-color: var(--accent); }
+.sqs-preset span { display: flex; flex-direction: column; gap: 2px; }
+.sqs-preset small { color: var(--text-muted); font-size: 11.5px; }
+.spu-title-cell { position: relative; }
+.spu-upd {
+  display: inline-block; margin-top: 3px; padding: 1px 6px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; color: var(--accent2); background: var(--bg-hover);
+}

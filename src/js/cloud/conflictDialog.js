@@ -10,6 +10,7 @@
 import { pushModal } from '../ui/modalStack.js';
 import { resolveConflictUseTheirs, resolveConflictKeepMine } from './songSync.js';
 import { showToast } from '../ui/toast.js';
+import { FIELD_LABELS } from './songMerge.js';
 
 let overlay = null, pop = null;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
@@ -25,7 +26,7 @@ export function showConflictsModal(conflicts) {
   overlay.innerHTML = `
     <div class="cfl-panel" role="dialog" aria-label="Cambios en conflicto">
       <div class="cfl-head"><h3>Cambios en conflicto</h3></div>
-      <p class="cfl-intro">Otro miembro editó estas canciones mientras tú también las cambiaste. Elige qué versión conservar en cada una.</p>
+      <p class="cfl-intro">Otro miembro editó estas canciones mientras tú también las cambiaste, y tocaron lo mismo. Elige qué versión conservar en cada una. (Cuando cambian cosas distintas, LivePads junta los dos cambios solo.)</p>
       <div class="cfl-list"></div>
       <div class="cfl-foot"><button class="acc-btn ghost" data-act="close">Cerrar</button></div>
     </div>`;
@@ -37,7 +38,8 @@ export function showConflictsModal(conflicts) {
     list.innerHTML = items.map((c, i) => `
       <div class="cfl-item">
         <div class="cfl-title">${esc(c.title || 'Canción')}</div>
-        <div class="cfl-sub">Editada por ${esc(c.byName || 'otro miembro')}</div>
+        <div class="cfl-sub">Editada por ${esc(c.byName || 'otro miembro')}${Array.isArray(c.fields) && c.fields.length
+          ? ` · los dos cambiaron: ${esc(c.fields.map(f => FIELD_LABELS[f] || f).join(', '))}` : ''}</div>
         <div class="cfl-actions">
           <button class="acc-btn sm" data-act="theirs" data-i="${i}">Usar la de ellos</button>
           <button class="acc-btn ghost sm" data-act="mine" data-i="${i}">Mantener la mía</button>

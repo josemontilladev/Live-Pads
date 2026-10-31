@@ -1,7 +1,10 @@
-// Panel de administración de la biblioteca de stems (solo administradores):
-// subir packs de loops desde la app y publicar/despublicar.
+// Ventana de la biblioteca de stems para SUBIR y GESTIONAR packs. Dos modos:
 //
-//   openPackUploader({ onChanged })
+//   openPackUploader({ onChanged })                    → administrador
+//     Subir pack · Mis packs (editar loops, borrar) · Moderación (envíos de la
+//     comunidad: escuchar, aprobar o rechazar) · Uso (métricas)
+//   openPackUploader({ onChanged, community: true })   → cuenta Pro cualquiera
+//     Enviar pack · Mis envíos (estado, nota del administrador, retirar)
 //
 // Por cada WAV/FLAC se deduce título, instrumento y sección por el nombre
 // (loopMeta.js), BPM con el detector de la app afinado a compases exactos, y
@@ -9,6 +12,8 @@
 // corregir antes de subir. Se suben el audio original, una escucha previa
 // ligera (mono ~24 kHz) y la portada; luego se registran pack y loops con la
 // Edge Function stem-library-admin, que vuelve a comprobar el permiso.
+// Volver a subir un archivo con el mismo nombre ACTUALIZA ese loop (conserva
+// su marca GRATIS/PRO y sus métricas).
 
 import * as stemLibrary from '../cloud/stemLibrary.js';
 import { detectTempoMeter } from './bpmDetector.js';
@@ -17,6 +22,7 @@ import { audioBufferToWav } from './clickGenerator.js';
 import { guessFromFilename, pickTempo, slugify, safeFileName, UNPITCHED } from './loopMeta.js';
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
+import { confirmDialogAsync } from '../ui/dialog.js';
 
 const INSTRUMENTS = {
   drums: 'Batería', perc: 'Percusión', bass: 'Bajo', keys: 'Teclas', pad: 'Pad', synth: 'Synth',
@@ -26,8 +32,19 @@ const SECTIONS = { any: 'Cualquiera', intro: 'Intro', verse: 'Verso', prechorus:
 const KEYS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
   'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'];
 const IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const FEELS = stemLibrary.FEELS;
+const STATUS = {
+  pending: ['En revisión', 'is-pending'], approved: ['Aprobado y publicado', 'is-ok'],
+  rejected: ['Rechazado', 'is-bad'], official: ['Oficial', ''],
+};
 
 const opts = (map, sel) => Object.entries(map).map(([v, l]) => `<option value="${v}"${v === sel ? ' selected' : ''}>${l}</option>`).join('');
+const keyOpts = (sel) => `<option value="">sin tono</option>${KEYS.map((k) => `<option${k === sel ? ' selected' : ''}>${k}</option>`).join('')}`;
+const feelOpts = (sel) => `<option value="">—</option>${opts(FEELS, sel)}`;
+// La sensación vive en stem_loops.tags junto a otras etiquetas: se cambia solo esa.
+const feelOf = (tags) => (Array.isArray(tags) ? tags : []).find((t) => FEELS[t]) || '';
+const withFeel = (tags, feel) => [...(Array.isArray(tags) ? tags : []).filter((t) => !FEELS[t]), feel].filter(Boolean);
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 // ── Análisis de un archivo ─────────────────────────────────────────────────
 async function decode(arrayBuffer) {
@@ -59,7 +76,7 @@ async function analyzeFile(file) {
   const detected = guess.bpmHint ? null : (detectTempoMeter(buffer)?.bpmFloat || null);
   const { bpm, bars } = pickTempo(buffer.duration, detected, { hintBpm: guess.bpmHint });
   const key = UNPITCHED.has(guess.instrument) ? null : await detectKey(buffer);
-  return { file, bytes, buffer, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null,
+  return { file, bytes, buffer, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null, feel: '',
     hintBpm: guess.bpmHint, detectedBpm: detected };
 }
 
@@ -81,36 +98,47 @@ function harmonizeTempo(rows) {
 const durationOk = (r) => Math.abs(r.buffer.duration - r.bars * 4 * 60 / r.bpm) < 0.05;
 
 // ── Ventana ────────────────────────────────────────────────────────────────
-export function openPackUploader({ onChanged } = {}) {
+export function openPackUploader({ onChanged, community = false } = {}) {
   document.getElementById('spu-overlay')?.remove();
-  const state = { packs: [], rows: [], cover: null, busy: false, tab: 'upload' };
+  const admin = !community;
+  const state = {
+    packs: [], rows: [], cover: null, busy: false,
+    open: null,            // id del pack desplegado en Mis packs / Moderación
+    loops: new Map(),      // packId → loops (cargados al desplegar)
+    edits: new Map(),      // loopId → cambios sin guardar
+    playing: null,         // { id, audio }
+  };
 
   const overlay = document.createElement('div');
   overlay.id = 'spu-overlay';
   overlay.className = 'stb-overlay';
   overlay.innerHTML = `
-    <div class="stb-modal spu-modal" role="dialog" aria-modal="true" aria-label="Administrar biblioteca de stems">
+    <div class="stb-modal spu-modal" role="dialog" aria-modal="true" aria-label="${admin ? 'Administrar biblioteca de stems' : 'Compartir un pack con la comunidad'}">
       <header class="stb-head">
-        <h3>Biblioteca de stems · Administración</h3>
+        <h3>${admin ? 'Biblioteca de stems · Administración' : 'Compartir un pack con la comunidad'}</h3>
         <button type="button" class="stl-x" data-act="close" aria-label="Cerrar">×</button>
       </header>
       <div class="spu-tabs" role="tablist">
-        <button type="button" class="is-on" data-tab="upload" role="tab">Subir pack</button>
-        <button type="button" data-tab="packs" role="tab">Mis packs</button>
-        <button type="button" data-tab="stats" role="tab">Uso</button>
+        <button type="button" class="is-on" data-tab="upload" role="tab">${admin ? 'Subir pack' : 'Enviar pack'}</button>
+        <button type="button" data-tab="packs" role="tab">${admin ? 'Mis packs' : 'Mis envíos'}</button>
+        ${admin ? `<button type="button" data-tab="review" role="tab">Moderación <span class="spu-badge" data-ref="reviewCount" hidden></span></button>
+        <button type="button" data-tab="stats" role="tab">Uso</button>` : ''}
       </div>
 
       <section data-pane="upload" class="spu-pane">
+        ${community ? `<p class="spu-intro">Comparte tus loops con otros músicos de LivePads. Cada envío lo revisa el equipo antes de publicarse; si lo aprobamos, aparece en la Biblioteca con tu firma.</p>` : ''}
         <div class="spu-target">
           <label><input type="radio" name="spu-mode" value="new" checked> Pack nuevo</label>
-          <label><input type="radio" name="spu-mode" value="existing"> Agregar a un pack existente
+          <label><input type="radio" name="spu-mode" value="existing"> ${admin ? 'Agregar o actualizar loops de un pack' : 'Agregar a un envío'}
             <select data-ref="existing" disabled></select></label>
         </div>
         <div class="spu-pack" data-ref="newpack">
           <label>Nombre <input data-ref="title" placeholder="Ej. Adoración íntima vol. 1" maxlength="120"></label>
           <label>Descripción <input data-ref="desc" maxlength="500" placeholder="Opcional"></label>
           <label>Género <input data-ref="genre" maxlength="60" placeholder="worship, pop…"></label>
-          <label>Marca por defecto <select data-ref="tier"><option value="pro">PRO</option><option value="free">GRATIS</option></select></label>
+          ${admin
+            ? '<label>Marca por defecto <select data-ref="tier"><option value="pro">PRO</option><option value="free">GRATIS</option></select></label>'
+            : '<label>Tu firma <input data-ref="author" maxlength="80" placeholder="Cómo te verán: nombre o ministerio"></label>'}
         </div>
         <div class="spu-cover">
           <div class="spu-cover-img" data-ref="coverPreview">Sin portada</div>
@@ -123,16 +151,18 @@ export function openPackUploader({ onChanged } = {}) {
         <div class="spu-drop" data-ref="drop">
           Arrastra aquí los loops en <b>WAV</b> o <b>FLAC</b>, o <button type="button" class="stb-btn" data-act="files">elige archivos</button>
           <input type="file" data-ref="filesInput" accept=".wav,.flac,audio/wav,audio/flac" multiple hidden>
-          <div class="spu-note">MP3 y M4A no: añaden silencio al principio y el loop se desfasaría.</div>
+          <div class="spu-note">MP3 y M4A no: añaden silencio al principio y el loop se desfasaría. Un archivo con el mismo nombre que uno ya subido lo actualiza${admin ? ' (conserva su marca GRATIS/PRO)' : ''}.</div>
         </div>
         <div class="stb-grid-wrap"><table class="stb-grid" data-ref="rows"></table></div>
         <div class="spu-progress" data-ref="progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="spu-progress-bar" data-ref="bar"></div>
         </div>
+        ${community ? `<label class="spu-rights"><input type="checkbox" data-ref="rights">
+          Confirmo que estos audios son míos o tengo los derechos para compartirlos, y autorizo a LivePads a ofrecerlos en la Biblioteca.</label>` : ''}
         <footer class="stb-foot">
-          <label><input type="checkbox" data-ref="publish"> Publicar al terminar</label>
+          <label><input type="checkbox" data-ref="publish" checked> ${admin ? 'Publicar al terminar' : 'Enviar a revisión al terminar'}</label>
           <span class="stb-total" data-ref="status"></span>
-          <button type="button" class="stb-btn stb-btn--primary" data-act="upload" disabled>Subir</button>
+          <button type="button" class="stb-btn stb-btn--primary" data-act="upload" disabled>${admin ? 'Subir' : 'Enviar'}</button>
         </footer>
       </section>
 
@@ -140,80 +170,378 @@ export function openPackUploader({ onChanged } = {}) {
         <div class="spu-packs" data-ref="packList"><div class="stb-empty">Cargando…</div></div>
       </section>
 
+      ${admin ? `<section data-pane="review" class="spu-pane" hidden>
+        <p class="spu-intro">Packs enviados por la comunidad. Escúchalos, corrige lo que haga falta y apruébalos (se publican) o recházalos con una nota para quien lo envió.</p>
+        <div class="spu-packs" data-ref="reviewList"></div>
+      </section>
+
       <section data-pane="stats" class="spu-pane" hidden>
         <div class="stb-bar">
+          <label>Ver
+            <select data-ref="statsView">
+              <option value="top">Más usados</option>
+              <option value="unused">Sin usar</option>
+              <option value="listened">Escuchados, no agregados</option>
+              <option value="packs">Por pack</option>
+            </select>
+          </label>
           <label>Periodo
             <select data-ref="statsDays"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option></select>
           </label>
           <span class="spu-note">"Agregado" = entró a un proyecto en el editor. "Escuchado" = escucha previa (una vez por persona y sesión).</span>
         </div>
+        <div class="spu-kpis" data-ref="kpis"></div>
         <div class="stb-grid-wrap"><table class="stb-grid" data-ref="stats"></table></div>
-      </section>
+      </section>` : ''}
     </div>`;
   document.body.appendChild(overlay);
   const ref = (n) => overlay.querySelector(`[data-ref="${n}"]`);
   const mode = () => overlay.querySelector('input[name="spu-mode"]:checked').value;
 
-  // ── Packs existentes ──
+  // ── Packs ────────────────────────────────────────────────────────────────
+  // Admin: los oficiales y los aprobados van en "Mis packs"; los envíos sin
+  // aprobar, en "Moderación". Comunidad: solo los suyos.
+  const isSubmission = (p) => p.status === 'pending' || p.status === 'rejected';
+  const ownPacks = () => (admin ? state.packs.filter((p) => !isSubmission(p)) : state.packs);
+  const reviewPacks = () => state.packs
+    .filter((p) => isSubmission(p) && (p.submitted_at || p.status === 'rejected'))
+    .sort((a, b) => (a.status === b.status ? String(b.submitted_at).localeCompare(String(a.submitted_at)) : a.status === 'pending' ? -1 : 1));
+
   async function loadPacks() {
-    try { state.packs = await stemLibrary.adminListPacks(); }
+    try { state.packs = admin ? await stemLibrary.adminListPacks() : await stemLibrary.myCommunityPacks(); }
     catch (e) { ref('packList').innerHTML = `<div class="stb-empty">No se pudo cargar: ${esc(e.message)}</div>`; return; }
-    ref('existing').innerHTML = state.packs.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.published ? '' : ' (borrador)'}</option>`).join('');
+    const targets = admin ? ownPacks() : state.packs.filter((p) => p.status !== 'approved');
+    ref('existing').innerHTML = targets.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}${p.published ? '' : admin ? ' (borrador)' : ` (${STATUS[p.status]?.[0] || ''})`}</option>`).join('');
+    overlay.querySelector('input[value="existing"]').disabled = !targets.length;
     renderPackList();
+    if (admin) {
+      const n = reviewPacks().filter((p) => p.status === 'pending').length;
+      ref('reviewCount').hidden = !n;
+      ref('reviewCount').textContent = String(n);
+      renderReviewList();
+    }
+    ensureOpenLoops();
   }
 
-  async function renderPackList() {
-    if (!state.packs.length) { ref('packList').innerHTML = '<div class="stb-empty">Todavía no hay packs.</div>'; return; }
-    ref('packList').innerHTML = state.packs.map((p) => `
-      <div class="spu-packrow" data-pack="${esc(p.id)}">
-        <div class="spu-thumb" data-cover="${esc(p.id)}"></div>
-        <div class="spu-packinfo"><b>${esc(p.title)}</b><span>${p.loops} loop${p.loops === 1 ? '' : 's'} · marca por defecto ${p.tier === 'free' ? 'GRATIS' : 'PRO'}</span></div>
-        <label class="spu-pub"><input type="checkbox" data-publish="${esc(p.id)}"${p.published ? ' checked' : ''}> Publicado</label>
-      </div>`).join('');
+  function packRow(p) {
+    const [statusLabel, statusCls] = STATUS[p.status] || ['', ''];
+    const showStatus = community || isSubmission(p) || p.status === 'approved';
+    const sub = [
+      `${p.loops} loop${p.loops === 1 ? '' : 's'}`,
+      admin && !isSubmission(p) ? `marca por defecto ${p.tier === 'free' ? 'GRATIS' : 'PRO'}` : '',
+      p.author_name ? `por ${esc(p.author_name)}` : '',
+      p.submitted_at ? `enviado el ${fmtDate(p.submitted_at)}` : '',
+    ].filter(Boolean).join(' · ');
+    const open = state.open === p.id;
+    return `
+      <div class="spu-packrow${open ? ' is-open' : ''}" data-pack="${esc(p.id)}">
+        <button type="button" class="spu-packhead" data-open="${esc(p.id)}" aria-expanded="${open}">
+          <span class="spu-thumb" data-cover="${esc(p.id)}"></span>
+          <span class="spu-packinfo"><b>${esc(p.title)}</b><span>${sub}</span></span>
+          ${showStatus ? `<span class="spu-status ${statusCls}">${statusLabel}${community && p.status === 'pending' && !p.submitted_at ? ' (sin enviar)' : ''}</span>` : ''}
+          <span class="spu-chev" aria-hidden="true">▾</span>
+        </button>
+        ${admin && !isSubmission(p) ? `<label class="spu-pub"><input type="checkbox" data-publish="${esc(p.id)}"${p.published ? ' checked' : ''}> Publicado</label>` : ''}
+        ${open ? `<div class="spu-editor">${editorHtml(p)}</div>` : ''}
+      </div>`;
+  }
+
+  function paintCovers() {
     for (const p of state.packs) {
       stemLibrary.ensureCoverLocal(p).then((url) => {
-        const el = overlay.querySelector(`[data-cover="${CSS.escape(p.id)}"]`);
-        if (url && el) el.style.backgroundImage = `url("${url}")`;
+        overlay.querySelectorAll(`[data-cover="${CSS.escape(p.id)}"]`).forEach((el) => { if (url) el.style.backgroundImage = `url("${url}")`; });
       }).catch(() => {});
     }
   }
 
+  function renderPackList() {
+    const list = ownPacks();
+    ref('packList').innerHTML = list.length ? list.map(packRow).join('')
+      : `<div class="stb-empty">${admin ? 'Todavía no hay packs.' : 'Aún no has enviado ningún pack. Empieza en "Enviar pack".'}</div>`;
+    paintCovers();
+  }
+
+  function renderReviewList() {
+    if (!admin) return;
+    const list = reviewPacks();
+    ref('reviewList').innerHTML = list.length ? list.map(packRow).join('')
+      : '<div class="stb-empty">No hay envíos de la comunidad por revisar.</div>';
+    paintCovers();
+  }
+
+  const rerender = () => { renderPackList(); renderReviewList(); ensureOpenLoops(); };
+
+  // ── Editor de un pack (desplegable) ──────────────────────────────────────
+  function editorHtml(p) {
+    const loops = state.loops.get(p.id);
+    const canEditLoops = admin;
+    const fields = admin ? `
+      <div class="spu-pack spu-pack--edit">
+        <label>Nombre <input data-pf="title" value="${esc(p.title)}" maxlength="120"></label>
+        <label>Descripción <input data-pf="description" value="${esc(p.description || '')}" maxlength="500"></label>
+        <label>Género <input data-pf="genre" value="${esc(p.genre || '')}" maxlength="60"></label>
+        <label>Sensación del pack <input data-pf="mood" value="${esc(p.mood || '')}" maxlength="60" placeholder="íntimo, celebración…"></label>
+        ${isSubmission(p) ? '' : `<label>Marca por defecto <select data-pf="tier">${opts({ pro: 'PRO', free: 'GRATIS' }, p.tier)}</select></label>`}
+        <button type="button" class="stb-btn" data-act="savePack" data-id="${esc(p.id)}">Guardar datos</button>
+      </div>` : (p.review_note ? `<div class="spu-note-box"><b>Nota del equipo:</b> ${esc(p.review_note)}</div>` : '');
+    const table = !loops ? '<div class="stb-empty">Cargando loops…</div>' : !loops.length ? '<div class="stb-empty">Este pack no tiene loops.</div>' : `
+      <div class="stb-grid-wrap"><table class="stb-grid spu-loops">
+        <thead><tr><th></th><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Comp.</th><th>Tono</th><th>Sensación</th>${admin ? '<th>Marca</th><th></th><th></th>' : ''}</tr></thead>
+        <tbody>${loops.map((l) => loopRowHtml(l, canEditLoops)).join('')}</tbody>
+      </table></div>`;
+    let actions = '';
+    if (admin && isSubmission(p)) {
+      actions = `
+        <div class="spu-review">
+          <input data-ref-note="${esc(p.id)}" maxlength="500" placeholder="Nota para quien lo envió (obligatoria al rechazar)" value="${esc(p.review_note || '')}">
+          <button type="button" class="stb-btn" data-act="reject" data-id="${esc(p.id)}">Rechazar</button>
+          <button type="button" class="stb-btn stb-btn--primary" data-act="approve" data-id="${esc(p.id)}">Aprobar y publicar</button>
+        </div>`;
+    } else if (admin) {
+      actions = `<div class="spu-actions"><button type="button" class="stb-btn spu-danger" data-act="deletePack" data-id="${esc(p.id)}">Borrar pack</button></div>`;
+    } else if (p.status !== 'approved') {
+      actions = `<div class="spu-actions">
+        <button type="button" class="stb-btn spu-danger" data-act="withdraw" data-id="${esc(p.id)}">Retirar envío</button>
+        ${!p.submitted_at || p.status === 'rejected' ? `<button type="button" class="stb-btn stb-btn--primary" data-act="submit" data-id="${esc(p.id)}">${p.status === 'rejected' ? 'Volver a enviar' : 'Enviar a revisión'}</button>` : ''}
+      </div>`;
+    }
+    return fields + table + actions;
+  }
+
+  function loopRowHtml(l, editable) {
+    const e = { ...l, ...(state.edits.get(l.id) || {}) };
+    const dirty = state.edits.has(l.id);
+    const play = `<td><button type="button" class="stl-play spu-play${state.playing?.id === l.id ? ' is-on' : ''}" data-play="${esc(l.id)}" title="Escuchar">${state.playing?.id === l.id ? '■' : '▶'}</button></td>`;
+    if (!editable) {
+      return `<tr>${play}<td>${esc(l.title)}</td><td>${INSTRUMENTS[l.instrument] || esc(l.instrument)}</td><td>${SECTIONS[l.section] || ''}</td>
+        <td>${Number(l.bpm)}</td><td>${l.bars}</td><td>${esc(l.musical_key || '—')}</td><td>${FEELS[feelOf(l.tags)] || '—'}</td></tr>`;
+    }
+    return `<tr data-loop="${esc(l.id)}" class="${dirty ? 'is-dirty' : ''}">${play}
+      <td><input data-lf="title" value="${esc(e.title)}" maxlength="120"></td>
+      <td><select data-lf="instrument">${opts(INSTRUMENTS, e.instrument)}</select></td>
+      <td><select data-lf="section">${opts(SECTIONS, e.section)}</select></td>
+      <td><input data-lf="bpm" type="number" min="20" max="300" step="0.01" value="${Number(e.bpm)}"></td>
+      <td><input data-lf="bars" type="number" min="1" max="64" value="${e.bars}"></td>
+      <td><select data-lf="musical_key">${keyOpts(e.musical_key)}</select></td>
+      <td><select data-lf="feel">${feelOpts(feelOf(e.tags))}</select></td>
+      <td><select data-lf="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, e.tier)}</select></td>
+      <td><button type="button" class="stb-btn spu-save" data-act="saveLoop" data-id="${esc(l.id)}"${dirty ? '' : ' disabled'}>Guardar</button></td>
+      <td><button type="button" class="stb-del" data-act="deleteLoop" data-id="${esc(l.id)}" aria-label="Borrar loop" title="Borrar loop">×</button></td>
+    </tr>`;
+  }
+
+  async function togglePack(id) {
+    stopPlaying();
+    state.open = state.open === id ? null : id;
+    rerender();
+  }
+
+  // Loops del pack desplegado: se piden la primera vez que hacen falta (también
+  // tras una subida, que invalida la lista de ese pack).
+  const loadingLoops = new Set();
+  async function ensureOpenLoops() {
+    const id = state.open;
+    if (!id || state.loops.has(id) || loadingLoops.has(id)) return;
+    loadingLoops.add(id);
+    try {
+      // El admin lee también lo no publicado; la comunidad ve sus envíos por RLS.
+      state.loops.set(id, admin ? await stemLibrary.adminListLoops(id) : await stemLibrary.listOwnPackLoops(id));
+    } catch (e) {
+      state.loops.set(id, []);
+      showToast(`No se pudieron cargar los loops: ${e.message}`, 'error');
+    } finally {
+      loadingLoops.delete(id);
+    }
+    rerender();
+  }
+
+  const findLoop = (id) => { for (const ls of state.loops.values()) { const l = ls.find((x) => x.id === id); if (l) return l; } return null; };
+
+  // ── Escuchar un loop (también los no publicados: el admin los ve por RLS) ──
+  function stopPlaying() {
+    if (state.playing) { state.playing.audio.pause(); state.playing = null; }
+  }
+  async function togglePlay(id) {
+    const was = state.playing?.id;
+    stopPlaying();
+    if (was === id) { rerender(); return; }
+    const loop = findLoop(id);
+    if (!loop) return;
+    try {
+      const audio = new Audio(await stemLibrary.ensurePreviewLocal(loop));
+      audio.loop = true;
+      state.playing = { id, audio };
+      await audio.play();
+    } catch (e) {
+      state.playing = null;
+      showToast(`No se pudo escuchar: ${e.message}`, 'error');
+    }
+    rerender();
+  }
+
+  // ── Acciones del editor ──
+  async function savePack(id) {
+    const box = overlay.querySelector(`.spu-packrow[data-pack="${CSS.escape(id)}"]`);
+    const patch = {};
+    box.querySelectorAll('[data-pf]').forEach((el) => { patch[el.dataset.pf] = el.value; });
+    try {
+      const saved = await stemLibrary.adminUpdatePack(id, patch);
+      Object.assign(state.packs.find((p) => p.id === id) || {}, saved);
+      showToast('Datos del pack guardados.', 'success');
+      rerender(); onChanged?.();
+    } catch (e) { showToast(`No se pudo guardar: ${e.message}`, 'error'); }
+  }
+
+  async function saveLoop(id) {
+    const loop = findLoop(id), edit = state.edits.get(id);
+    if (!loop || !edit) return;
+    const patch = { ...edit };
+    if ('feel' in patch) { patch.tags = withFeel(loop.tags, patch.feel); delete patch.feel; }
+    try {
+      const saved = await stemLibrary.adminUpdateLoop(id, patch);
+      Object.assign(loop, saved);
+      state.edits.delete(id);
+      showToast(`"${saved.title}" guardado.`, 'success');
+      rerender(); onChanged?.();
+    } catch (e) { showToast(`No se pudo guardar: ${e.message}`, 'error'); }
+  }
+
+  async function deleteLoop(id) {
+    const loop = findLoop(id);
+    if (!loop) return;
+    const ok = await confirmDialogAsync({ title: 'Borrar loop', message: `Se borra "${loop.title}" de la biblioteca y sus archivos. Los proyectos que ya lo usan siguen sonando (tienen su copia).`, confirmLabel: 'Borrar' });
+    if (!ok) return;
+    try {
+      await stemLibrary.adminDeleteLoop(id);
+      if (state.playing?.id === id) stopPlaying();
+      for (const [pid, ls] of state.loops) state.loops.set(pid, ls.filter((l) => l.id !== id));
+      const p = state.packs.find((x) => x.id === loop.pack_id); if (p) p.loops = Math.max(0, p.loops - 1);
+      state.edits.delete(id);
+      showToast('Loop borrado.', 'success');
+      rerender(); onChanged?.();
+    } catch (e) { showToast(`No se pudo borrar: ${e.message}`, 'error'); }
+  }
+
+  async function deletePack(id, { withdraw = false } = {}) {
+    const p = state.packs.find((x) => x.id === id);
+    if (!p) return;
+    const ok = await confirmDialogAsync(withdraw
+      ? { title: 'Retirar envío', message: `Se borra "${p.title}" y sus ${p.loops} loops. No se puede deshacer.`, confirmLabel: 'Retirar' }
+      : { title: 'Borrar pack', message: `Se borra "${p.title}", sus ${p.loops} loops y sus archivos. Los proyectos que ya los usan siguen sonando. No se puede deshacer.`, confirmLabel: 'Borrar pack' });
+    if (!ok) return;
+    try {
+      stopPlaying();
+      await (withdraw ? stemLibrary.communityDelete(id) : stemLibrary.adminDeletePack(id));
+      state.open = null;
+      showToast(withdraw ? 'Envío retirado.' : 'Pack borrado.', 'success');
+      await loadPacks(); onChanged?.();
+    } catch (e) { showToast(`No se pudo borrar: ${e.message}`, 'error'); }
+  }
+
+  async function review(id, approve) {
+    const note = overlay.querySelector(`[data-ref-note="${CSS.escape(id)}"]`)?.value.trim() || '';
+    if (!approve && !note) { showToast('Escribe una nota para explicar por qué se rechaza.', 'info'); return; }
+    try {
+      stopPlaying();
+      await stemLibrary.adminReview(id, approve, note);
+      state.open = null;
+      showToast(approve ? 'Pack aprobado y publicado.' : 'Envío rechazado; quien lo envió verá tu nota.', 'success');
+      await loadPacks(); onChanged?.();
+    } catch (e) { showToast(`No se pudo guardar: ${e.message}`, 'error'); }
+  }
+
+  async function submitOwn(id) {
+    const ok = await confirmDialogAsync({
+      title: 'Enviar a revisión',
+      message: 'Confirmo que estos audios son míos o tengo los derechos para compartirlos, y autorizo a LivePads a ofrecerlos en la Biblioteca.',
+      confirmLabel: 'Confirmar y enviar', danger: false,
+    });
+    if (!ok) return;
+    try {
+      await stemLibrary.communitySubmit(id);
+      showToast('Enviado. Te avisaremos aquí cuando se revise.', 'success');
+      await loadPacks();
+    } catch (e) { showToast(`No se pudo enviar: ${e.message}`, 'error'); }
+  }
+
   // ── Uso (métricas) ──
   async function loadStats() {
-    const table = ref('stats');
+    const table = ref('stats'), kpis = ref('kpis');
+    const view = ref('statsView').value, days = Number(ref('statsDays').value);
     table.innerHTML = '<tbody><tr><td class="stb-empty">Cargando…</td></tr></tbody>';
-    let rows;
-    try { rows = await stemLibrary.adminStats(Number(ref('statsDays').value)); }
+    kpis.innerHTML = '';
+    let rows, legacy = false;
+    try { rows = await stemLibrary.adminOverview(days); }
     catch (e) {
-      table.innerHTML = `<tbody><tr><td class="stb-empty">No se pudo cargar: ${esc(e.message)}. ¿Está aplicada la migración 0018?</td></tr></tbody>`;
+      // Sin la migración 0019 solo hay "Más usados".
+      try { rows = await stemLibrary.adminStats(days); legacy = true; }
+      catch (e2) {
+        table.innerHTML = `<tbody><tr><td class="stb-empty">No se pudo cargar: ${esc(e2.message)}. ¿Están aplicadas las migraciones 0018 y 0019?</td></tr></tbody>`;
+        return;
+      }
+    }
+    rows = (rows || []).map((r) => ({ ...r, adds: Number(r.adds) || 0, previews: Number(r.previews) || 0, users: Number(r.users) || 0 }));
+    if (!legacy) {
+      const used = rows.filter((r) => r.adds > 0).length;
+      const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
+      kpis.innerHTML = [
+        ['Loops', rows.length], ['Agregados', sum('adds')], ['Escuchas', sum('previews')],
+        ['Usados al menos 1 vez', rows.length ? `${Math.round((used / rows.length) * 100)} %` : '—'],
+      ].map(([l, v]) => `<div class="spu-kpi"><b>${v}</b><span>${l}</span></div>`).join('');
+    }
+    if (legacy && view !== 'top') {
+      table.innerHTML = '<tbody><tr><td class="stb-empty">Esta vista necesita la migración 0019.</td></tr></tbody>';
       return;
     }
-    if (!rows?.length) {
-      table.innerHTML = '<tbody><tr><td class="stb-empty">Todavía no hay uso registrado en este periodo.</td></tr></tbody>';
+    if (view === 'packs') {
+      const by = new Map();
+      for (const r of rows) {
+        const g = by.get(r.pack_id) || { title: r.pack_title, loops: 0, used: 0, adds: 0, previews: 0 };
+        g.loops++; g.adds += r.adds; g.previews += r.previews; if (r.adds) g.used++;
+        by.set(r.pack_id, g);
+      }
+      const packs = [...by.values()].sort((a, b) => b.adds - a.adds || b.previews - a.previews);
+      table.innerHTML = !packs.length ? '<tbody><tr><td class="stb-empty">Todavía no hay packs.</td></tr></tbody>' : `
+        <thead><tr><th>Pack</th><th>Loops</th><th>Usados</th><th>Agregados</th><th>Escuchados</th></tr></thead>
+        <tbody>${packs.map((g) => `<tr><td>${esc(g.title)}</td><td>${g.loops}</td><td>${g.used} de ${g.loops}</td><td><b>${g.adds}</b></td><td>${g.previews}</td></tr>`).join('')}</tbody>`;
       return;
     }
+    let list = rows, empty = 'Todavía no hay uso registrado en este periodo.';
+    if (view === 'top') list = rows.filter((r) => r.adds || r.previews).slice(0, 50);
+    else if (view === 'unused') { list = rows.filter((r) => !r.adds && !r.previews); empty = '¡Todos los loops se han usado o escuchado en este periodo!'; }
+    else if (view === 'listened') {
+      list = rows.filter((r) => r.previews && !r.adds).sort((a, b) => b.previews - a.previews);
+      empty = 'Ningún loop escuchado se quedó sin agregar en este periodo.';
+    }
+    if (!list.length) { table.innerHTML = `<tbody><tr><td class="stb-empty">${empty}</td></tr></tbody>`; return; }
     table.innerHTML = `
-      <thead><tr><th>#</th><th>Loop</th><th>Pack</th><th>Instrumento</th><th>Agregado</th><th>Escuchado</th><th>Personas</th></tr></thead>
-      <tbody>${rows.map((r, i) => `<tr>
-        <td>${i + 1}</td><td>${esc(r.title)}</td><td>${esc(r.pack_title)}</td><td>${esc(INSTRUMENTS[r.instrument] || r.instrument)}</td>
+      <thead><tr><th>#</th><th>Loop</th><th>Pack</th><th>Instrumento</th>${legacy ? '' : '<th>Marca</th>'}<th>Agregado</th><th>Escuchado</th><th>Personas</th></tr></thead>
+      <tbody>${list.map((r, i) => `<tr>
+        <td>${i + 1}</td><td>${esc(r.title)}</td><td>${esc(r.pack_title)}${r.published === false ? ' <span class="spu-muted">(sin publicar)</span>' : ''}</td>
+        <td>${esc(INSTRUMENTS[r.instrument] || r.instrument)}</td>${legacy ? '' : `<td>${r.tier === 'free' ? 'GRATIS' : 'PRO'}</td>`}
         <td><b>${r.adds}</b></td><td>${r.previews}</td><td>${r.users}</td>
       </tr>`).join('')}</tbody>`;
   }
 
-  // ── Filas de loops ──
+  // ── Filas de loops a subir ──
+  function defaultTier() {
+    if (community) return 'free';
+    return mode() === 'new' ? ref('tier').value : (state.packs.find((p) => p.id === ref('existing').value)?.tier || 'pro');
+  }
+
   function renderRows() {
     const rows = state.rows;
-    const defTier = mode() === 'new' ? ref('tier').value : (state.packs.find((p) => p.id === ref('existing').value)?.tier || 'pro');
     ref('rows').innerHTML = !rows.length ? '' : `
-      <thead><tr><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Compases</th><th>Tono</th><th>Marca</th><th></th><th></th></tr></thead>
+      <thead><tr><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Compases</th><th>Tono</th><th>Sensación</th>${admin ? '<th>Marca</th>' : ''}<th></th><th></th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr data-row="${i}">
-        <td><input data-f="title" value="${esc(r.title)}" maxlength="120"></td>
+        <td class="spu-title-cell"><input data-f="title" value="${esc(r.title)}" maxlength="120">${r.updates ? '<span class="spu-upd" title="Ya existe en el pack: se reemplaza su audio y se conservan sus datos">actualiza</span>' : ''}</td>
         <td><select data-f="instrument">${opts(INSTRUMENTS, r.instrument)}</select></td>
         <td><select data-f="section">${opts(SECTIONS, r.section)}</select></td>
         <td><input data-f="bpm" type="number" min="20" max="300" step="0.01" value="${r.bpm}"></td>
         <td><input data-f="bars" type="number" min="1" max="64" value="${r.bars}"></td>
-        <td><select data-f="key"><option value="">sin tono</option>${KEYS.map((k) => `<option${k === r.key ? ' selected' : ''}>${k}</option>`).join('')}</select></td>
-        <td><select data-f="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, r.tier || defTier)}</select></td>
+        <td><select data-f="key">${keyOpts(r.key)}</select></td>
+        <td><select data-f="feel">${feelOpts(r.feel)}</select></td>
+        ${admin ? `<td><select data-f="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, r.tier || defaultTier())}</select></td>` : ''}
         <td class="spu-check" title="${durationOk(r) ? 'La duración cuadra con BPM y compases' : `Dura ${r.buffer.duration.toFixed(2)} s, pero ${r.bars} compases a ${r.bpm} BPM son ${(r.bars * 240 / r.bpm).toFixed(2)} s`}">${durationOk(r) ? '✓' : '⚠'}</td>
         <td><button type="button" class="stb-del" data-del="${i}" aria-label="Quitar">×</button></td>
       </tr>`).join('')}</tbody>`;
@@ -222,7 +550,8 @@ export function openPackUploader({ onChanged } = {}) {
 
   function refreshButton() {
     const named = mode() === 'existing' ? !!ref('existing').value : !!ref('title').value.trim();
-    overlay.querySelector('[data-act="upload"]').disabled = state.busy || !state.rows.length || !named;
+    const rightsOk = admin || !ref('publish').checked || ref('rights').checked;
+    overlay.querySelector('[data-act="upload"]').disabled = state.busy || !state.rows.length || !named || !rightsOk;
   }
 
   async function addFiles(files) {
@@ -235,8 +564,36 @@ export function openPackUploader({ onChanged } = {}) {
       catch (e) { console.warn('No se pudo analizar', f.name, e); showToast(`No se pudo leer ${f.name}.`, 'error'); }
     }
     harmonizeTempo(state.rows);
+    await prefillExisting();
     renderRows();
     ref('status').textContent = '';
+  }
+
+  // Agregar a un pack existente: un archivo con el mismo nombre que un loop ya
+  // subido ACTUALIZA ese loop, así que la fila arranca con sus datos actuales
+  // (título, instrumento, tono, sensación, marca…) en vez de lo deducido del
+  // nombre: re-subir el audio no deshace lo que se corrigió a mano.
+  async function prefillExisting() {
+    state.rows.forEach((r) => { r.updates = false; });
+    if (mode() !== 'existing' || !state.rows.length) return;
+    const packId = ref('existing').value;
+    if (!packId) return;
+    let loops = state.loops.get(packId);
+    if (!loops) {
+      try { loops = admin ? await stemLibrary.adminListLoops(packId) : await stemLibrary.listOwnPackLoops(packId); }
+      catch (_) { return; }
+      state.loops.set(packId, loops);
+    }
+    const byName = new Map(loops.map((l) => [String(l.audio_path).split('/').pop(), l]));
+    for (const r of state.rows) {
+      const l = byName.get(safeFileName(r.file.name));
+      if (!l) continue;
+      Object.assign(r, {
+        title: l.title, instrument: l.instrument, section: l.section, key: l.musical_key || null,
+        feel: feelOf(l.tags), tags: l.tags, tier: l.tier, bpm: Number(l.bpm), bars: l.bars,
+        edited: true, updates: true,
+      });
+    }
   }
 
   // ── Subida ──
@@ -254,28 +611,39 @@ export function openPackUploader({ onChanged } = {}) {
     };
     const status = (t) => { label = t; paint(); };
     const advance = (bytes) => { done += bytes; paint(); };
+    const finish = ref('publish').checked;
     try {
-      let pack;
-      if (mode() === 'existing') {
-        pack = state.packs.find((p) => p.id === ref('existing').value);
+      // 1) El pack (nuevo o existente) y dónde van sus archivos.
+      let pack, put;
+      if (admin) {
+        if (mode() === 'existing') pack = state.packs.find((p) => p.id === ref('existing').value);
+        else {
+          let slug = slugify(ref('title').value);
+          const taken = new Set(state.packs.map((p) => p.slug));
+          for (let n = 2; taken.has(slug); n++) slug = `${slugify(ref('title').value)}-${n}`;
+          pack = { slug, title: ref('title').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), tier: ref('tier').value, published: false };
+        }
+        put = async (name, bytes, ct) => { const path = `${pack.slug}/${name}`; await stemLibrary.adminUpload(path, bytes, ct); return path; };
       } else {
-        let slug = slugify(ref('title').value);
-        const taken = new Set(state.packs.map((p) => p.slug));
-        for (let n = 2; taken.has(slug); n++) slug = `${slugify(ref('title').value)}-${n}`;
-        pack = { slug, title: ref('title').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), tier: ref('tier').value, published: false };
+        pack = mode() === 'existing'
+          ? state.packs.find((p) => p.id === ref('existing').value)
+          : await stemLibrary.communitySavePack({ title: ref('title').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), author_name: ref('author').value.trim() });
+        put = (name, bytes, ct) => stemLibrary.communityUpload(pack.id, name, bytes, ct);
       }
       let coverPath;
       if (state.cover) {
         status('Subiendo portada…');
-        coverPath = `${pack.slug}/cover.${IMAGE_TYPES[state.cover.type]}`;
-        await stemLibrary.adminUpload(coverPath, await state.cover.arrayBuffer(), state.cover.type);
+        coverPath = await put(`cover.${IMAGE_TYPES[state.cover.type]}`, await state.cover.arrayBuffer(), state.cover.type);
         advance(state.cover.size);
       }
-      const saved = await stemLibrary.adminSavePack({
-        slug: pack.slug, title: pack.title, description: pack.description || '', genre: pack.genre || '',
-        mood: pack.mood || '', tier: pack.tier, published: !!pack.published,
-        ...(coverPath ? { cover_path: coverPath } : {}),
-      });
+      if (admin) {
+        pack = await stemLibrary.adminSavePack({
+          slug: pack.slug, title: pack.title, description: pack.description || '', genre: pack.genre || '',
+          mood: pack.mood || '', tier: pack.tier, published: !!pack.published,
+          ...(coverPath ? { cover_path: coverPath } : {}),
+        });
+      }
+      // 2) Los loops.
       const used = new Set();
       const loops = [];
       for (const [i, r] of state.rows.entries()) {
@@ -284,25 +652,32 @@ export function openPackUploader({ onChanged } = {}) {
         while (used.has(name)) name = `${i}-${name}`;
         used.add(name);
         const ct = /\.flac$/i.test(name) ? 'audio/flac' : 'audio/wav';
-        const audioPath = `${pack.slug}/${name}`;
-        await stemLibrary.adminUpload(audioPath, r.bytes, ct);
+        const audioPath = await put(name, r.bytes, ct);
         advance(r.bytes.byteLength);
         const preview = audioBufferToWav(await renderMono(r.buffer, 24000));
-        const previewPath = `${pack.slug}/preview/${name.replace(/\.flac$/i, '.wav')}`;
-        await stemLibrary.adminUpload(previewPath, preview, 'audio/wav');
+        const previewPath = await put(`preview/${name.replace(/\.flac$/i, '.wav')}`, preview, 'audio/wav');
         advance(r.bytes.byteLength * 0.25);
         loops.push({
           title: r.title, instrument: r.instrument, section: r.section, bpm: r.bpm, bars: r.bars,
-          musical_key: r.key || null, beats_per_bar: 4, tier: r.tier || pack.tier,
+          musical_key: r.key || null, beats_per_bar: 4, tier: r.tier || defaultTier(),
           audio_path: audioPath, preview_path: previewPath, size: r.bytes.byteLength,
-          duration_sec: Math.round(r.buffer.duration * 1000) / 1000, sort: i,
+          duration_sec: Math.round(r.buffer.duration * 1000) / 1000, sort: i, tags: withFeel(r.tags, r.feel),
         });
       }
       status('Registrando en la biblioteca…');
-      await stemLibrary.adminAddLoops(saved.id, loops);
-      if (ref('publish').checked && !saved.published) await stemLibrary.adminSetPublished(saved.id, true);
-      showToast(`Pack "${saved.title}" subido con ${loops.length} loop${loops.length === 1 ? '' : 's'}${ref('publish').checked ? ' y publicado' : ' (borrador)'}.`, 'success');
+      const res = admin
+        ? await stemLibrary.adminAddLoops(pack.id, loops)
+        : await stemLibrary.communityAddLoops(pack.id, loops, coverPath ? { cover_path: coverPath } : {});
+      let tail = '';
+      if (admin && finish && !pack.published) { await stemLibrary.adminSetPublished(pack.id, true); tail = ' y publicado'; }
+      else if (admin) tail = pack.published ? '' : ' (borrador)';
+      else if (finish) { await stemLibrary.communitySubmit(pack.id); tail = ' y enviado a revisión'; }
+      else tail = ' (sin enviar: envíalo desde "Mis envíos")';
+      const what = [res.added ? `${res.added} nuevo${res.added === 1 ? '' : 's'}` : '', res.updated ? `${res.updated} actualizado${res.updated === 1 ? '' : 's'}` : '']
+        .filter(Boolean).join(' y ') || `${loops.length} loops`;
+      showToast(`"${pack.title}": ${what}${tail}.`, 'success');
       state.rows = []; state.cover = null;
+      state.loops.delete(pack.id);
       ref('coverPreview').textContent = 'Sin portada'; ref('coverPreview').style.backgroundImage = '';
       renderRows();
       await loadPacks();
@@ -320,22 +695,40 @@ export function openPackUploader({ onChanged } = {}) {
   // ── Eventos ──
   const close = () => {
     if (state.busy) { showToast('Espera a que termine la subida.', 'info'); return; }
+    stopPlaying();
     window.removeEventListener('keydown', onKey, true); overlay.remove();
   };
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  // Esc cierra, salvo que haya un diálogo de confirmación encima.
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    const dialog = document.getElementById('dialog-overlay');
+    if (dialog && !dialog.classList.contains('hidden')) return;
+    e.stopPropagation(); close();
+  };
   window.addEventListener('keydown', onKey, true);
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) { close(); return; }
-    const act = e.target.closest('[data-act]')?.dataset.act;
-    const tab = e.target.closest('[data-tab]')?.dataset.tab;
-    const del = e.target.closest('[data-del]')?.dataset.del;
-    if (act === 'close') close();
+    const t = e.target.closest('[data-act],[data-tab],[data-del],[data-open],[data-play]');
+    if (!t) return;
+    const { act, tab, del, open, play, id } = t.dataset;
+    if (open) togglePack(open);
+    else if (play) togglePlay(play);
+    else if (act === 'close') close();
     else if (act === 'files') ref('filesInput').click();
     else if (act === 'cover') ref('coverInput').click();
     else if (act === 'upload') upload();
+    else if (act === 'savePack') savePack(id);
+    else if (act === 'saveLoop') saveLoop(id);
+    else if (act === 'deleteLoop') deleteLoop(id);
+    else if (act === 'deletePack') deletePack(id);
+    else if (act === 'withdraw') deletePack(id, { withdraw: true });
+    else if (act === 'approve') review(id, true);
+    else if (act === 'reject') review(id, false);
+    else if (act === 'submit') submitOwn(id);
     else if (del != null) { state.rows.splice(Number(del), 1); renderRows(); }
     else if (tab) {
+      stopPlaying();
       overlay.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
       overlay.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== tab; });
       if (tab === 'stats') loadStats();
@@ -347,9 +740,12 @@ export function openPackUploader({ onChanged } = {}) {
     if (t.name === 'spu-mode') {
       ref('existing').disabled = mode() !== 'existing';
       ref('newpack').hidden = mode() !== 'new';
+      await prefillExisting();
       renderRows();
-    } else if (t === ref('existing') || t === ref('tier')) renderRows();
-    else if (t === ref('statsDays')) loadStats();
+    } else if (t === ref('existing')) { await prefillExisting(); renderRows(); }
+    else if (t === ref('tier')) renderRows();
+    else if (t === ref('publish') || t === ref('rights')) refreshButton();
+    else if (t === ref('statsDays') || t === ref('statsView')) loadStats();
     else if (t === ref('filesInput')) { await addFiles(t.files); t.value = ''; }
     else if (t === ref('coverInput')) {
       const f = t.files[0];
@@ -367,16 +763,32 @@ export function openPackUploader({ onChanged } = {}) {
         showToast(t.checked ? 'Pack publicado.' : 'Pack despublicado.', 'success');
         onChanged?.();
       } catch (err) { t.checked = !t.checked; showToast(`No se pudo cambiar: ${err.message}`, 'error'); }
+    } else if (t.dataset.lf) {
+      const id = t.closest('[data-loop]').dataset.loop;
+      const loop = findLoop(id);
+      const f = t.dataset.lf;
+      const edit = { ...(state.edits.get(id) || {}) };
+      edit[f] = (f === 'bpm' || f === 'bars') ? Number(t.value) : t.value;
+      // Si vuelve a quedar como estaba, deja de contar como cambio.
+      const original = f === 'feel' ? feelOf(loop.tags) : f === 'bpm' ? Number(loop.bpm) : (loop[f] ?? '');
+      if (String(edit[f]) === String(original)) delete edit[f];
+      if (Object.keys(edit).length) state.edits.set(id, edit); else state.edits.delete(id);
+      const row = t.closest('tr');
+      row.classList.toggle('is-dirty', state.edits.has(id));
+      row.querySelector('.spu-save').disabled = !state.edits.has(id);
     } else if (t.dataset.f) {
       const r = state.rows[Number(t.closest('[data-row]').dataset.row)];
       const f = t.dataset.f;
       r[f] = (f === 'bpm' || f === 'bars') ? Number(t.value) : (t.value || null);
+      if (f === 'feel') r.feel = t.value;
       if (f === 'bpm' || f === 'bars') { r.edited = true; renderRows(); }
     }
   });
   overlay.addEventListener('input', (e) => {
     if (e.target === ref('title')) refreshButton();
     if (e.target.dataset.f === 'title') state.rows[Number(e.target.closest('[data-row]').dataset.row)].title = e.target.value;
+    // El título de un loop existente cuenta como cambio mientras se escribe.
+    if (e.target.dataset.lf === 'title') e.target.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
   const drop = ref('drop');
@@ -384,5 +796,6 @@ export function openPackUploader({ onChanged } = {}) {
   drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
   drop.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('is-over'); addFiles(e.dataTransfer.files); });
 
+  if (admin) ref('publish').checked = false;   // el admin publica a propósito
   loadPacks();
 }

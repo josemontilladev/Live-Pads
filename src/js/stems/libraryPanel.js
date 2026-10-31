@@ -72,8 +72,8 @@ export function mountLibraryPanel(host, api) {
     <div class="ssl-title-row">
       <span class="ssl-title-icon" aria-hidden="true">${SVG_BOOK}</span>
       <span class="ssl-title-label">Biblioteca de stems</span>
-      <!-- Administrar (solo admin): botón redondo gemelo del de contraer. -->
-      <button class="ssl-collapse-btn stl-admin-btn" type="button" data-act="admin" data-ref="admin" hidden title="Administrar biblioteca: subir packs, publicar y ver el uso" aria-label="Administrar biblioteca">
+      <!-- Administrar (admin) o Compartir un pack (comunidad): botón redondo gemelo del de contraer. -->
+      <button class="ssl-collapse-btn stl-admin-btn" type="button" data-act="admin" data-ref="admin" hidden title="Compartir un pack de loops con la comunidad" aria-label="Compartir un pack con la comunidad">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       </button>
       <button class="ssl-collapse-btn" type="button" data-act="close" title="Contraer biblioteca" aria-label="Contraer biblioteca">
@@ -93,6 +93,13 @@ export function mountLibraryPanel(host, api) {
         <option value="">Sección</option>
         ${Object.entries(SECTIONS).filter(([v]) => v !== 'any').map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
+      <select data-ref="feel" aria-label="Sensación" title="Cómo suena: íntimo, alegre, intenso…">
+        <option value="">Sensación</option>
+        ${Object.entries(stemLibrary.FEELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="stl-offline" data-ref="offline" hidden>
+      <b>Sin conexión</b> · usas la copia guardada. Los loops con <span class="stl-dl-dot"></span> ya están en este equipo; el resto necesita internet.
     </div>
     <button type="button" class="stl-build" data-act="build" data-ref="build" hidden title="Elige una estructura (Intro, Verso, Coro…) y arma la secuencia completa con loops de la biblioteca">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
@@ -122,7 +129,7 @@ export function mountLibraryPanel(host, api) {
   host.appendChild(el);
 
   const ref = (n) => el.querySelector(`[data-ref="${n}"]`);
-  const state = { packId: '', packs: [], loops: [], loaded: false, busyId: null, admin: false, view: 'all' };
+  const state = { packId: '', packs: [], loops: [], loaded: false, busyId: null, admin: false, view: 'all', local: new Set(), downloading: null };
   const isLocked = (loop) => loop.tier !== 'free' && !api.canUsePro();
 
   // Favoritos y recientes: preferencias de este equipo (como el resto del panel).
@@ -233,10 +240,15 @@ export function mountLibraryPanel(host, api) {
         packId: state.packId,
         instrument: ref('instrument').value,
         section: ref('section').value,
+        feel: ref('feel').value,
         text: ref('text').value,
       });
       if (seq !== searchSeq) return; // llegó una búsqueda más nueva
       state.loops = loops || [];
+      // Qué loops ya están en este equipo (sin conexión, solo esos se pueden usar).
+      ref('offline').hidden = !stemLibrary.isUsingOfflineCopy();
+      state.local = await stemLibrary.localLoopIds(state.loops);
+      if (seq !== searchSeq) return;
       loopsById.clear();
       state.loops.forEach((l) => loopsById.set(l.id, l));
       // Contador del riel: el total sin filtros (el de la primera carga).
@@ -295,9 +307,53 @@ export function mountLibraryPanel(host, api) {
       <div class="stl-packcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}</div>
       <div class="stl-packcard-info">
         <b>${esc(p.title)}</b>
+        ${p.status === 'approved' ? `<span class="stl-community">Comunidad${p.author_name ? ` · por ${esc(p.author_name)}` : ''}</span>` : ''}
         ${p.description ? `<span>${esc(p.description)}</span>` : ''}
         <span class="stl-packcard-meta">${[p.genre, p.mood].filter(Boolean).map(esc).join(' · ')}</span>
+        <button type="button" class="stl-dl" data-act="download" data-ref="download" title="Baja a este equipo los loops de este pack que puedes usar, para tenerlos en el culto aunque no haya internet">Descargar para usar sin conexión</button>
       </div>`;
+    paintDownload();
+  }
+
+  // Botón de la tarjeta: cuántos loops del pack (usables con tu plan) ya están aquí.
+  function paintDownload() {
+    const btn = ref('download');
+    if (!btn) return;
+    if (state.downloading) {
+      btn.disabled = true;
+      btn.textContent = state.downloading.total ? `Descargando ${state.downloading.done} de ${state.downloading.total}…` : 'Preparando…';
+      return;
+    }
+    const usable = state.loops.filter((l) => l.pack_id === state.packId && !isLocked(l));
+    const have = usable.filter((l) => state.local.has(l.id)).length;
+    const all = !!usable.length && have === usable.length;
+    btn.disabled = !usable.length || all || stemLibrary.isUsingOfflineCopy();
+    btn.classList.toggle('is-done', all);
+    btn.textContent = !usable.length ? 'Nada que descargar con tu plan'
+      : all ? `✓ Disponible sin conexión (${have})`
+      : have ? `Descargar para usar sin conexión (${have} de ${usable.length})` : 'Descargar para usar sin conexión';
+  }
+
+  async function downloadPack() {
+    const packId = state.packId;
+    if (!packId || state.downloading) return;
+    state.downloading = { done: 0, total: 0 };
+    paintDownload();
+    try {
+      const r = await stemLibrary.downloadPackOffline(packId, {
+        canUsePro: api.canUsePro(),
+        onProgress: (done, total) => { state.downloading = { done, total }; paintDownload(); },
+      });
+      showToast(r.failed
+        ? `Descargados ${r.downloaded}; ${r.failed} no se pudieron bajar. Revisa tu conexión.`
+        : 'Pack listo para usar sin conexión.', r.failed ? 'error' : 'success');
+    } catch (e) {
+      showToast(`No se pudo descargar: ${e.message}`, 'error');
+    } finally {
+      state.downloading = null;
+      state.local = await stemLibrary.localLoopIds(state.loops);
+      renderLoops();
+    }
   }
 
   function renderLoops() {
@@ -348,15 +404,17 @@ export function mountLibraryPanel(host, api) {
         ? `<button type="button" class="stl-tier stl-tier--${free ? 'free' : 'pro'} is-admin" data-act="tier" title="Administrador: clic para marcarlo como ${free ? 'PRO' : 'GRATIS'}">${tierLabel}</button>`
         : `<span class="stl-tier stl-tier--${free ? 'free' : 'pro'}">${tierLabel}</span>`;
       const locked = isLocked(l);
+      const here = state.local.has(l.id);
+      const unavailable = !here && stemLibrary.isUsingOfflineCopy();
       const fitTxt = [
         Math.abs(fit.ratio - 1) > 1e-4 ? `${Math.round(fit.effectiveBpm)}→${Math.round(project.bpm)} BPM` : '',
         fit.semitones ? `${fit.semitones > 0 ? '+' : ''}${fit.semitones} st` : '',
       ].filter(Boolean).join(' · ') || 'Sin ajuste';
       const warn = QUALITY_HINT[fit.quality] || (fit.warnings.includes('meter') ? 'Su compás no es el del proyecto.' : '');
-      return `<div class="stl-loop${locked ? ' is-locked' : ''}" draggable="${locked ? 'false' : 'true'}" data-loop="${esc(l.id)}">
+      return `<div class="stl-loop${locked ? ' is-locked' : ''}${unavailable ? ' is-unavailable' : ''}" draggable="${locked || unavailable ? 'false' : 'true'}" data-loop="${esc(l.id)}"${unavailable ? ' title="Sin conexión: este loop aún no está en este equipo"' : ''}>
         <button type="button" class="stl-play" data-act="preview" title="Escuchar ajustado al proyecto">${SVG_PLAY}</button>
         <div class="stl-loop-main">
-          <div class="stl-loop-title">${tier} ${esc(l.title)}</div>
+          <div class="stl-loop-title">${tier} ${esc(l.title)}${here ? '<span class="stl-dl-dot" title="Ya está en este equipo: funciona sin internet"></span>' : ''}</div>
           <div class="stl-loop-meta">
             <span class="stl-tag stl-tag--${esc(l.instrument)}">${INSTRUMENTS[l.instrument] || esc(l.instrument)}</span>
             ${Number(l.bpm)} BPM · ${l.musical_key ? esc(l.musical_key) : 'sin tono'} · ${l.bars} comp.
@@ -370,6 +428,7 @@ export function mountLibraryPanel(host, api) {
       </div>`;
     }).join('');
     paintPlaying();
+    paintDownload();
   }
 
   function paintPlaying() {
@@ -393,12 +452,17 @@ export function mountLibraryPanel(host, api) {
   // ── Agregar ──────────────────────────────────────────────────────────────
   async function add(loop, atSec) {
     if (isLocked(loop)) { api.requirePro(); return; }
+    if (stemLibrary.isUsingOfflineCopy() && !state.local.has(loop.id)) {
+      showToast('Sin conexión: este loop todavía no está en este equipo.', 'info');
+      return;
+    }
     if (state.busyId) return;
     state.busyId = loop.id;
     setBusy(loop.id, true);
     try {
       await api.addLoop(loop, { atSec, repeats: getRepeats(), sameTrack: getSameTrack() });
       markRecent(loop.id);
+      state.local.add(loop.id);
     } finally {
       setBusy(loop.id, false);
       state.busyId = null;
@@ -407,8 +471,9 @@ export function mountLibraryPanel(host, api) {
 
   // "Armar por secciones": usa el catálogo completo (no solo lo filtrado en la
   // lista) y, con plan Gratis, solo los loops GRATIS.
-  async function openBuilder() {
+  async function openBuilder({ preset } = {}) {
     stopPreview();
+    if (!isLoggedIn()) { showToast('Inicia sesión en tu cuenta de LivePads para usar la Biblioteca.', 'info'); return; }
     let all;
     try { all = await stemLibrary.listLoops({}); }
     catch (e) { showToast('No se pudo cargar la biblioteca. Revisa tu conexión.', 'error'); return; }
@@ -419,6 +484,7 @@ export function mountLibraryPanel(host, api) {
       project: api.getProject(), hasTracks: api.hasTracks(),
       labels: (k) => INSTRUMENTS[k] || k,
       onBuild: api.buildStructure,
+      preset,
     });
   }
 
@@ -453,9 +519,12 @@ export function mountLibraryPanel(host, api) {
     if (e.target.closest('[data-act="build"]')) { openBuilder(); return; }
     if (e.target.closest('[data-act="admin"]')) {
       stopPreview();
-      openPackUploader({ onChanged: () => reloadCatalog() });
+      if (state.admin) openPackUploader({ onChanged: () => reloadCatalog() });
+      else if (!api.canUsePro()) api.requirePro('Compartir packs con la comunidad');
+      else openPackUploader({ community: true, onChanged: () => reloadCatalog() });
       return;
     }
+    if (e.target.closest('[data-act="download"]')) { downloadPack(); return; }
     const chip = e.target.closest('.stl-chip');
     if (chip) {
       state.packId = chip.dataset.pack;
@@ -494,6 +563,7 @@ export function mountLibraryPanel(host, api) {
   });
   ref('instrument').addEventListener('change', loadLoops);
   ref('section').addEventListener('change', loadLoops);
+  ref('feel').addEventListener('change', loadLoops);
 
   // ── Abrir / cerrar ───────────────────────────────────────────────────────
   // Igual que el panel de Canciones: se recuerda el estado entre sesiones. El
@@ -521,7 +591,12 @@ export function mountLibraryPanel(host, api) {
     if (!state.loaded) {
       state.loaded = true;
       state.admin = await stemLibrary.isLibraryAdmin();
-      ref('admin').hidden = !state.admin;
+      const adminBtn = ref('admin');
+      adminBtn.hidden = false;
+      if (state.admin) {
+        adminBtn.title = 'Administrar biblioteca: subir packs, editar loops, moderar envíos y ver el uso';
+        adminBtn.setAttribute('aria-label', 'Administrar biblioteca');
+      }
       await loadPacks();
       await loadLoops();
     } else {
@@ -544,7 +619,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent,
+    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.

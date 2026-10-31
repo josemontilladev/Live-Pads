@@ -10,15 +10,15 @@
 import { pushModal } from './modalStack.js';
 
 const SEEN_KEY = 'lp.whatsnew.seen';
-const EDITION = '2026-11-biblioteca';
+const EDITION = '2026-11-practica';
 // Señal de que la app ya se usaba antes (la escribe app.js desde hace meses).
 const USED_BEFORE_KEY = 'livepads-active-workspace';
 
 const ITEMS = [
-  ['📚', 'Biblioteca de stems', 'Loops listos para tus secuencias: se ajustan solos al BPM y al tono de tu proyecto. Escúchalos antes y arrástralos a un compás.'],
-  ['🧱', 'Armar por secciones', 'Elige una estructura (Intro, Verso, Coro…) y LivePads arma la secuencia completa, con una pista por instrumento y los marcadores puestos.'],
-  ['🎁', 'Stems para todos', 'Con el plan Gratis ya puedes abrir el editor de Stems y usar los loops gratis de la Biblioteca.'],
-  ['🎛️', 'Pads más limpio', 'Menú más claro, botón "En vivo" a la vista y menos ruido en la pantalla del culto.'],
+  ['🎙️', 'Grábate encima', 'En Stems, el botón ● (o la tecla R) graba tu micrófono mientras suena el proyecto: la toma entra como pista nueva, en su compás. Úsalo con "Practicar" para tocar sin tu instrumento.'],
+  ['⚡', 'Una canción en 1 minuto', 'Desde el editor vacío eliges tempo, tono y estructura, y LivePads la arma con loops de la Biblioteca.'],
+  ['📶', 'Biblioteca sin conexión', 'Descarga un pack entero para usarlo en el culto aunque no haya internet.'],
+  ['🤝', 'Comparte tus loops', 'Con Pro puedes enviar un pack a la comunidad; si se aprueba, aparece en la Biblioteca con tu firma.'],
 ];
 
 export function maybeShowWhatsNew({ onTryLibrary } = {}) {

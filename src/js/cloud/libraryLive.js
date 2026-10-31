@@ -190,6 +190,9 @@ export function startLibraryLiveSync() {
   // Marca ediciones locales para respetar la ventana de gracia.
   window.addEventListener('livepads:cloud-dirty', markLocalEdit);
   window.addEventListener('livepads:songs-changed', markLocalEdit);
+  // La subida encontró canciones que otro cambió en la nube: bajar en cuanto
+  // pase la ventana de gracia, para fusionarlas y poder subir lo nuestro.
+  window.addEventListener('livepads:library-stale', () => setTimeout(pullNow, LOCAL_EDIT_GRACE_MS + 300));
 
   // Vuelta a la app / reconexión → intento inmediato.
   window.addEventListener('focus', pullNow);

@@ -4,7 +4,7 @@
 // cambia todos los coros. Al confirmar llama a onBuild con el plan; el armado
 // (render + pistas + marcadores) lo hace workspace.js.
 //
-//   openStructureBuilder({ loops, packs, packId, project, hasTracks, labels, onBuild })
+//   openStructureBuilder({ loops, packs, packId, project, hasTracks, labels, onBuild, preset? })
 
 import { SECTION_TYPES, STRUCTURE_PRESETS, sectionLabel, suggestStructure, rankCandidates, sectionStarts } from './loopStructure.js';
 import { esc } from '../utils/dom.js';
@@ -12,11 +12,11 @@ import { esc } from '../utils/dom.js';
 const INSTRUMENT_ORDER = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'fx', 'other'];
 const BAR_OPTIONS = [2, 4, 8, 12, 16];
 
-export function openStructureBuilder({ loops, packs, packId = '', project, hasTracks, labels, onBuild }) {
+export function openStructureBuilder({ loops, packs, packId = '', project, hasTracks, labels, onBuild, preset = 'estandar' }) {
   document.getElementById('stb-overlay')?.remove();
   const state = {
     packId,
-    sections: STRUCTURE_PRESETS.estandar.map(([type, bars]) => ({ type, bars })),
+    sections: (STRUCTURE_PRESETS[preset] || STRUCTURE_PRESETS.estandar).map(([type, bars]) => ({ type, bars })),
     instruments: null,          // se inicializa con los disponibles
     overrides: new Map(),       // `${type}|${inst}` → loopId | '' (silencio)
   };

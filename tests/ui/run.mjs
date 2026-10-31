@@ -149,6 +149,9 @@ try {
     assert(!(await evaluate(`!!document.getElementById('plans-overlay')`)), 'se abrió la ventana de planes');
     const empty = await evaluate(`[...document.querySelectorAll('#stems-empty p')].filter(p => getComputedStyle(p).display !== 'none').map(p => p.textContent).join(' ')`);
     assert(/Biblioteca/.test(empty), `el estado vacío no invita a la Biblioteca: "${empty}"`);
+    const quick = await evaluate(`(() => { const b = document.getElementById('stems-empty-quick'); return !!b && getComputedStyle(b).display !== 'none'; })()`);
+    assert(quick, 'falta "Armar una canción en 1 minuto" en el editor vacío');
+    assert(await evaluate(`document.getElementById('stems-rec')?.disabled === true`), 'el botón de grabar debería estar deshabilitado sin pistas');
   });
 
   await check('Biblioteca: riel plegado que se expande y se contrae', async () => {
@@ -194,6 +197,7 @@ try {
     await evaluate(`document.getElementById('stems-add-click').click()`);
     await waitFor(`document.querySelectorAll('.stems-row').length >= 1`, 20000);
     assert(!(await evaluate(`document.getElementById('stems-export-trigger').disabled`)), 'Exportar sigue deshabilitado');
+    assert(!(await evaluate(`document.getElementById('stems-rec').disabled`)), 'Grabarte encima sigue deshabilitado con pistas');
   });
 
   await check('Timeline visible en una portátil de 1366×768', async () => {
