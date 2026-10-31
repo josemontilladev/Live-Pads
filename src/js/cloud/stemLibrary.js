@@ -61,6 +61,40 @@ export async function setLoopTier(loopId, tier) {
   return await rpc('stem_loop_set_tier', { p_loop_id: loopId, p_tier: tier });
 }
 
+// Subir y publicar packs desde la app (Edge Function stem-library-admin, que
+// vuelve a comprobar que quien llama es administrador).
+async function admin(action, payload = {}) {
+  const r = await invokeFunction('stem-library-admin', { action, ...payload });
+  if (!r || r.error) throw new Error(r?.error || 'Error de administración');
+  return r;
+}
+export const adminListPacks = async () => (await admin('list')).packs;
+export const adminSavePack = async (pack) => (await admin('save_pack', pack)).pack;
+export const adminAddLoops = async (packId, loops) => (await admin('add_loops', { packId, loops })).ids;
+export const adminSetPublished = (packId, published) => admin('set_published', { packId, published });
+
+/** Sube bytes a catalog/<path> (firma en la función, PUT desde el proceso principal). */
+export async function adminUpload(path, bytes, contentType) {
+  const { url } = await admin('sign_put', { path, contentType });
+  return window.electronAPI.r2PutBytes({ url, bytes, contentType });
+}
+
+/** Portada del pack en caché local (Loops/<cover_path>) → URL livepads://, o null. */
+export async function ensureCoverLocal(pack) {
+  if (!pack?.cover_path) return null;
+  const p = String(pack.cover_path).replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!p || p.includes('..')) return null;
+  const rel = `Loops/${p}`;
+  const api = window.electronAPI;
+  const { present } = await api.libraryFilesStat([rel]);
+  if (!present.length) {
+    const r = await invokeFunction('stem-library-sign', { packId: pack.id, kind: 'cover' });
+    if (!r?.url) return null;
+    await api.r2DownloadFile({ url: r.url, relPath: rel });
+  }
+  return `livepads://app/${rel.split('/').map(encodeURIComponent).join('/')}`;
+}
+
 async function signLoop(loopId, kind) {
   const r = await invokeFunction('stem-library-sign', { loopId, kind });
   if (!r || !r.url) throw new Error(r?.error || 'No se pudo firmar la URL.');
