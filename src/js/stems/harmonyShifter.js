@@ -22,7 +22,7 @@ import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.j
 // Código del processor (cargado 1 vez por IPC): cada OfflineAudioContext es
 // nuevo y necesita su propio addModule, así que cacheamos el Blob URL.
 let _workletUrlPromise = null;
-function getWorkletUrl() {
+export function getWorkletUrl() {
   if (_workletUrlPromise) return _workletUrlPromise;
   _workletUrlPromise = (async () => {
     try {
@@ -42,7 +42,7 @@ const MAX_RENDER_RATE = 48000;
 
 // Resamplea un AudioBuffer a `maxRate` si supera ese valor (vía un render
 // offline al rate destino). Devuelve el mismo buffer si ya está por debajo.
-async function capSampleRate(buffer, maxRate) {
+export async function capSampleRate(buffer, maxRate) {
   if (buffer.sampleRate <= maxRate) return buffer;
   const channels = Math.min(2, buffer.numberOfChannels);
   const outLen = Math.max(1, Math.ceil((buffer.duration || buffer.length / buffer.sampleRate) * maxRate));

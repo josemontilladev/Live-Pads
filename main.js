@@ -157,7 +157,9 @@ function saveToBoth(relativeSubPath, contentString) {
 // Lo que SÍ se redirige a la carpeta custom: Sequences/, Original Tracks/.
 // Lo que NO: UserDrums/ (samples del kit, app-data, no librería de usuario).
 const AUDIO_LIBRARY_CFG_FILE = 'audio-library.json';
-const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers', 'Stems'];
+// Loops/ = caché local de la biblioteca de stems oficial (Loops/<pack>/<archivo>),
+// para que lo ya usado en el editor siga sonando sin internet.
+const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers', 'Stems', 'Loops'];
 
 function readAudioLibraryConfig() {
   try {

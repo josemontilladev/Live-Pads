@@ -84,6 +84,10 @@ function nextStemColor() {
 
 import { detectStemRole, STEM_ROLE_COLORS, STEM_KIND_BADGE } from './stemRole.js';
 import { getSongStems, hasSongStems, attachStem, persistSong, songSlug, openSongStemsDialog } from './songStems.js';
+import { mountLibraryPanel, LOOP_DRAG_TYPE } from './libraryPanel.js';
+import { fitLoop } from './loopFit.js';
+import { renderLoop } from './loopRender.js';
+import { ensureLoopLocal } from '../cloud/stemLibrary.js';
 
 // ── Module state ───────────────────────────────────────────────────
 let mounted = false;
@@ -371,6 +375,7 @@ export async function mount() {
   wireConsoleCollapse(root);
   wireConsoleResize(root);
   wirePiano(root);
+  wireLibrary(root);
   refreshSectionDropdown();
   refreshClickSoundDropdown();
   renderAccentChips();
@@ -552,6 +557,10 @@ const SHELL_HTML = `
     <header class="stems-actions stems-actions--unified">
       <div class="stems-actions-primary">
         <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
+        <button class="stems-btn stems-btn--ghost" id="stems-library-toggle" title="Loops listos para tu secuencia: se ajustan solos al BPM y al tono del proyecto">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Biblioteca
+        </button>
         <button class="stems-btn stems-btn--ghost" id="stems-export" disabled>
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Exportar MP3
@@ -3590,6 +3599,95 @@ async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan
   catch (e) { console.warn('No se pudo guardar la pista nueva:', e); }
   appendTrackRow(id, savedPath);
   return id;
+}
+
+// ── Biblioteca de stems: loops oficiales ajustados al proyecto ─────────────
+// El panel (libraryPanel.js) explora y escucha; aquí se baja el loop, se ajusta
+// a BPM/tono y entra al timeline como una pista más (con deshacer). La pista
+// queda guardada en el proyecto como cualquier otra, así que suena sin internet.
+let libraryPanel = null;
+
+// Color por instrumento, con la misma paleta de roles que los stems separados.
+const LOOP_ROLE = { drums: 'drums', perc: 'drums', bass: 'bass', keys: 'keys', pad: 'keys', synth: 'keys', guitar: 'guitar', vocals: 'vocals' };
+
+function barSnap(sec, mode = 'floor') {
+  const barSec = (60 / bpmFloat) * beatsPerBar;
+  const n = mode === 'round' ? Math.round(sec / barSec) : Math.floor(sec / barSec + 1e-6);
+  return Math.max(0, n) * barSec;
+}
+
+async function addLoopFromLibrary(loop, { atSec, repeats = 1 } = {}) {
+  const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
+  let url;
+  try {
+    url = await ensureLoopLocal(loop);
+  } catch (e) {
+    if (e.code === 'plan_required') {
+      showToast('Este pack es parte de LivePads Pro.', 'info');
+      import('../billing/plansModal.js')
+        .then((m) => m.openPlansModal({ reason: 'Los packs Pro de la biblioteca de stems son parte de LivePads Pro.' }))
+        .catch(() => {});
+      return;
+    }
+    console.warn('No se pudo bajar el loop:', e);
+    showToast('No se pudo descargar el loop. ¿Hay internet?', 'error');
+    return;
+  }
+  try {
+    // El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master
+    // activo, appendTrackRow ya lleva la pista nueva al mismo tono que el resto.
+    const fit = fitLoop(
+      { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
+      { bpm: bpmFloat, key: projectKey, beatsPerBar }
+    );
+    const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
+    const buffer = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats });
+    const role = LOOP_ROLE[loop.instrument];
+    const spec = { buffer, name: loop.title, color: role ? STEM_ROLE_COLORS[role] : undefined, offsetSec: at };
+    let id = await addAudioTrackFromBuffer(spec);
+    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+    locateTrackRow(id, { scroll: true });
+    pushHistory('Agregar loop',
+      async () => { try { await removeTrackById(id); } catch (_) {} scheduleSave(); },
+      async () => { id = await addAudioTrackFromBuffer(spec); refreshTimelineWidth(); scheduleSave(); });
+    const bar = Math.round(at / ((60 / bpmFloat) * beatsPerBar)) + 1;
+    showToast(`Loop "${loop.title}" agregado en el compás ${bar}. Ctrl+Z para deshacer.`, 'success');
+  } catch (e) {
+    console.warn('No se pudo agregar el loop:', e);
+    showToast('No se pudo procesar el loop.', 'error');
+  }
+}
+
+function wireLibrary(root) {
+  const host = root.querySelector('.stems-main');
+  if (!host) return;
+  libraryPanel = mountLibraryPanel(host, {
+    getProject: () => ({ bpm: bpmFloat, key: projectKey, beatsPerBar }),
+    getTransport: () => ({ playing: engine.isCurrentlyPlaying(), sec: engine.getCurrentSec() }),
+    getAudioOut: () => ({ ctx: engine.getAudioContext(), dest: engine.getMasterGain() }),
+    addLoop: addLoopFromLibrary,
+  });
+  const btn = root.querySelector('#stems-library-toggle');
+  if (btn) btn.onclick = () => libraryPanel.toggle();
+
+  // Soltar un loop sobre el timeline: entra en el compás más cercano. La regla
+  // (.stems-head-tl) comparte el origen horizontal con todas las pistas.
+  const arrange = root.querySelector('#stems-arrange');
+  const isLoopDrag = (e) => Array.from(e.dataTransfer?.types || []).includes(LOOP_DRAG_TYPE);
+  arrange?.addEventListener('dragover', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  arrange?.addEventListener('drop', (e) => {
+    if (!isLoopDrag(e)) return;
+    e.preventDefault();
+    const loop = libraryPanel.getLoop(e.dataTransfer.getData(LOOP_DRAG_TYPE));
+    const tl = root.querySelector('.stems-head-tl');
+    if (!loop || !tl) return;
+    const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
+    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats() });
+  });
 }
 
 // ── Selección de un RANGO de tiempo (silenciar / fade / exportar el tramo) ──
