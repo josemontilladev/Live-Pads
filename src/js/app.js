@@ -174,7 +174,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       buildBankSelects();
       const cur = PAD_BANKS[getPadBankIdx()];
       if (cur && cur.id !== FREE_PAD_BANK && !hasFeature('padBanks')) loadPadBank(getPadBankIdx(), { silent: true });
-      if (document.body.dataset.workspace === 'stems' && !hasFeature('stems')) applyWorkspace('pads', { silent: true });
       // Si el plan llegó tarde y ahora sí incluye todo: vuelve a lo que la persona tenía elegido.
       if (hasFeature('padBanks')) {
         const saved = parseInt(localStorage.getItem('lastPadBankIdx'));
@@ -182,7 +181,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (hasFeature('cloud')) import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
       q('#btn-chords-pads')?.classList.toggle('lp-locked', !hasFeature('chords'));
-      document.querySelector('.ws-tab[data-workspace="stems"]')?.classList.toggle('lp-locked', !hasFeature('stems'));
+      // Stems ya no se bloquea entero: con Gratis se entra para usar los loops
+      // gratis de la Biblioteca; lo Pro se pide dentro (stems/workspace.js).
     } catch (_) {}
   });
 
@@ -1303,19 +1303,13 @@ function bindWorkspaceSwitcher() {
   const tabs = qa('.ws-tab');
   if (!tabs.length) return;
   const stored = localStorage.getItem(WS_KEY) || 'pads';
-  applyWorkspace(stored, { silent: true });
+  applyWorkspace(stored);
   tabs.forEach(tab => {
     tab.onclick = () => applyWorkspace(tab.dataset.workspace);
   });
 }
-function applyWorkspace(name, { silent = false } = {}) {
-  let valid = name === 'stems' ? 'stems' : 'pads';
-  let forcedByPlan = false;
-  if (valid === 'stems' && !hasFeature('stems')) {
-    if (!silent) requireFeature('stems');
-    valid = 'pads';
-    forcedByPlan = silent;
-  }
+function applyWorkspace(name) {
+  const valid = name === 'stems' ? 'stems' : 'pads';
   // Hiding logic lives in CSS now: `body[data-workspace="stems"]` hides
   // all Pads-only chrome (#stage, #track-player-bar, #now-playing-banner)
   // while keeping the fixed #sidebar reachable so the gear / ? buttons
@@ -1346,7 +1340,7 @@ function applyWorkspace(name, { silent = false } = {}) {
   // Switch the active MIDI map so Pads and Stems use fully independent
   // mappings (a control mapped in one never fires in the other).
   setMidiScope(valid);
-  if (!forcedByPlan) { try { localStorage.setItem(WS_KEY, valid); } catch (e) {} }
+  try { localStorage.setItem(WS_KEY, valid); } catch (e) {}
 
   // First-run tutorial fires the very first time the user enters each
   // workspace. After that it can be re-launched manually. Entering Stems
