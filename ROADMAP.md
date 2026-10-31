@@ -22,6 +22,29 @@ Estado: implementado (incl. "Click + secuencia" y contracción de letra al cambi
 
 ---
 
+## 📍 CHECKPOINT — 2026-10-31 (Biblioteca de stems: fases 1–3, práctica y comunidad)
+
+### Estado
+- **Versiones:** 1.0.192 (biblioteca, armar por secciones, vistas, métricas) y 1.0.193 (grabarse encima, comunidad con moderación, sin conexión, sync por campos); la siguiente trae calibración/pasadas/avisos/reportes.
+- **Biblioteca de stems** (Stems → panel derecho): packs oficiales en R2 `catalog/` + Supabase (`stem_packs`, `stem_loops`). Se ajustan a BPM/tono del proyecto; marca GRATIS/PRO por loop; vistas Compatibles/Favoritos/Recientes; filtro por sensación (tags); catálogo en caché local para usar sin conexión y descarga de packs completos.
+- **Administración** (botón ⇪ del panel, solo `stem_library_admins`): subir (re-subir un archivo ACTUALIZA el loop y conserva marca/datos), Mis packs (editar loops, portada, orden, borrar), Moderación (envíos de la comunidad + loops reportados), Uso (métricas `stem_loop_events`).
+- **Comunidad**: cuentas Pro envían packs (`status` pending → approved/rejected con nota); avisos en la app (`communityNotify.js`); cualquiera reporta un loop de la comunidad (`stem_loop_reports`).
+- **Práctica**: ● / tecla R graba el micrófono sobre el proyecto (`takeRecorder.js` + worklet); en loop A-B cada vuelta es una pasada; ▾ = entrada, cuenta de entrada, escucharse, calibrar latencia.
+- **Sync de canciones**: solo sube lo editado, no pisa versiones más nuevas de otros y fusiona por campos (`songMerge.js`); el diálogo de conflicto solo aparece si ambos tocaron el mismo campo. Los servicios ya bajaban antes de subir (gana la edición más reciente por servicio).
+
+### Servidor (lo aplica el usuario en Supabase)
+- Migraciones 0016–0020. Funciones `stem-library-sign` y `stem-library-admin` (pegar el código y Deploy).
+
+### Pruebas
+- `npm test` (unidad) y `npm run test:ui` (Electron, sin cuenta) corren en CI.
+- `LP_ADMIN_PROFILE=<perfil con sesión de admin> npm run test:admin`: administración y comunidad contra la nube real; borra lo que crea. No corre en CI.
+
+### Pendiente
+- Probar la grabación con micrófono real (y calibrar). Subir los stems reales.
+- Prueba de sync con dos cuentas reales editando la misma canción.
+
+---
+
 ## 📍 CHECKPOINT — Sesión cerrada 2026-05-26 (backend multiusuario + cuentas + marca + v1.0.0)
 
 ### Estado al cerrar

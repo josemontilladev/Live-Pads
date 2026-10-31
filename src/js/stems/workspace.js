@@ -91,7 +91,7 @@ import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
 import { ensureLoopLocal, trackLoopEvent } from '../cloud/stemLibrary.js';
 import { openQuickStart } from './quickStart.js';
-import { startTake, listInputs } from './takeRecorder.js';
+import { startTake, listInputs, playClicks, calibrateLatency, getCalibratedLatency, setCalibratedLatency } from './takeRecorder.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
 
 // Plan Gratis: el editor se abre para armar secuencias con los loops GRATIS de
@@ -372,7 +372,8 @@ export async function mount() {
 
   engine.init({
     onPlayingChange: applyPlayingState,
-    onTimeUpdate: applyTimeUpdate
+    onTimeUpdate: applyTimeUpdate,
+    onLoop: onEngineLoop,
   });
 
   wireStemsMidi();
@@ -556,8 +557,11 @@ const SHELL_HTML = `
         </button>
         <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
         <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Pausa" disabled>${SVG_PLAY}</button>
-        <button class="stems-tb-btn stems-tb-btn--rec" id="stems-rec" title="Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Clic derecho: elegir entrada." aria-label="Grabarte encima" disabled>
+        <button class="stems-tb-btn stems-tb-btn--rec" id="stems-rec" title="Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Opciones en ▾." aria-label="Grabarte encima" disabled>
           <span class="stems-rec-dot" aria-hidden="true"></span>
+        </button>
+        <button class="stems-tb-btn stems-rec-menu" id="stems-rec-menu" type="button" title="Opciones de grabación: entrada, cuenta de entrada, escucharte y calibrar latencia" aria-label="Opciones de grabación">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
           <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
@@ -1154,7 +1158,11 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-stop').onclick = () => { resumeAutoFollow(); engine.stop(); };
   const recBtn = root.querySelector('#stems-rec');
   recBtn.onclick = () => toggleTake();
-  recBtn.oncontextmenu = (e) => { e.preventDefault(); openTakeInputMenu(e.clientX, e.clientY); };
+  recBtn.oncontextmenu = (e) => { e.preventDefault(); openTakeMenu(e.clientX, e.clientY); };
+  root.querySelector('#stems-rec-menu').onclick = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    openTakeMenu(r.left, r.bottom + 4);
+  };
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
   // pausa, queda en 0. (Stop, en cambio, detiene.)
   root.querySelector('#stems-restart').onclick = () => { resumeAutoFollow(); engine.seek(0); };
@@ -3889,43 +3897,86 @@ async function addLoopFromLibrary(loop, { atSec, repeats = 1, sameTrack = true }
 // A-B…) y se graba el micrófono. Al parar, la toma entra como pista nueva
 // "Mi toma N" en su sitio exacto del timeline (takeRecorder compensa la
 // latencia), para escucharte con el resto. Ctrl+Z la descarta.
+//   · Con loop A-B activo, cada vuelta es una pasada: "Mi toma N · pasada k",
+//     todas silenciadas menos la última, para compararlas con Solo.
+//   · Opciones (▾ junto al botón o clic derecho): entrada, cuenta de entrada,
+//     escucharse con audífonos y calibrar la latencia de este equipo.
 const TAKE_INPUT_KEY = 'stems-take-input';
-let takeSession = null;   // { rec, raf, fromSec, finishing }
+const TAKE_COUNTIN_KEY = 'stems-take-countin';
+const TAKE_MONITOR_KEY = 'stems-take-monitor';
+let takeSession = null;   // { rec, raf, fromSec, anchors, finishing, stopClicks, startTimer }
 
-const takeInputId = () => { try { return localStorage.getItem(TAKE_INPUT_KEY) || ''; } catch (_) { return ''; } };
+const readPref = (k, def) => { try { const v = localStorage.getItem(k); return v == null ? def : v; } catch (_) { return def; } };
+const writePref = (k, v) => { try { localStorage.setItem(k, v); } catch (_) {} };
+const takeInputId = () => readPref(TAKE_INPUT_KEY, '');
+const takeCountIn = () => readPref(TAKE_COUNTIN_KEY, '1') === '1';
+const takeMonitor = () => readPref(TAKE_MONITOR_KEY, '0') === '1';
 
 function micErrorMessage(e) {
   if (e?.name === 'NotAllowedError') return 'LivePads no tiene permiso para usar el micrófono. Revísalo en la configuración de privacidad de Windows.';
-  if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') return 'No se encontró la entrada de audio. Clic derecho en ● para elegir otra.';
+  if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') return 'No se encontró la entrada de audio. Elige otra en ▾, junto al botón de grabar.';
   return `No se pudo abrir el micrófono: ${e?.message || e}`;
 }
 
-async function openTakeInputMenu(x, y) {
+async function openTakeMenu(x, y) {
   const inputs = await listInputs();
   const current = takeInputId();
-  const pick = (id) => { try { localStorage.setItem(TAKE_INPUT_KEY, id); } catch (_) {} };
+  const check = (on) => (on ? '✓' : '');
+  const calib = getCalibratedLatency(current);
   openContextMenu(x, y, [
-    { label: `${current ? '' : '✓ '}Entrada predeterminada de Windows`, onSelect: () => pick('') },
-    ...inputs.filter((d) => d.id && d.id !== 'default').map((d) => ({ label: `${d.id === current ? '✓ ' : ''}${d.label}`, onSelect: () => pick(d.id) })),
+    { icon: check(!current), label: 'Entrada predeterminada de Windows', onSelect: () => writePref(TAKE_INPUT_KEY, '') },
+    ...inputs.filter((d) => d.id && d.id !== 'default').map((d) => ({
+      icon: check(d.id === current), label: esc(d.label), onSelect: () => writePref(TAKE_INPUT_KEY, d.id),
+    })),
+    { icon: check(takeCountIn()), label: 'Cuenta de entrada (un compás de click)', onSelect: () => writePref(TAKE_COUNTIN_KEY, takeCountIn() ? '0' : '1') },
+    { icon: check(takeMonitor()), label: 'Escucharme mientras grabo (con audífonos)', onSelect: () => writePref(TAKE_MONITOR_KEY, takeMonitor() ? '0' : '1') },
+    { icon: '⏱', label: calib != null ? `Calibrar latencia (ahora ${Math.round(calib * 1000)} ms)` : 'Calibrar latencia de este equipo…', onSelect: () => runLatencyCalibration() },
   ]);
+}
+
+async function runLatencyCalibration() {
+  if (takeSession) return;
+  if (engine.isCurrentlyPlaying()) engine.pause();
+  const ok = await confirmDialogAsync({
+    title: 'Calibrar latencia',
+    message: 'Sonarán 6 clicks por los altavoces y el micrófono los captará para medir el retraso real de tu equipo. Usa altavoces (no audífonos), sube un poco el volumen y no hagas ruido durante 4 segundos.',
+    confirmLabel: 'Empezar', danger: false,
+  });
+  if (!ok) return;
+  showToast('Midiendo… silencio unos segundos.', 'info');
+  try {
+    const sec = await calibrateLatency(engine.getAudioContext(), { deviceId: takeInputId() });
+    setCalibratedLatency(takeInputId(), sec);
+    showToast(`Latencia medida: ${Math.round(sec * 1000)} ms. Tus tomas se alinearán con esa medida.`, 'success');
+  } catch (e) {
+    showToast(e?.name ? micErrorMessage(e) : e.message, 'error');
+  }
 }
 
 function paintTake(on) {
   const btn = document.getElementById('stems-rec');
   if (!btn) return;
   btn.classList.toggle('is-recording', on);
-  btn.title = on ? 'Grabando… clic (o R, o Espacio) para terminar la toma' : 'Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Clic derecho: elegir entrada.';
+  btn.title = on ? 'Grabando… clic (o R, o Espacio) para terminar la toma' : 'Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Opciones en ▾.';
   if (!on) btn.style.removeProperty('--lvl');
   document.getElementById('workspace-stems')?.classList.toggle('is-recording', on);
 }
 
-function nextTakeName() {
+function nextTakeNumber() {
   let n = 0;
   for (const t of engine.getTracks()) {
-    const m = /^Mi toma (\d+)$/.exec(t.name || '');
+    const m = /^Mi toma (\d+)/.exec(t.name || '');
     if (m) n = Math.max(n, Number(m[1]));
   }
-  return `Mi toma ${n + 1}`;
+  return n + 1;
+}
+
+// El loop A-B volvió al inicio: nueva pasada (nueva relación reloj ↔ timeline).
+function onEngineLoop() {
+  if (!takeSession || takeSession.finishing || !takeSession.anchors.length) return;
+  const ctx = engine.getAudioContext();
+  // La música vuelve a sonar desde el inicio del loop (play programa +50 ms).
+  takeSession.anchors.push({ t: ctx.currentTime, sec: engine.getCurrentSec(), startSec: engine.getLoopRegion().start });
 }
 
 async function toggleTake() {
@@ -3935,63 +3986,120 @@ async function toggleTake() {
   const ctx = engine.getAudioContext();
   if (ctx.state === 'suspended') await ctx.resume();
   const wasPlaying = engine.isCurrentlyPlaying();
-  // Sin reproducir: arranca un compás antes del cursor para entrar a tiempo.
-  if (!wasPlaying) {
-    const barSec = (60 / bpmFloat) * beatsPerBar;
-    engine.seek(Math.max(0, barSnap(engine.getCurrentSec()) - barSec));
-  }
+  const barSec = (60 / bpmFloat) * beatsPerBar, beatSec = 60 / bpmFloat;
+  const cursor = engine.getCurrentSec();
+  const loop = engine.getLoopRegion();
+  const looping = loop.start != null && loop.end != null;
+  // Sin reproducir: arranca un compás antes del cursor para entrar a tiempo. Con
+  // loop A-B, desde el inicio del loop (la cuenta, si está activa, va antes).
+  if (!wasPlaying) engine.seek(looping ? loop.start : Math.max(0, barSnap(cursor) - barSec));
   const fromSec = engine.getCurrentSec();
-  let anchor = null;   // { t, sec }: une el reloj del audio con el timeline
   let rec;
   try {
-    rec = await startTake(ctx, { deviceId: takeInputId(), toTimeline: (t) => anchor.sec + (t - anchor.t) });
+    rec = await startTake(ctx, { deviceId: takeInputId(), monitor: takeMonitor() });
   } catch (e) {
     showToast(micErrorMessage(e), 'error');
     return;
   }
-  if (!wasPlaying) { resumeAutoFollow(); engine.play(); }
-  anchor = { t: ctx.currentTime, sec: engine.getCurrentSec() };
-  takeSession = { rec, raf: 0, fromSec: wasPlaying ? anchor.sec : fromSec, finishing: false };
+  const s = takeSession = { rec, raf: 0, fromSec, anchors: [], finishing: false, stopClicks: null, startTimer: 0 };
   paintTake(true);
   const btn = document.getElementById('stems-rec');
   const meter = () => {
-    if (!takeSession) return;
-    btn?.style.setProperty('--lvl', takeSession.rec.level().toFixed(3));
-    takeSession.raf = requestAnimationFrame(meter);
+    if (takeSession !== s) return;
+    btn?.style.setProperty('--lvl', s.rec.level().toFixed(3));
+    s.raf = requestAnimationFrame(meter);
   };
   meter();
+
+  const begin = () => {
+    if (takeSession !== s || s.finishing) return;
+    if (!engine.isCurrentlyPlaying()) { resumeAutoFollow(); engine.play(); }
+    const anchor = { t: ctx.currentTime, sec: engine.getCurrentSec() };   // une el reloj del audio con el timeline
+    s.anchors.push(anchor);
+    if (wasPlaying) s.fromSec = anchor.sec;
+    return anchor;
+  };
+
+  if (wasPlaying || !takeCountIn()) { begin(); return; }
+  if (!looping && fromSec < barSnap(cursor) - 1e-3) {
+    // Hay un compás antes: la cuenta suena encima de él, al tiempo de la música.
+    const a = begin();
+    s.stopClicks = playClicks(ctx, Array.from({ length: beatsPerBar }, (_, k) => a.t + (fromSec + k * beatSec - a.sec)));
+  } else {
+    // En el compás 1 no hay compás previo: un compás de click y luego arranca.
+    const c0 = ctx.currentTime + 0.15;
+    s.stopClicks = playClicks(ctx, Array.from({ length: beatsPerBar }, (_, k) => c0 + k * beatSec));
+    s.startTimer = setTimeout(begin, Math.max(0, (c0 + barSec - 0.05 - ctx.currentTime) * 1000));
+  }
 }
 
 async function finishTake() {
   const s = takeSession;
   if (!s || s.finishing) return;
   s.finishing = true;
+  clearTimeout(s.startTimer);
+  s.stopClicks?.();
   cancelAnimationFrame(s.raf);
+  const ctx = engine.getAudioContext();
+  const endT = ctx.currentTime;
   if (engine.isCurrentlyPlaying()) engine.pause();
   let r = null;
   try { r = await s.rec.stop(); } catch (e) { console.warn('La toma falló:', e); }
   takeSession = null;
   paintTake(false);
   applyPlayingState(engine.isCurrentlyPlaying());
-  if (!r) { showToast('La toma quedó vacía.', 'info'); return; }
-  let { buffer, startSec } = r;
-  // Lo grabado antes de que empezara a sonar no sirve: se recorta.
-  if (startSec < s.fromSec) { buffer = sliceBuffer(buffer, s.fromSec - startSec, buffer.duration); startSec = s.fromSec; }
-  if (!buffer || buffer.duration < 0.3) { showToast('La toma quedó vacía.', 'info'); return; }
-  const spec = { buffer, name: nextTakeName(), color: '#ff5d5d', offsetSec: Math.max(0, startSec), kind: 'stem' };
-  let id = await addAudioTrackFromBuffer(spec);
+  if (!r || !s.anchors.length) { showToast('La toma quedó vacía.', 'info'); return; }
+
+  // Pasadas: cada ancla abre un tramo en tiempo de reproducción. Una muestra
+  // captada en c se tocó escuchando lo que sonaba en c − latencia.
+  const { buffer, firstT, latency } = r;
+  const sr = buffer.sampleRate;
+  const idx = (p) => Math.max(0, Math.min(buffer.length, Math.round((p + latency - firstT) * sr)));
+  const passes = [];
+  s.anchors.forEach((a, i) => {
+    const pStart = a.t + ((i === 0 ? s.fromSec : (a.startSec ?? a.sec)) - a.sec);
+    const pEnd = i + 1 < s.anchors.length ? s.anchors[i + 1].t : endT;
+    const from = idx(pStart), to = idx(pEnd);
+    if (to - from < 0.3 * sr) return;
+    const piece = sliceBuffer(buffer, from / sr, to / sr);
+    if (piece) passes.push({ buffer: piece, offsetSec: Math.max(0, a.sec + (pStart - a.t)) });
+  });
+  if (!passes.length) { showToast('La toma quedó vacía.', 'info'); return; }
+
+  const n = nextTakeNumber();
+  const specs = passes.map((p, k) => ({
+    ...p, color: '#ff5d5d', kind: 'stem',
+    name: passes.length > 1 ? `Mi toma ${n} · pasada ${k + 1}` : `Mi toma ${n}`,
+  }));
+  const addAll = async () => {
+    const ids = [];
+    for (const [k, spec] of specs.entries()) {
+      const id = await addAudioTrackFromBuffer(spec);
+      // Varias pasadas del mismo tramo: suena solo la última; las demás, para comparar.
+      if (k < specs.length - 1) applyTrackMute(id, true);
+      ids.push(id);
+    }
+    return ids;
+  };
+  let ids = await addAll();
   afterLoopEdit();
-  locateTrackRow(id, { scroll: true });
+  locateTrackRow(ids[ids.length - 1], { scroll: true });
   pushHistory('Grabar toma',
-    async () => { try { await removeTrackById(id); } catch (_) {} afterLoopEdit(); },
-    async () => { id = await addAudioTrackFromBuffer(spec); afterLoopEdit(); });
-  showToast(`"${spec.name}" grabada. Dale Play para escucharte; Ctrl+Z la descarta.`, 'success');
+    async () => { for (const id of ids) { try { await removeTrackById(id); } catch (_) {} } afterLoopEdit(); },
+    async () => { ids = await addAll(); afterLoopEdit(); });
+  showToast(specs.length > 1
+    ? `${specs.length} pasadas grabadas (Mi toma ${n}). Suena la última; usa Solo para comparar. Ctrl+Z las descarta.`
+    : `"${specs[0].name}" grabada. Dale Play para escucharte; Ctrl+Z la descarta.`, 'success');
 }
 
 // "Armar una canción en 1 minuto" (estado vacío): fija tempo y tono por los
 // mismos controles de la barra (así quedan en el historial y se guardan) y
 // abre "Armar por secciones" con la plantilla elegida.
-function startQuickSong(root) {
+async function startQuickSong(root) {
+  // Antes de pedir nada: ¿hay loops con los que armarla? (si no, no se toca el proyecto)
+  const usable = await libraryPanel.usableLoopCount();
+  if (usable < 0) { showToast('Inicia sesión en tu cuenta de LivePads para armar canciones con la Biblioteca.', 'info'); return; }
+  if (usable === 0) { showToast('La Biblioteca todavía no tiene loops que puedas usar. Vuelve pronto.', 'info'); return; }
   const bpmInput = root.querySelector('#stems-bpm');
   const keySel = root.querySelector('#stems-key');
   openQuickStart({

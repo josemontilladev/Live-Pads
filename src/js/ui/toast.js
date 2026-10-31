@@ -7,7 +7,9 @@ const ICONS = {
   warning: '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
 };
 
-export function showToast(message, type = 'info') {
+// opts.action = { label, onClick } añade un botón (p. ej. "Revisar"); opts.ttl
+// cambia cuánto dura. Sin opts, todo como siempre.
+export function showToast(message, type = 'info', opts = {}) {
   // Toast container is anchored ABOVE the track-player bar (height 76px)
   // so toasts never sit on top of the transport controls. Layout + style
   // live in _modals.css (.toast-container, .toast, .toast--success, etc.)
@@ -31,7 +33,8 @@ export function showToast(message, type = 'info') {
   // _modals.css) con los tokens del theme — nada de colores inline.
   toast.className = `toast toast--${type}`;
   if (type === 'error' || type === 'warning') toast.setAttribute('role', 'alert');
-  toast.innerHTML = `${icon}<span>${esc(message)}</span><button class="toast-close" aria-label="Cerrar" title="Cerrar">×</button>`;
+  const action = opts.action && opts.action.label ? `<button class="toast-action" type="button">${esc(opts.action.label)}</button>` : '';
+  toast.innerHTML = `${icon}<span>${esc(message)}</span>${action}<button class="toast-close" aria-label="Cerrar" title="Cerrar">×</button>`;
   container.appendChild(toast);
 
   requestAnimationFrame(() => toast.classList.add('toast--in'));
@@ -42,8 +45,10 @@ export function showToast(message, type = 'info') {
   };
   // Los errores duran más (se pierden si el director miraba el escenario) y
   // todos se pueden cerrar a mano con la ×.
-  const ttl = type === 'error' ? 9000 : 4000;
+  const ttl = opts.ttl || (type === 'error' || action ? 9000 : 4000);
   const timer = setTimeout(dismiss, ttl);
+  const actBtn = toast.querySelector('.toast-action');
+  if (actBtn) actBtn.onclick = () => { clearTimeout(timer); dismiss(); try { opts.action.onClick(); } catch (_) {} };
   const closeBtn = toast.querySelector('.toast-close');
   if (closeBtn) closeBtn.onclick = () => { clearTimeout(timer); dismiss(); };
 }

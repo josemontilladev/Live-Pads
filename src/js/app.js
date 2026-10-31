@@ -176,6 +176,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.dispatchEvent(new Event('livepads:open-library'));
       },
     })).catch(() => {});
+    // Avisos de la comunidad de la Biblioteca (envíos aprobados/rechazados; al
+    // administrador, lo pendiente de revisar). "Revisar"/"Ver" abre la ventana.
+    const openStemsWindow = (opts) => {
+      applyWorkspace('stems');
+      import('./stems/packUploader.js').then(m => m.openPackUploader({
+        ...opts, onChanged: () => window.dispatchEvent(new Event('livepads:stem-library-changed')),
+      })).catch(() => {});
+    };
+    import('./cloud/communityNotify.js').then(m => m.startCommunityNews({
+      openReview: () => openStemsWindow({ tab: 'review' }),
+      openMine: () => openStemsWindow({ community: true, tab: 'packs' }),
+    })).catch(() => {});
   }, 2500));
   // Si el plan cambia (prueba terminada, pago, cancelación) la app se ajusta en caliente.
   window.addEventListener('livepads:plan-changed', () => {

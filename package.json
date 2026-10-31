@@ -20,7 +20,8 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "build:all": "electron-builder --win --mac --linux",
-    "rebuild": "electron-rebuild -f -w mongodb"
+    "rebuild": "electron-rebuild -f -w mongodb",
+    "test:admin": "node tests/admin/run.mjs"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",

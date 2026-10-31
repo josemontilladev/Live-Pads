@@ -1996,3 +1996,10 @@ body.lyrics-fs-open { overflow: hidden; }
 .cfl-actions { display: flex; gap: 6px; }
 .cfl-actions .acc-btn { flex: 1; }
 .cfl-foot { display: flex; justify-content: flex-end; margin-top: 2px; }
+/* Botón de acción dentro de un toast ("Revisar", "Ver"…) */
+.toast-action {
+  flex: none; margin-left: 4px; padding: 3px 9px; border-radius: 6px; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 700;
+  background: transparent; border: 1px solid currentColor; color: inherit;
+}
+.toast-action:hover { background: color-mix(in srgb, currentColor 12%, transparent); }

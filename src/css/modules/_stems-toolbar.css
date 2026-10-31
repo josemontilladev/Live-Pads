@@ -83,3 +83,6 @@
 #stems-rec.is-recording .stems-rec-dot { opacity: 1; animation: stems-rec-pulse 1s ease-in-out infinite; }
 @keyframes stems-rec-pulse { 50% { transform: scale(.78); } }
 @media (prefers-reduced-motion: reduce) { #stems-rec.is-recording .stems-rec-dot { animation: none; } }
+/* ▾ opciones de grabación: pegado al ●, más estrecho */
+#stems-rec-menu { width: 22px; min-width: 22px; padding: 0; margin-left: -4px; color: var(--text-muted); }
+#stems-rec-menu:hover { color: var(--text); }

@@ -501,3 +501,42 @@
   display: inline-block; margin-top: 3px; padding: 1px 6px; border-radius: 999px;
   font-size: 10.5px; font-weight: 700; color: var(--accent2); background: var(--bg-hover);
 }
+
+/* Reportar un loop de la comunidad (⚑): discreto, aparece al pasar por encima */
+.stl-report {
+  flex: none; width: 22px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; color: var(--text-muted);
+  font-size: 12px; cursor: pointer; opacity: 0;
+}
+.stl-loop:hover .stl-report, .stl-report:focus-visible { opacity: .7; }
+.stl-report:hover { opacity: 1; border-color: var(--border-strong); color: #ff6b6b; }
+.stl-report-modal { width: min(460px, 100%); }
+.stl-report-reasons { display: grid; gap: 6px; }
+.stl-report-reasons label { display: flex; align-items: center; gap: 8px; }
+.stl-report-reasons input { accent-color: var(--accent); }
+.stl-report-modal textarea {
+  width: 100%; resize: vertical; padding: 8px; border-radius: 6px; font: inherit; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+
+/* Moderación: loops reportados */
+.spu-h4 { margin: 0 0 6px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.spu-reports:empty { display: none; }
+.spu-reports { display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.spu-report {
+  display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: var(--r-md);
+  background: var(--bg-card); border: 1px solid color-mix(in srgb, #ff6b6b 35%, var(--border));
+}
+.spu-report-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.spu-report-info span { color: var(--text-muted); }
+.spu-report-note { font-style: italic; }
+/* Orden de los packs (▲▼) */
+.spu-order { display: inline-flex; flex-direction: column; gap: 1px; }
+.spu-ord {
+  width: 22px; height: 15px; padding: 0; border-radius: 4px; cursor: pointer; font-size: 8px; line-height: 1;
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+}
+.spu-ord:hover { color: var(--text); border-color: var(--border-strong); }
+/* Editor: portada y datos de un envío de la comunidad */
+.spu-cover--edit .spu-cover-img { width: 56px; height: 56px; }
+.spu-pack--community { grid-template-columns: 2fr 3fr 1fr 1.4fr auto; }

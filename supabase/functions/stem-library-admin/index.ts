@@ -19,7 +19,9 @@
 //
 //   · Comunidad (cualquier cuenta con plan Pro, prueba o cortesía):
 //       my_packs                               → mis envíos con su estado y nota
-//       c_save_pack { packId?, title, … }      → crea/edita mi pack (queda 'pending', sin publicar)
+//       c_save_pack { packId?, title, …, cover_path? } → crea/edita mi pack (queda 'pending', sin publicar)
+//       c_update_loop { loopId, …campos }      → corrige los datos de un loop de mi envío (sin re-subir)
+//       c_delete_loop { loopId }               → quita un loop de mi envío
 //       c_sign_put { packId, name, contentType } → PUT a R2 dentro de la carpeta de MI pack
 //       c_add_loops { packId, loops, cover_path? } → como add_loops, solo en mi pack y sin publicar
 //       c_submit { packId, rights: true }      → lo manda a revisión (confirma que tiene los derechos)
@@ -194,6 +196,46 @@ Deno.serve(async (req) => {
     await db(`/stem_packs?id=eq.${pack.id}`, { method: 'DELETE' }); // los loops caen en cascada
   };
 
+  // Cambios permitidos en un loop (validados). `tier` solo lo toca el administrador.
+  const loopPatch = (allowTier: boolean): { patch: Record<string, unknown> } | { error: string } => {
+    const patch: Record<string, unknown> = {};
+    if (body.title !== undefined) {
+      const t = str(body.title, 120);
+      if (!t) return { error: 'El loop necesita un título' };
+      patch.title = t;
+    }
+    if (body.instrument !== undefined) {
+      if (!INSTRUMENTS.includes(body.instrument as string)) return { error: 'Instrumento inválido' };
+      patch.instrument = body.instrument;
+    }
+    if (body.section !== undefined) patch.section = SECTIONS.includes(body.section as string) ? body.section : 'any';
+    if (body.bpm !== undefined) {
+      const b = Number(body.bpm);
+      if (!(b >= 20 && b <= 300)) return { error: 'BPM fuera de rango (20–300)' };
+      patch.bpm = b;
+    }
+    if (body.bars !== undefined) {
+      const b = Number(body.bars);
+      if (!Number.isInteger(b) || b < 1 || b > 64) return { error: 'Compases fuera de rango (1–64)' };
+      patch.bars = b;
+    }
+    if (body.musical_key !== undefined) patch.musical_key = str(body.musical_key, 6) || null;
+    if (allowTier && body.tier !== undefined) patch.tier = body.tier === 'free' ? 'free' : 'pro';
+    if (body.tags !== undefined) patch.tags = tagList(body.tags);
+    if (!Object.keys(patch).length) return { error: 'Nada que cambiar' };
+    return { patch };
+  };
+
+  // Loop de un envío propio y aún editable (no aprobado).
+  const ownLoop = async () => {
+    const loopId = str(body.loopId, 40);
+    if (!UUID_RE.test(loopId)) return null;
+    const [loop] = await db(`/stem_loops?id=eq.${loopId}&select=id,pack_id,audio_path,preview_path`);
+    if (!loop) return null;
+    const pack = await getPack(loop.pack_id);
+    return pack && pack.submitted_by === user.id && pack.status !== 'approved' ? loop : null;
+  };
+
   const withCount = (packs: any[]) => packs.map((p: any) => ({ ...p, loops: p.stem_loops?.[0]?.count ?? 0, stem_loops: undefined }));
 
   try {
@@ -267,32 +309,9 @@ Deno.serve(async (req) => {
       case 'update_loop': {
         const loopId = str(body.loopId, 40);
         if (!UUID_RE.test(loopId)) return json({ error: 'Parámetros inválidos' }, 400);
-        const patch: Record<string, unknown> = {};
-        if (body.title !== undefined) {
-          const t = str(body.title, 120);
-          if (!t) return json({ error: 'El loop necesita un título' }, 400);
-          patch.title = t;
-        }
-        if (body.instrument !== undefined) {
-          if (!INSTRUMENTS.includes(body.instrument as string)) return json({ error: 'Instrumento inválido' }, 400);
-          patch.instrument = body.instrument;
-        }
-        if (body.section !== undefined) patch.section = SECTIONS.includes(body.section as string) ? body.section : 'any';
-        if (body.bpm !== undefined) {
-          const b = Number(body.bpm);
-          if (!(b >= 20 && b <= 300)) return json({ error: 'BPM fuera de rango (20–300)' }, 400);
-          patch.bpm = b;
-        }
-        if (body.bars !== undefined) {
-          const b = Number(body.bars);
-          if (!Number.isInteger(b) || b < 1 || b > 64) return json({ error: 'Compases fuera de rango (1–64)' }, 400);
-          patch.bars = b;
-        }
-        if (body.musical_key !== undefined) patch.musical_key = str(body.musical_key, 6) || null;
-        if (body.tier !== undefined) patch.tier = body.tier === 'free' ? 'free' : 'pro';
-        if (body.tags !== undefined) patch.tags = tagList(body.tags);
-        if (!Object.keys(patch).length) return json({ error: 'Nada que cambiar' }, 400);
-        const [saved] = await db(`/stem_loops?id=eq.${loopId}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) });
+        const built = loopPatch(true);
+        if ('error' in built) return json({ error: built.error }, 400);
+        const [saved] = await db(`/stem_loops?id=eq.${loopId}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(built.patch) });
         if (!saved) return json({ error: 'Loop no encontrado' }, 404);
         return json({ loop: saved });
       }
@@ -357,7 +376,13 @@ Deno.serve(async (req) => {
           const pack = await ownPack();
           if (!pack) return json({ error: 'Pack no encontrado' }, 404);
           if (pack.status === 'approved') return json({ error: 'Ya está aprobado; pide al administrador cualquier cambio' }, 409);
-          const [saved] = await db(`/stem_packs?id=eq.${pack.id}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fields) });
+          const patch: Record<string, unknown> = { ...fields };
+          if (body.cover_path !== undefined) {
+            const cover = body.cover_path ? safePath(body.cover_path) : null;
+            if (cover && !cover.startsWith(`${pack.slug}/`)) return json({ error: 'Portada fuera de la carpeta del pack' }, 400);
+            patch.cover_path = cover;
+          }
+          const [saved] = await db(`/stem_packs?id=eq.${pack.id}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(patch) });
           return json({ pack: saved });
         }
         const open = await db(`/stem_packs?submitted_by=eq.${user.id}&status=in.(pending,rejected)&select=id`);
@@ -374,6 +399,23 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ ...fields, slug, tier: 'free', published: false, status: 'pending', submitted_by: user.id }),
         });
         return json({ pack: saved });
+      }
+
+      case 'c_update_loop': {
+        const loop = await ownLoop();
+        if (!loop) return json({ error: 'Loop no encontrado' }, 404);
+        const built = loopPatch(false);
+        if ('error' in built) return json({ error: built.error }, 400);
+        const [saved] = await db(`/stem_loops?id=eq.${loop.id}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(built.patch) });
+        return json({ loop: saved });
+      }
+
+      case 'c_delete_loop': {
+        const loop = await ownLoop();
+        if (!loop) return json({ error: 'Loop no encontrado' }, 404);
+        await removeFiles([loop.audio_path, loop.preview_path]);
+        await db(`/stem_loops?id=eq.${loop.id}`, { method: 'DELETE' });
+        return json({ ok: true });
       }
 
       case 'c_sign_put': {

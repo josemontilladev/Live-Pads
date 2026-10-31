@@ -156,6 +156,23 @@ export function trackLoopEvent(loopId, event) {
   rest('/stem_loop_events', { method: 'POST', body: { loop_id: loopId, event }, prefer: 'return=minimal' }).catch(() => {});
 }
 
+// ── Reportes (migración 0020): cualquiera reporta un loop; solo el admin los ve ──
+export const REPORT_REASONS = {
+  copyright: 'Derechos de autor', quality: 'Mala calidad', inappropriate: 'Contenido inapropiado', other: 'Otro',
+};
+/** Reporta un loop. Devuelve 'ok' o 'already' (ya lo habías reportado). */
+export async function reportLoop(loopId, reason, note = '') {
+  try {
+    await rest('/stem_loop_reports', { method: 'POST', body: { loop_id: loopId, reason, note: note.trim().slice(0, 500) || null }, prefer: 'return=minimal' });
+    return 'ok';
+  } catch (e) {
+    if (/duplicate|unique|23505/i.test(e.message)) return 'already';
+    throw e;
+  }
+}
+export const adminReports = () => rpc('stem_library_reports');
+export const adminDismissReports = (loopId) => rpc('stem_library_dismiss_reports', { p_loop_id: loopId });
+
 /** Administrador: loops más usados en los últimos `days` días. */
 export const adminStats = (days = 30) => rpc('stem_library_stats', { p_days: days });
 /** Administrador: uso de TODOS los loops publicables, también los que nadie usó (migración 0019). */
@@ -194,6 +211,8 @@ export const myCommunityPacks = async () => (await admin('my_packs')).packs;
 export const communitySavePack = async (pack) => (await admin('c_save_pack', pack)).pack;
 export const communityAddLoops = (packId, loops, extra = {}) => admin('c_add_loops', { packId, loops, ...extra });
 export const communitySubmit = (packId) => admin('c_submit', { packId, rights: true });
+export const communityUpdateLoop = async (loopId, patch) => (await admin('c_update_loop', { loopId, ...patch })).loop;
+export const communityDeleteLoop = (loopId) => admin('c_delete_loop', { loopId });
 export const communityDelete = (packId) => admin('c_delete', { packId });
 /** Sube a catalog/<slug del pack>/<name>; devuelve la ruta dentro del catálogo. */
 export async function communityUpload(packId, name, bytes, contentType) {

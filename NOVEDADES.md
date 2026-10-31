@@ -1,6 +1,5 @@
-• Grábate encima: en Stems, el botón ● (o la tecla R) graba tu micrófono mientras suena el proyecto y la toma entra como pista nueva, en su compás. Combínalo con "Practicar" (sin tu instrumento) y el loop A-B.
-• Armar una canción en 1 minuto: desde el editor vacío eliges tempo, tono y estructura, y LivePads la arma con loops de la Biblioteca.
-• Biblioteca sin conexión: descarga un pack entero para usarlo en el culto aunque no haya internet; los loops que ya están en tu equipo llevan un punto.
-• Filtra la Biblioteca por sensación (íntimo, alegre, intenso…) y busca también por pack y etiquetas.
-• Comparte tus loops: con LivePads Pro puedes enviar un pack a la comunidad; el equipo lo revisa y, si se aprueba, aparece en la Biblioteca con tu firma.
-• Sincronización más segura: si tú y otro miembro cambian la misma canción en cosas distintas (tú el tono, él la letra), LivePads junta los dos cambios; solo te pregunta si tocaron lo mismo.
+• Grábate mejor: cuenta de entrada con click, opción de escucharte con audífonos mientras grabas y "Calibrar latencia" para que tus tomas caigan exactas en tu equipo (▾ junto al botón ●).
+• Varias tomas: con el loop A-B activo, cada vuelta queda como una pasada ("Mi toma 3 · pasada 2"); suena la última y comparas las demás con Solo.
+• Comunidad: te avisamos en la app cuando tu pack se aprueba o se rechaza, y puedes corregir los datos de tus loops y la portada sin volver a subirlos.
+• Reportar: si un loop de la comunidad tiene problemas de derechos o calidad, repórtalo con ⚑ y el equipo lo revisa.
+• Armar una canción en 1 minuto ahora avisa antes si todavía no hay loops que puedas usar.

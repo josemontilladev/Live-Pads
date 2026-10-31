@@ -98,12 +98,13 @@ function harmonizeTempo(rows) {
 const durationOk = (r) => Math.abs(r.buffer.duration - r.bars * 4 * 60 / r.bpm) < 0.05;
 
 // ── Ventana ────────────────────────────────────────────────────────────────
-export function openPackUploader({ onChanged, community = false } = {}) {
+export function openPackUploader({ onChanged, community = false, tab = 'upload' } = {}) {
   document.getElementById('spu-overlay')?.remove();
   const admin = !community;
   const state = {
     packs: [], rows: [], cover: null, busy: false,
     open: null,            // id del pack desplegado en Mis packs / Moderación
+    reports: [],           // loops reportados (admin)
     loops: new Map(),      // packId → loops (cargados al desplegar)
     edits: new Map(),      // loopId → cambios sin guardar
     playing: null,         // { id, audio }
@@ -171,6 +172,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
       </section>
 
       ${admin ? `<section data-pane="review" class="spu-pane" hidden>
+        <div class="spu-reports" data-ref="reports"></div>
         <p class="spu-intro">Packs enviados por la comunidad. Escúchalos, corrige lo que haga falta y apruébalos (se publican) o recházalos con una nota para quien lo envió.</p>
         <div class="spu-packs" data-ref="reviewList"></div>
       </section>
@@ -215,12 +217,36 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     overlay.querySelector('input[value="existing"]').disabled = !targets.length;
     renderPackList();
     if (admin) {
-      const n = reviewPacks().filter((p) => p.status === 'pending').length;
-      ref('reviewCount').hidden = !n;
-      ref('reviewCount').textContent = String(n);
+      try { state.reports = await stemLibrary.adminReports(); } catch (_) { state.reports = []; }
+      paintReviewBadge();
       renderReviewList();
+      renderReports();
     }
     ensureOpenLoops();
+  }
+
+  function paintReviewBadge() {
+    const n = reviewPacks().filter((p) => p.status === 'pending').length + state.reports.length;
+    ref('reviewCount').hidden = !n;
+    ref('reviewCount').textContent = String(n);
+  }
+
+  // Loops reportados por los usuarios: escuchar, descartar o retirar.
+  function renderReports() {
+    const box = ref('reports');
+    if (!box) return;
+    if (!state.reports.length) { box.innerHTML = ''; return; }
+    box.innerHTML = `<h4 class="spu-h4">Loops reportados</h4>${state.reports.map((r) => `
+      <div class="spu-report" data-report="${esc(r.loop_id)}">
+        <button type="button" class="stl-play spu-play${state.playing?.id === r.loop_id ? ' is-on' : ''}" data-play-report="${esc(r.loop_id)}" data-pack="${esc(r.pack_id)}" title="Escuchar">${state.playing?.id === r.loop_id ? '■' : '▶'}</button>
+        <div class="spu-report-info">
+          <b>${esc(r.title)}</b> <span class="spu-muted">· ${esc(r.pack_title)}</span>
+          <span>${r.reports} reporte${Number(r.reports) === 1 ? '' : 's'}: ${(r.reasons || []).map((x) => esc(stemLibrary.REPORT_REASONS[x] || x)).join(', ')}</span>
+          ${(r.notes || []).slice(0, 3).map((n) => `<span class="spu-report-note">“${esc(n)}”</span>`).join('')}
+        </div>
+        <button type="button" class="stb-btn" data-act="dismissReport" data-id="${esc(r.loop_id)}">Está bien</button>
+        <button type="button" class="stb-btn spu-danger" data-act="removeReported" data-id="${esc(r.loop_id)}">Retirar loop</button>
+      </div>`).join('')}`;
   }
 
   function packRow(p) {
@@ -241,7 +267,11 @@ export function openPackUploader({ onChanged, community = false } = {}) {
           ${showStatus ? `<span class="spu-status ${statusCls}">${statusLabel}${community && p.status === 'pending' && !p.submitted_at ? ' (sin enviar)' : ''}</span>` : ''}
           <span class="spu-chev" aria-hidden="true">▾</span>
         </button>
-        ${admin && !isSubmission(p) ? `<label class="spu-pub"><input type="checkbox" data-publish="${esc(p.id)}"${p.published ? ' checked' : ''}> Publicado</label>` : ''}
+        ${admin && !isSubmission(p) ? `<span class="spu-order">
+          <button type="button" class="spu-ord" data-act="moveUp" data-id="${esc(p.id)}" title="Subir en la lista de la Biblioteca" aria-label="Subir">▲</button>
+          <button type="button" class="spu-ord" data-act="moveDown" data-id="${esc(p.id)}" title="Bajar en la lista de la Biblioteca" aria-label="Bajar">▼</button>
+        </span>
+        <label class="spu-pub"><input type="checkbox" data-publish="${esc(p.id)}"${p.published ? ' checked' : ''}> Publicado</label>` : ''}
         ${open ? `<div class="spu-editor">${editorHtml(p)}</div>` : ''}
       </div>`;
   }
@@ -269,12 +299,26 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     paintCovers();
   }
 
-  const rerender = () => { renderPackList(); renderReviewList(); ensureOpenLoops(); };
+  const rerender = () => { renderPackList(); renderReviewList(); renderReports(); ensureOpenLoops(); };
 
   // ── Editor de un pack (desplegable) ──────────────────────────────────────
   function editorHtml(p) {
     const loops = state.loops.get(p.id);
-    const canEditLoops = admin;
+    const canEditLoops = admin || p.status !== 'approved';
+    const cover = (admin || p.status !== 'approved') ? `
+      <div class="spu-cover spu-cover--edit">
+        <div class="spu-cover-img" data-cover="${esc(p.id)}">${p.cover_path ? '' : 'Sin portada'}</div>
+        <button type="button" class="stb-btn" data-act="changeCover" data-id="${esc(p.id)}">${p.cover_path ? 'Cambiar portada' : 'Poner portada'}</button>
+        <input type="file" data-cover-input="${esc(p.id)}" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>` : '';
+    const communityFields = !admin && p.status !== 'approved' ? `
+      <div class="spu-pack spu-pack--edit spu-pack--community">
+        <label>Nombre <input data-pf="title" value="${esc(p.title)}" maxlength="120"></label>
+        <label>Descripción <input data-pf="description" value="${esc(p.description || '')}" maxlength="500"></label>
+        <label>Género <input data-pf="genre" value="${esc(p.genre || '')}" maxlength="60"></label>
+        <label>Tu firma <input data-pf="author_name" value="${esc(p.author_name || '')}" maxlength="80"></label>
+        <button type="button" class="stb-btn" data-act="savePack" data-id="${esc(p.id)}">Guardar datos</button>
+      </div>` : '';
     const fields = admin ? `
       <div class="spu-pack spu-pack--edit">
         <label>Nombre <input data-pf="title" value="${esc(p.title)}" maxlength="120"></label>
@@ -283,10 +327,10 @@ export function openPackUploader({ onChanged, community = false } = {}) {
         <label>Sensación del pack <input data-pf="mood" value="${esc(p.mood || '')}" maxlength="60" placeholder="íntimo, celebración…"></label>
         ${isSubmission(p) ? '' : `<label>Marca por defecto <select data-pf="tier">${opts({ pro: 'PRO', free: 'GRATIS' }, p.tier)}</select></label>`}
         <button type="button" class="stb-btn" data-act="savePack" data-id="${esc(p.id)}">Guardar datos</button>
-      </div>` : (p.review_note ? `<div class="spu-note-box"><b>Nota del equipo:</b> ${esc(p.review_note)}</div>` : '');
+      </div>` : (p.review_note ? `<div class="spu-note-box"><b>Nota del equipo:</b> ${esc(p.review_note)}</div>` : '') + communityFields;
     const table = !loops ? '<div class="stb-empty">Cargando loops…</div>' : !loops.length ? '<div class="stb-empty">Este pack no tiene loops.</div>' : `
       <div class="stb-grid-wrap"><table class="stb-grid spu-loops">
-        <thead><tr><th></th><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Comp.</th><th>Tono</th><th>Sensación</th>${admin ? '<th>Marca</th><th></th><th></th>' : ''}</tr></thead>
+        <thead><tr><th></th><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Comp.</th><th>Tono</th><th>Sensación</th>${admin ? '<th>Marca</th>' : ''}${canEditLoops ? '<th></th><th></th>' : ''}</tr></thead>
         <tbody>${loops.map((l) => loopRowHtml(l, canEditLoops)).join('')}</tbody>
       </table></div>`;
     let actions = '';
@@ -305,7 +349,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
         ${!p.submitted_at || p.status === 'rejected' ? `<button type="button" class="stb-btn stb-btn--primary" data-act="submit" data-id="${esc(p.id)}">${p.status === 'rejected' ? 'Volver a enviar' : 'Enviar a revisión'}</button>` : ''}
       </div>`;
     }
-    return fields + table + actions;
+    return cover + fields + table + actions;
   }
 
   function loopRowHtml(l, editable) {
@@ -324,7 +368,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
       <td><input data-lf="bars" type="number" min="1" max="64" value="${e.bars}"></td>
       <td><select data-lf="musical_key">${keyOpts(e.musical_key)}</select></td>
       <td><select data-lf="feel">${feelOpts(feelOf(e.tags))}</select></td>
-      <td><select data-lf="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, e.tier)}</select></td>
+      ${admin ? `<td><select data-lf="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, e.tier)}</select></td>` : ''}
       <td><button type="button" class="stb-btn spu-save" data-act="saveLoop" data-id="${esc(l.id)}"${dirty ? '' : ' disabled'}>Guardar</button></td>
       <td><button type="button" class="stb-del" data-act="deleteLoop" data-id="${esc(l.id)}" aria-label="Borrar loop" title="Borrar loop">×</button></td>
     </tr>`;
@@ -361,10 +405,13 @@ export function openPackUploader({ onChanged, community = false } = {}) {
   function stopPlaying() {
     if (state.playing) { state.playing.audio.pause(); state.playing = null; }
   }
-  async function togglePlay(id) {
+  async function togglePlay(id, packId) {
     const was = state.playing?.id;
     stopPlaying();
     if (was === id) { rerender(); return; }
+    if (!findLoop(id) && packId) {
+      try { state.loops.set(packId, await stemLibrary.adminListLoops(packId)); } catch (_) {}
+    }
     const loop = findLoop(id);
     if (!loop) return;
     try {
@@ -385,7 +432,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     const patch = {};
     box.querySelectorAll('[data-pf]').forEach((el) => { patch[el.dataset.pf] = el.value; });
     try {
-      const saved = await stemLibrary.adminUpdatePack(id, patch);
+      const saved = admin ? await stemLibrary.adminUpdatePack(id, patch) : await stemLibrary.communitySavePack({ packId: id, ...patch });
       Object.assign(state.packs.find((p) => p.id === id) || {}, saved);
       showToast('Datos del pack guardados.', 'success');
       rerender(); onChanged?.();
@@ -398,7 +445,8 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     const patch = { ...edit };
     if ('feel' in patch) { patch.tags = withFeel(loop.tags, patch.feel); delete patch.feel; }
     try {
-      const saved = await stemLibrary.adminUpdateLoop(id, patch);
+      if (!admin) delete patch.tier;
+      const saved = admin ? await stemLibrary.adminUpdateLoop(id, patch) : await stemLibrary.communityUpdateLoop(id, patch);
       Object.assign(loop, saved);
       state.edits.delete(id);
       showToast(`"${saved.title}" guardado.`, 'success');
@@ -412,7 +460,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     const ok = await confirmDialogAsync({ title: 'Borrar loop', message: `Se borra "${loop.title}" de la biblioteca y sus archivos. Los proyectos que ya lo usan siguen sonando (tienen su copia).`, confirmLabel: 'Borrar' });
     if (!ok) return;
     try {
-      await stemLibrary.adminDeleteLoop(id);
+      await (admin ? stemLibrary.adminDeleteLoop(id) : stemLibrary.communityDeleteLoop(id));
       if (state.playing?.id === id) stopPlaying();
       for (const [pid, ls] of state.loops) state.loops.set(pid, ls.filter((l) => l.id !== id));
       const p = state.packs.find((x) => x.id === loop.pack_id); if (p) p.loops = Math.max(0, p.loops - 1);
@@ -436,6 +484,66 @@ export function openPackUploader({ onChanged, community = false } = {}) {
       showToast(withdraw ? 'Envío retirado.' : 'Pack borrado.', 'success');
       await loadPacks(); onChanged?.();
     } catch (e) { showToast(`No se pudo borrar: ${e.message}`, 'error'); }
+  }
+
+  // Portada nueva: nombre único (cover-<fecha>) para que ninguna caché local
+  // siga mostrando la anterior.
+  async function changeCover(id, file) {
+    const p = state.packs.find((x) => x.id === id);
+    if (!p || !file || !IMAGE_TYPES[file.type]) return;
+    const name = `cover-${Date.now()}.${IMAGE_TYPES[file.type]}`;
+    try {
+      const bytes = await file.arrayBuffer();
+      let saved;
+      if (admin) {
+        const path = `${p.slug}/${name}`;
+        await stemLibrary.adminUpload(path, bytes, file.type);
+        saved = await stemLibrary.adminUpdatePack(id, { cover_path: path });
+      } else {
+        const path = await stemLibrary.communityUpload(id, name, bytes, file.type);
+        saved = await stemLibrary.communitySavePack({ packId: id, title: p.title, description: p.description || '', genre: p.genre || '', author_name: p.author_name || '', cover_path: path });
+      }
+      Object.assign(p, saved);
+      showToast('Portada actualizada.', 'success');
+      rerender(); onChanged?.();
+    } catch (e) { showToast(`No se pudo cambiar la portada: ${e.message}`, 'error'); }
+  }
+
+  // Orden de los packs en la Biblioteca (stem_packs.sort), de a un puesto.
+  async function movePack(id, dir) {
+    const list = ownPacks();
+    const i = list.findIndex((p) => p.id === id), j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    const changes = list.map((p, k) => ({ p, sort: (k + 1) * 10 })).filter(({ p, sort }) => p.sort !== sort);
+    try {
+      await Promise.all(changes.map(({ p, sort }) => stemLibrary.adminUpdatePack(p.id, { sort }).then(() => { p.sort = sort; })));
+      state.packs.sort((a, b) => (a.sort - b.sort) || a.title.localeCompare(b.title));
+      rerender(); onChanged?.();
+    } catch (e) { showToast(`No se pudo reordenar: ${e.message}`, 'error'); }
+  }
+
+  async function dismissReport(loopId) {
+    try {
+      await stemLibrary.adminDismissReports(loopId);
+      state.reports = state.reports.filter((r) => r.loop_id !== loopId);
+      showToast('Reportes descartados.', 'success');
+      paintReviewBadge(); renderReports();
+    } catch (e) { showToast(`No se pudo guardar: ${e.message}`, 'error'); }
+  }
+
+  async function removeReported(loopId) {
+    const r = state.reports.find((x) => x.loop_id === loopId);
+    const ok = await confirmDialogAsync({ title: 'Retirar loop', message: `Se borra "${r?.title || 'el loop'}" de la Biblioteca y sus archivos. Los proyectos que ya lo usan siguen sonando.`, confirmLabel: 'Retirar' });
+    if (!ok) return;
+    try {
+      if (state.playing?.id === loopId) stopPlaying();
+      await stemLibrary.adminDeleteLoop(loopId);
+      state.reports = state.reports.filter((x) => x.loop_id !== loopId);
+      state.loops.clear();
+      showToast('Loop retirado de la Biblioteca.', 'success');
+      await loadPacks(); onChanged?.();
+    } catch (e) { showToast(`No se pudo retirar: ${e.message}`, 'error'); }
   }
 
   async function review(id, approve) {
@@ -709,11 +817,17 @@ export function openPackUploader({ onChanged, community = false } = {}) {
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) { close(); return; }
-    const t = e.target.closest('[data-act],[data-tab],[data-del],[data-open],[data-play]');
+    const t = e.target.closest('[data-act],[data-tab],[data-del],[data-open],[data-play],[data-play-report]');
     if (!t) return;
-    const { act, tab, del, open, play, id } = t.dataset;
+    const { act, tab, del, open, play, playReport, id } = t.dataset;
     if (open) togglePack(open);
     else if (play) togglePlay(play);
+    else if (playReport) togglePlay(playReport, t.dataset.pack);
+    else if (act === 'changeCover') overlay.querySelector(`[data-cover-input="${CSS.escape(id)}"]`)?.click();
+    else if (act === 'moveUp') movePack(id, -1);
+    else if (act === 'moveDown') movePack(id, 1);
+    else if (act === 'dismissReport') dismissReport(id);
+    else if (act === 'removeReported') removeReported(id);
     else if (act === 'close') close();
     else if (act === 'files') ref('filesInput').click();
     else if (act === 'cover') ref('coverInput').click();
@@ -747,6 +861,7 @@ export function openPackUploader({ onChanged, community = false } = {}) {
     else if (t === ref('publish') || t === ref('rights')) refreshButton();
     else if (t === ref('statsDays') || t === ref('statsView')) loadStats();
     else if (t === ref('filesInput')) { await addFiles(t.files); t.value = ''; }
+    else if (t.dataset.coverInput) { await changeCover(t.dataset.coverInput, t.files[0]); t.value = ''; }
     else if (t === ref('coverInput')) {
       const f = t.files[0];
       if (f && IMAGE_TYPES[f.type]) {
@@ -798,4 +913,5 @@ export function openPackUploader({ onChanged, community = false } = {}) {
 
   if (admin) ref('publish').checked = false;   // el admin publica a propósito
   loadPacks();
+  if (tab !== 'upload') overlay.querySelector(`[data-tab="${tab}"]`)?.click();
 }

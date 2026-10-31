@@ -421,6 +421,7 @@ export function mountLibraryPanel(host, api) {
           </div>
           <div class="stl-loop-fit${warn ? ' is-warn' : ''}" ${warn ? `title="${esc(warn)}"` : ''}>${esc(fitTxt)}${warn ? ' ⚠' : ''}</div>
         </div>
+        ${communityPack(l) ? '<button type="button" class="stl-report" data-act="report" title="Reportar este loop de la comunidad (derechos, calidad…)" aria-label="Reportar loop">⚑</button>' : ''}
         <button type="button" class="stl-fav${favs.has(l.id) ? ' is-on' : ''}" data-act="fav" aria-pressed="${favs.has(l.id)}" title="${favs.has(l.id) ? 'Quitar de favoritos' : 'Añadir a favoritos'}">★</button>
         ${locked
           ? `<button type="button" class="stl-add stl-add--locked" data-act="add" title="Este loop es parte de LivePads Pro">${SVG_LOCK}</button>`
@@ -447,6 +448,50 @@ export function mountLibraryPanel(host, api) {
   function renderLoggedOut() {
     ref('packs').innerHTML = '';
     ref('list').innerHTML = '<div class="stl-empty">Inicia sesión en tu cuenta de LivePads para usar la biblioteca de stems.</div>';
+  }
+
+  // ── Reportar (solo loops de la comunidad) ───────────────────────────────
+  const communityPack = (loop) => state.packs.find((p) => p.id === loop.pack_id)?.status === 'approved';
+
+  function openReport(loop) {
+    document.getElementById('stl-report-overlay')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'stl-report-overlay';
+    ov.className = 'stb-overlay';
+    ov.innerHTML = `
+      <div class="stb-modal stl-report-modal" role="dialog" aria-modal="true" aria-label="Reportar loop">
+        <header class="stb-head"><h3>Reportar "${esc(loop.title)}"</h3><button type="button" class="stl-x" data-act="close" aria-label="Cerrar">×</button></header>
+        <p class="stb-hint">El equipo de LivePads lo revisará. Si no cumple, se retira de la Biblioteca.</p>
+        <div class="stl-report-reasons">
+          ${Object.entries(stemLibrary.REPORT_REASONS).map(([v, l], i) => `<label><input type="radio" name="stl-reason" value="${v}"${i === 0 ? ' checked' : ''}> ${l}</label>`).join('')}
+        </div>
+        <textarea data-ref="note" maxlength="500" rows="3" placeholder="Cuéntanos más (opcional): de qué canción es, qué suena mal…"></textarea>
+        <footer class="stb-foot"><span class="stb-total"></span>
+          <button type="button" class="stb-btn" data-act="close">Cancelar</button>
+          <button type="button" class="stb-btn stb-btn--primary" data-act="send">Enviar reporte</button>
+        </footer>
+      </div>`;
+    document.body.appendChild(ov);
+    const close = () => { window.removeEventListener('keydown', onKey, true); ov.remove(); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    window.addEventListener('keydown', onKey, true);
+    ov.addEventListener('click', async (e) => {
+      if (e.target === ov) { close(); return; }
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'close') close();
+      else if (act === 'send') {
+        const btn = e.target.closest('[data-act]');
+        btn.disabled = true;
+        try {
+          const r = await stemLibrary.reportLoop(loop.id, ov.querySelector('input[name="stl-reason"]:checked').value, ov.querySelector('[data-ref="note"]').value);
+          showToast(r === 'already' ? 'Ya habías reportado este loop. Gracias.' : 'Reporte enviado. Gracias por avisar.', 'success');
+          close();
+        } catch (err) {
+          btn.disabled = false;
+          showToast(`No se pudo enviar el reporte: ${err.message}`, 'error');
+        }
+      }
+    });
   }
 
   // ── Agregar ──────────────────────────────────────────────────────────────
@@ -486,6 +531,16 @@ export function mountLibraryPanel(host, api) {
       onBuild: api.buildStructure,
       preset,
     });
+  }
+
+  // Cuántos loops puede usar esta cuenta (-1 = sin sesión). Lo consulta el
+  // inicio rápido antes de tocar el proyecto.
+  async function usableLoopCount() {
+    if (!isLoggedIn()) return -1;
+    try {
+      const all = await stemLibrary.listLoops({});
+      return (api.canUsePro() ? all : all.filter((l) => l.tier === 'free')).length;
+    } catch (_) { return 0; }
   }
 
   function getRepeats() { return Number(ref('repeats').value) || 1; }
@@ -547,6 +602,7 @@ export function mountLibraryPanel(host, api) {
     else if (act === 'add') add(loop);
     else if (act === 'tier' && state.admin) toggleTier(loop);
     else if (act === 'fav') toggleFav(loop.id);
+    else if (act === 'report') openReport(loop);
   });
 
   el.addEventListener('dragstart', (e) => {
@@ -564,6 +620,8 @@ export function mountLibraryPanel(host, api) {
   ref('instrument').addEventListener('change', loadLoops);
   ref('section').addEventListener('change', loadLoops);
   ref('feel').addEventListener('change', loadLoops);
+  // Cambios hechos desde otra ventana (avisos de la comunidad → Moderación).
+  window.addEventListener('livepads:stem-library-changed', () => { if (state.loaded) reloadCatalog(); });
 
   // ── Abrir / cerrar ───────────────────────────────────────────────────────
   // Igual que el panel de Canciones: se recuerda el estado entre sesiones. El
@@ -619,7 +677,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder,
+    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder, usableLoopCount,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.

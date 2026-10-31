@@ -10,15 +10,15 @@
 import { pushModal } from './modalStack.js';
 
 const SEEN_KEY = 'lp.whatsnew.seen';
-const EDITION = '2026-11-practica';
+const EDITION = '2026-11-practica-2';
 // Señal de que la app ya se usaba antes (la escribe app.js desde hace meses).
 const USED_BEFORE_KEY = 'livepads-active-workspace';
 
 const ITEMS = [
-  ['🎙️', 'Grábate encima', 'En Stems, el botón ● (o la tecla R) graba tu micrófono mientras suena el proyecto: la toma entra como pista nueva, en su compás. Úsalo con "Practicar" para tocar sin tu instrumento.'],
-  ['⚡', 'Una canción en 1 minuto', 'Desde el editor vacío eliges tempo, tono y estructura, y LivePads la arma con loops de la Biblioteca.'],
-  ['📶', 'Biblioteca sin conexión', 'Descarga un pack entero para usarlo en el culto aunque no haya internet.'],
-  ['🤝', 'Comparte tus loops', 'Con Pro puedes enviar un pack a la comunidad; si se aprueba, aparece en la Biblioteca con tu firma.'],
+  ['🎙️', 'Grábate mejor', 'Cuenta de entrada, escucharte con audífonos y "Calibrar latencia" para que tus tomas caigan exactas (▾ junto al botón ●).'],
+  ['🔁', 'Varias tomas en loop', 'Con el loop A-B activo, cada vuelta queda como una pasada: suena la última y comparas las demás con Solo.'],
+  ['🔔', 'Avisos de la comunidad', 'Te avisamos cuando tu pack se aprueba o se rechaza, y puedes corregir tus loops sin volver a subirlos.'],
+  ['⚑', 'Reportar loops', 'Si un loop de la comunidad tiene problemas de derechos o calidad, repórtalo y el equipo lo revisa.'],
 ];
 
 export function maybeShowWhatsNew({ onTryLibrary } = {}) {
