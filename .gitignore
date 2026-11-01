@@ -47,3 +47,6 @@ defaults/Original Tracks/
 scripts/brand/.render*.html
 supabase/.temp/
 .playwright-mcp/
+
+# Secreto del cliente de Google de escritorio (lo genera scripts/write-google-secret.mjs)
+src/js/cloud/googleSecret.js

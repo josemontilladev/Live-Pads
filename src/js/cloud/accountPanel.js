@@ -26,18 +26,24 @@ import { listActivity } from './activity.js';
 import { requireFeature, getPlanInfo, openPlans } from '../billing/license.js';
 import { PLAN_NAMES } from '../billing/plans.js';
 
-// Sección "Mi plan" (solo cuando las suscripciones están activadas).
+// Sección "Mi plan" (solo cuando las suscripciones están activadas): tarjeta
+// principal de la pestaña Cuenta, con el nombre del plan bien visible.
 function planSectionHTML() {
   const info = getPlanInfo();
   if (!info.enabled) return '';
-  let line = `Plan ${PLAN_NAMES[info.plan]}`;
-  if (info.status === 'trial') line = `Prueba Pro · ${info.trialDaysLeft} día${info.trialDaysLeft === 1 ? '' : 's'}`;
-  else if (info.source === 'church') line = 'Iglesia · incluido por tu librería';
-  else if (info.source === 'comp') line = 'Pro · cortesía del equipo GI';
+  let name = PLAN_NAMES[info.plan] || 'Gratis';
+  let detail = info.plan === 'free' ? 'Pads y la Biblioteca gratis. Pro añade Stems completo, importar audio y exportar.' : '';
+  if (info.status === 'trial') { name = 'Prueba Pro'; detail = `Te quedan ${info.trialDaysLeft} día${info.trialDaysLeft === 1 ? '' : 's'} de prueba.`; }
+  else if (info.source === 'church') detail = 'Incluido por tu librería de iglesia.';
+  else if (info.source === 'comp') detail = 'Cortesía del equipo GI.';
   return `
-      <div class="acc-section">
-        <h4>Mi plan</h4>
-        <div class="acc-empty">${escapeHtml(line)}${info.founder ? ' · Fundador' : ''}</div>
+      <div class="acc-section acc-plan">
+        <div class="acc-plan-top">
+          <span class="acc-eyebrow">Tu plan</span>
+          ${info.founder ? '<span class="acc-pill">Fundador</span>' : ''}
+        </div>
+        <div class="acc-plan-name">${escapeHtml(name)}</div>
+        ${detail ? `<div class="acc-plan-line">${escapeHtml(detail)}</div>` : ''}
         <button class="acc-btn acc-btn-full" data-act="open-plans">${info.plan === 'free' || info.status === 'trial' ? 'Ver planes' : 'Administrar suscripción'}</button>
       </div>`;
 }
@@ -184,37 +190,62 @@ async function render() {
     </div>
 
     <div class="acc-tabs" role="tablist">
-      <button class="acc-tab ${state.activeTab === 'cuenta' ? 'active' : ''}" data-tab="cuenta" role="tab">Cuenta</button>
-      <button class="acc-tab ${state.activeTab === 'librerias' ? 'active' : ''}" data-tab="librerias" role="tab">Librerías</button>
-      <button class="acc-tab ${state.activeTab === 'equipo' ? 'active' : ''}" data-tab="equipo" role="tab">Equipo</button>
+      <button class="acc-tab ${state.activeTab === 'cuenta' ? 'active' : ''}" data-tab="cuenta" role="tab">
+        <svg class="acc-tab-ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span class="acc-tab-text">Cuenta<small>Plan e inicio de sesión</small></span>
+      </button>
+      <button class="acc-tab ${state.activeTab === 'librerias' ? 'active' : ''}" data-tab="librerias" role="tab">
+        <svg class="acc-tab-ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span class="acc-tab-text">Librerías<small>Repertorio, sincronización y servicios</small></span>
+      </button>
+      <button class="acc-tab ${state.activeTab === 'equipo' ? 'active' : ''}" data-tab="equipo" role="tab">
+        <svg class="acc-tab-ico" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>
+        <span class="acc-tab-text">Equipo<small>Miembros e invitaciones</small></span>
+      </button>
     </div>
 
     <!-- TAB: CUENTA — acceso, contraseña, eliminar cuenta -->
     <div class="acc-tab-panel ${state.activeTab !== 'cuenta' ? 'hidden' : ''}" data-panel="cuenta">
       ${planSectionHTML()}
-      <div class="acc-section">
-        <h4>Acceso rápido</h4>
-        ${u && hasGoogleIdentity(u)
-          ? `<div class="acc-empty">✓ Google vinculado — ya puedes entrar con el botón de Google.</div>`
-          : `<button class="acc-btn ghost acc-btn-wide" data-act="link-google">
-               <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22 22-9.8 22-22c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 16 2 9.1 6.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.1 41.4 16 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 31 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
-               Vincular con Google
-             </button>
-             <div class="acc-hint">Inicia con Google usando tu mismo correo para no escribir la contraseña la próxima vez.</div>`}
-        <button class="acc-btn ghost acc-btn-full" data-act="change-pass">Cambiar contraseña</button>
+      <div class="acc-section acc-login">
+        <h4>Inicio de sesión</h4>
+        <p class="acc-sub">Cómo entras a LivePads en este y en otros equipos.</p>
+        <div class="acc-item">
+          <span class="acc-item-ico"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22 22-9.8 22-22c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 4.1 29.6 2 24 2 16 2 9.1 6.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 46c5.5 0 10.4-2.1 14.1-5.5l-6.5-5.5C29.6 36.6 26.9 38 24 38c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.1 41.4 16 46 24 46z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.5 5.5C40.9 36.6 44 31 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg></span>
+          <div class="acc-item-text">
+            <b>Google</b>
+            <span>${u && hasGoogleIdentity(u) ? 'Entras con un clic, sin escribir contraseña.' : 'Vincula tu cuenta de Google con el mismo correo y entra sin contraseña.'}</span>
+          </div>
+          ${u && hasGoogleIdentity(u)
+            ? '<span class="acc-pill acc-pill--ok">✓ Vinculado</span>'
+            : '<button class="acc-btn ghost sm" data-act="link-google">Vincular</button>'}
+        </div>
+        <div class="acc-item">
+          <span class="acc-item-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+          <div class="acc-item-text">
+            <b>Contraseña</b>
+            <span>Para entrar con tu correo y contraseña.</span>
+          </div>
+          <button class="acc-btn ghost sm" data-act="change-pass">Cambiar</button>
+        </div>
       </div>
 
       <div class="acc-section acc-danger">
-        <h4>Zona de peligro</h4>
-        <button class="acc-btn danger acc-btn-full" data-act="delete-account">Eliminar mi cuenta</button>
-        <div class="acc-hint">Borra tu cuenta y los datos asociados (librerías propias, canciones y configuración). No se puede deshacer.</div>
+        <div class="acc-item">
+          <div class="acc-item-text">
+            <b>Eliminar mi cuenta</b>
+            <span>Borra tu cuenta y sus datos (librerías propias, canciones y configuración). No se puede deshacer.</span>
+          </div>
+          <button class="acc-btn danger sm" data-act="delete-account">Eliminar cuenta</button>
+        </div>
       </div>
     </div>
 
     <!-- TAB: LIBRERÍAS — tuyas, crear, unirse, push/pull, servicios -->
     <div class="acc-tab-panel ${state.activeTab !== 'librerias' ? 'hidden' : ''}" data-panel="librerias">
-      <div class="acc-section">
+      <div class="acc-section acc-sec-libs">
         <h4>Tus librerías</h4>
+        <p class="acc-sub">La activa es la que ves en Pads y la que se sincroniza.</p>
         <div class="acc-lib-list" id="acc-libs"><div class="acc-empty">Cargando…</div></div>
         <div class="acc-row">
           <input id="acc-new-lib" placeholder="Nombre de una nueva librería…" maxlength="60">
@@ -222,16 +253,18 @@ async function render() {
         </div>
       </div>
 
-      <div class="acc-section">
+      <div class="acc-section acc-sec-join">
         <h4>Unirme a una librería</h4>
+        <p class="acc-sub">Con el código que te envió quien administra la librería.</p>
         <div class="acc-row">
           <input id="acc-join-code" placeholder="Pega aquí el código de invitación…">
           <button class="acc-btn ghost" data-act="join">Unirme</button>
         </div>
       </div>
 
-      <div class="acc-section">
+      <div class="acc-section acc-sec-sync">
         <h4>Sincronización</h4>
+        <p class="acc-sub">Las canciones se sincronizan solas; aquí ves el estado y puedes forzarlo.</p>
         <div class="acc-sync-status" id="acc-sync-status">Comprobando…</div>
 
         <button class="acc-btn acc-btn-full" data-act="sync-toggle" id="acc-sync-toggle">
@@ -278,7 +311,7 @@ async function render() {
         </div>
       </div>
 
-      <div class="acc-section">
+      <div class="acc-section acc-sec-svc">
         <h4>Servicios del domingo</h4>
         <div id="acc-setlists"><div class="acc-empty">Cargando…</div></div>
         <div class="acc-row">

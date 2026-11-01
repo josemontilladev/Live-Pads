@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authLoadSession: () => ipcRenderer.invoke('auth-load-session'),
   authClearSession: () => ipcRenderer.invoke('auth-clear-session'),
   authOAuth: (opts) => ipcRenderer.invoke('auth-oauth', opts),
+  authGoogleDesktop: (opts) => ipcRenderer.invoke('auth-google-desktop', opts),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   saveMidiMap: (data) => ipcRenderer.invoke('save-midi-map', data),
   saveMidiMapSync: (data) => { try { return ipcRenderer.sendSync('save-midi-map-sync', data); } catch (e) { return false; } },

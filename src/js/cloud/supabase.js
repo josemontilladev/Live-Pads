@@ -7,7 +7,7 @@
 // que es exactamente lo que hace la librería grande por debajo.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { SUPABASE_URL, SUPABASE_ANON_KEY, CLOUD_ENABLED } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, CLOUD_ENABLED, GOOGLE_DESKTOP_CLIENT_ID } from './config.js';
 
 const AUTH = `${SUPABASE_URL}/auth/v1`;
 const REST = `${SUPABASE_URL}/rest/v1`;
@@ -138,6 +138,16 @@ export async function applySessionTokens({ access_token, refresh_token, expires_
 // captura los tokens del redirect y los aplica aquí.
 export const OAUTH_REDIRECT = 'https://livepads.online/';
 export async function signInWithGoogle() {
+  // Flujo nuevo: Google directo (cliente de escritorio) → id_token → Supabase.
+  // El secreto vive en googleSecret.js (generado, fuera del repositorio); sin él,
+  // flujo anterior a través de Supabase.
+  const { GOOGLE_DESKTOP_CLIENT_SECRET = '' } = await import('./googleSecret.js').catch(() => ({}));
+  if (GOOGLE_DESKTOP_CLIENT_ID && GOOGLE_DESKTOP_CLIENT_SECRET && window.electronAPI?.authGoogleDesktop) {
+    const g = await window.electronAPI.authGoogleDesktop({ clientId: GOOGLE_DESKTOP_CLIENT_ID, clientSecret: GOOGLE_DESKTOP_CLIENT_SECRET });
+    if (!g || g.error || !g.id_token) throw new Error(g?.error || 'No se pudo iniciar con Google.');
+    const data = await authFetch('/token?grant_type=id_token', { body: { provider: 'google', id_token: g.id_token, nonce: g.nonce } });
+    return applySessionTokens(data);
+  }
   if (!window.electronAPI?.authOAuth) throw new Error('OAuth no disponible.');
   const tokens = await window.electronAPI.authOAuth({
     provider: 'google',

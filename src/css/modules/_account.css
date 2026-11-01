@@ -1,0 +1,97 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Mi cuenta y librerías — orden y jerarquía.
+     · Menú: cada pestaña con icono y una línea que dice qué hay dentro.
+     · Cuenta: el plan como tarjeta principal; "Inicio de sesión" como filas
+       (Google, contraseña); la zona de peligro al final, discreta.
+     · Librerías: tus librerías + unirme a la izquierda, sincronización a la
+       derecha y los servicios a todo el ancho.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Pestañas con icono + descripción ── */
+.acc-tab { display: flex; align-items: center; gap: 10px; }
+.acc-tab-ico { flex: none; opacity: .8; }
+.acc-tab-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; line-height: 1.2; }
+.acc-tab-text small { font-size: 11px; font-weight: 450; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-tab.active .acc-tab-ico { opacity: 1; }
+.acc-tab.active .acc-tab-text small { color: color-mix(in srgb, var(--accent) 70%, var(--text-muted)); }
+/* Embebido en el menú lateral (pestañas en fila, estrechas): solo el nombre. */
+.is-embedded .acc-tab-ico, .is-embedded .acc-tab-text small { display: none; }
+.is-embedded .acc-tab { justify-content: center; }
+
+/* ── Piezas comunes ── */
+.acc-sub { margin: -6px 0 12px; font-size: 12px; line-height: 1.45; color: var(--text-muted); }
+.acc-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.acc-sub + .acc-item, h4 + .acc-item { border-top: 0; padding-top: 4px; }
+.acc-item-ico {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--border); color: var(--text-muted);
+}
+.acc-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.acc-item-text b { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.acc-item-text span { font-size: 12px; line-height: 1.4; color: var(--text-muted); }
+.acc-item .acc-btn { flex: none; }
+.acc-pill {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  background: rgba(255, 255, 255, .07); color: var(--text-muted);
+}
+.acc-pill--ok { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+/* ── Plan: tarjeta principal ── */
+.acc-section.acc-plan {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border)) !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), rgba(255, 255, 255, .015) 60%) !important;
+}
+.acc-plan-top { display: flex; align-items: center; gap: 8px; }
+.acc-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); }
+.acc-plan-top .acc-pill { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.acc-plan-name { margin: 6px 0 2px; font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
+.acc-plan-line { margin-bottom: 14px; font-size: 13px; color: var(--text-muted); }
+.acc-plan .acc-btn-full { margin-top: 2px; }
+
+/* ── Zona de peligro: una fila al final, sin protagonismo ── */
+.acc-section.acc-danger .acc-item { border-top: 0; padding: 0; }
+.acc-section.acc-danger .acc-item-text b { color: #ff8a8a; }
+
+/* ── Ventana grande (no embebida) ── */
+#account-overlay:not(.is-embedded) .acc-tab { padding: 10px 12px; }
+/* Cuenta: una sola columna legible (antes eran tarjetas sueltas en dos columnas). */
+#account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="cuenta"]:not(.hidden) {
+  grid-template-columns: minmax(0, 1fr); max-width: 720px;
+}
+#account-overlay:not(.is-embedded) .acc-section.acc-danger { margin-top: 8px; }
+/* Librerías: lo de cada día a la izquierda, la sincronización a la derecha. */
+#account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="librerias"]:not(.hidden) {
+  grid-template-areas: "libs sync" "join sync" "svc svc";
+  grid-template-rows: auto 1fr auto;
+}
+#account-overlay:not(.is-embedded) .acc-sec-libs { grid-area: libs; }
+#account-overlay:not(.is-embedded) .acc-sec-join { grid-area: join; align-self: start; }
+#account-overlay:not(.is-embedded) .acc-sec-sync { grid-area: sync; align-self: start; }
+#account-overlay:not(.is-embedded) .acc-sec-svc  { grid-area: svc; }
+#account-overlay:not(.is-embedded) .acc-section > h4 { font-size: 13.5px; letter-spacing: 0; margin-bottom: 8px; }
+
+@media (max-width: 860px) {
+  #account-overlay:not(.is-embedded) .acc-tab-text small { display: none; }
+  #account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="librerias"]:not(.hidden) {
+    grid-template-areas: "libs" "join" "sync" "svc"; grid-template-rows: none;
+  }
+}
+
+/* Menos ruido: una sola acción principal por bloque. */
+#account-overlay [data-act="convert-audio"] {
+  background: transparent !important; color: var(--text) !important;
+  border: 1px solid var(--border-strong) !important; box-shadow: none !important; font-weight: 600;
+}
+#account-overlay [data-act="convert-audio"]:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
+/* "Borrar" en cada servicio: neutro hasta pasar el ratón. */
+#account-overlay #acc-setlists .acc-btn.danger,
+#account-overlay #acc-setlists [data-act*="del"] {
+  background: transparent; color: var(--text-muted); border-color: var(--border);
+}
+#account-overlay #acc-setlists .acc-btn.danger:hover,
+#account-overlay #acc-setlists [data-act*="del"]:hover { color: #ff7a7a; border-color: rgba(255, 122, 122, .45); }
+/* Eliminar cuenta: fila discreta (solo el título en rojo). */
+#account-overlay:not(.is-embedded) .acc-section.acc-danger {
+  background: rgba(255, 255, 255, .015) !important; border-color: var(--border) !important;
+}

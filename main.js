@@ -1849,16 +1849,51 @@ ipcMain.handle('auth-oauth', async (_e, opts) => {
       if (u.pathname === '/callback') {
         // Página puente: lee el #fragmento (o ?query) y lo reenvía a /token.
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(`<!doctype html><html><head><meta charset="utf-8"><title>LivePads</title></head>
-<body style="font-family:Inter,Segoe UI,Arial,sans-serif;background:#0a0a0a;color:#fff;text-align:center;padding-top:90px">
-  <div style="font-size:24px;font-weight:800">Live<span style="color:#FBAE00">Pads</span></div>
-  <p id="m" style="color:#a3a3a3">Procesando inicio de sesión…</p>
-  <script>
-    var data = location.hash ? location.hash.slice(1) : location.search.slice(1);
+        res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LivePads · Inicio de sesión</title>
+<style>
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{display:grid;place-items:center;padding:24px;background:#08090b radial-gradient(90% 70% at 50% 0%,#1a1d14 0%,#08090b 62%);
+    color:#f4f5f7;font-family:Inter,"Segoe UI",system-ui,sans-serif}
+  .card{width:min(420px,100%);padding:36px 32px 30px;border-radius:20px;text-align:center;
+    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .brand{display:inline-flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:26px}
+  .brand i{width:30px;height:30px;border-radius:9px;background:#c6f432;display:grid;place-items:center}
+  .brand i b{display:flex;gap:2px;align-items:center}.brand i b span{width:3px;border-radius:2px;background:#0c0d08}
+  .icon{width:64px;height:64px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(198,244,50,.12);border:1px solid rgba(198,244,50,.35);color:#c6f432}
+  .icon.err{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.4);color:#ff6b6b}
+  .spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(198,244,50,.25);border-top-color:#c6f432;animation:s .8s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  h1{margin:0 0 8px;font-size:22px;font-weight:700}
+  p{margin:0;color:#a3a8b1;font-size:14.5px;line-height:1.55}
+  .foot{margin-top:24px;font-size:12px;color:#6f7580}
+  .foot a{color:#a3a8b1}
+</style></head>
+<body><main class="card">
+  <div class="brand"><i><b><span style="height:8px"></span><span style="height:14px"></span><span style="height:10px"></span><span style="height:16px"></span></b></i>LivePads</div>
+  <div class="icon" id="ic"><div class="spin"></div></div>
+  <h1 id="t">Iniciando sesión…</h1>
+  <p id="m">Un momento, estamos conectando tu cuenta con la app.</p>
+  <div class="foot"><a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
+</main>
+<script>
+  var data = location.hash ? location.hash.slice(1) : location.search.slice(1);
+  var ok = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var bad = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  function show(good, title, text){ var ic=document.getElementById('ic'); ic.className='icon'+(good?'':' err'); ic.innerHTML=good?ok:bad;
+    document.getElementById('t').textContent=title; document.getElementById('m').textContent=text; }
+  if (/error/.test(data) && !/access_token/.test(data)) {
+    var q = new URLSearchParams(data);
+    fetch('/token?' + data).catch(function(){});
+    show(false, 'No se pudo iniciar sesión', (q.get('error_description') || 'Vuelve a LivePads e inténtalo de nuevo.').replace(/\+/g,' '));
+  } else {
     fetch('/token?' + data).then(function(){
-      document.getElementById('m').innerHTML = '✓ Sesión iniciada. Vuelve a LivePads; ya puedes cerrar esta pestaña.';
-    }).catch(function(){ document.getElementById('m').textContent = 'No se pudo completar. Vuelve a la app e inténtalo de nuevo.'; });
-  </script>
+      show(true, '¡Listo! Ya entraste', 'Vuelve a LivePads: tu cuenta ya está conectada. Puedes cerrar esta pestaña.');
+      setTimeout(function(){ try { window.close(); } catch(e){} }, 2500);
+    }).catch(function(){ show(false, 'No se pudo completar', 'Vuelve a LivePads e inténtalo de nuevo.'); });
+  }
+</script>
 </body></html>`);
         return;
       }
@@ -1868,7 +1903,11 @@ ipcMain.handle('auth-oauth', async (_e, opts) => {
         const p = u.searchParams;
         if (p.get('error') || p.get('error_description')) return finish({ error: p.get('error_description') || p.get('error') });
         const access_token = p.get('access_token');
-        if (access_token) return finish({ access_token, refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in') });
+        if (access_token) {
+          // Que la app vuelva al frente sola (el usuario estaba en el navegador).
+          try { if (mainWindow && !mainWindow.isDestroyed()) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } } catch (_) {}
+          return finish({ access_token, refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in') });
+        }
         return; // ?code= (PKCE) no usado en flujo implícito
       }
 
@@ -1885,6 +1924,120 @@ ipcMain.handle('auth-oauth', async (_e, opts) => {
     });
 
     // Si el usuario nunca completa, no dejamos el servidor colgado.
+    setTimeout(() => finish({ error: 'Tiempo de espera agotado. Inténtalo de nuevo.' }), 300000);
+  });
+});
+
+// ── Google directo (cliente OAuth de tipo "App de escritorio") ─────────────
+// Antes Google volvía a <proyecto>.supabase.co, y por eso la pantalla de Google
+// mostraba esa dirección y la marca no se podía verificar (supabase.co no es un
+// dominio nuestro). Ahora la app habla con Google directamente: PKCE + loopback
+// (http://127.0.0.1:8788/callback, permitido para clientes de escritorio),
+// cambia el código por un id_token de Google y el renderer se lo da a Supabase
+// (grant_type=id_token), que crea la misma sesión de siempre.
+// Página de resultado servida por el loopback (sin JS: ya sabemos el resultado).
+function oauthResultPage(ok, title, text) {
+  const esc = (v) => String(v || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const icon = ok
+    ? '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LivePads · Inicio de sesión</title>
+<style>
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{display:grid;place-items:center;padding:24px;background:#08090b radial-gradient(90% 70% at 50% 0%,#1a1d14 0%,#08090b 62%);
+    color:#f4f5f7;font-family:Inter,"Segoe UI",system-ui,sans-serif}
+  .card{width:min(420px,100%);padding:36px 32px 30px;border-radius:20px;text-align:center;
+    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .brand{display:inline-flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:26px}
+  .brand i{width:30px;height:30px;border-radius:9px;background:#c6f432;display:grid;place-items:center}
+  .brand i b{display:flex;gap:2px;align-items:center}.brand i b span{width:3px;border-radius:2px;background:#0c0d08}
+  .icon{width:64px;height:64px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(198,244,50,.12);border:1px solid rgba(198,244,50,.35);color:#c6f432}
+  .icon.err{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.4);color:#ff6b6b}
+  h1{margin:0 0 8px;font-size:22px;font-weight:700}
+  p{margin:0;color:#a3a8b1;font-size:14.5px;line-height:1.55}
+  .foot{margin-top:24px;font-size:12px;color:#6f7580} .foot a{color:#a3a8b1}
+</style></head>
+<body><main class="card">
+  <div class="brand"><i><b><span style="height:8px"></span><span style="height:14px"></span><span style="height:10px"></span><span style="height:16px"></span></b></i>LivePads</div>
+  <div class="icon${ok ? '' : ' err'}">${icon}</div>
+  <h1>${esc(title)}</h1>
+  <p>${esc(text)}</p>
+  <div class="foot"><a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
+</main>${ok ? '<script>setTimeout(function(){try{window.close()}catch(e){}},2500)</script>' : ''}</body></html>`;
+}
+
+ipcMain.handle('auth-google-desktop', async (_e, opts) => {
+  const http = require('http');
+  const crypto = require('crypto');
+  const clientId = opts && opts.clientId;
+  const clientSecret = (opts && opts.clientSecret) || '';
+  if (!clientId) return { error: 'Falta el cliente de Google.' };
+  const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const verifier = b64url(crypto.randomBytes(48));
+  const challenge = b64url(crypto.createHash('sha256').update(verifier).digest());
+  const state = b64url(crypto.randomBytes(16));
+  // Nonce: a Google va el hash; a Supabase, el valor original (él lo hashea y compara).
+  const nonce = b64url(crypto.randomBytes(16));
+  const nonceHash = crypto.createHash('sha256').update(nonce).digest('hex');
+  const redirectUri = `http://127.0.0.1:${OAUTH_PORT}/callback`;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let server = null;
+    const finish = (result) => {
+      if (settled) return; settled = true;
+      setTimeout(() => { try { if (server) server.close(); } catch (_) {} }, 500);
+      resolve(result);
+    };
+    const page = (res, ok, title, text) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(oauthResultPage(ok, title, text)); };
+
+    server = http.createServer(async (req, res) => {
+      let u;
+      try { u = new URL(req.url, redirectUri); } catch (_) { res.writeHead(400); res.end(); return; }
+      if (u.pathname !== '/callback') { res.writeHead(404); res.end(); return; }
+      const q = u.searchParams;
+      if (q.get('error')) {
+        const cancelled = q.get('error') === 'access_denied';
+        page(res, false, cancelled ? 'Inicio de sesión cancelado' : 'No se pudo iniciar sesión',
+          cancelled ? 'Vuelve a LivePads si quieres intentarlo de nuevo.' : (q.get('error_description') || q.get('error')));
+        return finish({ error: cancelled ? 'Cancelaste el inicio de sesión con Google.' : (q.get('error_description') || q.get('error')) });
+      }
+      if (q.get('state') !== state || !q.get('code')) {
+        page(res, false, 'Enlace no válido', 'Vuelve a LivePads e inicia sesión desde ahí.');
+        return;   // visita suelta: el flujo real sigue esperando
+      }
+      try {
+        const r = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code: q.get('code'), client_id: clientId, client_secret: clientSecret,
+            redirect_uri: redirectUri, grant_type: 'authorization_code', code_verifier: verifier,
+          }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.id_token) throw new Error(j.error_description || j.error || `Google respondió ${r.status}`);
+        page(res, true, '¡Listo! Ya entraste', 'Vuelve a LivePads: tu cuenta ya está conectada. Puedes cerrar esta pestaña.');
+        try { if (mainWindow && !mainWindow.isDestroyed()) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); } } catch (_) {}
+        finish({ id_token: j.id_token, nonce });
+      } catch (e) {
+        page(res, false, 'No se pudo completar', 'Vuelve a LivePads e inténtalo de nuevo.');
+        finish({ error: e.message });
+      }
+    });
+
+    server.on('error', (err) => finish({ error: `No se pudo abrir el puerto ${OAUTH_PORT} (${err.code}). Cierra lo que lo use e inténtalo de nuevo.` }));
+    server.listen(OAUTH_PORT, '127.0.0.1', () => {
+      const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      auth.search = new URLSearchParams({
+        client_id: clientId, redirect_uri: redirectUri, response_type: 'code',
+        scope: 'openid email profile', code_challenge: challenge, code_challenge_method: 'S256',
+        state, nonce: nonceHash, prompt: 'select_account',
+      }).toString();
+      shell.openExternal(auth.toString()).catch((e) => finish({ error: e.message }));
+    });
     setTimeout(() => finish({ error: 'Tiempo de espera agotado. Inténtalo de nuevo.' }), 300000);
   });
 });

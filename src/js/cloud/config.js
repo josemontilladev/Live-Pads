@@ -28,6 +28,17 @@ export function isAdminEmail(email) {
   return !!email && ADMIN_EMAILS.map(e => e.toLowerCase()).includes(String(email).toLowerCase());
 }
 
+// Inicio de sesión con Google SIN pasar por la página de Supabase: cliente
+// OAuth de tipo "App de escritorio" (Google Cloud → Clientes). Así la pantalla
+// de Google no muestra <proyecto>.supabase.co y la marca se puede verificar.
+// El ID también debe estar en Supabase → Auth → Providers → Google → Client IDs.
+// El secreto NO va en el repositorio: lo genera scripts/write-google-secret.mjs
+// en src/js/cloud/googleSecret.js (ignorado por git) desde la variable
+// GOOGLE_DESKTOP_CLIENT_SECRET o el archivo local scripts/.env.google. En el
+// instalador sí viaja (en apps de escritorio no es confidencial: la seguridad
+// la da PKCE). Sin ese archivo, se usa el flujo anterior a través de Supabase.
+export const GOOGLE_DESKTOP_CLIENT_ID = '124670106941-81n4fr13q26o3pt5b57poca3k39k140o.apps.googleusercontent.com';
+
 // Suscripciones (Gratis / Pro / Iglesia). Mientras sea false la app se
 // comporta como siempre (todo desbloqueado). Se enciende cuando el servidor
 // de cobros (funciones `billing` y `paypal-webhook`) esté desplegado.
