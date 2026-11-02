@@ -51,7 +51,15 @@ function hashOf(s) {
   // Las secciones (markers) solo cuentan cuando existen: así las canciones sin
   // ellas conservan su firma anterior y no aparecen como "modificadas".
   const mk = Array.isArray(s.markers) && s.markers.length ? '|m' + JSON.stringify(s.markers) : '';
-  const str = syncContent(s) + mk;
+  // La secuencia / el original asignados y la carátula también son contenido
+  // compartido (viajan en meta): sin esto, asignar una secuencia no contaba como
+  // cambio y, desde que solo se sube lo editado, nunca llegaba a la otra PC.
+  // Solo las rutas (el tono, la duración… son de cada equipo). Igual que las
+  // secciones, solo cuentan si existen, para no cambiar la firma de las demás.
+  const a = s.audio || {};
+  const au = a.sequence || a.original ? '|a' + JSON.stringify([a.sequence || null, a.original || null]) : '';
+  const cv = s.cover ? '|c' + s.cover : '';
+  const str = syncContent(s) + mk + au + cv;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);

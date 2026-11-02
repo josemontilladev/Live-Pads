@@ -1,3 +1,4 @@
-• Iniciar sesión con Google, más claro: la pantalla de Google ya no muestra la dirección técnica del servidor, la página final del navegador es nueva y LivePads vuelve al frente sola al terminar.
-• Mi cuenta y librerías, reorganizado: tu plan bien visible, el inicio de sesión (Google y contraseña) en filas claras, y en Librerías cada bloque con su explicación.
-• Stems: el botón ▾ de opciones de grabación ya no se ve estirado.
+• Sincronización en tiempo real: lo que cambias en una PC (canciones, secuencias, servicios) aparece en tus otros equipos en un par de segundos.
+• Arreglado: asignar una secuencia o un original no llegaba a las otras PCs.
+• Arreglado: la app ya no cierra tu sesión sola al abrirla después de un tiempo.
+• Mi cuenta → Librerías: el bloque de Sincronización ya no tapa los servicios al desplegarlo.

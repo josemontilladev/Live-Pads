@@ -389,6 +389,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const searchInput = q('#gi-search');
       if (searchInput) renderGiList(searchInput.value);
       renderServiceList();
+      // Sube la canción (con su secuencia/original) y el archivo: la otra PC lo
+      // recibe al momento por tiempo real.
+      try { window.dispatchEvent(new CustomEvent('livepads:cloud-dirty')); } catch (_) {}
     },
     // Cache audio duration onto the library song the first time it plays,
     // so the service-list total-time estimate (4-min heuristic by default)

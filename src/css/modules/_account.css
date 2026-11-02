@@ -63,9 +63,11 @@
 /* Librerías: lo de cada día a la izquierda, la sincronización a la derecha. */
 #account-overlay:not(.is-embedded) .acc-tab-panel[data-panel="librerias"]:not(.hidden) {
   grid-template-areas: "libs sync" "join sync" "svc svc";
-  grid-template-rows: auto 1fr auto;
+  /* Filas a su contenido: con "1fr" la fila se encogía al alto del panel y la
+     sincronización desplegada se montaba encima de "Servicios del domingo". */
+  grid-template-rows: auto auto auto;
 }
-#account-overlay:not(.is-embedded) .acc-sec-libs { grid-area: libs; }
+#account-overlay:not(.is-embedded) .acc-sec-libs { grid-area: libs; align-self: start; }
 #account-overlay:not(.is-embedded) .acc-sec-join { grid-area: join; align-self: start; }
 #account-overlay:not(.is-embedded) .acc-sec-sync { grid-area: sync; align-self: start; }
 #account-overlay:not(.is-embedded) .acc-sec-svc  { grid-area: svc; }

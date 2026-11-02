@@ -24,6 +24,7 @@ import { pullLibrarySongs, isPushInFlight } from './songSync.js';
 import { isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
 import { hasFeature } from '../billing/license.js';
+import { watchLibrary } from './realtime.js';
 
 const POLL_MS = 45000;            // ronda periódica
 const STARTUP_DELAY_MS = 4000;    // respiro tras arrancar antes del primer intento
@@ -44,6 +45,7 @@ export function getLastSyncAt() { return lastSyncAt; }
 const FILE_CHECK_MS = 3 * 60 * 1000;
 let lastFileCheck = 0;
 let downloadingFiles = false;
+let filesAgain = false;   // llegó un aviso de archivo nuevo mientras se bajaba: repetir al terminar
 let filesLibId = null;
 
 function markLocalEdit() { lastLocalEdit = Date.now(); }
@@ -93,10 +95,37 @@ async function syncFilesNow(force = false) {
     // sin red / sin permiso: se reintenta en la próxima ronda
   } finally {
     downloadingFiles = false;
+    if (filesAgain) { filesAgain = false; setTimeout(() => syncFilesNow(true), 500); }
   }
 }
 
+// ── Tiempo real ─────────────────────────────────────────────────────────
+// Realtime avisa en ~1 s de cualquier cambio en la librería activa (canciones,
+// servicios, borrados o archivos subidos). Se baja enseguida, respetando las
+// mismas guardas (si ahora no se puede, se reintenta en un momento).
+let rtPullTimer = 0;
+let rtFileTimer = 0;
+function onRealtimeChange(table) {
+  if (table === 'library_files') {
+    // Un audio o carátula terminó de subirse en otra PC: bajarlo ya.
+    clearTimeout(rtFileTimer);
+    rtFileTimer = setTimeout(() => { if (downloadingFiles) filesAgain = true; else syncFilesNow(true); }, 1500);
+    return;
+  }
+  clearTimeout(rtPullTimer);
+  const tryPull = () => {
+    if (!canPullNow()) { rtPullTimer = setTimeout(tryPull, 1500); return; }
+    pullNow();
+  };
+  rtPullTimer = setTimeout(tryPull, 800);   // agrupa ráfagas (un lote de canciones = un aviso)
+}
+function ensureRealtime() {
+  const lib = isLoggedIn() && hasFeature('cloud') ? getActiveLibraryId() : null;
+  watchLibrary(lib, { onChange: onRealtimeChange });
+}
+
 async function pullNow() {
+  ensureRealtime();   // también sigue a la librería si cambió la activa
   if (!canPullNow()) return;
   pulling = true;
   try {
@@ -199,8 +228,9 @@ export function startLibraryLiveSync() {
   window.addEventListener('online', pullNow);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pullNow(); });
 
-  // Ronda periódica + primer intento tras el arranque.
+  // Ronda periódica (respaldo si Realtime no llega) + primer intento tras el arranque.
   timer = setInterval(pullNow, POLL_MS);
+  ensureRealtime();
   setTimeout(pullNow, STARTUP_DELAY_MS);
 }
 

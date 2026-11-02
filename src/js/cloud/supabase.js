@@ -201,7 +201,16 @@ export async function signOut() {
 
 // Renueva el access_token usando el refresh_token. Devuelve true si quedó una
 // sesión válida.
-async function refreshSession() {
+// Una sola renovación a la vez: al arrancar con el token caducado, varias
+// partes de la app (sincronización, planes, tiempo real…) lo piden juntas. Si
+// cada una gastaba el refresh_token por su cuenta, la segunda recibía "Already
+// Used" y la app cerraba la sesión sola. Ahora todas esperan la misma.
+let refreshing = null;
+function refreshSession() {
+  if (!refreshing) refreshing = doRefresh().finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function doRefresh() {
   if (!session || !session.refresh_token) return false;
   // Offline: no tocamos la red ni invalidamos la sesión (la conservamos).
   if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
@@ -210,10 +219,13 @@ async function refreshSession() {
       body: { refresh_token: session.refresh_token },
     });
     return !!applyTokenResponse(data);
-  } catch (_) {
-    // Solo damos la sesión por muerta si HABÍA conexión (rechazo real del
-    // servidor). Si fue un fallo de red, conservamos la sesión.
-    if (typeof navigator === 'undefined' || navigator.onLine) { session = null; persist(); emit(); }
+  } catch (e) {
+    // Solo damos la sesión por muerta si el servidor RECHAZA el refresh_token
+    // (inválido, revocado, ya usado). Un fallo de red o del servidor (5xx,
+    // tiempo agotado) no cierra la sesión: se reintenta en la próxima llamada.
+    if (/refresh[ _]token|invalid_grant|session.*(not found|expired)/i.test(String(e && e.message))) {
+      session = null; persist(); emit();
+    }
     return false;
   }
 }
@@ -229,6 +241,9 @@ async function validToken() {
   }
   return session.access_token;
 }
+
+// Token vigente para conexiones propias (Realtime). null sin sesión.
+export function getValidToken() { return validToken(); }
 
 // Llamada genérica a la API REST (PostgREST) ya autenticada. `path` empieza
 // por "/", p.ej. "/songs?select=*".

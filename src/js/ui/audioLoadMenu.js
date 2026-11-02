@@ -52,6 +52,8 @@ async function descargar(song, onAssigned, url, yaReintentado = false) {
       import('../cloud/songSync.js').then(m => m.pushSongYoutubeUrl(song)).catch(() => {});
     }
     if (typeof onAssigned === 'function') onAssigned(song);
+    // Audio nuevo = contenido compartido: que la nube (y las otras PCs) se enteren ya.
+    try { window.dispatchEvent(new CustomEvent('livepads:cloud-dirty')); } catch (_) {}
     window.showToast?.('Audio original asignado desde YouTube.', 'success');
   } catch (err) {
     const msg = err?.message || 'No se pudo descargar el audio.';
