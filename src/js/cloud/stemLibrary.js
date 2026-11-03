@@ -186,6 +186,8 @@ async function admin(action, payload = {}) {
   return r;
 }
 export const adminListPacks = async () => (await admin('list')).packs;
+/** Espacio usado por la biblioteca en R2: { bytes, loops }. */
+export const adminStorage = () => admin('storage');
 export const adminListLoops = async (packId) => (await admin('list_loops', { packId })).loops;
 export const adminSavePack = async (pack) => (await admin('save_pack', pack)).pack;
 export const adminUpdatePack = async (packId, patch) => (await admin('update_pack', { packId, ...patch })).pack;

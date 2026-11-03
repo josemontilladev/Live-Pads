@@ -23,6 +23,12 @@ import { guessFromFilename, pickTempo, exactTempo, slugify, safeFileName, UNPITC
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { prepareTrack, estimateBytes, isLongTrack } from './packAudio.js';
+
+// Plan gratis de Cloudflare R2: 10 GB. Se avisa al pasar de 8.
+const FREE_BYTES = 10 * 1024 ** 3, WARN_BYTES = 8 * 1024 ** 3;
+const fmtSize = (b) => b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(2)} GB` : `${Math.max(0.1, b / 1024 ** 2).toFixed(b > 100 * 1024 ** 2 ? 0 : 1)} MB`;
+const baseOf = (n) => String(n || '').replace(/\.[^.]+$/, '');
 
 const INSTRUMENTS = {
   drums: 'Batería', perc: 'Percusión', bass: 'Bajo', keys: 'Teclas', pad: 'Pad', synth: 'Synth',
@@ -209,6 +215,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
           Confirmo que estos audios son míos o tengo los derechos para compartirlos, y autorizo a LivePads a ofrecerlos en la Biblioteca.</label>` : ''}
         <footer class="stb-foot">
           <label><input type="checkbox" data-ref="publish" checked> ${admin ? 'Publicar al terminar' : 'Enviar a revisión al terminar'}</label>
+          ${admin ? '<span class="spu-storage" data-ref="storage" title="Espacio de la biblioteca en Cloudflare R2 (plan gratis: 10 GB)"></span>' : ''}
           <span class="stb-total" data-ref="status"></span>
           <button type="button" class="stb-btn stb-btn--primary" data-act="upload" disabled>${admin ? 'Subir' : 'Enviar'}</button>
         </footer>
@@ -675,6 +682,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
       kpis.innerHTML = [
         ['Loops', rows.length], ['Agregados', sum('adds')], ['Escuchas', sum('previews')],
+        ...(state.storageBytes != null ? [['Espacio (de 10 GB gratis)', fmtSize(state.storageBytes)]] : []),
         ['Usados al menos 1 vez', rows.length ? `${Math.round((used / rows.length) * 100)} %` : '—'],
       ].map(([l, v]) => `<div class="spu-kpi"><b>${v}</b><span>${l}</span></div>`).join('');
     }
@@ -783,7 +791,23 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const n = state.rows.length;
     const bpm = Number(ref('packBpm').value), key = ref('packKey').value;
     const warn = state.rows.filter((r) => (!perLoop() && r.offTempo) || !durationOk(r)).length;
-    ref('status').textContent = !n ? '' : `${n} pista${n === 1 ? '' : 's'}${!perLoop() && bpm ? ` · ${bpm} BPM` : ''}${!perLoop() && key ? ` · ${key}` : ''}${warn ? ` · ⚠ ${warn} por revisar` : ''}`;
+    const before = state.rows.reduce((t, r) => t + r.bytes.byteLength, 0);
+    const after = state.rows.reduce((t, r) => t + estimateBytes(r), 0);
+    ref('status').textContent = !n ? '' : `${n} pista${n === 1 ? '' : 's'}${!perLoop() && bpm ? ` · ${bpm} BPM` : ''}${!perLoop() && key ? ` · ${key}` : ''} · ${fmtSize(before)} → ~${fmtSize(after)}${warn ? ` · ⚠ ${warn} por revisar` : ''}`;
+    ref('status').title = 'Peso al subir: las pistas largas se comprimen a MP3 (192 kbps estéreo, 128 kbps mono; Click y Guía en mono) y los loops cortos quedan en WAV de 16 bits';
+  }
+
+  // Espacio usado en R2 (solo administrador).
+  async function paintStorage() {
+    const el = ref('storage');
+    if (!el) return;
+    try {
+      const { bytes } = await stemLibrary.adminStorage();
+      state.storageBytes = bytes;
+      el.textContent = `Espacio: ${fmtSize(bytes)} de 10 GB gratis`;
+      el.classList.toggle('is-warn', bytes >= WARN_BYTES);
+      el.classList.toggle('is-over', bytes >= FREE_BYTES);
+    } catch (_) { el.textContent = ''; }
   }
 
   // Escuchar una pista antes de subirla (para saber qué es «GA 1» o «Loop»).
@@ -849,9 +873,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       if (b) ref('packBpm').value = String(b);
       if (k) ref('packKey').value = k;
     }
-    const byName = new Map(loops.map((l) => [String(l.audio_path).split('/').pop(), l]));
+    const byName = new Map(loops.map((l) => [baseOf(String(l.audio_path).split('/').pop()), l]));
     for (const r of state.rows) {
-      const l = byName.get(safeFileName(r.file.name));
+      const l = byName.get(baseOf(safeFileName(r.file.name)));
       if (!l) continue;
       Object.assign(r, {
         title: l.title, instrument: l.instrument, section: l.section, key: l.musical_key || null,
@@ -863,6 +887,17 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
 
   // ── Subida ──
   async function upload() {
+    if (admin && state.storageBytes != null) {
+      const next = state.storageBytes + state.rows.reduce((t, r) => t + estimateBytes(r), 0);
+      if (next > FREE_BYTES) {
+        const ok = await confirmDialogAsync({
+          title: 'Pasarías de los 10 GB gratis',
+          message: `La biblioteca ocupa ${fmtSize(state.storageBytes)} y este pack sumaría unos ${fmtSize(next - state.storageBytes)}. Lo que pase de 10 GB lo cobra Cloudflare (unos 0,015 $ por GB al mes). ¿Subirlo igual?`,
+          confirmLabel: 'Subir igual', danger: true,
+        });
+        if (!ok) return;
+      }
+    }
     state.busy = true; refreshButton();
     // Progreso por bytes: audio + escucha previa (~¼ del audio) + portada.
     const total = state.rows.reduce((n, r) => n + r.bytes.byteLength * 1.25, 0) + (state.cover?.size || 0);
@@ -911,21 +946,26 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       // 2) Los loops.
       const used = new Set();
       const loops = [];
+      let savedBefore = 0, savedAfter = 0;
       for (const [i, r] of state.rows.entries()) {
         status(`Subiendo ${i + 1} de ${state.rows.length}: ${r.title}…`);
-        let name = safeFileName(r.file.name);
-        while (used.has(name)) name = `${i}-${name}`;
-        used.add(name);
-        const ct = /\.flac$/i.test(name) ? 'audio/flac' : 'audio/wav';
-        const audioPath = await put(name, r.bytes, ct);
+        let base = baseOf(safeFileName(r.file.name));
+        while (used.has(base)) base = `${i}-${base}`;
+        used.add(base);
+        // Comprimir antes de subir: MP3 las pistas largas, WAV 16 bits los loops.
+        status(`${isLongTrack(r) ? 'Comprimiendo' : 'Preparando'} ${i + 1} de ${state.rows.length}: ${r.title}…`);
+        await new Promise((res) => setTimeout(res, 0));
+        const pt = await prepareTrack(r, base);
+        status(`Subiendo ${i + 1} de ${state.rows.length}: ${r.title} (${pt.format}, ${fmtSize(pt.after)})…`);
+        const audioPath = await put(pt.audio.name, pt.audio.bytes, pt.audio.ct);
         advance(r.bytes.byteLength);
-        const preview = audioBufferToWav(await renderMono(r.buffer, 24000));
-        const previewPath = await put(`preview/${name.replace(/\.flac$/i, '.wav')}`, preview, 'audio/wav');
+        const previewPath = pt.preview ? await put(pt.preview.name, pt.preview.bytes, pt.preview.ct) : null;
         advance(r.bytes.byteLength * 0.25);
+        savedBefore += pt.before; savedAfter += pt.after;
         loops.push({
           title: r.title, instrument: r.instrument, section: r.section, bpm: r.bpm, bars: r.bars,
           musical_key: r.key || null, beats_per_bar: 4, tier: r.tier || defaultTier(),
-          audio_path: audioPath, preview_path: previewPath, size: r.bytes.byteLength,
+          audio_path: audioPath, preview_path: previewPath, size: pt.after,
           duration_sec: Math.round(r.buffer.duration * 1000) / 1000, sort: i, tags: withFeel(r.tags, r.feel),
         });
       }
@@ -940,7 +980,8 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       else tail = ' (sin enviar: envíalo desde "Mis envíos")';
       const what = [res.added ? `${res.added} nuevo${res.added === 1 ? '' : 's'}` : '', res.updated ? `${res.updated} actualizado${res.updated === 1 ? '' : 's'}` : '']
         .filter(Boolean).join(' y ') || `${loops.length} loops`;
-      showToast(`"${pack.title}": ${what}${tail}.`, 'success');
+      showToast(`"${pack.title}": ${what}${tail}. Ocupa ${fmtSize(savedAfter)} (los originales pesaban ${fmtSize(savedBefore)}).`, 'success');
+      paintStorage();
       state.rows = []; state.cover = null;
       state.loops.delete(pack.id);
       ref('coverPreview').textContent = 'Sin portada'; ref('coverPreview').style.backgroundImage = '';
@@ -1092,5 +1133,6 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
 
   if (admin) ref('publish').checked = false;   // el admin publica a propósito
   loadPacks();
+  if (admin) paintStorage();
   if (tab !== 'upload') overlay.querySelector(`[data-tab="${tab}"]`)?.click();
 }

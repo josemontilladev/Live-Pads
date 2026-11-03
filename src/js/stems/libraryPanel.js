@@ -188,8 +188,12 @@ export function mountLibraryPanel(host, api) {
     paintPlaying();
   }
 
+  // Pistas de canción completa: para escuchar basta el principio (16 compases).
+  const PREVIEW_BARS = 16;
   async function fittedBuffer(loop, project) {
-    const fit = fitLoop(loopSpec(loop), project);
+    const long = loop.bars > PREVIEW_BARS;
+    const spec = long ? { ...loopSpec(loop), bars: PREVIEW_BARS } : loopSpec(loop);
+    const fit = fitLoop(spec, project);
     const key = `${loop.id}|${fit.ratio.toFixed(5)}|${fit.semitones}`;
     let buf = preview.cache.get(key);
     if (buf) return { buf, fit };
@@ -197,7 +201,14 @@ export function mountLibraryPanel(host, api) {
     const url = await stemLibrary.ensurePreviewLocal(loop);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const raw = await ctx.decodeAudioData(await res.arrayBuffer());
+    let raw = await ctx.decodeAudioData(await res.arrayBuffer());
+    if (long) {
+      const sec = PREVIEW_BARS * (loop.beats_per_bar || 4) * 60 / Number(loop.bpm);
+      const len = Math.min(raw.length, Math.round(sec * raw.sampleRate));
+      const cut = new AudioBuffer({ numberOfChannels: raw.numberOfChannels, length: len, sampleRate: raw.sampleRate });
+      for (let c = 0; c < raw.numberOfChannels; c++) cut.getChannelData(c).set(raw.getChannelData(c).subarray(0, len));
+      raw = cut;
+    }
     buf = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: project.bpm, repeats: 1 });
     preview.cache.set(key, buf);
     return { buf, fit };

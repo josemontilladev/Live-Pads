@@ -11,6 +11,7 @@
 //       save_pack { slug, title, … }           → crea/actualiza un pack por slug → fila
 //       update_pack { packId, …campos }        → edita nombre, descripción, género, sensación, portada
 //       add_loops { packId, loops: [...] }     → inserta o ACTUALIZA por archivo (conserva id y marca)
+//       storage                                → { bytes, loops }: espacio usado en R2 (estimado)
 //       update_loop { loopId, …campos }        → edita título, instrumento, sección, BPM, compases, tono, marca, sensaciones
 //       delete_loop { loopId }                 → borra el loop y sus archivos en R2
 //       delete_pack { packId }                 → borra el pack, sus loops y sus archivos
@@ -47,7 +48,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,60}$/;
 const INSTRUMENTS = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'guide', 'click', 'fx', 'other'];
 const SECTIONS = ['any', 'intro', 'verse', 'prechorus', 'chorus', 'bridge', 'build', 'outro'];
-const CONTENT_TYPES = ['audio/wav', 'audio/x-wav', 'audio/flac', 'image/jpeg', 'image/png', 'image/webp'];
+// audio/mpeg: las pistas largas (canción completa) se suben comprimidas a MP3.
+const CONTENT_TYPES = ['audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mpeg', 'image/jpeg', 'image/png', 'image/webp'];
 const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,published,sort,status,submitted_by,author_name,review_note,submitted_at';
 const LOOP_COLUMNS = 'id,pack_id,title,instrument,section,bpm,musical_key,beats_per_bar,bars,tier,audio_path,preview_path,tags,sort';
 
@@ -241,6 +243,13 @@ Deno.serve(async (req) => {
   try {
     switch (action) {
       // ════════════════ Administrador ════════════════
+      // Espacio que ocupa la biblioteca en R2 (suma de lo subido: audio + escucha previa).
+      case 'storage': {
+        const rows = await db('/stem_loops?select=size');
+        const bytes = (rows || []).reduce((n: number, r: any) => n + (Number(r.size) || 0), 0);
+        return json({ bytes, loops: (rows || []).length });
+      }
+
       case 'list':
         return json({ packs: withCount(await db(`/stem_packs?select=${PACK_COLUMNS},stem_loops(count)&order=sort.asc,title.asc`)) });
 
