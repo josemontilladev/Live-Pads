@@ -14,7 +14,7 @@ const OPEN_KEY = 'livepads-practice-open';
 const MIN_RATE = 0.25, MAX_RATE = 1.25, MIN_SPAN = 0.5;
 
 let root, panel, btn, stage, wave, overlay, hA, hB;
-let audio = null;
+let audio = null, song = null, secsEl = null;
 let rate = 1, A = null, B = null, loopOn = false;
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -55,8 +55,20 @@ export function initPracticeMode() {
   $('#sp-loop').onclick = toggleLoop;
   $('#sp-clear').onclick = clearRegion;
 
-  window.addEventListener('livepads:track-loaded', (e) => { audio = e.detail && e.detail.audio; reset(); });
-  window.addEventListener('livepads:track-cleared', () => { audio = null; reset(); });
+  // Secciones de la canción como botones: un clic = repetir esa sección.
+  secsEl = document.createElement('div');
+  secsEl.className = 'sp-group sp-secs';
+  secsEl.innerHTML = '<span class="sp-label">Repetir sección</span><div class="sp-secs-list"></div>';
+  panel.appendChild(secsEl);
+  secsEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    loopSection(parseFloat(b.dataset.a), parseFloat(b.dataset.b), b.dataset.label);
+  });
+  window.addEventListener('livepads:track-loaded', (e) => { audio = e.detail && e.detail.audio; song = (e.detail && e.detail.song) || null; reset(); });
+  window.addEventListener('livepads:track-cleared', () => { audio = null; song = null; reset(); });
+  window.addEventListener('livepads:songs-changed', () => renderSections());
+  window.addEventListener('livepads:library-synced', () => renderSections());
+  if (audio && !Number.isFinite(audio.duration)) audio.addEventListener?.('loadedmetadata', renderSections, { once: true });
   document.addEventListener('keydown', onKey);
   new ResizeObserver(paintOverlay).observe(stage);
   paint();
@@ -72,6 +84,38 @@ function reset() {
   rate = 1; A = B = null; loopOn = false;
   announceRate();
   paint();
+  renderSections();
+  if (audio && !(dur() > 0)) { try { audio.addEventListener('loadedmetadata', renderSections, { once: true }); } catch (_) {} setTimeout(renderSections, 1500); }
+}
+
+const escH = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function renderSections() {
+  if (!secsEl) return;
+  const list = secsEl.querySelector('.sp-secs-list');
+  const d = dur();
+  const ms = song && Array.isArray(song.markers) ? song.markers.slice().sort((a, b) => a.t - b.t) : [];
+  secsEl.hidden = !(ms.length && d);
+  if (secsEl.hidden) { list.innerHTML = ''; return; }
+  list.innerHTML = ms.map((m, i) => {
+    const b = i + 1 < ms.length ? ms[i + 1].t : d;
+    const on = loopOn && A != null && Math.abs(A - m.t) < 0.06 && Math.abs(B - b) < 0.06;
+    return `<button type="button" class="sp-chip sp-sec${on ? ' is-on' : ''}" data-a="${m.t}" data-b="${b}" data-label="${escH(m.label)}" title="Repetir «${escH(m.label)}» (${fmt(m.t)} → ${fmt(b)})">${escH(m.label)}</button>`;
+  }).join('');
+}
+
+/**
+ * Repite el tramo [a, b] en bucle (una sección, o lo que se dibujó con Mayús +
+ * arrastrar). preview = solo dibujarlo mientras se arrastra.
+ */
+export function loopSection(a, b, label, { preview = false } = {}) {
+  if (!need() || !(b - a >= MIN_SPAN)) { if (preview && audio) { A = a; B = null; paint(); } return; }
+  A = Math.round(a * 10) / 10; B = Math.round(b * 10) / 10;
+  if (preview) { loopOn = false; paint(); return; }
+  loopOn = true;
+  if (!root.classList.contains('is-practice')) setOpen(true);
+  try { audio.currentTime = A; } catch (_) {}
+  apply();
+  showToast(label ? `Repitiendo «${label}» (${fmt(A)} → ${fmt(B)}). Cambia la velocidad abajo o pulsa \\ para soltar el bucle.` : `Repitiendo ${fmt(A)} → ${fmt(B)}. Arrastra A o B para ajustar.`, 'info');
 }
 
 function announceRate() {
@@ -152,6 +196,7 @@ function paint() {
   btn.classList.toggle('is-active', rate !== 1 || loopOn);
   btn.querySelector('.sw-practice-state').textContent = rate !== 1 ? rr + '%' : (loopOn ? 'A–B' : '');
   paintOverlay();
+  renderSections();
 }
 
 function paintOverlay() {

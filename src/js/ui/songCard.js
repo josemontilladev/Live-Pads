@@ -158,8 +158,10 @@ export function songCardInnerHTML(song, opts) {
     `<span class="gi-chip">${sigMeta}</span>`,
     // Mayúscula inicial solo al mostrar ("alabanza" y "Alabanza" se ven igual);
     // el dato guardado no se toca.
-    song.genre ? `<span class="gi-chip gi-chip--genre">${esc(capitalizeFirst(song.genre))}</span>` : ''
   ].filter(Boolean).join('');
+  // El género va arriba, junto al artista: abajo lo tapaba la tira de botones que
+  // aparece al pasar el ratón.
+  const genreChip = song.genre ? `<span class="gi-chip gi-chip--genre">${esc(capitalizeFirst(song.genre))}</span>` : '';
 
   // Los acordes de la letra siguen al tono del servicio: si hoy se toca en G, el
   // acordeón muestra los acordes en G. La letra guardada no se toca.
@@ -175,7 +177,7 @@ export function songCardInnerHTML(song, opts) {
       ${songCoverHtml(song)}
       <div class="gi-song-main">
         <div class="gi-song-title">${titleHtml}</div>
-        <div class="gi-song-artist">${artistHtml}</div>
+        <div class="gi-song-artist-row"><div class="gi-song-artist">${artistHtml}</div>${genreChip}</div>
         ${metaLine ? `<div class="gi-song-meta-line">${metaLine}</div>` : ''}
         ${(includeAdd && opts.inService) ? INSERVICE_BADGE_HTML : ''}
       </div>

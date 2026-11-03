@@ -9,6 +9,9 @@
   border-left: 1.5px solid rgba(255, 255, 255, .35);
 }
 .sw-ch:hover { color: #fff; border-left-color: #fff; }
+/* Acordes de la letra: firmes. Los detectados donde la letra no dice nada: tenues. */
+#seq-wave.chords-from-song .sw-ch:not(.no-label) { color: var(--text); }
+#seq-wave.chords-from-song .sw-ch.is-guess:not(.no-label) { color: var(--text-muted); opacity: .6; font-style: italic; }
 .sw-ch.no-label { color: transparent; padding: 0; width: 0; }
 .sw-ch.is-current { z-index: 2; background: var(--accent); color: var(--on-accent); border-left-color: var(--accent); border-radius: 3px; padding: 0 5px; width: auto; }
 .sw-ch-msg { font-size: 11px; color: var(--text-muted); line-height: 20px; padding-left: 2px; }

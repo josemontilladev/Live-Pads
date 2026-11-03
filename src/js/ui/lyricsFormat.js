@@ -27,7 +27,7 @@ const HIGHLIGHT_SECTION_KEYWORDS = [...SECTION_KEYWORDS];
 // píldora de SECCIÓN, en mayúsculas y todo ("G#M").
 const CHORD_FILLER = /^(?:[-–—|/,.:;•·]+|x\s*\d+|\d+\s*x|%|\(|\)|\[|\])$/i;
 
-function isChordToken(token) {
+export function isChordToken(token) {
   const clean = token.replace(/[()[\]]/g, '');
   if (!clean) return false;
   return CHORD_REGEX.test(clean);
@@ -57,6 +57,7 @@ const SECTION_SYNONYMS = {
   INTRO: 'INTRO', INTRODUCCION: 'INTRO', INTRODUCAO: 'INTRO',
   VERSO: 'VERSO', VERSE: 'VERSO', ESTROFA: 'VERSO',
   PRIMEIRAPARTE: 'VERSO', SEGUNDAPARTE: 'VERSO', TERCEIRAPARTE: 'VERSO',
+  PRIMERAPARTE: 'VERSO', TERCERAPARTE: 'VERSO', PREESTRIBILLO: 'PRE-CORO', PRECORUS: 'PRE-CORO',
   PRECORO: 'PRE-CORO', PRECHORUS: 'PRE-CORO', PREREFRAO: 'PRE-CORO',
   CORO: 'CORO', CHORUS: 'CORO', ESTRIBILLO: 'CORO', REFRAO: 'CORO', REFRAIN: 'CORO',
   PUENTE: 'PUENTE', BRIDGE: 'PUENTE', PONTE: 'PUENTE',

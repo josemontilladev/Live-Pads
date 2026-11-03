@@ -18,6 +18,8 @@ import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog, confirmDialogAsync } from './dialog.js';
 import { buildAutoMarkers, detectSectionsInBackground } from './autoSections.js';
+import { parseLyricStructure, keyOffset, labelSegments } from './songStructure.js';
+import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
 import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane } from './chordLane.js';
 
@@ -29,7 +31,7 @@ const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente
 
 let root, stage, wrap, canvasBase, canvasPlayed, playedClip, regionsEl, markersEl, rulerEl, playheadEl;
 let titleEl, nowEl, nextEl, addBtn, collapseBtn;
-let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0;
+let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0, trackType = '';
 let scrubbing = false;
 let detecting = null;   // canción que se está analizando
 
@@ -139,7 +141,7 @@ function onLibrarySynced() {
 }
 
 function onLoaded({ audio: a, song: s, type }) {
-  audio = a; song = s || null; peaks = null; duration = 0;
+  audio = a; song = s || null; peaks = null; duration = 0; trackType = type || '';
   root.classList.remove('hidden', 'is-empty'); root.classList.add('is-loading');
   titleEl.textContent = song ? song.title : '';
   const ready = () => {
@@ -284,8 +286,28 @@ function timeAtClientX(x) {
 }
 function seekTo(t) { if (audio && duration) { audio.currentTime = t; tick(true); startLoop(); } }
 
+function sectionIdAt(t) {
+  let cur = null;
+  for (const m of sortedMarkers()) { if (m.t <= t + 0.05) cur = m; else break; }
+  return cur && cur.id;
+}
 function onWavePointerDown(e) {
   if (!audio || !duration || e.button !== 0) return;
+  if (e.target.closest('.sw-ab-h')) return;
+  if (e.detail === 2) { const id = sectionIdAt(timeAtClientX(e.clientX)); if (id) { practiceSection(id); return; } }
+  if (e.shiftKey) {
+    // Mayús + arrastrar: dibuja el tramo a repetir.
+    wrap.setPointerCapture(e.pointerId);
+    const t0 = timeAtClientX(e.clientX);
+    const move = (ev) => { const t = timeAtClientX(ev.clientX); loopSection(Math.min(t0, t), Math.max(t0, t), null, { preview: true }); };
+    const up = (ev) => {
+      wrap.removeEventListener('pointermove', move); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up);
+      const t = timeAtClientX(ev.clientX);
+      if (Math.abs(t - t0) >= 0.5) loopSection(Math.min(t0, t), Math.max(t0, t), null);
+    };
+    wrap.addEventListener('pointermove', move); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+    return;
+  }
   scrubbing = true; wrap.setPointerCapture(e.pointerId);
   seekTo(timeAtClientX(e.clientX));
   const move = (ev) => seekTo(timeAtClientX(ev.clientX));
@@ -369,8 +391,20 @@ async function autoDetect({ auto = false } = {}) {
   try {
     const bpm = parseFloat(s.bpm) || 0;
     const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
-    const raw = await detectSectionsInBackground(a.buffer, { bpm, beatsPerBar });
-    found = buildAutoMarkers(raw, s.lyrics, a.buffer.duration);
+    const lyr = parseLyricStructure(s.lyrics);
+    // La letra trae sus secciones: se analizan también los acordes de la pista para
+    // saber qué tramo es cada sección (verso, coro…) comparando acordes.
+    const chordsP = lyr.length >= 2 ? trackChordsFor(s, a).catch(() => null) : Promise.resolve(null);
+    const [raw, ch] = await Promise.all([detectSectionsInBackground(a.buffer, { bpm, beatsPerBar }), chordsP]);
+    const dur = a.buffer.duration;
+    if (lyr.length >= 2 && raw.length >= 2) {
+      const det = (ch && ch.seg) || [];
+      const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
+      found = labelSegments(segs, lyr, det, keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k)
+        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 10) / 10 }));
+    } else {
+      found = buildAutoMarkers(raw, s.lyrics, dur);
+    }
   } catch (e) { console.warn('[LivePads] detección de secciones:', e); }
   detecting = null; root.classList.remove('is-detecting');
   if (song !== s) return;                       // cambió de canción mientras analizaba
@@ -387,6 +421,24 @@ async function autoDetect({ auto = false } = {}) {
     action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
     ttl: 10000,
   });
+}
+
+async function trackChordsFor(s, a) {
+  const T = await import('../chords/trackChords.js');
+  const id = T.trackChordId(s, trackType, a.buffer);
+  return T.cacheGet(id) || T.analyzeBufferCached(id, a.buffer);
+}
+
+/** Tramo de la sección (de su marcador al siguiente). */
+function sectionRange(id) {
+  const ms = sortedMarkers();
+  const i = ms.findIndex((m) => m.id === id);
+  if (i < 0) return null;
+  return { m: ms[i], a: ms[i].t, b: i + 1 < ms.length ? ms[i + 1].t : duration };
+}
+function practiceSection(id) {
+  const r = sectionRange(id);
+  if (r && audio) loopSection(r.a, r.b, r.m.label);
 }
 
 function openAddMenu(anchor) {
@@ -418,9 +470,11 @@ function removeMarker(id) {
 
 function openMarkerMenu(x, y, id) {
   const m = getMarkers().find(v => v.id === id); if (!m) return;
-  if (!canEditActiveLibrary()) { openContextMenu(x, y, [{ label: 'Ir a esta sección', onSelect: () => seekTo(m.t) }]); return; }
+  const loopItem = { label: 'Practicar esta sección en bucle', onSelect: () => practiceSection(id) };
+  if (!canEditActiveLibrary()) { openContextMenu(x, y, [{ label: 'Ir a esta sección', onSelect: () => seekTo(m.t) }, loopItem]); return; }
   openContextMenu(x, y, [
     { label: 'Ir a esta sección', onSelect: () => seekTo(m.t) },
+    loopItem,
     { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; persist(); renderMarkers(); } }) },
     { label: 'Mover al cabezal', onSelect: () => { m.t = Math.round((audio.currentTime || 0) * 10) / 10; persist(); renderMarkers(); } },
     { label: 'Eliminar', danger: true, onSelect: () => removeMarker(id) },

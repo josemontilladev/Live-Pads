@@ -70,3 +70,12 @@
   bottom: 4px;
   padding: 3px;
 }
+
+/* Género junto al artista (arriba): ya no queda debajo de la tira flotante. */
+.gi-song-artist-row { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 1px; }
+.gi-song-artist-row .gi-song-artist { flex: 0 1 auto; min-width: 0; margin-top: 0; }
+.gi-song-artist-row .gi-chip--genre { flex: none; height: 17px; line-height: 17px; padding: 0 7px; font-size: 10px; }
+/* La tira flotante tiene su propio hueco abajo (donde antes caía el género):
+   al pasar el ratón no tapa ningún dato de la tarjeta. */
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-main { padding-bottom: 30px; }
+.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions { bottom: 5px; }

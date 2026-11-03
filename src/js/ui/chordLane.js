@@ -13,6 +13,7 @@
 
 import { getTrackPitch } from '../audio/trackPlayer.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
+import { parseLyricStructure, keyOffset, songChordSegments } from './songStructure.js';
 
 const LS_PREFS = 'livepads.chords';
 let root, lane, nowEl, nextEl, btn, seek = () => {};
@@ -21,6 +22,25 @@ let track = null;        // { audio, song, type }
 let result = null, id = null;
 let E = null, T = null;  // módulos del motor (carga diferida)
 let lastIdx = -2, lastShift = 0, lastPitchCheck = 0;
+// Acordes a mostrar: los de la LETRA colocados en cada sección marcada (si la
+// canción los trae); donde la letra no dice nada, los detectados (suposición).
+let shown = null, shownSig = '', songK = 0, fromSong = false;
+function segsNow() {
+  if (!result) return [];
+  const s = track && track.song;
+  const sig = s ? JSON.stringify([s.lyrics || '', s.markers || [], result.d]) : '';
+  if (sig === shownSig && shown) return shown;
+  shownSig = sig; shown = result.seg; fromSong = false;
+  try {
+    const lyr = s ? parseLyricStructure(s.lyrics) : [];
+    if (lyr.some((x) => x.chords.length) && Array.isArray(s.markers) && s.markers.length) {
+      songK = keyOffset(lyr, result.seg, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
+      const segs = songChordSegments(s.markers, lyr, result.seg, songK, result.d || 0);
+      if (segs.some((x) => !x.guess)) { shown = segs; fromSong = true; }
+    }
+  } catch (e) { console.warn('[LivePads] acordes de la letra:', e); }
+  return shown;
+}
 
 function prefs() {
   try { return Object.assign({ basic: true, latin: false, lane: false }, JSON.parse(localStorage.getItem(LS_PREFS) || '{}')); } catch (_) { return { basic: true, latin: false, lane: false }; }
@@ -51,6 +71,10 @@ export function initChordLane(rootEl, seekFn) {
     if (el) seek(parseFloat(el.dataset.t) || 0);
   });
   window.addEventListener('livepads:chord-prefs', () => { if (result) render(); });
+  // Secciones movidas / letra editada: los acordes de la letra se recolocan solos.
+  const again = () => { if (result) { shownSig = ''; render(); } };
+  window.addEventListener('livepads:songs-changed', again);
+  window.addEventListener('livepads:library-synced', again);
   window.addEventListener('livepads:chords-ready', (e) => {
     if (on && e.detail && e.detail.id === id) { result = e.detail.result; render(); }
   });
@@ -96,7 +120,9 @@ async function request() {
 
 function nameOf(c) {
   const p = prefs();
-  return E.chordName(c, { latin: p.latin, basic: p.basic, shift: lastShift });
+  // Acorde escrito en la letra y la pista en el tono de la letra: tal cual se escribió.
+  if (c.n && !p.latin && ((lastShift - songK) % 12 + 12) % 12 === 0) return c.n;
+  return E.chordName(c, { latin: p.latin, basic: p.basic && !c.n, shift: lastShift });
 }
 
 /** Dibuja la franja (al cargar, al cambiar preferencias, tono o ancho). */
@@ -105,14 +131,17 @@ export function render() {
   lastShift = getTrackPitch() || 0;
   const d = result.d || 1, w = lane.clientWidth || 1;
   let lastX = -1e9, lastW = 0, html = '';
-  result.seg.forEach((s, i) => {
+  const list = segsNow();
+  lane.title = fromSong ? 'Acordes de la letra de la canción, colocados en cada sección (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
+  root.classList.toggle('chords-from-song', fromSong);
+  list.forEach((s, i) => {
     if (s.r < 0) return;
     const n = nameOf(s);
     const x = (s.s / d) * w;
     const tw = n.length * 7 + 12;               // ancho aproximado del nombre
     const fits = x - lastX >= lastW;
     if (fits) { lastX = x; lastW = tw; }
-    html += `<span class="sw-ch${fits ? '' : ' no-label'}" data-i="${i}" data-t="${s.s}" style="left:${(s.s / d) * 100}%" title="${esc(n)}">${esc(n)}</span>`;
+    html += `<span class="sw-ch${fits ? '' : ' no-label'}${s.guess ? ' is-guess' : ''}" data-i="${i}" data-t="${s.s}" style="left:${(s.s / d) * 100}%" title="${esc(n)}${s.guess ? ' (detectado)' : s.n ? ' (de la letra)' : ''}">${esc(n)}</span>`;
   });
   lane.innerHTML = html || '<span class="sw-ch-msg">No se encontraron acordes claros.</span>';
   lastIdx = -2;
@@ -127,7 +156,7 @@ export function laneTick(t) {
     lastPitchCheck = now;
     if ((getTrackPitch() || 0) !== lastShift) { render(); return; }
   }
-  const segs = result.seg;
+  const segs = segsNow();
   // búsqueda binaria del segmento que contiene t
   let lo = 0, hi = segs.length - 1, idx = -1;
   while (lo <= hi) {
