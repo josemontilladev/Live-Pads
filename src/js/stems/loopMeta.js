@@ -3,15 +3,19 @@
 // Módulo puro (sin DOM) para poder testearlo con node.
 
 const INSTRUMENT_PATTERNS = [
+  // Pistas de un multitrack de canción: click y guía (voz que canta las secciones).
+  ['click', /\b(click|clic|metr[oó]nomo|claqueta)\b/i],
+  ['guide', /\b(gu[ií]a|guide|cues?)\b/i],
+  ['guitar', /\b(GA|GE|AG|EG)\s?\d*\b/],          // «GA 1» acústica, «GE 2» eléctrica
   ['perc', /\b(perc(usi[oó]n|ussion)?|shaker|tamb(ourine|or)?|conga|bongo)\b/i],
   ['drums', /\b(drums?|bater[ií]a|kit|beat|groove)\b/i],
   ['bass', /\b(bass|bajo|sub)\b/i],
   ['pad', /\b(pads?|colch[oó]n|ambient|atm[oó]sfera|swell)\b/i],
-  ['synth', /\b(synth|sintetizador|arp(egg?io)?|lead)\b/i],
+  ['synth', /\b(synth|sinte|snt|sintetizador|arp(egg?io)?|lead)\b/i],
   ['keys', /\b(keys?|piano|rhodes|teclas?|organ|[oó]rgano|wurli)\b/i],
   ['guitar', /\b(gtr|guitarra?|guitar|ac[uú]stica|el[eé]ctrica)\b/i],
   ['strings', /\b(strings?|cuerdas|violin|cello)\b/i],
-  ['vocals', /\b(vox|vocals?|voz|voces|coro?s? vocal)\b/i],
+  ['vocals', /\b(vox|vocals?|voz|voces|coros|bgv|backing|coro?s? vocal)\b/i],
   ['fx', /\b(fx|riser|impact|sweep|reverse|efecto)\b/i],
 ];
 const SECTION_PATTERNS = [
@@ -29,7 +33,9 @@ export function guessFromFilename(name) {
   const base = String(name || '').replace(/\.[^.]+$/, '');
   const words = base.replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim();
   const bpmMatch = words.match(/\b(\d{2,3})\s*bpm\b/i);
-  const instrument = (INSTRUMENT_PATTERNS.find(([, re]) => re.test(words)) || ['other'])[0];
+  // «BajoSnt» / «LpSinte»: se separan las palabras pegadas para reconocerlas.
+  const split = words.replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, '$1 $2');
+  const instrument = (INSTRUMENT_PATTERNS.find(([, re]) => re.test(split)) || ['other'])[0];
   const section = (SECTION_PATTERNS.find(([, re]) => re.test(words)) || ['any'])[0];
   const title = words
     .replace(/\b\d{2,3}\s*bpm\b/ig, '')
@@ -93,4 +99,4 @@ export function safeFileName(name) {
 }
 
 /** Instrumentos sin tono: no se les detecta ni se les pone tonalidad. */
-export const UNPITCHED = new Set(['drums', 'perc', 'fx']);
+export const UNPITCHED = new Set(['drums', 'perc', 'fx', 'click', 'guide']);

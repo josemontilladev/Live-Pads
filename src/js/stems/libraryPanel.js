@@ -33,7 +33,7 @@ export const LOOP_DRAG_TYPE = 'application/x-livepads-loop';
 
 const INSTRUMENTS = {
   drums: 'Batería', perc: 'Percusión', bass: 'Bajo', keys: 'Teclas', pad: 'Pad',
-  synth: 'Synth', guitar: 'Guitarra', strings: 'Cuerdas', vocals: 'Voces', fx: 'FX', other: 'Otros',
+  synth: 'Synth', guitar: 'Guitarra', strings: 'Cuerdas', vocals: 'Voces', guide: 'Guía', click: 'Click', fx: 'FX', other: 'Otros',
 };
 const SECTIONS = {
   any: 'Cualquiera', intro: 'Intro', verse: 'Verso', prechorus: 'Pre-coro', chorus: 'Coro',
@@ -328,7 +328,7 @@ export function mountLibraryPanel(host, api) {
     if (btn) { btn.disabled = true; btn.textContent = 'Cargando la base…'; }
     try {
       for (const l of layers) {
-        await api.addLoop(l, { atSec: 0, repeats: 4, sameTrack: true });
+        await api.addLoop(l, { atSec: 0, repeats: l.bars > 16 ? 1 : 4, sameTrack: true });
         markRecent(l.id); state.local.add(l.id); state.localAll.add(l.id);
       }
       markRecentPack(pid);
@@ -702,7 +702,8 @@ export function mountLibraryPanel(host, api) {
     state.busyId = loop.id;
     setBusy(loop.id, true);
     try {
-      await api.addLoop(loop, { atSec, repeats: getRepeats(), sameTrack: getSameTrack() });
+      // Una pista de canción completa (multitrack) entra una sola vez, no 4.
+      await api.addLoop(loop, { atSec, repeats: loop.bars > 16 ? 1 : getRepeats(), sameTrack: getSameTrack() });
       markRecent(loop.id);
       markRecentPack(loop.pack_id);
       state.localAll.add(loop.id);

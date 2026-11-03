@@ -19,14 +19,14 @@ import * as stemLibrary from '../cloud/stemLibrary.js';
 import { detectTempoMeter } from './bpmDetector.js';
 import { analyzeChords, keyName, CHORD_SR } from '../chords/chordEngine.js';
 import { audioBufferToWav } from './clickGenerator.js';
-import { guessFromFilename, pickTempo, slugify, safeFileName, UNPITCHED } from './loopMeta.js';
+import { guessFromFilename, pickTempo, exactTempo, slugify, safeFileName, UNPITCHED } from './loopMeta.js';
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 
 const INSTRUMENTS = {
   drums: 'Batería', perc: 'Percusión', bass: 'Bajo', keys: 'Teclas', pad: 'Pad', synth: 'Synth',
-  guitar: 'Guitarra', strings: 'Cuerdas', vocals: 'Voces', fx: 'FX', other: 'Otros',
+  guitar: 'Guitarra', strings: 'Cuerdas', vocals: 'Voces', guide: 'Guía', click: 'Click', fx: 'FX', other: 'Otros',
 };
 const SECTIONS = { any: 'Cualquiera', intro: 'Intro', verse: 'Verso', prechorus: 'Pre-coro', chorus: 'Coro', bridge: 'Puente', build: 'Build', outro: 'Outro' };
 const KEYS = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B',
@@ -152,6 +152,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
 
       <section data-pane="upload" class="spu-pane">
         ${community ? `<p class="spu-intro">Comparte tus loops con otros músicos de LivePads. Cada envío lo revisa el equipo antes de publicarse; si lo aprobamos, aparece en la Biblioteca con tu firma.</p>` : ''}
+        <h4 class="spu-step"><b>1</b> El pack <span>nombre, portada y quién lo ve</span></h4>
         <div class="spu-target">
           <label><input type="radio" name="spu-mode" value="new" checked> Pack nuevo</label>
           <label><input type="radio" name="spu-mode" value="existing"> ${admin ? 'Agregar o actualizar loops de un pack' : 'Agregar a un envío'}
@@ -180,12 +181,27 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
           </div>
           <input type="file" data-ref="coverInput" accept="image/jpeg,image/png,image/webp" hidden>
         </div>
+        <h4 class="spu-step"><b>2</b> Tempo y tono <span>uno para todo el pack, como en tus canciones</span></h4>
+        <div class="spu-packtempo">
+          <label>BPM del pack <input data-ref="packBpm" type="number" min="20" max="300" step="0.01" placeholder="Ej. 96"></label>
+          <label>Tono del pack <select data-ref="packKey">${keyOpts('')}</select></label>
+          <label class="spu-perloop" title="Actívalo solo si los loops del pack están en tempos o tonos distintos"><input type="checkbox" data-ref="perLoop"> Cada loop con su propio BPM y tono</label>
+          <span class="spu-note">Como en las canciones: un BPM y un tono para todo el pack. Se rellenan solos al soltar los audios; cámbialos si no cuadran. Batería y percusión van sin tono.</span>
+        </div>
+        <h4 class="spu-step"><b>3</b> Pistas <span>suelta los audios; revisa el instrumento de cada una</span></h4>
         <div class="spu-drop" data-ref="drop">
           Arrastra aquí los loops en <b>WAV</b> o <b>FLAC</b>, o <button type="button" class="stb-btn" data-act="files">elige archivos</button>
           <input type="file" data-ref="filesInput" accept=".wav,.flac,audio/wav,audio/flac" multiple hidden>
           <div class="spu-note">MP3 y M4A no: añaden silencio al principio y el loop se desfasaría. Un archivo con el mismo nombre que uno ya subido lo actualiza${admin ? ' (conserva su marca GRATIS/PRO)' : ''}.</div>
         </div>
-        <div class="stb-grid-wrap"><table class="stb-grid" data-ref="rows"></table></div>
+        <div class="spu-bulk" data-ref="bulk" hidden>
+          <span>Para todas las pistas:</span>
+          <select data-bulk="section"><option value="">Sección…</option>${opts(SECTIONS, '')}</select>
+          <select data-bulk="feel"><option value="">Sensación…</option>${opts(FEELS, '')}</select>
+          ${admin ? `<select data-bulk="tier"><option value="">Marca…</option>${opts({ free: 'GRATIS', pro: 'PRO' }, '')}</select>` : ''}
+          <button type="button" class="stb-btn" data-act="clearRows" title="Quitar todas las pistas de la lista">Quitar todas</button>
+        </div>
+        <div class="stb-grid-wrap spu-rows-wrap"><table class="stb-grid" data-ref="rows"></table></div>
         <div class="spu-progress" data-ref="progress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="spu-progress-bar" data-ref="bar"></div>
         </div>
@@ -318,7 +334,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
   function renderPackList() {
     const list = ownPacks();
     ref('packList').innerHTML = list.length ? list.map(packRow).join('')
-      : `<div class="stb-empty">${admin ? 'Todavía no hay packs.' : 'Aún no has enviado ningún pack. Empieza en "Enviar pack".'}</div>`;
+      : `<div class="stb-empty spu-empty"><b>${admin ? 'Todavía no hay packs' : 'Aún no has enviado ningún pack'}</b><span>${admin ? 'Sube tu primer pack: un BPM, un tono y sus pistas.' : 'Comparte tus loops con la comunidad.'}</span><button type="button" class="stb-btn stb-btn--primary" data-tab="upload">${admin ? 'Subir un pack' : 'Enviar un pack'}</button></div>`;
     paintCovers();
   }
 
@@ -405,7 +421,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       <td><select data-lf="instrument">${opts(INSTRUMENTS, e.instrument)}</select></td>
       <td><select data-lf="section">${opts(SECTIONS, e.section)}</select></td>
       <td><input data-lf="bpm" type="number" min="20" max="300" step="0.01" value="${Number(e.bpm)}"></td>
-      <td><input data-lf="bars" type="number" min="1" max="64" value="${e.bars}"></td>
+      <td><input data-lf="bars" type="number" min="1" max="1024" value="${e.bars}"></td>
       <td><select data-lf="musical_key">${keyOpts(e.musical_key)}</select></td>
       <td><select data-lf="feel">${feelOpts(feelOf(e.tags))}</select></td>
       ${admin ? `<td><select data-lf="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, e.tier)}</select></td>` : ''}
@@ -702,23 +718,91 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     return mode() === 'new' ? ref('tier').value : (state.packs.find((p) => p.id === ref('existing').value)?.tier || 'pro');
   }
 
+  // ── Un BPM y un tono por pack (como las canciones) ──
+  const perLoop = () => ref('perLoop').checked;
+  const mostCommon = (vals) => {
+    const c = new Map(); vals.forEach((v) => c.set(v, (c.get(v) || 0) + 1));
+    return [...c].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  // Al soltar audios: BPM = el del nombre de algún archivo, o el más repetido
+  // entre lo detectado; tono = el más repetido entre los instrumentos con tono.
+  function suggestPackTempo() {
+    if (!state.rows.length) return;
+    if (!(Number(ref('packBpm').value) > 0)) {
+      const hints = state.rows.map((r) => r.hintBpm).filter(Boolean);
+      const det = state.rows.map((r) => Math.round(r.detectedBpm || r.bpm)).filter((x) => x >= 40 && x <= 220);
+      const bpm = hints.length ? mostCommon(hints) : mostCommon(det);
+      if (bpm) ref('packBpm').value = String(bpm);
+    }
+    if (!ref('packKey').value) {
+      const k = mostCommon(state.rows.filter((r) => !UNPITCHED.has(r.instrument) && r.key).map((r) => r.key));
+      if (k) ref('packKey').value = k;
+    }
+  }
+  // Aplica el BPM y el tono del pack a cada fila (las que actualizan un loop ya
+  // subido conservan los suyos). Compases = duración a ese BPM.
+  function applyPackTempo() {
+    if (perLoop()) return;
+    const bpm = Number(ref('packBpm').value);
+    const key = ref('packKey').value || null;
+    for (const r of state.rows) {
+      if (r.updates) continue;
+      if (bpm >= 20 && bpm <= 300) {
+        const t = exactTempo(r.buffer.duration, bpm);
+        r.bpm = t.bpm; r.bars = t.bars; r.offTempo = t.error > 0.03;
+      }
+      r.key = UNPITCHED.has(r.instrument) ? null : key;
+    }
+  }
+
   function renderRows() {
     const rows = state.rows;
+    applyPackTempo();
+    const per = perLoop();
+    ref('rows').classList.toggle('is-packtempo', !per);
     ref('rows').innerHTML = !rows.length ? '' : `
-      <thead><tr><th>Título</th><th>Instrumento</th><th>Sección</th><th>BPM</th><th>Compases</th><th>Tono</th><th>Sensación</th>${admin ? '<th>Marca</th>' : ''}<th></th><th></th></tr></thead>
-      <tbody>${rows.map((r, i) => `<tr data-row="${i}">
-        <td class="spu-title-cell"><input data-f="title" value="${esc(r.title)}" maxlength="120">${r.updates ? '<span class="spu-upd" title="Ya existe en el pack: se reemplaza su audio y se conservan sus datos">actualiza</span>' : ''}</td>
+      <thead><tr><th>Pista</th><th>Instrumento</th><th>Sección</th><th class="spu-col-bpm">BPM</th><th>Compases</th><th class="spu-col-key">Tono</th><th>Sensación</th>${admin ? '<th>Marca</th>' : ''}<th></th><th></th></tr></thead>
+      <tbody>${rows.map((r, i) => `<tr data-row="${i}"${previewRow === i ? ' class="is-playing"' : ''}>
+        <td class="spu-title-cell"><button type="button" class="spu-rowplay" data-rowplay="${i}" title="Escuchar esta pista">${previewRow === i ? '■' : '▶'}</button><input data-f="title" value="${esc(r.title)}" maxlength="120">${r.updates ? '<span class="spu-upd" title="Ya existe en el pack: se reemplaza su audio y se conservan sus datos">actualiza</span>' : ''}</td>
         <td><select data-f="instrument">${opts(INSTRUMENTS, r.instrument)}</select></td>
         <td><select data-f="section">${opts(SECTIONS, r.section)}</select></td>
-        <td><input data-f="bpm" type="number" min="20" max="300" step="0.01" value="${r.bpm}"></td>
-        <td><input data-f="bars" type="number" min="1" max="64" value="${r.bars}"></td>
-        <td><select data-f="key">${keyOpts(r.key)}</select></td>
+        <td class="spu-col-bpm"><input data-f="bpm" type="number" min="20" max="300" step="0.01" value="${r.bpm}"></td>
+        <td>${per ? `<input data-f="bars" type="number" min="1" max="1024" value="${r.bars}">` : `<span class="spu-bars" title="${r.buffer.duration.toFixed(1)} s a ${r.bpm} BPM">${r.bars}</span>`}</td>
+        <td class="spu-col-key"><select data-f="key">${keyOpts(r.key)}</select></td>
         <td><select data-f="feel">${feelOpts(r.feel)}</select></td>
         ${admin ? `<td><select data-f="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, r.tier || defaultTier())}</select></td>` : ''}
-        <td class="spu-check" title="${durationOk(r) ? 'La duración cuadra con BPM y compases' : `Dura ${r.buffer.duration.toFixed(2)} s, pero ${r.bars} compases a ${r.bpm} BPM son ${(r.bars * 240 / r.bpm).toFixed(2)} s`}">${durationOk(r) ? '✓' : '⚠'}</td>
+        <td class="spu-check" title="${!per && r.offTempo ? `No dura un número entero de compases a ${ref('packBpm').value} BPM: revisa el BPM del pack o activa «Cada loop con su propio BPM»` : durationOk(r) ? 'La duración cuadra con BPM y compases' : `Dura ${r.buffer.duration.toFixed(2)} s, pero ${r.bars} compases a ${r.bpm} BPM son ${(r.bars * 240 / r.bpm).toFixed(2)} s`}">${(!per && r.offTempo) || !durationOk(r) ? '⚠' : '✓'}</td>
         <td><button type="button" class="stb-del" data-del="${i}" aria-label="Quitar">×</button></td>
       </tr>`).join('')}</tbody>`;
+    ref('bulk').hidden = !rows.length;
     refreshButton();
+    paintSummary();
+  }
+  function paintSummary() {
+    if (state.busy) return;
+    const n = state.rows.length;
+    const bpm = Number(ref('packBpm').value), key = ref('packKey').value;
+    const warn = state.rows.filter((r) => (!perLoop() && r.offTempo) || !durationOk(r)).length;
+    ref('status').textContent = !n ? '' : `${n} pista${n === 1 ? '' : 's'}${!perLoop() && bpm ? ` · ${bpm} BPM` : ''}${!perLoop() && key ? ` · ${key}` : ''}${warn ? ` · ⚠ ${warn} por revisar` : ''}`;
+  }
+
+  // Escuchar una pista antes de subirla (para saber qué es «GA 1» o «Loop»).
+  var previewRow = -1, previewSrc = null, previewCtx = null;   // var: renderRows puede usarse antes de esta línea
+  function stopRowPreview() {
+    if (previewSrc) { try { previewSrc.stop(); } catch (_) {} previewSrc = null; }
+    previewRow = -1;
+  }
+  function toggleRowPreview(i) {
+    const was = previewRow;
+    stopRowPreview();
+    if (was !== i && state.rows[i]) {
+      previewCtx = previewCtx || new AudioContext();
+      const src = previewCtx.createBufferSource();
+      src.buffer = state.rows[i].buffer; src.connect(previewCtx.destination);
+      src.onended = () => { if (previewSrc === src) { previewSrc = null; previewRow = -1; renderRows(); } };
+      src.start(); previewSrc = src; previewRow = i;
+    }
+    renderRows();
   }
 
   function refreshButton() {
@@ -738,8 +822,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     }
     harmonizeTempo(state.rows);
     await prefillExisting();
-    renderRows();
+    suggestPackTempo();
     ref('status').textContent = '';
+    renderRows();
   }
 
   // Agregar a un pack existente: un archivo con el mismo nombre que un loop ya
@@ -756,6 +841,13 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       try { loops = admin ? await stemLibrary.adminListLoops(packId) : await stemLibrary.listOwnPackLoops(packId); }
       catch (_) { return; }
       state.loops.set(packId, loops);
+    }
+    // El BPM y el tono del pack que ya existe.
+    if (loops.length) {
+      const b = mostCommon(loops.map((l) => Number(l.bpm)));
+      const k = mostCommon(loops.map((l) => l.musical_key).filter(Boolean));
+      if (b) ref('packBpm').value = String(b);
+      if (k) ref('packKey').value = k;
     }
     const byName = new Map(loops.map((l) => [String(l.audio_path).split('/').pop(), l]));
     for (const r of state.rows) {
@@ -868,7 +960,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
   // ── Eventos ──
   const close = () => {
     if (state.busy) { showToast('Espera a que termine la subida.', 'info'); return; }
-    stopPlaying();
+    stopPlaying(); stopRowPreview();
     window.removeEventListener('keydown', onKey, true); overlay.remove();
   };
   // Esc cierra, salvo que haya un diálogo de confirmación encima.
@@ -882,10 +974,12 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) { close(); return; }
-    const t = e.target.closest('[data-act],[data-tab],[data-del],[data-open],[data-play],[data-play-report]');
+    const t = e.target.closest('[data-act],[data-tab],[data-del],[data-open],[data-play],[data-play-report],[data-rowplay]');
     if (!t) return;
-    const { act, tab, del, open, play, playReport, id } = t.dataset;
-    if (open) togglePack(open);
+    const { act, tab, del, open, play, playReport, id, rowplay } = t.dataset;
+    if (rowplay != null) toggleRowPreview(Number(rowplay));
+    else if (act === 'clearRows') { stopRowPreview(); state.rows = []; renderRows(); }
+    else if (open) togglePack(open);
     else if (play) togglePlay(play);
     else if (playReport) togglePlay(playReport, t.dataset.pack);
     else if (act === 'changeCover') overlay.querySelector(`[data-cover-input="${CSS.escape(id)}"]`)?.click();
@@ -913,7 +1007,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     else if (act === 'approve') review(id, true);
     else if (act === 'reject') review(id, false);
     else if (act === 'submit') submitOwn(id);
-    else if (del != null) { state.rows.splice(Number(del), 1); renderRows(); }
+    else if (del != null) { stopRowPreview(); state.rows.splice(Number(del), 1); renderRows(); }
     else if (tab) {
       stopPlaying();
       overlay.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
@@ -931,6 +1025,12 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       renderRows();
     } else if (t === ref('existing')) { await prefillExisting(); renderRows(); }
     else if (t === ref('tier')) renderRows();
+    else if (t === ref('packBpm') || t === ref('packKey') || t === ref('perLoop')) renderRows();
+    else if (t.dataset.bulk) {
+      const f = t.dataset.bulk, v = t.value;
+      if (v) { state.rows.forEach((r) => { r[f] = v; }); renderRows(); showToast('Aplicado a todas las pistas.', 'success'); }
+      t.value = '';
+    }
     else if (t === ref('publish') || t === ref('rights')) refreshButton();
     else if (t === ref('statsDays') || t === ref('statsView')) loadStats();
     else if (t === ref('filesInput')) { await addFiles(t.files); t.value = ''; }
@@ -970,6 +1070,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       r[f] = (f === 'bpm' || f === 'bars') ? Number(t.value) : (t.value || null);
       if (f === 'feel') r.feel = t.value;
       if (f === 'bpm' || f === 'bars') { r.edited = true; renderRows(); }
+      if (f === 'instrument' && !perLoop()) renderRows();   // batería/percusión: sin tono
     }
   });
   overlay.addEventListener('keydown', (e) => {

@@ -45,7 +45,7 @@ const json = (b: unknown, s = 200) =>
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,60}$/;
-const INSTRUMENTS = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'fx', 'other'];
+const INSTRUMENTS = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'guide', 'click', 'fx', 'other'];
 const SECTIONS = ['any', 'intro', 'verse', 'prechorus', 'chorus', 'bridge', 'build', 'outro'];
 const CONTENT_TYPES = ['audio/wav', 'audio/x-wav', 'audio/flac', 'image/jpeg', 'image/png', 'image/webp'];
 const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,published,sort,status,submitted_by,author_name,review_note,submitted_at';
@@ -72,7 +72,7 @@ function loopRow(l: any, packId: string) {
   const audio = safePath(l?.audio_path), preview = l?.preview_path ? safePath(l.preview_path) : null;
   const bpm = Number(l?.bpm), bars = Number(l?.bars);
   if (!audio || !str(l?.title) || !INSTRUMENTS.includes(l?.instrument) || !(bpm >= 20 && bpm <= 300)
-      || !Number.isInteger(bars) || bars < 1 || bars > 64) return null;
+      || !Number.isInteger(bars) || bars < 1 || bars > 1024) return null;
   return {
     pack_id: packId, title: str(l.title, 120), instrument: l.instrument,
     section: SECTIONS.includes(l.section) ? l.section : 'any',
@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
     }
     if (body.bars !== undefined) {
       const b = Number(body.bars);
-      if (!Number.isInteger(b) || b < 1 || b > 64) return { error: 'Compases fuera de rango (1–64)' };
+      if (!Number.isInteger(b) || b < 1 || b > 1024) return { error: 'Compases fuera de rango (1–1024)' };
       patch.bars = b;
     }
     if (body.musical_key !== undefined) patch.musical_key = str(body.musical_key, 6) || null;

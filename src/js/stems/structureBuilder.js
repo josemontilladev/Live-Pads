@@ -9,7 +9,7 @@
 import { SECTION_TYPES, STRUCTURE_PRESETS, sectionLabel, suggestStructure, rankCandidates, sectionStarts } from './loopStructure.js';
 import { esc } from '../utils/dom.js';
 
-const INSTRUMENT_ORDER = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'fx', 'other'];
+const INSTRUMENT_ORDER = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 'strings', 'vocals', 'guide', 'click', 'fx', 'other'];
 const BAR_OPTIONS = [2, 4, 8, 12, 16];
 
 export function openStructureBuilder({ loops, packs, packId = '', project, hasTracks, labels, onBuild, preset = 'estandar' }) {
