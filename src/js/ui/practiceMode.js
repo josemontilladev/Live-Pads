@@ -201,7 +201,7 @@ function stopGuided(pause) {
   if (!guided && !countingIn) return;
   guided = false; countingIn = false;
   clearInterval(guideTimer); guideTimer = 0;
-  if (pause && audio) { try { audio.pause(); } catch (_) {} }
+  if (pause && audio) { try { audio.pause(); } catch (_) {} setRate(1); }   // «Parar»: vuelve al 100 %
   renderSections();
 }
 function onGuideTick() {

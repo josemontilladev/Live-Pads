@@ -128,6 +128,9 @@ export function initSeqWaveform() {
   confirmBtn.onclick = confirmAll;
   addBtn.parentNode.insertBefore(confirmBtn, addBtn);
   window.addEventListener('keydown', onKey, true);
+  // La selección es de corta vida: las flechas también cambian de canción en el
+  // servicio, así que se suelta al hacer clic en otra parte o tras unos segundos.
+  document.addEventListener('pointerdown', (e) => { if (selectedId && !e.target.closest('.sw-pill')) deselect(); }, true);
   window.addEventListener('livepads:chords-ready', () => loadChordTimes());
   initChordLane(root, (t) => seekTo(t));
 
@@ -369,7 +372,7 @@ function bindPill(pill) {
     const up = (ev) => {
       pill.removeEventListener('pointermove', move); pill.removeEventListener('pointerup', up); pill.removeEventListener('pointercancel', up);
       pill.classList.remove('is-drag');
-      selectedId = m.id;
+      select(m.id);
       if (moved) {
         // Al soltar se pega al compás (o al cambio de acorde) más cercano. Alt = sin pegar.
         if (!(ev && ev.altKey)) m.t = snapTime(m.t);
@@ -475,6 +478,22 @@ async function loadChordTimes() {
     if (c && Array.isArray(c.seg)) chordTimes = c.seg.filter((x) => x.r >= 0).map((x) => x.s);
   } catch (_) {}
 }
+let selTimer = 0, selHinted = false;
+function select(id) {
+  selectedId = id;
+  armSelTimer();
+  if (id && !selHinted && canEditActiveLibrary()) {
+    selHinted = true;
+    window.showToast?.('Sección seleccionada: ← → la mueven por compás · Supr la quita · Esc la suelta.', 'info');
+  }
+}
+function armSelTimer() { clearTimeout(selTimer); if (selectedId) selTimer = setTimeout(deselect, 8000); }
+function deselect() {
+  clearTimeout(selTimer);
+  if (!selectedId) return;
+  selectedId = null;
+  markersEl?.querySelectorAll('.sw-pill.is-selected').forEach((p) => p.classList.remove('is-selected'));
+}
 function snapTime(t) {
   const clamp = (v) => Math.max(0, Math.min(duration - 0.5, Math.round(v * 100) / 100));
   if (grid) {
@@ -536,9 +555,9 @@ function onKey(e) {
   if (!selectedId || mod) return;
   const m = getMarkers().find((x) => x.id === selectedId);
   if (!m) { selectedId = null; return; }
-  if (e.key === 'Escape') { selectedId = null; renderMarkers(); handled(); return; }
+  if (e.key === 'Escape') { deselect(); handled(); return; }
   if (!canEditActiveLibrary()) return;
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { handled(); nudge(m, e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 'beat' : e.altKey ? 'fine' : 'bar'); return; }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { handled(); armSelTimer(); nudge(m, e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 'beat' : e.altKey ? 'fine' : 'bar'); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { handled(); const id = m.id; selectedId = null; removeMarker(id); }
 }
 
