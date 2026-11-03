@@ -15,6 +15,14 @@
 .sw-title { font-size: 13px; font-weight: 600; letter-spacing: -0.015em; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sw-now { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text); }
 .sw-now i { width: 9px; height: 9px; border-radius: 50%; background: hsl(var(--h) 70% 58%); box-shadow: 0 0 10px hsl(var(--h) 70% 58% / .7); }
+.sw-auto-link {
+  display: inline-flex; align-items: center; gap: 5px; margin-left: 2px; padding: 2px 9px 2px 7px; border-radius: 999px;
+  font: inherit; font-size: 11.5px; font-weight: 700; color: var(--accent); cursor: pointer;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.sw-auto-link:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.sw-detecting { color: var(--accent); animation: sw-pulse 1.2s ease-in-out infinite; }
+@keyframes sw-pulse { 50% { opacity: .45; } }
 .sw-next { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .sw-actions { margin-left: auto; display: flex; gap: 6px; }
 .sw-btn {

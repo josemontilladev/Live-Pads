@@ -16,17 +16,22 @@
 import { computePeaks } from '../stems/waveform.js';
 import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
-import { showDialog } from './dialog.js';
+import { showDialog, confirmDialogAsync } from './dialog.js';
+import { buildAutoMarkers, detectSectionsInBackground } from './autoSections.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
 import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane } from './chordLane.js';
 
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
+const AUTO_KEY = 'livepads-autosections';          // '0' = no marcar solas las canciones nuevas
+const TRIED_KEY = 'livepads-autosections-tried';   // canciones ya analizadas (no se repite)
+const ICO_AUTO = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
 const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente', 'Instrumental', 'Solo', 'Interludio', 'Tag', 'Final', 'Outro'];
 
 let root, stage, wrap, canvasBase, canvasPlayed, playedClip, regionsEl, markersEl, rulerEl, playheadEl;
 let titleEl, nowEl, nextEl, addBtn, collapseBtn;
 let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0;
 let scrubbing = false;
+let detecting = null;   // canción que se está analizando
 
 const $ = (sel) => document.querySelector(sel);
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -104,6 +109,7 @@ export function initSeqWaveform() {
   initChordLane(root, (t) => seekTo(t));
 
   wrap.addEventListener('pointerdown', onWavePointerDown);
+  nowEl.addEventListener('click', (e) => { if (e.target.closest('.sw-auto-link')) autoDetect({}); });
   markersEl.addEventListener('contextmenu', (e) => {
     const pill = e.target.closest('.sw-pill'); if (!pill) return;
     e.preventDefault(); openMarkerMenu(e.clientX, e.clientY, pill.dataset.id);
@@ -143,6 +149,7 @@ function onLoaded({ audio: a, song: s, type }) {
     root.classList.remove('is-loading');
     drawWave(); renderMarkers(); startLoop();
     laneTrackLoaded({ audio: a, song: s, type });
+    maybeAutoDetect();
   };
   if (a.buffer) ready(); else a.addEventListener('loadedmetadata', ready, { once: true });
   a.addEventListener('play', startLoop);
@@ -258,7 +265,11 @@ function tick(force) {
   for (let i = 0; i < ms.length; i++) { if (ms[i].t <= t + 0.05) cur = ms[i]; else { next = ms[i]; break; } }
   regionsEl.querySelectorAll('.sw-region').forEach(r => r.classList.toggle('is-current', !!cur && r.dataset.id === cur.id));
   markersEl.querySelectorAll('.sw-pill').forEach(p => p.classList.toggle('is-current', !!cur && p.dataset.id === cur.id));
-  nowEl.innerHTML = cur ? `<i style="--h:${sectionHue(cur.label)}"></i>${escapeHtml(cur.label)}` : (ms.length ? 'Antes de la 1.ª sección' : 'Sin secciones · usa «+ Sección»');
+  nowEl.innerHTML = cur ? `<i style="--h:${sectionHue(cur.label)}"></i>${escapeHtml(cur.label)}`
+    : ms.length ? 'Antes de la 1.ª sección'
+    : detecting === song ? '<span class="sw-detecting">Detectando secciones…</span>'
+    : canEditActiveLibrary() ? `Sin secciones · <button type="button" class="sw-auto-link">${ICO_AUTO}Detectar automáticamente</button>`
+    : 'Sin secciones';
   nextEl.textContent = next ? `Siguiente: ${next.label} en ${fmt(next.t - t)}` : (ms.length ? 'Última sección' : '');
 }
 
@@ -311,10 +322,75 @@ function addMarker(label) {
   window.showToast?.(`Sección «${label}» en ${fmt(t)}`, 'success');
 }
 
+// ── Secciones automáticas ─────────────────────────────────────────────────
+// Analiza la pista (en un Worker, sin congelar nada) y pone los marcadores; el
+// usuario solo arrastra o renombra lo que no cuadre. Al abrir una canción SIN
+// secciones se hace solo (una vez por canción, si eres editor); también a mano
+// desde «+ Sección» o el enlace «Detectar automáticamente».
+const autoOn = () => { try { return localStorage.getItem(AUTO_KEY) !== '0'; } catch (_) { return true; } };
+const songKey = (s) => String((s && (s.cloudId || s.id)) || '');
+function triedSet() { try { return JSON.parse(localStorage.getItem(TRIED_KEY) || '[]'); } catch (_) { return []; } }
+function markTried(s) {
+  const k = songKey(s); if (!k) return;
+  const arr = triedSet().filter((x) => x !== k); arr.push(k);
+  try { localStorage.setItem(TRIED_KEY, JSON.stringify(arr.slice(-800))); } catch (_) {}
+}
+function maybeAutoDetect() {
+  if (!song || !audio || !autoOn() || getMarkers().length || !canEditActiveLibrary()) return;
+  if (triedSet().includes(songKey(song))) return;
+  autoDetect({ auto: true });
+}
+
+async function autoDetect({ auto = false } = {}) {
+  const s = song, a = audio;
+  if (!s || !a || !a.buffer || detecting) return;
+  if (!auto && !guardEdit()) return;
+  markTried(s);
+  if (!auto && getMarkers().length) {
+    const ok = await confirmDialogAsync({
+      title: 'Detectar secciones', confirmLabel: 'Reemplazar', danger: true,
+      message: 'La canción ya tiene secciones marcadas. ¿Reemplazarlas por las que detecte LivePads? Podrás deshacerlo.',
+    });
+    if (!ok || song !== s) return;
+  }
+  detecting = s; root.classList.add('is-detecting'); tick(true);
+  let found = [];
+  try {
+    const bpm = parseFloat(s.bpm) || 0;
+    const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
+    const raw = await detectSectionsInBackground(a.buffer, { bpm, beatsPerBar });
+    found = buildAutoMarkers(raw, s.lyrics, a.buffer.duration);
+  } catch (e) { console.warn('[LivePads] detección de secciones:', e); }
+  detecting = null; root.classList.remove('is-detecting');
+  if (song !== s) return;                       // cambió de canción mientras analizaba
+  if (found.length < 2) {
+    tick(true);
+    if (!auto) window.showToast?.('No se encontraron cambios de sección claros en esta pista. Márcalas con «+ Sección».', 'info');
+    return;
+  }
+  if (auto && getMarkers().length) return;      // alguien las marcó mientras tanto
+  const prev = getMarkers().map((m) => ({ ...m }));
+  s.markers = found.map((m) => ({ id: uid(), label: m.label, t: m.t }));
+  persist(); renderMarkers();
+  window.showToast?.(`${found.length} secciones marcadas automáticamente. Arrastra o renombra las que no cuadren.`, 'success', {
+    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
+    ttl: 10000,
+  });
+}
+
 function openAddMenu(anchor) {
   if (!song || !audio || !guardEdit()) return;
-  const items = QUICK_LABELS.map(label => ({ label, onSelect: () => addMarker(label) }));
+  const items = [{ label: getMarkers().length ? 'Volver a detectar secciones…' : 'Detectar secciones automáticamente', icon: ICO_AUTO, onSelect: () => autoDetect({}) }];
+  items.push(...QUICK_LABELS.map(label => ({ label, onSelect: () => addMarker(label) })));
   items.push({ label: 'Otro nombre…', onSelect: () => showDialog('Nombre de la sección', 'Ej. Coda, Tag 2…', (v) => { v = (v || '').trim(); if (v) addMarker(v); }) });
+  items.push({
+    label: autoOn() ? 'Marcar solas las canciones nuevas: Sí' : 'Marcar solas las canciones nuevas: No',
+    onSelect: () => {
+      const on = !autoOn();
+      try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch (_) {}
+      window.showToast?.(on ? 'Las canciones sin secciones se marcarán solas al abrirlas.' : 'Ya no se marcarán solas; usa «Detectar secciones automáticamente».', 'info');
+    },
+  });
   openCardMoreMenu(anchor, items);
 }
 
