@@ -552,3 +552,86 @@
 }
 .spu-yt input:focus { outline: none; border-color: var(--accent); }
 .spu-cover--edit { align-items: flex-start; }
+
+/* ═══ Biblioteca fácil: tarjetas de pack, una etiqueta de estado, un botón
+   principal por fila y lo demás en ⋮ ═══════════════════════════════════ */
+.stl-packs { gap: 8px; padding-bottom: 4px; }
+.stl-pk {
+  flex: none; width: 112px; display: flex; flex-direction: column; gap: 3px; padding: 6px; text-align: left;
+  border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); cursor: pointer; font: inherit;
+}
+.stl-pk:hover { border-color: var(--border-strong); }
+.stl-pk.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.stl-pk-cover {
+  position: relative; width: 100%; aspect-ratio: 1; border-radius: 8px; display: grid; place-items: center;
+  background: var(--bg-hover) center / cover no-repeat; color: var(--text-muted);
+}
+.stl-pk-fav { position: absolute; top: 5px; right: 5px; color: #ff6b81; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.stl-pk-title { font-size: 12.5px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stl-pk-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stl-pk-meta:empty { display: none; }
+
+/* Una sola etiqueta de estado (pack y loop). */
+.stl-st { display: inline-flex; align-self: flex-start; align-items: center; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
+.stl-st--local { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.stl-st--part { color: var(--text); background: rgba(255,255,255,.08); }
+.stl-st--cloud { color: var(--text-muted); background: rgba(255,255,255,.05); }
+.stl-st--pro { color: #1a1300; background: var(--accent2); }
+
+/* Tarjeta del pack elegido: escuchar (principal) + ⋮ */
+.stl-packcard-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.stl-main {
+  display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 999px; border: 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 800; background: var(--accent); color: var(--on-accent, #0a0a14);
+}
+.stl-main:hover { filter: brightness(1.08); }
+.stl-main.is-on { background: #e5484d; color: #fff; }
+.stl-more {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+}
+.stl-more:hover { color: var(--text); border-color: var(--border-strong); }
+.stl-dl-progress { font-size: 11.5px; color: var(--accent); }
+.stl-dl-progress:empty { display: none; }
+
+/* Filas de loop más grandes y legibles: ▶ · datos · Agregar · ⋮ */
+.stl-loop { padding: 10px 8px; gap: 10px; }
+.stl-loop .stl-play { width: 36px; height: 36px; }
+.stl-loop .stl-play svg { width: 14px; height: 14px; }
+.stl-loop-title { font-size: 13.5px; }
+.stl-loop-meta { font-size: 12px; }
+.stl-loop-fit { display: flex; align-items: center; gap: 6px; font-size: 11.5px; opacity: 1; }
+.stl-star { color: var(--accent2); margin-right: 4px; }
+.stl-add { width: auto; height: 32px; padding: 0 11px; gap: 5px; display: inline-flex; align-items: center; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 700; }
+.stl-loop .stl-more { width: 28px; height: 28px; border-color: transparent; }
+.stl-loop:hover .stl-more { border-color: var(--border); }
+.stl-loop.is-streaming .stl-play { border-color: var(--accent); color: var(--accent); }
+.stl-loop.is-streaming .stl-loop-fit::after { content: 'Escucha rápida…'; color: var(--accent); font-weight: 600; }
+
+/* ¿Primera vez? Probar un pack */
+.stl-try {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%);
+}
+.stl-try[hidden] { display: none; }
+.stl-try b { font-size: 14px; }
+.stl-try span { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.stl-try .stb-btn { align-self: flex-start; }
+
+/* Vacíos y errores amables, con salida */
+.stl-empty b { color: var(--text); }
+.stl-empty-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+.stl-empty-actions .stb-btn { font-size: 12px; }
+.stl-linkbtn { background: none; border: 0; padding: 0; margin-left: 4px; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+/* Panel estrecho: tarjetas de pack en horizontal (portada a la izquierda) y
+   botón + redondo, para que la lista de loops tenga sitio. */
+.stl-pk { width: 176px; flex-direction: row; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; }
+.stl-pk-cover { width: 46px; height: 46px; flex: none; aspect-ratio: auto; }
+.stl-pk > .stl-pk-title, .stl-pk > .stl-pk-meta, .stl-pk > .stl-st { display: none; }
+.stl-pk-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stl-pk-text .stl-pk-title { -webkit-line-clamp: 1; font-size: 12px; }
+.stl-pk-text .stl-st { font-size: 10px; padding: 0 6px; }
+.stl-add { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; }
+.stl-add span { display: none; }
+.stl-loop-meta { white-space: normal; }

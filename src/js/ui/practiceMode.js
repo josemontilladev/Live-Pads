@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { showToast } from './toast.js';
+import { parseLyricStructure, mapMarkersToLyrics } from './songStructure.js';
 
 const OPEN_KEY = 'livepads-practice-open';
 const MIN_RATE = 0.25, MAX_RATE = 1.25, MIN_SPAN = 0.5;
@@ -16,6 +17,13 @@ const MIN_RATE = 0.25, MAX_RATE = 1.25, MIN_SPAN = 0.5;
 let root, panel, btn, stage, wave, overlay, hA, hB;
 let audio = null, song = null, secsEl = null;
 let rate = 1, A = null, B = null, loopOn = false;
+// Práctica guiada: 80 % + cuenta de entrada + sube 5 % por vuelta hasta 100 %.
+let picked = null;            // { a, b, label } sección elegida en el panel
+let loopLabel = null;         // nombre de la sección que se repite (para la letra)
+let guided = false, guideTimer = 0, lastT = 0, countingIn = false, clickCtx = null;
+let lyricsEl = null, lyricLines = [], lyricsFor = '';
+const RAMP_KEY = 'livepads-practice-ramp', LYR_KEY = 'livepads-practice-lyrics';
+const pref = (k) => { try { return localStorage.getItem(k) !== '0'; } catch (_) { return true; } };
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const fmt = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`; };
@@ -58,12 +66,28 @@ export function initPracticeMode() {
   // Secciones de la canción como botones: un clic = repetir esa sección.
   secsEl = document.createElement('div');
   secsEl.className = 'sp-group sp-secs';
-  secsEl.innerHTML = '<span class="sp-label">Repetir sección</span><div class="sp-secs-list"></div>';
+  secsEl.innerHTML = `<span class="sp-label">Repetir sección</span><div class="sp-secs-list"></div>
+    <button type="button" class="sp-practice" title="Practica la sección elegida (o la que suena): al 80 %, con cuenta de entrada, y sube la velocidad sola">▶ Practicar</button>
+    <label class="sp-opt" title="En cada vuelta del bucle sube un 5 % hasta llegar al 100 %"><input type="checkbox" data-opt="ramp"> Subir 5 % por vuelta</label>
+    <label class="sp-opt" title="Muestra grande sobre la onda la letra de la sección que se repite"><input type="checkbox" data-opt="lyrics"> Letra</label>`;
   panel.appendChild(secsEl);
-  secsEl.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-a]'); if (!b) return;
-    loopSection(parseFloat(b.dataset.a), parseFloat(b.dataset.b), b.dataset.label);
+  secsEl.querySelector('[data-opt="ramp"]').checked = pref(RAMP_KEY);
+  secsEl.querySelector('[data-opt="lyrics"]').checked = pref(LYR_KEY);
+  secsEl.addEventListener('change', (e) => {
+    const o = e.target.dataset && e.target.dataset.opt; if (!o) return;
+    try { localStorage.setItem(o === 'ramp' ? RAMP_KEY : LYR_KEY, e.target.checked ? '1' : '0'); } catch (_) {}
+    paintLyrics(true);
   });
+  secsEl.addEventListener('click', (e) => {
+    if (e.target.closest('.sp-practice')) { guided ? stopGuided(true) : startGuided(); return; }
+    const b = e.target.closest('[data-a]'); if (!b) return;
+    picked = { a: parseFloat(b.dataset.a), b: parseFloat(b.dataset.b), label: b.dataset.label };
+    loopSection(picked.a, picked.b, picked.label);
+  });
+  // Letra de la sección en bucle, grande sobre la onda.
+  lyricsEl = document.createElement('div');
+  lyricsEl.className = 'sw-loop-lyrics'; lyricsEl.hidden = true;
+  wave.appendChild(lyricsEl);
   window.addEventListener('livepads:track-loaded', (e) => { audio = e.detail && e.detail.audio; song = (e.detail && e.detail.song) || null; reset(); });
   window.addEventListener('livepads:track-cleared', () => { audio = null; song = null; reset(); });
   window.addEventListener('livepads:songs-changed', () => renderSections());
@@ -81,7 +105,8 @@ function setOpen(v) {
 }
 
 function reset() {
-  rate = 1; A = B = null; loopOn = false;
+  stopGuided(false);
+  rate = 1; A = B = null; loopOn = false; picked = null; loopLabel = null; lyricsFor = '';
   announceRate();
   paint();
   renderSections();
@@ -99,8 +124,131 @@ function renderSections() {
   list.innerHTML = ms.map((m, i) => {
     const b = i + 1 < ms.length ? ms[i + 1].t : d;
     const on = loopOn && A != null && Math.abs(A - m.t) < 0.06 && Math.abs(B - b) < 0.06;
-    return `<button type="button" class="sp-chip sp-sec${on ? ' is-on' : ''}" data-a="${m.t}" data-b="${b}" data-label="${escH(m.label)}" title="Repetir «${escH(m.label)}» (${fmt(m.t)} → ${fmt(b)})">${escH(m.label)}</button>`;
+    const pk = picked && Math.abs(picked.a - m.t) < 0.06;
+    return `<button type="button" class="sp-chip sp-sec${on ? ' is-on' : ''}${pk ? ' is-pick' : ''}" data-a="${m.t}" data-b="${b}" data-label="${escH(m.label)}" title="Repetir «${escH(m.label)}» (${fmt(m.t)} → ${fmt(b)})">${escH(m.label)}</button>`;
   }).join('');
+  const pb = secsEl.querySelector('.sp-practice');
+  if (pb) {
+    pb.classList.toggle('is-on', guided);
+    pb.textContent = guided ? '■ Parar práctica' : (picked ? `▶ Practicar «${picked.label}»` : '▶ Practicar');
+  }
+}
+
+// ── Práctica guiada ────────────────────────────────────────────────────────
+function sectionAtPlayhead() {
+  const ms = song && Array.isArray(song.markers) ? song.markers.slice().sort((x, y) => x.t - y.t) : [];
+  const t = audio ? audio.currentTime || 0 : 0;
+  let i = -1;
+  ms.forEach((m, k) => { if (m.t <= t + 0.05) i = k; });
+  if (i < 0) return null;
+  return { a: ms[i].t, b: i + 1 < ms.length ? ms[i + 1].t : dur(), label: ms[i].label };
+}
+function songBpm() {
+  const b = parseFloat(song && song.bpm);
+  if (b > 0) return b;
+  const d = parseInt((document.getElementById('bpm-display') || {}).textContent, 10);
+  return d > 0 ? d : 0;
+}
+async function countIn(beats, bpm) {
+  if (!(bpm > 0)) return;
+  try {
+    clickCtx = clickCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (clickCtx.state === 'suspended') await clickCtx.resume();
+  } catch (_) { return; }
+  const ctx = clickCtx, spb = 60 / bpm, t0 = ctx.currentTime + 0.08;
+  for (let i = 0; i < beats; i++) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = i === 0 ? 1600 : 1100;
+    g.gain.setValueAtTime(0.0001, t0 + i * spb);
+    g.gain.exponentialRampToValueAtTime(0.5, t0 + i * spb + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * spb + 0.09);
+    o.connect(g).connect(ctx.destination); o.start(t0 + i * spb); o.stop(t0 + i * spb + 0.12);
+  }
+  // Número grande sobre la onda mientras cuenta.
+  const big = document.createElement('div'); big.className = 'sp-countin'; wave.appendChild(big);
+  for (let i = 0; i < beats; i++) {
+    big.textContent = String(i + 1);
+    const wait = (t0 + i * spb - ctx.currentTime) * 1000;
+    await new Promise((r) => setTimeout(r, Math.max(0, wait)));
+    if (!countingIn) break;
+  }
+  await new Promise((r) => setTimeout(r, Math.max(0, (t0 + beats * spb - ctx.currentTime) * 1000)));
+  big.remove();
+}
+async function startGuided() {
+  if (!need()) return;
+  const sec = picked || sectionAtPlayhead();
+  if (!sec) { showToast('Esta canción no tiene secciones: marca A y B, o detecta las secciones en la onda.', 'info'); return; }
+  picked = sec;
+  guided = true; countingIn = true;
+  try { audio.pause(); } catch (_) {}
+  setRate(0.8);
+  A = Math.round(sec.a * 10) / 10; B = Math.round(sec.b * 10) / 10; loopOn = true; loopLabel = sec.label;
+  try { audio.currentTime = A; } catch (_) {}
+  apply();
+  const beats = parseInt(String((song && song.timeSig) || '4/4').split('/')[0], 10) || 4;
+  await countIn(beats, songBpm() * rate);
+  countingIn = false;
+  if (!guided) return;
+  try { audio.currentTime = A; await audio.play(); } catch (_) {}
+  lastT = audio.currentTime || A;
+  clearInterval(guideTimer);
+  guideTimer = setInterval(onGuideTick, 120);
+  showToast(`Practicando «${sec.label}» al ${Math.round(rate * 100)} %${pref(RAMP_KEY) ? ': sube un 5 % en cada vuelta' : ''}.`, 'info');
+  renderSections();
+}
+function stopGuided(pause) {
+  if (!guided && !countingIn) return;
+  guided = false; countingIn = false;
+  clearInterval(guideTimer); guideTimer = 0;
+  if (pause && audio) { try { audio.pause(); } catch (_) {} }
+  renderSections();
+}
+function onGuideTick() {
+  if (!guided || !audio || !loopOn) { stopGuided(false); return; }
+  const t = audio.currentTime || 0;
+  if (t < lastT - 0.4 && pref(RAMP_KEY) && rate < 1) {           // dio la vuelta al bucle
+    setRate(Math.min(1, rate + 0.05));
+    if (rate >= 1) showToast('¡Ya a velocidad real (100 %)! Sigue repitiendo o pulsa Parar.', 'success');
+  }
+  lastT = t;
+}
+
+// ── Letra de la sección en bucle ───────────────────────────────────────────
+function loopLyricLines() {
+  const label = loopLabel || (sectionAtPlayhead() || {}).label || '';
+  const key = label + '|' + ((song && song.lyrics) || '').length;
+  if (key === lyricsFor) return lyricLines;
+  lyricsFor = key; lyricLines = [];
+  if (!label || !song || !song.lyrics) return lyricLines;
+  try {
+    const lyr = parseLyricStructure(song.lyrics);
+    const j = mapMarkersToLyrics([{ label }], lyr)[0];
+    if (j >= 0) lyricLines = lyr[j].lines.slice();
+  } catch (_) {}
+  return lyricLines;
+}
+function paintLyrics(force) {
+  if (!lyricsEl) return;
+  const show = loopOn && A != null && B != null && pref(LYR_KEY) && !!audio;
+  const lines = show ? loopLyricLines() : [];
+  if (!lines.length) { lyricsEl.hidden = true; return; }
+  // La línea que toca según por dónde va el bucle (aprox.), y la siguiente.
+  const t = audio.currentTime || 0;
+  const p = Math.min(0.999, Math.max(0, (t - A) / Math.max(0.5, B - A)));
+  const i = Math.floor(p * lines.length);
+  const html = `<small>${escH(loopLabel || '')}</small>${escH(lines[i])}${lines[i + 1] ? `<div style="opacity:.55;font-size:.8em">${escH(lines[i + 1])}</div>` : ''}`;
+  if (force || lyricsEl.dataset.i !== String(i) || lyricsEl.hidden) { lyricsEl.innerHTML = html; lyricsEl.dataset.i = String(i); }
+  lyricsEl.hidden = false;
+}
+let lyrTimer = 0;
+function lyricsLoop() {
+  paintLyrics(true);
+  if (lyrTimer) return;
+  lyrTimer = setInterval(() => {
+    if (!loopOn) { clearInterval(lyrTimer); lyrTimer = 0; paintLyrics(true); return; }
+    paintLyrics(false);
+  }, 150);
 }
 
 /**
@@ -111,7 +259,7 @@ export function loopSection(a, b, label, { preview = false } = {}) {
   if (!need() || !(b - a >= MIN_SPAN)) { if (preview && audio) { A = a; B = null; paint(); } return; }
   A = Math.round(a * 10) / 10; B = Math.round(b * 10) / 10;
   if (preview) { loopOn = false; paint(); return; }
-  loopOn = true;
+  loopOn = true; loopLabel = label || null; lyricsFor = '';
   if (!root.classList.contains('is-practice')) setOpen(true);
   try { audio.currentTime = A; } catch (_) {}
   apply();
@@ -164,7 +312,8 @@ function toggleLoop() {
   apply();
 }
 function clearRegion() {
-  A = B = null; loopOn = false;
+  stopGuided(false);
+  A = B = null; loopOn = false; loopLabel = null;
   apply();
 }
 function apply() {
@@ -197,6 +346,7 @@ function paint() {
   btn.querySelector('.sw-practice-state').textContent = rate !== 1 ? rr + '%' : (loopOn ? 'A–B' : '');
   paintOverlay();
   renderSections();
+  if (loopOn) lyricsLoop(); else paintLyrics(true);
 }
 
 function paintOverlay() {

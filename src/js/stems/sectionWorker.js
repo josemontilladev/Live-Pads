@@ -4,7 +4,7 @@
 // mismo shim de AudioBuffer que usa bpmWorker. Si la canción no trae BPM, lo
 // detecta aquí para poder ajustar cada sección a la línea de compás.
 import { detectSections } from './sectionDetector.js';
-import { detectTempoMeter } from './bpmDetector.js';
+import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
 
 self.onmessage = (e) => {
   const { left, right, sampleRate, bpm, beatsPerBar } = e.data;
@@ -25,6 +25,13 @@ self.onmessage = (e) => {
         if (top > 0) bar = top;
       }
     } catch (_) {}
+  }
+  // Solo la rejilla de compases (para pegar las etiquetas al compás al soltarlas).
+  if (e.data.mode === 'grid') {
+    let offsetSec = 0;
+    try { const al = detectBeatAlignment(shim, tempo, bar); if (al && isFinite(al.offsetSec)) offsetSec = al.offsetSec; } catch (_) {}
+    self.postMessage({ bpm: tempo, beatsPerBar: bar, offsetSec });
+    return;
   }
   let sections = [];
   try { sections = detectSections(shim, { bpm: tempo, beatsPerBar: bar }); } catch (_) {}

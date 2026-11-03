@@ -67,16 +67,28 @@ const bin24 = (c) => c.r + (isMinorQ(c.q) ? 12 : 0);
 export function parseLyricStructure(lyrics) {
   const secs = [];
   let cur = null;
-  const open = (h) => { cur = { canon: h.canon, num: h.num || '', label: sectionName(h.canon, h.num), chords: [] }; secs.push(cur); };
-  const addChords = (tokens) => {
-    tokens.forEach((tk) => {
-      const c = parseChord(tk);
+  const open = (h) => { cur = { canon: h.canon, num: h.num || '', label: sectionName(h.canon, h.num), chords: [], lines: [] }; secs.push(cur); };
+  // Cada acorde recuerda DÓNDE está en la letra (línea y columnas del nombre) para
+  // poder corregirlo desde la franja de acordes.
+  const addChords = (toks, li) => {
+    toks.forEach((tk) => {
+      const c = parseChord(tk.text);
       if (!c) return;
       if (!cur) open({ canon: 'INTRO', num: '' });
+      c.pos = { line: li, start: tk.start, end: tk.end };
       cur.chords.push(c);
     });
   };
-  String(lyrics || '').split(/\r?\n/).forEach((raw) => {
+  const scan = (raw, re, group = 0) => {
+    const out = []; let m; re.lastIndex = 0;
+    while ((m = re.exec(raw))) {
+      const text = group ? m[group] : m[0];
+      const start = m.index + (group ? m[0].indexOf(text) : 0);
+      out.push({ text, start, end: start + text.length });
+    }
+    return out;
+  };
+  String(lyrics || '').split(/\r?\n/).forEach((raw, li) => {
     const line = raw.trim();
     if (!line) return;
     const h = detectSectionHeader(line);
@@ -86,19 +98,38 @@ export function parseLyricStructure(lyrics) {
       open(h); return;
     }
     // «[INTRO] [Dm] [C]…»: el nombre de la sección y sus acordes en la misma línea.
-    const lead = /^\[([^\]]+)\]\s*(.*)$/.exec(line);
+    const lead = /^\s*\[([^\]]+)\]/.exec(raw);
     if (lead) {
       const h2 = detectSectionHeader(lead[1]);
-      if (h2 && !parseChord(lead[1])) { open(h2); addChords(lead[2].match(/\[[^\]]+\]|\S+/g) || []); return; }
+      if (h2 && !parseChord(lead[1])) {
+        open(h2);
+        addChords(scan(raw, /\[([^\]]+)\]/g, 1).slice(1), li);
+        return;
+      }
     }
-    // Acordes entre corchetes en cualquier parte de la línea…
-    const bracketed = line.match(/\[[^\]]+\]/g);
-    if (bracketed) { addChords(bracketed); return; }
+    // Acordes entre corchetes en cualquier parte de la línea (y el resto es letra)…
+    if (/\[[^\]]+\]/.test(raw)) {
+      addChords(scan(raw, /\[([^\]]+)\]/g, 1), li);
+      const text = raw.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+      if (text && cur) cur.lines.push(text);
+      return;
+    }
     // …o una línea solo de acordes («F#m A/C# D»).
     const toks = line.split(/\s+/);
-    if (toks.length && toks.every((t) => parseChord(t) || /^[-–—|/,.:;•·x\d%()]+$/i.test(t))) addChords(toks);
+    if (toks.length && toks.every((t) => parseChord(t) || /^[-–—|/,.:;•·x\d%()]+$/i.test(t))) { addChords(scan(raw, /\S+/g), li); return; }
+    if (cur) cur.lines.push(line);
   });
   return secs;
+}
+
+/** Cambia el acorde que está en `pos` (de parseLyricStructure) por `name`. */
+export function replaceChordInLyrics(lyrics, pos, name) {
+  const lines = String(lyrics || '').split(/\r?\n/);
+  const nl = /\r\n/.test(String(lyrics || '')) ? '\r\n' : '\n';
+  const l = lines[pos.line];
+  if (l == null) return lyrics;
+  lines[pos.line] = l.slice(0, pos.start) + name + l.slice(pos.end);
+  return lines.join(nl);
 }
 
 // ── Tono: letra vs audio ──────────────────────────────────────────────────
@@ -303,7 +334,7 @@ export function songChordSegments(markers, lyricSecs, detSegs, k, duration) {
     if (!L || !L.chords.length) { pushGuess(t0, t1); return; }
     placeSection(L.chords, det, t0, t1, k).forEach((x) => {
       const c = x.c;
-      out.push({ s: x.s, e: x.e, r: mod(c.r - k, 12), q: c.q, b: c.b >= 0 ? mod(c.b - k, 12) : -1, n: c.n });
+      out.push({ s: x.s, e: x.e, r: mod(c.r - k, 12), q: c.q, b: c.b >= 0 ? mod(c.b - k, 12) : -1, n: c.n, pos: c.pos, sec: L.label });
     });
   });
   return out;

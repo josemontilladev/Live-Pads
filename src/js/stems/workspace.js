@@ -4135,6 +4135,8 @@ function wireLibrary(root) {
     requirePro: (what = 'Este loop') => proOnly(what),
     hasTracks: () => engine.getTracks().length > 0,
     buildStructure: buildStructureFromLibrary,
+    // «Probar un pack»: que suene desde el principio en cuanto se carga la base.
+    play: () => { try { engine.seek(0); } catch (_) {} if (!engine.isCurrentlyPlaying()) { resumeAutoFollow(); engine.play(); } },
   });
   const btn = root.querySelector('#stems-library-toggle');
   if (btn) btn.onclick = () => libraryPanel.toggle();

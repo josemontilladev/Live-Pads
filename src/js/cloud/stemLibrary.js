@@ -290,3 +290,17 @@ export function ensureLoopLocal(loop) {
 export function ensurePreviewLocal(loop) {
   return ensureLocal(loop, loop.preview_path ? 'preview' : 'audio');
 }
+
+/** ¿La escucha previa ya está en este equipo? (sin descargar nada) */
+export async function isPreviewLocal(loop) {
+  try {
+    const rel = localPathFor(loop, loop.preview_path ? 'preview' : 'audio');
+    const { present } = await window.electronAPI.libraryFilesStat([rel]);
+    return present.length > 0;
+  } catch (_) { return false; }
+}
+
+/** URL firmada para ESCUCHAR al instante (streaming), mientras se guarda en la caché. */
+export function previewStreamUrl(loop) {
+  return signLoop(loop.id, loop.preview_path ? 'preview' : 'audio');
+}

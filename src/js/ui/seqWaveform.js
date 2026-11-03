@@ -17,7 +17,8 @@ import { computePeaks } from '../stems/waveform.js';
 import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog, confirmDialogAsync } from './dialog.js';
-import { buildAutoMarkers, detectSectionsInBackground } from './autoSections.js';
+import { buildAutoMarkers, detectSectionsInBackground, barGridInBackground } from './autoSections.js';
+import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
 import { parseLyricStructure, keyOffset, labelSegments } from './songStructure.js';
 import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
@@ -30,10 +31,15 @@ const ICO_AUTO = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" st
 const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente', 'Instrumental', 'Solo', 'Interludio', 'Tag', 'Final', 'Outro'];
 
 let root, stage, wrap, canvasBase, canvasPlayed, playedClip, regionsEl, markersEl, rulerEl, playheadEl;
-let titleEl, nowEl, nextEl, addBtn, collapseBtn;
+let titleEl, nowEl, nextEl, addBtn, collapseBtn, confirmBtn;
 let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0, trackType = '';
 let scrubbing = false;
 let detecting = null;   // canción que se está analizando
+let selectedId = null;  // etiqueta seleccionada (← → la mueven, Supr la quita)
+let grid = null;        // { barSec, beatSec, off } rejilla de compases de la pista
+let chordTimes = [];    // cambios de acorde detectados (para pegar etiquetas)
+// Deshacer / rehacer (Ctrl+Z / Ctrl+Y) de las secciones de la canción cargada.
+let undoStack = [], redoStack = [], baseSnap = '[]', restoring = false;
 
 const $ = (sel) => document.querySelector(sel);
 const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -79,6 +85,12 @@ function sortedMarkers() { return [...getMarkers()].sort((a, b) => a.t - b.t); }
 function persist() {
   if (!song) return;
   song.markers = sortedMarkers();
+  const now = JSON.stringify(song.markers);
+  if (!restoring && now !== baseSnap) {
+    undoStack.push(baseSnap); if (undoStack.length > 60) undoStack.shift();
+    redoStack = [];
+  }
+  baseSnap = now;
   // La onda puede estar mostrando la copia de la canción dentro de un servicio: las
   // secciones se guardan también en la canción de la librería, que es la que se sincroniza.
   try {
@@ -108,6 +120,15 @@ export function initSeqWaveform() {
     if (!c) requestAnimationFrame(() => { drawWave(); renderMarkers(); });
   };
   addBtn.onclick = () => openAddMenu(addBtn);
+  // «Todo bien ✓»: aparece mientras quedan secciones SUPUESTAS (borde punteado).
+  confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button'; confirmBtn.className = 'sw-btn sw-confirm'; confirmBtn.hidden = true;
+  confirmBtn.title = 'Las secciones con borde punteado las puso LivePads. Cuando las hayas revisado, pulsa aquí para darlas por buenas.';
+  confirmBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Todo bien';
+  confirmBtn.onclick = confirmAll;
+  addBtn.parentNode.insertBefore(confirmBtn, addBtn);
+  window.addEventListener('keydown', onKey, true);
+  window.addEventListener('livepads:chords-ready', () => loadChordTimes());
   initChordLane(root, (t) => seekTo(t));
 
   wrap.addEventListener('pointerdown', onWavePointerDown);
@@ -135,6 +156,7 @@ function onLibrarySynced() {
     const lib = getSongs().find((x) => x !== song && ((song.cloudId && x.cloudId === song.cloudId) || (x.id != null && x.id === song.id)));
     if (lib && JSON.stringify(lib.markers || []) !== JSON.stringify(song.markers || [])) {
       song.markers = (lib.markers || []).map((m) => ({ ...m }));
+      baseSnap = JSON.stringify(sortedMarkers());
     }
   } catch (_) {}
   drawWave(); renderMarkers();
@@ -142,6 +164,8 @@ function onLibrarySynced() {
 
 function onLoaded({ audio: a, song: s, type }) {
   audio = a; song = s || null; peaks = null; duration = 0; trackType = type || '';
+  selectedId = null; grid = null; chordTimes = []; undoStack = []; redoStack = [];
+  baseSnap = JSON.stringify(sortedMarkers());
   root.classList.remove('hidden', 'is-empty'); root.classList.add('is-loading');
   titleEl.textContent = song ? song.title : '';
   const ready = () => {
@@ -152,6 +176,7 @@ function onLoaded({ audio: a, song: s, type }) {
     drawWave(); renderMarkers(); startLoop();
     laneTrackLoaded({ audio: a, song: s, type });
     maybeAutoDetect();
+    loadGrid(a); loadChordTimes();
   };
   if (a.buffer) ready(); else a.addEventListener('loadedmetadata', ready, { once: true });
   a.addEventListener('play', startLoop);
@@ -229,14 +254,16 @@ function renderMarkers() {
   ms.forEach((m, i) => {
     const end = i + 1 < ms.length ? ms[i + 1].t : duration;
     const hue = sectionHue(m.label);
-    reg += `<div class="sw-region" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;width:${((end - m.t) / duration) * 100}%;--h:${hue}"></div>`;
+    reg += `<div class="sw-region${m.auto ? ' is-auto' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;width:${((end - m.t) / duration) * 100}%;--h:${hue}"></div>`;
     // Al pasar el ratón (editores): ▾ = opciones (lo mismo que el clic derecho) y ✕ = quitar.
     const tools = edit ? `<span class="sw-pill-tool sw-pill-menu" role="button" title="Opciones: renombrar, mover, eliminar">▾</span><span class="sw-pill-tool sw-pill-x" role="button" title="Quitar esta sección">✕</span>` : '';
-    const tip = edit ? 'clic: ir · arrastrar: mover · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección';
-    pills += `<button type="button" class="sw-pill" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue}" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
+    const tip = (m.auto ? 'Supuesta por LivePads (revísala) · ' : '') + (edit ? 'clic: ir y seleccionar (← → la mueven por compás) · arrastrar: mover · doble clic en la onda: repetir · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección');
+    pills += `<button type="button" class="sw-pill${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue}" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
   markersEl.querySelectorAll('.sw-pill').forEach(bindPill);
+  if (confirmBtn) confirmBtn.hidden = !(edit && ms.some((m) => m.auto));
+  if (ms.length && !root.classList.contains('is-collapsed')) maybeStartWaveTour(root, { editable: edit });
   if (peaks) drawWave();      // el espectro toma el color de cada sección
   tick(true);
 }
@@ -294,6 +321,7 @@ function sectionIdAt(t) {
 function onWavePointerDown(e) {
   if (!audio || !duration || e.button !== 0) return;
   if (e.target.closest('.sw-ab-h')) return;
+  if (selectedId) { selectedId = null; markersEl.querySelectorAll('.sw-pill.is-selected').forEach((p) => p.classList.remove('is-selected')); }
   if (e.detail === 2) { const id = sectionIdAt(timeAtClientX(e.clientX)); if (id) { practiceSection(id); return; } }
   if (e.shiftKey) {
     // Mayús + arrastrar: dibuja el tramo a repetir.
@@ -338,10 +366,16 @@ function bindPill(pill) {
       const reg = regionsEl.querySelector(`.sw-region[data-id="${m.id}"]`);
       if (reg) reg.style.left = pill.style.left;
     };
-    const up = () => {
+    const up = (ev) => {
       pill.removeEventListener('pointermove', move); pill.removeEventListener('pointerup', up); pill.removeEventListener('pointercancel', up);
       pill.classList.remove('is-drag');
-      if (moved) { persist(); renderMarkers(); } else seekTo(m.t);
+      selectedId = m.id;
+      if (moved) {
+        // Al soltar se pega al compás (o al cambio de acorde) más cercano. Alt = sin pegar.
+        if (!(ev && ev.altKey)) m.t = snapTime(m.t);
+        delete m.auto;
+        persist(); renderMarkers();
+      } else { seekTo(m.t); renderMarkers(); }
     };
     pill.addEventListener('pointermove', move); pill.addEventListener('pointerup', up); pill.addEventListener('pointercancel', up);
   });
@@ -415,12 +449,97 @@ async function autoDetect({ auto = false } = {}) {
   }
   if (auto && getMarkers().length) return;      // alguien las marcó mientras tanto
   const prev = getMarkers().map((m) => ({ ...m }));
-  s.markers = found.map((m) => ({ id: uid(), label: m.label, t: m.t }));
+  s.markers = found.map((m) => ({ id: uid(), label: m.label, t: m.t, auto: true }));
   persist(); renderMarkers();
   window.showToast?.(`${found.length} secciones marcadas automáticamente. Arrastra o renombra las que no cuadren.`, 'success', {
     action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
     ttl: 10000,
   });
+}
+
+// ── Rejilla, pegado al compás y flechas ───────────────────────────────────
+function loadGrid(a) {
+  const s = song; if (!s || !a || !a.buffer) return;
+  const bpm = parseFloat(s.bpm) || 0;
+  const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
+  barGridInBackground(a.buffer, { bpm, beatsPerBar }).then((g) => {
+    if (audio !== a || !g || !(g.bpm > 0)) return;
+    grid = { beatSec: 60 / g.bpm, barSec: (60 / g.bpm) * (g.beatsPerBar || 4), off: g.offsetSec || 0 };
+  }).catch(() => {});
+}
+async function loadChordTimes() {
+  if (!song || !audio || !audio.buffer) return;
+  try {
+    const T = await import('../chords/trackChords.js');
+    const c = T.cacheGet(T.trackChordId(song, trackType, audio.buffer));
+    if (c && Array.isArray(c.seg)) chordTimes = c.seg.filter((x) => x.r >= 0).map((x) => x.s);
+  } catch (_) {}
+}
+function snapTime(t) {
+  const clamp = (v) => Math.max(0, Math.min(duration - 0.5, Math.round(v * 100) / 100));
+  if (grid) {
+    const bar = grid.off + Math.round((t - grid.off) / grid.barSec) * grid.barSec;
+    if (Math.abs(bar - t) <= grid.barSec * 0.35) return clamp(bar);
+  }
+  let best = null;
+  for (const c of chordTimes) if (Math.abs(c - t) <= 0.6 && (best == null || Math.abs(c - t) < Math.abs(best - t))) best = c;
+  return best != null ? clamp(best) : clamp(t);
+}
+function nudge(m, dir, unit) {
+  let t;
+  if (unit === 'fine') t = m.t + dir * 0.1;
+  else if (grid) {
+    const step = unit === 'beat' ? grid.beatSec : grid.barSec;
+    const k = (m.t - grid.off) / step;
+    t = grid.off + (dir > 0 ? Math.floor(k + 1e-3) + 1 : Math.ceil(k - 1e-3) - 1) * step;
+  } else t = m.t + dir * (unit === 'beat' ? 0.5 : 1);
+  m.t = Math.max(0, Math.min(duration - 0.5, Math.round(t * 100) / 100));
+  delete m.auto;
+  persist(); renderMarkers();
+  if (audio && audio.paused) seekTo(m.t);
+}
+function confirmAll() {
+  if (!song || !guardEdit()) return;
+  let n = 0;
+  getMarkers().forEach((m) => { if (m.auto) { delete m.auto; n++; } });
+  if (!n) return;
+  persist(); renderMarkers();
+  window.showToast?.('Secciones revisadas: ya no se marcan como suposición.', 'success');
+}
+function restoreSnap(str) {
+  restoring = true;
+  try { song.markers = JSON.parse(str); persist(); } finally { restoring = false; }
+  selectedId = null; renderMarkers();
+}
+function undo() {
+  if (!song || !undoStack.length) return false;
+  redoStack.push(baseSnap); restoreSnap(undoStack.pop());
+  window.showToast?.('Deshecho · Ctrl+Y para rehacer', 'info');
+  return true;
+}
+function redo() {
+  if (!song || !redoStack.length) return false;
+  undoStack.push(baseSnap); restoreSnap(redoStack.pop());
+  window.showToast?.('Rehecho', 'info');
+  return true;
+}
+function onKey(e) {
+  if (!song || !audio || !duration) return;
+  if (document.body.dataset.workspace === 'stems') return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (document.querySelector('[aria-modal="true"], .lyrics-modal-overlay, .card-more-menu')) return;
+  const mod = e.ctrlKey || e.metaKey;
+  const handled = () => { e.preventDefault(); e.stopPropagation(); };
+  if (mod && !e.altKey && (e.key === 'z' || e.key === 'Z')) { if (canEditActiveLibrary() && (e.shiftKey ? redo() : undo())) handled(); return; }
+  if (mod && !e.altKey && (e.key === 'y' || e.key === 'Y')) { if (canEditActiveLibrary() && redo()) handled(); return; }
+  if (!selectedId || mod) return;
+  const m = getMarkers().find((x) => x.id === selectedId);
+  if (!m) { selectedId = null; return; }
+  if (e.key === 'Escape') { selectedId = null; renderMarkers(); handled(); return; }
+  if (!canEditActiveLibrary()) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { handled(); nudge(m, e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 'beat' : e.altKey ? 'fine' : 'bar'); return; }
+  if (e.key === 'Delete' || e.key === 'Backspace') { handled(); const id = m.id; selectedId = null; removeMarker(id); }
 }
 
 async function trackChordsFor(s, a) {
@@ -446,6 +565,7 @@ function openAddMenu(anchor) {
   const items = [{ label: getMarkers().length ? 'Volver a detectar secciones…' : 'Detectar secciones automáticamente', icon: ICO_AUTO, onSelect: () => autoDetect({}) }];
   items.push(...QUICK_LABELS.map(label => ({ label, onSelect: () => addMarker(label) })));
   items.push({ label: 'Otro nombre…', onSelect: () => showDialog('Nombre de la sección', 'Ej. Coda, Tag 2…', (v) => { v = (v || '').trim(); if (v) addMarker(v); }) });
+  items.push({ label: 'Ver la guía de la onda', onSelect: () => startWaveTour(root, { editable: canEditActiveLibrary() }) });
   items.push({
     label: autoOn() ? 'Marcar solas las canciones nuevas: Sí' : 'Marcar solas las canciones nuevas: No',
     onSelect: () => {
@@ -475,8 +595,9 @@ function openMarkerMenu(x, y, id) {
   openContextMenu(x, y, [
     { label: 'Ir a esta sección', onSelect: () => seekTo(m.t) },
     loopItem,
-    { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; persist(); renderMarkers(); } }) },
-    { label: 'Mover al cabezal', onSelect: () => { m.t = Math.round((audio.currentTime || 0) * 10) / 10; persist(); renderMarkers(); } },
+    ...(m.auto ? [{ label: 'Está bien (confirmar)', onSelect: () => { delete m.auto; persist(); renderMarkers(); } }] : []),
+    { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; delete m.auto; persist(); renderMarkers(); } }) },
+    { label: 'Mover al cabezal', onSelect: () => { m.t = Math.round((audio.currentTime || 0) * 10) / 10; delete m.auto; persist(); renderMarkers(); } },
     { label: 'Eliminar', danger: true, onSelect: () => removeMarker(id) },
   ]);
 }

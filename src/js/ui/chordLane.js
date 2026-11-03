@@ -13,7 +13,11 @@
 
 import { getTrackPitch } from '../audio/trackPlayer.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
-import { parseLyricStructure, keyOffset, songChordSegments } from './songStructure.js';
+import { parseLyricStructure, keyOffset, songChordSegments, parseChord, replaceChordInLyrics } from './songStructure.js';
+import { openContextMenu } from './cardMoreMenu.js';
+import { showDialog } from './dialog.js';
+import { getSongs } from '../state/store.js';
+import { canEditActiveLibrary } from '../cloud/libraries.js';
 
 const LS_PREFS = 'livepads.chords';
 let root, lane, nowEl, nextEl, btn, seek = () => {};
@@ -70,6 +74,12 @@ export function initChordLane(rootEl, seekFn) {
     const el = e.target.closest('.sw-ch');
     if (el) seek(parseFloat(el.dataset.t) || 0);
   });
+  // Clic derecho en un acorde: corregirlo (se guarda en la LETRA de la canción).
+  lane.addEventListener('contextmenu', (e) => {
+    const el = e.target.closest('.sw-ch'); if (!el) return;
+    e.preventDefault();
+    openChordMenu(e.clientX, e.clientY, segsNow()[+el.dataset.i], parseFloat(el.dataset.t) || 0);
+  });
   window.addEventListener('livepads:chord-prefs', () => { if (result) render(); });
   // Secciones movidas / letra editada: los acordes de la letra se recolocan solos.
   const again = () => { if (result) { shownSig = ''; render(); } };
@@ -123,6 +133,52 @@ function nameOf(c) {
   // Acorde escrito en la letra y la pista en el tono de la letra: tal cual se escribió.
   if (c.n && !p.latin && ((lastShift - songK) % 12 + 12) % 12 === 0) return c.n;
   return E.chordName(c, { latin: p.latin, basic: p.basic && !c.n, shift: lastShift });
+}
+
+// ── Corregir acordes ──────────────────────────────────────────────────────
+function saveLyrics(s, text) {
+  s.lyrics = text;
+  try {
+    const lib = getSongs().find((x) => x !== s && ((s.cloudId && x.cloudId === s.cloudId) || (x.id != null && x.id === s.id)));
+    if (lib) lib.lyrics = text;
+  } catch (_) {}
+  try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {}
+  window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: s.id } }));
+}
+function openChordMenu(x, y, seg, t) {
+  const s = track && track.song;
+  if (!seg || !s) return;
+  const editable = canEditActiveLibrary();
+  const items = [{ label: 'Ir aquí', onSelect: () => seek(t) }];
+  if (editable && seg.pos) {
+    items.push({ label: `Cambiar «${nameOf(seg)}»…`, onSelect: () => changeChord(s, seg) });
+  }
+  if (editable) {
+    items.push({ label: seg.guess ? 'Escribir los acordes en la letra…' : 'Corregir en la letra…', onSelect: () => editLyrics(s) });
+  }
+  if (seg.guess) items.push({ label: 'Este acorde es una suposición (detectado)', onSelect: () => {} });
+  openContextMenu(x, y, items);
+}
+function changeChord(s, seg) {
+  const shown = nameOf(seg);
+  showDialog(`Cambiar acorde (ahora: ${shown})`, shown, (v) => {
+    v = String(v || '').trim();
+    if (!v || v === shown) return;
+    const c = parseChord(v);
+    if (!c) { window.showToast?.(`«${v}» no parece un acorde (ej.: G, Em, D/F#, Cmaj7).`, 'error'); return; }
+    // Si la pista suena en otro tono que la letra, lo escrito se pasa al tono de la letra.
+    const d = (((songK - lastShift) % 12) + 12) % 12;
+    const name = d && E ? E.chordName(c, { shift: d }) : v;
+    const prev = s.lyrics;
+    saveLyrics(s, replaceChordInLyrics(prev, seg.pos, name));
+    window.showToast?.(`Acorde cambiado a ${v} en la letra.`, 'success', { action: { label: 'Deshacer', onClick: () => saveLyrics(s, prev) } });
+  });
+}
+async function editLyrics(s) {
+  try {
+    const { openLyricsEditorModal } = await import('./lyricsEditor.js');
+    openLyricsEditorModal(s, (text) => saveLyrics(s, text));
+  } catch (e) { console.warn('[LivePads] editor de letra:', e); }
 }
 
 /** Dibuja la franja (al cargar, al cambiar preferencias, tono o ancho). */

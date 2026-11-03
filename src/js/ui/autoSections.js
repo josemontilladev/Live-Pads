@@ -74,15 +74,24 @@ export function buildAutoMarkers(sections, lyrics, duration) {
  * @param {{bpm?:number, beatsPerBar?:number}} [opts]
  * @returns {Promise<{atSec:number, cueId:string, label:string}[]>}
  */
-export function detectSectionsInBackground(buffer, { bpm = 0, beatsPerBar = 4 } = {}) {
+export function detectSectionsInBackground(buffer, opts = {}) {
+  return runWorker(buffer, opts).then((d) => (d && d.sections) || []);
+}
+
+/** Rejilla de compases de la pista: { bpm, beatsPerBar, offsetSec } (o null). */
+export function barGridInBackground(buffer, opts = {}) {
+  return runWorker(buffer, { ...opts, mode: 'grid' });
+}
+
+function runWorker(buffer, { bpm = 0, beatsPerBar = 4, mode = 'sections' } = {}) {
   return new Promise((resolve) => {
     let worker;
     try { worker = new Worker(new URL('../stems/sectionWorker.js', import.meta.url), { type: 'module' }); }
-    catch (_) { resolve([]); return; }
+    catch (_) { resolve(null); return; }
     const done = (v) => { try { worker.terminate(); } catch (_) {} resolve(v); };
-    const timer = setTimeout(() => done([]), 90000);
-    worker.onmessage = (e) => { clearTimeout(timer); done((e.data && e.data.sections) || []); };
-    worker.onerror = () => { clearTimeout(timer); done([]); };
+    const timer = setTimeout(() => done(null), 90000);
+    worker.onmessage = (e) => { clearTimeout(timer); done(e.data || null); };
+    worker.onerror = () => { clearTimeout(timer); done(null); };
     // Mono y a ~22 kHz (el detector trabaja a 11 kHz): una copia ligera, porque el
     // AudioBuffer sigue sonando y sus canales no se pueden transferir.
     const L = buffer.getChannelData(0);
@@ -95,6 +104,6 @@ export function detectSectionsInBackground(buffer, { bpm = 0, beatsPerBar = 4 } 
       for (let k = 0; k < f; k++, j++) s += R ? (L[j] + R[j]) * 0.5 : L[j];
       mono[i] = s / f;
     }
-    worker.postMessage({ left: mono, right: null, sampleRate: buffer.sampleRate / f, bpm: Number(bpm) || 0, beatsPerBar }, [mono.buffer]);
+    worker.postMessage({ left: mono, right: null, sampleRate: buffer.sampleRate / f, bpm: Number(bpm) || 0, beatsPerBar, mode }, [mono.buffer]);
   });
 }

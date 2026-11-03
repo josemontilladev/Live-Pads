@@ -93,3 +93,20 @@ test('marcadores → secciones de la letra', () => {
   const L = parseLyricStructure(CELEBRAMOS);
   assert.deepEqual(mapMarkersToLyrics([{ label: 'Intro' }, { label: 'Verso 1' }, { label: 'Coro' }, { label: 'Coro' }], L), [-1, 0, 1, 1]);
 });
+
+test('cada acorde sabe dónde está en la letra y se puede cambiar', async () => {
+  const { replaceChordInLyrics } = await import('../src/js/ui/songStructure.js');
+  const L = parseLyricStructure(CELEBRAMOS);
+  const fsharp = L[0].chords[2];                 // F#m de «F#m A/C# D»
+  assert.equal(fsharp.n, 'F#m');
+  const out = replaceChordInLyrics(CELEBRAMOS, fsharp.pos, 'F#m7');
+  assert.ok(out.includes('F#m7 A/C# D'));
+  const a = L[1].chords[1];                       // [E/G#]
+  assert.ok(replaceChordInLyrics(CELEBRAMOS, a.pos, 'E').includes('[E]\nDios de Israel'));
+});
+
+test('letra de cada sección (sin acordes)', () => {
+  const L = parseLyricStructure(CELEBRAMOS);
+  assert.deepEqual(L[0].lines, ['Damos gloria al Padre', 'Cantamos gloria al Hijo', 'Gloria al Santo Espíritu de Dios']);
+  assert.deepEqual(L[2].lines, []);
+});
