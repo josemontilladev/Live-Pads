@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowAction: (action) => ipcRenderer.invoke('window-action', action),
   assignAudioFile: (data) => ipcRenderer.invoke('assign-audio-file', data),
   assignCoverFile: () => ipcRenderer.invoke('assign-cover-file'),
+  youtubeThumbnail: (url) => ipcRenderer.invoke('youtube-thumbnail', url),
   downloadYoutubeAudio: (data) => ipcRenderer.invoke('download-youtube-audio', data),
   // Cuenta de YouTube dentro de la app: se inicia sesión una vez y las
   // cookies quedan en una partición propia, sin tocar la del navegador.

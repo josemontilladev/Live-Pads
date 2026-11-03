@@ -540,3 +540,15 @@
 /* Editor: portada y datos de un envío de la comunidad */
 .spu-cover--edit .spu-cover-img { width: 56px; height: 56px; }
 .spu-pack--community { grid-template-columns: 2fr 3fr 1fr 1.4fr auto; }
+
+/* Portada: elegir archivo o tomar la miniatura de un video de YouTube */
+.spu-cover-actions { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.spu-cover-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.spu-yt { display: flex; gap: 6px; max-width: 620px; }
+.spu-yt[hidden] { display: none; }
+.spu-yt input {
+  flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px; font: inherit; color: var(--text);
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.spu-yt input:focus { outline: none; border-color: var(--accent); }
+.spu-cover--edit { align-items: flex-start; }

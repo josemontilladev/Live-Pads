@@ -968,6 +968,20 @@ async function fetchYoutubeCover(videoId) {
   }
 }
 
+// Miniatura de un video de YouTube como bytes (para la portada de un pack de la
+// Biblioteca de stems: el renderer la recorta en cuadrado y la sube a R2).
+// Prueba de mayor a menor resolución y descarta el marcador gris de "sin imagen".
+ipcMain.handle('youtube-thumbnail', async (_e, rawUrl) => {
+  const id = youtubeVideoId(String(rawUrl || '').trim());
+  if (!id) return { error: 'Ese enlace no parece de YouTube.' };
+  for (const variant of ['maxresdefault', 'sddefault', 'hqdefault']) {
+    try {
+      const b = await fetchUrlBuffer(`https://i.ytimg.com/vi/${id}/${variant}.jpg`);
+      if (b && b.length > 1200) return { videoId: id, bytes: new Uint8Array(b) };
+    } catch (_) {}
+  }
+  return { error: 'No se encontró la miniatura de ese video.' };
+});
 
 // ── Cuenta de YouTube DENTRO de la app ─────────────────────────────────────
 // YouTube exige sesión para muchas subidas oficiales de sellos ("Sign in to

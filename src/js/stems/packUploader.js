@@ -94,6 +94,30 @@ function harmonizeTempo(rows) {
   }
 }
 
+// Portada desde un video de YouTube: se baja su miniatura (proceso principal) y
+// se recorta en cuadrado al centro. Las miniaturas 4:3 de YouTube (sd/hq) traen
+// el video 16:9 con barras negras arriba y abajo: el recorte se hace sobre la
+// zona con imagen. Si queda por debajo de 600 px, se escala a 600.
+async function coverFromYoutube(url) {
+  if (!window.electronAPI?.youtubeThumbnail) throw new Error('Disponible en la app de escritorio.');
+  const r = await window.electronAPI.youtubeThumbnail(url);
+  if (!r || r.error) throw new Error(r?.error || 'No se pudo bajar la miniatura.');
+  const img = await createImageBitmap(new Blob([r.bytes], { type: 'image/jpeg' }));
+  const contentH = Math.abs(img.width / img.height - 4 / 3) < 0.02 ? Math.round(img.width * 9 / 16) : img.height;
+  const side = Math.min(img.width, contentH);
+  const sx = Math.round((img.width - side) / 2);
+  const sy = Math.round((img.height - side) / 2);
+  const out = Math.max(600, side);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = out;
+  const g = canvas.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(img, sx, sy, side, side, 0, 0, out, out);
+  const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+  if (!blob) throw new Error('No se pudo preparar la imagen.');
+  return new File([blob], `yt-${r.videoId}.jpg`, { type: 'image/jpeg' });
+}
+
 // Duración esperada vs real: si no cuadra, el loop se desfasaría en el editor.
 const durationOk = (r) => Math.abs(r.buffer.duration - r.bars * 4 * 60 / r.bpm) < 0.05;
 
@@ -143,9 +167,16 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         </div>
         <div class="spu-cover">
           <div class="spu-cover-img" data-ref="coverPreview">Sin portada</div>
-          <div>
-            <button type="button" class="stb-btn" data-act="cover">Elegir portada</button>
-            <span class="spu-note">JPG, PNG o WebP, cuadrada (mín. 500 px).</span>
+          <div class="spu-cover-actions">
+            <div class="spu-cover-btns">
+              <button type="button" class="stb-btn" data-act="cover">Elegir portada</button>
+              <button type="button" class="stb-btn" data-act="coverYtToggle" title="Usa la miniatura de un video de YouTube (se recorta en cuadrado)">Desde YouTube</button>
+            </div>
+            <div class="spu-yt" data-ref="ytRow" hidden>
+              <input data-ref="ytUrl" placeholder="Pega el enlace del video (youtube.com/watch?v=… o youtu.be/…)" spellcheck="false">
+              <button type="button" class="stb-btn stb-btn--primary" data-act="coverYt">Usar miniatura</button>
+            </div>
+            <span class="spu-note">JPG, PNG o WebP, cuadrada (mín. 500 px), o la miniatura de un video.</span>
           </div>
           <input type="file" data-ref="coverInput" accept="image/jpeg,image/png,image/webp" hidden>
         </div>
@@ -308,7 +339,16 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const cover = (admin || p.status !== 'approved') ? `
       <div class="spu-cover spu-cover--edit">
         <div class="spu-cover-img" data-cover="${esc(p.id)}">${p.cover_path ? '' : 'Sin portada'}</div>
-        <button type="button" class="stb-btn" data-act="changeCover" data-id="${esc(p.id)}">${p.cover_path ? 'Cambiar portada' : 'Poner portada'}</button>
+        <div class="spu-cover-actions">
+          <div class="spu-cover-btns">
+            <button type="button" class="stb-btn" data-act="changeCover" data-id="${esc(p.id)}">${p.cover_path ? 'Cambiar portada' : 'Poner portada'}</button>
+            <button type="button" class="stb-btn" data-act="editYtToggle" data-id="${esc(p.id)}">Desde YouTube</button>
+          </div>
+          <div class="spu-yt" data-yt-row="${esc(p.id)}" hidden>
+            <input data-yt-url="${esc(p.id)}" placeholder="Enlace del video de YouTube" spellcheck="false">
+            <button type="button" class="stb-btn stb-btn--primary" data-act="editYt" data-id="${esc(p.id)}">Usar miniatura</button>
+          </div>
+        </div>
         <input type="file" data-cover-input="${esc(p.id)}" accept="image/jpeg,image/png,image/webp" hidden>
       </div>` : '';
     const communityFields = !admin && p.status !== 'approved' ? `
@@ -488,6 +528,31 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
 
   // Portada nueva: nombre único (cover-<fecha>) para que ninguna caché local
   // siga mostrando la anterior.
+  // Portada del pack nuevo desde YouTube (pestaña Subir).
+  async function useYoutubeCover() {
+    const btn = overlay.querySelector('[data-act="coverYt"]');
+    const url = ref('ytUrl').value.trim();
+    if (!url) { ref('ytUrl').focus(); return; }
+    btn.disabled = true; btn.textContent = 'Bajando…';
+    try {
+      const file = await coverFromYoutube(url);
+      state.cover = file;
+      ref('coverPreview').textContent = '';
+      ref('coverPreview').style.backgroundImage = `url("${URL.createObjectURL(file)}")`;
+      ref('ytRow').hidden = true; ref('ytUrl').value = '';
+      showToast('Portada lista: miniatura del video recortada en cuadrado.', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+    finally { btn.disabled = false; btn.textContent = 'Usar miniatura'; }
+  }
+  // Portada de un pack existente desde YouTube (Mis packs / Moderación).
+  async function useYoutubeCoverFor(id) {
+    const input = overlay.querySelector(`[data-yt-url="${CSS.escape(id)}"]`);
+    const url = input?.value.trim();
+    if (!url) { input?.focus(); return; }
+    try { await changeCover(id, await coverFromYoutube(url)); }
+    catch (e) { showToast(e.message, 'error'); }
+  }
+
   async function changeCover(id, file) {
     const p = state.packs.find((x) => x.id === id);
     if (!p || !file || !IMAGE_TYPES[file.type]) return;
@@ -831,6 +896,14 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     else if (act === 'close') close();
     else if (act === 'files') ref('filesInput').click();
     else if (act === 'cover') ref('coverInput').click();
+    else if (act === 'coverYtToggle') { ref('ytRow').hidden = !ref('ytRow').hidden; if (!ref('ytRow').hidden) ref('ytUrl').focus(); }
+    else if (act === 'coverYt') useYoutubeCover();
+    else if (act === 'editYtToggle') {
+      const row = overlay.querySelector(`[data-yt-row="${CSS.escape(id)}"]`);
+      row.hidden = !row.hidden;
+      if (!row.hidden) row.querySelector('input').focus();
+    }
+    else if (act === 'editYt') useYoutubeCoverFor(id);
     else if (act === 'upload') upload();
     else if (act === 'savePack') savePack(id);
     else if (act === 'saveLoop') saveLoop(id);
@@ -898,6 +971,11 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       if (f === 'feel') r.feel = t.value;
       if (f === 'bpm' || f === 'bars') { r.edited = true; renderRows(); }
     }
+  });
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (e.target === ref('ytUrl')) { e.preventDefault(); useYoutubeCover(); }
+    else if (e.target.dataset.ytUrl) { e.preventDefault(); useYoutubeCoverFor(e.target.dataset.ytUrl); }
   });
   overlay.addEventListener('input', (e) => {
     if (e.target === ref('title')) refreshButton();
