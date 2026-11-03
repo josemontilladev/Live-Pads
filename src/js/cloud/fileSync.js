@@ -75,13 +75,15 @@ function requireContext() {
 // Manifiesto: qué archivos hay en la nube para esta librería.
 export async function listCloudFiles(libId) {
   const rows = await rest(
-    `/library_files?library_id=eq.${libId || getActiveLibraryId()}&select=path,size`
+    `/library_files?library_id=eq.${libId || getActiveLibraryId()}&select=path,size,updated_at`
   );
   return Array.isArray(rows) ? rows : [];
 }
 
-async function signUrl(libraryId, relPath, op) {
-  const r = await invokeFunction('r2-sign', { libraryId, path: relPath, op });
+// `size` (bytes) es obligatorio al SUBIR: el servidor comprueba que quepa en el
+// espacio del plan antes de firmar.
+async function signUrl(libraryId, relPath, op, size) {
+  const r = await invokeFunction('r2-sign', { libraryId, path: relPath, op, ...(size ? { size } : {}) });
   if (!r || !r.url) throw new Error(r?.error || 'No se pudo firmar la URL.');
   return r.url;
 }
@@ -102,13 +104,14 @@ export async function subirBiblioteca(onProgress) {
 
   let uploaded = 0;
   let failed = 0;
+  let quotaFull = '';
   const userId = getUser()?.id || null;
 
   for (let i = 0; i < pending.length; i++) {
     const f = pending[i];
     onProgress?.({ phase: 'upload', done: i, total: pending.length, file: f.path });
     try {
-      const url = await signUrl(libId, f.path, 'put');
+      const url = await signUrl(libId, f.path, 'put', f.size);
       const { size, contentType } = await window.electronAPI.r2UploadFile({
         url,
         relPath: f.path,
@@ -127,6 +130,13 @@ export async function subirBiblioteca(onProgress) {
       });
       uploaded++;
     } catch (err) {
+      // Nube llena: no tiene sentido seguir intentando con el resto.
+      if (err && err.code === 'quota') {
+        quotaFull = err.message;
+        failed += pending.length - i;
+        notifyStorageFull(err.message);
+        break;
+      }
       console.warn('[fileSync] no se pudo subir', f.path, err?.message || err);
       failed++;
     }
@@ -135,9 +145,65 @@ export async function subirBiblioteca(onProgress) {
   return {
     uploaded,
     failed,
+    quotaFull,
     skipped: present.length - pending.length,
     total: pending.length,
   };
+}
+
+// Aviso de «nube llena» (una vez cada 10 min, para no repetirlo en cada ronda).
+let lastFullAt = 0;
+function notifyStorageFull(message) {
+  if (Date.now() - lastFullAt < 10 * 60 * 1000) return;
+  lastFullAt = Date.now();
+  window.showToast?.(message, 'error', { ttl: 12000 });
+  window.dispatchEvent(new CustomEvent('livepads:storage-full', { detail: { message } }));
+}
+
+// ── ESPACIO: cuánto ocupa la nube y qué se puede liberar ───────────────────
+/** { used, quota, plan, files, libraries }: todas las librerías de las que eres dueño. */
+export function storageUsage() {
+  return invokeFunction('r2-sign', { op: 'usage' });
+}
+
+/**
+ * Archivos de la nube de esta librería que ya no usa ninguna canción ni servicio
+ * (canciones borradas, audios reemplazados…). No toca nada subido en las
+ * últimas 24 h, por si otra PC aún no ha sincronizado la canción que lo usa.
+ */
+export async function findUnusedCloudFiles() {
+  const libId = requireContext();
+  const used = new Set(collectReferencedPaths());
+  (await collectUserDrumsPaths()).forEach((p) => used.add(p));
+  try {
+    const { listSavedSetlists } = await import('../data/service.js');
+    listSavedSetlists().forEach((sl) => {
+      const songs = Array.isArray(sl.songs) ? sl.songs : (Array.isArray(sl.items) ? sl.items : []);
+      collectReferencedPaths(songs.map((x) => (x && x.song) || x).filter(Boolean)).forEach((p) => used.add(p));
+    });
+  } catch (_) { /* sin servicios guardados */ }
+  const recent = Date.now() - 24 * 3600 * 1000;
+  const files = (await listCloudFiles(libId)).filter((f) => !used.has(f.path)
+    && !(f.updated_at && new Date(f.updated_at).getTime() > recent));
+  return { files, bytes: files.reduce((n, f) => n + (Number(f.size) || 0), 0) };
+}
+
+/** Borra esos archivos de R2 y del manifiesto. */
+export async function deleteCloudFiles(files, onProgress) {
+  const libId = requireContext();
+  let deleted = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    onProgress?.({ done: i, total: files.length });
+    try {
+      await invokeFunction('r2-sign', { libraryId: libId, path: files[i].path, op: 'delete' });
+      await rest(`/library_files?library_id=eq.${libId}&path=eq.${encodeURIComponent(files[i].path)}`, { method: 'DELETE' });
+      deleted++;
+    } catch (err) {
+      console.warn('[fileSync] no se pudo borrar', files[i].path, err?.message || err);
+      failed++;
+    }
+  }
+  return { deleted, failed };
 }
 
 // ── BAJAR: lo que está en la nube y falta en esta PC ───────────────────────

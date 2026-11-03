@@ -683,6 +683,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       kpis.innerHTML = [
         ['Loops', rows.length], ['Agregados', sum('adds')], ['Escuchas', sum('previews')],
         ...(state.storageBytes != null ? [['Espacio (de 10 GB gratis)', fmtSize(state.storageBytes)]] : []),
+        ...(state.storage ? [['Tu Biblioteca', fmtSize(state.storage.official || 0)], ['Comunidad', fmtSize(state.storage.community || 0)], ['Librerías de usuarios', fmtSize(state.storage.libraries || 0)]] : []),
         ['Usados al menos 1 vez', rows.length ? `${Math.round((used / rows.length) * 100)} %` : '—'],
       ].map(([l, v]) => `<div class="spu-kpi"><b>${v}</b><span>${l}</span></div>`).join('');
     }
@@ -802,8 +803,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const el = ref('storage');
     if (!el) return;
     try {
-      const { bytes } = await stemLibrary.adminStorage();
-      state.storageBytes = bytes;
+      const st = await stemLibrary.adminStorage();
+      const bytes = st.bytes;
+      state.storageBytes = bytes; state.storage = st;
       el.textContent = `Espacio: ${fmtSize(bytes)} de 10 GB gratis`;
       el.classList.toggle('is-warn', bytes >= WARN_BYTES);
       el.classList.toggle('is-over', bytes >= FREE_BYTES);
@@ -1053,7 +1055,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       stopPlaying();
       overlay.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
       overlay.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== tab; });
-      if (tab === 'stats') loadStats();
+      if (tab === 'stats') { if (admin) paintStorage().then(loadStats); else loadStats(); }
     }
   });
 

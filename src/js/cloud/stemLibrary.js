@@ -201,7 +201,7 @@ export const adminReview = (packId, approve, note = '') => admin('review', { pac
 
 /** Sube bytes a catalog/<path> (firma en la función, PUT desde el proceso principal). */
 export async function adminUpload(path, bytes, contentType) {
-  const { url } = await admin('sign_put', { path, contentType });
+  const { url } = await admin('sign_put', { path, contentType, size: bytes.byteLength });
   return window.electronAPI.r2PutBytes({ url, bytes, contentType });
 }
 
@@ -218,7 +218,7 @@ export const communityDeleteLoop = (loopId) => admin('c_delete_loop', { loopId }
 export const communityDelete = (packId) => admin('c_delete', { packId });
 /** Sube a catalog/<slug del pack>/<name>; devuelve la ruta dentro del catálogo. */
 export async function communityUpload(packId, name, bytes, contentType) {
-  const { url, key } = await admin('c_sign_put', { packId, name, contentType });
+  const { url, key } = await admin('c_sign_put', { packId, name, contentType, size: bytes.byteLength });
   await window.electronAPI.r2PutBytes({ url, bytes, contentType });
   return key.replace(/^catalog\//, '');
 }

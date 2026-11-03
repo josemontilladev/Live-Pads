@@ -97,3 +97,16 @@
 #account-overlay:not(.is-embedded) .acc-section.acc-danger {
   background: rgba(255, 255, 255, .015) !important; border-color: var(--border) !important;
 }
+
+/* ── Espacio en la nube ── */
+.acc-storage { margin: 10px 0 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,.02); }
+.acc-storage[hidden] { display: none; }
+.acc-storage-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 13px; }
+.acc-storage-top span { font-variant-numeric: tabular-nums; color: var(--text-muted); font-weight: 600; }
+.acc-storage-bar { height: 8px; margin: 8px 0; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+.acc-storage-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .4s ease; }
+.acc-storage.is-warn .acc-storage-bar i { background: #f5b041; }
+.acc-storage.is-full .acc-storage-bar i { background: #ff6b6b; }
+.acc-storage.is-full .acc-storage-top span { color: #ff8a8a; }
+.acc-storage-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--text-muted); }
+.acc-btn-sm { padding: 5px 10px !important; font-size: 12px !important; }

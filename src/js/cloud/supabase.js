@@ -284,7 +284,11 @@ export async function invokeFunction(name, payload) {
   });
   let data = null;
   try { data = await res.json(); } catch (_) {}
-  if (!res.ok) throw new Error((data && (data.error || data.message)) || `Error ${res.status}`);
+  if (!res.ok) {
+    const err = new Error((data && (data.error || data.message)) || `Error ${res.status}`);
+    err.code = data && data.code; err.status = res.status;
+    throw err;
+  }
   return data;
 }
 

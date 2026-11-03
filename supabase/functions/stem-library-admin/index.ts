@@ -56,6 +56,10 @@ const LOOP_COLUMNS = 'id,pack_id,title,instrument,section,bpm,musical_key,beats_
 // Límites de la comunidad (el administrador no los tiene).
 const C_MAX_OPEN_PACKS = 5;     // envíos sin aprobar a la vez
 const C_MAX_LOOPS = 60;         // loops por pack
+const MB = 1024 ** 2;
+const C_MAX_PACK_BYTES = 300 * MB;      // peso de un pack de la comunidad
+const C_MAX_PENDING_BYTES = 1024 * MB;  // todo lo que tiene sin aprobar una persona
+const STALE_DAYS = 30;                  // borradores sin enviar y rechazados: se borran
 
 function safePath(p: unknown): string | null {
   if (typeof p !== 'string' || !p) return null;
@@ -155,6 +159,38 @@ Deno.serve(async (req) => {
     await Promise.all(keys.map((p) => client.fetch(url(`catalog/${p}`), { method: 'DELETE' }).catch(() => null)));
   };
 
+  // Bytes reales en R2 bajo un prefijo (ListObjectsV2). Devuelve también cada clave.
+  const listPrefix = async (prefix: string) => {
+    const { client, url } = r2();
+    const base = url('').replace(/\/$/, '');
+    const items: { key: string; size: number }[] = [];
+    let token = '';
+    for (let page = 0; page < 500; page++) {
+      const q = new URLSearchParams({ 'list-type': '2', prefix, 'max-keys': '1000' });
+      if (token) q.set('continuation-token', token);
+      const res = await client.fetch(`${base}?${q}`);
+      if (!res.ok) throw new Error(`R2 no respondió al medir el espacio (${res.status})`);
+      const xml = await res.text();
+      for (const m of xml.matchAll(/<Contents>[\s\S]*?<Key>([^<]+)<\/Key>[\s\S]*?<Size>(\d+)<\/Size>[\s\S]*?<\/Contents>/g)) {
+        items.push({ key: m[1].replace(/&amp;/g, '&'), size: Number(m[2]) });
+      }
+      const next = xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/);
+      if (!next || !/<IsTruncated>true<\/IsTruncated>/.test(xml)) break;
+      token = next[1].replace(/&amp;/g, '&');
+    }
+    return items;
+  };
+  const prefixBytes = async (prefix: string) => (await listPrefix(prefix)).reduce((n, it) => n + it.size, 0);
+  const fmtB = (b: number) => b >= 1024 * MB ? `${(b / (1024 * MB)).toFixed(2)} GB` : `${Math.round(b / MB)} MB`;
+
+  // Limpieza: borradores que nunca se enviaron y envíos rechazados, tras 30 días.
+  const cleanupStale = async (submitter?: string) => {
+    const since = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
+    const who = submitter ? `&submitted_by=eq.${submitter}` : '';
+    const stale = await db(`/stem_packs?select=${PACK_COLUMNS},updated_at&updated_at=lt.${since}${who}&or=(status.eq.rejected,and(status.eq.pending,submitted_at.is.null))`).catch(() => []);
+    for (const p of stale || []) { try { await deletePackFully(p); } catch (_) { /* sigue con el resto */ } }
+  };
+
   const getPack = async (packId: string) => {
     if (!UUID_RE.test(packId)) return null;
     const rows = await db(`/stem_packs?id=eq.${packId}&select=${PACK_COLUMNS}`);
@@ -244,13 +280,24 @@ Deno.serve(async (req) => {
     switch (action) {
       // ════════════════ Administrador ════════════════
       // Espacio que ocupa la biblioteca en R2 (suma de lo subido: audio + escucha previa).
+      // Lo que ocupa de verdad el bucket, por partes: tu Biblioteca, la comunidad
+      // y las librerías de los usuarios.
       case 'storage': {
-        const rows = await db('/stem_loops?select=size');
-        const bytes = (rows || []).reduce((n: number, r: any) => n + (Number(r.size) || 0), 0);
-        return json({ bytes, loops: (rows || []).length });
+        const [catalog, libs, packs] = await Promise.all([
+          listPrefix('catalog/'), listPrefix('lib/'), db('/stem_packs?select=slug,status'),
+        ]);
+        const community = new Set((packs || []).filter((p: any) => p.status && p.status !== 'official').map((p: any) => p.slug));
+        let official = 0, comm = 0;
+        for (const it of catalog) {
+          const slug = it.key.split('/')[1] || '';
+          if (community.has(slug)) comm += it.size; else official += it.size;
+        }
+        const users = libs.reduce((n, it) => n + it.size, 0);
+        return json({ bytes: official + comm + users, official, community: comm, libraries: users, files: catalog.length + libs.length });
       }
 
       case 'list':
+        await cleanupStale();
         return json({ packs: withCount(await db(`/stem_packs?select=${PACK_COLUMNS},stem_loops(count)&order=sort.asc,title.asc`)) });
 
       case 'list_loops': {
@@ -356,6 +403,13 @@ Deno.serve(async (req) => {
         const pack = await getPack(str(body.packId, 40));
         if (!pack || pack.status === 'official') return json({ error: 'Envío no encontrado' }, 404);
         const approve = body.approve === true;
+        // Rechazado: sus audios se borran ya (no ocupan espacio). Queda el pack con
+        // la nota para quien lo envió; a los 30 días se borra del todo.
+        if (!approve) {
+          const loops = await db(`/stem_loops?pack_id=eq.${pack.id}&select=audio_path,preview_path`);
+          await removeFiles((loops || []).flatMap((l: any) => [l.audio_path, l.preview_path]));
+          await db(`/stem_loops?pack_id=eq.${pack.id}`, { method: 'DELETE' });
+        }
         await db(`/stem_packs?id=eq.${pack.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
@@ -368,6 +422,7 @@ Deno.serve(async (req) => {
 
       // ════════════════ Comunidad ════════════════
       case 'my_packs':
+        await cleanupStale(user.id);
         return json({ packs: withCount(await db(`/stem_packs?submitted_by=eq.${user.id}&select=${PACK_COLUMNS},stem_loops(count)&order=updated_at.desc`)) });
 
       case 'c_save_pack': {
@@ -433,6 +488,21 @@ Deno.serve(async (req) => {
         const name = safePath(body.name);
         const contentType = str(body.contentType, 60);
         if (!name || !CONTENT_TYPES.includes(contentType)) return json({ error: 'Ruta o tipo de archivo inválido' }, 400);
+        // Espacio: el pack ≤ 300 MB y todo lo pendiente de esta persona ≤ 1 GB.
+        const size = Number(body.size);
+        if (!(size > 0)) return json({ error: 'Actualiza LivePads para enviar packs.', code: 'update_required' }, 426);
+        const items = await listPrefix(`catalog/${pack.slug}/`);
+        const prev = items.find((it) => it.key === `catalog/${pack.slug}/${name}`)?.size || 0;
+        const packBytes = items.reduce((n, it) => n + it.size, 0) - prev + size;
+        if (packBytes > C_MAX_PACK_BYTES) {
+          return json({ error: `Un pack de la comunidad puede ocupar hasta ${fmtB(C_MAX_PACK_BYTES)} (este llegaría a ${fmtB(packBytes)}).`, code: 'quota' }, 413);
+        }
+        const mine = await db(`/stem_packs?submitted_by=eq.${user.id}&status=neq.approved&select=slug`);
+        let pending = 0;
+        for (const p of mine || []) if (p.slug !== pack.slug) pending += await prefixBytes(`catalog/${p.slug}/`);
+        if (pending + packBytes > C_MAX_PENDING_BYTES) {
+          return json({ error: `Tus envíos sin aprobar ocuparían ${fmtB(pending + packBytes)}; el máximo es ${fmtB(C_MAX_PENDING_BYTES)}. Espera a que se revisen o retira alguno.`, code: 'quota' }, 413);
+        }
         // Siempre dentro de la carpeta del pack: <slug>/<name>
         return json(await signPut(`${pack.slug}/${name}`));
       }

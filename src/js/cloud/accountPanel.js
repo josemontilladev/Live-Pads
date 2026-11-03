@@ -266,6 +266,15 @@ async function render() {
         <h4>Sincronización</h4>
         <p class="acc-sub">Las canciones se sincronizan solas; aquí ves el estado y puedes forzarlo.</p>
         <div class="acc-sync-status" id="acc-sync-status">Comprobando…</div>
+        <!-- Espacio en la nube (todas las librerías de las que eres dueño). -->
+        <div class="acc-storage" id="acc-storage" hidden>
+          <div class="acc-storage-top"><b>Espacio en la nube</b><span id="acc-storage-txt"></span></div>
+          <div class="acc-storage-bar"><i id="acc-storage-fill"></i></div>
+          <div class="acc-storage-foot">
+            <span id="acc-storage-hint"></span>
+            <button class="acc-btn ghost acc-btn-sm" data-act="free-space" title="Borra de la nube los audios que ya no usa ninguna canción ni servicio de esta librería">Liberar espacio…</button>
+          </div>
+        </div>
 
         <button class="acc-btn acc-btn-full" data-act="sync-toggle" id="acc-sync-toggle">
           ☁ Sincronizar…
@@ -356,6 +365,7 @@ async function refreshLibs() {
   await renderManage();
   await renderSetlists();
   refreshFilesStatus(); // sin await: no bloquea el panel
+  refreshStorage();
   startStatusWatch();   // …y se mantiene vivo mientras el panel esté abierto
   // Avisa al selector de repertorio (cabecera de Librería) para que se actualice.
   try { window.dispatchEvent(new Event('livepads:libraries-changed')); } catch (_) {}
@@ -401,6 +411,29 @@ function haceCuanto(ms) {
 // engañoso: podías tener canciones editadas sin publicar y el panel te daba el
 // visto bueno. Como la sincronización es silenciosa, esta línea es el único
 // sitio donde se puede responder con certeza a "¿ya se subió todo?".
+// Medidor de espacio: lo que ocupan en R2 todas las librerías de las que eres dueño.
+const GB = 1024 ** 3;
+const fmtBytes = (b) => b >= GB ? `${(b / GB).toFixed(2)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
+async function refreshStorage() {
+  const box = overlay?.querySelector('#acc-storage');
+  if (!box) return;
+  try {
+    const { storageUsage } = await import('./fileSync.js');
+    const u = await storageUsage();
+    if (!u || !u.quota) { box.hidden = true; return; }       // plan sin nube
+    const pct = Math.min(100, (u.used / u.quota) * 100);
+    box.hidden = false;
+    box.classList.toggle('is-warn', pct >= 80);
+    box.classList.toggle('is-full', pct >= 100);
+    overlay.querySelector('#acc-storage-txt').textContent = `${fmtBytes(u.used)} de ${fmtBytes(u.quota)}`;
+    overlay.querySelector('#acc-storage-fill').style.width = `${Math.max(1.5, pct)}%`;
+    overlay.querySelector('#acc-storage-hint').textContent = pct >= 100
+      ? 'Llena: no se pueden subir más audios. Libera espacio o pásate a Iglesia.'
+      : pct >= 80 ? 'Casi llena: libera lo que ya no uses.'
+      : `Plan ${u.plan === 'church' ? 'Iglesia' : 'Pro'} · ${u.files} archivo${u.files === 1 ? '' : 's'} en ${u.libraries} librería${u.libraries === 1 ? '' : 's'}`;
+  } catch (_) { box.hidden = true; }
+}
+
 async function refreshFilesStatus() {
   const box = overlay?.querySelector('#acc-sync-status');
   if (!box) return;
@@ -940,6 +973,31 @@ async function onClick(e) {
             }
             refreshFilesStatus();
           } finally { btn.disabled = false; btn.textContent = lbl; }
+          return;
+        }
+        case 'free-space': {
+          btn.disabled = true; const lbl = btn.textContent;
+          try {
+            btn.textContent = 'Buscando…';
+            const { countPendingSongs } = await import('./songSync.js');
+            if (countPendingSongs()) {
+              msg('Primero sincroniza: hay canciones sin subir y podrían usar alguno de esos audios.');
+              return;
+            }
+            const { findUnusedCloudFiles, deleteCloudFiles } = await import('./fileSync.js');
+            const { files, bytes } = await findUnusedCloudFiles();
+            if (!files.length) { msg('No hay nada que liberar: todos los audios de la nube los usa alguna canción.', 'ok'); return; }
+            const ok = await confirmDialogAsync({
+              title: 'Liberar espacio',
+              message: `Hay ${files.length} archivo${files.length === 1 ? '' : 's'} (${fmtBytes(bytes)}) en la nube de esta librería que ya no usa ninguna canción ni servicio (canciones borradas, audios reemplazados…). Se borran de la nube; lo que tengas en este equipo no se toca.`,
+              confirmLabel: `Liberar ${fmtBytes(bytes)}`, danger: true,
+            });
+            if (!ok) return;
+            const r = await deleteCloudFiles(files, ({ done, total }) => { btn.textContent = `Borrando ${done}/${total}…`; });
+            msg(`Liberado: ${r.deleted} archivo${r.deleted === 1 ? '' : 's'}${r.failed ? ` (${r.failed} no se pudieron borrar)` : ''}.`, r.failed ? '' : 'ok');
+            refreshStorage(); refreshFilesStatus();
+          } catch (e) { msg(`No se pudo liberar espacio: ${e.message}`); }
+          finally { btn.disabled = false; btn.textContent = lbl; }
           return;
         }
         case 'push-files': {
