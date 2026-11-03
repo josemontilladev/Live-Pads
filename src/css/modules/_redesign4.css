@@ -51,6 +51,19 @@
 .sw-pill:hover { filter: brightness(1.12); transform: translateX(-1px) translateY(-1px); }
 .sw-pill.is-current { box-shadow: 0 0 0 2px hsl(var(--h) 80% 75%), 0 4px 14px hsl(var(--h) 70% 45% / .6); }
 .sw-pill.is-drag { cursor: grabbing; z-index: 5; filter: brightness(1.2); }
+/* Etiqueta: nombre + (al pasar el ratón) ▾ opciones y ✕ quitar. */
+.sw-pill { display: inline-flex; align-items: center; gap: 2px; }
+.sw-pill-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sw-pill-tool {
+  display: none; flex: none; width: 15px; height: 15px; border-radius: 4px; place-items: center;
+  font-size: 9px; line-height: 1; cursor: pointer; color: #0a0a14; background: rgba(0,0,0,.14);
+}
+.sw-pill-tool:hover { background: rgba(0,0,0,.32); color: #fff; }
+.sw-pill-x:hover { background: #e5484d; color: #fff; }
+.sw-pill-menu { font-size: 11px; }
+.sw-pill:hover, .sw-pill.is-current:hover { max-width: 220px; z-index: 6; padding-right: 3px; }
+.sw-pill:hover .sw-pill-tool { display: grid; }
+.sw-pill.is-drag .sw-pill-tool { display: none; }
 
 .sw-wave { position: relative; height: 84px; border-radius: 10px; overflow: hidden; background: rgba(0,0,0,.4); cursor: pointer; touch-action: none; }
 .sw-wave canvas { position: absolute; left: 0; top: 0; display: block; }

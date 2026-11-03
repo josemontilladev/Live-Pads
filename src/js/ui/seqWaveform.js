@@ -222,12 +222,16 @@ function drawRuler() {
 function renderMarkers() {
   if (!song || !duration) { regionsEl.innerHTML = ''; markersEl.innerHTML = ''; return; }
   const ms = sortedMarkers();
+  const edit = canEditActiveLibrary();
   let reg = '', pills = '';
   ms.forEach((m, i) => {
     const end = i + 1 < ms.length ? ms[i + 1].t : duration;
     const hue = sectionHue(m.label);
     reg += `<div class="sw-region" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;width:${((end - m.t) / duration) * 100}%;--h:${hue}"></div>`;
-    pills += `<button type="button" class="sw-pill" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue}" title="${escapeHtml(m.label)} · ${fmt(m.t)} — clic: ir · arrastrar: mover · clic derecho: opciones">${escapeHtml(m.label)}</button>`;
+    // Al pasar el ratón (editores): ▾ = opciones (lo mismo que el clic derecho) y ✕ = quitar.
+    const tools = edit ? `<span class="sw-pill-tool sw-pill-menu" role="button" title="Opciones: renombrar, mover, eliminar">▾</span><span class="sw-pill-tool sw-pill-x" role="button" title="Quitar esta sección">✕</span>` : '';
+    const tip = edit ? 'clic: ir · arrastrar: mover · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección';
+    pills += `<button type="button" class="sw-pill" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue}" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
   markersEl.querySelectorAll('.sw-pill').forEach(bindPill);
@@ -290,11 +294,18 @@ function onWavePointerDown(e) {
 }
 
 function bindPill(pill) {
+  pill.addEventListener('click', (e) => {
+    const tool = e.target.closest('.sw-pill-tool'); if (!tool) return;
+    e.stopPropagation();
+    if (tool.classList.contains('sw-pill-x')) removeMarker(pill.dataset.id);
+    else { const r = pill.getBoundingClientRect(); openMarkerMenu(r.left, r.bottom + 4, pill.dataset.id); }
+  });
   pill.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
     const m = getMarkers().find(x => x.id === pill.dataset.id); if (!m) return;
     if (!canEditActiveLibrary()) { seekTo(m.t); return; }   // solo lectura: el clic salta a la sección
+    if (e.target.closest('.sw-pill-tool')) return;          // ▾ / ✕: se resuelven en el clic
     const startX = e.clientX; let moved = false;
     pill.setPointerCapture(e.pointerId);
     const move = (ev) => {
@@ -394,6 +405,17 @@ function openAddMenu(anchor) {
   openCardMoreMenu(anchor, items);
 }
 
+function removeMarker(id) {
+  if (!song || !guardEdit()) return;
+  const s = song, m = getMarkers().find((v) => v.id === id); if (!m) return;
+  const prev = getMarkers().map((v) => ({ ...v }));
+  s.markers = getMarkers().filter((v) => v.id !== id);
+  persist(); renderMarkers();
+  window.showToast?.(`Sección «${m.label}» quitada`, 'info', {
+    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
+  });
+}
+
 function openMarkerMenu(x, y, id) {
   const m = getMarkers().find(v => v.id === id); if (!m) return;
   if (!canEditActiveLibrary()) { openContextMenu(x, y, [{ label: 'Ir a esta sección', onSelect: () => seekTo(m.t) }]); return; }
@@ -401,6 +423,6 @@ function openMarkerMenu(x, y, id) {
     { label: 'Ir a esta sección', onSelect: () => seekTo(m.t) },
     { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; persist(); renderMarkers(); } }) },
     { label: 'Mover al cabezal', onSelect: () => { m.t = Math.round((audio.currentTime || 0) * 10) / 10; persist(); renderMarkers(); } },
-    { label: 'Eliminar', danger: true, onSelect: () => { song.markers = getMarkers().filter(v => v.id !== id); persist(); renderMarkers(); } },
+    { label: 'Eliminar', danger: true, onSelect: () => removeMarker(id) },
   ]);
 }

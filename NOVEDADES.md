@@ -2,3 +2,4 @@
 • También a mano: «+ Sección» → «Detectar secciones automáticamente», o el enlace «Detectar automáticamente» de la onda.
 • Si la letra trae sus secciones y cuadran con lo cantado, se usan esos nombres.
 • Se puede apagar en «+ Sección» → «Marcar solas las canciones nuevas».
+• Etiquetas de sección más fáciles: al pasar el ratón aparecen ▾ (opciones: renombrar, mover, eliminar) y ✕ (quitar, con «Deshacer»).
