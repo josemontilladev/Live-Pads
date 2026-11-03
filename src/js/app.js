@@ -25,9 +25,10 @@ function ensureStemsWorkspace() {
   if (stemsWS) return Promise.resolve(stemsWS);
   return import('./stems/workspace.js').then(m => { stemsWS = m; return m; });
 }
+let stemsMountPromise = null;   // mount() es async: quien necesite el editor listo puede esperarlo
 function ensureStemsMounted() {
   return ensureStemsWorkspace().then(ws => {
-    if (!stemsMounted) { ws.mount(); stemsMounted = true; }
+    if (!stemsMounted) { stemsMountPromise = Promise.resolve(ws.mount()).catch(() => {}); stemsMounted = true; }
     return ws;
   });
 }
@@ -1161,6 +1162,19 @@ function bindRestOfApp() {
     // para que el setlist refleje el cambio (badge de secuencia, reproducción…).
     if (syncServiceWithLibrary()) renderServiceList();
     scheduleCloudAutoSync();
+  });
+
+  // "Pistas separadas · practicar" desde el menú de una canción en Pads: abre
+  // Stems y carga solo las pistas elegidas.
+  window.addEventListener('livepads:practice-song-stems', async (ev) => {
+    const { song, stems } = ev.detail || {};
+    if (!song || !stems?.length) return;
+    applyWorkspace('stems');
+    try {
+      const ws = await ensureStemsMounted();
+      await stemsMountPromise;   // la primera vez, esperar a que el editor termine de montarse
+      await ws.practiceSongStems(song, stems);
+    } catch (e) { console.warn('[LivePads] no se pudieron cargar las pistas:', e); }
   });
 
   // Auto-sync a la nube (Supabase) tras crear/editar: empuja la librería activa

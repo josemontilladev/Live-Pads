@@ -58,8 +58,11 @@ function hashOf(s) {
   // secciones, solo cuentan si existen, para no cambiar la firma de las demás.
   const a = s.audio || {};
   const au = a.sequence || a.original ? '|a' + JSON.stringify([a.sequence || null, a.original || null]) : '';
+  // Pistas separadas (para practicar): sus archivos y nombres viajan en meta.audio.stems.
+  const stemList = Array.isArray(a.stems) ? a.stems.filter((x) => x && x.url) : [];
+  const st = stemList.length ? '|s' + JSON.stringify(stemList.map((x) => [x.url, x.name || ''])) : '';
   const cv = s.cover ? '|c' + s.cover : '';
-  const str = syncContent(s) + mk + au + cv;
+  const str = syncContent(s) + mk + au + st + cv;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);

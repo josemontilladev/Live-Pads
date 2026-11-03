@@ -6248,7 +6248,7 @@ function openSongAudioMenu(anchorEl, song) {
   const ICO_STEMS = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>';
   const n = getSongStems(song).length;
   openCardMoreMenu(anchorEl, [
-    ...audioMenuItems(song, onAssigned),
+    ...audioMenuItems(song, onAssigned, { withStems: false }),
     { label: n ? `Pistas separadas (${n}) · practicar` : 'Pistas separadas (para practicar)…', icon: ICO_STEMS, onSelect: () => openSongStemsDialog(song, { onLoad: loadSongStemsIntoTimeline }) },
   ]);
 }
@@ -6257,9 +6257,12 @@ function openSongAudioMenu(anchorEl, song) {
 
 // Carga las pistas elegidas de una canción como tracks independientes (cada
 // una con su M/S, volumen y pan) y arranca la reproducción: modo práctica.
+// Practicar con las pistas que alguien subió a la canción: abierto a todos los
+// planes (es para ensayar; exportar sigue siendo Pro).
+export function practiceSongStems(song, stems) { return loadSongStemsIntoTimeline(song, stems); }
+
 async function loadSongStemsIntoTimeline(song, stems) {
   if (!stems || !stems.length) return;
-  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
   if (engine.getTracks().length > 0) {
     const ok = await confirmDialogAsync({
       title: 'Practicar con pistas',

@@ -52,10 +52,25 @@ async function replaceCover(song, onAssigned) {
 }
 
 // Devuelve los ítems de audio/carátula listos para openCardMoreMenu.
-export function audioMenuItems(song, onAssigned) {
+// Pistas separadas de la canción (multitrack para practicar): se eligen cuáles
+// cargar y se abren en Stems. Stems ya tiene su propia entrada (withStems: false).
+const ICO_TRACKS = '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" width="14" height="14"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="1.6" fill="currentColor"/><circle cx="15" cy="12" r="1.6" fill="currentColor"/><circle cx="7" cy="18" r="1.6" fill="currentColor"/></svg>';
+function openSongTracks(song) {
+  import('../stems/songStems.js').then(({ openSongStemsDialog }) => openSongStemsDialog(song, {
+    // app.js cambia a Stems y carga las elegidas.
+    onLoad: (s, stems) => window.dispatchEvent(new CustomEvent('livepads:practice-song-stems', { detail: { song: s, stems } })),
+  })).catch(() => {});
+}
+
+export function audioMenuItems(song, onAssigned, { withStems = true } = {}) {
   const hasSeq = !!(song.audio && song.audio.sequence);
   const hasOrig = !!(song.audio && song.audio.original);
+  const nStems = Array.isArray(song.audio?.stems) ? song.audio.stems.filter((x) => x && x.url).length : 0;
   return [
+    ...(withStems ? [{
+      label: nStems ? `Pistas separadas (${nStems}) · practicar` : 'Subir pistas separadas (multitrack)…',
+      icon: ICO_TRACKS, onSelect: () => openSongTracks(song),
+    }] : []),
     { label: (hasSeq ? 'Reemplazar' : 'Subir') + ' secuencia (archivo)', icon: ICO_UP, onSelect: () => loadSlotFromFile(song, 'sequence', onAssigned) },
     { label: (hasOrig ? 'Reemplazar' : 'Subir') + ' original (archivo)', icon: ICO_UP, onSelect: () => loadSlotFromFile(song, 'original', onAssigned) },
     { label: 'Original desde YouTube', icon: ICO_YT, onSelect: () => assignFromYoutube(song, onAssigned) },
