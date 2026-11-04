@@ -11,7 +11,8 @@
 //       save_pack { slug, title, … }           → crea/actualiza un pack por slug → fila
 //       update_pack { packId, …campos }        → edita nombre, descripción, género, sensación, portada
 //       add_loops { packId, loops: [...] }     → inserta o ACTUALIZA por archivo (conserva id y marca)
-//       storage                                → { bytes, loops }: espacio usado en R2 (estimado)
+//       storage                                → espacio real en R2: total, por partes, por pack y sobrantes
+//       delete_orphans                         → borra los archivos de catalog/ que ya no usa nada (> 1 h)
 //       update_loop { loopId, …campos }        → edita título, instrumento, sección, BPM, compases, tono, marca, sensaciones
 //       delete_loop { loopId }                 → borra el loop y sus archivos en R2
 //       delete_pack { packId }                 → borra el pack, sus loops y sus archivos
@@ -163,7 +164,7 @@ Deno.serve(async (req) => {
   const listPrefix = async (prefix: string) => {
     const { client, url } = r2();
     const base = url('').replace(/\/$/, '');
-    const items: { key: string; size: number }[] = [];
+    const items: { key: string; size: number; at: number }[] = [];
     let token = '';
     for (let page = 0; page < 500; page++) {
       const q = new URLSearchParams({ 'list-type': '2', prefix, 'max-keys': '1000' });
@@ -171,8 +172,9 @@ Deno.serve(async (req) => {
       const res = await client.fetch(`${base}?${q}`);
       if (!res.ok) throw new Error(`R2 no respondió al medir el espacio (${res.status})`);
       const xml = await res.text();
-      for (const m of xml.matchAll(/<Contents>[\s\S]*?<Key>([^<]+)<\/Key>[\s\S]*?<Size>(\d+)<\/Size>[\s\S]*?<\/Contents>/g)) {
-        items.push({ key: m[1].replace(/&amp;/g, '&'), size: Number(m[2]) });
+      for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+        const k = m[1].match(/<Key>([^<]+)<\/Key>/), z = m[1].match(/<Size>(\d+)<\/Size>/), t = m[1].match(/<LastModified>([^<]+)<\/LastModified>/);
+        if (k) items.push({ key: k[1].replace(/&amp;/g, '&'), size: Number(z?.[1] || 0), at: t ? Date.parse(t[1]) || 0 : 0 });
       }
       const next = xml.match(/<NextContinuationToken>([^<]+)<\/NextContinuationToken>/);
       if (!next || !/<IsTruncated>true<\/IsTruncated>/.test(xml)) break;
@@ -181,6 +183,22 @@ Deno.serve(async (req) => {
     return items;
   };
   const prefixBytes = async (prefix: string) => (await listPrefix(prefix)).reduce((n, it) => n + it.size, 0);
+
+  // Rutas que usa algún pack o loop (sin el prefijo catalog/). Paginado: PostgREST da 1000 filas por vez.
+  const usedPaths = async () => {
+    const used = new Set<string>();
+    for (const p of (await db('/stem_packs?select=cover_path')) || []) if (p.cover_path) used.add(p.cover_path);
+    for (let off = 0; off < 200000; off += 1000) {
+      const rows = (await db(`/stem_loops?select=audio_path,preview_path&order=id&limit=1000&offset=${off}`)) || [];
+      for (const r of rows) { if (r.audio_path) used.add(r.audio_path); if (r.preview_path) used.add(r.preview_path); }
+      if (rows.length < 1000) break;
+    }
+    return used;
+  };
+  // Un archivo de menos de una hora puede ser de una subida que aún no terminó.
+  const ORPHAN_GRACE_MS = 60 * 60 * 1000;
+  const isOrphan = (it: { key: string; at: number }, used: Set<string>) =>
+    !used.has(it.key.replace(/^catalog\//, '')) && Date.now() - (it.at || 0) > ORPHAN_GRACE_MS;
   const fmtB = (b: number) => b >= 1024 * MB ? `${(b / (1024 * MB)).toFixed(2)} GB` : `${Math.round(b / MB)} MB`;
 
   // Limpieza: borradores que nunca se enviaron y envíos rechazados, tras 30 días.
@@ -203,17 +221,35 @@ Deno.serve(async (req) => {
 
   // Inserta o actualiza por (pack, archivo). Un archivo que ya existía conserva
   // su id (métricas, favoritos) y la marca GRATIS/PRO que se le puso a mano.
-  const existingLoops = async (packId: string) =>
-    new Map<string, string>(((await db(`/stem_loops?pack_id=eq.${packId}&select=audio_path,tier`)) || []).map((r: any) => [r.audio_path, r.tier]));
-  const upsertLoops = async (rows: any[], tierOf: Map<string, string>) => {
+  // Se reconoce por el nombre SIN extensión: re-subir «Bajo.wav» como «Bajo.mp3»
+  // actualiza el mismo loop (no lo duplica) y borra el archivo viejo de R2.
+  const baseKey = (p: string) => String(p || '').replace(/\.[^./]+$/, '');
+  const existingLoops = async (packId: string) => {
+    const rows = (await db(`/stem_loops?pack_id=eq.${packId}&select=id,audio_path,preview_path,tier`)) || [];
+    return new Map<string, any>(rows.map((r: any) => [baseKey(r.audio_path), r]));
+  };
+  const upsertLoops = async (rows: any[], prev: Map<string, any>) => {
     let updated = 0;
-    for (const r of rows) if (tierOf.has(r.audio_path)) { r.tier = tierOf.get(r.audio_path); updated++; }
-    const saved = await db('/stem_loops?on_conflict=pack_id,audio_path', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify(rows),
-    });
-    return { ids: saved.map((r: any) => r.id), updated, added: rows.length - updated };
+    const ids: string[] = [], fresh: any[] = [], stale: (string | null)[] = [];
+    for (const r of rows) {
+      const old = prev.get(baseKey(r.audio_path));
+      if (!old) { fresh.push(r); continue; }
+      r.tier = old.tier; updated++;
+      if (old.audio_path !== r.audio_path) stale.push(old.audio_path);
+      if (old.preview_path && old.preview_path !== r.preview_path) stale.push(old.preview_path);
+      const [saved] = await db(`/stem_loops?id=eq.${old.id}`, { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(r) });
+      if (saved) ids.push(saved.id);
+    }
+    if (fresh.length) {
+      const saved = await db('/stem_loops?on_conflict=pack_id,audio_path', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+        body: JSON.stringify(fresh),
+      });
+      ids.push(...saved.map((r: any) => r.id));
+    }
+    if (stale.length) await removeFiles(stale);
+    return { ids, updated, added: rows.length - updated };
   };
 
   const parseLoops = (packId: string, max: number): { rows?: any[]; error?: string } => {
@@ -282,18 +318,49 @@ Deno.serve(async (req) => {
       // Espacio que ocupa la biblioteca en R2 (suma de lo subido: audio + escucha previa).
       // Lo que ocupa de verdad el bucket, por partes: tu Biblioteca, la comunidad
       // y las librerías de los usuarios.
+      // También: lo que ocupa cada pack y los archivos SOBRANTES (en R2 pero sin
+      // ningún loop ni portada que los use: restos de subidas cortadas, archivos
+      // reemplazados, packs borrados a medias). Esos se pueden borrar sin perder nada.
       case 'storage': {
-        const [catalog, libs, packs] = await Promise.all([
-          listPrefix('catalog/'), listPrefix('lib/'), db('/stem_packs?select=slug,status'),
+        const [catalog, libs, packs, used] = await Promise.all([
+          listPrefix('catalog/'), listPrefix('lib/'), db('/stem_packs?select=id,slug,title,status,published'), usedPaths(),
         ]);
         const community = new Set((packs || []).filter((p: any) => p.status && p.status !== 'official').map((p: any) => p.slug));
-        let official = 0, comm = 0;
+        const bySlug = new Map<string, any>();
+        for (const p of packs || []) bySlug.set(p.slug, { id: p.id, slug: p.slug, title: p.title, status: p.status || 'official', published: !!p.published, bytes: 0, files: 0, orphanBytes: 0, orphanFiles: 0 });
+        let official = 0, comm = 0, orphanBytes = 0, orphanFiles = 0;
         for (const it of catalog) {
           const slug = it.key.split('/')[1] || '';
           if (community.has(slug)) comm += it.size; else official += it.size;
+          const g = bySlug.get(slug);
+          if (g) { g.bytes += it.size; g.files++; }
+          if (isOrphan(it, used)) {
+            orphanBytes += it.size; orphanFiles++;
+            if (g) { g.orphanBytes += it.size; g.orphanFiles++; }
+          }
         }
         const users = libs.reduce((n, it) => n + it.size, 0);
-        return json({ bytes: official + comm + users, official, community: comm, libraries: users, files: catalog.length + libs.length });
+        return json({
+          bytes: official + comm + users, official, community: comm, libraries: users, files: catalog.length + libs.length,
+          packs: [...bySlug.values()].sort((a, b) => b.bytes - a.bytes),
+          orphans: { bytes: orphanBytes, files: orphanFiles },
+        });
+      }
+
+      // Borra los archivos sobrantes (se recalculan aquí; nunca los de la última hora,
+      // que pueden ser de una subida en curso).
+      case 'delete_orphans': {
+        const [catalog, used] = await Promise.all([listPrefix('catalog/'), usedPaths()]);
+        const doomed = catalog.filter((it) => isOrphan(it, used)).slice(0, 3000);
+        const { client, url } = r2();
+        let freed = 0, deleted = 0;
+        for (let i = 0; i < doomed.length; i += 25) {
+          await Promise.all(doomed.slice(i, i + 25).map(async (it) => {
+            const res = await client.fetch(url(it.key), { method: 'DELETE' }).catch(() => null);
+            if (res && (res.ok || res.status === 404)) { freed += it.size; deleted++; }
+          }));
+        }
+        return json({ deleted, freed });
       }
 
       case 'list':
@@ -518,7 +585,7 @@ Deno.serve(async (req) => {
           r.tier = 'free';  // la marca la decide el administrador al aprobar
         }
         const tierOf = await existingLoops(pack.id);
-        const fresh = parsed.rows!.filter((r) => !tierOf.has(r.audio_path)).length;
+        const fresh = parsed.rows!.filter((r) => !tierOf.has(baseKey(r.audio_path))).length;
         if (tierOf.size + fresh > C_MAX_LOOPS) return json({ error: `Un pack de la comunidad admite hasta ${C_MAX_LOOPS} loops` }, 409);
         if (body.cover_path !== undefined) {
           const cover = body.cover_path ? safePath(body.cover_path) : null;

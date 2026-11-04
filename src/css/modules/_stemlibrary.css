@@ -696,6 +696,29 @@
 #spu-overlay .spu-tabs button { flex: 1; text-align: center; }
 .spu-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 60px 20px; text-align: center; }
 .spu-empty b { color: var(--text); font-size: 15px; }
-.spu-storage { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.spu-storage { font-size: 12px; color: var(--text-muted); white-space: nowrap; background: none; border: 0; padding: 2px 4px; border-radius: 6px; cursor: pointer; font-family: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+.spu-storage:hover { color: var(--text); background: rgba(255,255,255,.05); }
+.spu-storage:empty { display: none; }
 .spu-storage.is-warn { color: #f5b041; font-weight: 700; }
 .spu-storage.is-over { color: #ff7a7a; font-weight: 700; }
+
+/* Formato con el que se guardará cada pista */
+.spu-fmt { margin-left: 6px; font-size: 10.5px; color: var(--text-muted); white-space: nowrap; padding: 1px 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1); }
+.spu-fmt.is-fast { color: #c6f432; border-color: rgba(198,244,50,.35); }
+
+/* Pestaña Espacio */
+.spu-space { display: flex; flex-direction: column; gap: 12px; }
+.spu-space-total { display: flex; flex-direction: column; gap: 6px; }
+.spu-space-meter { height: 10px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+.spu-space-meter > span { display: block; height: 100%; background: #c6f432; border-radius: inherit; }
+.spu-space-meter.is-warn > span { background: #f5b041; }
+.spu-space-meter.is-over > span { background: #ff7a7a; }
+.spu-space-legend { font-size: 12.5px; color: var(--text-muted); }
+.spu-space-legend b { color: var(--text); font-size: 15px; }
+.spu-orphans { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.08); font-size: 13px; color: var(--text-muted); }
+.spu-orphans.has { border-color: rgba(245,176,65,.45); background: rgba(245,176,65,.07); color: var(--text); }
+.spu-space-table td { vertical-align: middle; }
+.spu-space-bar { display: inline-block; width: 80px; height: 6px; margin-left: 8px; border-radius: 999px; background: rgba(255,255,255,.08); vertical-align: middle; overflow: hidden; }
+.spu-space-bar > span { display: block; height: 100%; background: rgba(198,244,50,.7); }
+.spu-space-acts { text-align: right; white-space: nowrap; }
+.spu-space-acts .stb-btn { margin-left: 6px; }

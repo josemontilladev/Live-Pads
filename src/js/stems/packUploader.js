@@ -23,7 +23,9 @@ import { guessFromFilename, pickTempo, exactTempo, slugify, safeFileName, UNPITC
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
-import { prepareTrack, estimateBytes, isLongTrack } from './packAudio.js';
+import { prepareTrack, estimateBytes, isLongTrack, keepMp3, planLabel } from './packAudio.js';
+import { mp3Info, fixMp3Gapless, isMp3Name } from './mp3Info.js';
+import { poolSize } from '../audio/mp3Pool.js';
 
 // Plan gratis de Cloudflare R2: 10 GB. Se avisa al pasar de 8.
 const FREE_BYTES = 10 * 1024 ** 3, WARN_BYTES = 8 * 1024 ** 3;
@@ -77,12 +79,20 @@ async function detectKey(buffer) {
 
 async function analyzeFile(file) {
   const bytes = await file.arrayBuffer();
-  const buffer = await decode(bytes);
+  let buffer = await decode(bytes);
+  // MP3: se lee su cabecera (kbps, desfase del codificador) y, si el decodificador
+  // dejó el silencio inicial del codificador, se recorta para que cuadre con las demás.
+  let mp3 = null, mp3Fixed = false;
+  if (isMp3Name(file.name)) {
+    mp3 = mp3Info(bytes);
+    if (!mp3) throw new Error('No parece un MP3 válido');
+    ({ buffer, fixed: mp3Fixed } = fixMp3Gapless(mp3, buffer));
+  }
   const guess = guessFromFilename(file.name);
   const detected = guess.bpmHint ? null : (detectTempoMeter(buffer)?.bpmFloat || null);
   const { bpm, bars } = pickTempo(buffer.duration, detected, { hintBpm: guess.bpmHint });
   const key = UNPITCHED.has(guess.instrument) ? null : await detectKey(buffer);
-  return { file, bytes, buffer, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null, feel: '',
+  return { file, bytes, buffer, mp3, mp3Fixed, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null, feel: '',
     hintBpm: guess.bpmHint, detectedBpm: detected };
 }
 
@@ -153,7 +163,8 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         <button type="button" class="is-on" data-tab="upload" role="tab">${admin ? 'Subir pack' : 'Enviar pack'}</button>
         <button type="button" data-tab="packs" role="tab">${admin ? 'Mis packs' : 'Mis envíos'}</button>
         ${admin ? `<button type="button" data-tab="review" role="tab">Moderación <span class="spu-badge" data-ref="reviewCount" hidden></span></button>
-        <button type="button" data-tab="stats" role="tab">Uso</button>` : ''}
+        <button type="button" data-tab="stats" role="tab">Uso</button>
+        <button type="button" data-tab="space" role="tab">Espacio</button>` : ''}
       </div>
 
       <section data-pane="upload" class="spu-pane">
@@ -196,9 +207,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         </div>
         <h4 class="spu-step"><b>3</b> Pistas <span>suelta los audios; revisa el instrumento de cada una</span></h4>
         <div class="spu-drop" data-ref="drop">
-          Arrastra aquí los loops en <b>WAV</b> o <b>FLAC</b>, o <button type="button" class="stb-btn" data-act="files">elige archivos</button>
-          <input type="file" data-ref="filesInput" accept=".wav,.flac,audio/wav,audio/flac" multiple hidden>
-          <div class="spu-note">MP3 y M4A no: añaden silencio al principio y el loop se desfasaría. Un archivo con el mismo nombre que uno ya subido lo actualiza${admin ? ' (conserva su marca GRATIS/PRO)' : ''}.</div>
+          Arrastra aquí las pistas en <b>MP3</b>, <b>WAV</b> o <b>FLAC</b>, o <button type="button" class="stb-btn" data-act="files">elige archivos</button>
+          <input type="file" data-ref="filesInput" accept=".mp3,.wav,.flac,audio/mpeg,audio/wav,audio/flac" multiple hidden>
+          <div class="spu-note">MP3 es lo más rápido: si ya viene a 192 kbps o menos se sube tal cual, sin volver a comprimir. Los WAV largos se comprimen a MP3; los loops cortos quedan en WAV para que no dejen hueco al repetirse. Un archivo con el mismo nombre que uno ya subido lo actualiza${admin ? ' (conserva su marca GRATIS/PRO)' : ''}.</div>
         </div>
         <div class="spu-bulk" data-ref="bulk" hidden>
           <span>Para todas las pistas:</span>
@@ -215,7 +226,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
           Confirmo que estos audios son míos o tengo los derechos para compartirlos, y autorizo a LivePads a ofrecerlos en la Biblioteca.</label>` : ''}
         <footer class="stb-foot">
           <label><input type="checkbox" data-ref="publish" checked> ${admin ? 'Publicar al terminar' : 'Enviar a revisión al terminar'}</label>
-          ${admin ? '<span class="spu-storage" data-ref="storage" title="Espacio de la biblioteca en Cloudflare R2 (plan gratis: 10 GB)"></span>' : ''}
+          ${admin ? '<button type="button" class="spu-storage" data-ref="storage" data-tab="space" title="Ver qué ocupa espacio y qué se puede borrar"></button>' : ''}
           <span class="stb-total" data-ref="status"></span>
           <button type="button" class="stb-btn stb-btn--primary" data-act="upload" disabled>${admin ? 'Subir' : 'Enviar'}</button>
         </footer>
@@ -248,6 +259,11 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         </div>
         <div class="spu-kpis" data-ref="kpis"></div>
         <div class="stb-grid-wrap"><table class="stb-grid" data-ref="stats"></table></div>
+      </section>
+
+      <section data-pane="space" class="spu-pane" hidden>
+        <p class="spu-intro">Lo que ocupa de verdad la biblioteca en Cloudflare R2 (10 GB gratis). Los <b>archivos sobrantes</b> son audios que ya no usa ningún loop (subidas cortadas, archivos reemplazados): se pueden borrar sin perder nada. Para ahorrar más, borra los packs o loops que no se usan (mira la pestaña Uso → Sin usar).</p>
+        <div class="spu-space" data-ref="space"><div class="stb-empty">Cargando…</div></div>
       </section>` : ''}
     </div>`;
   document.body.appendChild(overlay);
@@ -546,7 +562,83 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       state.open = null;
       showToast(withdraw ? 'Envío retirado.' : 'Pack borrado.', 'success');
       await loadPacks(); onChanged?.();
+      return true;
     } catch (e) { showToast(`No se pudo borrar: ${e.message}`, 'error'); }
+    return false;
+  }
+
+  // ── Espacio (administrador): total, por pack y archivos sobrantes ──
+  async function loadSpace() {
+    const box = ref('space');
+    if (!box) return;
+    box.innerHTML = '<div class="stb-empty">Midiendo el espacio en R2…</div>';
+    let st;
+    try { st = await stemLibrary.adminStorage(); }
+    catch (e) { box.innerHTML = `<div class="stb-empty">No se pudo medir: ${esc(e.message)}</div>`; return; }
+    state.storageBytes = st.bytes; state.storage = st;
+    paintStorageLabel();
+    if (!Array.isArray(st.packs)) {
+      box.innerHTML = '<div class="stb-empty">Actualiza la función <b>stem-library-admin</b> en Supabase para ver el detalle por pack.</div>';
+      return;
+    }
+    const pct = Math.min(100, (st.bytes / FREE_BYTES) * 100);
+    const orphans = st.orphans || { bytes: 0, files: 0 };
+    const label = { official: 'Oficial', approved: 'Comunidad', pending: 'En revisión', rejected: 'Rechazado' };
+    box.innerHTML = `
+      <div class="spu-space-total">
+        <div class="spu-space-meter${st.bytes >= FREE_BYTES ? ' is-over' : st.bytes >= WARN_BYTES ? ' is-warn' : ''}"><span style="width:${pct.toFixed(1)}%"></span></div>
+        <div class="spu-space-legend"><b>${fmtSize(st.bytes)}</b> de 10 GB gratis · quedan ${fmtSize(Math.max(0, FREE_BYTES - st.bytes))}</div>
+      </div>
+      <div class="spu-kpis">
+        <div class="spu-kpi"><b>${fmtSize(st.official || 0)}</b><span>Tu Biblioteca</span></div>
+        <div class="spu-kpi"><b>${fmtSize(st.community || 0)}</b><span>Comunidad</span></div>
+        <div class="spu-kpi"><b>${fmtSize(st.libraries || 0)}</b><span>Librerías de usuarios (sus propias canciones)</span></div>
+        <div class="spu-kpi"><b>${st.files}</b><span>Archivos</span></div>
+      </div>
+      <div class="spu-orphans${orphans.files ? ' has' : ''}">
+        ${orphans.files
+          ? `<span><b>${fmtSize(orphans.bytes)}</b> en ${orphans.files} archivo${orphans.files === 1 ? '' : 's'} sobrante${orphans.files === 1 ? '' : 's'} que no usa ningún loop.</span>
+             <button type="button" class="stb-btn stb-btn--primary" data-act="deleteOrphans">Borrar sobrantes</button>`
+          : '<span>✓ No hay archivos sobrantes: todo lo que ocupa espacio lo usa algún loop.</span>'}
+      </div>
+      <div class="stb-grid-wrap"><table class="stb-grid spu-space-table">
+        <thead><tr><th>Pack</th><th>Estado</th><th>Archivos</th><th>Ocupa</th><th></th></tr></thead>
+        <tbody>${st.packs.length ? st.packs.map((g) => `<tr>
+          <td>${esc(g.title)}${g.status === 'official' && !g.published ? ' <span class="spu-muted">(borrador)</span>' : ''}</td>
+          <td>${label[g.status] || esc(g.status)}</td>
+          <td>${g.files}${g.orphanFiles ? ` <span class="spu-muted">(${g.orphanFiles} sobrante${g.orphanFiles === 1 ? '' : 's'})</span>` : ''}</td>
+          <td><b>${fmtSize(g.bytes)}</b> <span class="spu-space-bar"><span style="width:${st.bytes ? Math.max(1, (g.bytes / st.bytes) * 100).toFixed(1) : 0}%"></span></span></td>
+          <td class="spu-space-acts">
+            ${g.status === 'official' || g.status === 'approved' ? `<button type="button" class="stb-btn" data-act="spaceOpen" data-id="${esc(g.id)}" title="Ver sus loops (desde ahí puedes borrar loops sueltos)">Ver loops</button>` : ''}
+            <button type="button" class="stb-btn spu-danger" data-act="spaceDelete" data-id="${esc(g.id)}">Borrar</button>
+          </td></tr>`).join('') : '<tr><td colspan="5" class="stb-empty">Todavía no hay packs.</td></tr>'}</tbody>
+      </table></div>`;
+  }
+
+  async function deleteOrphans() {
+    const o = state.storage?.orphans;
+    const ok = await confirmDialogAsync({
+      title: 'Borrar archivos sobrantes',
+      message: `Se borran ${o?.files || 0} archivos (${fmtSize(o?.bytes || 0)}) que no usa ningún loop ni portada. Los packs y loops no cambian. No se puede deshacer.`,
+      confirmLabel: 'Borrar sobrantes',
+    });
+    if (!ok) return;
+    try {
+      const r = await stemLibrary.adminDeleteOrphans();
+      showToast(`Liberados ${fmtSize(r.freed || 0)} (${r.deleted} archivo${r.deleted === 1 ? '' : 's'}).`, 'success');
+    } catch (e) { showToast(`No se pudo borrar: ${e.message}`, 'error'); }
+    loadSpace();
+  }
+
+  async function spaceDelete(id) {
+    if (!state.packs.find((x) => x.id === id)) await loadPacks();
+    if (await deletePack(id)) loadSpace();
+  }
+
+  function spaceOpen(id) {
+    overlay.querySelector('[data-tab="packs"]')?.click();
+    if (state.open !== id) togglePack(id);
+    requestAnimationFrame(() => overlay.querySelector(`[data-open="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
   }
 
   // Portada nueva: nombre único (cover-<fecha>) para que ninguna caché local
@@ -772,7 +864,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     ref('rows').innerHTML = !rows.length ? '' : `
       <thead><tr><th>Pista</th><th>Instrumento</th><th>Sección</th><th class="spu-col-bpm">BPM</th><th>Compases</th><th class="spu-col-key">Tono</th><th>Sensación</th>${admin ? '<th>Marca</th>' : ''}<th></th><th></th></tr></thead>
       <tbody>${rows.map((r, i) => `<tr data-row="${i}"${previewRow === i ? ' class="is-playing"' : ''}>
-        <td class="spu-title-cell"><button type="button" class="spu-rowplay" data-rowplay="${i}" title="Escuchar esta pista">${previewRow === i ? '■' : '▶'}</button><input data-f="title" value="${esc(r.title)}" maxlength="120">${r.updates ? '<span class="spu-upd" title="Ya existe en el pack: se reemplaza su audio y se conservan sus datos">actualiza</span>' : ''}</td>
+        <td class="spu-title-cell"><button type="button" class="spu-rowplay" data-rowplay="${i}" title="Escuchar esta pista">${previewRow === i ? '■' : '▶'}</button><input data-f="title" value="${esc(r.title)}" maxlength="120">${r.updates ? '<span class="spu-upd" title="Ya existe en el pack: se reemplaza su audio y se conservan sus datos">actualiza</span>' : ''}<span class="spu-fmt${keepMp3(r) ? ' is-fast' : ''}" title="Cómo se guardará al subirla">${esc(planLabel(r))}</span></td>
         <td><select data-f="instrument">${opts(INSTRUMENTS, r.instrument)}</select></td>
         <td><select data-f="section">${opts(SECTIONS, r.section)}</select></td>
         <td class="spu-col-bpm"><input data-f="bpm" type="number" min="20" max="300" step="0.01" value="${r.bpm}"></td>
@@ -795,7 +887,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const before = state.rows.reduce((t, r) => t + r.bytes.byteLength, 0);
     const after = state.rows.reduce((t, r) => t + estimateBytes(r), 0);
     ref('status').textContent = !n ? '' : `${n} pista${n === 1 ? '' : 's'}${!perLoop() && bpm ? ` · ${bpm} BPM` : ''}${!perLoop() && key ? ` · ${key}` : ''} · ${fmtSize(before)} → ~${fmtSize(after)}${warn ? ` · ⚠ ${warn} por revisar` : ''}`;
-    ref('status').title = 'Peso al subir: las pistas largas se comprimen a MP3 (192 kbps estéreo, 128 kbps mono; Click y Guía en mono) y los loops cortos quedan en WAV de 16 bits';
+    ref('status').title = 'Peso al subir: los MP3 de 192 kbps o menos se suben tal cual; el resto de pistas largas se comprimen a MP3 (192 kbps estéreo, 128 kbps mono; Click y Guía en mono) y los loops cortos quedan en WAV de 16 bits';
   }
 
   // Espacio usado en R2 (solo administrador).
@@ -804,12 +896,17 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     if (!el) return;
     try {
       const st = await stemLibrary.adminStorage();
-      const bytes = st.bytes;
-      state.storageBytes = bytes; state.storage = st;
-      el.textContent = `Espacio: ${fmtSize(bytes)} de 10 GB gratis`;
-      el.classList.toggle('is-warn', bytes >= WARN_BYTES);
-      el.classList.toggle('is-over', bytes >= FREE_BYTES);
+      state.storageBytes = st.bytes; state.storage = st;
+      paintStorageLabel();
     } catch (_) { el.textContent = ''; }
+  }
+  function paintStorageLabel() {
+    const el = ref('storage'), bytes = state.storageBytes;
+    if (!el || bytes == null) return;
+    const extra = state.storage?.orphans?.bytes > 0 ? ` · ${fmtSize(state.storage.orphans.bytes)} sobrantes` : '';
+    el.textContent = `Espacio: ${fmtSize(bytes)} de 10 GB gratis${extra}`;
+    el.classList.toggle('is-warn', bytes >= WARN_BYTES);
+    el.classList.toggle('is-over', bytes >= FREE_BYTES);
   }
 
   // Escuchar una pista antes de subirla (para saber qué es «GA 1» o «Loop»).
@@ -838,9 +935,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
   }
 
   async function addFiles(files) {
-    const list = [...files].filter((f) => /\.(wav|flac)$/i.test(f.name));
+    const list = [...files].filter((f) => /\.(wav|flac|mp3)$/i.test(f.name));
     const skipped = files.length - list.length;
-    if (skipped) showToast(`${skipped} archivo${skipped > 1 ? 's' : ''} ignorado${skipped > 1 ? 's' : ''}: solo WAV o FLAC.`, 'info');
+    if (skipped) showToast(`${skipped} archivo${skipped > 1 ? 's' : ''} ignorado${skipped > 1 ? 's' : ''}: solo MP3, WAV o FLAC.`, 'info');
     ref('status').textContent = `Analizando ${list.length} archivo${list.length === 1 ? '' : 's'}…`;
     for (const f of list) {
       try { state.rows.push(await analyzeFile(f)); renderRows(); }
@@ -949,15 +1046,28 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       const used = new Set();
       const loops = [];
       let savedBefore = 0, savedAfter = 0;
-      for (const [i, r] of state.rows.entries()) {
-        status(`Subiendo ${i + 1} de ${state.rows.length}: ${r.title}…`);
+      const bases = state.rows.map((r, i) => {
         let base = baseOf(safeFileName(r.file.name));
         while (used.has(base)) base = `${i}-${base}`;
         used.add(base);
-        // Comprimir antes de subir: MP3 las pistas largas, WAV 16 bits los loops.
-        status(`${isLongTrack(r) ? 'Comprimiendo' : 'Preparando'} ${i + 1} de ${state.rows.length}: ${r.title}…`);
-        await new Promise((res) => setTimeout(res, 0));
-        const pt = await prepareTrack(r, base);
+        return base;
+      });
+      // Se preparan (comprimen) varias pistas por delante en workers mientras
+      // se sube la actual: con muchos WAV largos tarda bastante menos.
+      const ahead = poolSize() + 1, prepared = [];
+      let nextPrep = 0;
+      const kick = (upTo) => {
+        while (nextPrep < state.rows.length && nextPrep <= upTo) {
+          const k = nextPrep++;
+          prepared[k] = prepareTrack(state.rows[k], bases[k]);
+          prepared[k].catch(() => {});
+        }
+      };
+      for (const [i, r] of state.rows.entries()) {
+        kick(i + ahead);
+        status(`${isLongTrack(r) && !keepMp3(r) ? 'Comprimiendo' : 'Preparando'} ${i + 1} de ${state.rows.length}: ${r.title}…`);
+        const pt = await prepared[i];
+        prepared[i] = null;
         status(`Subiendo ${i + 1} de ${state.rows.length}: ${r.title} (${pt.format}, ${fmtSize(pt.after)})…`);
         const audioPath = await put(pt.audio.name, pt.audio.bytes, pt.audio.ct);
         advance(r.bytes.byteLength);
@@ -1046,6 +1156,9 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     else if (act === 'saveLoop') saveLoop(id);
     else if (act === 'deleteLoop') deleteLoop(id);
     else if (act === 'deletePack') deletePack(id);
+    else if (act === 'deleteOrphans') deleteOrphans();
+    else if (act === 'spaceDelete') spaceDelete(id);
+    else if (act === 'spaceOpen') spaceOpen(id);
     else if (act === 'withdraw') deletePack(id, { withdraw: true });
     else if (act === 'approve') review(id, true);
     else if (act === 'reject') review(id, false);
@@ -1056,6 +1169,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       overlay.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === tab));
       overlay.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== tab; });
       if (tab === 'stats') { if (admin) paintStorage().then(loadStats); else loadStats(); }
+      if (tab === 'space') loadSpace();
     }
   });
 

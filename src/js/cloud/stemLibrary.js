@@ -186,8 +186,10 @@ async function admin(action, payload = {}) {
   return r;
 }
 export const adminListPacks = async () => (await admin('list')).packs;
-/** Espacio usado por la biblioteca en R2: { bytes, loops }. */
+/** Espacio real en R2: { bytes, official, community, libraries, files, packs:[{id,slug,title,status,bytes,files,orphanBytes,orphanFiles}], orphans:{bytes,files} }. */
 export const adminStorage = () => admin('storage');
+/** Borra los archivos de la biblioteca que ya no usa ningún loop ni portada → { deleted, freed }. */
+export const adminDeleteOrphans = () => admin('delete_orphans');
 export const adminListLoops = async (packId) => (await admin('list_loops', { packId })).loops;
 export const adminSavePack = async (pack) => (await admin('save_pack', pack)).pack;
 export const adminUpdatePack = async (packId, patch) => (await admin('update_pack', { packId, ...patch })).pack;
