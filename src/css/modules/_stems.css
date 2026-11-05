@@ -3501,3 +3501,7 @@ body[data-workspace="stems"] #body {
   .stems-project-name { max-width: 110px; }
   .stems-actions-divider { display: none; }
 }
+
+/* Aviso al mover con las flechas: en el borde izquierdo del fragmento (un
+   fragmento largo tiene su centro fuera de la pantalla). */
+.stems-clip-tip.is-nudge { left: 6px; top: 4px; transform: none; z-index: 5; }

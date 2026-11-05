@@ -258,7 +258,7 @@ export function addStemsMarker() {
 }
 
 // Public hooks for the global keymap to invoke undo/redo from app.js.
-export function stemsUndo() { if (mounted) historyUndo(); }
+export function stemsUndo() { if (mounted) { flushNudge(); historyUndo(); } }
 export function stemsRedo() { if (mounted) historyRedo(); }
 
 // Public entry point to trigger the tour manually (from menu / cheat-sheet).
@@ -2130,6 +2130,84 @@ function wireClipDrag(lane, id, clipId, e) {
   window.addEventListener('pointerup', onUp);
 }
 
+// ── Mover con las flechas ─────────────────────────────────────────
+// Cada pulsación mueve al momento; las pulsaciones seguidas (< 0,7 s entre una
+// y otra) cuentan como UN solo paso del historial, así Ctrl+Z las deshace juntas.
+let nudgeSession = null;   // { key, label, undo, redoOf, timer }
+function flushNudge() {
+  if (!nudgeSession) return;
+  clearTimeout(nudgeSession.timer);
+  const ns = nudgeSession;
+  nudgeSession = null;
+  const redo = ns.capture();
+  if (!ns.changed(redo)) return;
+  pushHistory(ns.label, () => ns.restore(ns.before), () => ns.restore(redo));
+  scheduleSave();
+}
+function showNudgeTip(id, clipId, text) {
+  const els = trackRows.get(id)?.clipEls;
+  if (!els) return;
+  const el = clipId ? els.get(clipId) : els.values().next().value;
+  if (!el?.tip) return;
+  el.tip.textContent = text;
+  el.tip.classList.add('is-nudge');
+  el.tip.hidden = false;
+  clearTimeout(el.tipTimer);
+  el.tipTimer = setTimeout(() => { el.tip.hidden = true; el.tip.classList.remove('is-nudge'); }, 1100);
+}
+const fmtNudge = (sec) => `${sec >= 0 ? '+' : '−'}${Math.abs(sec * 1000) >= 1000 ? Math.abs(sec).toFixed(3) + ' s' : Math.round(Math.abs(sec) * 1000) + ' ms'}`;
+// Devuelve true si había algo que mover.
+function nudgeSelection(delta) {
+  // 1) Fragmento elegido (pista cortada): se mueve solo ese fragmento.
+  if (selectedClip && trackRows.has(selectedClip.trackId) && engine.getClipCount(selectedClip.trackId) > 1) {
+    const { trackId: id, clipId } = selectedClip;
+    const c = engine.getClips(id).find(k => k.id === clipId);
+    if (!c) return false;
+    const key = `clip:${id}:${clipId}`;
+    if (!nudgeSession || nudgeSession.key !== key) {
+      flushNudge();
+      const before = clipsSnapshot(id);
+      nudgeSession = {
+        key, label: 'Mover fragmento', before, total: 0,
+        capture: () => clipsSnapshot(id),
+        changed: (after) => JSON.stringify(after) !== JSON.stringify(before),
+        restore: (snap) => restoreClips(id, snap),
+      };
+    }
+    const target = Math.max(0, c.startSec + delta);
+    nudgeSession.total += target - c.startSec;
+    engine.moveClip(id, clipId, target);
+    afterClipEdit(id);
+    showNudgeTip(id, clipId, `${fmtNudge(nudgeSession.total)} · ${formatTimecode(target)}`);
+  } else {
+    // 2) Pista(s) enfocada(s) o seleccionada(s): se mueven enteras, juntas.
+    const ids = targetTrackIds().filter(id => trackRows.has(id));
+    if (!ids.length) return false;
+    const key = `tracks:${ids.slice().sort().join(',')}`;
+    if (!nudgeSession || nudgeSession.key !== key) {
+      flushNudge();
+      const before = new Map(ids.map(id => [id, engine.getTrackOffset(id)]));
+      nudgeSession = {
+        key, label: ids.length > 1 ? 'Mover pistas' : 'Mover pista', before, total: 0,
+        capture: () => new Map(ids.map(id => [id, engine.getTrackOffset(id)])),
+        changed: (after) => ids.some(id => Math.abs(after.get(id) - before.get(id)) > 1e-6),
+        restore: (snap) => { for (const id of ids) if (trackRows.has(id)) applyTrackOffset(id, snap.get(id)); scheduleSave(); },
+      };
+    }
+    // Que ninguna quede antes del 0 (se frena todo el grupo a la vez).
+    const minOff = Math.min(...ids.map(id => engine.getTrackOffset(id)));
+    const d = minOff + delta < 0 ? -minOff : delta;
+    if (Math.abs(d) < 1e-9) return true;
+    for (const id of ids) applyTrackOffset(id, engine.getTrackOffset(id) + d);
+    nudgeSession.total += d;
+    const first = engine.getClips(ids[0])[0];
+    showNudgeTip(ids[0], null, `${fmtNudge(nudgeSession.total)}${first ? ` · empieza en ${formatTimecode(first.startSec)}` : ''}`);
+  }
+  clearTimeout(nudgeSession.timer);
+  nudgeSession.timer = setTimeout(flushNudge, 700);
+  return true;
+}
+
 function applyTrackOffset(id, sec) {
   engine.setTrackOffset(id, sec);
   drawTrackWaveform(id);
@@ -3674,11 +3752,15 @@ const STEMS_SHORTCUTS = [
   ['Ctrl + clic en pista', 'Seleccionar varias'],
   ['Ctrl + A', 'Seleccionar todas las pistas'],
   ['Arrastrar la onda', 'Mover la pista (en grupo si hay selección)'],
+  ['← →', 'Mover la pista o el fragmento elegido 10 ms (preciso)'],
+  ['Shift + ← →', 'Moverlo 1 ms (finísimo)'],
+  ['Ctrl + ← →', 'Moverlo un paso del imán (o un tiempo si está en Libre)'],
+  ['N', 'Imán encendido / apagado (Alt al arrastrar = libre)'],
   ['Arrastrar la regla', 'Seleccionar un rango (silenciar / fade / exportar el tramo)'],
   ['Ctrl + X', 'Recortar el inicio (antes del cursor)'],
   ['Ctrl + E', 'Dividir la pista en el cursor'],
   ['Ctrl + C / Ctrl + V', 'Copiar / pegar pista(s) en el cursor'],
-  ['Supr / Retroceso', 'Eliminar la(s) pista(s) seleccionada(s)'],
+  ['Supr / Retroceso', 'Eliminar el fragmento elegido, o la(s) pista(s) seleccionada(s)'],
   ['Ctrl + Z / Ctrl + Y', 'Deshacer / rehacer'],
   ['Alt + S / Alt + M', 'Solo / silenciar la pista enfocada'],
   ['M', 'Añadir un marcador en el cursor'],
@@ -4814,6 +4896,13 @@ function wireTrackSelection(root) {
       e.preventDefault();
       nudgeSelectedMarker(e.key === 'ArrowRight' ? 1 : -1, e.shiftKey);
       return;
+    }
+    // ← → mueven la pista enfocada/seleccionada o el fragmento elegido.
+    //   ← →  10 ms · Shift 1 ms · Ctrl un paso del imán (o un tiempo).
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.metaKey && !e.altKey && trackRows.size) {
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const step = e.ctrlKey ? (snapUnitSec() || 60 / bpmFloat) : e.shiftKey ? 0.001 : 0.01;
+      if (nudgeSelection(dir * step)) { e.preventDefault(); return; }
     }
     if (e.key === 'Escape' && rangeActive()) { clearRange(); return; }
     if (e.key === 'Escape' && selectedMarkerId) { setSelectedMarker(null); return; }
