@@ -35,7 +35,7 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
   // selected track — not the project max. Otherwise short stems would
   // be padded with silence to the full song length.
   const durationSec = opts.onlyTrackIds
-    ? Math.max(...tracks.map(t => (t.offsetSec || 0) + ((t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration)))
+    ? Math.max(...tracks.map(t => Math.max(...(t.clips || [{ shift: 0, trimEndSec: t.trimEndSec }]).map(c => (t.offsetSec || 0) + (c.shift || 0) + ((c.trimEndSec != null) ? c.trimEndSec : t.buffer.duration)))))
     : engine.getDurationSec();
   if (durationSec <= 0) throw new Error('La mezcla tiene duración cero');
 
@@ -65,36 +65,43 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
       const audible = !t.muted && (!anySoloed || t.soloed);
       if (!audible) continue;
     }
-    const src = offline.createBufferSource();
-    src.buffer = t.buffer;
     const gain = offline.createGain();
     gain.gain.value = t.volume;
     const pan = offline.createStereoPanner();
     pan.pan.value = t.pan;
-    // Ganancia de fade POR FUENTE (independiente del volumen): src → fadeGain → gain → pan.
-    const fadeGain = offline.createGain();
-    src.connect(fadeGain); fadeGain.connect(gain); gain.connect(pan); pan.connect(offlineMaster);
+    gain.connect(pan); pan.connect(offlineMaster);
     // Honour the per-track timeline offset. Individual exports normalise to
     // the track's own start (offset 0) so the stem isn't padded with silence.
     // PERO con rango (rangeStart/End son coords absolutas del timeline) hay que
     // respetar el offset real aunque sea export individual, o el tramo sale
     // corrido por el valor del offset.
     const off = (opts.onlyTrackIds && !hasRange) ? 0 : (t.offsetSec || 0);
-    // Recorte no destructivo: solo suena la región [trimStart, trimEnd] del buffer,
-    // colocada en el timeline desde off+trimStart.
-    const trimStart = t.trimStartSec || 0;
-    const trimEnd = (t.trimEndSec != null) ? t.trimEndSec : t.buffer.duration;
-    const clipLen = Math.max(0, trimEnd - trimStart);
-    const timelineStart = off + trimStart;     // instante del timeline donde empieza el audio
-    let startWhen, startOffset, dur;
-    if (timelineStart >= 0) { startWhen = timelineStart; startOffset = trimStart; dur = clipLen; }
-    else { startWhen = 0; startOffset = trimStart - timelineStart; dur = clipLen + timelineStart; }
-    if (dur <= 0) continue;
-    // Misma envolvente de fade que en vivo (render arranca en t=0).
-    if ((t.fadeInSec || 0) > 0 || (t.fadeOutSec || 0) > 0) {
-      engine.scheduleFade(fadeGain.gain, t.fadeInSec, t.fadeOutSec, off + trimStart, off + trimEnd, 0);
+    // Una fuente por clip (una pista cortada en fragmentos suena igual que en vivo).
+    const clips = t.clips && t.clips.length ? t.clips
+      : [{ shift: 0, trimStartSec: t.trimStartSec, trimEndSec: t.trimEndSec, fadeInSec: t.fadeInSec, fadeOutSec: t.fadeOutSec }];
+    for (const c of clips) {
+      const src = offline.createBufferSource();
+      src.buffer = t.buffer;
+      // Ganancia de fade POR FUENTE (independiente del volumen): src → fadeGain → gain → pan.
+      const fadeGain = offline.createGain();
+      src.connect(fadeGain); fadeGain.connect(gain);
+      // Recorte no destructivo: solo suena la región [trimStart, trimEnd] del buffer,
+      // colocada en el timeline desde base+trimStart.
+      const base = off + (c.shift || 0);
+      const trimStart = c.trimStartSec || 0;
+      const trimEnd = (c.trimEndSec != null) ? c.trimEndSec : t.buffer.duration;
+      const clipLen = Math.max(0, trimEnd - trimStart);
+      const timelineStart = base + trimStart;     // instante del timeline donde empieza el audio
+      let startWhen, startOffset, dur;
+      if (timelineStart >= 0) { startWhen = timelineStart; startOffset = trimStart; dur = clipLen; }
+      else { startWhen = 0; startOffset = trimStart - timelineStart; dur = clipLen + timelineStart; }
+      if (dur <= 0) continue;
+      // Misma envolvente de fade que en vivo (render arranca en t=0).
+      if ((c.fadeInSec || 0) > 0 || (c.fadeOutSec || 0) > 0) {
+        engine.scheduleFade(fadeGain.gain, c.fadeInSec, c.fadeOutSec, base + trimStart, base + trimEnd, 0);
+      }
+      src.start(startWhen, startOffset, dur);
     }
-    src.start(startWhen, startOffset, dur);
   }
 
   const rendered = await offline.startRendering();

@@ -238,7 +238,7 @@ function formatTimecode(sec) {
 export function toggleStemsPlay() {
   if (!mounted) return;
   if (engine.isCurrentlyPlaying()) engine.pause();
-  else engine.play();
+  else { resumeAutoFollow(); engine.play(); }
 }
 
 // Public: corte de audio para el pánico global (Esc). app.js lo llama sobre el
@@ -385,6 +385,7 @@ export async function mount() {
   wireQuickMix();
   wireArrangeEvents(root);
   wireSeekClicks(root);
+  wireFollowPause();
   wireRangeSelect(root);
   wireRowReorder(root);
   wireConsoleReorder(root);
@@ -707,16 +708,19 @@ const SHELL_HTML = `
           <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar toda la canción a la pantalla">Ajustar</button>
         </div>
         <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
-        <label class="stems-snap-toggle" title="Imán: al arrastrar/marcar, ajusta a la subdivisión elegida">
-          <span>Snap</span>
-          <select id="stems-snap" class="stems-snap-select">
-            <option value="off">Off</option>
+        <div class="stems-snap-toggle">
+          <button type="button" id="stems-snap-btn" class="stems-snap-btn is-on" aria-pressed="true"
+            title="Imán (cuantizar): al mover, recortar o marcar se ajusta a la rejilla. Apágalo para colocar los fragmentos donde quieras (o mantén Alt al arrastrar). Atajo: N">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="14" y1="7" x2="18" y2="7"/><line x1="10" y1="3" x2="10" y2="11"/><line x1="14" y1="3" x2="14" y2="11"/></svg>
+            <span data-ref="snapState">Imán</span>
+          </button>
+          <select id="stems-snap" class="stems-snap-select" title="Subdivisión del imán">
             <option value="0.25">1/16</option>
             <option value="0.5">1/8</option>
             <option value="1" selected>1/4</option>
             <option value="bar">Compás</option>
           </select>
-        </label>
+        </div>
       </div>
     </header>
    </div>
@@ -1047,6 +1051,7 @@ function wireSeekClicks(root) {
     const x = e.clientX - rect.left;
     if (x < 0) return;
     engine.seek(x / PX_PER_SEC);
+    setFollowPaused(false);   // saltar a un punto = volver a seguir el cursor
   });
 }
 
@@ -1068,8 +1073,39 @@ function wireSeekClicks(root) {
 let _laneMetrics = { t: -1e9, clientW: 0, scrollW: 0 };
 let _lastScrollTarget = -1;   // último scrollLeft que ESCRIBIMOS (evita leerlo por frame)
 function invalidateLaneMetrics() { _laneMetrics.t = -1e9; }
+// Si el usuario se desplaza a mano (rueda, barra, arrastre) mientras suena, el
+// seguimiento se pausa para que pueda recorrer toda la pista; vuelve al darle
+// Play, al hacer clic en el timeline o con el botón «Seguir cursor».
+let followPaused = false;
+function setFollowPaused(on) {
+  followPaused = !!on;
+  const pill = document.getElementById('stems-follow-pill');
+  if (pill) pill.hidden = !(followPaused && engine.isCurrentlyPlaying());
+  if (!followPaused) invalidateLaneMetrics();
+}
+function wireFollowPause() {
+  const arrange = document.getElementById('stems-arrange');
+  if (!arrange || arrange.dataset.followWired) return;
+  arrange.dataset.followWired = '1';
+  arrange.addEventListener('scroll', () => {
+    if (!engine.isCurrentlyPlaying() || followPaused || zoomRAF) return;
+    if (Math.abs(arrange.scrollLeft - _lastScrollTarget) > 4) setFollowPaused(true);
+  }, { passive: true });
+  const pill = document.createElement('button');
+  pill.type = 'button';
+  pill.id = 'stems-follow-pill';
+  pill.className = 'stems-follow-pill';
+  pill.hidden = true;
+  pill.title = 'Volver a seguir el cursor de reproducción';
+  pill.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="3" x2="12" y2="21"/><polyline points="7 8 12 3 17 8"/></svg> Seguir cursor';
+  pill.onclick = () => setFollowPaused(false);
+  const host = arrange.parentElement || arrange;
+  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+  host.appendChild(pill);
+}
 function autoFollowPlayhead(sec) {
   if (!engine.isCurrentlyPlaying()) return;
+  if (followPaused) return;
   const arrange = document.getElementById('stems-arrange');
   if (!arrange) return;
   const now = performance.now();
@@ -1091,7 +1127,7 @@ function autoFollowPlayhead(sec) {
   }
 }
 
-export function resumeAutoFollow() { /* always-follow now; kept for callers */ }
+export function resumeAutoFollow() { setFollowPaused(false); }
 
 // ── Wiring: top bar ────────────────────────────────────────────────
 function wireTopbarEvents(root) {
@@ -1201,7 +1237,8 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-row-taller')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT + 14));
   root.querySelector('#stems-row-shorter')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT - 14));
   root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
-  root.querySelector('#stems-snap').onchange = (e) => { snapDivision = e.target.value; scheduleSave(); };
+  root.querySelector('#stems-snap').onchange = (e) => { snapDivision = e.target.value; setSnapEnabled(true); };
+  root.querySelector('#stems-snap-btn').onclick = () => setSnapEnabled(!snapEnabled);
 
   // Alt+wheel  → horizontal zoom (anchored on the cursor X for natural feel)
   // Ctrl+wheel → row height (stack tighter / stretch taller)
@@ -1372,7 +1409,7 @@ function applyZoomFrame(arrange, crisp) {
       if (buffer) {
         entry.canvas.style.width = `${Math.ceil(buffer.duration * PX_PER_SEC)}px`;
         entry.canvas.style.transform = `translateX(${(engine.getTrackOffset(id) || 0) * PX_PER_SEC}px)`;
-        if (entry.clip) layoutClipOverlay(id);
+        if (entry.clipEls) layoutClipOverlay(id);
       }
     }
   }
@@ -1962,6 +1999,15 @@ function wireLaneDrag(lane, id) {
     if (e.button !== 0) return;
     if (e.target.closest('input, select, button')) return;
     const startX = e.clientX;
+    // Pista cortada en fragmentos: se arrastra SOLO el fragmento bajo el mouse.
+    const atSec = (e.clientX - lane.getBoundingClientRect().left) / PX_PER_SEC;
+    if (engine.getClipCount(id) > 1) {
+      const clipId = engine.clipAt(id, atSec);
+      setSelectedClip(clipId ? { trackId: id, clipId } : null);
+      if (clipId) { wireClipDrag(lane, id, clipId, e); return; }
+      return;
+    }
+    if (selectedClip) setSelectedClip(null);
     // Grupo: si la pista arrastrada está en la multi-selección, se mueven TODAS
     // las seleccionadas con el MISMO delta (preservando la sincronía relativa),
     // para reubicar varias pistas de una tras un corte, sin arrastrar una a una.
@@ -1978,7 +2024,7 @@ function wireLaneDrag(lane, id) {
       dragging = true;
       // Delta a partir de la pista arrastrada (con snap al beat si está activo).
       let refNew = starts.get(id) + dx / PX_PER_SEC;
-      { const u = snapUnitSec(); if (u > 0) refNew = Math.round(refNew / u) * u; }
+      { const u = ev.altKey ? 0 : snapUnitSec(); if (u > 0) refNew = Math.round(refNew / u) * u; }
       let delta = refNew - starts.get(id);
       if (minStart + delta < 0) delta = -minStart; // que ninguna quede negativa
       for (const g of group) {
@@ -1987,13 +2033,19 @@ function wireLaneDrag(lane, id) {
         row.lane.classList.add('is-shifting');
         const off = Math.max(0, starts.get(g) + delta);
         row.canvas.style.transform = `translateX(${off * PX_PER_SEC}px)`;
+        const dpx = (off - starts.get(g)) * PX_PER_SEC;
+        for (const el of (row.clipEls || new Map()).values()) { el.wave.style.transform = el.box.style.transform = `translateX(${dpx}px)`; }
         row.lane.dataset.pendingOffset = String(off);
       }
     };
     const onUp = () => {
       lane.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      for (const g of group) trackRows.get(g)?.lane.classList.remove('is-shifting');
+      for (const g of group) {
+        const r = trackRows.get(g);
+        r?.lane.classList.remove('is-shifting');
+        for (const el of (r?.clipEls || new Map()).values()) { el.wave.style.transform = el.box.style.transform = ''; }
+      }
       if (!dragging) return;
       const news = new Map();
       let changed = false;
@@ -2017,6 +2069,52 @@ function wireLaneDrag(lane, id) {
     lane.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
   });
+}
+
+// Arrastra un fragmento dentro de su pista (imán a la rejilla y a los bordes de
+// los otros fragmentos; Alt = libre). Un clic sin arrastre solo lo selecciona.
+function wireClipDrag(lane, id, clipId, e) {
+  const DRAG_THRESHOLD = 4;
+  const startX = e.clientX;
+  const c0 = engine.getClips(id).find(k => k.id === clipId);
+  const el = trackRows.get(id)?.clipEls?.get(clipId);
+  if (!c0 || !el) return;
+  const before = clipsSnapshot(id);
+  let dragging = false, pending = c0.startSec;
+  const onMove = (ev) => {
+    const dx = ev.clientX - startX;
+    if (!dragging && Math.abs(dx) < DRAG_THRESHOLD) return;
+    dragging = true;
+    lane.classList.add('is-shifting');
+    let start = c0.startSec + dx / PX_PER_SEC;
+    if (!ev.altKey) {
+      // Primero los bordes de los otros fragmentos (por el inicio o por el
+      // final, el más cercano); si no hay ninguno cerca, la rejilla del imán.
+      const len = c0.endSec - c0.startSec;
+      const a = edgeSnap(start, id, clipId), b = edgeSnap(start + len, id, clipId);
+      if (a != null || b != null) {
+        const da = a != null ? Math.abs(a - start) : Infinity;
+        const db = b != null ? Math.abs(b - len - start) : Infinity;
+        start = da <= db ? a : b - len;
+      } else start = snapTimeIfEnabled(start);
+    }
+    pending = Math.max(0, start);
+    const dpx = (pending - c0.startSec) * PX_PER_SEC;
+    el.wave.style.transform = el.box.style.transform = `translateX(${dpx}px)`;
+  };
+  const onUp = () => {
+    lane.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    lane.classList.remove('is-shifting');
+    el.wave.style.transform = el.box.style.transform = '';
+    if (!dragging) return;
+    engine.moveClip(id, clipId, pending);
+    afterClipEdit(id);
+    pushClipsHistory('Mover fragmento', id, before);
+    lane.addEventListener('click', (ce) => { ce.stopImmediatePropagation(); ce.preventDefault(); }, { capture: true, once: true });
+  };
+  lane.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
 }
 
 function applyTrackOffset(id, sec) {
@@ -2637,16 +2735,30 @@ function wireStrip(root, id) {
     // No interferir con el menú del input de nombre o el color picker.
     if (e.target.closest('input, [contenteditable="true"]')) return;
     e.preventDefault();
-    openRowContextMenu(e.clientX, e.clientY, id);
+    const lane = e.target.closest('.stems-row-lane');
+    const atSec = lane ? (e.clientX - lane.getBoundingClientRect().left) / PX_PER_SEC : null;
+    openRowContextMenu(e.clientX, e.clientY, id, atSec);
   });
 }
 
 // Menú contextual de pista (click derecho en la row) — usa EXACTAMENTE el mismo
 // menú (opciones + estilo) que el clic derecho en la consola: cortar, dividir,
 // copiar, normalizar, separar, armonía, exportar, renombrar, color, eliminar.
-function openRowContextMenu(x, y, id) {
+function openRowContextMenu(x, y, id, atSec = null) {
   locateTrackRow(id, { scroll: false });
   const items = buildTrackMenuItems(id);
+  // Clic derecho sobre la onda: acciones del fragmento que hay en ese punto.
+  const track = engine.getTracks().find(t => t.id === id);
+  if (atSec != null && isEditableAudio(track)) {
+    const clipId = engine.clipAt(id, atSec);
+    const extra = [];
+    if (clipId) extra.push({ icon: ICON_MENU_SPLIT, label: 'Dividir aquí', onSelect: () => splitSelectedAtPlayhead(atSec, [id]) });
+    if (clipId && engine.getClipCount(id) > 1) {
+      setSelectedClip({ trackId: id, clipId });
+      extra.push({ icon: SVG_TRASH, label: 'Borrar este fragmento (Supr)', danger: true, onSelect: () => deleteClipWithUndo(id, clipId) });
+    }
+    items.unshift(...extra);
+  }
   if (items.length) openContextMenu(x, y, items);
 }
 
@@ -3613,7 +3725,7 @@ async function cutSelectedAtPlayhead() {
   if (P <= 0.02) { showToast('Mové el cursor (clic en el timeline) al punto de corte.', 'info'); return; }
 
   const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
-  const undos = [], redos = [];
+  const undos = [], redos = [], clipOps = [];
   let cut = 0;
   for (const id of ids) {
     const entry = trackRows.get(id);
@@ -3621,6 +3733,21 @@ async function cutSelectedAtPlayhead() {
     if (!entry || !track || !isEditableAudio(track)) continue; // no click/guía/midi
     const buf = engine.getTrackBuffer(id);
     if (!buf) continue;
+    // Pista con fragmentos: se quitan los que acaban antes del cursor y se
+    // recorta el que lo cruza (sin tocar el audio).
+    if (engine.getClipCount(id) > 1) {
+      const before = clipsSnapshot(id);
+      const clips = engine.getClips(id);
+      if (!clips.some(c => c.endSec > P + 0.02)) continue;
+      for (const c of clips) {
+        if (c.endSec <= P) engine.removeClip(id, c.id);
+        else if (c.startSec < P) engine.setClipTrimStart(id, c.id, c.trimStartSec + (P - c.startSec));
+      }
+      afterClipEdit(id);
+      clipOps.push({ id, before, after: clipsSnapshot(id) });
+      cut++;
+      continue;
+    }
     const O = engine.getTrackOffset(id);
     const trimSec = Math.max(0, P - O);
     // El resto se queda en su lugar: lo que sonaba en el cursor sigue en el
@@ -3637,8 +3764,8 @@ async function cutSelectedAtPlayhead() {
   if (cut) {
     scheduleSave();
     pushHistory('Recortar',
-      () => { undos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); scheduleSave(); },
-      () => { redos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); scheduleSave(); });
+      () => { undos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); clipOps.forEach(o => restoreClips(o.id, o.before)); scheduleSave(); },
+      () => { redos.forEach(s => setTrackBufferPersist(s.id, s.buffer, s.offset)); clipOps.forEach(o => restoreClips(o.id, o.after)); scheduleSave(); });
     showToast(`✂️ Recortado ${cut} pista${cut > 1 ? 's' : ''} en el cursor. Ctrl+Z para deshacer.`, 'success');
   } else {
     showToast('No hay audio que recortar antes del cursor en la selección.', 'info');
@@ -3668,9 +3795,10 @@ function sliceBuffer(buffer, startSec, endSec) {
 
 // Crea una pista de audio NUEVA desde un buffer (al final de la lista) y la
 // persiste. Hereda color/pan/volumen si se pasan. Usado por dividir y pegar.
-async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume, kind = 'stem' }) {
+async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume, kind = 'stem', clips }) {
   const id = `t${nextTrackId++}`;
   await engine.addTrack({ id, name: name || 'Pista', audioBuffer: buffer, kind, offsetSec });
+  if (Array.isArray(clips) && clips.length) engine.setClips(id, clips.map(({ id: _old, ...c }) => c));
   engine.setTrackColor(id, color || nextStemColor());
   if (typeof pan === 'number') engine.setTrackPan(id, pan);
   if (typeof volume === 'number') engine.setTrackVolume(id, volume);
@@ -3813,7 +3941,8 @@ async function resampleTo(buffer, sampleRate) {
 // Devuelve { id, undo, redo } para que el llamador arme el historial.
 async function placeLoopBuffer(loop, buffer, atSec, { sameTrack = true } = {}) {
   const role = LOOP_ROLE[loop.instrument];
-  const target = sameTrack && currentStemsPitch === 0 ? findLoopTrack(loop.instrument) : null;
+  let target = sameTrack && currentStemsPitch === 0 ? findLoopTrack(loop.instrument) : null;
+  if (target && engine.getClipCount(target) > 1) target = null;   // cortada en fragmentos: pista nueva
 
   if (target) {
     const t = engine.getTracks().find(x => x.id === target);
@@ -4243,18 +4372,28 @@ async function applyRange(op) {
     if (!track || !buf || !isEditableAudio(track)) continue;
     const O = engine.getTrackOffset(id);
     const sr = buf.sampleRate;
-    const s = Math.max(0, Math.round((a - O) * sr));
-    const e = Math.min(buf.length, Math.round((b - O) * sr));
-    if (e - s <= 0) continue; // el rango no cae sobre esta pista
-    const span = e - s;
+    // El tramo [a, b] del timeline cae en zonas distintas del buffer según dónde
+    // esté cada fragmento: se calcula por fragmento.
+    const segs = [];
+    for (const c of engine.getClips(id)) {
+      const s0 = Math.max(a, c.startSec), e0 = Math.min(b, c.endSec);
+      if (e0 <= s0) continue;
+      const base = O + c.shift;
+      segs.push({ s: Math.max(0, Math.round((s0 - base) * sr)), e: Math.min(buf.length, Math.round((e0 - base) * sr)), base });
+    }
+    if (!segs.length) continue; // el rango no cae sobre esta pista
+    const span = Math.max(1e-6, b - a);
     const out = ctx.createBuffer(buf.numberOfChannels, buf.length, sr);
     for (let ch = 0; ch < buf.numberOfChannels; ch++) {
       const src = buf.getChannelData(ch), dst = out.getChannelData(ch);
       dst.set(src);
-      for (let i = s; i < e; i++) {
-        if (op === 'silence') dst[i] = 0;
-        else if (op === 'fadein') dst[i] = src[i] * ((i - s) / span);
-        else dst[i] = src[i] * (1 - (i - s) / span); // fadeout
+      for (const g of segs) {
+        for (let i = g.s; i < g.e; i++) {
+          const f = (g.base + i / sr - a) / span;   // posición dentro del tramo (0..1)
+          if (op === 'silence') dst[i] = 0;
+          else if (op === 'fadein') dst[i] = src[i] * f;
+          else dst[i] = src[i] * (1 - f); // fadeout
+        }
       }
     }
     undos.push({ id, buffer: buf });
@@ -4402,60 +4541,30 @@ async function normalizeSelectedTracks() {
   }
 }
 
-// Divide la(s) pista(s) en el cursor: la existente conserva el audio ANTES del
-// cursor; una pista NUEVA (en el cursor) lleva el audio DESPUÉS. Cada una queda
-// arrastrable por separado.
-async function splitSelectedAtPlayhead() {
+// Divide la(s) pista(s) en el cursor (o en `atSec`): el fragmento que suena ahí
+// se parte en dos DENTRO DE LA MISMA PISTA (no destructivo). Cada fragmento se
+// arrastra por separado; clic derecho sobre uno → «Borrar este fragmento».
+async function splitSelectedAtPlayhead(atSec, onlyIds) {
   if (pitchApplying) return;
-  const ids = targetTrackIds();
+  const ids = onlyIds || targetTrackIds();
   if (!ids.length) { showToast('Seleccioná una pista para dividir.', 'info'); return; }
-  const P = engine.getCurrentSec();
+  const P = typeof atSec === 'number' ? atSec : engine.getCurrentSec();
   const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
-  const ops = []; // por pista: { id, fullBuffer, headBuffer, offset, tailSpec, created }
-  let done = 0;
+  const ops = [];
   for (const id of ids) {
-    const entry = trackRows.get(id);
     const track = trackById.get(id);
-    if (!entry || !track || !isEditableAudio(track)) continue;
-    const buf = engine.getTrackBuffer(id);
-    if (!buf) continue;
-    const O = engine.getTrackOffset(id);
-    const D = buf.duration;
-    if (P <= O + 0.02 || P >= O + D - 0.02) continue; // el cursor debe caer dentro
-    const head = sliceBuffer(buf, 0, P - O);
-    const tail = sliceBuffer(buf, P - O, D);
-    if (!head || !tail) continue;
-    fadeOut(head); fadeIn(tail); // anti-click en el punto de corte
-    // Existente = mitad antes (mismo offset).
-    await setTrackBufferPersist(id, head, O);
-    // Nueva = mitad después, anclada al cursor, heredando knobs, pegada a su pista.
-    const tailSpec = { buffer: tail, name: `${track.name} (2)`, color: track.color, offsetSec: P, pan: track.pan, volume: track.volume };
-    const createdId = await addAudioTrackFromBuffer(tailSpec);
-    placeTrackAfter(createdId, id);
-    ops.push({ id, fullBuffer: buf, headBuffer: head, offset: O, tailSpec, created: [createdId] });
-    done++;
+    if (!trackRows.has(id) || !track || !isEditableAudio(track)) continue;
+    const before = clipsSnapshot(id);
+    if (!engine.splitClipAt(id, P)) continue;   // el cursor debe caer dentro de un fragmento
+    ops.push({ id, before, after: clipsSnapshot(id) });
+    afterClipEdit(id);
   }
-  if (done) {
-    refreshTimelineWidth(); refreshTransport(); scheduleSave();
+  if (ops.length) {
+    refreshTransport(); scheduleSave();
     pushHistory('Dividir',
-      async () => { // deshacer: restaurar el audio completo + borrar las creadas
-        for (const op of ops) {
-          await setTrackBufferPersist(op.id, op.fullBuffer, op.offset);
-          for (const cid of op.created) { try { await removeTrackById(cid); } catch (_) {} }
-          op.created = [];
-        }
-        scheduleSave();
-      },
-      async () => { // rehacer: re-cortar + re-crear la mitad nueva
-        for (const op of ops) {
-          await setTrackBufferPersist(op.id, op.headBuffer, op.offset);
-          const cid = await addAudioTrackFromBuffer(op.tailSpec);
-          placeTrackAfter(cid, op.id);
-          op.created = [cid];
-        }
-        scheduleSave();
-      });
-    showToast(`✂️ Dividida${done > 1 ? 's' : ''} ${done} pista${done > 1 ? 's' : ''}. Ctrl+Z para deshacer.`, 'success');
+      () => { for (const op of ops) restoreClips(op.id, op.before); },
+      () => { for (const op of ops) restoreClips(op.id, op.after); });
+    showToast(`✂️ Dividida${ops.length > 1 ? 's' : ''} ${ops.length} pista${ops.length > 1 ? 's' : ''} en el cursor. Arrastra cada fragmento; clic derecho → Borrar fragmento. Ctrl+Z deshace.`, 'success');
   } else {
     showToast('Poné el cursor DENTRO del audio de la pista para dividir.', 'info');
   }
@@ -4471,7 +4580,7 @@ function copySelectedTracks() {
     const track = trackById.get(id);
     const buf = engine.getTrackBuffer(id);
     if (!track || !buf || !isEditableAudio(track)) continue;
-    stemsClipboard.push({ buffer: buf, name: track.name, color: track.color, offsetSec: engine.getTrackOffset(id), pan: track.pan, volume: track.volume });
+    stemsClipboard.push({ buffer: buf, name: track.name, color: track.color, offsetSec: engine.getTrackOffset(id), pan: track.pan, volume: track.volume, clips: clipsSnapshot(id) });
   }
   if (stemsClipboard.length) {
     showToast(`📋 ${stemsClipboard.length} pista${stemsClipboard.length > 1 ? 's' : ''} copiada${stemsClipboard.length > 1 ? 's' : ''}. Ctrl+V para pegar en el cursor.`, 'info');
@@ -4490,6 +4599,7 @@ async function pasteTracks() {
   const specs = stemsClipboard.map(c => ({
     buffer: c.buffer, name: `${c.name} (copia)`, color: c.color,
     offsetSec: Math.max(0, c.offsetSec + delta), pan: c.pan, volume: c.volume,
+    clips: c.clips,
   }));
   let created = [];
   for (const spec of specs) created.push(await addAudioTrackFromBuffer(spec));
@@ -4533,6 +4643,7 @@ function snapshotTrackForDelete(id) {
     id, name: t.name, kind: t.kind, color: t.color,
     pan: t.pan, volume: t.volume, muted: t.muted, soloed: t.soloed,
     offsetSec: t.offsetSec || 0,
+    clips: clipsSnapshot(id),
     buffer: engine.getTrackBuffer(id),
     notes: trackNotes.get(id) ? trackNotes.get(id).slice() : null,
     instrument: trackInstrument.get(id) || null,
@@ -4552,6 +4663,7 @@ async function recreateTrack(snap) {
   if (snap.notes) trackNotes.set(snap.id, snap.notes);
   if (snap.instrument) trackInstrument.set(snap.id, snap.instrument);
   if (snap.loopInstrument) trackLoopInstrument.set(snap.id, snap.loopInstrument);
+  if (snap.clips && snap.clips.length) engine.setClips(snap.id, snap.clips);
   let savedPath = '';
   try { savedPath = (await projectStore.saveStem(snap.id, 'restore.wav', audioBufferToWav(snap.buffer))) || ''; } catch (_) {}
   appendTrackRow(snap.id, savedPath);
@@ -4694,6 +4806,20 @@ function wireTrackSelection(root) {
     if (e.key === 'Escape' && selectedMarkerId) { setSelectedMarker(null); return; }
     // Supr / Backspace → eliminar la(s) pista(s) seleccionada(s) o, si no hay
     // multi-selección, la pista enfocada (la que clickeaste). Con confirm + undo.
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedClip && trackRows.has(selectedClip.trackId)
+        && engine.getClipCount(selectedClip.trackId) > 1) {
+      e.preventDefault();
+      deleteClipWithUndo(selectedClip.trackId, selectedClip.clipId);
+      return;
+    }
+    if (e.key === 'Escape' && selectedClip) { setSelectedClip(null); return; }
+    // N → imán (cuantizar) encendido / apagado.
+    if ((e.key === 'n' || e.key === 'N') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setSnapEnabled(!snapEnabled);
+      showToast(snapEnabled ? `Imán encendido (${snapLabel()}).` : 'Imán apagado: colocación libre.', 'info');
+      return;
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       const ids = targetTrackIds();
       if (!ids.length) return;
@@ -4867,8 +4993,11 @@ function drawTrackWaveform(id) {
     : t?.kind === 'click' ? 'rgba(96, 165, 250, 0.9)'
     : t?.kind === 'guide' ? 'rgba(74, 222, 128, 0.9)'
     : currentAccent();
-  drawWaveform(row.canvas, peaks, { color });
-  layoutClipOverlay(id);
+  // La onda se pinta POR CLIP (layoutClipOverlay): el canvas de la fila queda
+  // invisible, solo para dar alto a la lane (las MIDI sí lo usan).
+  row.canvas.style.visibility = 'hidden';
+  row.peaks = peaks; row.waveColor = color;
+  layoutClipOverlay(id, { crisp: true });
 }
 
 // ── Recorte (trim) + fades por clip ──────────────────────────────────
@@ -4877,32 +5006,45 @@ function drawTrackWaveform(id) {
 // recortada del buffer se atenúa con máscaras. Todo NO destructivo: solo
 // cambia qué tramo del buffer suena y la envolvente (engine.setTrackTrim*/Fade*).
 
-function applyTrackTrimStart(id, sec) { engine.setTrackTrimStart(id, sec); afterClipEdit(id); }
-function applyTrackTrimEnd(id, sec)   { engine.setTrackTrimEnd(id, sec);   afterClipEdit(id); }
-function applyTrackFadeIn(id, sec)    { engine.setTrackFadeIn(id, sec);    afterClipEdit(id); }
-function applyTrackFadeOut(id, sec)   { engine.setTrackFadeOut(id, sec);   afterClipEdit(id); }
+// Una pista puede tener VARIOS clips (fragmentos) sobre su mismo audio: al
+// dividir en el cursor la pista se parte en dos fragmentos que se arrastran por
+// separado dentro de la MISMA pista (sin crear pistas nuevas). Cada fragmento
+// tiene su lienzo de onda (debajo de la grilla) y su caja con asas encima.
+let selectedClip = null;   // { trackId, clipId } — fragmento elegido (Supr lo borra)
+
 function afterClipEdit(id) { layoutClipOverlay(id); refreshTimelineWidth(); refreshTotalTime(); }
-
-function restoreClip(id, s) {
-  engine.setTrackTrimEnd(id, s.trimEnd);
-  engine.setTrackTrimStart(id, s.trimStart);
-  engine.setTrackFadeIn(id, s.fadeIn);
-  engine.setTrackFadeOut(id, s.fadeOut);
+const clipsSnapshot = (id) => engine.getClips(id).map(c => ({
+  id: c.id, shift: c.shift, trimStartSec: c.trimStartSec, trimEndSec: c.trimEndSec,
+  fadeInSec: c.fadeInSec, fadeOutSec: c.fadeOutSec,
+}));
+function restoreClips(id, snap) {
+  if (!trackRows.has(id)) return;
+  engine.setClips(id, snap);
   afterClipEdit(id);
+  scheduleSave();
 }
-function clipSnapshot(id) {
-  return {
-    trimStart: engine.getTrackTrimStart(id), trimEnd: engine.getTrackTrimEnd(id),
-    fadeIn: engine.getTrackFadeIn(id), fadeOut: engine.getTrackFadeOut(id),
-  };
+// Registra en el historial el cambio de fragmentos de una pista (si lo hubo).
+function pushClipsHistory(label, id, before) {
+  const after = clipsSnapshot(id);
+  if (JSON.stringify(after) === JSON.stringify(before)) return false;
+  pushHistory(label, () => restoreClips(id, before), () => restoreClips(id, after));
+  scheduleSave();
+  return true;
+}
+function setSelectedClip(sel) {
+  const prev = selectedClip;
+  selectedClip = sel;
+  if (prev && trackRows.has(prev.trackId)) layoutClipOverlay(prev.trackId);
+  if (sel && (!prev || prev.trackId !== sel.trackId)) layoutClipOverlay(sel.trackId);
 }
 
-function ensureClipOverlay(id) {
+function createClipEl(id, clipId) {
   const row = trackRows.get(id);
-  if (!row) return null;
-  if (row.clip) return row.clip;
+  const wave = document.createElement('canvas');
+  wave.className = 'stems-clip-wave';
   const box = document.createElement('div');
   box.className = 'stems-clip';
+  box.dataset.clipId = clipId;
   box.innerHTML = `
     <div class="stems-clip-fade stems-clip-fade--in"></div>
     <div class="stems-clip-fade stems-clip-fade--out"></div>
@@ -4911,62 +5053,91 @@ function ensureClipOverlay(id) {
     <div class="stems-clip-h stems-clip-h--fadeIn" data-clip="fadeIn" title="Fade in"></div>
     <div class="stems-clip-h stems-clip-h--fadeOut" data-clip="fadeOut" title="Fade out"></div>
     <div class="stems-clip-tip" hidden></div>`;
-  const maskL = document.createElement('div'); maskL.className = 'stems-clip-mask';
-  const maskR = document.createElement('div'); maskR.className = 'stems-clip-mask';
-  row.lane.appendChild(maskL); row.lane.appendChild(maskR); row.lane.appendChild(box);
-  const clip = {
-    box, maskL, maskR,
+  row.lane.appendChild(wave);
+  row.lane.appendChild(box);
+  const el = {
+    wave, box, drawn: '',
     fadeIn: box.querySelector('.stems-clip-fade--in'),
     fadeOut: box.querySelector('.stems-clip-fade--out'),
     tip: box.querySelector('.stems-clip-tip'),
   };
-  row.clip = clip;
-  wireClipHandle(box.querySelector('.stems-clip-h--trimL'), id, 'trimStart');
-  wireClipHandle(box.querySelector('.stems-clip-h--trimR'), id, 'trimEnd');
-  wireClipHandle(box.querySelector('.stems-clip-h--fadeIn'), id, 'fadeIn');
-  wireClipHandle(box.querySelector('.stems-clip-h--fadeOut'), id, 'fadeOut');
-  return clip;
+  for (const kind of ['trimStart', 'trimEnd', 'fadeIn', 'fadeOut']) {
+    wireClipHandle(box.querySelector(`[data-clip="${kind}"]`), id, clipId, kind);
+  }
+  return el;
 }
 
-function layoutClipOverlay(id) {
+// Sincroniza las cajas/lienzos con los clips del engine. `crisp` = redibujar la
+// onda (si no, el lienzo se estira por CSS, p. ej. durante el zoom animado).
+function layoutClipOverlay(id, { crisp = false } = {}) {
   const row = trackRows.get(id);
   if (!row) return;
   const t = engine.getTracks().find(tr => tr.id === id);
-  if (!t || t.kind === 'midi') return;   // las MIDI no tienen buffer recortable
-  const clip = ensureClipOverlay(id);
-  if (!clip) return;
+  if (!t || t.kind === 'midi') return;
+  if (!row.clipEls) row.clipEls = new Map();
   const px = PX_PER_SEC;
-  const off = engine.getTrackOffset(id) || 0;
-  const dur = t.durationSec || 0;
-  const trimStart = engine.getTrackTrimStart(id);
-  const trimEnd = engine.getTrackTrimEnd(id);
-  const fadeIn = engine.getTrackFadeIn(id);
-  const fadeOut = engine.getTrackFadeOut(id);
-  const clipW = Math.max(2, (trimEnd - trimStart) * px);
-  clip.box.style.left = `${(off + trimStart) * px}px`;
-  clip.box.style.width = `${clipW}px`;
-  // Máscaras: tramos del buffer fuera de [trimStart, trimEnd] (se ven atenuados).
-  clip.maskL.style.left = `${off * px}px`;
-  clip.maskL.style.width = `${Math.max(0, trimStart * px)}px`;
-  clip.maskR.style.left = `${(off + trimEnd) * px}px`;
-  clip.maskR.style.width = `${Math.max(0, (dur - trimEnd) * px)}px`;
-  // Triángulos de fade (ancho en px, acotado al clip).
-  clip.fadeIn.style.width = `${Math.min(clipW, fadeIn * px)}px`;
-  clip.fadeOut.style.width = `${Math.min(clipW, fadeOut * px)}px`;
+  const multi = t.clips.length > 1;
+  const live = new Set();
+  for (const c of t.clips) {
+    live.add(c.id);
+    let el = row.clipEls.get(c.id);
+    if (!el) { el = createClipEl(id, c.id); row.clipEls.set(c.id, el); }
+    const left = c.startSec * px;
+    const w = Math.max(2, (c.trimEndSec - c.trimStartSec) * px);
+    for (const n of [el.wave, el.box]) { n.style.left = `${left}px`; n.style.width = `${w}px`; n.style.transform = ''; }
+    el.box.classList.toggle('is-multi', multi);
+    el.box.classList.toggle('is-picked', !!selectedClip && selectedClip.trackId === id && selectedClip.clipId === c.id);
+    el.fadeIn.style.width = `${Math.min(w, c.fadeInSec * px)}px`;
+    el.fadeOut.style.width = `${Math.min(w, c.fadeOutSec * px)}px`;
+    const key = `${px}|${c.trimStartSec}|${c.trimEndSec}|${row.waveColor}|${ROW_HEIGHT}|${row.peaks ? row.peaks.length : 0}`;
+    if (row.peaks && (crisp || !el.drawn) && el.drawn !== key) {
+      const a = Math.max(0, Math.floor(c.trimStartSec * px));
+      const b = Math.max(a + 1, Math.ceil(c.trimEndSec * px));
+      drawWaveform(el.wave, row.peaks.slice(2 * a, 2 * b), { color: row.waveColor });
+      el.drawn = key;
+    }
+  }
+  for (const [cid, el] of row.clipEls) {
+    if (!live.has(cid)) { el.wave.remove(); el.box.remove(); row.clipEls.delete(cid); }
+  }
 }
 
-function clipTipText(id, kind) {
-  if (kind === 'fadeIn')  return `Fade in ${engine.getTrackFadeIn(id).toFixed(2)}s`;
-  if (kind === 'fadeOut') return `Fade out ${engine.getTrackFadeOut(id).toFixed(2)}s`;
-  if (kind === 'trimStart') return `Inicio ${formatTimecode(engine.getTrackTrimStart(id))}`;
-  return `Fin ${formatTimecode(engine.getTrackTrimEnd(id))}`;
+function clipTipText(id, clipId, kind) {
+  const c = engine.getClips(id).find(k => k.id === clipId);
+  if (!c) return '';
+  if (kind === 'fadeIn')  return `Fade in ${c.fadeInSec.toFixed(2)}s`;
+  if (kind === 'fadeOut') return `Fade out ${c.fadeOutSec.toFixed(2)}s`;
+  if (kind === 'trimStart') return `Inicio ${formatTimecode(c.startSec)}`;
+  return `Fin ${formatTimecode(c.endSec)}`;
 }
 function clipLabel(kind) {
   return kind === 'fadeIn' ? 'Fade in' : kind === 'fadeOut' ? 'Fade out'
     : kind === 'trimStart' ? 'Recortar inicio' : 'Recortar final';
 }
 
-function wireClipHandle(handle, id, kind) {
+// Ajuste de un instante del timeline al arrastrar: imán a la rejilla (si está
+// activo) y, siempre, a los bordes de los otros fragmentos de la pista (a menos
+// de 8 px), para poder pegar un fragmento justo donde termina el anterior.
+// Alt mientras arrastras = colocación libre, sin ningún ajuste.
+function edgeSnap(sec, id, exceptClipId) {
+  const tol = 8 / PX_PER_SEC;
+  let best = null;
+  for (const c of engine.getClips(id)) {
+    if (c.id === exceptClipId) continue;
+    for (const edge of [c.startSec, c.endSec]) {
+      const d = Math.abs(edge - sec);
+      if (d <= tol && (best == null || d < Math.abs(best - sec))) best = edge;
+    }
+  }
+  return best;
+}
+function snapDragTime(sec, ev, id, exceptClipId) {
+  if (ev && ev.altKey) return sec;
+  const edge = edgeSnap(sec, id, exceptClipId);
+  return edge != null ? edge : snapTimeIfEnabled(sec);
+}
+
+function wireClipHandle(handle, id, clipId, kind) {
   if (!handle) return;
   // Un clic sobre el asa nunca debe propagar a la lane (que haría seek).
   handle.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); });
@@ -4974,35 +5145,50 @@ function wireClipHandle(handle, id, kind) {
     if (e.button !== 0) return;
     e.stopPropagation(); e.preventDefault();   // no disparar drag de offset ni seek
     const startX = e.clientX;
-    const before = clipSnapshot(id);
+    const before = clipsSnapshot(id);
+    const c0 = engine.getClips(id).find(k => k.id === clipId);
+    if (!c0) return;
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
-    const clip = trackRows.get(id)?.clip;
+    const el = trackRows.get(id)?.clipEls?.get(clipId);
     const onMove = (ev) => {
       const dSec = (ev.clientX - startX) / PX_PER_SEC;
-      if (kind === 'trimStart')      engine.setTrackTrimStart(id, before.trimStart + dSec);
-      else if (kind === 'trimEnd')   engine.setTrackTrimEnd(id, before.trimEnd + dSec);
-      else if (kind === 'fadeIn')    engine.setTrackFadeIn(id, before.fadeIn + dSec);
-      else /* fadeOut */             engine.setTrackFadeOut(id, before.fadeOut - dSec); // se arrastra hacia la izq
-      layoutClipOverlay(id);
-      if (clip?.tip) { clip.tip.textContent = clipTipText(id, kind); clip.tip.hidden = false; }
+      if (kind === 'trimStart') {
+        const at = snapDragTime(c0.startSec + dSec, ev, id, clipId);
+        engine.setClipTrimStart(id, clipId, c0.trimStartSec + (at - c0.startSec));
+      } else if (kind === 'trimEnd') {
+        const at = snapDragTime(c0.endSec + dSec, ev, id, clipId);
+        engine.setClipTrimEnd(id, clipId, c0.trimEndSec + (at - c0.endSec));
+      } else if (kind === 'fadeIn') engine.setClipFadeIn(id, clipId, c0.fadeInSec + dSec);
+      else /* fadeOut */            engine.setClipFadeOut(id, clipId, c0.fadeOutSec - dSec); // se arrastra hacia la izq
+      layoutClipOverlay(id, { crisp: kind === 'trimStart' || kind === 'trimEnd' });
+      if (el?.tip) { el.tip.textContent = clipTipText(id, clipId, kind); el.tip.hidden = false; }
     };
     const onUp = (ev) => {
       try { handle.releasePointerCapture(ev.pointerId); } catch (_) {}
       handle.removeEventListener('pointermove', onMove);
       handle.removeEventListener('pointerup', onUp);
-      if (clip?.tip) clip.tip.hidden = true;
-      const after = clipSnapshot(id);
+      if (el?.tip) el.tip.hidden = true;
       afterClipEdit(id);
-      const changed = Object.keys(after).some(k => Math.abs(after[k] - before[k]) > 1e-4);
-      if (!changed) return;
-      pushHistory(clipLabel(kind),
-        () => restoreClip(id, before),
-        () => restoreClip(id, after));
-      scheduleSave();
+      pushClipsHistory(clipLabel(kind), id, before);
     };
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
   });
+}
+
+// Borra un fragmento (si la pista tiene más de uno). Con deshacer.
+function deleteClipWithUndo(id, clipId) {
+  if (engine.getClipCount(id) < 2) {
+    showToast('Es el único fragmento de la pista: para quitarla entera usa «Eliminar pista».', 'info');
+    return false;
+  }
+  const before = clipsSnapshot(id);
+  if (!engine.removeClip(id, clipId)) return false;
+  if (selectedClip && selectedClip.clipId === clipId) selectedClip = null;
+  afterClipEdit(id);
+  pushClipsHistory('Borrar fragmento', id, before);
+  showToast('Fragmento borrado. Ctrl+Z para deshacer.', 'success');
+  return true;
 }
 
 // Preview de SOLO LECTURA de las notas de una pista MIDI en su fila (canvas
@@ -5014,7 +5200,7 @@ function drawMidiRow(id) {
   const notes = trackNotes.get(id) || [];
   const t = engine.getTracks().find(tr => tr.id === id);
   const color = t?.color || currentAccent();
-  if (entry.canvas) entry.canvas.style.display = '';
+  if (entry.canvas) { entry.canvas.style.display = ''; entry.canvas.style.visibility = ''; }
   let endSec = 0;
   for (const n of notes) endSec = Math.max(endSec, n.startSec + n.durationSec);
   const widthPx = Math.max(1, Math.ceil(endSec * PX_PER_SEC));
@@ -5062,7 +5248,20 @@ function redrawAllWaveforms() {
 // beat at the current BPM. Visually cleaner, easier to make rhythmic
 // sections line up. The toggle lives in the topbar.
 // Snap configurable: 'off' | '0.25' (1/16) | '0.5' (1/8) | '1' (1/4·beat) | 'bar'.
-let snapDivision = '1';
+let snapDivision = '1';     // subdivisión del imán: '0.25' | '0.5' | '1' | 'bar'
+let snapEnabled = true;     // imán encendido/apagado (botón o tecla N)
+function snapLabel() { return { '0.25': '1/16', '0.5': '1/8', '1': '1/4', bar: 'compás' }[snapDivision] || snapDivision; }
+function setSnapEnabled(on) {
+  snapEnabled = !!on;
+  const btn = document.getElementById('stems-snap-btn');
+  if (btn) {
+    btn.classList.toggle('is-on', snapEnabled);
+    btn.setAttribute('aria-pressed', snapEnabled ? 'true' : 'false');
+  }
+  const sel = document.getElementById('stems-snap');
+  if (sel) sel.disabled = !snapEnabled;
+  scheduleSave();
+}
 let clickSoundId = 'cowbell';
 // Loop region — ids of the two markers that bound the loop. Null when
 // no loop is set. The actual numeric region is computed on toggle from
@@ -5083,7 +5282,7 @@ let playSpeed = 1;
 // Tamaño del paso de snap en segundos (0 = sin snap), según snapDivision + BPM.
 function snapUnitSec() {
   const beatSec = 60 / bpmFloat;
-  if (snapDivision === 'off') return 0;
+  if (!snapEnabled || snapDivision === 'off') return 0;
   if (snapDivision === 'bar') return beatSec * beatsPerBar;
   const b = parseFloat(snapDivision);
   return b > 0 ? beatSec * b : 0;
@@ -5850,6 +6049,8 @@ function refreshTransport() {
 function applyPlayingState(playing) {
   // The VU meter loop self-stops when idle; (re)start it when playback begins.
   if (playing) startMasterMeter();
+  // Píldora «Seguir cursor»: solo tiene sentido mientras suena.
+  { const pill = document.getElementById('stems-follow-pill'); if (pill) pill.hidden = !(playing && followPaused); }
   const playBtn  = document.getElementById('stems-play');
   const stopBtn  = document.getElementById('stems-stop');
   const pill     = document.getElementById('stems-state-pill');
@@ -6369,6 +6570,10 @@ function openPlayInTimelineMenu(anchorEl, song) {
   openCardMoreMenu(anchorEl, [
     ...(song.audio?.sequence ? [{ label: 'Reproducir secuencia', icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'sequence') }] : []),
     ...(song.audio?.original ? [{ label: 'Reproducir original',  icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, 'original') }] : []),
+    ...(song.audio?.sequence && song.audio?.original ? [{ label: 'Secuencia + original juntas', icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, ['sequence', 'original']) }] : []),
+    // Si ya está cargada una de las dos, se puede sumar la otra sin vaciar el proyecto.
+    ...['sequence', 'original'].filter(k => song.audio?.[k] && songTypeLoaded(song, k === 'sequence' ? 'original' : 'sequence') && !songTypeLoaded(song, k))
+      .map(k => ({ label: `Añadir ${k === 'sequence' ? 'la secuencia' : 'el original'} a este proyecto`, icon: ICO_PLAY, onSelect: () => loadSongAudioIntoTimeline(song, [k], { append: true }) })),
     ...(n ? [{ label: `Practicar por pistas (${n})`, icon: ICO_STEMS, onSelect: () => openSongStemsDialog(song, { onLoad: loadSongStemsIntoTimeline }) }] : []),
   ]);
 }
@@ -6377,46 +6582,61 @@ function openPlayInTimelineMenu(anchorEl, song) {
 // pista del timeline de Stems y lo reproduce. Si ya hay un multitrack cargado,
 // pide confirmación porque vacía el proyecto actual: mezclar una mezcla
 // terminada con stems crudos no tiene sentido. Mismo patrón que importFiles.
-async function loadSongAudioIntoTimeline(song, type) {
-  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
-  const url = song?.audio?.[type];
-  if (!url) { showToast('Esa canción no tiene ese audio asignado.', 'info'); return; }
-  const typeLabel = type === 'sequence' ? 'Secuencia' : 'Original';
+const SONG_AUDIO_LABEL = { sequence: 'Secuencia', original: 'Original' };
+// ¿Ya está en el proyecto la secuencia/el original de esta canción?
+function songTypeLoaded(song, type) {
+  const name = `${song.title || 'Canción'} · ${SONG_AUDIO_LABEL[type]}`;
+  return engine.getTracks().some(t => t.name === name);
+}
 
-  if (engine.getTracks().length > 0) {
+// Carga el/los audio(s) de una canción (secuencia, original o las dos) como
+// pistas del timeline y los reproduce. Con las dos, cada una va en su pista
+// para comparar y pulir la secuencia encima del original (silencia o baja la
+// que no quieras oír). `append` = sumar al proyecto actual sin vaciarlo.
+async function loadSongAudioIntoTimeline(song, types, { append = false } = {}) {
+  if (!proOnly('Cargar los audios de tus canciones en el editor')) return;
+  const list = (Array.isArray(types) ? types : [types]).filter(k => song?.audio?.[k]);
+  if (!list.length) { showToast('Esa canción no tiene ese audio asignado.', 'info'); return; }
+  const what = list.map(k => SONG_AUDIO_LABEL[k]).join(' + ');
+
+  if (!append && engine.getTracks().length > 0) {
     const ok = await confirmDialogAsync({
       title: 'Cargar canción en el timeline',
-      message: `Esto vaciará el proyecto actual y cargará «${song.title}» (${typeLabel}). ¿Continuar?`,
+      message: `Esto vaciará el proyecto actual y cargará «${song.title}» (${what}). ¿Continuar?`,
       confirmLabel: 'Cargar', danger: true,
     });
     if (!ok) return;
     await resetProject();
   }
 
-  showImportOverlay(1);
+  showImportOverlay(list.length);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  updateImportOverlay(0, 1, song.title || '');
   try {
-    const arrayBuffer = await window.electronAPI.readAudioFile(url);
-    const id = `t${nextTrackId++}`;
-    const name = `${song.title || 'Canción'} · ${typeLabel}`;
-    await engine.addTrack({ id, name, arrayBuffer });
-    engine.setTrackColor(id, nextStemColor());
-    const fname = `${String(song.title || 'cancion').replace(/[^\w.-]+/g, '_')}-${type}.mp3`;
-    const savedPath = await projectStore.saveStem(id, fname, arrayBuffer);
-    appendTrackRow(id, savedPath);
+    for (const [i, type] of list.entries()) {
+      updateImportOverlay(i, list.length, `${song.title || ''} · ${SONG_AUDIO_LABEL[type]}`);
+      const arrayBuffer = await window.electronAPI.readAudioFile(song.audio[type]);
+      const id = `t${nextTrackId++}`;
+      const name = `${song.title || 'Canción'} · ${SONG_AUDIO_LABEL[type]}`;
+      await engine.addTrack({ id, name, arrayBuffer });
+      engine.setTrackColor(id, nextStemColor());
+      const fname = `${String(song.title || 'cancion').replace(/[^\w.-]+/g, '_')}-${type}.mp3`;
+      const savedPath = await projectStore.saveStem(id, fname, arrayBuffer);
+      appendTrackRow(id, savedPath);
+    }
     // El nombre del proyecto pasa a ser la canción, para que se entienda de un
     // vistazo qué se está oyendo (en vez de quedar como "Mi proyecto").
-    projectName = song.title || 'Mi proyecto';
-    const nameInput = document.getElementById('stems-project-name');
-    if (nameInput) nameInput.value = projectName;
-    updateImportOverlay(1, 1, '');
+    if (!append) {
+      projectName = song.title || 'Mi proyecto';
+      const nameInput = document.getElementById('stems-project-name');
+      if (nameInput) nameInput.value = projectName;
+    }
+    updateImportOverlay(list.length, list.length, '');
     await new Promise(r => setTimeout(r, 250));
     hideImportOverlay();
     refreshTransport();
     scheduleSave();
-    engine.seek(0);
-    engine.play();
+    if (list.length > 1 || append) showToast('Las dos versiones van en pistas separadas: usa S (solo) y M (silenciar) en cada una para comparar.', 'info');
+    if (!append) { engine.seek(0); resumeAutoFollow(); engine.play(); }
   } catch (err) {
     hideImportOverlay();
     console.error('No se pudo cargar el audio de la canción', err);
@@ -6479,6 +6699,11 @@ async function doSave() {
         trimStartSec: t.trimStartSec || 0,
         trimEndSec: (t.trimEndSec != null) ? t.trimEndSec : t.durationSec,
         fadeInSec: t.fadeInSec || 0, fadeOutSec: t.fadeOutSec || 0,
+        // Fragmentos (pista dividida): se guardan todos.
+        clips: t.clips && t.clips.length > 1 ? t.clips.map(c => ({
+          id: c.id, shift: c.shift, trimStartSec: c.trimStartSec, trimEndSec: c.trimEndSec,
+          fadeInSec: c.fadeInSec, fadeOutSec: c.fadeOutSec,
+        })) : undefined,
         path: entry ? entry.row.dataset.path : null,
         // Pistas MIDI: guardamos las notas editables (el audio va por `path`).
         notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
@@ -6498,7 +6723,7 @@ async function doSave() {
       // View / preferences — persisted so a reopen restores the exact state.
       pxPerSec: PX_PER_SEC,
       rowHeight: ROW_HEIGHT,
-      snapDivision,
+      snapDivision, snapEnabled,
       clickSoundId,
       clickMultiplier,
       clickSubdivision,
@@ -6602,6 +6827,7 @@ async function rehydrate(state) {
       if (typeof t.trimStartSec === 'number') engine.setTrackTrimStart(t.id, t.trimStartSec);
       if (typeof t.fadeInSec === 'number')    engine.setTrackFadeIn(t.id, t.fadeInSec);
       if (typeof t.fadeOutSec === 'number')   engine.setTrackFadeOut(t.id, t.fadeOutSec);
+      if (Array.isArray(t.clips) && t.clips.length > 1) engine.setClips(t.id, t.clips);
       // Pistas MIDI: restaura las notas ANTES de pintar la fila (drawMidiRow las usa).
       if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
       if (t.kind === 'midi') trackInstrument.set(t.id, t.instrument || 'piano');
@@ -6620,8 +6846,13 @@ async function rehydrate(state) {
   // Snap: nuevo formato (snapDivision) o el viejo booleano (snapToBeat).
   if (typeof state.snapDivision === 'string') snapDivision = state.snapDivision;
   else if (typeof state.snapToBeat === 'boolean') snapDivision = state.snapToBeat ? '1' : 'off';
+  // El viejo "Off" del desplegable pasa a ser el imán apagado.
+  let snapOn = typeof state.snapEnabled === 'boolean' ? state.snapEnabled : snapDivision !== 'off';
+  if (snapDivision === 'off') snapDivision = '1';
   const snapSel = document.getElementById('stems-snap');
   if (snapSel) snapSel.value = snapDivision;
+  snapEnabled = snapOn;
+  { const btn = document.getElementById('stems-snap-btn'); if (btn) { btn.classList.toggle('is-on', snapOn); btn.setAttribute('aria-pressed', snapOn ? 'true' : 'false'); } if (snapSel) snapSel.disabled = !snapOn; }
   if (typeof state.clickSoundId === 'string') {
     const valid = getClickSounds().some(s => s.id === state.clickSoundId);
     clickSoundId = valid ? state.clickSoundId : 'cowbell';
