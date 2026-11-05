@@ -654,6 +654,44 @@ const SHELL_HTML = `
         </div>
       </div>
 
+      <!-- Zoom, ayuda e imán van tras «Click y guía»: así ocupan el hueco de esa
+           fila y no crean una fila extra en pantallas medianas. -->
+      <div class="stems-tb-right">
+        <!-- Zoom del timeline (Alt+rueda) y altura de pistas (Ctrl+rueda) se
+             manejan con rueda/teclado, así que no llevan botones. -->
+        <div class="stems-zoomctl" role="group" aria-label="Zoom del timeline">
+          <button class="stems-zoom-btn" id="stems-zoom-out" type="button" title="Alejar (Alt+rueda)" aria-label="Alejar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span class="stems-zoom-readout" id="stems-zoom-readout" title="Nivel de zoom">100%</span>
+          <button class="stems-zoom-btn" id="stems-zoom-in" type="button" title="Acercar (Alt+rueda)" aria-label="Acercar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar: ver toda la canción en la pantalla" aria-label="Ajustar toda la canción a la pantalla">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          </button>
+        </div>
+        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
+        <div class="stems-snapctl">
+          <button type="button" id="stems-snap-trigger" class="stems-snap-btn is-on" aria-haspopup="menu" aria-expanded="false"
+            title="Imán (cuantizar): al mover, recortar o marcar, se pega a la rejilla del compás. Clic para elegir o quitarlo. Tecla N: encender/apagar.">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="14" y1="7" x2="18" y2="7"/><line x1="10" y1="3" x2="10" y2="11"/><line x1="14" y1="3" x2="14" y2="11"/></svg>
+            <span class="stems-snap-word">Imán:</span>
+            <b id="stems-snap-label">Tiempo</b>
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-generators-pop stems-snap-pop hidden" id="stems-snap-pop" role="menu">
+            <div class="stems-snap-pop-head"><b>Imán</b> — al mover, recortar o marcar, lo que arrastras se pega a la rejilla.</div>
+            <button type="button" class="stems-snap-opt" data-snap="off" role="menuitemradio"><b>Libre</b><small>Sin imán: lo colocas exactamente donde lo sueltes</small></button>
+            <button type="button" class="stems-snap-opt" data-snap="bar" role="menuitemradio"><b>Compás</b><small>Se pega al inicio de cada compás</small></button>
+            <button type="button" class="stems-snap-opt" data-snap="1" role="menuitemradio"><b>Tiempo</b><small>A cada pulso (negra)</small></button>
+            <button type="button" class="stems-snap-opt" data-snap="0.5" role="menuitemradio"><b>½ tiempo</b><small>A cada medio pulso (corchea)</small></button>
+            <button type="button" class="stems-snap-opt" data-snap="0.25" role="menuitemradio"><b>¼ de tiempo</b><small>Lo más fino (semicorchea)</small></button>
+            <div class="stems-snap-pop-foot">Tecla <kbd>N</kbd> enciende/apaga · <kbd>Alt</kbd> al arrastrar = libre por un momento</div>
+          </div>
+        </div>
+      </div>
+
       <span class="stems-actions-divider" aria-hidden="true"></span>
 
       <div class="stems-tools-group">
@@ -692,36 +730,6 @@ const SHELL_HTML = `
         </label>
       </div>
 
-      <span class="stems-actions-divider" aria-hidden="true"></span>
-
-      <div class="stems-tb-right">
-        <!-- Zoom del timeline (Alt+rueda) y altura de pistas (Ctrl+rueda) se
-             manejan con rueda/teclado, así que no llevan botones. -->
-        <div class="stems-zoomctl" role="group" aria-label="Zoom del timeline">
-          <button class="stems-zoom-btn" id="stems-zoom-out" type="button" title="Alejar (Alt+rueda)" aria-label="Alejar">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <span class="stems-zoom-readout" id="stems-zoom-readout" title="Nivel de zoom">100%</span>
-          <button class="stems-zoom-btn" id="stems-zoom-in" type="button" title="Acercar (Alt+rueda)" aria-label="Acercar">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar toda la canción a la pantalla">Ajustar</button>
-        </div>
-        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
-        <div class="stems-snap-toggle">
-          <button type="button" id="stems-snap-btn" class="stems-snap-btn is-on" aria-pressed="true"
-            title="Imán (cuantizar): al mover, recortar o marcar se ajusta a la rejilla. Apágalo para colocar los fragmentos donde quieras (o mantén Alt al arrastrar). Atajo: N">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v8a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="14" y1="7" x2="18" y2="7"/><line x1="10" y1="3" x2="10" y2="11"/><line x1="14" y1="3" x2="14" y2="11"/></svg>
-            <span data-ref="snapState">Imán</span>
-          </button>
-          <select id="stems-snap" class="stems-snap-select" title="Subdivisión del imán">
-            <option value="0.25">1/16</option>
-            <option value="0.5">1/8</option>
-            <option value="1" selected>1/4</option>
-            <option value="bar">Compás</option>
-          </select>
-        </div>
-      </div>
     </header>
    </div>
 
@@ -1237,8 +1245,13 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-row-taller')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT + 14));
   root.querySelector('#stems-row-shorter')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT - 14));
   root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
-  root.querySelector('#stems-snap').onchange = (e) => { snapDivision = e.target.value; setSnapEnabled(true); };
-  root.querySelector('#stems-snap-btn').onclick = () => setSnapEnabled(!snapEnabled);
+  wireToolbarPopover(root.querySelector('#stems-snap-trigger'), root.querySelector('#stems-snap-pop'));
+  root.querySelector('#stems-snap-pop').addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-snap]');
+    if (!opt) return;
+    if (opt.dataset.snap === 'off') setSnapEnabled(false);
+    else { snapDivision = opt.dataset.snap; setSnapEnabled(true); }
+  });
 
   // Alt+wheel  → horizontal zoom (anchored on the cursor X for natural feel)
   // Ctrl+wheel → row height (stack tighter / stretch taller)
@@ -5250,16 +5263,24 @@ function redrawAllWaveforms() {
 // Snap configurable: 'off' | '0.25' (1/16) | '0.5' (1/8) | '1' (1/4·beat) | 'bar'.
 let snapDivision = '1';     // subdivisión del imán: '0.25' | '0.5' | '1' | 'bar'
 let snapEnabled = true;     // imán encendido/apagado (botón o tecla N)
-function snapLabel() { return { '0.25': '1/16', '0.5': '1/8', '1': '1/4', bar: 'compás' }[snapDivision] || snapDivision; }
+const SNAP_NAMES = { '0.25': '¼ de tiempo', '0.5': '½ tiempo', '1': 'Tiempo', bar: 'Compás' };
+function snapLabel() { return (SNAP_NAMES[snapDivision] || 'Tiempo').toLowerCase(); }
+// Pinta el botón del imán ("Imán: Tiempo" / "Imán: Libre") y marca la opción activa.
+function paintSnapUI() {
+  const btn = document.getElementById('stems-snap-trigger');
+  const lbl = document.getElementById('stems-snap-label');
+  if (btn) btn.classList.toggle('is-on', snapEnabled);
+  if (lbl) lbl.textContent = snapEnabled ? (SNAP_NAMES[snapDivision] || 'Tiempo') : 'Libre';
+  const active = snapEnabled ? snapDivision : 'off';
+  document.querySelectorAll('#stems-snap-pop [data-snap]').forEach((o) => {
+    const on = o.dataset.snap === active;
+    o.classList.toggle('is-on', on);
+    o.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
 function setSnapEnabled(on) {
   snapEnabled = !!on;
-  const btn = document.getElementById('stems-snap-btn');
-  if (btn) {
-    btn.classList.toggle('is-on', snapEnabled);
-    btn.setAttribute('aria-pressed', snapEnabled ? 'true' : 'false');
-  }
-  const sel = document.getElementById('stems-snap');
-  if (sel) sel.disabled = !snapEnabled;
+  paintSnapUI();
   scheduleSave();
 }
 let clickSoundId = 'cowbell';
@@ -6849,10 +6870,8 @@ async function rehydrate(state) {
   // El viejo "Off" del desplegable pasa a ser el imán apagado.
   let snapOn = typeof state.snapEnabled === 'boolean' ? state.snapEnabled : snapDivision !== 'off';
   if (snapDivision === 'off') snapDivision = '1';
-  const snapSel = document.getElementById('stems-snap');
-  if (snapSel) snapSel.value = snapDivision;
   snapEnabled = snapOn;
-  { const btn = document.getElementById('stems-snap-btn'); if (btn) { btn.classList.toggle('is-on', snapOn); btn.setAttribute('aria-pressed', snapOn ? 'true' : 'false'); } if (snapSel) snapSel.disabled = !snapOn; }
+  paintSnapUI();
   if (typeof state.clickSoundId === 'string') {
     const valid = getClickSounds().some(s => s.id === state.clickSoundId);
     clickSoundId = valid ? state.clickSoundId : 'cowbell';

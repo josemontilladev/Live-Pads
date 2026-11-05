@@ -3406,28 +3406,69 @@ body[data-workspace="stems"] #body {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), 0 0 10px -2px var(--glow);
 }
 
-/* Imán (cuantizar) como interruptor */
+/* Imán (cuantizar): un botón "Imán: Tiempo" que abre un menú explicativo. */
+.stems-snapctl { position: relative; display: inline-flex; flex-shrink: 0; }
 .stems-snap-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 7px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  background: transparent;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.04);
   color: var(--text-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
-.stems-snap-btn:hover { color: var(--text); background: var(--bg-hover); }
+.stems-snap-btn b { font-weight: 700; color: var(--text); }
+.stems-snap-btn:hover { background: var(--bg-hover); color: var(--text); }
 .stems-snap-btn.is-on {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
-.stems-snap-select:disabled { opacity: 0.45; cursor: default; }
+.stems-snap-btn.is-on b { color: var(--accent); }
+.stems-snap-pop { min-width: 270px; padding: 6px; }
+.stems-snap-pop-head { padding: 6px 8px 8px; font-size: 11.5px; line-height: 1.35; color: var(--text-muted); }
+.stems-snap-pop-head b { color: var(--text); }
+.stems-snap-opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  width: 100%; padding: 7px 10px 7px 28px; position: relative;
+  border: 0; border-radius: 7px; background: transparent; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.stems-snap-opt b { font-size: 12.5px; font-weight: 600; }
+.stems-snap-opt small { font-size: 11px; color: var(--text-muted); }
+.stems-snap-opt:hover { background: var(--bg-hover); }
+.stems-snap-opt.is-on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.stems-snap-opt.is-on b { color: var(--accent); }
+.stems-snap-opt.is-on::before {
+  content: ""; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px;
+  border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--glow);
+}
+.stems-snap-pop-foot { padding: 8px 8px 4px; margin-top: 4px; border-top: 1px solid var(--border); font-size: 10.5px; color: var(--text-muted); }
+.stems-snap-pop-foot kbd {
+  font: 600 10px/1 ui-monospace, Consolas, monospace; padding: 2px 5px; border-radius: 4px;
+  border: 1px solid var(--border); background: rgba(255,255,255,.06); color: var(--text);
+}
+
+/* Zoom compacto: [−] 100% [+] [⤢] — el "Ajustar" es un icono para que la fila no salte. */
+.stems-zoomctl .stems-zoom-fit { width: 28px !important; padding: 0 !important; }
+.stems-zoomctl .stems-zoom-readout { min-width: 34px; font-size: 10.5px; }
+
+/* Anchos chicos: primero se quita la palabra "Imán:" (queda el icono + valor),
+   luego el % de zoom. Nada salta de fila. */
+@container stems (max-width: 700px) {
+  .stems-snap-word { display: none; }
+  .stems-snap-btn { padding: 0 9px; }
+}
+@container stems (max-width: 860px) {
+  .stems-zoomctl .stems-zoom-fit { display: inline-flex !important; }
+}
 
 /* Botón para volver a seguir el cursor tras moverse a mano por la pista */
 .stems-follow-pill {
@@ -3451,3 +3492,12 @@ body[data-workspace="stems"] #body {
 }
 .stems-follow-pill[hidden] { display: none; }
 .stems-follow-pill:hover { background: color-mix(in srgb, var(--bg-card) 80%, var(--accent)); }
+
+/* Pantallas pequeñas: ningún grupo puede salirse de su caja ni pisar al de al
+   lado. Si no cabe, el grupo se parte en dos líneas DENTRO de su recuadro. */
+@container stems (max-width: 760px) {
+  .stems-actions-primary,
+  .stems-tools-group { height: auto; min-height: 38px; flex-wrap: wrap; row-gap: 4px; }
+  .stems-project-name { max-width: 110px; }
+  .stems-actions-divider { display: none; }
+}
