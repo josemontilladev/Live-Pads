@@ -280,6 +280,9 @@
                 <svg class="ic-mute" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
               </button>
             </div>
+            <button type="button" class="mx-collapse" id="mx-collapse" aria-expanded="true" title="Ocultar / mostrar los canales del mezclador (el Maestro sigue a la vista)" aria-label="Ocultar o mostrar el mezclador">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
           </div>
           <div class="mx-channels">
             <div class="mx-channel">
@@ -494,22 +497,33 @@
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Sección
           </button>
+          <div class="sw-zoom" role="group" aria-label="Zoom de la onda">
+            <button type="button" class="sw-zbtn" id="sw-zoom-out" title="Alejar (Ctrl + rueda sobre la onda)" aria-label="Alejar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            <button type="button" class="sw-zbtn sw-zlvl" id="sw-zoom-fit" title="Ver toda la canción">1×</button>
+            <button type="button" class="sw-zbtn" id="sw-zoom-in" title="Acercar (Ctrl + rueda sobre la onda)" aria-label="Acercar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          </div>
+          <button type="button" class="sw-btn sw-chordfit" id="sw-chordfit" hidden title="Amplía la onda lo justo para que se lean todos los acordes (se va desplazando sola mientras suena)">Ver todos los acordes</button>
           <button type="button" class="sw-btn sw-btn--icon" id="sw-collapse" title="Contraer / expandir la onda" aria-label="Contraer o expandir la onda">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
         </div>
       </header>
-      <div class="sw-chords" aria-label="Acordes de la pista"></div>
-      <div class="sw-stage">
-        <div class="sw-markers"></div>
-        <div class="sw-wave">
-          <div class="sw-regions"></div>
-          <canvas id="sw-canvas"></canvas>
-          <div class="sw-played"><canvas id="sw-canvas-played"></canvas></div>
-          <div class="sw-playhead"></div>
+      <!-- Zoom: la franja de acordes y la onda escalan juntas dentro de .sw-zoomer. -->
+      <div class="sw-scroll">
+        <div class="sw-zoomer">
+          <div class="sw-chords" aria-label="Acordes de la pista"></div>
+          <div class="sw-stage">
+            <div class="sw-markers"></div>
+            <div class="sw-wave">
+              <div class="sw-regions"></div>
+              <canvas id="sw-canvas"></canvas>
+              <div class="sw-played"><canvas id="sw-canvas-played"></canvas></div>
+              <div class="sw-playhead"></div>
+            </div>
+            <div class="sw-ruler"></div>
+            <div class="sw-loading">Analizando onda…</div>
+          </div>
         </div>
-        <div class="sw-ruler"></div>
-        <div class="sw-loading">Analizando onda…</div>
       </div>
       <div class="sw-practice" hidden>
         <div class="sp-group">

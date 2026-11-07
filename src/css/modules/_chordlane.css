@@ -13,7 +13,13 @@
 #seq-wave.chords-from-song .sw-ch:not(.no-label) { color: var(--text); }
 #seq-wave.chords-from-song .sw-ch.is-guess:not(.no-label) { color: var(--text-muted); opacity: .6; font-style: italic; }
 .sw-ch.no-label { color: transparent; padding: 0; width: 0; }
-.sw-ch.is-current { z-index: 2; background: var(--accent); color: var(--on-accent); border-left-color: var(--accent); border-radius: 3px; padding: 0 5px; width: auto; }
+.sw-ch.is-current:not(.no-label) { z-index: 2; background: var(--accent); color: var(--on-accent); border-left-color: var(--accent); border-radius: 3px; }
+/* Un acorde sin sitio para su nombre: al sonar se marca con una raya, sin
+   ensancharse (antes tapaba a los vecinos). */
+.sw-ch.no-label.is-current { z-index: 2; border-left: 3px solid var(--accent); }
+/* Segunda fila: cuando dos nombres no caben en la misma, el siguiente baja. */
+.sw-chords.two-rows { height: 36px; }
+.sw-ch.row2 { top: 19px; }
 .sw-ch-msg { font-size: 11px; color: var(--text-muted); line-height: 20px; padding-left: 2px; }
 
 .sw-chordnow { display: none; align-items: baseline; gap: 6px; white-space: nowrap; }
@@ -22,3 +28,19 @@
 .sw-chordnow span { color: var(--text-muted); font-size: 11.5px; }
 #sw-chords[aria-pressed="true"] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 @media (max-height: 700px) { #seq-wave.has-chords .sw-chords { display: none; } }
+
+/* ── Zoom de la onda ── */
+.sw-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+#seq-wave:not(.is-zoomed) .sw-scroll { overflow-x: hidden; }
+.sw-scroll::-webkit-scrollbar { height: 6px; }
+.sw-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
+.sw-zoomer { width: 100%; min-width: 100%; }
+#seq-wave.is-collapsed .sw-scroll { display: none; }
+.sw-zoom { display: inline-flex; align-items: center; gap: 1px; padding: 1px; border: 1px solid var(--border); border-radius: 8px; }
+#seq-wave.is-collapsed .sw-zoom, #seq-wave.is-empty .sw-zoom { display: none; }
+.sw-zbtn { height: 24px; min-width: 24px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); font: 600 11px/1 inherit; cursor: pointer; }
+.sw-zbtn:hover { background: rgba(255,255,255,.08); color: var(--text); }
+.sw-zlvl { min-width: 32px; font-variant-numeric: tabular-nums; }
+#seq-wave.is-zoomed .sw-zlvl { color: var(--accent); }
+.sw-chordfit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }

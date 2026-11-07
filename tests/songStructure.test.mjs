@@ -110,3 +110,24 @@ test('letra de cada sección (sin acordes)', () => {
   assert.deepEqual(L[0].lines, ['Damos gloria al Padre', 'Cantamos gloria al Hijo', 'Gloria al Santo Espíritu de Dios']);
   assert.deepEqual(L[2].lines, []);
 });
+
+test('inicio de sección = entrada de su primer acorde (a menos de un compás) y pegado al compás', async () => {
+  const { refineSectionStarts } = await import('../src/js/ui/songStructure.js');
+  const lyr = [
+    { canon: 'VERSO', label: 'Verso', chords: [parseChord('A'), parseChord('D')] },
+    { canon: 'CORO', label: 'Coro', chords: [parseChord('D'), parseChord('E')] },
+  ];
+  // 120 BPM 4/4 → compás de 2 s. El D del coro entra en 16,05 s (el detector lo vio ahí).
+  const det = [
+    { s: 0, e: 8, r: 9, q: 0, b: -1 }, { s: 8, e: 16.05, r: 2, q: 1, b: -1 },   // Bm (no es D)
+    { s: 16.05, e: 20, r: 2, q: 0, b: -1 }, { s: 20, e: 24, r: 4, q: 0, b: -1 },
+  ];
+  const grid = { barSec: 2, beatSec: 0.5, off: 0 };
+  // El corte detectado quedó en 15,4 s: debe ir al compás de 16 s (donde entra el D).
+  const out = refineSectionStarts([{ t: 0, label: 'Verso', lyricIdx: 0 }, { t: 15.4, label: 'Coro', lyricIdx: 1 }], lyr, det, 0, grid, 30);
+  assert.equal(out[0].t, 0);
+  assert.equal(out[1].t, 16);
+  // Sin un cambio claro cerca, solo se pega a la rejilla (aquí el medio compás: 25 s).
+  const far = refineSectionStarts([{ t: 0, label: 'Verso', lyricIdx: 0 }, { t: 25.1, label: 'Coro', lyricIdx: 1 }], lyr, det, 0, grid, 30);
+  assert.equal(far[1].t, 25);
+});

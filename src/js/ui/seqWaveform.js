@@ -19,10 +19,10 @@ import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog, confirmDialogAsync } from './dialog.js';
 import { buildAutoMarkers, detectSectionsInBackground, barGridInBackground } from './autoSections.js';
 import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
-import { parseLyricStructure, keyOffset, labelSegments } from './songStructure.js';
+import { parseLyricStructure, keyOffset, labelSegments, refineSectionStarts } from './songStructure.js';
 import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
-import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane } from './chordLane.js';
+import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane, laneSetGrid, laneNeededZoom, laneIsOn } from './chordLane.js';
 
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
 const AUTO_KEY = 'livepads-autosections';          // '0' = no marcar solas las canciones nuevas
@@ -30,6 +30,7 @@ const TRIED_KEY = 'livepads-autosections-tried';   // canciones ya analizadas (n
 const ICO_AUTO = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
 const QUICK_LABELS = ['Intro', 'Verso 1', 'Verso 2', 'Pre Coro', 'Coro', 'Puente', 'Instrumental', 'Solo', 'Interludio', 'Tag', 'Final', 'Outro'];
 
+let scroller, zoomer, zoom = 1, userScrollAt = 0, progScroll = false, chordFitBtn, zoomLvl, gridPromise = null;
 let root, stage, wrap, canvasBase, canvasPlayed, playedClip, regionsEl, markersEl, rulerEl, playheadEl;
 let titleEl, nowEl, nextEl, addBtn, collapseBtn, confirmBtn;
 let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0, trackType = '';
@@ -112,6 +113,9 @@ export function initSeqWaveform() {
   playedClip = root.querySelector('.sw-played'); regionsEl = root.querySelector('.sw-regions');
   markersEl = root.querySelector('.sw-markers'); rulerEl = root.querySelector('.sw-ruler'); playheadEl = root.querySelector('.sw-playhead');
   addBtn = root.querySelector('#sw-add'); collapseBtn = root.querySelector('#sw-collapse');
+  scroller = root.querySelector('.sw-scroll'); zoomer = root.querySelector('.sw-zoomer');
+  chordFitBtn = root.querySelector('#sw-chordfit'); zoomLvl = root.querySelector('#sw-zoom-fit');
+  wireZoom();
 
   try { if (localStorage.getItem(COLLAPSE_KEY) === '1') root.classList.add('is-collapsed'); } catch (_) {}
   collapseBtn.onclick = () => {
@@ -132,6 +136,8 @@ export function initSeqWaveform() {
   // servicio, así que se suelta al hacer clic en otra parte o tras unos segundos.
   document.addEventListener('pointerdown', (e) => { if (selectedId && !e.target.closest('.sw-pill')) deselect(); }, true);
   window.addEventListener('livepads:chords-ready', () => loadChordTimes());
+  // La franja de acordes avisa cuánto zoom haría falta para leerlos todos.
+  window.addEventListener('livepads:chord-lane-rendered', () => paintChordFit());
   initChordLane(root, (t) => seekTo(t));
 
   wrap.addEventListener('pointerdown', onWavePointerDown);
@@ -167,6 +173,7 @@ function onLibrarySynced() {
 
 function onLoaded({ audio: a, song: s, type }) {
   audio = a; song = s || null; peaks = null; duration = 0; trackType = type || '';
+  autoFitDone = false; setZoom(1, null, { silent: true });
   selectedId = null; grid = null; chordTimes = []; undoStack = []; redoStack = [];
   baseSnap = JSON.stringify(sortedMarkers());
   root.classList.remove('hidden', 'is-empty'); root.classList.add('is-loading');
@@ -233,6 +240,9 @@ function drawOn(canvas, fallback, lit) {
 function drawWave() {
   if (!peaks || root.classList.contains('is-collapsed')) return;
   lastW = stage.clientWidth;
+  // Con zoom hacen falta más puntos de onda (una barra cada 3 px).
+  const need = Math.min(24000, Math.ceil(lastW / 3));
+  if (audio && audio.buffer && peaks.length / 2 < need * 0.9) peaks = computePeaks(audio.buffer, Math.max(2400, need));
   const cs = getComputedStyle(root);
   drawOn(canvasBase, 'rgba(255,255,255,0.32)', false);
   drawOn(canvasPlayed, cs.getPropertyValue('--sw-played').trim() || '#fbae00', true);
@@ -261,7 +271,9 @@ function renderMarkers() {
     // Al pasar el ratón (editores): ▾ = opciones (lo mismo que el clic derecho) y ✕ = quitar.
     const tools = edit ? `<span class="sw-pill-tool sw-pill-menu" role="button" title="Opciones: renombrar, mover, eliminar">▾</span><span class="sw-pill-tool sw-pill-x" role="button" title="Quitar esta sección">✕</span>` : '';
     const tip = (m.auto ? 'Supuesta por LivePads (revísala) · ' : '') + (edit ? 'clic: ir y seleccionar (← → la mueven por compás) · arrastrar: mover · doble clic en la onda: repetir · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección');
-    pills += `<button type="button" class="sw-pill${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue}" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
+    // Cada píldora cabe en el hueco hasta la siguiente (se recorta con «…»; al pasar el ratón se ve entera).
+    const gapPx = Math.max(22, ((end - m.t) / duration) * (stage.clientWidth || 1) - 4);
+    pills += `<button type="button" class="sw-pill${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue};--gap:${Math.round(gapPx)}px" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
   markersEl.querySelectorAll('.sw-pill').forEach(bindPill);
@@ -292,6 +304,7 @@ function tick(force) {
   playheadEl.style.left = pct + '%';
   playedClip.style.width = pct + '%';
   laneTick(t);
+  followPlayhead(t);
   // Sección actual / siguiente (solo si cambió el segundo, para no tocar el DOM en cada frame).
   const sec = Math.floor(t);
   if (!force && sec === lastCur) return;
@@ -314,7 +327,79 @@ function timeAtClientX(x) {
   const r = stage.getBoundingClientRect();
   return Math.min(duration, Math.max(0, ((x - r.left) / r.width) * duration));
 }
-function seekTo(t) { if (audio && duration) { audio.currentTime = t; tick(true); startLoop(); } }
+function seekTo(t) { if (audio && duration) { audio.currentTime = t; userScrollAt = 0; tick(true); startLoop(); } }
+
+// ── Zoom de la onda ───────────────────────────────────────────────────────
+// La franja de acordes, las secciones, la onda y la regla viven dentro de
+// .sw-zoomer, cuyo ancho es zoom × 100 %: todo escala junto. Con zoom, el
+// cabezal se sigue solo mientras suena (salvo si te mueves a mano un momento).
+let autoFitDone = false;
+function maxZoom() {
+  const cw = (scroller && scroller.clientWidth) || 1;
+  return Math.max(1, Math.min(14000, Math.max(cw, duration * 60)) / cw);
+}
+function setZoom(z, anchorClientX, { silent = false } = {}) {
+  if (!scroller || !zoomer) return;
+  const nz = Math.max(1, Math.min(maxZoom(), Math.round(z * 100) / 100));
+  const cw = scroller.clientWidth || 1;
+  const oldW = zoomer.clientWidth || cw;
+  // Punto que se queda quieto: el ratón, o el cabezal (si se ve), o el centro.
+  let ax = cw / 2;
+  if (anchorClientX != null) ax = anchorClientX - scroller.getBoundingClientRect().left;
+  else if (audio && duration) {
+    const px = ((audio.currentTime || 0) / duration) * oldW - scroller.scrollLeft;
+    if (px >= 0 && px <= cw) ax = px;
+  }
+  const frac = (scroller.scrollLeft + ax) / oldW;
+  zoom = nz;
+  zoomer.style.width = `${nz * 100}%`;
+  root.classList.toggle('is-zoomed', nz > 1.001);
+  if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? nz.toFixed(1) : Math.round(nz)}×` : '1×';
+  const newW = cw * nz;
+  progScroll = true;
+  scroller.scrollLeft = Math.max(0, frac * newW - ax);
+  requestAnimationFrame(() => { progScroll = false; });
+  // El ResizeObserver de la onda redibuja onda, secciones y acordes al cambiar el ancho.
+}
+function wireZoom() {
+  if (!scroller) return;
+  root.querySelector('#sw-zoom-in').onclick = () => setZoom(zoom * 1.6);
+  root.querySelector('#sw-zoom-out').onclick = () => setZoom(zoom / 1.6);
+  zoomLvl.onclick = () => setZoom(1);
+  chordFitBtn.onclick = () => { const z = laneNeededZoom(); if (z > zoom) setZoom(z); };
+  // Ctrl/Alt + rueda = zoom (anclado al ratón); la rueda sola deja la página quieta.
+  scroller.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || e.altKey)) {
+      // Con zoom, la rueda vertical desplaza la onda en horizontal.
+      if (zoom > 1.001 && Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.shiftKey) { e.preventDefault(); scroller.scrollLeft += e.deltaY; }
+      return;
+    }
+    e.preventDefault();
+    setZoom(zoom * (e.deltaY < 0 ? 1.25 : 0.8), e.clientX);
+  }, { passive: false });
+  scroller.addEventListener('scroll', () => { if (!progScroll) userScrollAt = performance.now(); }, { passive: true });
+}
+function followPlayhead(t) {
+  if (!scroller || zoom <= 1.001 || !audio || audio.paused || scrubbing) return;
+  if (performance.now() - userScrollAt < 3000) return;      // se movió a mano: no le quitamos la vista
+  const W = zoomer.clientWidth, cw = scroller.clientWidth;
+  const x = (t / duration) * W, left = scroller.scrollLeft;
+  if (x < left + cw * 0.08 || x > left + cw * 0.85) {
+    progScroll = true;
+    scroller.scrollLeft = Math.max(0, x - cw * 0.25);
+    requestAnimationFrame(() => { progScroll = false; });
+  }
+}
+// «Ver todos los acordes»: aparece si con el zoom actual hay acordes sin nombre.
+// La primera vez que se pintan los acordes de una pista, se amplía solo.
+function paintChordFit() {
+  if (!chordFitBtn) return;
+  const need = laneIsOn() ? laneNeededZoom() : 0;
+  const show = need > zoom * 1.05;
+  chordFitBtn.hidden = !show;
+  if (show && !autoFitDone && zoom <= 1.001) { autoFitDone = true; setZoom(need); }
+  else if (need) autoFitDone = true;
+}
 
 function sectionIdAt(t) {
   let cur = null;
@@ -437,8 +522,12 @@ async function autoDetect({ auto = false } = {}) {
     if (lyr.length >= 2 && raw.length >= 2) {
       const det = (ch && ch.seg) || [];
       const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
-      found = labelSegments(segs, lyr, det, keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k)
-        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 10) / 10 }));
+      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+      // La rejilla de compases (si llega a tiempo) para ajustar cada inicio al compás.
+      const g = grid || await Promise.race([gridPromise || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
+      // Cada sección empieza donde entra su primer acorde de la letra (a menos de un compás).
+      found = refineSectionStarts(labelSegments(segs, lyr, det, k), lyr, det, k, g, dur)
+        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
     } else {
       found = buildAutoMarkers(raw, s.lyrics, dur);
     }
@@ -465,10 +554,12 @@ function loadGrid(a) {
   const s = song; if (!s || !a || !a.buffer) return;
   const bpm = parseFloat(s.bpm) || 0;
   const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
-  barGridInBackground(a.buffer, { bpm, beatsPerBar }).then((g) => {
-    if (audio !== a || !g || !(g.bpm > 0)) return;
+  gridPromise = barGridInBackground(a.buffer, { bpm, beatsPerBar }).then((g) => {
+    if (audio !== a || !g || !(g.bpm > 0)) return null;
     grid = { beatSec: 60 / g.bpm, barSec: (60 / g.bpm) * (g.beatsPerBar || 4), off: g.offsetSec || 0 };
-  }).catch(() => {});
+    laneSetGrid(grid);
+    return grid;
+  }).catch(() => null);
 }
 async function loadChordTimes() {
   if (!song || !audio || !audio.buffer) return;

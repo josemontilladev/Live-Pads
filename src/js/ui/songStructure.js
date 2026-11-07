@@ -156,15 +156,26 @@ function cosShift(lh, dh, k) {
   }
   return nl && nd ? dot / Math.sqrt(nl * nd) : 0;
 }
+// Solo raíces (12 notas): el detector confunde a menudo mayor/menor (oye «D»
+// donde la letra dice «Dm»), pero la raíz casi siempre la acierta.
+function cosShiftRoots(lh, dh, k) {
+  let dot = 0, nl = 0, nd = 0;
+  for (let i = 0; i < 12; i++) {
+    const l = lh[i] + lh[12 + i], j = mod(i - k, 12), d = dh[j] + dh[12 + j];
+    dot += l * d; nl += l * l; nd += d * d;
+  }
+  return nl && nd ? dot / Math.sqrt(nl * nd) : 0;
+}
+const keyScore = (lh, dh, k) => 0.5 * cosShift(lh, dh, k) + 0.5 * cosShiftRoots(lh, dh, k);
 /** Semitonos k tales que acorde_letra = acorde_audio + k. { k, score 0..1 }.
  *  preferred = el cambio de tono que la persona puso a la pista: si encaja casi
  *  igual de bien, se usa ese (lo normal es subir/bajar la pista al tono de la letra). */
 export function keyOffset(lyricSecs, detSegs, preferred = null) {
   const lh = histLyric(lyricSecs), dh = histDet(detSegs || []);
   let best = { k: 0, score: 0 };
-  for (let k = 0; k < 12; k++) { const s = cosShift(lh, dh, k); if (s > best.score) best = { k, score: s }; }
+  for (let k = 0; k < 12; k++) { const s = keyScore(lh, dh, k); if (s > best.score) best = { k, score: s }; }
   if (preferred != null) {
-    const k = mod(Math.round(preferred), 12), s = cosShift(lh, dh, k);
+    const k = mod(Math.round(preferred), 12), s = keyScore(lh, dh, k);
     if (s >= best.score - 0.12) return { k, score: s };
   }
   return best;
@@ -235,6 +246,48 @@ export function labelSegments(audioSegs, lyricSecs, detSegs, k) {
     if (prev && prev.label === label) return;
     out.push({ t: a.s, label, lyricIdx });
   });
+  return out;
+}
+
+/**
+ * Afina el inicio de cada sección: si la sección de la letra empieza con un
+ * acorde concreto, su inicio se mueve al momento en que ENTRA ese acorde en el
+ * audio (a menos de un compás del corte detectado), y se pega al compás si hay
+ * rejilla. Si no hay un cambio claro, se queda donde estaba.
+ * @param marks  labelSegments() → [{t,label,lyricIdx}]
+ * @param grid   { barSec, beatSec, off } | null
+ */
+export function refineSectionStarts(marks, lyricSecs, detSegs, k, grid, duration = Infinity) {
+  const det = (detSegs || []).filter((d) => d.r >= 0);
+  const win = grid && grid.barSec > 0 ? grid.barSec * 1.05 : 2.5;
+  const out = marks.map((m) => ({ ...m }));
+  for (let i = 0; i < out.length; i++) {
+    const m = out[i];
+    const L = m.lyricIdx >= 0 ? lyricSecs[m.lyricIdx] : null;
+    let t = m.t;
+    if (L && L.chords.length && i > 0) {
+      const c0 = L.chords[0];
+      let best = null;
+      det.forEach((d, j) => {
+        if (Math.abs(d.s - m.t) > win) return;
+        if (match(d, c0, k) < 1) return;
+        // Que sea una ENTRADA del acorde (el anterior era otro).
+        if (j > 0 && match(det[j - 1], c0, k) >= 1 && det[j - 1].e >= d.s - 0.05) return;
+        if (best == null || Math.abs(d.s - m.t) < Math.abs(best - m.t)) best = d.s;
+      });
+      if (best != null) t = best;
+    }
+    // Al compás (o medio compás, por las anacrusas), si está cerca.
+    if (grid && grid.barSec > 0 && i > 0) {
+      const off = grid.off || 0;
+      const bar = off + Math.round((t - off) / grid.barSec) * grid.barSec;
+      const half = off + Math.round((t - off) / (grid.barSec / 2)) * (grid.barSec / 2);
+      if (Math.abs(bar - t) <= grid.barSec * 0.3) t = bar;
+      else if (Math.abs(half - t) <= grid.barSec * 0.15) t = half;
+    }
+    const lo = i > 0 ? out[i - 1].t + 1 : 0, hi = i + 1 < out.length ? out[i + 1].t - 1 : duration;
+    if (t > lo && t < hi) m.t = t;
+  }
   return out;
 }
 

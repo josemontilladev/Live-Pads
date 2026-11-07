@@ -358,3 +358,21 @@
   box-shadow: 0 0 10px var(--glow);
 }
 
+
+/* ── Mezclador plegable ── */
+.mx-collapse {
+  flex-shrink: 0; width: 28px; height: 28px; margin-left: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,.04);
+  color: var(--text-muted); cursor: pointer;
+}
+.mx-collapse:hover { color: var(--text); background: rgba(255,255,255,.08); }
+.mx-collapse svg { transition: transform .2s ease; }
+#mixer-bar.is-collapsed .mx-collapse svg { transform: rotate(180deg); }
+#mixer-bar.is-collapsed .mx-channels { display: none; }
+#mixer-bar.is-collapsed .mx-title { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+/* En pantallas muy bajas el título se oculta: si está plegado, se deja el título
+   (con el Maestro y la flecha) para poder volver a desplegarlo. */
+@media (max-height: 640px) {
+  #mixer-bar.is-collapsed .mx-title { display: flex !important; }
+}

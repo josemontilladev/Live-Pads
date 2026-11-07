@@ -88,7 +88,30 @@ function paint(el, isPan) {
 // Must run AFTER the canonical sliders are wired (mixerControls,
 // metronomeControls, bindTrackPlayerControls) so their oninput handlers
 // exist for our dispatched events and their initial values are set.
+// Plegar / desplegar los canales (como la onda y otros paneles). El Maestro y
+// el título quedan a la vista; el estado se recuerda entre sesiones.
+const MX_COLLAPSE_KEY = 'livepads-mixer-collapsed';
+function bindMixerCollapse() {
+  const bar = q('#mixer-bar'), btn = q('#mx-collapse');
+  if (!bar || !btn || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
+  const apply = (c) => {
+    bar.classList.toggle('is-collapsed', c);
+    btn.setAttribute('aria-expanded', c ? 'false' : 'true');
+    btn.title = c ? 'Mostrar los canales del mezclador' : 'Ocultar los canales del mezclador (el Maestro sigue a la vista)';
+  };
+  let c = false;
+  try { c = localStorage.getItem(MX_COLLAPSE_KEY) === '1'; } catch (_) {}
+  apply(c);
+  btn.onclick = () => {
+    c = !bar.classList.contains('is-collapsed');
+    apply(c);
+    try { localStorage.setItem(MX_COLLAPSE_KEY, c ? '1' : '0'); } catch (_) {}
+  };
+}
+
 export function bindMixerBar() {
+  bindMixerCollapse();
   // Restore saved levels/pans first (applies to the engine via the canonical
   // sliders' own handlers), then build the bridges off those values.
   loadMixerState();

@@ -84,3 +84,6 @@
 #seq-wave.is-collapsed .sw-stage { display: none; }
 #seq-wave.is-collapsed { padding-bottom: 10px; }
 @media (max-height: 760px) { .sw-wave { height: 64px; } }
+
+/* La píldora no pasa del hueco hasta la siguiente sección (al pasar el ratón se ve entera). */
+.sw-pill:not(:hover) { max-width: min(120px, var(--gap, 120px)); }

@@ -52,3 +52,13 @@
   border: 1px solid var(--border-strong);
   font-weight: 700;
 }
+
+/* Tono en las tarjetas: la letra siempre centrada (una nota sola queda como
+   una pastilla redonda; «C#m» o «Mi → G» crecen hacia los lados por igual). */
+.gi-chip.gi-chip--key,
+.gi-key-chip {
+  justify-content: center;
+  text-align: center;
+  min-width: 26px;
+  box-sizing: border-box;
+}

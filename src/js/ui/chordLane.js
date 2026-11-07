@@ -29,17 +29,50 @@ let lastIdx = -2, lastShift = 0, lastPitchCheck = 0;
 // Acordes a mostrar: los de la LETRA colocados en cada sección marcada (si la
 // canción los trae); donde la letra no dice nada, los detectados (suposición).
 let shown = null, shownSig = '', songK = 0, fromSong = false;
+let grid = null;          // { beatSec, barSec, off } — rejilla de pulsos de la pista
+let neededZoom = 0;       // zoom con el que se leerían todos los nombres
+
+// Los cambios de acorde caen sobre el pulso: el detector trabaja por ventanas y
+// los marca unas décimas antes o después. Se pega cada cambio al pulso más
+// cercano (si está a menos de ~medio pulso) y se funden los que quedan pegados.
+function snapToBeats(segs, g) {
+  if (!g || !(g.beatSec > 0)) return segs;
+  const beat = g.beatSec, off = g.off || 0;
+  const out = [];
+  for (const sg of segs) {
+    let s = sg.s;
+    if (out.length) {
+      const b = off + Math.round((s - off) / beat) * beat;
+      if (Math.abs(b - s) <= beat * 0.45) s = b;
+    }
+    const prev = out[out.length - 1];
+    if (prev) {
+      prev.e = s;
+      // Tramo que se quedó en casi nada: se lo come el anterior.
+      if (prev.e - prev.s < beat * 0.3 && out.length > 1) { out.pop(); out[out.length - 1].e = s; }
+    }
+    const last = out[out.length - 1];
+    if (last && last.r === sg.r && last.q === sg.q && last.b === sg.b) { last.e = sg.e; continue; }
+    out.push({ ...sg, s });
+  }
+  return out;
+}
+export function laneSetGrid(g) { grid = g || null; shownSig = ''; if (result) render(); }
+export const laneIsOn = () => on && !!result;
+export const laneNeededZoom = () => neededZoom;
+
 function segsNow() {
   if (!result) return [];
   const s = track && track.song;
-  const sig = s ? JSON.stringify([s.lyrics || '', s.markers || [], result.d]) : '';
+  const sig = JSON.stringify([s ? s.lyrics || '' : '', s ? s.markers || [] : [], result.d, grid]);
   if (sig === shownSig && shown) return shown;
-  shownSig = sig; shown = result.seg; fromSong = false;
+  const det = snapToBeats(result.seg, grid);
+  shownSig = sig; shown = det; fromSong = false;
   try {
     const lyr = s ? parseLyricStructure(s.lyrics) : [];
     if (lyr.some((x) => x.chords.length) && Array.isArray(s.markers) && s.markers.length) {
-      songK = keyOffset(lyr, result.seg, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
-      const segs = songChordSegments(s.markers, lyr, result.seg, songK, result.d || 0);
+      songK = keyOffset(lyr, det, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
+      const segs = songChordSegments(s.markers, lyr, det, songK, result.d || 0);
       if (segs.some((x) => !x.guess)) { shown = segs; fromSong = true; }
     }
   } catch (e) { console.warn('[LivePads] acordes de la letra:', e); }
@@ -97,13 +130,13 @@ function paintOn() {
 
 /** La pista ya está decodificada (lo llama la onda). */
 export function laneTrackLoaded(t) {
-  track = t; result = null; id = null; lastIdx = -2;
+  track = t; result = null; id = null; lastIdx = -2; grid = null; neededZoom = 0; shownSig = '';
   if (lane) lane.innerHTML = '';
   if (nowEl) { nowEl.textContent = ''; nextEl.textContent = ''; }
   if (on) request();
 }
 export function laneCleared() {
-  track = null; result = null; id = null;
+  track = null; result = null; id = null; grid = null; neededZoom = 0;
   if (lane) lane.innerHTML = '';
   if (nowEl) { nowEl.textContent = ''; nextEl.textContent = ''; }
 }
@@ -182,26 +215,59 @@ async function editLyrics(s) {
 }
 
 /** Dibuja la franja (al cargar, al cambiar preferencias, tono o ancho). */
+let measureCtx = null;
+function textW(n) {
+  if (!measureCtx) {
+    measureCtx = document.createElement('canvas').getContext('2d');
+    const ff = getComputedStyle(lane).fontFamily || 'sans-serif';
+    measureCtx.font = `700 11px ${ff}`;
+  }
+  return Math.ceil(measureCtx.measureText(n).width) + 12;   // + padding y la raya
+}
 export function render() {
   if (!on || !result || !lane || !E) return;
   lastShift = getTrackPitch() || 0;
   const d = result.d || 1, w = lane.clientWidth || 1;
-  let lastX = -1e9, lastW = 0, html = '';
   const list = segsNow();
   lane.title = fromSong ? 'Acordes de la letra de la canción, colocados en cada sección (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
   root.classList.toggle('chords-from-song', fromSong);
+  // Dos filas: un nombre que no cabe tras el anterior baja a la segunda; si
+  // tampoco cabe ahí, queda solo su raya (con zoom se leen todos).
+  const ends = [-1e9, -1e9];
+  const items = [];
+  let usedRow2 = false;
   list.forEach((s, i) => {
     if (s.r < 0) return;
-    const n = nameOf(s);
-    const x = (s.s / d) * w;
-    const tw = n.length * 7 + 12;               // ancho aproximado del nombre
-    const fits = x - lastX >= lastW;
-    if (fits) { lastX = x; lastW = tw; }
-    html += `<span class="sw-ch${fits ? '' : ' no-label'}${s.guess ? ' is-guess' : ''}" data-i="${i}" data-t="${s.s}" style="left:${(s.s / d) * 100}%" title="${esc(n)}${s.guess ? ' (detectado)' : s.n ? ' (de la letra)' : ''}">${esc(n)}</span>`;
+    const n = nameOf(s), x = (s.s / d) * w, tw = textW(n);
+    let row = -1;
+    if (x >= ends[0]) row = 0; else if (x >= ends[1]) row = 1;
+    // 6 px de aire: el acorde que suena se resalta con fondo y no debe tocar al siguiente.
+    if (row >= 0) { ends[row] = x + tw + 6; if (row === 1) usedRow2 = true; }
+    items.push({ s, i, n, x, tw, row });
   });
+  let html = '';
+  for (const it of items) {
+    const { s, i, n, row } = it;
+    html += `<span class="sw-ch${row < 0 ? ' no-label' : ''}${row === 1 ? ' row2' : ''}${s.guess ? ' is-guess' : ''}" data-i="${i}" data-t="${s.s}" style="left:${(s.s / d) * 100}%" title="${esc(n)} · ${Math.floor(s.s / 60)}:${String(Math.floor(s.s % 60)).padStart(2, '0')}${s.guess ? ' (detectado)' : s.n ? ' (de la letra)' : ''}">${esc(n)}</span>`;
+  }
+  lane.classList.toggle('two-rows', usedRow2);
   lane.innerHTML = html || '<span class="sw-ch-msg">No se encontraron acordes claros.</span>';
+  // Zoom con el que cabrían (casi) todos los nombres en dos filas: cada nombre
+  // necesita hueco hasta el que va dos más allá (el de su misma fila). Se ignora
+  // el 5 % más apretado (acordes de paso muy cortos) para no exagerar.
+  const sc = root.querySelector('.sw-scroll');
+  const base = (sc && sc.clientWidth) || w;
+  const need = [];
+  for (let k = 0; k + 2 < items.length; k++) {
+    const dt = items[k + 2].s.s - items[k].s.s;
+    if (dt > 0) need.push((items[k].tw + 6) / dt);          // px por segundo
+  }
+  need.sort((a, b) => a - b);
+  const pps = need.length ? need[Math.min(need.length - 1, Math.floor(need.length * 0.95))] : 0;
+  neededZoom = pps ? Math.max(1, (pps * d) / base) : 0;
   lastIdx = -2;
   if (track && track.audio) laneTick(track.audio.currentTime || 0);
+  window.dispatchEvent(new Event('livepads:chord-lane-rendered'));
 }
 
 /** Acorde actual resaltado + cabecera (lo llama la onda en cada cuadro). */
