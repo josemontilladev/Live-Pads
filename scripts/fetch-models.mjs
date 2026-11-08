@@ -16,7 +16,7 @@ const MODELS = [
   { name: 'kuielab_a_other.onnx',       url: `${REL}/kuielab_a_other.onnx` },
   // Análisis musical (convertidos a ONNX por nosotros; licencia MIT de sus autores).
   // Viven en la prerelease «models-v1» del repo (el actualizador ignora las prereleases).
-  { name: 'beat_this_final0.onnx',      url: `${OWN}/beat_this_final0.onnx`, optional: true },   // Beat This! (CPJKU): pulsos y compases
+  { name: 'beat_this_final0.onnx',      url: `${OWN}/beat_this_final0.onnx` },   // Beat This! (CPJKU): pulsos y compases
 ];
 
 const dir = path.join(root, 'models');
