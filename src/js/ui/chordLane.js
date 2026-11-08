@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { getTrackPitch } from '../audio/trackPlayer.js';
+import { nearestIn } from '../analysis/beatGrid.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
 import { parseLyricStructure, keyOffset, songChordSegments, parseChord, replaceChordInLyrics } from './songStructure.js';
 import { openContextMenu } from './cardMoreMenu.js';
@@ -42,8 +43,9 @@ function snapToBeats(segs, g) {
   for (const sg of segs) {
     let s = sg.s;
     if (out.length) {
-      const b = off + Math.round((s - off) / beat) * beat;
-      if (Math.abs(b - s) <= beat * 0.45) s = b;
+      // Pulsos reales (modelo) si los hay; si no, la rejilla de tempo fijo.
+      const b = g.beats ? nearestIn(g.beats, s, beat * 0.45) : off + Math.round((s - off) / beat) * beat;
+      if (b != null && Math.abs(b - s) <= beat * 0.45) s = b;
     }
     const prev = out[out.length - 1];
     if (prev) {

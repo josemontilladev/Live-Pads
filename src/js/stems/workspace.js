@@ -15,6 +15,7 @@ import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
 import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
 import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
+import { analyzeBeats } from '../analysis/beatGrid.js';
 import { detectSections } from './sectionDetector.js';
 import { maybeStartTour, startTour } from './tour.js';
 import { addMapping, getMapping, clearMappingForTarget } from '../midi/midiMap.js';
@@ -1313,7 +1314,26 @@ function onDetectBpm() {
   requestAnimationFrame(() => requestAnimationFrame(async () => {
     try {
       const buf = engine.getTrackBuffer(stemTrack.id);
-      const result = await detectTempoMeterAsync(buf);
+      // Modelo de pulsos (Beat This!) si está instalado; si no, el detector clásico.
+      let result = null;
+      const r = await analyzeBeats(buf, stemBeatKey(stemTrack.id, buf)).catch(() => null);
+      if (r && r.bpm > 0) {
+        // El modelo cuenta el pulso que se SIENTE; la secuencia puede contarse a
+        // otro nivel (en corcheas, al doble…). Si el BPM que ya tiene el proyecto
+        // es ese mismo tempo a otro nivel (×½ ⅔ 1½ 2 3), se respeta ese nivel.
+        let bf = r.bpm, level = 1;
+        const hint = bpmFloat || bpm || 0;
+        if (hint > 0) {
+          for (const k of [1, 2, 1.5, 0.5, 2 / 3, 3, 1 / 3]) {
+            const c = r.bpm * k;
+            if (c >= 40 && c <= 260 && Math.abs(c - hint) / hint < 0.04 && Math.abs(c - hint) / hint < Math.abs(bf - hint) / hint) { bf = c; level = k; }
+          }
+        }
+        bf = Math.round(bf * 1000) / 1000;
+        result = { bpm: Math.round(bf), bpmFloat: bf, signature: level === 1 ? `${r.beatsPerBar || 4}/4` : `${beatsPerBar}/${beatValue}` };
+      } else {
+        result = await detectTempoMeterAsync(buf);
+      }
       if (!result || !result.bpm) {
         toast('No se pudo detectar un BPM claro. Prueba con una pista más percusiva (drums, click, bajo).', 'warning');
         return;
@@ -1322,13 +1342,16 @@ function onDetectBpm() {
       const detectedSig = result.signature || `${beatsPerBar}/${beatValue}`;
       const detectedFloat = result.bpmFloat || detected;
       const oldBpm = bpm, oldBpmFloat = bpmFloat, oldSig = `${beatsPerBar}/${beatValue}`;
-      if (detected === bpm && detectedSig === oldSig) {
+      // Se compara con decimales: 185,24 y 185 se ven iguales, pero en 5 minutos
+      // el click se correría casi medio segundo.
+      if (Math.abs(detectedFloat - (bpmFloat || bpm)) < 0.02 && detectedSig === oldSig) {
         toast(`Ya coincide con lo actual (${detected} BPM, ${oldSig}).`, 'info');
         return;
       }
+      const fmtBpm = (f, i) => (f && Math.abs(f - i) > 0.004 ? String(Math.round(f * 100) / 100) : String(i));
       const ok = await confirmDialogAsync({
         title: 'Aplicar BPM detectado',
-        message: `Detectado: ${detected} BPM · compás ${detectedSig}. ¿Aplicarlo?\nActual: ${oldBpm} BPM · ${oldSig}.`,
+        message: `Detectado: ${fmtBpm(detectedFloat, detected)} BPM · compás ${detectedSig}. ¿Aplicarlo?\nActual: ${fmtBpm(oldBpmFloat, oldBpm)} BPM · ${oldSig}.`,
         confirmLabel: 'Aplicar', danger: false,
       });
       if (!ok) return;
@@ -6028,18 +6051,48 @@ async function onAddClickTrack() {
 // falls (handles intros / leading silence) and which beat is the downbeat,
 // so the generated click is phase-locked to the music (like Moises). Returns
 // { offsetSec, accentBeatOffset }; falls back to no shift if no song/onsets.
-function computeClickAlignment() {
+const stemBeatKey = (id, buf) => `stems.${id}.${Math.round(buf.duration * 10)}.${buf.length}`;
+async function computeClickAlignment() {
   const stem = engine.getTracks().find(t => t.kind === 'stem');
   if (!stem) return { offsetSec: 0, accentBeatOffset: 0 };
   const buf = engine.getTrackBuffer(stem.id);
   if (!buf) return { offsetSec: 0, accentBeatOffset: 0 };
+  // Con el modelo de pulsos: la fase sale de los pulsos REALES y el acento del
+  // primer compás que de verdad suena (no de una suposición por energía).
+  try {
+    const r = await analyzeBeats(buf, stemBeatKey(stem.id, buf));
+    if (r && r.beats.length > 8 && bpmFloat > 0) {
+      const P = 60 / bpmFloat;
+      let offsetSec;
+      if (r.phase != null && r.bpm > 0 && Math.abs(r.bpm - bpmFloat) / bpmFloat < 0.003) {
+        // Mismo tempo que el detectado: la fase del ajuste de todos los pulsos.
+        offsetSec = r.phase;
+      } else {
+        // Otro tempo u otro nivel de pulso (p. ej. la secuencia en corcheas y el
+        // modelo en negras con puntillo): la fase más repetida de los COMPASES
+        // módulo P (los compases sí caen siempre en un pulso del click).
+        const src = r.downbeats && r.downbeats.length > 8 ? r.downbeats : r.beats;
+        const ph = src.map((b) => ((b % P) + P) % P).sort((a, b) => a - b);
+        let best = ph[0], bestScore = -1;
+        for (const c of ph) {
+          let sc = 0;
+          for (const v of ph) { const d = Math.abs(v - c); if (Math.min(d, P - d) < P * 0.08) sc++; }
+          if (sc > bestScore) { bestScore = sc; best = c; }
+        }
+        offsetSec = best;
+      }
+      const db = r.downbeats && r.downbeats.length ? r.downbeats[0] : null;
+      const d = db != null ? ((Math.round((db - offsetSec) / P) % beatsPerBar) + beatsPerBar) % beatsPerBar : 0;
+      return { offsetSec, accentBeatOffset: (beatsPerBar - d) % beatsPerBar };
+    }
+  } catch (_) {}
   const a = detectBeatAlignment(buf, bpmFloat, beatsPerBar);
   return a || { offsetSec: 0, accentBeatOffset: 0 };
 }
 
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
-  const { offsetSec, accentBeatOffset } = computeClickAlignment();
+  const { offsetSec, accentBeatOffset } = await computeClickAlignment();
   const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
@@ -6053,7 +6106,7 @@ async function createClickTrack(durationSec) {
 async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
-  const { offsetSec, accentBeatOffset } = computeClickAlignment();
+  const { offsetSec, accentBeatOffset } = await computeClickAlignment();
   const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
   const wav = audioBufferToWav(buffer);
   engine.replaceTrackBuffer(existingId, buffer);

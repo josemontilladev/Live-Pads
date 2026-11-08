@@ -64,6 +64,7 @@
       "main.js",
       "preload.js",
       "stemSeparator.js",
+      "beatTracker.js",
       "src/**/*",
       "companion/**/*",
       "!src/**/*.map",

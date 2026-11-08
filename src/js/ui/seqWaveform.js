@@ -22,6 +22,7 @@ import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
 import { parseLyricStructure, keyOffset, labelSegments, refineSectionStarts } from './songStructure.js';
 import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
+import { analyzeBeats, gridFrom, trackKey, nearestIn, stepIn } from '../analysis/beatGrid.js';
 import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane, laneSetGrid, laneNeededZoom, laneIsOn } from './chordLane.js';
 
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
@@ -554,12 +555,20 @@ function loadGrid(a) {
   const s = song; if (!s || !a || !a.buffer) return;
   const bpm = parseFloat(s.bpm) || 0;
   const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
-  gridPromise = barGridInBackground(a.buffer, { bpm, beatsPerBar }).then((g) => {
-    if (audio !== a || !g || !(g.bpm > 0)) return null;
-    grid = { beatSec: 60 / g.bpm, barSec: (60 / g.bpm) * (g.beatsPerBar || 4), off: g.offsetSec || 0 };
-    laneSetGrid(grid);
-    return grid;
-  }).catch(() => null);
+  // Primero el modelo de pulsos (Beat This!, en local): pulsos y compases reales.
+  // Sin el modelo, el detector anterior (tempo fijo + desfase).
+  const fallback = () => barGridInBackground(a.buffer, { bpm, beatsPerBar }).then((g) => {
+    if (!g || !(g.bpm > 0)) return null;
+    return { beatSec: 60 / g.bpm, barSec: (60 / g.bpm) * (g.beatsPerBar || 4), off: g.offsetSec || 0 };
+  });
+  gridPromise = analyzeBeats(a.buffer, trackKey(s, trackType, a.buffer))
+    .then((r) => gridFrom(r) || fallback())
+    .then((g) => {
+      if (audio !== a || !g) return null;
+      grid = g;
+      laneSetGrid(grid);
+      return grid;
+    }).catch(() => null);
 }
 async function loadChordTimes() {
   if (!song || !audio || !audio.buffer) return;
@@ -587,7 +596,10 @@ function deselect() {
 }
 function snapTime(t) {
   const clamp = (v) => Math.max(0, Math.min(duration - 0.5, Math.round(v * 100) / 100));
-  if (grid) {
+  if (grid && grid.downbeats) {
+    const bar = nearestIn(grid.downbeats, t, grid.barSec * 0.35);
+    if (bar != null) return clamp(bar);
+  } else if (grid) {
     const bar = grid.off + Math.round((t - grid.off) / grid.barSec) * grid.barSec;
     if (Math.abs(bar - t) <= grid.barSec * 0.35) return clamp(bar);
   }
@@ -598,7 +610,11 @@ function snapTime(t) {
 function nudge(m, dir, unit) {
   let t;
   if (unit === 'fine') t = m.t + dir * 0.1;
-  else if (grid) {
+  else if (grid && grid.beats && (unit === 'beat' || grid.downbeats)) {
+    // Pulsos / compases reales de la pista.
+    t = stepIn(unit === 'beat' ? grid.beats : grid.downbeats, m.t, dir);
+    if (t == null) t = m.t;
+  } else if (grid) {
     const step = unit === 'beat' ? grid.beatSec : grid.barSec;
     const k = (m.t - grid.off) / step;
     t = grid.off + (dir > 0 ? Math.floor(k + 1e-3) + 1 : Math.ceil(k - 1e-3) - 1) * step;

@@ -84,6 +84,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsSeparate: (data) => ipcRenderer.invoke('stems-separate', data),
   stemsSeparateCloud: (data) => ipcRenderer.invoke('stems-separate-cloud', data),
   stemsSeparateCancel: () => ipcRenderer.invoke('stems-separate-cancel'),
+  // Pulsos y compases con el modelo local (Beat This!).
+  analyzeBeats: (data) => ipcRenderer.invoke('analysis-beats', data),
   onDeepLinkJoin: (cb) => ipcRenderer.on('deep-link-join', (_e, token) => cb(token)),
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info)),
   onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, p) => cb(p)),

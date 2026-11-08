@@ -277,8 +277,14 @@ export function refineSectionStarts(marks, lyricSecs, detSegs, k, grid, duration
       });
       if (best != null) t = best;
     }
-    // Al compás (o medio compás, por las anacrusas), si está cerca.
-    if (grid && grid.barSec > 0 && i > 0) {
+    // Al compás (o medio compás, por las anacrusas), si está cerca. Con los
+    // compases reales del modelo, al compás que de verdad suena.
+    if (grid && grid.downbeats && grid.downbeats.length && i > 0) {
+      const near = (arr, tol) => { let b = null; for (const v of arr) if (Math.abs(v - t) <= tol && (b == null || Math.abs(v - t) < Math.abs(b - t))) b = v; return b; };
+      const bar = near(grid.downbeats, grid.barSec * 0.3);
+      if (bar != null) t = bar;
+      else if (grid.beats) { const bt = near(grid.beats, grid.barSec * 0.15); if (bt != null) t = bt; }
+    } else if (grid && grid.barSec > 0 && i > 0) {
       const off = grid.off || 0;
       const bar = off + Math.round((t - off) / grid.barSec) * grid.barSec;
       const half = off + Math.round((t - off) / (grid.barSec / 2)) * (grid.barSec / 2);

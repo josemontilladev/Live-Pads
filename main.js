@@ -2483,8 +2483,23 @@ ipcMain.handle('assign-stems-mix', async (_e, { buffer, type, name } = {}) => {
 
 // Resolve the bundled separation models directory (extraResources in prod).
 function separationModelsDir() {
+  // En desarrollo se puede apuntar a otra carpeta (los .onnx pesan y dev/ se sincroniza).
+  if (!app.isPackaged && process.env.LIVEPADS_MODELS_DIR) return process.env.LIVEPADS_MODELS_DIR;
   return app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, 'models');
 }
+
+// ── Análisis musical en local (Beat This!: pulsos y compases) ─────────────
+// Recibe audio mono a 22 050 Hz y devuelve { beats, downbeats, bpm, beatsPerBar, ep }.
+// Sin el modelo (instalaciones viejas) responde { unavailable: true } y la app
+// usa su detector anterior.
+ipcMain.handle('analysis-beats', async (_e, { mono } = {}) => {
+  const modelPath = path.join(separationModelsDir(), 'beat_this_final0.onnx');
+  if (!fs.existsSync(modelPath)) return { unavailable: true };
+  if (!mono || !mono.length) throw new Error('Audio vacío');
+  const { trackBeats } = require('./beatTracker');
+  const x = mono instanceof Float32Array ? mono : new Float32Array(mono);
+  return trackBeats(x, modelPath, {});
+});
 
 // Local stem separation (MDX-Net via onnxruntime-node). Receives decoded
 // Float32 PCM from the renderer; mode '2stem' (voz/instrumental) or '4stem'
