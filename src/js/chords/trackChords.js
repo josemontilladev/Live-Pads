@@ -118,46 +118,77 @@ export async function analyzeFileCached(id, file, onProgress) {
 }
 
 // ── Acordes precisos (en segundo plano) ───────────────────────────────────
-// Primero se muestra el análisis rápido (mezcla completa). Después, si el
-// equipo tiene GPU, se separan bajo y «otros» (sin voz ni batería, que
-// confunden los acordes) y se repite el análisis sobre esas pistas (medido con
-// 40 canciones de la biblioteca: el reparto de acordes se parece más al cifrado
-// en 24, igual en 9, peor en 7). El resultado sustituye al rápido en la
-// caché y se avisa con «livepads:chords-ready» (la franja se actualiza sola).
-// Sin GPU no se hace: en CPU tardaría minutos y cargaría el equipo en directo.
-const LS_NOGPU = 'livepads.chords.nogpu';
+// Primero se muestra el análisis rápido (motor clásico, en el navegador).
+// Después, un modelo entrenado (BTC, en local, en un hilo aparte del proceso
+// principal; unos segundos, con o sin GPU) vuelve a escuchar la pista y sus
+// acordes sustituyen a los rápidos en la caché; se avisa con
+// «livepads:chords-ready» y la franja se actualiza sola.
+// Medido con 40 canciones de la biblioteca contra su cifrado: el tiempo con un
+// acorde que está en el cifrado pasa del 74 % al 85 % (mejor en 35 de 40).
 let refineChain = Promise.resolve();
 const refining = new Map();
-const isRefined = (r) => !!(r && r.src === 'stems');
+const isRefined = (r) => !!(r && r.src === 'btc');
 
 export function canRefine() {
-  if (!(window.electronAPI && window.electronAPI.analyzeHarmony)) return false;
-  try { return localStorage.getItem(LS_NOGPU) !== '1'; } catch (_) { return true; }
+  return !!(window.electronAPI && window.electronAPI.analyzeChordsModel);
 }
 
-/** Afinar los acordes de una pista (una sola vez; en cola, de una en una). */
+async function bufferToMono22050(buffer) {
+  const len = Math.max(1, Math.ceil(buffer.duration * 22050));
+  const off = new OfflineAudioContext(1, len, 22050);
+  const src = off.createBufferSource();
+  src.buffer = buffer; src.connect(off.destination); src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+
+// Tonalidad a partir de los acordes (la misma regla que la 2.ª pasada del motor):
+// los grados de cada tono pesan por su duración; tónica, primer y último acorde suman.
+const DEG_MAJ = [[0, false], [2, true], [4, true], [5, false], [7, false], [9, true]];
+const DEG_MIN = [[0, true], [3, false], [5, true], [7, true], [8, false], [10, false]];
+export function keyFromSegments(seg, duration, prev) {
+  const dur = new Float64Array(24);
+  let first = -1, last = -1;
+  for (const x of seg) {
+    if (x.r < 0) continue;
+    const b = x.r + ((x.q === 1 || x.q === 4) ? 12 : 0);
+    dur[b] += x.e - x.s;
+    if (first < 0) first = b;
+    last = b;
+  }
+  let best = { k: prev ? prev.k : 0, m: prev ? prev.m : false, s: -1e9 };
+  for (let k = 0; k < 12; k++) {
+    for (const m of [false, true]) {
+      let sc = 0;
+      for (const [d, mi] of (m ? DEG_MIN : DEG_MAJ)) sc += dur[(k + d) % 12 + (mi ? 12 : 0)];
+      const tonic = k + (m ? 12 : 0);
+      sc += 0.6 * dur[tonic] + (last === tonic ? 0.12 * duration : 0) + (first === tonic ? 0.12 * duration : 0);
+      if (m) sc -= 0.12 * duration;   // en alabanza casi todo es mayor
+      if (sc > best.s) best = { k, m, s: sc };
+    }
+  }
+  return { k: best.k, m: best.m };
+}
+
+/** Afinar los acordes de una pista con el modelo (una sola vez; en cola, de una en una). */
 export function refineChords(id, buffer) {
   if (!id || !buffer || !canRefine() || String(id).startsWith('yt.')) return Promise.resolve(null);
   if (isRefined(cacheGet(id))) return Promise.resolve(null);
   if (refining.has(id)) return refining.get(id);
   const job = refineChain.then(async () => {
-    if (isRefined(cacheGet(id))) return null;
-    const ch = [buffer.getChannelData(0)];
-    if (buffer.numberOfChannels > 1) ch.push(buffer.getChannelData(1));
-    const r = await window.electronAPI.analyzeHarmony({ channels: ch, sampleRate: buffer.sampleRate });
-    if (!r || !r.other || !r.bass) {
-      if (r && r.noGpu) { try { localStorage.setItem(LS_NOGPU, '1'); } catch (_) {} }
-      if (r && r.error) console.warn('[LivePads] acordes precisos:', r.error);
+    const base = cacheGet(id);
+    if (!base || isRefined(base)) return null;
+    const mono = await bufferToMono22050(buffer);
+    const r = await window.electronAPI.analyzeChordsModel({ mono });
+    if (!r || !Array.isArray(r.seg) || !r.seg.length) {
+      if (r && r.error) console.warn('[LivePads] acordes (modelo):', r.error);
       return null;
     }
-    const other = r.other instanceof Float32Array ? r.other : new Float32Array(r.other);
-    const bass = r.bass instanceof Float32Array ? r.bass : new Float32Array(r.bass);
-    const res = await analyzeInWorker(other, null, { bass });
-    res.src = 'stems';
+    const key = keyFromSegments(r.seg, base.d || buffer.duration, base);
+    const res = { ...base, seg: r.seg, k: key.k, m: key.m, src: 'btc' };
     cachePut(id, res);
     announce(id, res);
     return res;
-  }).catch((e) => { console.warn('[LivePads] acordes precisos:', e); return null; })
+  }).catch((e) => { console.warn('[LivePads] acordes (modelo):', e); return null; })
     .finally(() => refining.delete(id));
   refineChain = job.then(() => {}, () => {});
   refining.set(id, job);
