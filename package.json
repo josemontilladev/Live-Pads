@@ -65,6 +65,7 @@
       "preload.js",
       "stemSeparator.js",
       "beatTracker.js",
+      "harmonyWorker.js",
       "src/**/*",
       "companion/**/*",
       "!src/**/*.map",

@@ -2505,8 +2505,48 @@ ipcMain.handle('analysis-beats', async (_e, { mono } = {}) => {
 // Float32 PCM from the renderer; mode '2stem' (voz/instrumental) or '4stem'
 // (voz/batería/bajo/otros). Returns an array of stems. Progress streams
 // back over 'stems-separate-progress'.
+// ── Acordes precisos: separar bajo + otros en un hilo aparte (solo GPU) ──
+// El análisis de acordes se repite sobre esas pistas (sin voz ni batería).
+// Es trabajo de fondo: si la persona separa stems, este se cancela y cede la GPU.
+let harmonyJob = null;   // { worker, promise }
+function cancelHarmony() {
+  const j = harmonyJob;
+  if (!j) return Promise.resolve();
+  try { j.worker.postMessage('cancel'); } catch (_) {}
+  // Si no cede en unos segundos (una ventana de inferencia larga), se termina el hilo.
+  const t = setTimeout(() => { try { j.worker.terminate(); } catch (_) {} }, 4000);
+  return j.promise.finally(() => clearTimeout(t));
+}
+ipcMain.handle('analysis-harmony', async (_e, { channels, sampleRate } = {}) => {
+  const modelsDir = separationModelsDir();
+  for (const f of ['kuielab_a_bass.onnx', 'kuielab_a_other.onnx']) {
+    if (!fs.existsSync(path.join(modelsDir, f))) return { unavailable: true };
+  }
+  if (!channels || !channels[0]) return { error: 'Audio vacío' };
+  if (harmonyJob) return { busy: true };
+  const { Worker } = require('worker_threads');
+  const worker = new Worker(path.join(__dirname, 'harmonyWorker.js'), {
+    workerData: { channels: channels.map((c) => (c instanceof Float32Array ? c : new Float32Array(c))), sampleRate: sampleRate || 44100, modelsDir },
+  });
+  const job = { worker, promise: null };
+  job.promise = new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (settled) return; settled = true; if (harmonyJob === job) harmonyJob = null; resolve(v); try { worker.terminate(); } catch (_) {} };
+    worker.on('message', (m) => {
+      if (!m || m.type === 'progress') return;
+      if (m.type === 'done') done({ other: m.other, bass: m.bass, ep: m.ep });
+      else done({ error: m.error, noGpu: m.noGpu, cancelled: m.cancelled });
+    });
+    worker.on('error', (err) => done({ error: String((err && err.message) || err) }));
+    worker.on('exit', () => done({ cancelled: true }));
+  });
+  harmonyJob = job;
+  return job.promise;
+});
+
 ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = {}) => {
   if (!channels || !channels[0]) throw new Error('Audio vacío');
+  await cancelHarmony();   // la separación que pide la persona tiene prioridad
   const { separate, MODELS } = require('./stemSeparator');
   const modelsDir = separationModelsDir();
   // Verify the models this mode needs are present.

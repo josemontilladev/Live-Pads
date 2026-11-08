@@ -15,9 +15,9 @@ function ensureWorker() {
   if (worker) return worker;
   const src = `const E = (${chordEngineFactory.toString()})();
 self.onmessage = (ev) => {
-  const { id, samples } = ev.data;
+  const { id, samples, opts } = ev.data;
   try {
-    const result = E.analyzeChords(samples, (p, l) => self.postMessage({ id, type: 'progress', p, l }));
+    const result = E.analyzeChords(samples, (p, l) => self.postMessage({ id, type: 'progress', p, l }), opts || {});
     self.postMessage({ id, type: 'done', result });
   } catch (e) {
     self.postMessage({ id, type: 'error', error: String((e && e.message) || e) });
@@ -44,13 +44,16 @@ self.onmessage = (ev) => {
   return worker;
 }
 
-/** Analiza samples (Float32Array mono 11 025 Hz). El buffer se TRANSFIERE (queda vacío aquí). */
-export function analyzeInWorker(samples, onProgress) {
+/** Analiza samples (Float32Array mono 11 025 Hz). El buffer se TRANSFIERE (queda vacío aquí).
+ *  opts: { bass?: Float32Array (también se transfiere), beats?: number[], bpm? } (ver analyzeChords). */
+export function analyzeInWorker(samples, onProgress, opts = null) {
   const w = ensureWorker();
   const id = ++seq;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject, onProgress });
-    w.postMessage({ id, samples }, [samples.buffer]);
+    const transfer = [samples.buffer];
+    if (opts && opts.bass) transfer.push(opts.bass.buffer);
+    w.postMessage({ id, samples, opts }, transfer);
   });
 }
 

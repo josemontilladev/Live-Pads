@@ -81,7 +81,8 @@ function istft(re, im, nF, NB, NFFT, length) {
 // Create a session, preferring DirectML (GPU, ~10x faster) and falling
 // back to CPU. Returns { session, ep }.
 async function createSession(modelPath, preferred) {
-  const order = preferred === 'cpu' ? ['cpu'] : ['dml', 'cpu'];
+  // 'dml-only': solo GPU (análisis en segundo plano: en CPU saturaría el equipo en pleno directo).
+  const order = preferred === 'cpu' ? ['cpu'] : preferred === 'dml-only' ? ['dml'] : ['dml', 'cpu'];
   let lastErr;
   for (const ep of order) {
     try {
@@ -89,7 +90,9 @@ async function createSession(modelPath, preferred) {
       return { session, ep };
     } catch (e) { lastErr = e; }
   }
-  throw lastErr || new Error('No execution provider available');
+  const err = lastErr || new Error('No execution provider available');
+  if (preferred === 'dml-only') err.noGpu = true;
+  throw err;
 }
 
 function cancelledError() { const e = new Error('Separación cancelada'); e.cancelled = true; return e; }
@@ -152,7 +155,7 @@ async function runModel(L, R, modelPath, cfg, ep, onLocal, shouldCancel, onEp) {
 
 const path = require('path');
 
-// mode: '2stem' | '4stem'. modelsDir: absolute path to the models folder.
+// mode: '2stem' | '4stem' | 'otros' | 'armonia'. modelsDir: absolute path to the models folder.
 async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, ep, onProgress, shouldCancel } = {}) {
   let curEp = ep || null;   // execution provider real (se completa al crear la 1ª sesión)
   const report = (frac, stage) => { try { onProgress && onProgress(Math.max(0, Math.min(1, frac)), stage, curEp); } catch (_) {} };
@@ -165,13 +168,16 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
   const mp = (key) => path.join(modelsDir, MODELS[key].file);
   let chosenEp = ep;
 
-  if (mode === '4stem') {
-    const plan = [
+  // 'armonia' (análisis de acordes): solo bajo + otros — sin voz (la melodía
+  // confunde los acordes) ni batería. La mitad de trabajo que los 4 stems.
+  if (mode === '4stem' || mode === 'armonia') {
+    const plan = (mode === 'armonia' ? [] : [
       { key: 'k_vocals', name: 'Voces',     kind: 'vocals' },
       { key: 'k_drums',  name: 'Batería',   kind: 'drums'  },
+    ]).concat([
       { key: 'k_bass',   name: 'Bajo',      kind: 'bass'   },
       { key: 'k_other',  name: 'Otros',     kind: 'other'  },
-    ];
+    ]);
     const stems = [];
     for (let i = 0; i < plan.length; i++) {
       if (shouldCancel && shouldCancel()) throw cancelledError();

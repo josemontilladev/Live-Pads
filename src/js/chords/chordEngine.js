@@ -94,8 +94,16 @@ export function chordEngineFactory() {
    * Analiza x (Float32Array mono a 11 025 Hz; se normaliza EN SITIO).
    * onProgress(p 0..1, etiqueta). Devuelve un objeto JSON-serializable:
    *   { v, d, bpm, k, m, t, db, beats[], seg[{s,e,r,q,b}], w[0..100] }
+   * opts (todo opcional; sin opts el resultado es idéntico al de GI App):
+   *   · bass: Float32Array (mismo largo/frecuencia) con el BAJO separado. Entonces
+   *     x debería ser la pista «otros» (sin voz ni batería) y el bajo de cada
+   *     acorde sale de esta pista limpia.
+   *   · beats: pulsos reales (segundos) y bpm → los acordes se deciden por esos
+   *     pulsos en vez de los del seguidor interno.
    */
-  function analyzeChords(x, onProgress) {
+  function analyzeChords(x, onProgress, opts = {}) {
+    const bassSig = opts.bass && opts.bass.length ? opts.bass : null;
+    const extBeats = opts.beats && opts.beats.length >= 8 ? opts.beats : null;
     const sr = SR;
     const duration = x.length / sr;
     let lastP = 0;
@@ -104,10 +112,15 @@ export function chordEngineFactory() {
       if (onProgress && now - lastP > 60) { lastP = now; onProgress(p, label); }
     };
 
-    // Normalización de volumen
+    // Normalización de volumen (con el bajo aparte, ambas pistas con la MISMA ganancia)
     let peak = 0;
     for (let i = 0; i < x.length; i++) { const a = Math.abs(x[i]); if (a > peak) peak = a; }
-    if (peak > 0) { const g = 0.9 / peak; for (let i = 0; i < x.length; i++) x[i] *= g; }
+    if (bassSig) for (let i = 0; i < bassSig.length; i++) { const a = Math.abs(bassSig[i]); if (a > peak) peak = a; }
+    if (peak > 0) {
+      const g = 0.9 / peak;
+      for (let i = 0; i < x.length; i++) x[i] *= g;
+      if (bassSig) for (let i = 0; i < bassSig.length; i++) bassSig[i] *= g;
+    }
 
     // Envolvente para dibujar (20 por segundo)
     const wHop = Math.floor(sr / 20);
@@ -123,6 +136,12 @@ export function chordEngineFactory() {
     }
     for (let i = 0; i < wave.length; i++) wave[i] = Math.min(1, Math.max(0, wave[i] / wMax));
 
+    let beats, bpm;
+    if (extBeats) {
+      beats = Array.from(extBeats);
+      bpm = opts.bpm > 0 ? opts.bpm : 60 * (beats.length - 1) / (beats[beats.length - 1] - beats[0]);
+      progress(0.32, 'Escuchando la armonía…');
+    } else {
     // ── 1) Pulso: flujo espectral con ventanas cortas ──
     const oN = 1024, oHop = 256;
     const oFft = makeFft(oN);
@@ -181,7 +200,7 @@ export function chordEngineFactory() {
       const den = a - 2 * b + c;
       if (Math.abs(den) > 1e-12) lagF = bestLag + 0.5 * (a - c) / den;
     }
-    let bpm = 60 * fps / lagF;
+    bpm = 60 * fps / lagF;
     progress(0.28, 'Buscando el pulso…');
 
     // Seguimiento de pulsos (Ellis 2007)
@@ -206,7 +225,7 @@ export function chordEngineFactory() {
       beatFrames.push(t);
       if (back[t] < 0) break;
     }
-    const beats = beatFrames.reverse().map(f => f / fps);
+    beats = beatFrames.reverse().map(f => f / fps);
     if (beats.length >= 8) {
       // BPM final: recta que mejor ajusta los pulsos (índice → tiempo), sin los intervalos raros
       const ivs = [];
@@ -222,6 +241,7 @@ export function chordEngineFactory() {
       bpm = slope > 0 ? 60 / slope : 60 / med;
     }
     progress(0.32, 'Escuchando la armonía…');
+    }
 
     // ── 2) Cromagrama con ventanas largas ──
     const cN = 4096, cHop = 1024;
@@ -267,7 +287,7 @@ export function chordEngineFactory() {
     }
     // Parte armónica: mediana en el tiempo (±4 cuadros ≈ ±0,4 s) de cada frecuencia. Las notas sostenidas
     // sobreviven y los golpes de batería (que duran un instante) se van, así no ensucian el cromagrama.
-    {
+    function harmonic(frames, nBins, pBase, pSpan) {
       const R = 4;
       const win = new Float64Array(2 * R + 1);
       const harm = new Array(nC);
@@ -286,9 +306,27 @@ export function chordEngineFactory() {
           h[k] = win[n >> 1];
         }
         harm[t] = h;
-        if (t % 128 === 0) progress(0.70 + 0.02 * t / nC, 'Escuchando la armonía…');
+        if (t % 128 === 0) progress(pBase + pSpan * t / nC, 'Escuchando la armonía…');
       }
       for (let t = 0; t < nC; t++) frames[t] = harm[t];
+    }
+    harmonic(frames, nBins, 0.70, 0.02);
+
+    // Bajo separado: su propio espectro (30–300 Hz: fundamental y primeros armónicos).
+    let bFrames = null, bLo = 0, bBins = 0;
+    const bPc = [], bW = [];
+    if (bassSig) {
+      bLo = Math.max(1, Math.floor(30 / binHz));
+      const bHi = Math.ceil(300 / binHz);
+      bBins = bHi - bLo;
+      bFrames = new Array(nC);
+      for (let t = 0; t < nC; t++) { cFft(bassSig, t * cHop - cN / 2, cmag); bFrames[t] = cmag.slice(bLo, bHi); }
+      harmonic(bFrames, bBins, 0.72, 0.01);
+      for (let k = bLo; k < bHi; k++) {
+        const p = 12 * Math.log2((k * binHz) / 440) + 69 - tune;
+        const n = rnd(p), d = p - n;
+        bPc.push(mod(n, 12)); bW.push(Math.exp(-d * d / (2 * 0.18 * 0.18)));
+      }
     }
     const chroma = new Array(nC), bassC = new Array(nC);
     const energy = new Float64Array(nC);
@@ -299,8 +337,17 @@ export function chordEngineFactory() {
       for (let i = 0; i < f.length; i++) {
         const v = Math.pow(f[i], 0.33) * binW[i]; // compresión suave: las notas suaves cuentan casi como las fuertes
         e += f[i];
-        if (binIsBass[i]) { b[binPc[i]] += v; c[binPc[i]] += v * 0.6; }
+        if (binIsBass[i]) { if (!bFrames) b[binPc[i]] += v; c[binPc[i]] += v * 0.6; }
         else c[binPc[i]] += v;
+      }
+      if (bFrames) {
+        const g = bFrames[t];
+        for (let i = 0; i < bBins; i++) {
+          const v = Math.pow(g[i], 0.33) * bW[i];
+          e += g[i];
+          b[bPc[i]] += v; c[bPc[i]] += v * 0.6;
+        }
+        bFrames[t] = null;
       }
       chroma[t] = c; bassC[t] = b; energy[t] = e;
       frames[t] = null;

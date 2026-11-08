@@ -116,3 +116,50 @@ export async function analyzeFileCached(id, file, onProgress) {
   cachePut(id, r);
   return r;
 }
+
+// ── Acordes precisos (en segundo plano) ───────────────────────────────────
+// Primero se muestra el análisis rápido (mezcla completa). Después, si el
+// equipo tiene GPU, se separan bajo y «otros» (sin voz ni batería, que
+// confunden los acordes) y se repite el análisis sobre esas pistas (medido con
+// 40 canciones de la biblioteca: el reparto de acordes se parece más al cifrado
+// en 24, igual en 9, peor en 7). El resultado sustituye al rápido en la
+// caché y se avisa con «livepads:chords-ready» (la franja se actualiza sola).
+// Sin GPU no se hace: en CPU tardaría minutos y cargaría el equipo en directo.
+const LS_NOGPU = 'livepads.chords.nogpu';
+let refineChain = Promise.resolve();
+const refining = new Map();
+const isRefined = (r) => !!(r && r.src === 'stems');
+
+export function canRefine() {
+  if (!(window.electronAPI && window.electronAPI.analyzeHarmony)) return false;
+  try { return localStorage.getItem(LS_NOGPU) !== '1'; } catch (_) { return true; }
+}
+
+/** Afinar los acordes de una pista (una sola vez; en cola, de una en una). */
+export function refineChords(id, buffer) {
+  if (!id || !buffer || !canRefine() || String(id).startsWith('yt.')) return Promise.resolve(null);
+  if (isRefined(cacheGet(id))) return Promise.resolve(null);
+  if (refining.has(id)) return refining.get(id);
+  const job = refineChain.then(async () => {
+    if (isRefined(cacheGet(id))) return null;
+    const ch = [buffer.getChannelData(0)];
+    if (buffer.numberOfChannels > 1) ch.push(buffer.getChannelData(1));
+    const r = await window.electronAPI.analyzeHarmony({ channels: ch, sampleRate: buffer.sampleRate });
+    if (!r || !r.other || !r.bass) {
+      if (r && r.noGpu) { try { localStorage.setItem(LS_NOGPU, '1'); } catch (_) {} }
+      if (r && r.error) console.warn('[LivePads] acordes precisos:', r.error);
+      return null;
+    }
+    const other = r.other instanceof Float32Array ? r.other : new Float32Array(r.other);
+    const bass = r.bass instanceof Float32Array ? r.bass : new Float32Array(r.bass);
+    const res = await analyzeInWorker(other, null, { bass });
+    res.src = 'stems';
+    cachePut(id, res);
+    announce(id, res);
+    return res;
+  }).catch((e) => { console.warn('[LivePads] acordes precisos:', e); return null; })
+    .finally(() => refining.delete(id));
+  refineChain = job.then(() => {}, () => {});
+  refining.set(id, job);
+  return job;
+}

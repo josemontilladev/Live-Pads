@@ -21,6 +21,10 @@
 .sw-chords.two-rows { height: 36px; }
 .sw-ch.row2 { top: 19px; }
 .sw-ch-msg { font-size: 11px; color: var(--text-muted); line-height: 20px; padding-left: 2px; }
+/* Afinando los acordes con las pistas separadas (segundo plano): un brillo suave que recorre la franja. */
+.sw-chords.is-refining { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.07) 50%, transparent 100%) no-repeat; background-size: 30% 100%; animation: sw-refine 2.4s linear infinite; }
+@keyframes sw-refine { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@media (prefers-reduced-motion: reduce) { .sw-chords.is-refining { animation: none; background-size: 100% 100%; } }
 
 .sw-chordnow { display: none; align-items: baseline; gap: 6px; white-space: nowrap; }
 #seq-wave.has-chords .sw-chordnow { display: inline-flex; }

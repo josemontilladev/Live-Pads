@@ -671,7 +671,9 @@ function onKey(e) {
 async function trackChordsFor(s, a) {
   const T = await import('../chords/trackChords.js');
   const id = T.trackChordId(s, trackType, a.buffer);
-  return T.cacheGet(id) || T.analyzeBufferCached(id, a.buffer);
+  const r = T.cacheGet(id) || await T.analyzeBufferCached(id, a.buffer);
+  T.refineChords(id, a.buffer);
+  return r;
 }
 
 /** Tramo de la sección (de su marcador al siguiente). */

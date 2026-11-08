@@ -133,13 +133,13 @@ function paintOn() {
 /** La pista ya está decodificada (lo llama la onda). */
 export function laneTrackLoaded(t) {
   track = t; result = null; id = null; lastIdx = -2; grid = null; neededZoom = 0; shownSig = '';
-  if (lane) lane.innerHTML = '';
+  if (lane) { lane.innerHTML = ''; lane.classList.remove('is-refining'); }
   if (nowEl) { nowEl.textContent = ''; nextEl.textContent = ''; }
   if (on) request();
 }
 export function laneCleared() {
   track = null; result = null; id = null; grid = null; neededZoom = 0;
-  if (lane) lane.innerHTML = '';
+  if (lane) { lane.innerHTML = ''; lane.classList.remove('is-refining'); }
   if (nowEl) { nowEl.textContent = ''; nextEl.textContent = ''; }
 }
 
@@ -150,7 +150,7 @@ async function request() {
   if (track !== t) return;
   id = T.trackChordId(t.song, t.type, t.audio.buffer);
   const cached = T.cacheGet(id);
-  if (cached) { result = cached; render(); return; }
+  if (cached) { result = cached; render(); refine(t, id); return; }
   const myId = id;
   lane.innerHTML = '<span class="sw-ch-msg">Detectando acordes de la pista…</span>';
   try {
@@ -158,9 +158,19 @@ async function request() {
       if (id === myId && !result) lane.innerHTML = `<span class="sw-ch-msg">Detectando acordes… ${Math.round(p * 100)} %</span>`;
     });
     if (id === myId) { result = r; render(); }
+    refine(t, myId);
   } catch (_) {
     if (id === myId) lane.innerHTML = '<span class="sw-ch-msg">No se pudieron detectar los acordes de esta pista.</span>';
   }
+}
+
+// Después del análisis rápido, el preciso (pistas separadas) en segundo plano; al terminar
+// llega por «livepads:chords-ready» y la franja se redibuja sola.
+function refine(t, myId) {
+  const job = T.refineChords(myId, t.audio.buffer);
+  if (!job || !lane) return;
+  lane.classList.add('is-refining');
+  job.finally(() => { if (id === myId) lane.classList.remove('is-refining'); });
 }
 
 function nameOf(c) {
