@@ -64,6 +64,13 @@
       <div class="topbar-actions">
         <span id="midi-status-pill" class="midi-status-pill hidden" title="" aria-live="polite"></span>
         <span id="topbar-clock" title="Hora actual">--:--</span>
+        <button class="icon-btn upd-ind" id="btn-update" type="button" data-state="idle" title="Buscar actualizaciones" aria-label="Buscar actualizaciones">
+          <svg class="upd-ico" aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></svg>
+          <svg class="upd-spin" aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/></svg>
+          <span class="upd-dot" aria-hidden="true"></span>
+          <span class="upd-label"></span>
+          <span class="upd-meter" aria-hidden="true"><span class="upd-meter-fill"></span></span>
+        </button>
         <button class="icon-btn has-label" id="btn-live-mode" title="Modo en vivo — solo lo esencial (Ctrl+L)" aria-label="Modo en vivo" aria-pressed="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
           <span class="live-label">En vivo</span>

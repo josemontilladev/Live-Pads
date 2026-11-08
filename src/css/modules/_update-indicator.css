@@ -1,0 +1,53 @@
+/* ═══ Icono de actualizaciones en la barra superior (ui/updateIndicator.js) ═══
+   Discreto en reposo; gira al buscar; barra fina + % al descargar; acento al estar lista;
+   punto rojo si falló (el motivo va en el título). */
+.topbar-actions .upd-ind {
+  position: relative; width: auto; min-width: 36px; padding: 0 9px; gap: 6px;
+  color: var(--text-muted); opacity: .75;
+}
+.topbar-actions .upd-ind:hover { opacity: 1; }
+.upd-ind svg { width: 18px; height: 18px; flex: none; }
+.upd-ind .upd-spin { display: none; }
+.upd-ind .upd-label { display: none; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.upd-ind .upd-dot { display: none; position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; }
+.upd-ind .upd-meter {
+  display: none; position: absolute; left: 9px; right: 9px; bottom: 5px; height: 2px;
+  border-radius: 2px; background: color-mix(in srgb, var(--text-muted) 25%, transparent); overflow: hidden;
+}
+.upd-ind .upd-meter-fill { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .4s ease; }
+
+/* Buscando */
+.upd-ind[data-state="checking"] { opacity: 1; }
+.upd-ind[data-state="checking"] .upd-ico { display: none; }
+.upd-ind[data-state="checking"] .upd-spin { display: block; animation: upd-rot 1s linear infinite; }
+
+/* Descargando */
+.upd-ind[data-state="downloading"] { opacity: 1; color: var(--text); }
+.upd-ind[data-state="downloading"] .upd-label,
+.upd-ind[data-state="downloading"] .upd-meter { display: block; }
+.upd-ind[data-state="downloading"] .upd-ico { animation: upd-bob 1.6s ease-in-out infinite; }
+
+/* Lista para instalar */
+.upd-ind[data-state="ready"] {
+  opacity: 1; background: var(--accent); color: var(--on-accent, #0a0a14); border-radius: 999px;
+  animation: update-pulse 2.4s ease-out infinite;
+}
+.upd-ind[data-state="ready"]:hover { background: var(--accent); filter: brightness(1.08); }
+.upd-ind[data-state="ready"] .upd-label { display: block; }
+
+/* Al día (un momento) */
+.upd-ind[data-state="latest"] { opacity: 1; color: var(--accent); }
+
+/* Error */
+.upd-ind[data-state="error"] { opacity: 1; }
+.upd-ind[data-state="error"] .upd-dot { display: block; background: #ff5a5f; box-shadow: 0 0 0 2px var(--bg, #0b0b12); }
+
+@keyframes upd-rot { to { transform: rotate(360deg); } }
+@keyframes upd-bob { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(1.5px); } }
+@media (prefers-reduced-motion: reduce) {
+  .upd-ind[data-state="checking"] .upd-spin, .upd-ind[data-state="downloading"] .upd-ico, .upd-ind[data-state="ready"] { animation: none; }
+}
+/* Pantallas estrechas: solo el icono (el % sigue en la barra y en el título) */
+@media (max-width: 900px) {
+  .upd-ind[data-state="downloading"] .upd-label { display: none; }
+}

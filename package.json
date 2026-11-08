@@ -148,7 +148,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "LivePads",
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": false
     },
     "afterPack": "scripts/afterPack.js"
   }

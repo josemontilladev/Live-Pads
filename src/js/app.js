@@ -88,6 +88,7 @@ import { htmlToPlainLyrics } from './utils/text.js';
 import { initSeqWaveform } from './ui/seqWaveform.js';
 import { initPracticeMode } from './ui/practiceMode.js';
 import { initLiveLyrics } from './ui/liveLyrics.js';
+import { initUpdateIndicator, _testState as updTestState } from './ui/updateIndicator.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
 // la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';
@@ -2342,7 +2343,8 @@ if (window.electronAPI && window.electronAPI.getAppVersion) {
         if (r.status === 'available')      { downloadingVersion = r.version || ''; renderProgress(0); }
         else if (r.status === 'latest')    statusEl.textContent = 'Ya tienes la última versión ✓';
         else if (r.status === 'dev')       statusEl.textContent = 'Solo disponible en la app instalada';
-        else                               { statusEl.textContent = 'No se pudo comprobar'; statusEl.classList.add('is-error'); }
+        else if (r.status === 'ready')     statusEl.textContent = `✓ Versión ${r.version || 'nueva'} descargada — listo para reiniciar`;
+        else                               { statusEl.textContent = `No se pudo comprobar: ${r.message || 'error desconocido'}`; statusEl.classList.add('is-error'); }
       } catch (e) {
         statusEl.textContent = 'No se pudo comprobar';
         statusEl.classList.add('is-error');
@@ -2372,19 +2374,7 @@ function showUpdateReady(info) {
   const version = info && info.version ? ` (v${info.version})` : '';
   const install = () => window.electronAPI.installUpdate();
 
-  // 1) Botón fijo arriba
-  let pill = document.getElementById('update-pill');
-  if (!pill) {
-    pill = document.createElement('button');
-    pill.id = 'update-pill';
-    pill.type = 'button';
-    pill.className = 'update-pill';
-    const host = document.querySelector('#topbar .topbar-actions');
-    if (host) host.insertBefore(pill, host.firstChild); else document.body.appendChild(pill);
-    pill.onclick = install;
-  }
-  pill.innerHTML = `<span class="update-pill-dot"></span>Reiniciar para actualizar${version}`;
-  pill.title = 'Hay una versión nueva descargada: reinicia LivePads para aplicarla';
+  // 1) El icono de actualizaciones del header pasa a «Reiniciar» solo (ui/updateIndicator.js).
 
   // 2) Estado + botón en «Acerca»
   const st = document.getElementById('update-status');
@@ -2428,6 +2418,8 @@ function showUpdateReady(info) {
 }
 
 window.__showUpdateReady = showUpdateReady; // (también sirve para probar la interfaz)
+window.__updState = updTestState;            // (prueba del icono del header)
+initUpdateIndicator();
 if (window.electronAPI && window.electronAPI.onUpdateReady) {
   window.electronAPI.onUpdateReady(showUpdateReady);
   // Si ya había una descarga lista (p. ej. tras recargar la ventana), mostrarla.

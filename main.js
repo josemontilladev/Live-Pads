@@ -2492,13 +2492,30 @@ function separationModelsDir() {
 // Recibe audio mono a 22 050 Hz y devuelve { beats, downbeats, bpm, beatsPerBar, ep }.
 // Sin el modelo (instalaciones viejas) responde { unavailable: true } y la app
 // usa su detector anterior.
+// Corre en el hilo de análisis (analysisWorker.js): el espectrograma y la
+// inferencia no bloquean el proceso principal.
+function runAnalysisWorker(workerData) {
+  const { Worker } = require('worker_threads');
+  const worker = new Worker(path.join(__dirname, 'analysisWorker.js'), { workerData });
+  const promise = new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (settled) return; settled = true; resolve(v); try { worker.terminate(); } catch (_) {} };
+    worker.on('message', (m) => {
+      if (m && m.type === 'done') done(m.result);
+      else if (m && m.type === 'error') done({ error: m.error });
+    });
+    worker.on('error', (err) => done({ error: String((err && err.message) || err) }));
+    worker.on('exit', () => done({ cancelled: true }));
+  });
+  return { worker, promise };
+}
 ipcMain.handle('analysis-beats', async (_e, { mono } = {}) => {
   const modelPath = path.join(separationModelsDir(), 'beat_this_final0.onnx');
   if (!fs.existsSync(modelPath)) return { unavailable: true };
   if (!mono || !mono.length) throw new Error('Audio vacío');
-  const { trackBeats } = require('./beatTracker');
-  const x = mono instanceof Float32Array ? mono : new Float32Array(mono);
-  return trackBeats(x, modelPath, {});
+  const r = await runAnalysisWorker({ task: 'beats', mono: mono instanceof Float32Array ? mono : new Float32Array(mono), modelPath }).promise;
+  if (r && r.error) throw new Error(r.error);
+  return r;
 });
 
 // Local stem separation (MDX-Net via onnxruntime-node). Receives decoded
@@ -2521,20 +2538,10 @@ ipcMain.handle('analysis-chords', async (_e, { mono } = {}) => {
   if (!fs.existsSync(modelPath)) return { unavailable: true };
   if (!mono || !mono.length) return { error: 'Audio vacío' };
   if (chordJob) return { busy: true };
-  const { Worker } = require('worker_threads');
-  const worker = new Worker(path.join(__dirname, 'analysisWorker.js'), {
-    workerData: { task: 'chords', mono: mono instanceof Float32Array ? mono : new Float32Array(mono), modelPath },
-  });
-  const job = { worker, promise: null };
-  job.promise = new Promise((resolve) => {
-    let settled = false;
-    const done = (v) => { if (settled) return; settled = true; if (chordJob === job) chordJob = null; resolve(v); try { worker.terminate(); } catch (_) {} };
-    worker.on('message', (m) => {
-      if (m && m.type === 'done') done({ seg: m.seg, ep: m.ep });
-      else if (m && m.type === 'error') done({ error: m.error });
-    });
-    worker.on('error', (err) => done({ error: String((err && err.message) || err) }));
-    worker.on('exit', () => done({ cancelled: true }));
+  const job = runAnalysisWorker({ task: 'chords', mono: mono instanceof Float32Array ? mono : new Float32Array(mono), modelPath });
+  job.promise = job.promise.then((r) => {
+    if (chordJob === job) chordJob = null;
+    return r && Array.isArray(r.seg) ? { seg: r.seg, ep: r.ep } : r;
   });
   chordJob = job;
   return job.promise;
@@ -2797,54 +2804,162 @@ app.whenReady().then(() => {
     companionServer.start().catch(e => console.warn('Companion autostart failed:', e.message));
   }
 
-  checkForUpdates();
+  checkForUpdates({ quiet: true });
   // Quien deja la app abierta días también recibe la actualización: se revisa cada 30 min.
-  setInterval(checkForUpdates, 30 * 60 * 1000);
+  setInterval(() => checkForUpdates({ quiet: true }), 30 * 60 * 1000);
 });
 
-// Auto-update via electron-updater + GitHub Releases. Only in the packaged
-// app; failures (offline, no release yet, misconfig) are swallowed so they
-// never block startup. Downloads in the background and installs on quit.
+// ── Actualizaciones (electron-updater + GitHub Releases) ──────────────────
+// Solo en la app instalada. Un único estado que la interfaz sigue en vivo
+// (icono del header, panel «Acerca», actualización obligatoria):
+//   idle · checking · downloading (percent) · ready (version, notes) · latest · error (message)
+// Robustez (antes una búsqueda podía quedarse «Buscando…» para siempre):
+//  · Descarga COMPLETA, nunca diferencial: con la compresión máxima y los modelos
+//    casi todo el instalador cambia entre versiones, y la diferencial pedía miles
+//    de trozos sueltos a GitHub (lentísima, sin progreso y con respuestas 503).
+//  · Tiempo máximo para buscar (45 s) y vigilancia de la descarga: si no avanza en
+//    90 s se cancela y se reintenta una vez; si vuelve a fallar, error con su motivo.
+//  · Fuente directa (latest/download), sin las páginas de GitHub que a veces se cuelgan.
+//  · Registro en <datos de la app>/logs/updater.log para poder diagnosticar.
 let _autoUpdater = null;
-let _updaterWired = false;
 let _updateReady = null;   // { version, notes } cuando ya se descargó una actualización
-// Lazily load electron-updater and register its event listeners once. Events
-// are forwarded to the renderer: live download progress, ready-to-install,
-// and errors — so the UI can show a real progress bar and clear feedback.
+let _upd = { state: 'idle' };
+let _updCheck = null;      // búsqueda en curso (para no lanzar dos)
+let _updDownload = null;   // { token, promise, last, retried }
+
+function updLog(level, msg) {
+  try {
+    const dir = path.join(app.getPath('userData'), 'logs');
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, 'updater.log');
+    try { if (fs.statSync(f).size > 512 * 1024) fs.renameSync(f, f + '.1'); } catch (_) {}
+    fs.appendFileSync(f, `${new Date().toISOString()} [${level}] ${String(msg).slice(0, 2000)}\n`);
+  } catch (_) {}
+}
+function updSend(channel, payload) {
+  try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload); } catch (_) {}
+}
+function setUpd(patch) {
+  _upd = { ...patch, current: app.getVersion() };
+  updSend('update-state', _upd);
+}
+
 function getAutoUpdater() {
   if (_autoUpdater) return _autoUpdater;
   let autoUpdater;
   try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return null; }
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;              // la descarga la lleva downloadNow() (para poder vigilarla)
+  if (UPDATER_DEV) autoUpdater.forceDevUpdateConfig = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.disableDifferentialDownload = true;
+  autoUpdater.disableWebInstaller = true;
+  // Fuente: el enlace directo a los archivos de la última versión publicada
+  // («releases/latest/download/latest.yml», una redirección al CDN de GitHub). El
+  // método «github» de electron-updater consulta releases.atom y /releases/latest,
+  // páginas web de GitHub que a veces tardan minutos o devuelven 504: era lo que
+  // dejaba la búsqueda colgada. Las prereleases (models-v1) no cuentan como «latest».
+  try {
+    autoUpdater.setFeedURL({ provider: 'generic', url: 'https://github.com/josemontilladev/Live-Pads/releases/latest/download' });
+  } catch (e) { updLog('warn', 'setFeedURL: ' + (e && e.message)); }
+  autoUpdater.logger = {
+    info: (m) => updLog('info', m), warn: (m) => updLog('warn', m),
+    error: (m) => updLog('error', m), debug: () => {},
+  };
+  autoUpdater.on('download-progress', (p) => {
+    if (_updDownload) _updDownload.last = Date.now();
+    setUpd({ state: 'downloading', version: _upd.version, percent: p.percent, bytesPerSecond: p.bytesPerSecond, total: p.total });
+    updSend('update-progress', { percent: p.percent, transferred: p.transferred, total: p.total, bytesPerSecond: p.bytesPerSecond });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    // releaseNotes puede ser texto o [{version, note}]: se deja en texto plano corto.
+    let notes = info && info.releaseNotes;
+    if (Array.isArray(notes)) notes = notes.map(n => (n && n.note) || '').join('\n');
+    if (typeof notes === 'string') notes = notes.replace(/<[^>]+>/g, '').trim().slice(0, 600);
+    _updateReady = { version: info && info.version, notes: notes || '' };
+    setUpd({ state: 'ready', ..._updateReady });
+    updSend('update-ready', _updateReady);
+  });
   _autoUpdater = autoUpdater;
-  if (!_updaterWired) {
-    _updaterWired = true;
-    const send = (channel, payload) => {
-      try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload); } catch (_) {}
-    };
-    autoUpdater.on('download-progress', (p) => send('update-progress', {
-      percent: p.percent, transferred: p.transferred, total: p.total, bytesPerSecond: p.bytesPerSecond,
-    }));
-    autoUpdater.on('update-downloaded', (info) => {
-      // releaseNotes can be a string or an array of {version, note} — normalise
-      // to a short plain-text string for the in-app "what's new" line.
-      let notes = info && info.releaseNotes;
-      if (Array.isArray(notes)) notes = notes.map(n => (n && n.note) || '').join('\n');
-      if (typeof notes === 'string') notes = notes.replace(/<[^>]+>/g, '').trim().slice(0, 600);
-      _updateReady = { version: info && info.version, notes: notes || '' };
-      send('update-ready', _updateReady);
-    });
-    autoUpdater.on('error', (err) => send('update-error', { message: (err && err.message) || String(err) }));
-  }
   return autoUpdater;
 }
 
-function checkForUpdates() {
-  if (!app.isPackaged) return;
+const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))]);
+function friendlyUpdError(e) {
+  const m = String((e && e.message) || e || '');
+  if (/ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ERR_INTERNET_DISCONNECTED|ERR_NAME_NOT_RESOLVED|ERR_PROXY|ERR_CONNECTION|ERR_NETWORK_CHANGED|ERR_ADDRESS_UNREACHABLE/i.test(m)) return 'Sin conexión con GitHub (revisa internet, o un proxy o firewall que lo bloquee).';
+  if (/no respondió|timeout|ETIMEDOUT|ERR_TIMED_OUT/i.test(m)) return 'GitHub no respondió a tiempo. Vuelve a intentarlo en un rato.';
+  if (/\b(503|502|429)\b/.test(m)) return 'GitHub está saturado ahora mismo. Vuelve a intentarlo en unos minutos.';
+  if (/ENOSPC/i.test(m)) return 'No hay espacio libre en el disco para descargar la actualización.';
+  if (/EPERM|EACCES/i.test(m)) return 'Windows no dejó guardar la descarga (permisos o antivirus).';
+  return m.split('\n')[0].slice(0, 160) || 'Error desconocido';
+}
+
+// Descarga con vigilancia: si en 90 s no llega progreso, se cancela y se reintenta una vez.
+function downloadNow(au, version) {
+  if (_updDownload) return _updDownload.promise;
+  const { CancellationToken } = require('electron-updater');
+  const run = (retried) => {
+    const token = new CancellationToken();
+    const d = { token, last: Date.now(), retried, promise: null };
+    _updDownload = d;
+    setUpd({ state: 'downloading', version, percent: 0 });
+    const watch = setInterval(() => {
+      if (Date.now() - d.last > 90000) { updLog('warn', 'Descarga sin progreso 90 s: se cancela'); clearInterval(watch); token.cancel(); }
+    }, 5000);
+    d.promise = au.downloadUpdate(token)
+      .then(() => { clearInterval(watch); if (_updDownload === d) _updDownload = null; })
+      .catch((e) => {
+        clearInterval(watch); if (_updDownload === d) _updDownload = null;
+        updLog('error', 'Descarga: ' + ((e && e.stack) || e));
+        if (!retried) return run(true);
+        const message = token.cancelled ? 'La descarga se detuvo (la conexión no avanza). Vuelve a intentarlo.' : friendlyUpdError(e);
+        setUpd({ state: 'error', message, version });
+        updSend('update-error', { message });
+      });
+    return d.promise;
+  };
+  return run(false);
+}
+
+// Busca (y, si hay versión nueva, empieza a descargar). Nunca se queda colgada.
+// quiet: búsquedas automáticas (al abrir y cada 30 min): no mueven el icono ni muestran
+// errores (en pleno directo no debe aparecer nada); solo se nota si hay algo que descargar.
+// Solo para probar el actualizador en desarrollo: LIVEPADS_UPDATER_DEV=1 (sin efecto en la app instalada).
+const UPDATER_DEV = !app.isPackaged && process.env.LIVEPADS_UPDATER_DEV === '1';
+async function checkForUpdates({ quiet = false } = {}) {
+  if (!app.isPackaged && !UPDATER_DEV) return { status: 'dev' };
   const au = getAutoUpdater();
-  if (!au) return;
-  au.checkForUpdates().catch(e => console.warn('Update check failed:', e && e.message));
+  if (!au) return { status: 'error', message: 'El actualizador no está disponible.' };
+  if (_updateReady) return { status: 'ready', version: _updateReady.version };
+  if (_updDownload) return { status: 'available', version: _upd.version, downloading: true };
+  if (_updCheck) {
+    if (quiet) return _updCheck;
+    // Se pulsó el icono durante una búsqueda silenciosa: se muestra y se espera su resultado.
+    setUpd({ state: 'checking' });
+    const r = await _updCheck;
+    if (r.status === 'latest') setUpd({ state: 'latest' });
+    else if (r.status === 'error') setUpd({ state: 'error', message: r.message });
+    return r;
+  }
+  if (!quiet) setUpd({ state: 'checking' });
+  _updCheck = (async () => {
+    try {
+      const r = await withTimeout(au.checkForUpdates(), 45000, 'GitHub no respondió (45 s)');
+      const latest = r && r.updateInfo && r.updateInfo.version;
+      if (latest && r.isUpdateAvailable !== false && latest !== app.getVersion()) {
+        downloadNow(au, latest);
+        return { status: 'available', version: latest };
+      }
+      if (!quiet) setUpd({ state: 'latest' });
+      return { status: 'latest', version: app.getVersion() };
+    } catch (e) {
+      updLog('error', 'Búsqueda: ' + ((e && e.stack) || e));
+      const message = friendlyUpdError(e);
+      if (!quiet) setUpd({ state: 'error', message });
+      return { status: 'error', message };
+    } finally { _updCheck = null; }
+  })();
+  return _updCheck;
 }
 
 // Quit and install a downloaded update (triggered from the renderer banner).
@@ -2872,24 +2987,10 @@ ipcMain.handle('is-packaged', () => app.isPackaged);
 // ¿Hay ya una actualización descargada? (la UI lo pregunta al abrir o recargar)
 ipcMain.handle('update-status', () => _updateReady);
 
-// Manual "check for updates" from the Info panel. Returns a status the
-// renderer can show. In dev (not packaged) there's nothing to check. When an
-// update exists, the download starts and progress streams over 'update-progress'.
-ipcMain.handle('check-for-updates', async () => {
-  if (!app.isPackaged) return { status: 'dev' };
-  const au = getAutoUpdater();
-  if (!au) return { status: 'error', message: 'updater no disponible' };
-  try {
-    const r = await au.checkForUpdates();
-    const latest = r && r.updateInfo && r.updateInfo.version;
-    if (latest && latest !== app.getVersion()) {
-      return { status: 'available', version: latest };
-    }
-    return { status: 'latest', version: app.getVersion() };
-  } catch (e) {
-    return { status: 'error', message: e && e.message };
-  }
-});
+// Buscar actualizaciones a mano (icono del header, «Acerca»). Devuelve enseguida si ya
+// hay una descarga en curso o lista; el progreso llega por 'update-state'.
+ipcMain.handle('check-for-updates', () => checkForUpdates());
+ipcMain.handle('update-get-state', () => ({ ..._upd, current: app.getVersion(), packaged: app.isPackaged }));
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', async () => {
   try { await companionServer.stop(); } catch (e) {}
