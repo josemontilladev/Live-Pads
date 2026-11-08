@@ -668,12 +668,18 @@ function onKey(e) {
   if (e.key === 'Delete' || e.key === 'Backspace') { handled(); const id = m.id; selectedId = null; removeMarker(id); }
 }
 
+// Acordes de la pista para ubicar las secciones de la letra: se esperan los del modelo
+// (BTC, unos segundos) porque aciertan bastante más que los rápidos, también el tono
+// letra → audio; si no llegan en 30 s (o no hay modelo), se usan los rápidos.
 async function trackChordsFor(s, a) {
   const T = await import('../chords/trackChords.js');
   const id = T.trackChordId(s, trackType, a.buffer);
   const r = T.cacheGet(id) || await T.analyzeBufferCached(id, a.buffer);
-  T.refineChords(id, a.buffer);
-  return r;
+  const better = await Promise.race([
+    T.refineChords(id, a.buffer).catch(() => null),
+    new Promise((res) => setTimeout(() => res(null), 30000)),
+  ]);
+  return better || T.cacheGet(id) || r;
 }
 
 /** Tramo de la sección (de su marcador al siguiente). */
