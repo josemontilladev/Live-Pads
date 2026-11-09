@@ -908,3 +908,23 @@
 .stl-loop.is-picked { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .stl-loading { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stl-packs > .stl-pbar { flex: 1 1 auto; }
+
+/* ═══ Escucha previa: barritas animadas, progreso y «desde el compás N» ═══ */
+.stl-loop { position: relative; }
+.stl-loop.is-playing { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.stl-loop.is-playing .stl-play { background: var(--accent) !important; color: var(--on-accent, #0a0a0a) !important; border-color: var(--accent) !important; }
+.stl-eq { display: none; align-items: flex-end; gap: 2px; height: 11px; margin-left: 7px; vertical-align: -1px; }
+.stl-eq i { width: 3px; border-radius: 2px; background: var(--accent); animation: stl-eq .9s ease-in-out infinite; }
+.stl-eq i:nth-child(2) { animation-delay: -.3s; }
+.stl-eq i:nth-child(3) { animation-delay: -.6s; }
+@keyframes stl-eq { 0%, 100% { height: 3px; } 50% { height: 11px; } }
+.stl-loop.is-playing .stl-eq { display: inline-flex; }
+.stl-loop.has-progress::after {
+  content: ''; position: absolute; left: 8px; right: 8px; bottom: 2px; height: 2px; border-radius: 2px;
+  background: var(--accent); transform-origin: left center; transform: scaleX(0);
+  animation: stl-pv var(--pv-dur, 8s) linear infinite; animation-delay: var(--pv-delay, 0s);
+}
+@keyframes stl-pv { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.stl-pv-from { flex: none; font-size: 11px; font-weight: 650; color: var(--accent); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .stl-eq i { animation: none; height: 8px; } }
+.stl-loop-title .stl-pv-from { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent); vertical-align: 1px; }

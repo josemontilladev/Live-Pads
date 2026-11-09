@@ -185,6 +185,7 @@ export function mountLibraryPanel(host, api) {
   const preview = { id: null, src: null, srcs: [], el: null, cache: new Map() };
 
   function stopPreview() {
+    preview.info = null;
     if (preview.src) { try { preview.src.stop(); } catch (_) {} preview.src = null; }
     preview.srcs.forEach((s) => { try { s.stop(); } catch (_) {} }); preview.srcs = [];
     if (preview.el) { try { preview.el.pause(); preview.el.src = ''; } catch (_) {} preview.el = null; }
@@ -192,30 +193,53 @@ export function mountLibraryPanel(host, api) {
     paintPlaying();
   }
 
-  // Pistas de canción completa: para escuchar basta el principio (16 compases).
+  // Pistas de canción completa: se escuchan 16 compases, empezando en el primer
+  // compás CON SONIDO (muchas pistas empiezan en silencio: guitarras, coros…).
   const PREVIEW_BARS = 16;
+  function firstSoundBar(raw, barSec) {
+    const sr = raw.sampleRate, barLen = Math.max(1, Math.round(barSec * sr));
+    const bars = Math.floor(raw.length / barLen);
+    if (bars < 2) return 0;
+    const chs = Array.from({ length: raw.numberOfChannels }, (_, c) => raw.getChannelData(c));
+    const rms = new Float32Array(bars);
+    let max = 0;
+    for (let b = 0; b < bars; b++) {
+      let sum = 0, n = 0;
+      for (let i = b * barLen, end = i + barLen; i < end; i += 16) {
+        for (const d of chs) { sum += d[i] * d[i]; n++; }
+      }
+      rms[b] = Math.sqrt(sum / (n || 1));
+      if (rms[b] > max) max = rms[b];
+    }
+    const th = Math.max(0.004, max * 0.12);
+    for (let b = 0; b < bars; b++) if (rms[b] >= th) return Math.min(b, Math.max(0, bars - PREVIEW_BARS));
+    return 0;
+  }
   async function fittedBuffer(loop, project) {
     const long = loop.bars > PREVIEW_BARS;
     const spec = long ? { ...loopSpec(loop), bars: PREVIEW_BARS } : loopSpec(loop);
     const fit = fitLoop(spec, project);
     const key = `${loop.id}|${fit.ratio.toFixed(5)}|${fit.semitones}`;
-    let buf = preview.cache.get(key);
-    if (buf) return { buf, fit };
+    const hit = preview.cache.get(key);
+    if (hit) return { buf: hit.buf, fit, startBar: hit.startBar };
     const { ctx } = api.getAudioOut();
     const url = await stemLibrary.ensurePreviewLocal(loop);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     let raw = await ctx.decodeAudioData(await res.arrayBuffer());
+    let startBar = 0;
     if (long) {
-      const sec = PREVIEW_BARS * (loop.beats_per_bar || 4) * 60 / Number(loop.bpm);
-      const len = Math.min(raw.length, Math.round(sec * raw.sampleRate));
+      const barSec = (loop.beats_per_bar || 4) * 60 / Number(loop.bpm);
+      startBar = firstSoundBar(raw, barSec);
+      const from = Math.round(startBar * barSec * raw.sampleRate);
+      const len = Math.min(raw.length - from, Math.round(PREVIEW_BARS * barSec * raw.sampleRate));
       const cut = new AudioBuffer({ numberOfChannels: raw.numberOfChannels, length: len, sampleRate: raw.sampleRate });
-      for (let c = 0; c < raw.numberOfChannels; c++) cut.getChannelData(c).set(raw.getChannelData(c).subarray(0, len));
+      for (let c = 0; c < raw.numberOfChannels; c++) cut.getChannelData(c).set(raw.getChannelData(c).subarray(from, from + len));
       raw = cut;
     }
-    buf = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: project.bpm, repeats: 1 });
-    preview.cache.set(key, buf);
-    return { buf, fit };
+    const buf = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: project.bpm, repeats: 1 });
+    preview.cache.set(key, { buf, startBar });
+    return { buf, fit, startBar };
   }
 
   function nextBarDelay(project) {
@@ -236,7 +260,7 @@ export function mountLibraryPanel(host, api) {
     const key = `${loop.id}|${fit.ratio.toFixed(5)}|${fit.semitones}`;
     try {
       const cached = preview.cache.has(key);
-      if (!cached && !stemLibrary.isUsingOfflineCopy() && !(await stemLibrary.isPreviewLocal(loop))) {
+      if (!cached && loop.bars <= PREVIEW_BARS && !stemLibrary.isUsingOfflineCopy() && !(await stemLibrary.isPreviewLocal(loop))) {
         // Al instante: streaming desde la nube (tempo ajustado; el tono llega enseguida).
         try {
           const url = await stemLibrary.previewStreamUrl(loop);
@@ -251,7 +275,7 @@ export function mountLibraryPanel(host, api) {
         } catch (_) { /* sin streaming: se espera a la versión ajustada */ }
       }
       setBusy(loop.id, !preview.el);
-      const { buf } = await fittedBuffer(loop, project);
+      const { buf, startBar } = await fittedBuffer(loop, project);
       if (preview.id !== loop.id) return; // el usuario ya pidió otra cosa
       const { ctx, dest } = api.getAudioOut();
       const src = ctx.createBufferSource();
@@ -267,6 +291,7 @@ export function mountLibraryPanel(host, api) {
       } else when += nextBarDelay(project);
       src.start(when, offset);
       preview.src = src;
+      preview.info = { dur: buf.duration, delay: Math.max(0, when - ctx.currentTime), offset, from: startBar ? startBar + 1 : 0 };
       paintPlaying();
       stemLibrary.trackLoopEvent(loop.id, 'preview');
     } catch (e) {
@@ -769,7 +794,7 @@ export function mountLibraryPanel(host, api) {
         <label class="stl-pick" title="Marcar para cargar varias a la vez"><input type="checkbox" data-sel="${esc(l.id)}"${sel.has(l.id) ? ' checked' : ''}${canPick ? '' : ' disabled'} aria-label="Marcar ${esc(l.title)}"></label>
         <button type="button" class="stl-play" data-act="preview" title="Escuchar ajustado al proyecto (suena al instante)">${SVG_PLAY}</button>
         <div class="stl-loop-main">
-          <div class="stl-loop-title">${favs.has(l.id) ? '<span class="stl-star" title="Favorito">★</span>' : ''}${esc(l.title)}</div>
+          <div class="stl-loop-title">${favs.has(l.id) ? '<span class="stl-star" title="Favorito">★</span>' : ''}${esc(l.title)}<span class="stl-eq" aria-hidden="true"><i></i><i></i><i></i></span></div>
           <div class="stl-loop-meta">
             <span class="stl-tag stl-tag--${esc(l.instrument)}">${INSTRUMENTS[l.instrument] || esc(l.instrument)}</span>
             <span class="stl-loop-bars">${l.bars} comp.</span>
@@ -842,6 +867,19 @@ export function mountLibraryPanel(host, api) {
       row.classList.toggle('is-streaming', on && !!preview.el);
       const b = row.querySelector('.stl-play');
       if (b) b.innerHTML = on ? SVG_STOP : SVG_PLAY;
+      // Progreso del fragmento (animación CSS: sin trabajo por fotograma en JS).
+      const info = on && preview.info;
+      row.classList.toggle('has-progress', !!info);
+      if (info) {
+        row.style.setProperty('--pv-dur', `${info.dur.toFixed(3)}s`);
+        row.style.setProperty('--pv-delay', `${(info.delay - info.offset).toFixed(3)}s`);
+      }
+      let from = row.querySelector('.stl-pv-from');
+      if (info && info.from > 1) {
+        if (!from) { from = document.createElement('span'); from.className = 'stl-pv-from'; row.querySelector('.stl-loop-title')?.appendChild(from); }
+        from.textContent = `comp. ${info.from}`;
+        from.title = `La escucha empieza en el compás ${info.from}: antes la pista está en silencio`;
+      } else if (from) from.remove();
     });
   }
 

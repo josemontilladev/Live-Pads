@@ -217,3 +217,11 @@
 #workspace-stems .sb--sm .sb-row--tools .stems-mini-select { max-width: 92px; }
 #workspace-stems .sb--xs #stems-restart { display: none; } #workspace-stems .sb--xs .sb-time .stems-tb-time { font-size: 12.5px; } #workspace-stems .sb--xs .sb-zone--transport.stems-tb-mid { padding-right: 10px; }
 #workspace-stems .sb-time #stems-tb-total, #workspace-stems .sb-time .stems-tb-time-sep { display: inline !important; } /* siempre «transcurrido / total» */
+
+/* Transporte: más ancho y menos alto */
+#workspace-stems .sb-zone--transport.stems-tb-mid { gap: 8px; padding: 2px 16px 2px 6px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn { width: 26px; height: 26px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn svg { width: 11px; height: 11px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn--play { width: 30px; height: 30px; margin: 0 4px; box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 28%, transparent); }
+#workspace-stems .stems-tb-mid .stems-tb-btn--play svg { width: 13px; height: 13px; }
+#workspace-stems .sb-time { margin-left: 10px; }
