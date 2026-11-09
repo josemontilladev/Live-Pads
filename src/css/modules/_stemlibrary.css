@@ -930,3 +930,15 @@
 .stl-loop-title .stl-pv-from { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent); vertical-align: 1px; }
 .stl-foot label[hidden], .stl-foot-hint[hidden] { display: none !important; }
 .stl-foot[hidden] { display: none !important; }
+
+/* ═══ «Escuchar el pack»: mini espectro de la mezcla con progreso ═══ */
+.stl-pack-wave { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.stl-pack-wave[hidden] { display: none; }
+.stl-pack-wave-k { font-size: 11px; font-weight: 650; color: var(--accent); }
+.stl-pack-wave-box { position: relative; height: 34px; border-radius: 8px; overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-hover)); }
+.stl-pack-wave-box canvas { display: block; width: 100%; height: 100%; opacity: .55; }
+.stl-pack-wave-prog { position: absolute; inset: 0; width: 100%; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent) 0 calc(100% - 2px), var(--accent) 0);
+  transform-origin: left center; transform: scaleX(0); }
+.stl-pack-wave.is-running .stl-pack-wave-prog { animation: stl-pv var(--pv-dur, 8s) linear infinite; animation-delay: var(--pv-delay, 0s); }

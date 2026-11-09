@@ -186,6 +186,8 @@ export function mountLibraryPanel(host, api) {
 
   function stopPreview() {
     preview.info = null;
+    const pw = ref('packcard')?.querySelector('.stl-pack-wave');
+    if (pw) { pw.hidden = true; pw.classList.remove('is-running'); }
     if (preview.src) { try { preview.src.stop(); } catch (_) {} preview.src = null; }
     preview.srcs.forEach((s) => { try { s.stop(); } catch (_) {} }); preview.srcs = [];
     if (preview.el) { try { preview.el.pause(); preview.el.src = ''; } catch (_) {} preview.el = null; }
@@ -215,22 +217,25 @@ export function mountLibraryPanel(host, api) {
     for (let b = 0; b < bars; b++) if (rms[b] >= th) return Math.min(b, Math.max(0, bars - PREVIEW_BARS));
     return 0;
   }
-  async function fittedBuffer(loop, project) {
-    const long = loop.bars > PREVIEW_BARS;
-    const spec = long ? { ...loopSpec(loop), bars: PREVIEW_BARS } : loopSpec(loop);
-    const fit = fitLoop(spec, project);
-    const key = `${loop.id}|${fit.ratio.toFixed(5)}|${fit.semitones}`;
-    const hit = preview.cache.get(key);
-    if (hit) return { buf: hit.buf, fit, startBar: hit.startBar };
+  async function decodePreview(loop) {
     const { ctx } = api.getAudioOut();
     const url = await stemLibrary.ensurePreviewLocal(loop);
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    let raw = await ctx.decodeAudioData(await res.arrayBuffer());
+    return ctx.decodeAudioData(await res.arrayBuffer());
+  }
+  async function fittedBuffer(loop, project, { raw: given, startBar: forcedBar } = {}) {
+    const long = loop.bars > PREVIEW_BARS;
+    const spec = long ? { ...loopSpec(loop), bars: PREVIEW_BARS } : loopSpec(loop);
+    const fit = fitLoop(spec, project);
+    const key = `${loop.id}|${fit.ratio.toFixed(5)}|${fit.semitones}|${forcedBar ?? ''}`;
+    const hit = preview.cache.get(key);
+    if (hit) return { buf: hit.buf, fit, startBar: hit.startBar };
+    let raw = given || await decodePreview(loop);
     let startBar = 0;
     if (long) {
       const barSec = (loop.beats_per_bar || 4) * 60 / Number(loop.bpm);
-      startBar = firstSoundBar(raw, barSec);
+      startBar = forcedBar ?? firstSoundBar(raw, barSec);
       const from = Math.round(startBar * barSec * raw.sampleRate);
       const len = Math.min(raw.length - from, Math.round(PREVIEW_BARS * barSec * raw.sampleRate));
       const cut = new AudioBuffer({ numberOfChannels: raw.numberOfChannels, length: len, sampleRate: raw.sampleRate });
@@ -323,26 +328,134 @@ export function mountLibraryPanel(host, api) {
     return out;
   }
 
+  // Para escuchar el pack completo: el primer compás (múltiplo de 4) en el que la
+  // suma de todas las pistas llega al 60 % de su punto más lleno.
+  function barEnergy(raw, barSec) {
+    const barLen = Math.max(1, Math.round(barSec * raw.sampleRate));
+    const bars = Math.floor(raw.length / barLen);
+    const e = new Float32Array(bars), d = raw.getChannelData(0);
+    for (let b = 0; b < bars; b++) {
+      let sum = 0;
+      for (let i = b * barLen, end = i + barLen; i < end; i += 32) sum += d[i] * d[i];
+      e[b] = Math.sqrt(sum / (barLen / 32));
+    }
+    return e;
+  }
+  function commonFullBar(energies) {
+    const bars = Math.min(...energies.map((e) => e.length));
+    if (bars < PREVIEW_BARS + 1) return 0;
+    const e = new Float32Array(bars);
+    for (const x of energies) for (let b = 0; b < bars; b++) e[b] += x[b];
+    let max = 0; for (const v of e) if (v > max) max = v;
+    let at = 0;
+    for (let b = 0; b < bars; b++) if (e[b] >= max * 0.6) { at = b; break; }
+    at = Math.floor(at / 4) * 4;
+    return Math.min(at, Math.max(0, bars - PREVIEW_BARS));
+  }
+  // Pistas de un pack de canción completa: todas menos click y guía (máx. 8),
+  // ordenadas por importancia (batería, bajo, teclas…).
+  function packSongLayers(packId) {
+    const rank = (i) => { const r = LAYER_ORDER.indexOf(i); return r < 0 ? 99 : r; };
+    return state.catalog.filter((l) => l.pack_id === packId && !isLocked(l) && l.bars > PREVIEW_BARS
+      && !['click', 'guide'].includes(l.instrument)
+      && (!stemLibrary.isUsingOfflineCopy() || state.localAll.has(l.id)))
+      .sort((a, b) => rank(a.instrument) - rank(b.instrument)).slice(0, 8);
+  }
+  // Mini espectro de la mezcla (se calcula una vez, de los buffers ya preparados).
+  function drawPackWave(bufs) {
+    const box = ref('packcard')?.querySelector('.stl-pack-wave');
+    const cv = box?.querySelector('canvas');
+    if (!box || !cv) return;
+    box.hidden = false;
+    const W = cv.clientWidth || 240, H = cv.clientHeight || 34, dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    const N = Math.max(40, Math.floor(W / 3));
+    const len = Math.min(...bufs.map((b) => b.length));
+    const step = Math.max(1, Math.floor(len / N));
+    const peaks = new Float32Array(N);
+    let max = 0;
+    for (let k = 0; k < N; k++) {
+      let p = 0;
+      for (const b of bufs) {
+        const d = b.getChannelData(0);
+        let m = 0;
+        for (let i = k * step, end = Math.min(len, i + step); i < end; i += 24) { const a = Math.abs(d[i]); if (a > m) m = a; }
+        p += m;
+      }
+      peaks[k] = p; if (p > max) max = p;
+    }
+    const col = getComputedStyle(box).getPropertyValue('--accent').trim() || '#c5fb3a';
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = col;
+    const bw = W / N;
+    for (let k = 0; k < N; k++) {
+      const h = Math.max(2, (peaks[k] / (max || 1)) * (H - 2));
+      g.globalAlpha = 0.85;
+      g.fillRect(k * bw + 0.5, (H - h) / 2, Math.max(1, bw - 1.2), h);
+    }
+  }
+
   async function playPackPreview(packId) {
     const id = 'pack:' + packId;
     if (preview.id === id) { stopPreview(); return; }
     stopPreview();
-    const layers = pickPackLayers(packId);
+    const songLayers = packSongLayers(packId);
+    const layers = songLayers.length >= 2 ? songLayers : pickPackLayers(packId);
     if (!layers.length) { showToast(stemLibrary.isUsingOfflineCopy() ? 'Sin conexión: este pack no está en este equipo.' : 'Este pack todavía no tiene loops para escuchar.', 'info'); return; }
     preview.id = id;
     paintPackPreview(true);
     const project = api.getProject();
     try {
-      const bufs = await Promise.all(layers.map((l) => fittedBuffer(l, project).then((r) => r.buf).catch(() => null)));
+      let bufs, fromBar = 0;
+      if (layers === songLayers) {
+        // Canción completa: todas las pistas desde el MISMO compás (si cada una
+        // eligiera el suyo, la mezcla sonaría desfasada).
+        // De una en una: se guarda su energía por compás y, como mucho, ~250 MB
+        // de audio decodificado (el resto se vuelve a leer al recortar).
+        const barSec = (layers[0].beats_per_bar || 4) * 60 / Number(layers[0].bpm);
+        const raws = [], energies = [], ok = [];
+        let kept = 0;
+        for (let i = 0; i < layers.length; i++) {
+          const r = await decodePreview(layers[i]).catch(() => null);
+          if (preview.id !== id) return;
+          if (!r) { raws.push(null); continue; }
+          energies.push(barEnergy(r, barSec)); ok.push(i);
+          const bytes = r.length * r.numberOfChannels * 4;
+          if (kept + bytes <= 250 * 1024 * 1024) { raws.push(r); kept += bytes; } else raws.push(null);
+        }
+        if (!ok.length) throw new Error('sin audio');
+        fromBar = commonFullBar(energies);
+        bufs = [];
+        for (const i of ok) {
+          bufs.push(await fittedBuffer(layers[i], project, { raw: raws[i] || undefined, startBar: fromBar }).then((r) => r.buf).catch(() => null));
+          raws[i] = null;
+          if (preview.id !== id) return;
+        }
+      } else {
+        bufs = await Promise.all(layers.map((l) => fittedBuffer(l, project).then((r) => r.buf).catch(() => null)));
+      }
       if (preview.id !== id) return;
+      bufs = bufs.filter(Boolean);
       const { ctx, dest } = api.getAudioOut();
-      const when = ctx.currentTime + 0.05 + nextBarDelay(project);
-      bufs.filter(Boolean).forEach((buf) => {
+      const delay = 0.05 + nextBarDelay(project);
+      const when = ctx.currentTime + delay;
+      bufs.forEach((buf) => {
         const src = ctx.createBufferSource();
         src.buffer = buf; src.loop = true; src.connect(dest); src.start(when);
         preview.srcs.push(src);
       });
       if (!preview.srcs.length) throw new Error('sin audio');
+      // Mini espectro + progreso + desde qué compás suena
+      drawPackWave(bufs);
+      const wave = ref('packcard')?.querySelector('.stl-pack-wave');
+      if (wave) {
+        wave.style.setProperty('--pv-dur', `${bufs[0].duration.toFixed(3)}s`);
+        wave.style.setProperty('--pv-delay', `${delay.toFixed(3)}s`);
+        wave.classList.remove('is-running'); void wave.offsetWidth; wave.classList.add('is-running');
+        const lbl = wave.querySelector('.stl-pack-wave-k');
+        if (lbl) lbl.textContent = `${bufs.length} pistas juntas${fromBar ? ` · desde el compás ${fromBar + 1}` : ''}`;
+      }
       layers.forEach((l) => stemLibrary.trackLoopEvent(l.id, 'preview'));
     } catch (e) {
       showToast('No se pudo escuchar el pack. Revisa tu conexión e inténtalo de nuevo.', 'error');
@@ -640,6 +753,10 @@ export function mountLibraryPanel(host, api) {
         <div class="stl-packcard-actions">
           <button type="button" class="stl-main" data-act="pack-preview">${SVG_PLAY} Escuchar el pack</button>
           <button type="button" class="stl-more" data-act="pack-more" title="Más opciones del pack" aria-label="Más opciones del pack">${SVG_MORE}</button>
+        </div>
+        <div class="stl-pack-wave" hidden>
+          <span class="stl-pack-wave-k"></span>
+          <div class="stl-pack-wave-box"><canvas aria-hidden="true"></canvas><i class="stl-pack-wave-prog"></i></div>
         </div>
         <span class="stl-dl-progress" data-ref="download"></span>
       </div>`;

@@ -1,3 +1,2 @@
-• Stems: el botón de reproducir vuelve a destacarse en verde (se veía apagado).
-• Stems: con poco zoom, la regla muestra un número cada 2, 4 u 8 compases en lugar de amontonarlos.
-• Al importar multitracks, las pistas conservan su nombre («Drums (Live)», «Keys 1», «EG 2») y se reconocen EG/AG como guitarra y BGVS/Oohs como voces.
+• «Escuchar el pack»: en los packs de canción completa suenan todas las pistas juntas (hasta 8, sin click ni guía) desde el compás en que la canción suena llena, con un mini espectro de la mezcla y su progreso.
+• Arreglado: al escuchar un pack de canción completa, cada pista podía empezar en un compás distinto y la mezcla sonaba desfasada.
