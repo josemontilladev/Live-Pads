@@ -4017,14 +4017,106 @@ async function buildStructureFromLibrary(plan) {
 // El tono se ajusta al ORIGINAL del proyecto: si hay un transpose master activo,
 // appendTrackRow lleva la pista nueva al mismo tono que el resto. Lanza un Error
 // con code 'plan_required' si el loop es Pro y la cuenta no.
+// Loops ya ajustados (mismo loop, tempo, tono y repeticiones): volver a ponerlo es
+// instantáneo. Pocas entradas: las pistas de canción completa pesan mucho en RAM.
+const preparedLoops = new Map();
+const PREPARED_MAX_BYTES = 120 * 1024 * 1024;   // ~120 MB: equipos modestos primero
+const bufBytes = (b) => b.length * b.numberOfChannels * 4;
 async function prepareLoopBuffer(loop, { repeats = 1, totalBars } = {}) {
-  const url = await ensureLoopLocal(loop);
   const fit = fitLoop(
     { loopBpm: Number(loop.bpm), loopKey: loop.musical_key, bars: loop.bars, beatsPerBar: loop.beats_per_bar },
     { bpm: bpmFloat, key: projectKey, beatsPerBar }
   );
+  const key = `${loop.id}|${fit.ratio.toFixed(6)}|${fit.semitones}|${repeats}|${totalBars || ''}|${bpmFloat}`;
+  const hit = preparedLoops.get(key);
+  if (hit) { preparedLoops.delete(key); preparedLoops.set(key, hit); return hit; }
+  const url = await ensureLoopLocal(loop);
   const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
-  return renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats, totalBars });
+  const buf = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats, totalBars });
+  if (bufBytes(buf) <= PREPARED_MAX_BYTES / 2) {
+    preparedLoops.set(key, buf);
+    let total = 0;
+    for (const b of preparedLoops.values()) total += bufBytes(b);
+    while (total > PREPARED_MAX_BYTES && preparedLoops.size > 1) {
+      const k = preparedLoops.keys().next().value;
+      total -= bufBytes(preparedLoops.get(k));
+      preparedLoops.delete(k);
+    }
+  }
+  return buf;
+}
+
+// Proyecto vacío + pista de canción completa (multitrack): el proyecto toma el
+// tempo, compás y tono de la pista. Así las pistas entran SIN estirarse (estirar
+// una pista de 4 min manteniendo el tono es lo más lento de todo el proceso).
+function adoptLoopTempoIfEmpty(loop) {
+  if (engine.getTracks().length || !(loop.bars > 16)) return false;
+  const lb = Number(loop.bpm);
+  if (!(lb >= 20 && lb <= 300)) return false;
+  const bp = loop.beats_per_bar || 4, bv = loop.beat_value || 4;
+  const sameTempo = Math.abs(lb - bpmFloat) < 1e-3 && bp === beatsPerBar;
+  const sameKey = !loop.musical_key || loop.musical_key === projectKey || currentStemsPitch !== 0;
+  if (sameTempo && sameKey) return false;
+  bpm = Math.round(lb); bpmFloat = lb;
+  if (bp !== beatsPerBar || bv !== beatValue) {
+    beatsPerBar = bp; beatValue = bv;
+    accentPattern = makeDefaultAccent(beatsPerBar);
+    renderAccentChips();
+  }
+  const input = document.getElementById('stems-bpm');
+  if (input) input.value = bpm;
+  const sigSel = document.getElementById('stems-sig');
+  if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
+  if (loop.musical_key && currentStemsPitch === 0) { projectKey = loop.musical_key; paintEffectiveKeyUI(); }
+  drawRuler();
+  scheduleSave();
+  const shown = Math.abs(lb - Math.round(lb)) < 1e-3 ? String(Math.round(lb)) : lb.toFixed(2);
+  showToast(`El proyecto toma el tempo de la canción (${shown} BPM${loop.musical_key ? ' · ' + loop.musical_key : ''}): las pistas entran sin estirarse.`, 'info');
+  return true;
+}
+
+// Varias pistas de golpe: se preparan en paralelo (descarga, decodificación y
+// ajuste: 2–3 a la vez según el equipo) y se colocan en orden, todas en el mismo punto.
+async function addLoopsFromLibrary(loops, { atSec, repeats = 1, sameTrack = true, onEach } = {}) {
+  const list = loops.filter((l) => l.tier === 'free' || proOnly('Este loop'));
+  if (!list.length) return 0;
+  adoptLoopTempoIfEmpty(list[0]);
+  const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
+  const jobs = new Array(list.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const i = next++;
+      const l = list[i];
+      jobs[i] = prepareLoopBuffer(l, { repeats: l.bars > 16 ? 1 : repeats }).catch((e) => ({ error: e }));
+      await jobs[i];
+    }
+  };
+  // 2 a la vez (3 en equipos con 8+ núcleos): cada pista larga ocupa ~90 MB mientras se prepara.
+  const par = (navigator.hardwareConcurrency || 4) >= 8 ? 3 : 2;
+  const pool = Promise.all(Array.from({ length: Math.min(par, list.length) }, worker));
+  let placed = 0;
+  for (let i = 0; i < list.length; i++) {
+    while (!jobs[i]) await new Promise((r) => setTimeout(r, 20));
+    const buf = await jobs[i];
+    const l = list[i];
+    if (buf && buf.error) { reportLoopError(buf.error); onEach?.(l, false); continue; }
+    try {
+      const op = await placeLoopBuffer(l, buf, at, { sameTrack: l.bars > 16 ? false : sameTrack });
+      afterLoopEdit();
+      pushHistory('Agregar loop',
+        async () => { await op.undo(); afterLoopEdit(); },
+        async () => { await op.redo(); afterLoopEdit(); });
+      trackLoopEvent(l.id, 'add');
+      placed++;
+      onEach?.(l, true);
+    } catch (e) {
+      console.warn('No se pudo agregar el loop:', e);
+      onEach?.(l, false);
+    }
+  }
+  await pool;
+  return placed;
 }
 
 function reportLoopError(e) {
@@ -4117,6 +4209,7 @@ function afterLoopEdit() { refreshTimelineWidth(); refreshTransport(); scheduleS
 async function addLoopFromLibrary(loop, { atSec, repeats = 1, sameTrack = true } = {}) {
   // El servidor también lo exige; esto evita la descarga y avisa al momento.
   if (loop.tier !== 'free' && !proOnly('Este loop')) return;
+  adoptLoopTempoIfEmpty(loop);
   const at = atSec != null ? atSec : barSnap(engine.getCurrentSec());
   let buffer;
   try { buffer = await prepareLoopBuffer(loop, { repeats }); }
@@ -4379,6 +4472,7 @@ function wireLibrary(root) {
     canUsePro: () => hasFeature('stems'),
     requirePro: (what = 'Este loop') => proOnly(what),
     hasTracks: () => engine.getTracks().length > 0,
+    addLoops: (loops, opts) => addLoopsFromLibrary(loops, opts),
     buildStructure: buildStructureFromLibrary,
     // «Probar un pack»: que suene desde el principio en cuanto se carga la base.
     play: () => { try { engine.seek(0); } catch (_) {} if (!engine.isCurrentlyPlaying()) { resumeAutoFollow(); engine.play(); } },

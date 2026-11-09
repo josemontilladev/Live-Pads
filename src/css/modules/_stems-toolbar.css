@@ -89,3 +89,8 @@
   border-radius: 50%; align-self: center; color: var(--text-muted);
 }
 #stems-rec-menu:hover { color: var(--text); }
+
+/* Cada carril es su propia capa: sus clips, asas y círculos de inicio/fade
+   (z 3–4 dentro del carril) ya no pasan por encima de la cabecera fija de la
+   izquierda (.stems-row-strip, z 2) al desplazar el timeline. */
+#workspace-stems .stems-row-lane { isolation: isolate; }

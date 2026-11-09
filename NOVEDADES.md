@@ -1,3 +1,3 @@
-• Escucha previa de pistas: en las pistas de canción completa suena desde el primer compás con sonido (antes podía sonar silencio al principio) y se indica desde qué compás («comp. 33»).
-• Se ve claramente qué pista está sonando: botón en verde, barritas animadas y una barra de progreso del fragmento.
-• Stems: controles de reproducción más anchos y menos altos.
+• Arreglado: al reproducir y desplazarse el timeline, los círculos de inicio y fundido de los clips ya no se montan sobre la cabecera de las pistas.
+• Carga de pistas mucho más rápida: si el proyecto está vacío, toma el tempo, compás y tono de la canción del pack y las pistas entran sin estirarse (ajustar una pista de 4 min pasaba de ~6 s a casi nada).
+• «Cargar todas / Cargar N pistas» prepara varias pistas a la vez en lugar de una tras otra, y volver a añadir una pista ya preparada es instantáneo.

@@ -845,12 +845,24 @@ export function mountLibraryPanel(host, api) {
     const go = el.querySelector('.stl-batch-go');
     let done = 0;
     try {
-      for (const l of list) {
-        if (go) go.textContent = `Cargando ${done + 1} de ${list.length}…`;
-        await add(l, undefined, l.bars > 16 ? { sameTrack: false } : {});
-        done++;
-      }
-      showToast(`${done} ${done === 1 ? 'pista cargada' : 'pistas cargadas'} en la línea de tiempo.`, 'success');
+      // Todas a la vez (preparación en paralelo en el editor); cada fila gira hasta entrar.
+      list.forEach((l) => setBusy(l.id, true));
+      if (go) go.textContent = `Cargando 0 de ${list.length}…`;
+      done = await api.addLoops(list, {
+        repeats: getRepeats(), sameTrack: getSameTrack(),
+        onEach: (l, ok) => {
+          setBusy(l.id, false);
+          if (ok) {
+            markRecent(l.id); markRecentPack(l.pack_id);
+            state.localAll.add(l.id); state.local.add(l.id);
+            flashAdded(l.id);
+          }
+          const b = el.querySelector('.stl-batch-go');
+          if (b) b.textContent = `Cargando ${list.indexOf(l) + 1} de ${list.length}…`;
+        },
+      });
+      list.forEach((l) => setBusy(l.id, false));
+      if (done) showToast(`${done} ${done === 1 ? 'pista cargada' : 'pistas cargadas'} en la línea de tiempo.`, 'success');
       sel.clear();
     } finally {
       batchBusy = false;
