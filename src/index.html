@@ -114,7 +114,12 @@
         <!-- Bank Selectors -->
         <div id="bank-section">
           <div class="bank-row">
-            <div class="bank-label">Pad</div>
+            <div class="bank-label bank-label--row">Pad
+              <div class="pad-mode" id="pad-mode" role="group" aria-label="Tonalidad del pad" hidden>
+                <button type="button" class="pad-mode-btn is-on" data-mode="major" title="Pads en tonalidad mayor">Mayor</button>
+                <button type="button" class="pad-mode-btn" data-mode="minor" title="Pads en tonalidad menor (Am, Bm…)">Menor</button>
+              </div>
+            </div>
             <div class="bank-selector">
               <select id="pad-bank-select" class="metro-dropdown"></select>
             </div>
@@ -597,9 +602,9 @@
          <!-- Selector de FUENTE (movido aquí para que se vea): Secuencia / Click /
               Original. Clickeable, táctil y MIDI-mapeable (data-source). -->
          <div class="source-seg" role="group" aria-label="Fuente de la canción">
-           <button class="source-seg-btn" id="src-seq" data-source="sequence" title="Pad + Secuencia (fuente maestra) — clic o mapeá un botón MIDI">Secuencia</button>
-           <button class="source-seg-btn" id="src-click" data-source="click" title="Pad + Click / metrónomo — clic o mapeá un botón MIDI">Click</button>
-           <button class="source-seg-btn source-seg-btn--ref" id="src-ref" data-source="reference" title="Original / referencia (ensayo) — clic o mapeá un botón MIDI">Original</button>
+           <button class="source-seg-btn" id="src-seq" data-source="sequence" title="Pad + Secuencia (fuente maestra) — clic o mapea un botón MIDI">Secuencia</button>
+           <button class="source-seg-btn" id="src-click" data-source="click" title="Pad + Click / metrónomo — clic o mapea un botón MIDI">Click</button>
+           <button class="source-seg-btn source-seg-btn--ref" id="src-ref" data-source="reference" title="Original / referencia (ensayo) — clic o mapea un botón MIDI">Original</button>
          </div>
       </div>
 

@@ -553,6 +553,38 @@ function buildBankSelects() {
   }
 }
 
+/* ── PADS MAYORES / MENORES ── */
+// Solo los bancos con pads menores (p. ej. Chris Rocha) muestran el selector.
+// La elección se recuerda; con «Menor», la tecla A suena Am, C suena Cm, etc.
+const PAD_MINOR_KEY = 'livepads-pad-minor';
+function padMinorWanted() { try { return localStorage.getItem(PAD_MINOR_KEY) === '1'; } catch { return false; } }
+function syncPadMode() {
+  const bank = PAD_BANKS[getPadBankIdx()];
+  const has = !!(bank && bank.minor);
+  const minor = has && padMinorWanted();
+  engine.setPadMinor(minor);
+  const seg = q('#pad-mode');
+  if (seg) {
+    seg.hidden = !has;
+    seg.querySelectorAll('.pad-mode-btn').forEach((b) => {
+      const on = (b.dataset.mode === 'minor') === minor;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  document.body.classList.toggle('pads-minor', minor);
+}
+function setPadMinor(on) {
+  try { localStorage.setItem(PAD_MINOR_KEY, on ? '1' : '0'); } catch {}
+  syncPadMode();
+  // Si hay un pad sonando, pasa a la otra tonalidad con el crossfade de siempre.
+  if (getActiveKey()) engine.playPad(getActiveKey(), PAD_BANKS[getPadBankIdx()].synth);
+}
+q('#pad-mode')?.addEventListener('click', (e) => {
+  const b = e.target.closest('.pad-mode-btn');
+  if (b) setPadMinor(b.dataset.mode === 'minor');
+});
+
 /* ── PAD BANK ── */
 function loadPadBank(idx, { silent = false } = {}) {
   let forcedByPlan = false;
@@ -575,6 +607,7 @@ function loadPadBank(idx, { silent = false } = {}) {
   const padSel = q('#pad-bank-select');
   if (padSel) padSel.value = getPadBankIdx();
   engine.setPadBank(bank);
+  syncPadMode();
   if (getActiveKey()) engine.playPad(getActiveKey());
   
   // Save last selected Pad Bank persistently (no si fue un cambio forzado por el plan)

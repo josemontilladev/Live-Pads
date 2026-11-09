@@ -29,6 +29,8 @@ export class SynthEngine {
     this.currentBankSynth = null;
     this.currentDrumPack = null;
     this.currentPadBank = null; // active PAD_BANKS entry
+    this.padMinor = false;      // tonalidades menores (solo bancos con `minor`)
+    this._minorLoops = {};      // bank.id → Promise<{ Am: [inicio, fin], … }>
     this._clickBuffers = {};
     this._padAmbBuffers = {};    // bankId_note -> AudioBuffer
     this._crossfadeDur = 2.0;    // s — duración del crossfade al cambiar de pad (configurable)
@@ -141,6 +143,28 @@ export class SynthEngine {
   setDrumPan(v)   { if(this.drumPanNode) this.drumPanNode.pan.value = v; }
   setDrumPadVolume(id, v) { if(this.drumVolumes[id]) this.drumVolumes[id].gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
   setCrossfade(s)  { this._crossfadeDur = Math.max(0.3, Math.min(6, s || 2.0)); }
+  // ¿Suena en menor? Solo si el banco trae pads menores.
+  _isMinor(bank = this.currentPadBank) { return !!(this.padMinor && bank && bank.minor); }
+  _padCacheKey(key, bank = this.currentPadBank) {
+    if (!bank) return key;
+    return `${bank.id}_${this._isMinor(bank) ? 'm_' : ''}${key}`;
+  }
+  hasMinor(bank = this.currentPadBank) { return !!(bank && bank.minor); }
+  // Mayor ↔ menor: libera los buffers del otro modo (RAM baja en equipos modestos;
+  // el pad que suena conserva el suyo) y precarga el modo nuevo.
+  setPadMinor(on) {
+    on = !!on;
+    if (on === this.padMinor) return;
+    this.padMinor = on;
+    const bank = this.currentPadBank;
+    if (!bank) return;
+    const minorPrefix = `${bank.id}_m_`;
+    for (const k of Object.keys(this._padAmbBuffers)) {
+      if (k.startsWith(minorPrefix) !== on) delete this._padAmbBuffers[k];
+    }
+    this._preloadBank(bank);
+  }
+
   setPadBank(bank) {
     this.currentPadBank = bank;
     // Free decoded pad buffers from OTHER banks to keep RAM low on weak
@@ -236,7 +260,8 @@ export class SynthEngine {
   async _ensurePadAmb(key) {
     if (!this.currentPadBank) return;
     const bank = this.currentPadBank;
-    const cacheKey = `${bank.id}_${key}`;
+    const minor = this._isMinor(bank);
+    const cacheKey = this._padCacheKey(key, bank);
 
     // Already resolved (buffer or null)
     if (this._padAmbBuffers[cacheKey] !== undefined) return;
@@ -261,13 +286,13 @@ export class SynthEngine {
 
     // Deduplicate concurrent loads
     if (!this._loadingPads) this._loadingPads = {};
-    const loadingKey = `${bank.id}_${id}`;
+    const loadingKey = `${bank.id}_${minor ? 'm_' : ''}${id}`;
     if (this._loadingPads[loadingKey]) {
       await this._loadingPads[loadingKey];
       return;
     }
 
-    const fileName = bank.pattern ? `${bank.pattern}${id}` : simple;
+    const fileName = minor ? `${bank.minor.folder}${simple}m` : (bank.pattern ? `${bank.pattern}${id}` : simple);
     const path = `${bank.folder}${fileName}.mp3`;
 
     const loadPromise = (async () => {
@@ -276,12 +301,25 @@ export class SynthEngine {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const ab  = await resp.arrayBuffer();
         const buf = await this.ctx.decodeAudioData(ab);
+        // Puntos de bucle: los exactos del banco (menores) o, si no, sin el
+        // silencio que el MP3 deja en los bordes (evita el microcorte al repetir).
+        if (minor) {
+          // loops.json va en samples de SU frecuencia (44,1 kHz); el buffer puede
+          // estar a 48 kHz → se guarda en segundos.
+          const info = await this._loadMinorLoops(bank);
+          const lp = info && info.loops[`${simple}m`];
+          if (lp) {
+            const sec = [lp[0] / info.sampleRate, lp[1] / info.sampleRate];
+            if (sec[1] <= buf.duration + 1e-3) buf.__loop = sec;
+          }
+        }
+        if (!buf.__loop) buf.__loop = this._trimLoop(buf);
 
         // Store for this bank + key
         this._padAmbBuffers[cacheKey] = buf;
         // Also store for enharmonic neighbor if same bank
         for (const [k, v] of Object.entries(noteToId)) {
-          if (v === id) this._padAmbBuffers[`${bank.id}_${k}`] = buf;
+          if (v === id) this._padAmbBuffers[`${bank.id}_${minor ? 'm_' : ''}${k}`] = buf;
         }
 
         console.log('Pad Amb loaded:', path);
@@ -294,6 +332,25 @@ export class SynthEngine {
     })();
     this._loadingPads[loadingKey] = loadPromise;
     await loadPromise;
+  }
+
+  _loadMinorLoops(bank) {
+    if (!bank.minor || !bank.minor.loops) return Promise.resolve(null);
+    if (!this._minorLoops[bank.id]) {
+      this._minorLoops[bank.id] = fetch(`${bank.folder}${bank.minor.folder}${bank.minor.loops}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (j && j.loops ? { loops: j.loops, sampleRate: j.sampleRate || 44100 } : null)).catch(() => null);
+    }
+    return this._minorLoops[bank.id];
+  }
+
+  // Bordes en silencio (relleno del MP3): se salta al repetir. Solo mira los extremos.
+  // Devuelve [inicio, fin] en SEGUNDOS, o null si no hay nada que recortar.
+  _trimLoop(buf) {
+    const d = buf.getChannelData(0), n = d.length, max = Math.min(n >> 2, buf.sampleRate * 2);
+    let s = 0; while (s < max && Math.abs(d[s]) < 1e-4) s++;
+    let e = n; while (n - e < max && e > s + 1 && Math.abs(d[e - 1]) < 1e-4) e--;
+    return (s > 0 || e < n) ? [s / buf.sampleRate, e / buf.sampleRate] : null;
   }
 
   async playPad(key, bankSynth) {
@@ -315,7 +372,7 @@ export class SynthEngine {
     }
 
     const bank = this.currentPadBank;
-    const cacheKey = bank ? `${bank.id}_${key}` : key;
+    const cacheKey = this._padCacheKey(key, bank);
 
     // SMART ATTACK:
     // If nothing is playing, start fast (0.5s).
@@ -399,12 +456,20 @@ export class SynthEngine {
     const src  = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop   = true;
+    if (buffer.__loop === undefined) buffer.__loop = this._trimLoop(buffer); // pads propios
+    const lp = buffer.__loop;
+    let offset = 0;
+    if (lp) {
+      src.loopStart = lp[0];
+      src.loopEnd   = lp[1];
+      offset = lp[0];
+    }
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(1, now + attack);
     src.connect(gain);
     gain.connect(this.padGain);
-    src.start(now);
+    src.start(now, offset);
     this.activePadNodes = [{ src, gain, isBuf: true }];
   }
 

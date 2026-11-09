@@ -120,7 +120,10 @@ export const PAD_BANKS = [
     id: 'chris_rocha', name: 'Pad Chris Rocha',
     desc: 'Estilo profesional Chris Rocha', color: '#7c3aed',
     folder: P + 'Pad Chris Rocha/',
-    pattern: '' // direct like 'C.mp3'
+    pattern: '', // direct like 'C.mp3'
+    // Tonalidades menores: bucles sin corte (Menores/Am.mp3…) con sus puntos de
+    // bucle exactos en loops.json (el MP3 añade relleno al principio y al final).
+    minor: { folder: 'Menores/', loops: 'loops.json' }
   }
 ];
 
