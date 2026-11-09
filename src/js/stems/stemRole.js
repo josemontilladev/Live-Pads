@@ -4,11 +4,11 @@
 // Módulo puro (sin DOM) para poder testearlo con node.
 
 const STEM_ROLE_PATTERNS = [
-  ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox)\b/i],
+  ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox|bgvs?|oohs?|aahs?|coros?|choir)\b/i],
   ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion)\b/i],
   ['bass',   /\b(bass|bajo)\b/i],
   ['keys',   /\b(keys?|teclas?|teclado|keyboards?|piano|synths?|sintetizador|rhodes|organ|[oó]rgano)\b/i],
-  ['guitar', /\b(guitars?|guitarra|ac[uú]stica|acoustic|el[eé]ctrica|electric)\b/i],
+  ['guitar', /\b(guitars?|guitarra|ac[uú]stica|acoustic|el[eé]ctrica|electric|eg|ag)\b/i],
   ['other',  /\b(other|otros|instrumental|music|m[uú]sica|accompaniment)\b/i],
   ['click',  /\b(click|metr[oó]nomo|metronome)\b/i],
   ['guide',  /\b(guide|gu[ií]a|cues?)\b/i],
@@ -30,6 +30,10 @@ export function detectStemRole(fileName) {
     // Drop the token plus the separator glued to it ("Song - vocals" → "Song").
     let clean = base.replace(new RegExp(`\\s*[-–—:|(\\[]*\\s*${m[0]}\\s*[)\\]]*\\s*`, 'i'), ' ').replace(/\s{2,}/g, ' ').trim();
     clean = clean.replace(/^[-–—:|\s]+|[-–—:|\s]+$/g, '');
+    // Multitracks («Drums (Live)», «Keys 1», «EG 2»): si sin el rol solo queda un
+    // número o algo entre paréntesis, el nombre completo es más claro.
+    const rest = clean.replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^\p{L}]/gu, '');
+    if (rest.length < 3 || /^(synth|sub|lead|pad|live|loop|main|alt)$/i.test(clean.trim())) clean = base;
     return { kind, name: clean || base };
   }
   return { kind: 'stem', name: base };

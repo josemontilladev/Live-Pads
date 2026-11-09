@@ -1839,7 +1839,7 @@ async function importFiles(fileList) {
         console.error('Failed to read', file.name, err);
         const raw = String(err && err.message || err);
         toast(/could not be read|NotReadable|permission|reference to a file/i.test(raw)
-          ? `No se pudo leer "${file.name}": el archivo dejó de ser accesible durante la importación (pudo moverse, renombrarse o bloquearse). Volvé a arrastrarlo e intentá de nuevo.`
+          ? `No se pudo leer "${file.name}": el archivo dejó de ser accesible durante la importación (pudo moverse, renombrarse o bloquearse). Vuelve a arrastrarlo e inténtalo de nuevo.`
           : `No se pudo leer "${file.name}": ${raw}`);
         return null;
       }
@@ -5141,14 +5141,23 @@ function drawRuler() {
   const beatSec = 60 / bpmFloat;
   const beatsTotal = Math.ceil(dur / beatSec);
 
+  // Con poco zoom los números no caben: se rotula cada 1, 2, 4, 8… compases
+  // (al menos ~64 px entre rótulos) y se omiten las marcas de tiempo muy juntas.
+  const barPx = barSec * PX_PER_SEC, beatPx = beatSec * PX_PER_SEC;
+  let labelEvery = 1;
+  while (barPx * labelEvery < 64 && labelEvery < 256) labelEvery *= 2;
+  const showBeats = beatPx >= 6;
   let html = '';
   for (let beat = 0; beat <= beatsTotal; beat++) {
     const tSec = beat * beatSec;
     const x = tSec * PX_PER_SEC;
     if (x > w) break;
     const isBar = beat % beatsPerBar === 0;
+    if (!isBar && !showBeats) continue;
+    const barIdx = Math.floor(beat / beatsPerBar);
+    if (isBar && barPx < 4 && barIdx % labelEvery !== 0) continue;
     html += `<div class="stems-tick ${isBar ? 'stems-tick--bar' : ''}" style="left:${x}px"></div>`;
-    if (isBar) {
+    if (isBar && barIdx % labelEvery === 0) {
       const bar = beat / beatsPerBar + 1;
       html += `<div class="stems-tick-label" style="left:${x + 4}px">
         <span class="stems-tick-bar">${bar}.1.00</span>

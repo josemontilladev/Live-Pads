@@ -1,1 +1,3 @@
-• Biblioteca más limpia: se quitaron «Repetir» y «Sumar a la pista de su instrumento» del pie. Las pistas de canción completa entran siempre una vez y cada una en su propia pista (Keys 1 y Keys 2 ya no se juntan).
+• Stems: el botón de reproducir vuelve a destacarse en verde (se veía apagado).
+• Stems: con poco zoom, la regla muestra un número cada 2, 4 u 8 compases en lugar de amontonarlos.
+• Al importar multitracks, las pistas conservan su nombre («Drums (Live)», «Keys 1», «EG 2») y se reconocen EG/AG como guitarra y BGVS/Oohs como voces.

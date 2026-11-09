@@ -31,3 +31,11 @@ test('si el nombre es solo el rol, se conserva como nombre', () => {
 test('todo rol detectable tiene badge', () => {
   for (const kind of ['vocals', 'drums', 'bass', 'keys', 'guitar', 'other', 'click', 'guide']) assert.ok(STEM_KIND_BADGE[kind]);
 });
+
+test('multitracks: el nombre completo se conserva si sin el rol solo queda un número o un paréntesis', () => {
+  assert.deepEqual(detectStemRole('Drums (Live).mp3'), { kind: 'drums', name: 'Drums (Live)' });
+  assert.deepEqual(detectStemRole('Keys 1.mp3'), { kind: 'keys', name: 'Keys 1' });
+  assert.deepEqual(detectStemRole('EG 2.mp3'), { kind: 'guitar', name: 'EG 2' });
+  assert.deepEqual(detectStemRole('BGVS.mp3'), { kind: 'vocals', name: 'BGVS' });
+  assert.deepEqual(detectStemRole('Synth Bass.mp3'), { kind: 'bass', name: 'Synth Bass' });
+});

@@ -248,3 +248,15 @@
 #workspace-stems .sb-rec .stems-rec-menu svg { width: 12px; height: 12px; }
 #workspace-stems .sb-time { margin-left: 2px; }
 #workspace-stems .sb-time .stems-tb-time { font-size: 14px; }
+
+/* Play siempre destacado (la regla de fondo de los botones le quitaba el verde) */
+#workspace-stems .stems-tb-mid .stems-tb-btn--play {
+  background: linear-gradient(180deg, var(--accent2, var(--accent)), var(--accent)) !important;
+  color: var(--on-accent, #0a0a0a) !important;
+  box-shadow: 0 3px 14px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+#workspace-stems .stems-tb-mid .stems-tb-btn--play:hover:not(:disabled) { filter: brightness(1.08); }
+#workspace-stems .stems-tb-mid .stems-tb-btn--play:disabled {
+  background: color-mix(in srgb, var(--accent) 35%, transparent) !important;
+  color: var(--on-accent, #0a0a0a) !important; box-shadow: none; opacity: .55;
+}
