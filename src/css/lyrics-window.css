@@ -24,5 +24,15 @@ body.lyrics-window { display: flex; flex-direction: column; }
 /* Los estilos de la app fijan cada línea en px: aquí todo escala con A− / A+. */
 .lw-cols .lyric-line { font-size: 1em; line-height: 1.45; margin-bottom: .12em; }
 .lw-cols .chord-line { font-size: .78em; margin-top: .5em; }
-.lw-cols .inline-chord { font-size: .7em; }
+.lw-cols .inline-chord { font-size: .62em; transform: translateY(-1.55em); }
+/* Acordes dentro de la línea: la línea es su referencia (si no, se quedaban fijos al hacer scroll). */
+.lw-cols .lyric-line { position: relative; }
+.lw-cols .lyric-line.has-inline-chords { margin-top: .95em; }
+.lw-body.hide-chords .lyric-line.has-inline-chords { margin-top: .12em; }
 .lw-cols .section-header-line { font-size: .5em; margin-top: 1.4em; }
+/* Ventana estrecha: título arriba, botones debajo. */
+@media (max-width: 640px) {
+  .lw-head { flex-wrap: wrap; row-gap: 8px; }
+  .lw-titles { flex: 1 1 100%; }
+  .lw-tools { flex-wrap: wrap; }
+}

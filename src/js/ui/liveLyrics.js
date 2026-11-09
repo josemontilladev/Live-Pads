@@ -96,7 +96,19 @@ export function initLiveLyrics() {
   metaEl = panel.querySelector('.ll-meta');
   hintEl = panel.querySelector('.ll-hint');
 
-  btn.onclick = () => setOpen(panel.classList.contains('hidden'));
+  // «Letra» (barra del espectro): abre la letra de la canción activa en el panel flotante
+  // (ui/lyricsOverlay.js), como el metrónomo y el afinador. Antes abría esta columna, que
+  // sustituía la lista de canciones del sidebar.
+  btn.onclick = () => {
+    const s = currentSong();
+    const liveKey = s ? getEffectiveKey(s) : '';
+    const baseKey = (s && s.key) || '';
+    const semis = s && baseKey && liveKey && baseKey !== liveKey ? keyDelta(baseKey, liveKey) : 0;
+    const text = s && s.lyrics ? (semis ? transposeAll(s.lyrics, semis, prefersFlats(liveKey)) : s.lyrics) : '';
+    window.dispatchEvent(new CustomEvent('livepads:open-lyrics', { detail: s ? {
+      title: s.title || '', artist: s.artist || '', key: liveKey || baseKey, html: text.trim() ? formatLyrics(text) : '',
+    } : { title: 'Letra', artist: '', key: '', html: '<p class="lyp-empty">Elige una canción de la lista para ver su letra.</p>' } }));
+  };
   panel.querySelector('#ll-close').onclick = () => setOpen(false);
   panel.querySelector('#ll-chords').onclick = () => { showChords = !showChords; lsSet(CHORDS_KEY, showChords ? '1' : '0'); paintTools(); };
   panel.querySelector('#ll-smaller').onclick = () => setSize(sized - 1);
@@ -143,7 +155,7 @@ export function initLiveLyrics() {
   const sigEl = document.getElementById('metro-sig-select');
   if (sigEl) sigEl.addEventListener('change', paintMeta);
 
-  setOpen(ls(OPEN_KEY, '0') === '1');
+  setOpen(false);   // la columna ya no se abre sola al arrancar (la letra va en el panel flotante)
   paintTools();
   setSize(sized);
   refresh();

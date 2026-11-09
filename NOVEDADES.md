@@ -1,3 +1,4 @@
-• Servicios más claros: la pestaña Servicio muestra todos tus servicios (con fecha y canciones) y un botón grande «Nuevo servicio». Al abrir uno, «‹ Servicios» te devuelve a la lista, «+ Canciones» añade o quita canciones, y el menú «⋯» tiene las opciones con texto (renombrar, compartir con el equipo, duplicar, eliminar).
-• La letra se abre en un panel flotante como el metrónomo y el afinador: muévelo donde no estorbe (los drum pads siguen a la vista), cambia el tamaño de la letra, muestra u oculta los acordes y deja que siga la canción que suena. Con «Otra pantalla» la llevas a una TV o un segundo monitor.
-• Mucho más fluida en portátiles: cambiar o cargar una canción ya no deja la app «pegada».
+• Letra en panel flotante (como el metrónomo y el afinador), también desde el botón «Letra» del espectro: ya no reemplaza la lista de canciones del lateral.
+• Arreglado: los acordes escritos dentro de la letra («[A]Abba…») ya no se quedan fijos al hacer scroll.
+• Al hacer el panel de la letra estrecho, el título se ve completo y los botones pasan debajo.
+• Servicios más claros: lista de servicios con «Nuevo servicio», «‹ Servicios» para volver, «+ Canciones» y un menú «⋯» con las opciones escritas.

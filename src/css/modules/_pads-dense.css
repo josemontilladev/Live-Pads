@@ -179,6 +179,25 @@
 .lyp-cols { column-width: 12em; column-gap: 2em; column-rule: 1px solid var(--border); }
 .lyp-cols .lyric-line { font-size: 1em; line-height: 1.45; margin-bottom: .12em; }
 .lyp-cols .chord-line { font-size: .78em; margin-top: .5em; break-after: avoid-column; }
-.lyp-cols .inline-chord { font-size: .7em; }
+.lyp-cols .inline-chord { font-size: .62em; transform: translateY(-1.55em); }
+/* Acordes dentro de la línea («[A]Abba»): son position:absolute; sin una línea posicionada
+   que les sirva de referencia, dentro de las columnas se anclaban al panel y se quedaban
+   fijos al hacer scroll. */
+.lyp-cols .lyric-line { position: relative; }
+.lyp-cols .lyric-line.has-inline-chords { margin-top: .95em; }
+.lyp-body.hide-chords .lyric-line.has-inline-chords { margin-top: .12em; }
 .lyp-cols .section-header-line { font-size: .52em; margin-top: 1.3em; break-after: avoid-column; }
 .lyp-empty { color: var(--text-muted); font-size: 14px; }
+
+/* Cabecera del panel de letra: en un panel estrecho, título completo (con ✕) arriba y
+   los botones debajo (antes los botones se comían el título). */
+.lyp-panel { container-type: inline-size; container-name: lyp; }
+.lyp-head [data-do="close"] { order: 3; }
+.lyp-tools { order: 2; }
+@container lyp (max-width: 600px) {
+  .lyp-head { flex-wrap: wrap; row-gap: 7px; }
+  .lyp-titles { order: 1; flex: 1 1 0; }
+  .lyp-head [data-do="close"] { order: 2; }
+  .lyp-tools { order: 3; flex: 1 1 100%; flex-wrap: wrap; }
+  .lyp-title { white-space: normal; }
+}

@@ -154,6 +154,8 @@ export function initLyricsOverlay() {
     open(payloadFrom(acc.closest('.gi-song-item')));
     closeAllLyrics();   // el desplegable (oculto en Pads) no se queda «abierto»
   });
+  // «Letra» de la barra del espectro (liveLyrics.js) → la canción activa, en el panel.
+  window.addEventListener('livepads:open-lyrics', (e) => { if (e.detail) open(e.detail); });
   // Cambia la canción que suena → el panel (y la ventana de otra pantalla) la siguen.
   let lastId = null;
   window.addEventListener('livepads:song-state', () => {
