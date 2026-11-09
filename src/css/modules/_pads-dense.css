@@ -76,7 +76,7 @@
    El panel de batería era una tarjeta grande (fondo, borde y sombra) con los pads y
    el mezclador dentro: se leía como un bloque pesado. Ahora los recuadros de los pads
    quedan sueltos arriba y el mezclador debajo, ninguno con fondo propio. */
-#panel-drums { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+#panel-drums { background: none; border: 0; box-shadow: none; padding: 3px 3px 6px; border-radius: 0; } /* margen para el hover (sube 1 px) y su sombra: el panel recorta */
 #mixer-bar { border-top: 0; padding-left: 4px; padding-right: 4px; }
 
 /* ═══ Metrónomo más limpio ═══
