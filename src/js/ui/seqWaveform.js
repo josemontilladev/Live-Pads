@@ -393,7 +393,7 @@ function setZoom(z, anchorClientX, { silent = false } = {}) {
     zoom = nz;
     zoomer.style.width = `${nz * 100}%`;
     root.classList.toggle('is-zoomed', nz > 1.001);
-    if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? nz.toFixed(1) : Math.round(nz)}×` : '1×';
+    if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? String(Math.round(nz * 100) / 100).replace('.', ',') : Math.round(nz)}×` : '1×';
     progScroll = true; scroller.scrollLeft = 0;
     requestAnimationFrame(() => { progScroll = false; });
     return;
@@ -410,17 +410,26 @@ function setZoom(z, anchorClientX, { silent = false } = {}) {
   zoom = nz;
   zoomer.style.width = `${nz * 100}%`;
   root.classList.toggle('is-zoomed', nz > 1.001);
-  if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? nz.toFixed(1) : Math.round(nz)}×` : '1×';
+  if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? String(Math.round(nz * 100) / 100).replace('.', ',') : Math.round(nz)}×` : '1×';
   const newW = cw * nz;
   progScroll = true;
   scroller.scrollLeft = Math.max(0, frac * newW - ax);
   requestAnimationFrame(() => { progScroll = false; });
   // El ResizeObserver de la onda redibuja onda, secciones y acordes al cambiar el ancho.
 }
+// Escala de zoom gradual para los botones + / − (antes saltaba ×1,6: 1 → 1,6 → 2,6 → 4,1).
+const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64];
+function stepZoom(dir) {
+  const cur = zoom;
+  let next;
+  if (dir > 0) next = ZOOM_STEPS.find((z) => z > cur + 0.01) ?? cur * 1.25;
+  else next = [...ZOOM_STEPS].reverse().find((z) => z < cur - 0.01) ?? 1;
+  setZoom(next);
+}
 function wireZoom() {
   if (!scroller) return;
-  root.querySelector('#sw-zoom-in').onclick = () => setZoom(zoom * 1.6);
-  root.querySelector('#sw-zoom-out').onclick = () => setZoom(zoom / 1.6);
+  root.querySelector('#sw-zoom-in').onclick = () => stepZoom(1);
+  root.querySelector('#sw-zoom-out').onclick = () => stepZoom(-1);
   zoomLvl.onclick = () => setZoom(1);
   chordFitBtn.onclick = () => { const z = laneNeededZoom(); if (z > zoom) setZoom(z); };
   // Ctrl/Alt + rueda = zoom (anclado al ratón); la rueda sola deja la página quieta.

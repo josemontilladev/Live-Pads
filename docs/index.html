@@ -111,13 +111,13 @@
 <!-- ═══ CINTA + CIFRAS ═══ -->
 <div class="marquee" aria-hidden="true">
   <div class="marquee-track">
-    <span>Pads continuos</span><span>Click inteligente</span><span>Stems con IA</span><span>MIDI Learn</span><span>Letras con acordes</span><span>Companion de banda</span><span>Modo en vivo</span><span>Sin internet</span><span>Servicios del equipo</span><span>8 temas</span>
-    <span>Pads continuos</span><span>Click inteligente</span><span>Stems con IA</span><span>MIDI Learn</span><span>Letras con acordes</span><span>Companion de banda</span><span>Modo en vivo</span><span>Sin internet</span><span>Servicios del equipo</span><span>8 temas</span>
+    <span>Pads mayores y menores</span><span>Click inteligente</span><span>Stems con IA</span><span>Biblioteca de multitracks</span><span>Acordes automáticos</span><span>Cualquier MIDI</span><span>Letras con acordes</span><span>Companion de banda</span><span>Sin internet</span><span>Servicios del equipo</span>
+    <span>Pads mayores y menores</span><span>Click inteligente</span><span>Stems con IA</span><span>Biblioteca de multitracks</span><span>Acordes automáticos</span><span>Cualquier MIDI</span><span>Letras con acordes</span><span>Companion de banda</span><span>Sin internet</span><span>Servicios del equipo</span>
   </div>
 </div>
 <section class="stats">
   <div class="wrap stats-grid">
-    <div class="stat"><b data-count="12">12</b><span>tonos de pad con crossfade continuo</span></div>
+    <div class="stat"><b data-count="24">24</b><span>pads: 12 tonos mayores y 12 menores, en bucle sin corte</span></div>
     <div class="stat"><b data-count="4">4</b><span>stems con IA: voz, batería, bajo y otros</span></div>
     <div class="stat"><b data-count="8">8</b><span>temas visuales a un clic</span></div>
     <div class="stat"><b data-count="3">3</b><span>plataformas: Windows, Android y web</span></div>
@@ -159,6 +159,8 @@
         <li><svg class="ico"><use href="#i-check"/></svg><span><b>Toca para saltar</b> a cualquier sección; arrastra un nombre para moverlo.</span></li>
         <li><svg class="ico"><use href="#i-check"/></svg><span><b>Se guardan con la canción</b> y se sincronizan con tu equipo y con la app móvil.</span></li>
         <li><svg class="ico"><use href="#i-check"/></svg><span><b>Pads continuos</b> con crossfade de 2 s entre tonos: nunca hay huecos al cambiar de canción.</span></li>
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Mayor o menor</b> en un toque: con «Menor», la tecla A suena Am. Bucles sin corte que pueden sonar todo el servicio.</span></li>
+        <li><svg class="ico"><use href="#i-check"/></svg><span><b>Acordes y secciones automáticos</b>: la app detecta el pulso, los acordes y las partes de la canción, 100 % en tu equipo.</span></li>
         <li><svg class="ico"><use href="#i-check"/></svg><span><b>Se ve bien en cualquier monitor</b>, de 1024×600 a 2560×1440: los pads nunca se aplastan.</span></li>
       </ul>
     </div>
@@ -188,7 +190,10 @@
     <div class="bento" style="margin-top:14px">
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-layers"/></svg></div><h3>Pistas por canción<span class="tag">Nuevo</span></h3><p>Guarda <b>voz, batería, bajo, teclas, guitarra…</b> en cada canción y practica con «Sin batería», «Solo voces» o «Sin teclas» en un clic.</p></div>
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-sparkles"/></svg></div><h3>Separación con IA</h3><p>Usa la GPU si hay una disponible, con respaldo automático a CPU. Sin nube, sin Python, sin subir tu música a ningún lado.</p></div>
-      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-archive"/></svg></div><h3>ZIP y MP3 automático<span class="tag">Nuevo</span></h3><p>Baja todas las pistas de una canción en un ZIP. Los WAV, AIFF y FLAC se convierten a MP3 al subirlos: hasta un <b>85 % menos de peso</b>.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-archive"/></svg></div><h3>ZIP y MP3 automático</h3><p>Baja todas las pistas de una canción en un ZIP. Los WAV, AIFF y FLAC se convierten a MP3 al subirlos: hasta un <b>85 % menos de peso</b>.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-music"/></svg></div><h3>Biblioteca de multitracks<span class="tag">Nuevo</span></h3><p>Packs por canción en cuadrícula o lista, con portada y artista. Busca por <b>canción o artista</b> y marca las pistas que necesitas, o cárgalas todas de golpe.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-zap"/></svg></div><h3>Carga al instante<span class="tag">Nuevo</span></h3><p>En un proyecto nuevo, LivePads toma el tempo y el tono de la canción del pack: las pistas entran <b>sin estirarse</b> y se preparan varias a la vez.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-headphones"/></svg></div><h3>Escucha previa inteligente<span class="tag">Nuevo</span></h3><p>Cada pista suena desde su <b>primer compás con sonido</b> (no 16 compases de silencio), con indicador y progreso de lo que estás oyendo.</p></div>
     </div>
   </div>
 </section>
@@ -231,14 +236,14 @@
       <div class="card hl c4 rv"><div class="ic"><svg class="ico"><use href="#i-layers"/></svg></div><h3>Del multitrack a tu setlist</h3><p>Arma la mezcla en Stems y <b>asígnala directo al slot de Secuencia</b> de cualquier canción, sin exportar y reimportar. Un panel lateral muestra todo el setlist y, con clic derecho, cargas la secuencia o el original (archivo o YouTube) a cada canción.</p>
         <div class="stemrows"><div class="stemrow"><span>Voz</span><i style="--h:330;--w:88%"></i></div><div class="stemrow"><span>Batería</span><i style="--h:200;--w:100%"></i></div><div class="stemrow"><span>Bajo</span><i style="--h:140;--w:72%"></i></div><div class="stemrow"><span>Teclas</span><i style="--h:40;--w:94%"></i></div></div></div>
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-timer"/></svg></div><h3>Click inteligente</h3><p>Detecta BPM y compás y se <b>alinea solo</b> al pulso real, incluso tras un intro en silencio. Subdivisiones, acentos por tiempo, tap tempo y 7 sonidos.</p></div>
-      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-keyboard"/></svg></div><h3>MIDI y teclado</h3><p>Modo Learn en un clic, CC para faders y perillas, mapeos separados para Pads y Stems. Exporta tu setup a otra PC.</p></div>
-      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-text"/></svg></div><h3>Letras con acordes</h3><p>Importa desde LaCuerda, transpone en vivo y usa el modo <b>teleprompter</b> a pantalla completa, legible a distancia.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-keyboard"/></svg></div><h3>MIDI y teclado</h3><p>Reconoce <b>cualquier controlador MIDI</b> al conectarlo, con respuesta de baja latencia para los drum pads. Modo Learn en un clic, CC para faders y mapeos exportables.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-text"/></svg></div><h3>Letras con acordes</h3><p>Panel flotante que no tapa los pads, edición en un clic, <b>otra pantalla</b> para la TV o un segundo monitor y modo teleprompter a pantalla completa.</p></div>
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-sliders"/></svg></div><h3>Mezclador único</h3><p>Pads, batería, click, pista y maestro en un solo panel, mapeable a tu controlador. Los niveles se guardan entre sesiones.</p></div>
       <div class="card c3 rv"><div class="ic"><svg class="ico"><use href="#i-wifi"/></svg></div><h3>Companion de banda</h3><p>La banda ve letras y acordes de la canción que disparas, en su teléfono, por la misma WiFi. Modo iglesia con hotspot propio: 100 % offline y sin instalar nada.</p></div>
       <div class="card c3 rv"><div class="ic"><svg class="ico"><use href="#i-cloud"/></svg></div><h3>Nube y equipo</h3><p>Setlists sincronizados, búsqueda global (título, artista, letra), filtros por tono y etiquetas, auto-avance que encadena el servicio y carátulas automáticas desde YouTube.</p></div>
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-search"/></svg></div><h3>Spotlight Ctrl + K</h3><p>Busca canciones y comandos al instante, con navegación por teclado.</p></div>
       <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-palette"/></svg></div><h3>8 temas</h3><p>Cambio instantáneo y persistente, con vista previa al pasar el cursor.</p></div>
-      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-zap"/></svg></div><h3>Siempre al día</h3><p>Se actualiza sola en segundo plano y te pide un clic para aplicar.</p></div>
+      <div class="card c2 rv"><div class="ic"><svg class="ico"><use href="#i-zap"/></svg></div><h3>Siempre al día</h3><p>Descarga las versiones nuevas en segundo plano; un icono en la barra superior muestra el progreso y aplicas con un clic.</p></div>
     </div>
   </div>
 </section>
