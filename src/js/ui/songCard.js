@@ -73,10 +73,14 @@ function songAccentHue(song) {
 // de Stems (renderSetlistPanel en stems/workspace.js).
 export function songCoverHtml(song) {
   const hue = songAccentHue(song);
-  const initial = esc((String(song.title || '?').trim().charAt(0) || '?').toUpperCase());
+  // Primera letra o número del título («¡Grita!» → G, no «¡»).
+  const initial = esc(((/[\p{L}\p{N}]/u.exec(String(song.title || '')) || ['?'])[0]).toUpperCase());
   if (song.cover) {
-    return `<div class="gi-song-cover" style="--song-accent:hsl(${hue} 60% 55%)">
+    // La inicial va también aquí (oculta): si la imagen no carga (archivo movido,
+    // sin conexión), se muestra en su lugar en vez del icono de imagen rota.
+    return `<div class="gi-song-cover" style="--song-accent:hsl(${hue} 60% 55%);--song-tint:hsl(${hue} 40% 24%)">
       <img src="${esc(song.cover)}" alt="" loading="lazy">
+      <span class="gi-cover-fallback">${initial}</span>
     </div>`;
   }
   return `<div class="gi-song-cover no-cover" style="--song-accent:hsl(${hue} 60% 55%);--song-tint:hsl(${hue} 40% 24%)">
@@ -155,7 +159,7 @@ export function songCardInnerHTML(song, opts) {
   const metaLine = [
     keyMeta,
     song.bpm   ? `<span class="gi-chip">${esc(song.bpm)} BPM</span>` : '',
-    `<span class="gi-chip">${sigMeta}</span>`,
+    `<span class="gi-chip${sigMeta === '4/4' ? '' : ' is-odd-sig'}">${sigMeta}</span>`,
     // Mayúscula inicial solo al mostrar ("alabanza" y "Alabanza" se ven igual);
     // el dato guardado no se toca.
   ].filter(Boolean).join('');

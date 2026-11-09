@@ -1,0 +1,78 @@
+/* ═══ Pads · lista de canciones densa ═══════════════════════════════════
+   Cada tarjeta medía ~110 px (carátula de 52 px + tres líneas + 30 px vacíos
+   reservados para la tira de botones que solo aparece al pasar el ratón): en un
+   portátil se veían dos canciones y media, y el equipo perdía de vista la
+   siguiente. Ahora es una fila de ~58 px:
+
+     [carátula]  Título (todo el ancho)
+                 Artista                        [tono] [BPM]
+
+   · Tono y BPM a la derecha; el compás solo si no es 4/4 (es lo habitual) y el
+     género no se muestra en la lista (sigue en la ficha).
+   · Al pasar el ratón, los botones (Letra / Sec / Orig / ⋮) ocupan el sitio de
+     tono y BPM: ya no hace falta dejar una franja vacía en cada tarjeta.
+   · La canción que suena conserva su tira de botones completa debajo.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+#panel-setlist .gi-song-item { padding: 7px 10px; }
+#panel-setlist .gi-song-row { gap: 10px; align-items: center; }
+#panel-setlist .gi-song-cover { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 9px; box-shadow: none; }
+#panel-setlist .gi-cover-fallback { font-size: 17px; }
+
+#panel-setlist .gi-song-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "title title" "artist meta" "badge badge";
+  column-gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+#panel-setlist .gi-song-title {
+  grid-area: title; font-size: 13.5px; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#panel-setlist .gi-song-artist-row { grid-area: artist; margin-top: 1px; }
+#panel-setlist .gi-song-artist { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#panel-setlist .gi-song-artist-row .gi-chip--genre { display: none; }
+#panel-setlist .gi-song-meta-line {
+  grid-area: meta; margin: 0; gap: 4px;
+  flex-wrap: nowrap; justify-content: flex-end; align-self: center;
+}
+#panel-setlist .gi-inservice-badge { grid-area: badge; justify-self: start; margin-top: 4px; }
+/* Compás: solo si no es el habitual 4/4 (el chip del compás es siempre el último). */
+#panel-setlist .gi-song-meta-line > .gi-chip:last-child:not(.gi-chip--key) { display: none; }
+#panel-setlist .gi-song-meta-line > .gi-chip:last-child.is-odd-sig { display: inline-flex; }
+
+/* Sin franja reservada abajo: la tira flotante se pone sobre tono y BPM. */
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-main { padding-bottom: 0; }
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
+  top: 50%; bottom: auto; right: 8px;
+  transform: translateY(-50%) scale(.98);
+}
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-actions,
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-actions {
+  transform: translateY(-50%);
+}
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-meta-line,
+#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-meta-line {
+  visibility: hidden;
+}
+
+/* Canción activa: su tira de botones, compacta, debajo. */
+#panel-setlist .gi-song-item.active-song .gi-song-actions { margin-top: 7px; padding-top: 7px; }
+
+/* Carátula que no cargó: la inicial ocupa su sitio (ver el manejador en app.js). */
+.gi-song-cover:not(.no-cover) .gi-cover-fallback { display: none; }
+
+/* ═══ Pads de batería y mezclador: cada uno por su lado, sin contenedor de fondo ═══
+   El panel de batería era una tarjeta grande (fondo, borde y sombra) con los pads y
+   el mezclador dentro: se leía como un bloque pesado. Ahora los recuadros de los pads
+   quedan sueltos arriba y el mezclador debajo, ninguno con fondo propio. */
+#panel-drums { background: none; border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+#mixer-bar { border-top: 0; padding-left: 4px; padding-right: 4px; }
+
+/* ═══ Metrónomo más limpio ═══
+   · «120 BPM» bajo los puntos repetía el número grande: fuera.
+   · «Click + secuencia» y «Cuenta de entrada» se partían en dos líneas en portátiles. */
+#metro-bpm-live { display: none; }
+.hm-section--sounds .hm-clickseq, .hm-section--sounds .hm-clickseq span { white-space: nowrap; }

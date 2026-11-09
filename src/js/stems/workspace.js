@@ -6437,7 +6437,7 @@ function ssCoverHtml(song) {
   if (song.cover) {
     return `<span class="ssl-cover" style="--song-accent:hsl(${hue} 60% 55%)"><img src="${esc(song.cover)}" alt="" loading="lazy"></span>`;
   }
-  const initial = esc((String(song.title || '?').trim().charAt(0) || '?').toUpperCase());
+  const initial = esc(((/[\p{L}\p{N}]/u.exec(String(song.title || '')) || ['?'])[0]).toUpperCase());
   return `<span class="ssl-cover no-cover" style="--song-accent:hsl(${hue} 60% 55%);--song-tint:hsl(${hue} 40% 24%)"><span class="ssl-cover-fallback">${initial}</span></span>`;
 }
 

@@ -2428,6 +2428,17 @@ function showUpdateReady(info) {
   bar.querySelector('#update-later').onclick = () => bar.remove();
 }
 
+// Carátula que no carga (archivo movido, sin conexión): se cambia por la inicial.
+// (Los eventos «error» de imágenes no burbujean: se escuchan en captura.)
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement)) return;
+  const box = img.closest('.gi-song-cover');
+  if (!box || !box.querySelector('.gi-cover-fallback')) return;
+  box.classList.add('no-cover');
+  img.remove();
+}, true);
+
 window.__showUpdateReady = showUpdateReady; // (también sirve para probar la interfaz)
 window.__updState = updTestState;            // (prueba del icono del header)
 initUpdateIndicator();
