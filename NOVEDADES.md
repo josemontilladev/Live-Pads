@@ -1,2 +1,3 @@
-• Stems: reproducción más compacta. El tiempo muestra solo «transcurrido / total» (sin los milisegundos).
-• La barra de Stems se acomoda mejor al ancho: con la Biblioteca abierta sigue en 2 filas (sin que el imán y el zoom bajen solos a otra línea); en pantallas muy estrechas se reordena en cuadrícula.
+• Biblioteca: al abrirla ves todos tus packs en cuadrícula (portada, canción, artista y número de tracks); con el botón de al lado puedes verlos en lista. Al tocar un pack ves sus tracks, y «‹ Packs» vuelve.
+• Cargar varias pistas de golpe: marca las que necesites (o «Todas») y pulsa «Cargar N pistas»; sin marcar ninguna, «Cargar todas». Entran todas en la misma posición, cada pista de la canción en su propia pista.
+• Se quitó el aviso «¿Primera vez?» y la etiqueta de cada track es más corta (✓ si ya está descargado).

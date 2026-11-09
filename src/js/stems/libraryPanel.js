@@ -359,6 +359,8 @@ export function mountLibraryPanel(host, api) {
   function renderTry() {
     const box = ref('try');
     if (!box) return;
+    box.hidden = true; // aviso «¿Primera vez?» retirado
+    if (box) return;
     const show = state.loaded && !api.hasTracks() && !state.loadError
       && state.packs.some((p) => pickPackLayers(p.id, { usableOnly: true }).length);
     box.hidden = !show;
@@ -400,6 +402,7 @@ export function mountLibraryPanel(host, api) {
   async function loadLoops() {
     const seq = ++searchSeq;
     const list = ref('list');
+    if (!state.packId) { state.loops = []; renderPacks(); return; }
     list.innerHTML = '<div class="stl-empty">Cargando…</div>';
     try {
       const loops = await stemLibrary.listLoops({
@@ -468,13 +471,17 @@ export function mountLibraryPanel(host, api) {
     const bpm = !bpms.length ? '' : bpms.length === 1 ? `${bpms[0]} BPM` : `${bpms[0]}–${bpms[bpms.length - 1]} BPM`;
     return [bpm, key].filter(Boolean).join(' · ');
   }
-  // Los tracks no se mezclan entre packs: siempre hay UN pack elegido
-  // (el último que usaste o, si no, el primero de la lista).
+  // Sin pack elegido se ven TODOS los packs (cuadrícula o lista); al elegir uno,
+  // solo sus tracks. Los tracks de distintos packs nunca se mezclan.
   function ensurePack() {
-    if (state.packId && state.packs.some((p) => p.id === state.packId)) return;
-    const recent = recentPacks.find((id) => state.packs.some((p) => p.id === id));
-    state.packId = recent || (sortedPacks()[0] || {}).id || '';
+    if (state.packId && !state.packs.some((p) => p.id === state.packId)) state.packId = '';
   }
+  // Pistas marcadas del pack abierto (para cargar varias de golpe).
+  const sel = new Set();
+  let batchBusy = false;
+  const PVIEW_KEY = 'livepads-stl-packs-view';
+  let packsView = 'grid';
+  try { if (localStorage.getItem(PVIEW_KEY) === 'list') packsView = 'list'; } catch (_) {}
   function sortedPacks() {
     const rec = new Map(recentPacks.map((id, i) => [id, i]));
     return state.packs.slice().sort((a, b) => {
@@ -486,12 +493,28 @@ export function mountLibraryPanel(host, api) {
   }
   function renderPacks() {
     const cur = state.packs.find((p) => p.id === state.packId);
-    ref('packs').innerHTML = !state.packs.length ? '' : `
-      <button type="button" class="stl-packpick stl-packpick--slim" data-act="packs" title="Elegir otro pack">
-        <span class="stl-packpick-ico">${SVG_BOOK}</span>
-        <span class="stl-packpick-txt"><b>Packs</b><small>${state.packs.length} ${state.packs.length === 1 ? 'pack disponible' : 'packs disponibles'}</small></span>
-        <span class="stl-packpick-go">Ver todos</span>
-      </button>`;
+    if (!state.packs.length) { ref('packs').innerHTML = ''; renderPackCard(); return; }
+    if (cur) {
+      ref('packs').innerHTML = `
+        <button type="button" class="stl-packback" data-pack="" title="Volver a todos los packs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+          Packs
+        </button>`;
+    } else {
+      ref('packs').innerHTML = `
+        <div class="stl-pbar">
+          <span class="stl-pbar-k">Packs <b>${state.packs.length}</b></span>
+          <div class="stl-pview" role="group" aria-label="Ver packs como">
+            <button type="button" class="sb-icon${packsView === 'grid' ? ' is-on' : ''}" data-act="pview" data-v="grid" title="Cuadrícula" aria-label="Ver en cuadrícula" aria-pressed="${packsView === 'grid'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+            </button>
+            <button type="button" class="sb-icon${packsView === 'list' ? ' is-on' : ''}" data-act="pview" data-v="list" title="Lista" aria-label="Ver en lista" aria-pressed="${packsView === 'list'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14" aria-hidden="true"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
+            </button>
+          </div>
+        </div>`;
+      renderPackBrowser();
+    }
     renderPackCard();
     paintCovers();
     if (packsWin) packsWin.render();
@@ -632,6 +655,33 @@ export function mountLibraryPanel(host, api) {
     }
   }
 
+  // Navegador de packs (en la zona con scroll): cuadrícula o lista, filtrado por el buscador.
+  function renderPackBrowser() {
+    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const q = norm(ref('text').value).split(/\s+/).filter(Boolean);
+    const packs = sortedPacks().filter((p) => {
+      const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
+      return q.every((w) => hay.includes(w));
+    });
+    const list = ref('list');
+    if (!packs.length) { list.innerHTML = '<div class="stl-empty">Ningún pack coincide con esa canción o artista.</div>'; return; }
+    const count = (pid) => state.catalog.filter((l) => l.pack_id === pid).length;
+    list.innerHTML = `<div class="stl-pgrid stl-pgrid--${packsView}">` + packs.map((p) => {
+      const st = packStatus(p.id);
+      const n = count(p.id);
+      const sub = p.artist || packMeta(p.id) || '';
+      return `<button type="button" class="stl-pcard" data-pick-pack="${esc(p.id)}" title="${esc(p.title)}${p.artist ? ' — ' + esc(p.artist) : ''}">
+        <span class="stl-pcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}${favPacks.has(p.id) ? `<i class="stl-pk-fav">${SVG_HEART}</i>` : ''}</span>
+        <span class="stl-pcard-txt">
+          <b>${esc(p.title)}</b>
+          ${sub ? `<span class="stl-pcard-sub">${esc(sub)}</span>` : ''}
+          <span class="stl-pcard-foot">${n} ${n === 1 ? 'track' : 'tracks'} <span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span></span>
+        </span>
+      </button>`;
+    }).join('') + '</div>';
+    paintCovers();
+  }
+
   // Buscar = encontrar el pack de una canción o artista; al elegirlo, se ven sus tracks.
   function renderPackResults() {
     const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -653,7 +703,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   function renderLoops() {
-    if (ref('text').value.trim()) { renderPackResults(); return; }
+    if (!state.packId) { renderPacks(); return; }
     // El proyecto pudo cargarse (o cambiar de BPM/tono) después de abrir el
     // panel: la cabecera se recalcula junto con los ajustes de cada loop.
     renderProject();
@@ -696,7 +746,7 @@ export function mountLibraryPanel(host, api) {
       }[state.view] || 'No hay loops con esos filtros.'}<div class="stl-empty-actions"><button type="button" class="stb-btn" data-act="view-all">Ver todos</button></div></div>`;
       return;
     }
-    list.innerHTML = shown.map((l) => {
+    list.innerHTML = `<div class="stl-batch" data-ref="batch"></div>` + shown.map((l) => {
       const fit = fitLoop(loopSpec(l), project);
       const free = l.tier === 'free';
       const tierLabel = free ? 'GRATIS' : 'PRO';
@@ -705,22 +755,25 @@ export function mountLibraryPanel(host, api) {
       const here = state.local.has(l.id);
       // UNA etiqueta de estado: Pro (bloqueado) · Descargado · En la nube.
       const st = locked ? { cls: 'pro', txt: 'Pro', tip: 'Parte de LivePads Pro' }
-        : here ? { cls: 'local', txt: '✓ Descargado', tip: 'Ya está en este equipo: funciona sin internet' }
-        : { cls: 'cloud', txt: free ? 'Gratis' : 'En la nube', tip: 'Se baja al usarlo (necesita internet la primera vez)' };
+        : here ? { cls: 'local', txt: '✓', tip: 'Ya está en este equipo: funciona sin internet' }
+        : null;
+      void free;
       const unavailable = !here && stemLibrary.isUsingOfflineCopy();
       const fitTxt = [
         Math.abs(fit.ratio - 1) > 1e-4 ? `${Math.round(fit.effectiveBpm)}→${Math.round(project.bpm)} BPM` : '',
         fit.semitones ? `${fit.semitones > 0 ? '+' : ''}${fit.semitones} st` : '',
       ].filter(Boolean).join(' · ') || 'Sin ajuste';
       const warn = QUALITY_HINT[fit.quality] || (fit.warnings.includes('meter') ? 'Su compás no es el del proyecto.' : '');
-      return `<div class="stl-loop${locked ? ' is-locked' : ''}${unavailable ? ' is-unavailable' : ''}" draggable="${locked || unavailable ? 'false' : 'true'}" data-loop="${esc(l.id)}"${unavailable ? ' title="Sin conexión: este loop aún no está en este equipo"' : ''}>
+      const canPick = !locked && !unavailable;
+      return `<div class="stl-loop${locked ? ' is-locked' : ''}${unavailable ? ' is-unavailable' : ''}${sel.has(l.id) ? ' is-picked' : ''}" draggable="${locked || unavailable ? 'false' : 'true'}" data-loop="${esc(l.id)}"${unavailable ? ' title="Sin conexión: este loop aún no está en este equipo"' : ''}>
+        <label class="stl-pick" title="Marcar para cargar varias a la vez"><input type="checkbox" data-sel="${esc(l.id)}"${sel.has(l.id) ? ' checked' : ''}${canPick ? '' : ' disabled'} aria-label="Marcar ${esc(l.title)}"></label>
         <button type="button" class="stl-play" data-act="preview" title="Escuchar ajustado al proyecto (suena al instante)">${SVG_PLAY}</button>
         <div class="stl-loop-main">
           <div class="stl-loop-title">${favs.has(l.id) ? '<span class="stl-star" title="Favorito">★</span>' : ''}${esc(l.title)}</div>
           <div class="stl-loop-meta">
             <span class="stl-tag stl-tag--${esc(l.instrument)}">${INSTRUMENTS[l.instrument] || esc(l.instrument)}</span>
             <span class="stl-loop-bars">${l.bars} comp.</span>
-            <span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span>
+            ${st ? `<span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span>` : ''}
             ${warn ? `<span class="stl-loop-warn" title="${esc(warn)} (${esc(fitTxt)})">⚠</span>` : ''}
           </div>
         </div>
@@ -732,6 +785,54 @@ export function mountLibraryPanel(host, api) {
     }).join('');
     paintPlaying();
     paintDownload();
+    paintBatch();
+  }
+
+  // Pistas que se pueden cargar ahora (no bloqueadas por plan ni sin conexión).
+  function pickable() {
+    return state.loops.filter((l) => !isLocked(l) && !(stemLibrary.isUsingOfflineCopy() && !state.local.has(l.id)));
+  }
+  function paintBatch() {
+    const box = el.querySelector('.stl-batch');
+    if (!box) return;
+    const ok = pickable();
+    for (const id of [...sel]) if (!ok.some((l) => l.id === id)) sel.delete(id);
+    const n = sel.size, all = ok.length;
+    box.hidden = !all;
+    if (!all) return;
+    const allOn = n > 0 && n === all;
+    box.innerHTML = `
+      <label class="stl-batch-all"><input type="checkbox" data-act-sel="all"${allOn ? ' checked' : ''}${batchBusy ? ' disabled' : ''}> Todas</label>
+      <span class="stl-batch-n">${n ? `${n} de ${all}` : `${all} pistas`}</span>
+      <button type="button" class="stb-btn stb-btn--primary stl-batch-go" data-act="load-batch"${batchBusy ? ' disabled' : ''}>
+        ${batchBusy ? 'Cargando…' : n ? `Cargar ${n} ${n === 1 ? 'pista' : 'pistas'}` : `Cargar todas (${all})`}
+      </button>`;
+  }
+  // Carga varias pistas de una vez, todas en la misma posición (el cursor).
+  // Las de canción completa van cada una a su propia pista (Keys 1 y Keys 2 no se mezclan).
+  async function loadBatch() {
+    if (batchBusy) return;
+    const ok = pickable();
+    const list = sel.size ? ok.filter((l) => sel.has(l.id)) : ok;
+    if (!list.length) return;
+    batchBusy = true;
+    paintBatch();
+    const go = el.querySelector('.stl-batch-go');
+    let done = 0;
+    try {
+      for (const l of list) {
+        if (go) go.textContent = `Cargando ${done + 1} de ${list.length}…`;
+        await add(l, undefined, l.bars > 16 ? { sameTrack: false } : {});
+        done++;
+      }
+      showToast(`${done} ${done === 1 ? 'pista cargada' : 'pistas cargadas'} en la línea de tiempo.`, 'success');
+      sel.clear();
+    } finally {
+      batchBusy = false;
+      el.querySelectorAll('.stl-loop.is-picked').forEach((r) => r.classList.remove('is-picked'));
+      el.querySelectorAll('[data-sel]').forEach((c) => { c.checked = false; });
+      paintBatch();
+    }
   }
 
   function paintPlaying() {
@@ -752,7 +853,7 @@ export function mountLibraryPanel(host, api) {
     if (busy && !tag) {
       tag = document.createElement('span');
       tag.className = 'stl-loading';
-      tag.textContent = 'Cargando en la línea de tiempo…';
+      tag.textContent = 'Cargando…';
       (row.querySelector('.stl-loop-info, .stl-loop-main') || row).appendChild(tag);
     } else if (!busy && tag) tag.remove();
   }
@@ -813,7 +914,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   // ── Agregar ──────────────────────────────────────────────────────────────
-  async function add(loop, atSec) {
+  async function add(loop, atSec, opts = {}) {
     if (isLocked(loop)) { api.requirePro(); return; }
     if (stemLibrary.isUsingOfflineCopy() && !state.local.has(loop.id)) {
       showToast('Sin conexión: este loop todavía no está en este equipo.', 'info');
@@ -824,7 +925,7 @@ export function mountLibraryPanel(host, api) {
     setBusy(loop.id, true);
     try {
       // Una pista de canción completa (multitrack) entra una sola vez, no 4.
-      await api.addLoop(loop, { atSec, repeats: loop.bars > 16 ? 1 : getRepeats(), sameTrack: getSameTrack() });
+      await api.addLoop(loop, { atSec, repeats: loop.bars > 16 ? 1 : getRepeats(), sameTrack: opts.sameTrack ?? getSameTrack() });
       markRecent(loop.id);
       markRecentPack(loop.pack_id);
       state.localAll.add(loop.id);
@@ -914,9 +1015,17 @@ export function mountLibraryPanel(host, api) {
     if (act0 === 'only-local') { setView('local'); return; }
     if (act0 === 'view-all') { setView('all'); return; }
     if (act0 === 'packs') { openPacksWindow(); return; }
+    if (act0 === 'load-batch') { loadBatch(); return; }
+    if (act0 === 'pview') {
+      packsView = actEl.dataset.v === 'list' ? 'list' : 'grid';
+      try { localStorage.setItem(PVIEW_KEY, packsView); } catch (_) {}
+      renderPacks();
+      return;
+    }
     if (act0 === 'clear-filter') { clearFilter(actEl.dataset.filter); return; }
     const pick = e.target.closest('[data-pick-pack]');
     if (pick) {
+      sel.clear();
       state.packId = pick.dataset.pickPack;
       ref('text').value = '';
       renderPacks();
@@ -996,9 +1105,27 @@ export function mountLibraryPanel(host, api) {
   });
 
   let searchTimer = null;
+  el.addEventListener('change', (e) => {
+    const c = e.target;
+    if (!(c instanceof HTMLInputElement)) return;
+    if (c.dataset.sel) {
+      if (c.checked) sel.add(c.dataset.sel); else sel.delete(c.dataset.sel);
+      c.closest('.stl-loop')?.classList.toggle('is-picked', c.checked);
+      paintBatch();
+    } else if (c.dataset.actSel === 'all') {
+      const ok = pickable();
+      sel.clear();
+      if (c.checked) ok.forEach((l) => sel.add(l.id));
+      el.querySelectorAll('[data-sel]').forEach((b) => {
+        b.checked = sel.has(b.dataset.sel);
+        b.closest('.stl-loop')?.classList.toggle('is-picked', b.checked);
+      });
+      paintBatch();
+    }
+  });
   ref('text').addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { if (ref('text').value.trim()) renderPackResults(); else loadLoops(); }, 180);
+    searchTimer = setTimeout(() => { state.packId = ''; renderPacks(); }, 150);
   });
   ref('instrument').addEventListener('change', loadLoops);
   ref('section').addEventListener('change', loadLoops);

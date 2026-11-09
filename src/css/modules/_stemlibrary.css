@@ -856,3 +856,55 @@
   animation: stl-spin .7s linear infinite;
 }
 .stl-loop-meta { flex-wrap: nowrap; min-width: 0; overflow: hidden; } .stl-loop-meta > * { flex: none; }
+
+/* ═══ Navegador de packs en el panel (cuadrícula / lista) ═══ */
+.stl-pbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stl-pbar-k { font-size: 11px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.stl-pbar-k b { color: var(--text); margin-left: 3px; }
+.stl-pview { display: inline-flex; gap: 4px; }
+.stl-pview .sb-icon {
+  width: 28px; height: 28px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+}
+.stl-pview .sb-icon:hover { color: var(--text); border-color: var(--border-strong); }
+.stl-pview .sb-icon.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+.stl-pgrid { display: grid; gap: 10px; padding: 4px 2px 8px; }
+.stl-pgrid--grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+.stl-pgrid--list { grid-template-columns: 1fr; gap: 4px; }
+.stl-pcard {
+  display: flex; flex-direction: column; gap: 6px; padding: 7px; text-align: left; cursor: pointer; min-width: 0;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font: inherit;
+  transition: border-color 150ms ease, background 150ms ease, transform 180ms var(--ui-ease, ease);
+}
+.stl-pcard:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.stl-pcard:active { transform: scale(.98); }
+.stl-pcard-cover {
+  position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 10px;
+  background: var(--bg-hover) center / cover no-repeat; color: var(--text-muted);
+}
+.stl-pcard-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stl-pcard-txt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-pcard-sub { font-size: 11.5px; font-weight: 600; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-pcard-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--text-muted); }
+.stl-pgrid--list .stl-pcard { flex-direction: row; align-items: center; gap: 10px; padding: 6px; border-color: transparent; background: transparent; }
+.stl-pgrid--list .stl-pcard:hover { background: var(--bg-hover); border-color: var(--border); }
+.stl-pgrid--list .stl-pcard-cover { width: 44px; height: 44px; flex: none; aspect-ratio: auto; border-radius: 9px; }
+.stl-pgrid--list .stl-pcard-txt { flex: 1 1 auto; }
+
+/* ═══ Cargar varias pistas: casillas + barra «Todas / Cargar …» ═══ */
+.stl-batch {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; margin: 0 0 4px; border-radius: 12px;
+  background: var(--bg-surface, #141416); border: 1px solid var(--border);
+}
+.stl-batch[hidden] { display: none; }
+.stl-batch-all { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; cursor: pointer; }
+.stl-batch-n { font-size: 11.5px; color: var(--text-muted); }
+.stl-batch-go { margin-left: auto; height: 28px; padding: 0 12px; font-size: 12px; white-space: nowrap; }
+.stl-pick { flex: none; display: inline-flex; align-items: center; padding: 0 2px 0 0; cursor: pointer; }
+.stl-pick input, .stl-batch-all input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.stl-pick input:disabled { opacity: .35; cursor: default; }
+.stl-loop.is-picked { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.stl-loading { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stl-packs > .stl-pbar { flex: 1 1 auto; }
