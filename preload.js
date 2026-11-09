@@ -85,6 +85,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Pulsos y compases con el modelo local (Beat This!).
   analyzeBeats: (data) => ipcRenderer.invoke('analysis-beats', data),
   analysisAudioChunk: (data) => ipcRenderer.invoke('analysis-audio-chunk', data),
+  lyricsWindowShow: (data) => ipcRenderer.invoke('lyrics-window-show', data),
+  lyricsWindowFollow: (data) => ipcRenderer.invoke('lyrics-window-follow', data),
+  lyricsWindowSetFollow: (on) => ipcRenderer.invoke('lyrics-window-set-follow', on),
+  onLyricsData: (cb) => ipcRenderer.on('lyrics-data', (_e, d) => cb(d)),
   analyzeChordsModel: (data) => ipcRenderer.invoke('analysis-chords', data),
   onDeepLinkJoin: (cb) => ipcRenderer.on('deep-link-join', (_e, token) => cb(token)),
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info)),

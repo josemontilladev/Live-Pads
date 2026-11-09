@@ -1,3 +1,3 @@
-• Mucho más fluida en portátiles: cambiar o cargar una canción ya no deja la app «pegada» (en un equipo lento, de más de 2 s de bloqueo a menos de medio segundo). La onda y los acordes se dibujan con mucho menos trabajo mientras suena.
-• La letra se abre en un panel grande en el sitio de los pads de batería, en dos columnas si es larga: la lista de canciones sigue entera a la vista. Se cierra con ✕ o Esc.
-• Los botones de cada canción (Letra, Sec, Orig) aparecen al pasar el ratón sin tapar el título.
+• Servicios más claros: la pestaña Servicio muestra todos tus servicios (con fecha y canciones) y un botón grande «Nuevo servicio». Al abrir uno, «‹ Servicios» te devuelve a la lista, «+ Canciones» añade o quita canciones, y el menú «⋯» tiene las opciones con texto (renombrar, compartir con el equipo, duplicar, eliminar).
+• La letra se abre en un panel flotante como el metrónomo y el afinador: muévelo donde no estorbe (los drum pads siguen a la vista), cambia el tamaño de la letra, muestra u oculta los acordes y deja que siga la canción que suena. Con «Otra pantalla» la llevas a una TV o un segundo monitor.
+• Mucho más fluida en portátiles: cambiar o cargar una canción ya no deja la app «pegada».

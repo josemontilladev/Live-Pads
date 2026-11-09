@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: livepads:; font-src 'self' data:">
+  <title>Letra · LivePads</title>
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/lyrics-window.css">
+</head>
+<body class="lyrics-window">
+  <header class="lw-head">
+    <div class="lw-titles">
+      <b class="lw-title">Letra</b>
+      <span class="lw-sub"></span>
+    </div>
+    <div class="lw-tools">
+      <button type="button" class="lw-btn" id="lw-smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+      <button type="button" class="lw-btn" id="lw-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
+      <button type="button" class="lw-btn" id="lw-chords" title="Mostrar u ocultar los acordes">Acordes</button>
+      <button type="button" class="lw-btn" id="lw-follow" title="Cambiar sola a la canción que suena en LivePads">Seguir canción</button>
+    </div>
+  </header>
+  <main class="lw-body lyrics-text-content">
+    <div class="lw-cols"><p class="lw-empty">Elige una canción y pulsa «Letra».</p></div>
+  </main>
+  <script type="module" src="js/lyricsWindow.js"></script>
+</body>
+</html>

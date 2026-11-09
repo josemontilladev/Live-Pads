@@ -2339,6 +2339,45 @@ function analysisMono({ token, mono } = {}) {
   return {};
 }
 
+// ── Ventana de la letra (lyrics.html) ─────────────────────────────────────
+// «Letra» en una canción abre su letra en una ventana propia, que se puede llevar
+// a otra pantalla (TV, segundo monitor): la pantalla de Pads no cambia (el
+// baterista sigue viendo sus pads). Con «Seguir canción» cambia sola a la que suena.
+let lyricsWin = null, lyricsFollow = true, lastLyrics = null;
+function lyricsWindow() {
+  if (lyricsWin && !lyricsWin.isDestroyed()) return lyricsWin;
+  lyricsWin = new BrowserWindow({
+    width: 820, height: 900, minWidth: 360, minHeight: 300,
+    title: 'Letra · LivePads', backgroundColor: '#07070d', autoHideMenuBar: true,
+    icon: path.join(__dirname, 'src/assets/icon.ico'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false,
+      backgroundThrottling: false, devTools: !app.isPackaged,
+    },
+  });
+  lyricsWin.loadFile('src/lyrics.html');
+  lyricsWin.webContents.on('did-finish-load', () => { if (lastLyrics) lyricsWin.webContents.send('lyrics-data', lastLyrics); });
+  lyricsWin.on('closed', () => { lyricsWin = null; });
+  return lyricsWin;
+}
+ipcMain.handle('lyrics-window-show', (_e, data) => {
+  lastLyrics = data || null;
+  const w = lyricsWindow();
+  if (!w.webContents.isLoading()) w.webContents.send('lyrics-data', lastLyrics);
+  if (w.isMinimized()) w.restore();
+  w.show(); w.focus();
+  return true;
+});
+// La canción que suena cambió: si la ventana está abierta y sigue la canción, se actualiza
+// (sin robarle el foco a la ventana principal).
+ipcMain.handle('lyrics-window-follow', (_e, data) => {
+  if (!lyricsWin || lyricsWin.isDestroyed() || !lyricsFollow || !data) return false;
+  lastLyrics = data;
+  lyricsWin.webContents.send('lyrics-data', data);
+  return true;
+});
+ipcMain.handle('lyrics-window-set-follow', (_e, on) => { lyricsFollow = !!on; return lyricsFollow; });
+
 // Corre en el hilo de análisis (analysisWorker.js): el espectrograma y la
 // inferencia no bloquean el proceso principal.
 function runAnalysisWorker(workerData) {

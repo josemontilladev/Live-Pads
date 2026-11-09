@@ -1,96 +1,172 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Letra de una canción en un panel grande sobre los pads de batería.
-//
-// Antes, «Letra» desplegaba la letra DENTRO de la tarjeta de la lista: con una
-// letra larga la tarjeta crecía, empujaba las demás canciones y había que hacer
-// scroll (se perdía de vista la canción siguiente). Ahora:
-//  · la lista sigue entera a la izquierda;
-//  · la letra ocupa el sitio de los pads (el mezclador sigue debajo), en dos
-//    columnas si es larga, con su propio scroll;
-//  · ✕ o Esc la cierran.
+// Letra de una canción en un panel FLOTANTE (mismo estilo que el Metrónomo y el
+// Afinador): se arrastra por la cabecera, se redimensiona desde la esquina y
+// recuerda posición y tamaño. Así cada uno la pone donde no le estorbe (el
+// baterista sigue viendo sus pads). «Otra pantalla» la abre además en una
+// ventana propia para llevarla a una TV o un segundo monitor (lyrics.html).
 //
 // La lógica de abrir/cerrar sigue siendo la del desplegable de la tarjeta
-// (songState.js): este panel solo MUESTRA su contenido y sus botones (editar,
-// acordes, pantalla completa) pulsan los de la tarjeta, así no se duplica nada.
+// (songState.js): al abrirse uno, su contenido (ya formateado y en el tono del
+// servicio) se muestra aquí y el desplegable (oculto en Pads) se vuelve a cerrar.
+// Con «Seguir canción» cambia sola a la canción que suena.
 // ─────────────────────────────────────────────────────────────────────────
 
-let host = null, panel = null, bodyEl = null, titleEl = null, subEl = null, chordsBtn = null;
-let srcCard = null;
+import { closeAllLyrics } from './songState.js';
+import { pushModal } from './modalStack.js';
 
-const openAccordion = () => document.querySelector('#panel-setlist .gi-song-item .gi-lyrics-accordion.open');
+const LS_GEOM = 'livepads-lyricspanel-geom';
+const LS_PREFS = 'livepads-lyricspanel-prefs';
+let overlay = null, panel = null, popModal = null;
+let current = null;   // { title, artist, key, html }
+let prefs = { size: 20, chords: true, follow: true };
+try { Object.assign(prefs, JSON.parse(localStorage.getItem(LS_PREFS) || '{}')); } catch (_) {}
+const savePrefs = () => { try { localStorage.setItem(LS_PREFS, JSON.stringify(prefs)); } catch (_) {} };
+const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function clickInCard(sel) {
-  const b = srcCard && srcCard.querySelector(sel);
-  if (b) b.click();
+/** Datos de la letra de una tarjeta de la lista. */
+function payloadFrom(card) {
+  if (!card) return null;
+  const content = card.querySelector('.lyrics-text-content');
+  const key = (card.querySelector('.gi-key-chip, .gi-chip--key') || {}).textContent || '';
+  return {
+    title: (card.querySelector('.gi-song-title') || {}).textContent || '',
+    artist: (card.querySelector('.gi-song-artist') || {}).textContent || '',
+    key: key.trim(),
+    html: content ? content.innerHTML : '',
+  };
 }
 
-function sync() {
-  const acc = openAccordion();
-  if (!acc) { hide(); return; }
-  srcCard = acc.closest('.gi-song-item');
-  const content = acc.querySelector('.lyrics-text-content');
-  titleEl.textContent = (srcCard.querySelector('.gi-song-title') || {}).textContent || '';
-  subEl.textContent = (srcCard.querySelector('.gi-song-artist') || {}).textContent || '';
-  // Columnas en un contenedor interior: el exterior hace el scroll vertical (si las
-  // columnas estuvieran en el que tiene alto fijo, la letra se iría hacia los lados).
-  bodyEl.innerHTML = `<div class="lyr-ov-cols">${content ? content.innerHTML : ''}</div>`;
-  const hidden = !!(content && content.classList.contains('hide-chords'));
-  bodyEl.classList.toggle('hide-chords', hidden);
-  chordsBtn.classList.toggle('is-on', !hidden);
-  chordsBtn.title = hidden ? 'Mostrar acordes' : 'Ocultar acordes';
-  if (panel.hidden) { panel.hidden = false; host.classList.add('lyrics-mode'); bodyEl.scrollTop = 0; }
+function saveGeom() {
+  if (!panel) return;
+  const r = panel.getBoundingClientRect();
+  try { localStorage.setItem(LS_GEOM, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) })); } catch (_) {}
+}
+function restoreGeom() {
+  let g = null;
+  try { g = JSON.parse(localStorage.getItem(LS_GEOM) || 'null'); } catch (_) {}
+  if (!g || typeof g.x !== 'number') return;
+  const W = Math.min(g.w || 520, Math.round(window.innerWidth * 0.96));
+  const H = Math.min(g.h || 560, window.innerHeight - 16);
+  panel.style.width = `${W}px`; panel.style.height = `${H}px`;
+  panel.style.left = `${Math.max(8, Math.min(window.innerWidth - W - 8, g.x))}px`;
+  panel.style.top = `${Math.max(8, Math.min(window.innerHeight - 60, g.y))}px`;
+  panel.style.transform = 'none';
+}
+function makeDraggable(handle) {
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, select, label')) return;
+    dragging = true;
+    const r = panel.getBoundingClientRect();
+    panel.style.left = `${r.left}px`; panel.style.top = `${r.top}px`; panel.style.transform = 'none';
+    sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const nx = Math.max(8, Math.min(window.innerWidth - panel.offsetWidth - 8, ox + (e.clientX - sx)));
+    const ny = Math.max(8, Math.min(window.innerHeight - 60, oy + (e.clientY - sy)));
+    panel.style.left = `${nx}px`; panel.style.top = `${ny}px`;
+  });
+  const end = (e) => { if (!dragging) return; dragging = false; saveGeom(); try { handle.releasePointerCapture(e.pointerId); } catch (_) {} };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
 }
 
-function hide() {
-  srcCard = null;
-  if (!panel || panel.hidden) return;
-  panel.hidden = true;
-  host.classList.remove('lyrics-mode');
-  bodyEl.innerHTML = '';
+function paint() {
+  if (!panel || !current) return;
+  panel.querySelector('.lyp-title').textContent = current.title || 'Letra';
+  panel.querySelector('.lyp-sub').textContent = [current.artist, current.key ? `Tono ${current.key}` : ''].filter(Boolean).join(' · ');
+  const body = panel.querySelector('.lyp-body');
+  body.querySelector('.lyp-cols').innerHTML = current.html || '<p class="lyp-empty">Esta canción no tiene letra.</p>';
+  paintPrefs();
+}
+function paintPrefs() {
+  if (!panel) return;
+  const body = panel.querySelector('.lyp-body');
+  body.style.setProperty('--lyp-size', `${prefs.size}px`);
+  body.classList.toggle('hide-chords', !prefs.chords);
+  panel.querySelector('[data-do="chords"]').classList.toggle('is-on', prefs.chords);
+  panel.querySelector('[data-do="follow"]').classList.toggle('is-on', prefs.follow);
+}
+
+function open(data) {
+  current = data;
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'lyrics-panel-overlay';
+    overlay.innerHTML = `
+      <div class="lyp-panel" role="dialog" aria-label="Letra">
+        <div class="lyp-head" data-drag>
+          <span class="mtm-drag-dots" aria-hidden="true">⠿</span>
+          <div class="lyp-titles"><b class="lyp-title">Letra</b><span class="lyp-sub"></span></div>
+          <div class="lyp-tools">
+            <button type="button" class="lyp-btn" data-do="smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+            <button type="button" class="lyp-btn" data-do="bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
+            <button type="button" class="lyp-btn" data-do="chords" title="Mostrar u ocultar los acordes">Acordes</button>
+            <button type="button" class="lyp-btn" data-do="follow" title="Cambiar sola a la canción que suena">Seguir</button>
+            <button type="button" class="lyp-btn" data-do="screen" title="Abrir también en una ventana aparte, para llevarla a otra pantalla (TV, segundo monitor)">Otra pantalla</button>
+          </div>
+          <button class="tun-close" type="button" data-do="close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="lyp-body lyrics-text-content"><div class="lyp-cols"></div></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    panel = overlay.querySelector('.lyp-panel');
+    makeDraggable(overlay.querySelector('[data-drag]'));
+    restoreGeom();
+    // Guardar el tamaño al soltar el redimensionado (esquina).
+    let rt = 0;
+    new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(saveGeom, 300); }).observe(panel);
+    overlay.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-do]');
+      if (!b) return;
+      const w = b.dataset.do;
+      if (w === 'close') close();
+      else if (w === 'smaller') { prefs.size = Math.max(12, prefs.size - 2); savePrefs(); paintPrefs(); }
+      else if (w === 'bigger') { prefs.size = Math.min(48, prefs.size + 2); savePrefs(); paintPrefs(); }
+      else if (w === 'chords') { prefs.chords = !prefs.chords; savePrefs(); paintPrefs(); }
+      else if (w === 'follow') { prefs.follow = !prefs.follow; savePrefs(); paintPrefs(); window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow); }
+      else if (w === 'screen') window.electronAPI?.lyricsWindowShow?.(current);
+    });
+    popModal = pushModal(() => close());
+    requestAnimationFrame(() => overlay && overlay.classList.add('open'));
+  }
+  paint();
+  panel.querySelector('.lyp-body').scrollTop = 0;
+}
+
+function close() {
+  if (!overlay) return;
+  saveGeom();
+  if (popModal) { popModal(); popModal = null; }
+  overlay.classList.remove('open');
+  const node = overlay; overlay = null; panel = null;
+  setTimeout(() => node.remove(), 180);
 }
 
 export function initLyricsOverlay() {
-  host = document.getElementById('panel-drums');
-  if (!host || document.getElementById('lyrics-overlay')) return;
-  panel = document.createElement('section');
-  panel.id = 'lyrics-overlay';
-  panel.hidden = true;
-  panel.setAttribute('aria-label', 'Letra de la canción');
-  panel.innerHTML = `
-    <header class="lyr-ov-head">
-      <div class="lyr-ov-titles"><b class="lyr-ov-title"></b><span class="lyr-ov-sub"></span></div>
-      <div class="lyr-ov-tools">
-        <button type="button" class="lyr-ov-btn" data-do="edit" title="Editar letra y acordes">Editar</button>
-        <button type="button" class="lyr-ov-btn" data-do="chords" title="Ocultar acordes">Acordes</button>
-        <button type="button" class="lyr-ov-btn" data-do="fs" title="Pantalla completa (uso en vivo)">Pantalla completa</button>
-        <button type="button" class="lyr-ov-close" data-do="close" title="Cerrar la letra (Esc)" aria-label="Cerrar la letra">✕</button>
-      </div>
-    </header>
-    <div class="lyr-ov-body lyrics-text-content"></div>`;
-  host.insertBefore(panel, host.firstChild);
-  bodyEl = panel.querySelector('.lyr-ov-body');
-  titleEl = panel.querySelector('.lyr-ov-title');
-  subEl = panel.querySelector('.lyr-ov-sub');
-  chordsBtn = panel.querySelector('[data-do="chords"]');
-  panel.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-do]');
-    if (!b) return;
-    const what = b.dataset.do;
-    if (what === 'close') clickInCard('.btn-lyrics');          // mismo efecto que volver a pulsar «Letra»
-    else if (what === 'edit') clickInCard('[data-action="edit-lyrics"]');
-    else if (what === 'chords') clickInCard('[data-action="toggle-chords"]');
-    else if (what === 'fs') clickInCard('[data-action="lyrics-fullscreen"]');
-    // El desplegable de la tarjeta cambió (o la tarjeta se volvió a pintar): se actualiza.
-    requestAnimationFrame(sync);
+  // «Letra» pulsado en una tarjeta de Pads → panel flotante.
+  window.addEventListener('livepads:lyrics-panel', () => {
+    const acc = document.querySelector('#panel-setlist .gi-song-item .gi-lyrics-accordion.open');
+    if (!acc) return;
+    open(payloadFrom(acc.closest('.gi-song-item')));
+    closeAllLyrics();   // el desplegable (oculto en Pads) no se queda «abierto»
   });
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || panel.hidden) return;
-    if (document.querySelector('.modal:not(.hidden), dialog[open]')) return;   // Esc es del diálogo abierto
-    clickInCard('.btn-lyrics');
-    requestAnimationFrame(sync);
+  // Cambia la canción que suena → el panel (y la ventana de otra pantalla) la siguen.
+  let lastId = null;
+  window.addEventListener('livepads:song-state', () => {
+    requestAnimationFrame(() => {
+      const card = document.querySelector('#panel-setlist .gi-song-item.active-song');
+      const id = card && (card.dataset.serviceId || card.dataset.songId);
+      if (!card || id === lastId) return;
+      lastId = id;
+      if (!prefs.follow) return;
+      const data = payloadFrom(card);
+      if (overlay) { current = data; paint(); panel.querySelector('.lyp-body').scrollTop = 0; }
+      window.electronAPI?.lyricsWindowFollow?.(data);
+    });
   });
-  // Abrir/cerrar la letra, cambiar acordes, editar la letra o re-pintar la lista.
-  for (const ev of ['livepads:lyrics-panel', 'livepads:songs-changed', 'livepads:service-changed']) {
-    window.addEventListener(ev, () => requestAnimationFrame(sync));
-  }
+  window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow);
 }

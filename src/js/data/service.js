@@ -113,6 +113,27 @@ export function replaceService(songs, keys) {
   triggerRender();
 }
 
+// Cambia las canciones del servicio ABIERTO («+ Canciones»): las que ya estaban
+// conservan su serviceId (y con él su tono de este servicio y la canción activa);
+// las nuevas se añaden en el orden en que se eligieron. Sigue enganchado al mismo
+// servicio guardado (se sincroniza solo).
+export function setServiceSongs(songs) {
+  const prevActive = serviceSongs[activeServiceIndex] || null;
+  const pool = new Map();
+  for (const s of serviceSongs) {
+    const k = String(s.id);
+    if (!pool.has(k)) pool.set(k, []);
+    pool.get(k).push(s);
+  }
+  serviceSongs = (songs || []).map((s, i) => {
+    const keep = (pool.get(String(s.id)) || []).shift();
+    return keep || { ...s, serviceId: Date.now() + i + Math.random() };
+  });
+  activeServiceIndex = prevActive ? serviceSongs.findIndex((x) => x.serviceId === prevActive.serviceId) : -1;
+  saveServiceSongs();
+  triggerRender();
+}
+
 export function removeFromService(serviceId) {
   const doRemove = () => {
     serviceSongs = serviceSongs.filter(s => s.serviceId !== serviceId);
