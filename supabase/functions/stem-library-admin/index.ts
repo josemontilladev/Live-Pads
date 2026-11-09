@@ -51,7 +51,7 @@ const INSTRUMENTS = ['drums', 'perc', 'bass', 'keys', 'pad', 'synth', 'guitar', 
 const SECTIONS = ['any', 'intro', 'verse', 'prechorus', 'chorus', 'bridge', 'build', 'outro'];
 // audio/mpeg: las pistas largas (canción completa) se suben comprimidas a MP3.
 const CONTENT_TYPES = ['audio/wav', 'audio/x-wav', 'audio/flac', 'audio/mpeg', 'image/jpeg', 'image/png', 'image/webp'];
-const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,published,sort,status,submitted_by,author_name,review_note,submitted_at';
+const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,published,sort,status,submitted_by,author_name,review_note,submitted_at,artist'; // artist: migración 0023 (aplicarla ANTES de desplegar)
 const LOOP_COLUMNS = 'id,pack_id,title,instrument,section,bpm,musical_key,beats_per_bar,bars,tier,audio_path,preview_path,tags,sort';
 
 // Límites de la comunidad (el administrador no los tiene).
@@ -394,6 +394,8 @@ Deno.serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
         if (body.cover_path !== undefined) row.cover_path = body.cover_path ? safePath(body.cover_path) : null;
+        // Solo si viene (columna de la migración 0023): las apps antiguas no lo mandan.
+        if (body.artist !== undefined) row.artist = str(body.artist, 80) || null;
         const [saved] = await db('/stem_packs?on_conflict=slug', {
           method: 'POST',
           headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
@@ -414,6 +416,7 @@ Deno.serve(async (req) => {
         if (body.description !== undefined) patch.description = str(body.description, 500) || null;
         if (body.genre !== undefined) patch.genre = str(body.genre, 60) || null;
         if (body.mood !== undefined) patch.mood = str(body.mood, 60) || null;
+        if (body.artist !== undefined) patch.artist = str(body.artist, 80) || null;
         if (body.tier !== undefined) patch.tier = body.tier === 'free' ? 'free' : 'pro';
         if (body.sort !== undefined) patch.sort = Number(body.sort) || 0;
         if (body.cover_path !== undefined) patch.cover_path = body.cover_path ? safePath(body.cover_path) : null;
@@ -501,6 +504,7 @@ Deno.serve(async (req) => {
           genre: str(body.genre, 60) || null,
           mood: str(body.mood, 60) || null,
           author_name: str(body.author_name, 80) || null,
+          ...(body.artist !== undefined ? { artist: str(body.artist, 80) || null } : {}),
           updated_at: new Date().toISOString(),
         };
         if (body.packId) {

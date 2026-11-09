@@ -15,7 +15,8 @@
 import { rest, rpc, invokeFunction, isLoggedIn, onAuthChange } from './supabase.js';
 
 const LOOP_COLUMNS = 'id,pack_id,title,instrument,section,bpm,musical_key,beats_per_bar,beat_value,bars,tier,audio_path,preview_path,duration_sec,tags,sort';
-const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,sort,status,author_name';
+const PACK_COLUMNS_V2 = 'id,slug,title,description,cover_path,genre,mood,tier,sort,status,author_name'; // sin la 0023 (artist)
+const PACK_COLUMNS = `${PACK_COLUMNS_V2},artist`;
 const PACK_COLUMNS_OLD = 'id,slug,title,description,cover_path,genre,mood,tier,sort'; // sin la migración 0019
 
 // "Sensaciones": etiquetas (stem_loops.tags) para filtrar por cómo suena.
@@ -40,12 +41,13 @@ function saveCatalog(c) {
 }
 
 async function fetchCatalog() {
-  let packs;
-  try { packs = await rest(`/stem_packs?select=${PACK_COLUMNS}&published=is.true&order=sort.asc,title.asc`); }
-  catch (e) {
-    if (!/column|status|author_name/i.test(e.message)) throw e;
-    packs = await rest(`/stem_packs?select=${PACK_COLUMNS_OLD}&published=is.true&order=sort.asc,title.asc`);
+  // De la más nueva a la más antigua: si la base aún no tiene una columna, se prueba la anterior.
+  let packs, lastErr;
+  for (const cols of [PACK_COLUMNS, PACK_COLUMNS_V2, PACK_COLUMNS_OLD]) {
+    try { packs = await rest(`/stem_packs?select=${cols}&published=is.true&order=sort.asc,title.asc`); lastErr = null; break; }
+    catch (e) { lastErr = e; if (!/column|status|author_name|artist/i.test(e.message)) throw e; }
   }
+  if (lastErr) throw lastErr;
   const loops = await rest(`/stem_loops?select=${LOOP_COLUMNS},stem_packs!inner(published)&stem_packs.published=is.true&order=sort.asc,title.asc&limit=5000`);
   (loops || []).forEach((l) => { delete l.stem_packs; });
   return { packs: packs || [], loops: loops || [], at: Date.now() };
@@ -78,7 +80,8 @@ const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-
  */
 export async function listLoops(filters = {}, { refresh = false } = {}) {
   const { loops, packs } = await loadCatalog(refresh);
-  const packTitle = new Map(packs.map((p) => [p.id, norm(p.title)]));
+  // El artista o banda del pack también cuenta en la búsqueda («elevation», «hillsong»…).
+  const packTitle = new Map(packs.map((p) => [p.id, norm(`${p.title} ${p.artist || ''}`)]));
   const words = norm(filters.text).split(/\s+/).filter(Boolean);
   return loops.filter((l) => {
     if (filters.packId && l.pack_id !== filters.packId) return false;

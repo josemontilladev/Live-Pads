@@ -90,7 +90,7 @@ import { fitLoop, barsToSamples } from './loopFit.js';
 import { planMerge, mergeChannel } from './loopMerge.js';
 import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
-import { ensureLoopLocal, trackLoopEvent } from '../cloud/stemLibrary.js';
+import { ensureLoopLocal, trackLoopEvent, listPacks as listLibraryPacks } from '../cloud/stemLibrary.js';
 import { openQuickStart } from './quickStart.js';
 import { startTake, listInputs, playClicks, calibrateLatency, getCalibratedLatency, setCalibratedLatency } from './takeRecorder.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
@@ -474,31 +474,104 @@ const SHELL_HTML = `
          <button class="ssl-slot-btn" data-slot="original" title="Ver las de Original">Original</button>
        </div>
      </div>
-     <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
+     <div class="ssl-search-row">
+      <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
+      <button class="ssl-libfilter" id="stems-setlist-libfilter" type="button" hidden title="Ver solo las canciones que tienen sus pistas por separado en la Biblioteca" aria-label="Solo canciones con pistas en la Biblioteca">
+        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </button>
+    </div>
      <div class="ssl-list" id="stems-setlist-list"></div>
      <div class="ssl-hint">Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.</div>
    </aside>
 
    <div class="stems-main">
 
-   <div class="stems-deck">
-    <header class="stems-topbar">
-      <div class="stems-tb-left">
-        <span class="stems-brand">LIVEPADS <span>STEMS</span></span>
-        <div class="stems-field stems-field--bpm">
-          <label>BPM</label>
+   <div class="stems-deck sb">
+    <!-- ═══ Barra de Stems en 2 filas por tarea ═══════════════════════════
+         Fila 1: Proyecto · Transporte · Datos de la canción.
+         Fila 2: herramientas de edición (Marcadores · Ensayo · Click · Vista).
+         Todos los IDs se conservan (handlers, mapeo MIDI y tour). -->
+    <header class="sb-row sb-row--main">
+      <div class="sb-zone sb-zone--project">
+        <button class="stems-btn stems-btn--primary" id="stems-import" title="Importar archivos de audio como pistas">${SVG_PLUS} Importar</button>
+        <button class="stems-btn stems-btn--ghost" id="stems-library-toggle" title="Biblioteca: loops listos para tu secuencia (se ajustan solos al BPM y al tono del proyecto)">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Biblioteca
+        </button>
+        <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
+        <div class="sb-project">
+          <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto (clic para cambiarlo)">
+          <div class="stems-proj-menu">
+            <button class="sb-icon" id="stems-proj-toggle" title="Proyecto: nuevo, abrir, guardar como…" aria-label="Menú del proyecto">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="stems-proj-dropdown" id="stems-proj-dropdown" hidden>
+              <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
+              <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
+              <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
+              <button data-proj-cmd="export-tracks" class="stems-proj-item">Exportar cada pista (.zip)</button>
+            </div>
+          </div>
+        </div>
+        <div class="stems-generators-wrap">
+          <button class="stems-btn stems-btn--ghost" id="stems-export-trigger" type="button" disabled title="Exportar la mezcla o asignarla a una canción" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-generators-pop hidden" id="stems-export-pop" role="menu">
+            <button class="stems-btn stems-btn--subtle" id="stems-assign" disabled role="menuitem" title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+              Asignar a canción
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-export" disabled role="menuitem" title="Exporta la mezcla completa a un archivo MP3">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar MP3
+            </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-save-song-stems" disabled role="menuitem" title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
+              Guardar pistas en canción
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sb-zone sb-zone--transport stems-tb-mid">
+        <button class="stems-tb-btn" id="stems-restart" title="Volver al inicio (sin detener)" disabled>
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+        </button>
+        <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
+        <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Pausa (Espacio)" disabled>${SVG_PLAY}</button>
+        <span class="sb-rec">
+          <button class="stems-tb-btn stems-tb-btn--rec" id="stems-rec" title="Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R)" aria-label="Grabarte encima" disabled>
+            <span class="stems-rec-dot" aria-hidden="true"></span>
+          </button>
+          <button class="stems-tb-btn stems-rec-menu" id="stems-rec-menu" type="button" title="Opciones de grabación: entrada, cuenta de entrada, escucharte y calibrar latencia" aria-label="Opciones de grabación">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </span>
+        <div class="sb-time">
+          <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
+            <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
+          </span>
+          <span class="stems-readout" title="Posición exacta (minutos:segundos.milisegundos)">
+            <span class="value mono" id="stems-timecode">00:00.000</span>
+            <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="sb-zone sb-zone--song" role="group" aria-label="Datos de la canción">
+        <label class="sb-chip sb-chip--bpm" title="Tempo del proyecto">
+          <span class="sb-chip-k">BPM</span>
           <input type="number" id="stems-bpm" min="20" max="300" value="120" aria-label="BPM del proyecto">
-          <button class="stems-bpm-detect" id="stems-bpm-detect" title="Detectar BPM de la primera pista importada">
+          <button class="stems-bpm-detect" id="stems-bpm-detect" type="button" title="Detectar BPM y compás de la primera pista importada">
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="11" height="11"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
             Detectar
           </button>
-          <div class="stems-click-mult" role="group" aria-label="Multiplicador del click" title="Multiplicador del click: 2x dobla el tiempo (corcheas)">
-            <button class="stems-mult-btn is-on" id="stems-click-1x" data-mult="1" type="button">1x</button>
-            <button class="stems-mult-btn" id="stems-click-2x" data-mult="2" type="button">2x</button>
-          </div>
-        </div>
-        <div class="stems-field stems-field--select">
-          <label>Compás</label>
+        </label>
+        <label class="sb-chip" title="Compás">
+          <span class="sb-chip-k">Compás</span>
           <select id="stems-sig">
             <option value="2/4">2/4</option>
             <option value="3/4">3/4</option>
@@ -510,14 +583,10 @@ const SHELL_HTML = `
             <option value="9/8">9/8</option>
             <option value="12/8">12/8</option>
           </select>
-        </div>
-        <!-- Tonalidad de la canción — habilita las opciones "diatónicas" en
-             el menú de referencia armónica (3ra, 5ta) sin tener que adivinar
-             si la canción está en mayor o menor. El valor visible refleja
-             la tonalidad EFECTIVA (incluyendo el shift de TONO), no la
-             original; si subes/bajas semitonos, el selector se actualiza. -->
-        <div class="stems-field stems-field--select" title="Tonalidad de la canción (habilita armonías diatónicas)">
-          <label>Tonalidad</label>
+        </label>
+        <!-- Tonalidad EFECTIVA (incluye la transposición); habilita las armonías diatónicas. -->
+        <label class="sb-chip" title="Tonalidad de la canción (habilita armonías diatónicas)">
+          <span class="sb-chip-k">Tono</span>
           <select id="stems-key">
             <option value="">—</option>
             <option value="" disabled>── Mayores ──</option>
@@ -535,113 +604,72 @@ const SHELL_HTML = `
             <option value="Fm">Fm</option><option value="F#m">F#m</option>
             <option value="Gm">Gm</option><option value="G#m">G#m</option>
           </select>
-        </div>
-        <!-- Transposer master — shift de ±12 semitonos aplicado a TODAS las
-             pistas del proyecto sin alterar el tempo. Igual idea que el
-             reproductor de Pads; la diferencia es que aquí el render es
-             offline por pista (ver setStemsPitchShift), no en tiempo real.
-             Label "TRANSPONER" en vez de "TONO" porque al lado vive
-             "TONALIDAD" (la clave musical) y los dos términos chocaban. -->
-        <div class="stems-field stems-field--pitch" title="Transponer: fijá ±N semitonos y tocá Aplicar (el render es offline por pista). Doble clic en el número para resetear.">
-          <label>Transponer</label>
+        </label>
+        <!-- Transponer: ±N semitonos a TODAS las pistas sin cambiar el tempo (render offline). -->
+        <div class="sb-chip sb-chip--pitch" title="Transponer: fija ±N semitonos y pulsa Aplicar. Doble clic en el número para volver a 0.">
+          <span class="sb-chip-k">Transp.</span>
           <div class="stems-pitch-group" id="stems-pitch-group">
-            <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">▼</button>
-            <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para resetear)">0</span>
-            <button class="stems-pitch-btn" id="stems-pitch-up" type="button" title="Subir 1 semitono">▲</button>
+            <button class="stems-pitch-btn" id="stems-pitch-down" type="button" title="Bajar 1 semitono">−</button>
+            <span class="stems-pitch-val" id="stems-pitch-val" title="Semitonos (doble clic para volver a 0)">0</span>
+            <button class="stems-pitch-btn" id="stems-pitch-up" type="button" title="Subir 1 semitono">+</button>
           </div>
           <button class="stems-pitch-apply" id="stems-pitch-apply" type="button" title="Aplicar la transposición a todas las pistas" hidden>Aplicar</button>
         </div>
       </div>
-
-      <div class="stems-tb-mid">
-        <button class="stems-tb-btn" id="stems-restart" title="Volver al inicio (sin detener)" disabled>
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
-        </button>
-        <button class="stems-tb-btn" id="stems-stop" title="Stop (vuelve al inicio)">${SVG_STOP}</button>
-        <button class="stems-tb-btn stems-tb-btn--play" id="stems-play" title="Play / Pausa" disabled>${SVG_PLAY}</button>
-        <button class="stems-tb-btn stems-tb-btn--rec" id="stems-rec" title="Grabarte encima: suena el proyecto y se graba tu micrófono en una pista nueva (tecla R). Opciones en ▾." aria-label="Grabarte encima" disabled>
-          <span class="stems-rec-dot" aria-hidden="true"></span>
-        </button>
-        <button class="stems-tb-btn stems-rec-menu" id="stems-rec-menu" type="button" title="Opciones de grabación: entrada, cuenta de entrada, escucharte y calibrar latencia" aria-label="Opciones de grabación">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <span class="stems-tb-time" id="stems-tb-time" title="Posición / duración total">
-          <span id="stems-tb-cur">0:00</span><span class="stems-tb-time-sep">/</span><span id="stems-tb-total">0:00</span>
-        </span>
-        <div class="stems-readout">
-          <span class="label">Timecode</span>
-          <span class="value mono" id="stems-timecode">00:00.000</span>
-        </div>
-        <span class="stems-state-pill" id="stems-state-pill">DETENIDO</span>
-      </div>
     </header>
 
-    <!-- Fila única de acciones (antes había dos filas: proyecto y tools).
-         Las 3 secciones se separan con un divider vertical y la fila usa
-         flex-wrap para no romperse en viewports estrechos. -->
-    <header class="stems-actions stems-actions--unified">
-      <div class="stems-actions-primary">
-        <button class="stems-btn stems-btn--primary" id="stems-import">${SVG_PLUS} Importar stems</button>
-        <button class="stems-btn stems-btn--ghost" id="stems-library-toggle" title="Loops listos para tu secuencia: se ajustan solos al BPM y al tono del proyecto">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          Biblioteca
+    <header class="sb-row sb-row--tools">
+      <!-- Marcadores: secciones de la canción -->
+      <div class="sb-group" role="group" aria-label="Marcadores">
+        <span class="sb-group-k">${SVG_FLAG} Secciones</span>
+        <select id="stems-section-select" class="stems-mini-select" aria-label="Sección a añadir" title="Sección que se añade"></select>
+        <button class="stems-btn stems-btn--accent sb-icon-txt" id="stems-add-marker" title="Añadir esa sección en la posición actual">${SVG_PLUS} Añadir</button>
+        <button class="sb-icon" id="stems-detect-sections" title="Detectar secciones: analiza la canción y coloca los marcadores (puedes editarlos a mano)" aria-label="Detectar secciones">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
         </button>
-        <!-- Salidas de la mezcla agrupadas en un menú: deja un solo botón
-             principal (Importar) y la fila cabe en menos líneas. Los botones
-             conservan sus IDs (handlers, habilitado y mapeo MIDI). -->
-        <div class="stems-generators-wrap">
-          <button class="stems-btn stems-btn--ghost" id="stems-export-trigger" type="button" disabled title="Exportar o asignar la mezcla" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="stems-generators-pop hidden" id="stems-export-pop" role="menu">
-            <button class="stems-btn stems-btn--subtle" id="stems-assign" disabled role="menuitem" title="Renderiza la mezcla y la asigna directo a una canción (Secuencia u Original), copiándola a la librería de OneDrive">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-              Asignar a canción
-            </button>
-            <button class="stems-btn stems-btn--subtle" id="stems-export" disabled role="menuitem" title="Exporta la mezcla completa a un archivo MP3">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Exportar MP3
-            </button>
-            <button class="stems-btn stems-btn--subtle" id="stems-save-song-stems" disabled role="menuitem" title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
-              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
-              Guardar pistas en canción
-            </button>
-          </div>
-        </div>
-        <input type="file" id="stems-file-input" accept="audio/*" multiple hidden>
-        <span class="stems-actions-divider" aria-hidden="true"></span>
-        <input class="stems-project-name" id="stems-project-name" value="Mi proyecto" spellcheck="false" title="Nombre del proyecto">
-        <div class="stems-proj-menu">
-          <button class="stems-btn stems-btn--subtle" id="stems-proj-toggle" title="Proyecto…">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="stems-proj-dropdown" id="stems-proj-dropdown" hidden>
-            <button data-proj-cmd="new"     class="stems-proj-item">Nuevo (vaciar actual)</button>
-            <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
-            <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
-            <button data-proj-cmd="export-tracks" class="stems-proj-item">Exportar cada pista (.zip)</button>
-          </div>
-        </div>
+        <button class="sb-icon sb-icon--danger" id="stems-clear-markers" title="Borrar todos los marcadores (Ctrl+Z deshace)" aria-label="Borrar todos los marcadores">${SVG_TRASH}</button>
       </div>
 
-      <span class="stems-actions-divider" aria-hidden="true"></span>
+      <!-- Ensayo: repetir un tramo y bajar la velocidad -->
+      <div class="sb-group stems-loop-group" role="group" aria-label="Ensayo">
+        <span class="sb-group-k">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Ensayo
+        </span>
+        <button class="sb-icon stems-loop-ab" id="stems-loop-a" type="button" title="Marcar el punto A en la posición actual">A</button>
+        <button class="sb-icon stems-loop-ab" id="stems-loop-b" type="button" title="Marcar el punto B en la posición actual">B</button>
+        <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Repetir (loop) entre A y B, o entre dos marcadores">Loop</button>
+        <label class="stems-speed" title="Velocidad de reproducción. El tono NO cambia: a 0.5× las notas siguen en la misma tonalidad.">
+          <select id="stems-speed" class="stems-speed-select" aria-label="Velocidad">
+            <option value="0.5">0.50×</option>
+            <option value="0.6">0.60×</option>
+            <option value="0.7">0.70×</option>
+            <option value="0.8">0.80×</option>
+            <option value="0.9">0.90×</option>
+            <option value="1" selected>1.00×</option>
+            <option value="1.1">1.10×</option>
+            <option value="1.25">1.25×</option>
+          </select>
+        </label>
+      </div>
 
-      <div class="stems-tools-group">
-        <span class="stems-tools-label">Click y guía</span>
+      <!-- Click y guía -->
+      <div class="sb-group" role="group" aria-label="Click y guía">
+        <span class="sb-group-k">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 3h6l3 18H6z"/><line x1="12" y1="15" x2="16" y2="6"/></svg>
+          Click
+        </span>
         <select id="stems-click-sound" class="stems-mini-select" aria-label="Sonido del click" title="Sonido del click"></select>
         <div class="stems-accent" id="stems-accent" title="Acentos: marca qué tiempos del compás suenan acentuados"></div>
+        <div class="stems-click-mult" role="group" aria-label="Multiplicador del click" title="Multiplicador del click: 2x dobla el tiempo (corcheas)">
+          <button class="stems-mult-btn is-on" id="stems-click-1x" data-mult="1" type="button">1x</button>
+          <button class="stems-mult-btn" id="stems-click-2x" data-mult="2" type="button">2x</button>
+        </div>
         <div class="stems-generators-wrap">
-          <button class="stems-btn stems-btn--subtle" id="stems-generators-trigger" type="button" title="Generar Click o Guía" aria-haspopup="menu" aria-expanded="false">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            Generar
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="margin-left:2px;opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
+          <button class="stems-btn stems-btn--subtle" id="stems-generators-trigger" type="button" title="Crear la pista de Click o de Guía" aria-haspopup="menu" aria-expanded="false">
+            ${SVG_PLUS} Pista
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="10" height="10" style="opacity:.7"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <!-- Popover con las acciones — los botones originales viven aquí
-                con sus IDs intactos para que el mapeo MIDI y el resto del
-                código siga apuntando al mismo lugar. -->
           <div class="stems-generators-pop hidden" id="stems-generators-pop" role="menu">
             <button class="stems-btn stems-btn--subtle" id="stems-add-click" title="Genera un click track al BPM actual">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="5" x2="12" y2="12"/><line x1="12" y1="12" x2="16" y2="14"/></svg>
@@ -655,24 +683,8 @@ const SHELL_HTML = `
         </div>
       </div>
 
-      <!-- Zoom, ayuda e imán van tras «Click y guía»: así ocupan el hueco de esa
-           fila y no crean una fila extra en pantallas medianas. -->
-      <div class="stems-tb-right">
-        <!-- Zoom del timeline (Alt+rueda) y altura de pistas (Ctrl+rueda) se
-             manejan con rueda/teclado, así que no llevan botones. -->
-        <div class="stems-zoomctl" role="group" aria-label="Zoom del timeline">
-          <button class="stems-zoom-btn" id="stems-zoom-out" type="button" title="Alejar (Alt+rueda)" aria-label="Alejar">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <span class="stems-zoom-readout" id="stems-zoom-readout" title="Nivel de zoom">100%</span>
-          <button class="stems-zoom-btn" id="stems-zoom-in" type="button" title="Acercar (Alt+rueda)" aria-label="Acercar">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar: ver toda la canción en la pantalla" aria-label="Ajustar toda la canción a la pantalla">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-          </button>
-        </div>
-        <button class="stems-zoom-btn stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
+      <!-- Vista: imán, zoom y ayuda (a la derecha) -->
+      <div class="sb-group sb-group--view stems-tb-right" role="group" aria-label="Vista">
         <div class="stems-snapctl">
           <button type="button" id="stems-snap-trigger" class="stems-snap-btn is-on" aria-haspopup="menu" aria-expanded="false"
             title="Imán (cuantizar): al mover, recortar o marcar, se pega a la rejilla del compás. Clic para elegir o quitarlo. Tecla N: encender/apagar.">
@@ -691,46 +703,20 @@ const SHELL_HTML = `
             <div class="stems-snap-pop-foot">Tecla <kbd>N</kbd> enciende/apaga · <kbd>Alt</kbd> al arrastrar = libre por un momento</div>
           </div>
         </div>
-      </div>
-
-      <span class="stems-actions-divider" aria-hidden="true"></span>
-
-      <div class="stems-tools-group">
-        <span class="stems-tools-label">Marcadores</span>
-        <select id="stems-section-select" class="stems-mini-select" aria-label="Sección"></select>
-        <button class="stems-btn stems-btn--accent" id="stems-add-marker" title="Añadir marcador en el tiempo actual">
-          ${SVG_FLAG} Añadir
-        </button>
-        <button class="stems-btn stems-btn--subtle" id="stems-detect-sections" title="Analiza la canción y coloca marcadores en los cambios de sección (puedes editarlos a mano)">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><path d="M12 3v18"/><path d="M3 8h4"/><path d="M17 8h4"/><path d="M3 14h4"/><path d="M17 14h4"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="16" r="1.6"/></svg>
-          Detectar secciones
-        </button>
-        <button class="stems-btn stems-btn--subtle" id="stems-clear-markers" title="Eliminar todos los marcadores">
-          ${SVG_TRASH} Limpiar
-        </button>
-        <div class="stems-loop-group" title="Loop A-B: marca un punto A y un punto B en el tiempo actual, luego activa Loop">
-          <button class="stems-btn stems-btn--subtle stems-loop-ab" id="stems-loop-a" type="button" title="Marcar punto A en el tiempo actual (vacío)">A</button>
-          <button class="stems-btn stems-btn--subtle stems-loop-ab" id="stems-loop-b" type="button" title="Marcar punto B en el tiempo actual (vacío)">B</button>
-          <button class="stems-btn stems-btn--subtle" id="stems-loop-toggle" title="Activar/desactivar loop (entre A-B o marcadores)">
-            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-            Loop
+        <div class="stems-zoomctl" role="group" aria-label="Zoom del timeline">
+          <button class="stems-zoom-btn" id="stems-zoom-out" type="button" title="Alejar (Alt+rueda)" aria-label="Alejar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <span class="stems-zoom-readout" id="stems-zoom-readout" title="Nivel de zoom">100%</span>
+          <button class="stems-zoom-btn" id="stems-zoom-in" type="button" title="Acercar (Alt+rueda)" aria-label="Acercar">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="stems-zoom-btn stems-zoom-fit" id="stems-zoom-fit" type="button" title="Ajustar: ver toda la canción en la pantalla" aria-label="Ajustar toda la canción a la pantalla">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
           </button>
         </div>
-        <label class="stems-speed" title="Velocidad de reproducción. El tono NO cambia: puedes bajar a 0.5× para sacar un solo y las notas siguen en la misma tonalidad.">
-          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-2.5"/></svg>
-          <select id="stems-speed" class="stems-speed-select">
-            <option value="0.5">0.50×</option>
-            <option value="0.6">0.60×</option>
-            <option value="0.7">0.70×</option>
-            <option value="0.8">0.80×</option>
-            <option value="0.9">0.90×</option>
-            <option value="1" selected>1.00×</option>
-            <option value="1.1">1.10×</option>
-            <option value="1.25">1.25×</option>
-          </select>
-        </label>
+        <button class="sb-icon stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
       </div>
-
     </header>
    </div>
 
@@ -1208,6 +1194,17 @@ function wireTopbarEvents(root) {
     const r = e.currentTarget.getBoundingClientRect();
     openTakeMenu(r.left, r.bottom + 4);
   };
+  // La barra se compacta según SU ancho (con los laterales abiertos puede ser
+  // estrecha en una pantalla grande). Solo actúa al cambiar de tamaño.
+  const sbDeck = root.querySelector('.stems-deck.sb');
+  if (sbDeck && 'ResizeObserver' in window) {
+    new ResizeObserver(([e]) => {
+      const w = e.contentRect.width;
+      if (!w) return;
+      sbDeck.classList.toggle('sb--md', w < 1420);
+      sbDeck.classList.toggle('sb--sm', w < 1300);
+    }).observe(sbDeck);
+  }
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
   // pausa, queda en 0. (Stop, en cambio, detiene.)
   root.querySelector('#stems-restart').onclick = () => { resumeAutoFollow(); engine.seek(0); };
@@ -4388,7 +4385,10 @@ function wireLibrary(root) {
   const btn = root.querySelector('#stems-library-toggle');
   if (btn) btn.onclick = () => libraryPanel.toggle();
   // "Probar la Biblioteca" desde «Qué hay de nuevo» (app.js).
-  window.addEventListener('livepads:open-library', () => libraryPanel.open());
+  window.addEventListener('livepads:open-library', (e) => {
+    if (e.detail && e.detail.packId) libraryPanel.openPack(e.detail.packId);
+    else libraryPanel.open();
+  });
   if (window.__lpOpenLibrary) { window.__lpOpenLibrary = false; libraryPanel.open(); }
   root.addEventListener('click', (e) => {
     if (e.target.closest('#stems-empty-library')) libraryPanel.open();
@@ -6422,6 +6422,41 @@ function pickSongAndSlot({ withSlot = true, title = 'Asignar mezcla a…', hint 
 // multitrack y, de un clic en una canción, le asigna la mezcla al slot elegido
 // (Secuencia u Original) sin pasar por el modal.
 let setlistPanelSlot = 'all';   // 'all' | 'sequence' | 'original'
+let setlistOnlyLib = false;     // filtro «solo las que tienen pistas en la Biblioteca»
+
+// ── Canciones ↔ packs de la Biblioteca ──
+// La mayoría de los packs son canciones del repertorio: se emparejan por título
+// (sin acentos, signos ni «(Live)»/«- Versión…») y, si los dos lo tienen, por artista.
+let libPackIndex = null;        // Map título normalizado → [pack]
+let libPackLoading = null;
+const libNorm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s[-–—|:]\s.*$/, ' ')
+  .replace(/[^a-z0-9]+/g, ' ').trim();
+function loadLibraryPackIndex() {
+  if (libPackIndex || libPackLoading) return;
+  libPackLoading = listLibraryPacks().then((packs) => {
+    const idx = new Map();
+    for (const p of packs || []) {
+      const k = libNorm(p.title);
+      if (!k) continue;
+      if (!idx.has(k)) idx.set(k, []);
+      idx.get(k).push(p);
+    }
+    libPackIndex = idx;
+    if (idx.size) {
+      const se = document.querySelector('#stems-setlist .ssl-search');
+      renderSetlistPanel(se ? se.value : '');
+    }
+  }).catch(() => {}).finally(() => { libPackLoading = null; });
+}
+function libraryPackFor(song) {
+  if (!libPackIndex || !libPackIndex.size) return null;
+  const cands = libPackIndex.get(libNorm(song.title));
+  if (!cands) return null;
+  const a = libNorm(song.artist);
+  if (!a) return cands[0];
+  return cands.find((p) => { const pa = libNorm(p.artist); return !pa || pa.includes(a) || a.includes(pa); }) || null;
+}
 
 // Tono de acento estable por canción — mismo hash que songCard.js para que la
 // barrita de color coincida con la del setlist principal.
@@ -6456,8 +6491,15 @@ function renderSetlistPanel(filter = '') {
   // En modo Secuencia/Original el toggle define el slot destino del clic; las
   // que YA tienen ese slot se atenúan (no se ocultan) para distinguir de un
   // vistazo lo pendiente, sin que los botones queden inútiles al completar todo.
+  loadLibraryPackIndex();
+  const libFilterBtn = document.getElementById('stems-setlist-libfilter');
+  if (libFilterBtn) {
+    libFilterBtn.classList.toggle('is-on', setlistOnlyLib);
+    libFilterBtn.hidden = !(libPackIndex && libPackIndex.size);
+  }
   const songs = all
     .filter(s => !f || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(f))
+    .filter(s => !setlistOnlyLib || libraryPackFor(s))
     .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
 
   const hintEl = document.querySelector('#stems-setlist .ssl-hint');
@@ -6468,7 +6510,7 @@ function renderSetlistPanel(filter = '') {
   }
 
   if (!songs.length) {
-    listEl.innerHTML = `<div class="ssl-empty">${all.length ? 'Sin resultados' : 'Tu librería está vacía'}</div>`;
+    listEl.innerHTML = `<div class="ssl-empty">${!all.length ? 'Tu librería está vacía' : setlistOnlyLib ? 'Ninguna canción con estos filtros tiene pistas en la Biblioteca' : 'Sin resultados'}</div>`;
     return;
   }
   listEl.innerHTML = songs.map(s => {
@@ -6481,7 +6523,9 @@ function renderSetlistPanel(filter = '') {
     const showSeqBadge  = hasSeq  && slotKey !== 'sequence';
     const showOrigBadge = hasOrig && slotKey !== 'original';
     const nStems = getSongStems(s).length;
+    const libPack = libraryPackFor(s);
     const badges =
+      `${libPack ? `<span class="ssl-tag lib" role="button" data-act="lib-pack" data-pack="${esc(libPack.id)}" title="Tiene las pistas por separado en la Biblioteca («${esc(libPack.title)}») · clic para abrirlas">Biblioteca</span>` : ''}` +
       `${showSeqBadge  ? '<span class="ssl-tag seq" title="Ya tiene Secuencia asignada">Sec</span>' : ''}` +
       `${showOrigBadge ? '<span class="ssl-tag orig" title="Ya tiene Original asignado">Orig</span>' : ''}` +
       `${nStems ? `<span class="ssl-tag stems" title="${nStems} pistas separadas para practicar">Pistas·${nStems}</span>` : ''}`;
@@ -6552,7 +6596,19 @@ function bindSetlistPanel() {
 
   // Clic izquierdo: en modo pendiente (Secuencia/Original) asigna la mezcla al
   // slot activo; en "Todas" no hay slot destino, así que abre el menú de carga.
+  const libFilterBtn = document.getElementById('stems-setlist-libfilter');
+  if (libFilterBtn) libFilterBtn.onclick = () => {
+    setlistOnlyLib = !setlistOnlyLib;
+    renderSetlistPanel(searchEl ? searchEl.value : '');
+  };
+
   if (listEl) listEl.onclick = async (e) => {
+    const libTag = e.target.closest('[data-act="lib-pack"]');
+    if (libTag) {
+      e.stopPropagation();
+      window.dispatchEvent(new CustomEvent('livepads:open-library', { detail: { packId: libTag.dataset.pack } }));
+      return;
+    }
     const row = e.target.closest('.ssl-row');
     if (!row) return;
     const song = getSongs().find(s => String(s.id) === row.dataset.id);

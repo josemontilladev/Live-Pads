@@ -478,7 +478,7 @@ export function mountLibraryPanel(host, api) {
       return `<button type="button" class="stl-pk${p.id === state.packId ? ' active' : ''}" data-pack="${esc(p.id)}" title="${esc(p.title)} — ${esc(st.tip)}">
         <span class="stl-pk-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}${favPacks.has(p.id) ? `<i class="stl-pk-fav">${SVG_HEART}</i>` : ''}</span>
         <span class="stl-pk-text"><span class="stl-pk-title">${esc(p.title)}</span>
-        <span class="stl-pk-meta">${esc(packMeta(p.id))}</span>
+        <span class="stl-pk-meta">${esc([p.artist, packMeta(p.id)].filter(Boolean).join(' · '))}</span>
         <span class="stl-st stl-st--${st.cls}">${esc(st.txt)}</span></span>
       </button>`;
     }).join('');
@@ -512,6 +512,7 @@ export function mountLibraryPanel(host, api) {
       <div class="stl-packcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}</div>
       <div class="stl-packcard-info">
         <b>${esc(p.title)}</b>
+        ${p.artist ? `<span class="stl-packcard-artist">${esc(p.artist)}</span>` : ''}
         ${p.status === 'approved' ? `<span class="stl-community">Comunidad${p.author_name ? ` · por ${esc(p.author_name)}` : ''}</span>` : ''}
         ${p.description ? `<span>${esc(p.description)}</span>` : ''}
         <span class="stl-packcard-meta">${[packMeta(p.id), p.genre, p.mood].filter(Boolean).map(esc).join(' · ')}</span>
@@ -924,6 +925,14 @@ export function mountLibraryPanel(host, api) {
     renderTry();
   }
   function close() { setCollapsed(true); stopPreview(); }
+  // Abre la Biblioteca directamente en un pack (desde la lista de canciones).
+  async function openPack(packId) {
+    await open();
+    if (!state.packs.some((p) => p.id === packId)) return;
+    state.packId = packId;
+    renderPacks();
+    loadLoops();
+  }
   function toggle() { if (isCollapsed()) open(); else close(); }
 
   // Arranca como lo dejó la persona; la primera vez, contraído (solo el riel).
@@ -939,7 +948,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder, usableLoopCount,
+    open, openPack, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder, usableLoopCount,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.

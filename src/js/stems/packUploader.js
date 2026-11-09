@@ -177,6 +177,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         </div>
         <div class="spu-pack" data-ref="newpack">
           <label>Nombre <input data-ref="title" placeholder="Ej. Adoración íntima vol. 1" maxlength="120"></label>
+          <label>Artista o banda <input data-ref="artist" maxlength="80" placeholder="Opcional · ej. Elevation Worship"></label>
           <label>Descripción <input data-ref="desc" maxlength="500" placeholder="Opcional"></label>
           <label>Género <input data-ref="genre" maxlength="60" placeholder="worship, pop…"></label>
           ${admin
@@ -393,6 +394,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const communityFields = !admin && p.status !== 'approved' ? `
       <div class="spu-pack spu-pack--edit spu-pack--community">
         <label>Nombre <input data-pf="title" value="${esc(p.title)}" maxlength="120"></label>
+        <label>Artista o banda <input data-pf="artist" value="${esc(p.artist || '')}" maxlength="80" placeholder="Opcional"></label>
         <label>Descripción <input data-pf="description" value="${esc(p.description || '')}" maxlength="500"></label>
         <label>Género <input data-pf="genre" value="${esc(p.genre || '')}" maxlength="60"></label>
         <label>Tu firma <input data-pf="author_name" value="${esc(p.author_name || '')}" maxlength="80"></label>
@@ -401,6 +403,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     const fields = admin ? `
       <div class="spu-pack spu-pack--edit">
         <label>Nombre <input data-pf="title" value="${esc(p.title)}" maxlength="120"></label>
+        <label>Artista o banda <input data-pf="artist" value="${esc(p.artist || '')}" maxlength="80" placeholder="Opcional"></label>
         <label>Descripción <input data-pf="description" value="${esc(p.description || '')}" maxlength="500"></label>
         <label>Género <input data-pf="genre" value="${esc(p.genre || '')}" maxlength="60"></label>
         <label>Sensación del pack <input data-pf="mood" value="${esc(p.mood || '')}" maxlength="60" placeholder="íntimo, celebración…"></label>
@@ -505,11 +508,20 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     rerender();
   }
 
+  // «Artista o banda»: se manda si tiene texto; vacío solo si el servidor ya conoce la
+  // columna (la lista de packs la trae), para poder borrarlo sin romper servidores sin la 0023.
+  function artistField(v) {
+    const a = String(v || '').trim();
+    if (a) return { artist: a };
+    return state.packs.some((p) => p && 'artist' in p) ? { artist: '' } : {};
+  }
+
   // ── Acciones del editor ──
   async function savePack(id) {
     const box = overlay.querySelector(`.spu-packrow[data-pack="${CSS.escape(id)}"]`);
     const patch = {};
     box.querySelectorAll('[data-pf]').forEach((el) => { patch[el.dataset.pf] = el.value; });
+    if ('artist' in patch) { const a = artistField(patch.artist); delete patch.artist; Object.assign(patch, a); }
     try {
       const saved = admin ? await stemLibrary.adminUpdatePack(id, patch) : await stemLibrary.communitySavePack({ packId: id, ...patch });
       Object.assign(state.packs.find((p) => p.id === id) || {}, saved);
@@ -1020,13 +1032,13 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
           let slug = slugify(ref('title').value);
           const taken = new Set(state.packs.map((p) => p.slug));
           for (let n = 2; taken.has(slug); n++) slug = `${slugify(ref('title').value)}-${n}`;
-          pack = { slug, title: ref('title').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), tier: ref('tier').value, published: false };
+          pack = { slug, title: ref('title').value.trim(), artist: ref('artist').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), tier: ref('tier').value, published: false };
         }
         put = async (name, bytes, ct) => { const path = `${pack.slug}/${name}`; await stemLibrary.adminUpload(path, bytes, ct); return path; };
       } else {
         pack = mode() === 'existing'
           ? state.packs.find((p) => p.id === ref('existing').value)
-          : await stemLibrary.communitySavePack({ title: ref('title').value.trim(), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), author_name: ref('author').value.trim() });
+          : await stemLibrary.communitySavePack({ title: ref('title').value.trim(), ...artistField(ref('artist').value), description: ref('desc').value.trim(), genre: ref('genre').value.trim(), author_name: ref('author').value.trim() });
         put = (name, bytes, ct) => stemLibrary.communityUpload(pack.id, name, bytes, ct);
       }
       let coverPath;
@@ -1037,7 +1049,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       }
       if (admin) {
         pack = await stemLibrary.adminSavePack({
-          slug: pack.slug, title: pack.title, description: pack.description || '', genre: pack.genre || '',
+          slug: pack.slug, title: pack.title, ...artistField(pack.artist), description: pack.description || '', genre: pack.genre || '',
           mood: pack.mood || '', tier: pack.tier, published: !!pack.published,
           ...(coverPath ? { cover_path: coverPath } : {}),
         });

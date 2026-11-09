@@ -1,0 +1,201 @@
+/* ═══ Barra de Stems (2 filas por tarea) ═══════════════════════════════════
+   Fila 1  Proyecto (importar, biblioteca, nombre, exportar) · Transporte ·
+           Datos de la canción en chips (BPM, compás, tono, transponer).
+   Fila 2  Herramientas: Secciones · Ensayo · Click · Vista (imán, zoom, ayuda).
+   Cada grupo lleva su etiqueta con icono; lo poco usado vive en menús.
+   ═══════════════════════════════════════════════════════════════════════ */
+#workspace-stems .stems-deck.sb { padding: 8px 10px; gap: 0; }
+
+#workspace-stems .sb-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+#workspace-stems .sb-row--main {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  padding-bottom: 8px;
+}
+#workspace-stems .sb-row--tools {
+  flex-wrap: wrap; row-gap: 6px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Zonas de la fila 1 ── */
+#workspace-stems .sb-zone { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#workspace-stems .sb-zone--song { justify-content: flex-end; flex-wrap: wrap; row-gap: 6px; }
+#workspace-stems .sb-zone--transport { margin: 0; justify-self: center; }
+
+/* Proyecto: nombre editable + menú, como una sola píldora */
+#workspace-stems .sb-project {
+  display: inline-flex; align-items: center; min-width: 0; height: 32px;
+  padding: 0 3px 0 12px; border-radius: 999px;
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+#workspace-stems .sb-project:focus-within { border-color: var(--border-strong); }
+#workspace-stems .sb-project .stems-project-name {
+  width: 15ch; min-width: 6ch; height: 100%; padding: 0; border: 0; background: transparent; box-shadow: none;
+  font-size: 13px; font-weight: 650; color: var(--text); text-overflow: ellipsis;
+}
+#workspace-stems .sb-project .stems-project-name:focus { outline: none; }
+#workspace-stems .sb-project .sb-icon { width: 26px; height: 26px; border: 0; background: transparent; }
+
+/* Botón redondo solo icono (fila 2 y menús) */
+#workspace-stems .sb-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 30px; height: 30px; padding: 0; border-radius: 50%;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+}
+#workspace-stems .sb-icon:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+#workspace-stems .sb-icon:disabled { opacity: .4; cursor: default; }
+#workspace-stems .sb-icon--danger:hover:not(:disabled) { color: var(--danger, #ff5d5d); }
+#workspace-stems .sb-icon.is-on,
+#workspace-stems .sb-icon.is-set { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* Transporte: tiempo arriba, posición exacta debajo (pequeña) */
+#workspace-stems .sb-rec { display: inline-flex; align-items: center; gap: 2px; }
+#workspace-stems .sb-rec .stems-rec-menu { width: 24px; height: 24px; }
+#workspace-stems .sb-time { display: flex; flex-direction: column; align-items: center; line-height: 1.15; margin-left: 4px; }
+#workspace-stems .sb-time .stems-tb-time { margin: 0; font-size: 16px; }
+#workspace-stems .stems-tb-mid .sb-time .stems-readout {
+  flex-direction: row; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0;
+}
+#workspace-stems .stems-tb-mid .sb-time .stems-readout .value { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+#workspace-stems .sb-time .stems-state-pill { width: 7px; height: 7px; flex-basis: 7px; margin: 0; }
+
+/* Datos de la canción: chips «ETIQUETA valor» */
+#workspace-stems .sb-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; box-sizing: border-box;
+  padding: 0 4px 0 12px; border-radius: 999px;
+  background: var(--bg-card); border: 1px solid var(--border); cursor: default;
+}
+#workspace-stems .sb-chip:hover, #workspace-stems .sb-chip:focus-within { border-color: var(--border-strong); }
+#workspace-stems .sb-chip-k {
+  font-size: 10px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+}
+#workspace-stems .sb-chip input,
+#workspace-stems .sb-chip select {
+  height: 26px; border: 0 !important; background-color: transparent; box-shadow: none;
+  font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; cursor: pointer;
+}
+#workspace-stems .sb-chip input { width: 3.4ch; padding: 0; text-align: center; cursor: text; -moz-appearance: textfield; }
+#workspace-stems .sb-chip input::-webkit-inner-spin-button,
+#workspace-stems .sb-chip input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#workspace-stems .sb-chip input:focus, #workspace-stems .sb-chip select:focus { outline: none; }
+#workspace-stems .sb-chip select { padding: 0 18px 0 2px; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='3'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 4px center; background-size: 10px; }
+#workspace-stems .sb-chip select option { background: var(--bg-surface, #121214); color: var(--text); }
+#workspace-stems .sb-chip:not(.sb-chip--bpm):not(.sb-chip--pitch) { padding-right: 6px; }
+#workspace-stems .sb-chip .stems-bpm-detect {
+  display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; margin: 0;
+  font-size: 11px; font-weight: 650;
+}
+#workspace-stems .sb-chip--pitch .stems-pitch-group {
+  display: inline-flex; align-items: center; gap: 2px; padding: 0; background: none; border: 0; height: auto;
+}
+#workspace-stems .sb-chip--pitch .stems-pitch-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: 0; padding: 0;
+  background: rgba(255,255,255,.07); color: var(--text); font-size: 15px; font-weight: 600; line-height: 1;
+}
+#workspace-stems .sb-chip--pitch .stems-pitch-btn:hover { background: rgba(255,255,255,.15); }
+#workspace-stems .sb-chip--pitch .stems-pitch-val { min-width: 2.4ch; text-align: center; font-size: 14px; font-weight: 700; }
+#workspace-stems .sb-chip--pitch .stems-pitch-apply { height: 24px; padding: 0 10px; border-radius: 999px; font-size: 11px; }
+
+/* ── Fila 2: grupos de herramientas ── */
+#workspace-stems .sb-group {
+  display: flex; align-items: center; gap: 6px; padding: 0 12px; min-height: 32px;
+  border-left: 1px solid var(--border);
+}
+#workspace-stems .sb-group:first-child { padding-left: 2px; border-left: 0; }
+#workspace-stems .sb-group--view { margin-left: auto; border-left: 0; padding-right: 2px; }
+#workspace-stems .sb-group-k {
+  display: inline-flex; align-items: center; gap: 5px; margin-right: 2px;
+  font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted);
+  white-space: nowrap;
+}
+#workspace-stems .sb-group-k svg { width: 13px; height: 13px; opacity: .8; }
+/* Misma altura (30 px) para todo lo de la fila 2 */
+#workspace-stems .sb-row--tools .stems-btn,
+#workspace-stems .sb-row--tools .stems-mini-select,
+#workspace-stems .sb-row--tools .stems-speed,
+#workspace-stems .sb-row--tools .stems-snap-btn { height: 30px; box-sizing: border-box; }
+#workspace-stems .sb-row--tools .stems-btn { padding: 0 12px; font-size: 12px; gap: 5px; }
+#workspace-stems .sb-row--tools .stems-mini-select { max-width: 130px; }
+#workspace-stems .sb-row--tools .stems-click-mult { height: 30px; box-sizing: border-box; }
+
+/* Ajustes tras medir: las filas no heredan el relleno de las barras antiguas
+   y los selectores de los chips miden lo que su texto. */
+#workspace-stems .stems-deck.sb > .sb-row--main { padding: 2px 2px 8px; }
+#workspace-stems .stems-deck.sb > .sb-row--tools { padding: 8px 2px 2px; }
+#workspace-stems .sb-chip select { width: auto; min-width: 0; max-width: none; }
+#workspace-stems #stems-key { width: 5.2ch; }
+#workspace-stems #stems-sig { width: 5ch; }
+#workspace-stems .sb-row--tools .stems-mini-select { max-width: 112px; }
+
+/* Todo a la misma altura (32 px) y transporte compacto: la barra se lee como una
+   sola línea por fila, sin piezas que sobresalgan. */
+#workspace-stems .sb-row--main .stems-btn { height: 32px; box-sizing: border-box; padding: 0 14px; font-size: 12.5px; }
+#workspace-stems .sb-zone--transport.stems-tb-mid { gap: 4px; padding: 3px 12px 3px 4px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn { width: 30px; height: 30px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn svg { width: 13px; height: 13px; }
+#workspace-stems .stems-tb-mid .stems-tb-btn--play { width: 38px; height: 38px; margin: 0 2px; box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+#workspace-stems .stems-tb-mid .stems-tb-btn--play svg { width: 15px; height: 15px; }
+#workspace-stems .sb-rec .stems-rec-menu { width: 20px; height: 20px; background: transparent; }
+#workspace-stems .sb-time { margin-left: 6px; }
+#workspace-stems .sb-time .stems-tb-time { font-size: 14px; min-width: 0; }
+#workspace-stems .stems-tb-mid .sb-time .stems-readout .value { font-size: 10px; }
+#workspace-stems .sb-row--main { padding-bottom: 6px !important; }
+#workspace-stems .sb-row--tools { padding-top: 6px !important; }
+
+/* ── Según el ancho DE LA BARRA (no de la ventana: con los laterales abiertos la
+   barra puede medir ~900 px en una pantalla grande). workspace.js pone sb--md /
+   sb--sm con un ResizeObserver; solo cambia al redimensionar. ── */
+/* Fila 1 en flex: si no cabe, los datos de la canción bajan alineados a la derecha. */
+#workspace-stems .stems-deck.sb > .sb-row--main { display: flex; flex-wrap: wrap; row-gap: 6px; }
+#workspace-stems .sb-zone--project { flex: 1 1 0; }
+#workspace-stems .sb-zone--song { flex: 1 1 0; }
+#workspace-stems .sb-zone--transport { flex: 0 0 auto; }
+
+/* Mediana: etiquetas de grupo solo con icono, «Detectar» y «Imán:» solo icono/valor. */
+#workspace-stems .sb--md .sb-group-k { font-size: 0; gap: 0; margin-right: 0; }
+#workspace-stems .sb--md .sb-group-k svg { width: 14px; height: 14px; }
+#workspace-stems .sb--md .sb-group { padding: 0 8px; }
+#workspace-stems .sb--md .stems-snap-word { display: none; }
+#workspace-stems .sb--md .sb-chip .stems-bpm-detect { font-size: 0; gap: 0; width: 24px; padding: 0; justify-content: center; }
+#workspace-stems .sb--md .sb-chip .stems-bpm-detect svg { width: 12px; height: 12px; }
+#workspace-stems .sb--md .sb-chip-k { letter-spacing: .02em; }
+
+/* Estrecha: Importar / Biblioteca / Exportar como círculos de icono; nombre más corto;
+   la posición exacta (ms) se oculta y la fila 2 reparte sus grupos en dos líneas. */
+#workspace-stems .sb--sm .sb-zone--project .stems-btn { font-size: 0; gap: 0; width: 32px; padding: 0; justify-content: center; }
+#workspace-stems .sb--sm .sb-zone--project .stems-btn svg { width: 15px; height: 15px; margin: 0; }
+#workspace-stems .sb--sm .sb-zone--project .stems-btn svg + svg { display: none; }
+#workspace-stems .sb--sm .sb-project .stems-project-name { width: 11ch; }
+#workspace-stems .sb--sm .sb-time .stems-readout .value { display: none; }
+#workspace-stems .sb--sm .sb-row--tools { justify-content: space-between; }
+#workspace-stems .sb--sm .sb-group { border-left: 0; padding: 0 4px; }
+#workspace-stems .sb--sm .sb-group--view { margin-left: 0; }
+/* Los chips de la canción nunca se parten por dentro: si no caben, bajan todos juntos. */
+#workspace-stems .sb-zone--song { flex-wrap: nowrap; }
+#workspace-stems .sb--sm .sb-zone--song { flex: 1 0 100%; justify-content: flex-start; }
+#workspace-stems .sb--sm .sb-zone--transport { margin-left: auto; }
+/* Las zonas nunca se encogen por debajo de su contenido (si no, se solapan). */
+#workspace-stems .sb-zone--project, #workspace-stems .sb-zone--song { flex: 1 0 auto; }
+/* Compacta: herramientas en cuadrícula 2×2 (Secciones | Ensayo / Click | Vista). */
+#workspace-stems .sb--sm .sb-row--tools { display: grid; grid-template-columns: auto auto; justify-content: space-between; }
+#workspace-stems .sb--sm .sb-row--tools > .sb-group:nth-child(even) { justify-self: end; }
+#workspace-stems .sb--sm .sb-time .stems-readout { display: none; }
+
+/* ── Canciones: cuáles tienen sus pistas por separado en la Biblioteca ── */
+.ssl-search-row { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ssl-search-row .ssl-search { flex: 1 1 auto; min-width: 0; }
+.ssl-libfilter {
+  flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-hover); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+}
+.ssl-libfilter:hover { color: var(--text); border-color: var(--border-strong); }
+.ssl-libfilter.is-on { color: var(--on-accent, #0a0a0a); background: #38bdf8; border-color: #38bdf8; }
+.ssl-libfilter[hidden] { display: none; }
+.stems-setlist.collapsed .ssl-search-row { display: none; }
+.ssl-tag.lib {
+  color: #38bdf8; background: rgba(56,189,248,.13); box-shadow: inset 0 0 0 1px rgba(56,189,248,.3); cursor: pointer;
+}
+.ssl-tag.lib:hover { background: rgba(56,189,248,.25); }
