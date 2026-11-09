@@ -130,13 +130,13 @@ function open(data) {
           <span class="mtm-drag-dots" aria-hidden="true">⠿</span>
           <div class="lyp-titles"><b class="lyp-title">Letra</b><span class="lyp-sub"></span></div>
           <div class="lyp-tools">
-            <button type="button" class="lyp-btn" data-do="smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
-            <button type="button" class="lyp-btn" data-do="bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
-            <button type="button" class="lyp-btn" data-do="chords" title="Mostrar u ocultar los acordes">Acordes</button>
-            <button type="button" class="lyp-btn" data-do="follow" title="Cambiar sola a la canción que suena">Seguir</button>
-            <button type="button" class="lyp-btn" data-do="edit" title="Editar la letra y los acordes">Editar</button>
-            <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)">Pantalla completa</button>
-            <button type="button" class="lyp-btn" data-do="screen" title="Abrir también en una ventana aparte, para llevarla a otra pantalla (TV, segundo monitor)">Otra pantalla</button>
+            <button type="button" class="lyp-btn lyp-btn--txt" data-do="smaller" title="Letra más pequeña" aria-label="Letra más pequeña"><span class="lyp-a lyp-a--sm">A</span></button>
+            <button type="button" class="lyp-btn lyp-btn--txt" data-do="bigger" title="Letra más grande" aria-label="Letra más grande"><span class="lyp-a lyp-a--lg">A</span></button>
+            <button type="button" class="lyp-btn" data-do="chords" title="Mostrar u ocultar los acordes" aria-label="Acordes"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="follow" title="Seguir la canción que suena (cambia sola)" aria-label="Seguir la canción"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="edit" title="Editar la letra y los acordes" aria-label="Editar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="screen" title="Llevar la letra a otra pantalla (TV, segundo monitor)" aria-label="Otra pantalla"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
           </div>
           <button class="tun-close" type="button" data-do="close" aria-label="Cerrar">✕</button>
         </div>

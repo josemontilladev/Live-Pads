@@ -194,10 +194,27 @@
 .lyp-panel { container-type: inline-size; container-name: lyp; }
 .lyp-head [data-do="close"] { order: 3; }
 .lyp-tools { order: 2; }
-@container lyp (max-width: 600px) {
+@container lyp (max-width: 430px) {
   .lyp-head { flex-wrap: wrap; row-gap: 7px; }
   .lyp-titles { order: 1; flex: 1 1 0; }
   .lyp-head [data-do="close"] { order: 2; }
   .lyp-tools { order: 3; flex: 1 1 100%; flex-wrap: wrap; }
   .lyp-title { white-space: normal; }
 }
+
+/* Botones del panel de letra: redondos, solo icono (el texto va en el título al pasar el ratón). */
+.lyp-tools { gap: 3px; align-items: center; }
+.lyp-btn { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; }
+.lyp-btn svg { width: 15px; height: 15px; }
+.lyp-a { font-weight: 800; line-height: 1; }
+.lyp-a--sm { font-size: 11px; }
+.lyp-a--lg { font-size: 15px; }
+.lyp-head [data-do="close"] { width: 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+.lyp-head [data-do="close"]:hover { background: var(--glass-a, rgba(255,255,255,.06)); }
+
+/* Título del pad centrado de verdad: el volumen por pad va pegado abajo, fuera del
+   flujo, así el título queda en el centro de la baldosa (con el mezclador contraído
+   las baldosas son altas y el título se veía en el tercio superior). */
+.drum-btn { position: relative; }
+.drum-btn .drum-tile-vol { position: absolute; left: 12px; right: 12px; bottom: 10px; margin: 0; }
+.drum-btn .drum-label { margin: auto 0; text-align: center; }

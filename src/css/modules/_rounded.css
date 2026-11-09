@@ -1,0 +1,31 @@
+/* ═══ Botones redondeados en toda la app ═══════════════════════════════════
+   La app usa ahora bordes redondeados: botones, selectores, buscadores y grupos
+   segmentados son píldoras (o círculos si son solo icono). Las «baldosas» (pads
+   de batería, pads de teclado, tarjetas de canción, filas de listas) siguen
+   siendo rectángulos redondeados.
+   Lista sacada midiendo en la app los elementos visibles cuyo radio era menor
+   que la mitad de su alto (Pads, Servicio y Stems). Va al final de index.css
+   y con !important SOLO en el radio: muchas reglas de módulo son más específicas
+   (ids, varias clases) y es una norma de diseño de toda la app.
+   ═══════════════════════════════════════════════════════════════════════ */
+:is(
+  /* Pads · lista de canciones */
+  .action-btn, .s-toggle, .gi-lib-select, .gi-search-input, .icon-btn,
+  /* Metrónomo, mezclador, transporte */
+  .tap-btn, .metro-mult-btn, .metro-dropdown, .master-mute-btn, .mx-collapse, .source-seg-btn,
+  /* Servicios y letra */
+  .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn, .lyp-btn, .lw-btn,
+  .tun-cal-btn,
+  /* Stems */
+  .stems-btn, .stems-mini-select, .stems-ms, .stems-row-export, .stems-row-remove, .stems-accent-chip,
+  .ssl-slot-btn, .stems-mult-btn, .stems-console-selall, .ssl-search, .stl-search, .stl-views, .stl-views button
+) { border-radius: 999px !important; }
+
+/* Grupos segmentados: el contenedor también es píldora, y sus botones encajan dentro. */
+:is(.setlist-tabs-toggle, .source-seg, .stems-click-mult) { border-radius: 999px !important; }
+
+/* Selectores sueltos de Stems sin clase propia */
+#workspace-stems select { border-radius: 999px !important; }
+
+/* Ajustes: las entradas del menú lateral, con esquinas suaves (son una lista, no píldoras). */
+.stab { border-radius: 12px !important; }
