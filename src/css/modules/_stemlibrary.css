@@ -797,3 +797,39 @@
 .stl-packback:hover { border-color: var(--border-strong); background: var(--bg-hover); }
 .stl-packpick-go--btn { height: 30px; margin-left: auto; border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
 .stl-packpick-go--btn:hover { filter: brightness(1.08); }
+
+/* ═══ Agregar un loop: girando mientras entra al timeline, luego «✓ Agregado» ═══ */
+.stl-loop.is-busy { opacity: 1; pointer-events: none; background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.stl-loop.is-busy .stl-add { position: relative; color: transparent !important; }
+.stl-loop.is-busy .stl-add > * { visibility: hidden; }
+.stl-loop.is-busy .stl-add::after {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent);
+  animation: stl-spin .7s linear infinite;
+}
+@keyframes stl-spin { to { transform: rotate(360deg); } }
+.stl-loading { display: block; margin-top: 3px; font-size: 11px; font-weight: 650; color: var(--accent); }
+.stl-loop.is-added { animation: stl-added 1.8s ease-out; }
+.stl-loop.is-added .stl-add { position: relative; color: transparent !important; background: var(--ok, #22c55e) !important; border-color: var(--ok, #22c55e) !important; }
+.stl-loop.is-added .stl-add > * { visibility: hidden; }
+.stl-loop.is-added .stl-add::after { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; color: #06140a; font-size: 14px; font-weight: 800; }
+.stl-loop.is-added .stl-loop-title::after { content: ' · ✓ Agregado'; color: var(--ok, #22c55e); font-size: 11px; font-weight: 700; }
+@keyframes stl-added { 0% { background: color-mix(in srgb, var(--ok, #22c55e) 18%, transparent); } 100% { background: transparent; } }
+
+/* Botón de packs compacto y resultados de búsqueda (packs por canción o artista) */
+.stl-packpick--slim { padding: 5px 6px 5px 5px; }
+.stl-packpick--slim .stl-packpick-ico { width: 30px; height: 30px; }
+.stl-results-k { padding: 4px 8px 6px; font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.stl-presult {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 12px; text-align: left; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--text);
+}
+.stl-presult:hover { background: var(--bg-hover); border-color: var(--border); }
+.stl-presult.active { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.stl-presult-cover {
+  flex: none; width: 42px; height: 42px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--bg-hover) center / cover no-repeat; color: var(--text-muted);
+}
+.stl-presult-txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stl-presult-txt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stl-presult-txt small { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

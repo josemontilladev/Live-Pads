@@ -389,6 +389,7 @@ export function mountLibraryPanel(host, api) {
       console.warn('No se pudieron cargar los packs:', e);
       state.packs = state.packs || [];
     }
+    ensurePack();
     renderPacks();
     renderTry();
   }
@@ -404,7 +405,7 @@ export function mountLibraryPanel(host, api) {
         instrument: ref('instrument').value,
         section: ref('section').value,
         feel: ref('feel').value,
-        text: ref('text').value,
+        text: '',
       });
       if (seq !== searchSeq) return; // llegó una búsqueda más nueva
       state.loops = loops || [];
@@ -465,6 +466,13 @@ export function mountLibraryPanel(host, api) {
     const bpm = !bpms.length ? '' : bpms.length === 1 ? `${bpms[0]} BPM` : `${bpms[0]}–${bpms[bpms.length - 1]} BPM`;
     return [bpm, key].filter(Boolean).join(' · ');
   }
+  // Los tracks no se mezclan entre packs: siempre hay UN pack elegido
+  // (el último que usaste o, si no, el primero de la lista).
+  function ensurePack() {
+    if (state.packId && state.packs.some((p) => p.id === state.packId)) return;
+    const recent = recentPacks.find((id) => state.packs.some((p) => p.id === id));
+    state.packId = recent || (sortedPacks()[0] || {}).id || '';
+  }
   function sortedPacks() {
     const rec = new Map(recentPacks.map((id, i) => [id, i]));
     return state.packs.slice().sort((a, b) => {
@@ -476,19 +484,11 @@ export function mountLibraryPanel(host, api) {
   }
   function renderPacks() {
     const cur = state.packs.find((p) => p.id === state.packId);
-    // Sin pack elegido: botón grande que abre la ventana de packs.
-    // Con pack elegido (la tarjeta de abajo ya lo muestra): volver + cambiar.
-    ref('packs').innerHTML = !state.packs.length ? '' : cur ? `
-      <button type="button" class="stl-packback" data-pack="" title="Ver los loops de todos los packs">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-        Todos los packs
-      </button>
-      <button type="button" class="stl-packpick-go stl-packpick-go--btn" data-act="packs">Ver packs</button>` : `
-      <button type="button" class="stl-packpick" data-act="packs" title="Ver todos los packs">
+    ref('packs').innerHTML = !state.packs.length ? '' : `
+      <button type="button" class="stl-packpick stl-packpick--slim" data-act="packs" title="Elegir otro pack">
         <span class="stl-packpick-ico">${SVG_BOOK}</span>
-        <span class="stl-packpick-txt"><b>Todos los packs</b>
-          <small>${state.packs.length} ${state.packs.length === 1 ? 'pack' : 'packs'} · ${state.catalog.length || 0} loops</small></span>
-        <span class="stl-packpick-go">Ver packs</span>
+        <span class="stl-packpick-txt"><b>Packs</b><small>${state.packs.length} ${state.packs.length === 1 ? 'pack disponible' : 'packs disponibles'}</small></span>
+        <span class="stl-packpick-go">Ver todos</span>
       </button>`;
     renderPackCard();
     paintCovers();
@@ -521,12 +521,7 @@ export function mountLibraryPanel(host, api) {
         return q.every((w) => hay.includes(w));
       });
       const count = (pid) => state.catalog.filter((l) => l.pack_id === pid).length;
-      const all = !q.length ? `<button type="button" class="stl-pc stl-pc--all${state.packId ? '' : ' active'}" data-pick="">
-          <span class="stl-pc-cover">${SVG_BOOK}</span>
-          <span class="stl-pc-title">Todos los packs</span>
-          <span class="stl-pc-sub">${state.catalog.length || 0} loops</span>
-        </button>` : '';
-      grid.innerHTML = all + packs.map((p) => {
+      grid.innerHTML = packs.map((p) => {
         const st = packStatus(p.id);
         const n = count(p.id);
         return `<button type="button" class="stl-pc${p.id === state.packId ? ' active' : ''}" data-pick="${esc(p.id)}" title="${esc(p.title)} — ${esc(st.tip)}">
@@ -553,6 +548,7 @@ export function mountLibraryPanel(host, api) {
       const card = e.target.closest('[data-pick]');
       if (!card) return;
       state.packId = card.dataset.pick;
+      ref('text').value = '';
       close();
       renderPacks();
       loadLoops();
@@ -634,7 +630,28 @@ export function mountLibraryPanel(host, api) {
     }
   }
 
+  // Buscar = encontrar el pack de una canción o artista; al elegirlo, se ven sus tracks.
+  function renderPackResults() {
+    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const q = norm(ref('text').value).split(/\s+/).filter(Boolean);
+    const packs = sortedPacks().filter((p) => {
+      const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
+      return q.every((w) => hay.includes(w));
+    });
+    const list = ref('list');
+    if (!packs.length) { list.innerHTML = '<div class="stl-empty">Ningún pack coincide con esa canción o artista.</div>'; return; }
+    list.innerHTML = `<div class="stl-results-k">${packs.length} ${packs.length === 1 ? 'pack' : 'packs'}</div>` + packs.map((p) => {
+      const n = state.catalog.filter((l) => l.pack_id === p.id).length;
+      return `<button type="button" class="stl-presult${p.id === state.packId ? ' active' : ''}" data-pick-pack="${esc(p.id)}">
+        <span class="stl-presult-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}</span>
+        <span class="stl-presult-txt"><b>${esc(p.title)}</b><small>${esc([p.artist, `${n} ${n === 1 ? 'track' : 'tracks'}`].filter(Boolean).join(' · '))}</small></span>
+      </button>`;
+    }).join('');
+    paintCovers();
+  }
+
   function renderLoops() {
+    if (ref('text').value.trim()) { renderPackResults(); return; }
     // El proyecto pudo cargarse (o cambiar de BPM/tono) después de abrir el
     // panel: la cabecera se recalcula junto con los ajustes de cada loop.
     renderProject();
@@ -725,7 +742,22 @@ export function mountLibraryPanel(host, api) {
   }
 
   function setBusy(id, busy) {
-    el.querySelector(`.stl-loop[data-loop="${CSS.escape(id)}"]`)?.classList.toggle('is-busy', busy);
+    const row = el.querySelector(`.stl-loop[data-loop="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.classList.toggle('is-busy', busy);
+    let tag = row.querySelector('.stl-loading');
+    if (busy && !tag) {
+      tag = document.createElement('span');
+      tag.className = 'stl-loading';
+      tag.textContent = 'Cargando en la línea de tiempo…';
+      (row.querySelector('.stl-loop-info, .stl-loop-main') || row).appendChild(tag);
+    } else if (!busy && tag) tag.remove();
+  }
+  function flashAdded(id) {
+    const row = el.querySelector(`.stl-loop[data-loop="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.classList.add('is-added');
+    setTimeout(() => row.classList.remove('is-added'), 1800);
   }
 
   function renderLoggedOut() {
@@ -795,6 +827,10 @@ export function mountLibraryPanel(host, api) {
       state.localAll.add(loop.id);
       renderTry();
       state.local.add(loop.id);
+      setBusy(loop.id, false);
+      flashAdded(loop.id);
+    } catch (e) {
+      showToast(`No se pudo agregar «${loop.title}»: ${e.message || e}`, 'error');
     } finally {
       setBusy(loop.id, false);
       state.busyId = null;
@@ -876,6 +912,14 @@ export function mountLibraryPanel(host, api) {
     if (act0 === 'view-all') { setView('all'); return; }
     if (act0 === 'packs') { openPacksWindow(); return; }
     if (act0 === 'clear-filter') { clearFilter(actEl.dataset.filter); return; }
+    const pick = e.target.closest('[data-pick-pack]');
+    if (pick) {
+      state.packId = pick.dataset.pickPack;
+      ref('text').value = '';
+      renderPacks();
+      loadLoops();
+      return;
+    }
     const chip = e.target.closest('[data-pack]');
     if (chip) {
       state.packId = chip.dataset.pack;
@@ -916,7 +960,6 @@ export function mountLibraryPanel(host, api) {
     if (ref('instrument').value) opts.push(['instrument', `Todos los instrumentos (no solo ${esc(INSTRUMENTS[ref('instrument').value] || ref('instrument').value)})`]);
     if (ref('section').value) opts.push(['section', 'Cualquier sección']);
     if (ref('feel').value) opts.push(['feel', 'Cualquier sensación']);
-    if (pack) opts.push(['pack', `Buscar en todos los packs (no solo «${esc(pack.title)}»)`]);
     return `<div class="stl-empty"><b>No hay loops con esos filtros.</b>${opts.length ? '<br>Prueba:' : ''}
       <div class="stl-empty-actions">${opts.map(([f, t]) => `<button type="button" class="stb-btn" data-act="clear-filter" data-filter="${f}">${t}</button>`).join('')}
       ${opts.length > 1 ? '<button type="button" class="stb-btn stb-btn--primary" data-act="clear-filter" data-filter="all">Quitar todos los filtros</button>' : ''}</div></div>`;
@@ -952,7 +995,7 @@ export function mountLibraryPanel(host, api) {
   let searchTimer = null;
   ref('text').addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(loadLoops, 250);
+    searchTimer = setTimeout(() => { if (ref('text').value.trim()) renderPackResults(); else loadLoops(); }, 180);
   });
   ref('instrument').addEventListener('change', loadLoops);
   ref('section').addEventListener('change', loadLoops);

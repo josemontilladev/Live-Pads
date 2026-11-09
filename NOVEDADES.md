@@ -1,3 +1,2 @@
-• Biblioteca de stems más simple: la tira horizontal de packs se cambió por el botón «Ver packs», que abre una ventana con todos los packs en cuadrícula (portada, canción, artista y número de loops) y su propio buscador.
-• Un solo buscador en la Biblioteca: escribe el nombre de la canción o el artista. Se quitaron los filtros de instrumento, sección, sensación y las pestañas de vista.
-• Con un pack abierto: «‹ Todos los packs» para volver y «Ver packs» para cambiar.
+• Biblioteca: los tracks ya no se mezclan entre packs. Siempre ves los de UN pack (el último que usaste); cambia de pack con «Ver todos» o buscando la canción o el artista.
+• Al pulsar «+» en un track, el botón gira y dice «Cargando en la línea de tiempo…»; al terminar se marca «✓ Agregado». Si falla, aparece un aviso.
