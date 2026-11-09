@@ -1201,8 +1201,9 @@ function wireTopbarEvents(root) {
     new ResizeObserver(([e]) => {
       const w = e.contentRect.width;
       if (!w) return;
-      sbDeck.classList.toggle('sb--md', w < 1420);
+      sbDeck.classList.toggle('sb--md', w < 1580);
       sbDeck.classList.toggle('sb--sm', w < 1300);
+      sbDeck.classList.toggle('sb--xs', w < 1150);
     }).observe(sbDeck);
   }
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
