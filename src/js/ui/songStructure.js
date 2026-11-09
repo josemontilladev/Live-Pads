@@ -60,6 +60,30 @@ const isMinorQ = (q) => q === 1 || q === 4;
 const bin24 = (c) => c.r + (isMinorQ(c.q) ? 12 : 0);
 
 // ── Letra → secciones con acordes ─────────────────────────────────────────
+// Marcas pegadas a un acorde: «////Gm», «C//», «|F», «(Am)». Una sola «/» final no se
+// toca porque «F/» no es habitual y «F/C» es un acorde con bajo.
+const stripMarks = (t) => t.replace(/^[/|(\[]+/, '').replace(/(?:\/{2,}|[|)\]]+)$/, '');
+const isFiller = (t) => /^[-–—|/,.:;•·x\d%()]+$/i.test(t);
+/** ¿La línea es solo acordes (y separadores / marcas de repetición)? */
+function isChordsOnly(line) {
+  const toks = String(line).replace(/[\[\]]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return toks.length > 0 && toks.some((t) => parseChord(stripMarks(t))) && toks.every((t) => isFiller(t) || parseChord(stripMarks(t)));
+}
+/** Tokens de acorde de una línea (con o sin corchetes), con su columna exacta. */
+function chordTokens(raw) {
+  const out = [];
+  const re = /[^\s\[\]]+/g;
+  let m;
+  while ((m = re.exec(raw))) {
+    const tok = m[0];
+    const lead = (/^[/|(]+/.exec(tok) || [''])[0].length;
+    const text = stripMarks(tok);
+    if (!text || !parseChord(text)) continue;
+    const start = m.index + lead;
+    out.push({ text, start, end: start + text.length });
+  }
+  return out;
+}
 /**
  * @returns {{canon:string, num:string, label:string, chords:{r,q,b,n}[]}[]}
  *   en el orden de la letra (las repeticiones escritas cuentan como apariciones).
@@ -109,14 +133,16 @@ export function parseLyricStructure(lyrics) {
     }
     // Acordes entre corchetes en cualquier parte de la línea (y el resto es letra)…
     if (/\[[^\]]+\]/.test(raw)) {
-      addChords(scan(raw, /\[([^\]]+)\]/g, 1), li);
       const text = raw.replace(/\[[^\]]*\]/g, '').replace(/\s+/g, ' ').trim();
+      // …salvo que lo que queda fuera de los corchetes sean también acordes
+      // («[Dm7] C Bb»): entonces cuentan todos, en orden.
+      if (text && isChordsOnly(text)) { addChords(chordTokens(raw), li); return; }
+      addChords(scan(raw, /\[([^\]]+)\]/g, 1), li);
       if (text && cur) cur.lines.push(text);
       return;
     }
-    // …o una línea solo de acordes («F#m A/C# D»).
-    const toks = line.split(/\s+/);
-    if (toks.length && toks.every((t) => parseChord(t) || /^[-–—|/,.:;•·x\d%()]+$/i.test(t))) { addChords(scan(raw, /\S+/g), li); return; }
+    // …o una línea solo de acordes («F#m A/C# D», «//Bb - F - Dm7 - C//»).
+    if (isChordsOnly(line)) { addChords(chordTokens(raw), li); return; }
     if (cur) cur.lines.push(line);
   });
   return secs;
@@ -397,4 +423,108 @@ export function songChordSegments(markers, lyricSecs, detSegs, k, duration) {
     });
   });
   return out;
+}
+
+// ── Acordes de la letra sin secciones marcadas ────────────────────────────
+// Toda la secuencia de acordes de la letra (en su orden) se alinea con los
+// acordes que se oyen (programación dinámica): cada tramo detectado se asigna a
+// un acorde de la letra que puede durar varios tramos, avanzar al siguiente,
+// saltarse alguno (con coste), volver al principio de una sección (los coros se
+// repiten aunque la letra los escriba una vez) o quedarse sin pareja (pasajes
+// que la letra no recoge: se muestran como detectados).
+const INTS = [[0, 4, 7], [0, 3, 7], [0, 4, 7, 10], [0, 4, 7, 11], [0, 3, 7, 10], [0, 5, 7], [0, 2, 7]];
+function chordSim(dr, dq, lr, lq) {
+  // Parecido entre un acorde oído y uno de la letra (ya en el tono del audio), −0,5 … +0,5.
+  const a = new Set(INTS[dq] ? INTS[dq].slice(0, 3).map((i) => (dr + i) % 12) : []);
+  const b = INTS[lq] ? INTS[lq].slice(0, 3).map((i) => (lr + i) % 12) : [];
+  let common = 0;
+  b.forEach((x) => { if (a.has(x)) common++; });
+  return (dr === lr ? 0.55 : 0) + 0.45 * common / 3 - 0.5;
+}
+
+/**
+ * @returns {{s,e,r,q,b,n?,pos?,sec?,guess?}[]} en el tono del AUDIO (como songChordSegments).
+ */
+export function alignLyricChords(lyricSecs, detSegs, k, duration = Infinity) {
+  // Acordes oídos, fundiendo tramos seguidos con el mismo acorde (raíz + mayor/menor).
+  const det = [];
+  (detSegs || []).forEach((d) => {
+    if (!(d.r >= 0) || !(d.e > d.s)) return;
+    const last = det[det.length - 1];
+    if (last && last.r === d.r && isMinorQ(last.q) === isMinorQ(d.q) && d.s - last.e < 0.5) { last.e = d.e; return; }
+    det.push({ ...d });
+  });
+  const L = [], secStart = [];
+  (lyricSecs || []).forEach((sec) => {
+    if (!sec.chords.length) return;
+    secStart.push(L.length);
+    sec.chords.forEach((c) => L.push({ c, sec: sec.label, ar: mod(c.r - k, 12) }));
+  });
+  const n = det.length, m = L.length;
+  if (!n || !m) return [];
+  const GAP = m;                       // estado «sin pareja en la letra»
+  const STAY = 0, SKIP = 1.2, JUMP = 3.0, TO_GAP = 1.5, GAP_STAY = 0.15;
+  const starts = new Set(secStart);
+  const NEG = -1e18;
+  let dp = new Float64Array(m + 1).fill(NEG);
+  const back = [];
+  const emit = (i, j) => {
+    const d = det[i], w = Math.min(8, d.e - d.s);
+    return j === GAP ? -0.15 * w : chordSim(d.r, d.q, L[j].ar, L[j].c.q) * w;
+  };
+  // Inicio: lo natural es empezar por el principio de la letra; cualquier sección cuesta un salto.
+  for (let j = 0; j < m; j++) if (j === 0 || starts.has(j)) dp[j] = (j === 0 ? 0 : -JUMP) + emit(0, j);
+  dp[GAP] = -TO_GAP + emit(0, GAP);
+  back.push(null);
+  for (let i = 1; i < n; i++) {
+    const nd = new Float64Array(m + 1).fill(NEG), bp = new Int32Array(m + 1).fill(-1);
+    // mejor estado previo (para saltos a inicios de sección y a «sin pareja»)
+    let best = 0;
+    for (let p = 1; p <= m; p++) if (dp[p] > dp[best]) best = p;
+    for (let j = 0; j < m; j++) {
+      let v = NEG, from = -1;
+      const cand = (p, cost) => { if (p >= 0 && p <= m && dp[p] > NEG / 2 && dp[p] - cost > v) { v = dp[p] - cost; from = p; } };
+      cand(j, STAY);                                   // el mismo acorde sigue sonando
+      if (j >= 1) cand(j - 1, 0);                      // siguiente acorde
+      if (j >= 2) cand(j - 2, SKIP);                   // se salta uno
+      if (j >= 3) cand(j - 3, 2 * SKIP);               // se salta dos
+      if (starts.has(j)) { cand(best, JUMP); cand(GAP, JUMP * 0.5); }   // empieza (o se repite) una sección
+      if (from >= 0) { nd[j] = v + emit(i, j); bp[j] = from; }
+    }
+    // sin pareja
+    let v = dp[GAP] - GAP_STAY, from = GAP;
+    if (dp[best] - TO_GAP > v) { v = dp[best] - TO_GAP; from = best; }
+    nd[GAP] = v + emit(i, GAP); bp[GAP] = from;
+    back.push(bp);
+    dp = nd;
+  }
+  let j = 0;
+  for (let p = 1; p <= m; p++) if (dp[p] > dp[j]) j = p;
+  const path = new Int32Array(n);
+  for (let i = n - 1; i >= 0; i--) { path[i] = j; if (i > 0) j = back[i][j]; }
+  // Tramos: los tramos oídos seguidos que caen en el mismo acorde de la letra se unen.
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = det[i], st = path[i];
+    const prev = out[out.length - 1];
+    if (st === GAP) {
+      out.push({ s: d.s, e: Math.min(d.e, duration), r: d.r, q: d.q, b: d.b, guess: true, _j: -1 });
+      continue;
+    }
+    if (prev && prev._j === st) { prev.e = Math.min(d.e, duration); continue; }
+    const { c, sec, ar } = L[st];
+    out.push({ s: d.s, e: Math.min(d.e, duration), r: ar, q: c.q, b: c.b >= 0 ? mod(c.b - k, 12) : -1, n: c.n, pos: c.pos, sec, _j: st });
+  }
+  const res = out.map(({ _j, ...x }) => x);
+  // Confianza: fracción del tiempo con acorde de la letra cuya raíz y modo coinciden con lo oído.
+  let agree = 0, tot = 0;
+  for (let i = 0; i < n; i++) {
+    if (path[i] === GAP) continue;
+    const d = det[i], w = d.e - d.s, l = L[path[i]];
+    tot += w;
+    if (d.r === l.ar && isMinorQ(d.q) === isMinorQ(l.c.q)) agree += w;
+  }
+  res.agree = tot ? agree / tot : 0;
+  res.covered = tot / Math.max(1e-9, det.reduce((a, d) => a + d.e - d.s, 0));
+  return res;
 }

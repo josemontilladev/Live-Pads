@@ -21,7 +21,10 @@ const OPEN_KEY = 'livepads-livelyrics-open';
 const SIZE_KEY = 'livepads-livelyrics-size';
 const CHORDS_KEY = 'livepads-livelyrics-chords';
 const FOLLOW_KEY = 'livepads-livelyrics-follow';
-const AUTO_KEY = 'livepads-livelyrics-auto';
+// Abrir la letra sola al elegir/reproducir una canción. Desactivado por defecto: con la letra
+// abierta el equipo dejaba de ver la canción siguiente en la lista. (Clave nueva para que el
+// cambio llegue también a quien tenía el «Auto» anterior activado sin haberlo elegido.)
+const AUTO_KEY = 'livepads-livelyrics-auto2';
 
 let panel, bodyEl, titleEl, subEl, metaEl, hintEl, btn;
 let audio = null;
@@ -30,7 +33,7 @@ let lines = [];          // [{ el, start }]  (start en segundos, estimado)
 let active = -1;
 let timer = null;
 let userScrollUntil = 0;
-let sized = 16, showChords = true, follow = true, auto = true;
+let sized = 16, showChords = true, follow = true, auto = false;
 let lastActiveId = null;
 let timingKind = 'none'; // 'manual' | 'sections' | 'whole' | 'none'
 let syncing = null;      // { els, times, idx } mientras se sincroniza a mano
@@ -47,7 +50,7 @@ export function initLiveLyrics() {
   sized = Math.max(12, Math.min(30, parseInt(ls(SIZE_KEY, '16'), 10) || 16));
   showChords = ls(CHORDS_KEY, '1') !== '0';
   follow = ls(FOLLOW_KEY, '1') !== '0';
-  auto = ls(AUTO_KEY, '1') !== '0';
+  auto = ls(AUTO_KEY, '0') === '1';
 
   panel = document.createElement('aside');
   panel.id = 'panel-lyrics';
@@ -55,7 +58,7 @@ export function initLiveLyrics() {
   panel.setAttribute('aria-label', 'Letra en vivo');
   panel.innerHTML = `
     <header class="ll-head">
-      <button type="button" class="ll-back" id="ll-close" title="Volver a la lista de canciones (al elegir otra canción, la letra vuelve a abrirse sola)">
+      <button type="button" class="ll-back" id="ll-close" title="Volver a la lista de canciones">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         Canciones
       </button>
@@ -70,7 +73,7 @@ export function initLiveLyrics() {
       <button type="button" class="ll-btn ll-btn--icon" id="ll-smaller" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
       <button type="button" class="ll-btn ll-btn--icon" id="ll-bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
       <button type="button" class="ll-btn" id="ll-follow" title="Seguir la canción mientras suena (karaoke) y mantener la línea actual centrada">Seguir</button>
-      <button type="button" class="ll-btn" id="ll-auto" title="Abrir la letra automáticamente al elegir una canción">Auto</button>
+      <button type="button" class="ll-btn" id="ll-auto" title="Abrir la letra automáticamente al reproducir una canción (si no, se abre con el botón «Letra»)">Auto</button>
     </div>
     <div class="ll-syncbar hidden">
       <div class="ll-synctop"><b>Sincronizar letra</b><span class="ll-syncstep"></span></div>
@@ -109,7 +112,7 @@ export function initLiveLyrics() {
   panel.querySelector('#ll-undo').onclick = undoMark;
   panel.querySelector('#ll-sync-cancel').onclick = () => stopSync(false);
 
-  // Al elegir OTRA canción, la letra reemplaza a las tarjetas (si «Auto» está activo).
+  // Al elegir OTRA canción, la letra reemplaza a las tarjetas solo si «Auto» está activo (por defecto no).
   const cs = currentSong(); lastActiveId = cs ? cs.id : null;
   window.addEventListener('livepads:song-state', () => {
     const s = currentSong();

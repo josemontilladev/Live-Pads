@@ -14,7 +14,7 @@
 import { getTrackPitch } from '../audio/trackPlayer.js';
 import { nearestIn } from '../analysis/beatGrid.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
-import { parseLyricStructure, keyOffset, songChordSegments, parseChord, replaceChordInLyrics } from './songStructure.js';
+import { parseLyricStructure, keyOffset, songChordSegments, alignLyricChords, parseChord, replaceChordInLyrics } from './songStructure.js';
 import { openContextMenu } from './cardMoreMenu.js';
 import { showDialog } from './dialog.js';
 import { getSongs } from '../state/store.js';
@@ -72,10 +72,18 @@ function segsNow() {
   shownSig = sig; shown = det; fromSong = false;
   try {
     const lyr = s ? parseLyricStructure(s.lyrics) : [];
-    if (lyr.some((x) => x.chords.length) && Array.isArray(s.markers) && s.markers.length) {
+    if (lyr.some((x) => x.chords.length)) {
       songK = keyOffset(lyr, det, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
-      const segs = songChordSegments(s.markers, lyr, det, songK, result.d || 0);
-      if (segs.some((x) => !x.guess)) { shown = segs; fromSong = true; }
+      if (Array.isArray(s.markers) && s.markers.length) {
+        // Con secciones marcadas: los acordes de cada sección dentro de su tramo.
+        const segs = songChordSegments(s.markers, lyr, det, songK, result.d || 0);
+        if (segs.some((x) => !x.guess)) { shown = segs; fromSong = true; }
+      } else {
+        // Sin secciones: toda la letra alineada con lo que se oye. Solo si encaja de verdad
+        // (si la pista apenas tiene armonía, mejor mostrar lo detectado que inventar).
+        const segs = alignLyricChords(lyr, det, songK, result.d || 0);
+        if (segs.agree >= 0.6 && segs.covered >= 0.5) { shown = segs; fromSong = true; }
+      }
     }
   } catch (e) { console.warn('[LivePads] acordes de la letra:', e); }
   return shown;
@@ -241,7 +249,7 @@ export function render() {
   lastShift = getTrackPitch() || 0;
   const d = result.d || 1, w = lane.clientWidth || 1;
   const list = segsNow();
-  lane.title = fromSong ? 'Acordes de la letra de la canción, colocados en cada sección (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
+  lane.title = fromSong ? 'Acordes de la letra de la canción, colocados donde suenan (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
   root.classList.toggle('chords-from-song', fromSong);
   // Dos filas: un nombre que no cabe tras el anterior baja a la segunda; si
   // tampoco cabe ahí, queda solo su raya (con zoom se leen todos).

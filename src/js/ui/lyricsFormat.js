@@ -77,6 +77,8 @@ export function detectSectionHeader(line) {
   // Quita corchetes/paréntesis externos y puntuación de borde (":", "-", "—"…).
   s = s.replace(/^[\[\(\{]+/, '').replace(/[\]\)\}]+$/, '').trim();
   s = s.replace(/[\s:：.\-–—_]+$/, '').replace(/^[\s:：.\-–—_]+/, '').trim();
+  // «INTERLUDIO-(RAP)», «CORO (x2)»: el añadido entre paréntesis no forma parte del nombre.
+  { const base = s.replace(/[\s\-–—_]*[(\[].*$/, '').trim(); if (base) s = base.replace(/[\s:：.\-–—_]+$/, ''); }
   if (!s) return null;
   const upper = s.toUpperCase();
   const numMatch = upper.match(/(\d+)\s*$/);
