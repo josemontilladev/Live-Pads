@@ -28,6 +28,8 @@ import { openPackUploader } from './packUploader.js';
 import { esc } from '../utils/dom.js';
 import { showToast } from '../ui/toast.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
+import { pushModal } from '../ui/modalStack.js';
+import { closeButton } from '../ui/components.js';
 
 export const LOOP_DRAG_TYPE = 'application/x-livepads-loop';
 
@@ -88,17 +90,17 @@ export function mountLibraryPanel(host, api) {
     <div class="stl-project" data-ref="project"></div>
     <div class="stl-packs" data-ref="packs"></div>
     <div class="stl-packcard" data-ref="packcard" hidden></div>
-    <div class="stl-filters">
-      <input class="stl-search" data-ref="text" type="search" placeholder="Buscar loop…" aria-label="Buscar loop">
-      <select data-ref="instrument" aria-label="Instrumento">
+    <div class="stl-filters stl-filters--simple">
+      <input class="stl-search" data-ref="text" type="search" placeholder="Buscar por canción o artista…" aria-label="Buscar por canción o artista">
+      <select data-ref="instrument" aria-label="Instrumento" hidden>
         <option value="">Instrumento</option>
         ${Object.entries(INSTRUMENTS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
-      <select data-ref="section" aria-label="Sección">
+      <select data-ref="section" aria-label="Sección" hidden>
         <option value="">Sección</option>
         ${Object.entries(SECTIONS).filter(([v]) => v !== 'any').map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
-      <select data-ref="feel" aria-label="Sensación" title="Cómo suena: íntimo, alegre, intenso…">
+      <select data-ref="feel" aria-label="Sensación" hidden>
         <option value="">Sensación</option>
         ${Object.entries(stemLibrary.FEELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
       </select>
@@ -112,7 +114,7 @@ export function mountLibraryPanel(host, api) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
       Armar por secciones
     </button>
-    <div class="stl-views" data-ref="views" role="group" aria-label="Vista de la biblioteca">
+    <div class="stl-views" data-ref="views" role="group" aria-label="Vista de la biblioteca" hidden>
       <button type="button" class="is-on" data-view="all">Todos</button>
       <button type="button" data-view="compat" title="Loops que suenan naturales en tu proyecto: poco estiramiento de tempo y poca transposición">Compatibles</button>
       <button type="button" data-view="fav">★ Favoritos</button>
@@ -473,18 +475,90 @@ export function mountLibraryPanel(host, api) {
     });
   }
   function renderPacks() {
-    const cards = sortedPacks().map((p) => {
-      const st = packStatus(p.id);
-      return `<button type="button" class="stl-pk${p.id === state.packId ? ' active' : ''}" data-pack="${esc(p.id)}" title="${esc(p.title)} — ${esc(st.tip)}">
-        <span class="stl-pk-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}${favPacks.has(p.id) ? `<i class="stl-pk-fav">${SVG_HEART}</i>` : ''}</span>
-        <span class="stl-pk-text"><span class="stl-pk-title">${esc(p.title)}</span>
-        <span class="stl-pk-meta">${esc([p.artist, packMeta(p.id)].filter(Boolean).join(' · '))}</span>
-        <span class="stl-st stl-st--${st.cls}">${esc(st.txt)}</span></span>
+    const cur = state.packs.find((p) => p.id === state.packId);
+    // Sin pack elegido: botón grande que abre la ventana de packs.
+    // Con pack elegido (la tarjeta de abajo ya lo muestra): volver + cambiar.
+    ref('packs').innerHTML = !state.packs.length ? '' : cur ? `
+      <button type="button" class="stl-packback" data-pack="" title="Ver los loops de todos los packs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        Todos los packs
+      </button>
+      <button type="button" class="stl-packpick-go stl-packpick-go--btn" data-act="packs">Ver packs</button>` : `
+      <button type="button" class="stl-packpick" data-act="packs" title="Ver todos los packs">
+        <span class="stl-packpick-ico">${SVG_BOOK}</span>
+        <span class="stl-packpick-txt"><b>Todos los packs</b>
+          <small>${state.packs.length} ${state.packs.length === 1 ? 'pack' : 'packs'} · ${state.catalog.length || 0} loops</small></span>
+        <span class="stl-packpick-go">Ver packs</span>
       </button>`;
-    }).join('');
-    ref('packs').innerHTML = state.packs.length ? `<button type="button" class="stl-pk stl-pk--all${state.packId ? '' : ' active'}" data-pack=""><span class="stl-pk-cover">${SVG_BOOK}</span><span class="stl-pk-text"><span class="stl-pk-title">Todos los packs</span><span class="stl-pk-meta">${state.catalog.length || ''} loops</span></span></button>${cards}` : '';
     renderPackCard();
     paintCovers();
+    if (packsWin) packsWin.render();
+  }
+
+  // ── Ventana «Packs»: todos los packs en cuadrícula, con buscador ──
+  let packsWin = null;
+  function openPacksWindow() {
+    if (packsWin) return;
+    const ov = document.createElement('div');
+    ov.className = 'stl-packs-overlay';
+    ov.innerHTML = `
+      <div class="stl-packs-win" role="dialog" aria-modal="true" aria-label="Packs de la biblioteca">
+        <header class="stl-packs-head">
+          <h3>Packs</h3>
+          <input class="stl-search stl-packs-search" type="search" placeholder="Buscar pack, canción o artista…" aria-label="Buscar pack">
+          ${closeButton({ attrs: { 'data-act': 'close' } })}
+        </header>
+        <div class="stl-packs-grid"></div>
+      </div>`;
+    document.body.appendChild(ov);
+    const grid = ov.querySelector('.stl-packs-grid');
+    const search = ov.querySelector('.stl-packs-search');
+    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const render = () => {
+      const q = norm(search.value).split(/\s+/).filter(Boolean);
+      const packs = sortedPacks().filter((p) => {
+        const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
+        return q.every((w) => hay.includes(w));
+      });
+      const count = (pid) => state.catalog.filter((l) => l.pack_id === pid).length;
+      const all = !q.length ? `<button type="button" class="stl-pc stl-pc--all${state.packId ? '' : ' active'}" data-pick="">
+          <span class="stl-pc-cover">${SVG_BOOK}</span>
+          <span class="stl-pc-title">Todos los packs</span>
+          <span class="stl-pc-sub">${state.catalog.length || 0} loops</span>
+        </button>` : '';
+      grid.innerHTML = all + packs.map((p) => {
+        const st = packStatus(p.id);
+        const n = count(p.id);
+        return `<button type="button" class="stl-pc${p.id === state.packId ? ' active' : ''}" data-pick="${esc(p.id)}" title="${esc(p.title)} — ${esc(st.tip)}">
+          <span class="stl-pc-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}${favPacks.has(p.id) ? `<i class="stl-pk-fav">${SVG_HEART}</i>` : ''}</span>
+          <span class="stl-pc-title">${esc(p.title)}</span>
+          <span class="stl-pc-sub">${esc(p.artist || packMeta(p.id) || '')}</span>
+          <span class="stl-pc-foot"><span>${n} ${n === 1 ? 'loop' : 'loops'}</span><span class="stl-st stl-st--${st.cls}">${esc(st.txt)}</span></span>
+        </button>`;
+      }).join('') + (!packs.length && q.length ? '<div class="stl-empty">Ningún pack coincide con la búsqueda.</div>' : '');
+      paintCovers();
+    };
+    let pop = null;
+    const close = () => {
+      if (!packsWin) return;
+      packsWin = null;
+      if (pop) { pop(); pop = null; }
+      ov.remove();
+    };
+    packsWin = { render, close };
+    pop = pushModal(close, ov.querySelector('.stl-packs-win'));
+    search.addEventListener('input', render);
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov || e.target.closest('[data-act="close"]')) { close(); return; }
+      const card = e.target.closest('[data-pick]');
+      if (!card) return;
+      state.packId = card.dataset.pick;
+      close();
+      renderPacks();
+      loadLoops();
+    });
+    render();
+    setTimeout(() => { try { search.focus(); } catch (_) {} }, 30);
   }
 
   // Portadas: se bajan una vez a la caché local y se pintan donde haya un
@@ -495,7 +569,7 @@ export function mountLibraryPanel(host, api) {
       if (!p.cover_path) continue;
       const apply = (url) => {
         if (!url) return;
-        el.querySelectorAll(`[data-cover="${CSS.escape(p.id)}"]`).forEach((n) => { n.style.backgroundImage = `url("${url}")`; });
+        document.querySelectorAll(`[data-cover="${CSS.escape(p.id)}"]`).forEach((n) => { n.style.backgroundImage = `url("${url}")`; });
       };
       if (coverUrls.has(p.id)) { apply(coverUrls.get(p.id)); continue; }
       coverUrls.set(p.id, null);
@@ -800,6 +874,7 @@ export function mountLibraryPanel(host, api) {
     if (act0 === 'retry') { state.loaded = false; open(); return; }
     if (act0 === 'only-local') { setView('local'); return; }
     if (act0 === 'view-all') { setView('all'); return; }
+    if (act0 === 'packs') { openPacksWindow(); return; }
     if (act0 === 'clear-filter') { clearFilter(actEl.dataset.filter); return; }
     const chip = e.target.closest('[data-pack]');
     if (chip) {
