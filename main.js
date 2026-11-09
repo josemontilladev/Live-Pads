@@ -2323,7 +2323,8 @@ ipcMain.handle('analysis-audio-chunk', (_e, { token, offset, total, data } = {})
   clearTimeout(e.timer);
   e.timer = setTimeout(() => analysisAudio.delete(token), 5 * 60 * 1000);
   const n = Math.min(data.length, total - offset);
-  for (let i = 0; i < n; i++) e.buf[offset + i] = data[i] / 32768;
+  if (data instanceof Float32Array) e.buf.set(data.subarray(0, n), offset);
+  else for (let i = 0; i < n; i++) e.buf[offset + i] = data[i] / 32768;   // Int16 (versiones anteriores)
   e.filled += n;
   return true;
 });

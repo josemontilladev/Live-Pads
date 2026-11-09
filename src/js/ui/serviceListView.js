@@ -420,6 +420,8 @@ function buildCard(song, index, activeIdx) {
   const isActive = index === activeIdx;
   const isLyricsOpen = song.serviceId && (song.serviceId === getOpenAccordionServiceId());
   if (isActive) el.classList.add('active-song');
+  if (isLyricsOpen) el.classList.add('lyrics-open');   // (en vez de :has() en el CSS: más barato)
+  el.classList.add('has-order');                        // las tarjetas del servicio llevan flechas de orden
 
   el.innerHTML = songCardInnerHTML(song, {
     rowNumber: index + 1,

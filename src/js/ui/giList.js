@@ -350,6 +350,7 @@ function buildCard(song, idx, editSongId, searchTerm = '') {
 
   if (isActive) el.classList.add('active-song');
   if (songInService(song)) el.classList.add('in-service');
+  if (isLyricsOpen) el.classList.add('lyrics-open');   // (en vez de :has() en el CSS: más barato)
 
   el.innerHTML = songCardInnerHTML(song, {
     rowNumber: idx + 1,

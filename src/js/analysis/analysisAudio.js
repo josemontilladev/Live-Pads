@@ -5,13 +5,15 @@
 // por IPC (unos 26 MB de una vez): copiarla congelaba la interfaz 60–100 ms, y
 // en ese rato los golpes MIDI esperaban. Ahora:
 //  · la versión mono se calcula UNA vez por pista (la comparten los análisis);
-//  · se envía en trozos de 16 bits (~256 KB) cediendo el hilo entre trozos;
+//  · se envía en trozos de ~256 KB cediendo el hilo entre trozos (tal cual, en
+//    Float32: convertir a 16 bits era un bucle en JS que en portátiles costaba más
+//    que la propia copia);
 //  · el proceso principal la guarda con un identificador y cada análisis la pide
 //    por ese identificador.
 // ─────────────────────────────────────────────────────────────────────────
 
 const SR = 22050;
-const CHUNK = 131072;   // muestras por trozo (256 KB en 16 bits)
+const CHUNK = 65536;    // muestras por trozo (256 KB en Float32)
 const monoCache = new WeakMap();    // AudioBuffer → Promise<Float32Array>
 const tokenCache = new WeakMap();   // AudioBuffer → Promise<string>
 let seq = 0;
@@ -42,9 +44,8 @@ export function uploadForAnalysis(buffer) {
       const token = `a${Date.now().toString(36)}${(++seq).toString(36)}`;
       for (let off = 0; off < mono.length; off += CHUNK) {
         const n = Math.min(CHUNK, mono.length - off);
-        const q = new Int16Array(n);
-        for (let i = 0; i < n; i++) { const v = mono[off + i]; q[i] = v >= 1 ? 32767 : v <= -1 ? -32768 : Math.round(v * 32767); }
-        await api.analysisAudioChunk({ token, offset: off, total: mono.length, data: q });
+        // slice (copia solo el trozo): un subarray arrastraría al IPC el búfer entero de 26 MB.
+        await api.analysisAudioChunk({ token, offset: off, total: mono.length, data: mono.slice(off, off + n) });
         await yieldNow();
       }
       return token;

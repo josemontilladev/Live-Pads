@@ -167,7 +167,7 @@
 .gi-song-order .btn-move-down::after { content: none; }
 .gi-song-order { display: contents; }
 /* El título no pasa por debajo de las flechas. */
-.gi-song-item:has(.btn-move-up) .gi-song-main { padding-right: 62px; }
+.gi-song-item.has-order .gi-song-main { padding-right: 62px; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Letra con acordes (acordeón de la tarjeta) — más grande, con aire y los

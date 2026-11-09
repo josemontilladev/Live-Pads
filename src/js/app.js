@@ -89,6 +89,7 @@ import { initSeqWaveform } from './ui/seqWaveform.js';
 import { initPracticeMode } from './ui/practiceMode.js';
 import { initLiveLyrics } from './ui/liveLyrics.js';
 import { initUpdateIndicator, _testState as updTestState } from './ui/updateIndicator.js';
+import { initLyricsOverlay } from './ui/lyricsOverlay.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
 // la nube Supabase vía Mi cuenta → librería activa.
 import { bindSetlistTabs } from './ui/setlistTabs.js';
@@ -2442,6 +2443,7 @@ document.addEventListener('error', (e) => {
 window.__showUpdateReady = showUpdateReady; // (también sirve para probar la interfaz)
 window.__updState = updTestState;            // (prueba del icono del header)
 initUpdateIndicator();
+initLyricsOverlay();
 if (window.electronAPI && window.electronAPI.onUpdateReady) {
   window.electronAPI.onUpdateReady(showUpdateReady);
   // Si ya había una descarga lista (p. ej. tras recargar la ventana), mostrarla.

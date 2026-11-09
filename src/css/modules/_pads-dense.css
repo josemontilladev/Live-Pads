@@ -44,17 +44,25 @@
 #panel-setlist .gi-song-meta-line > .gi-chip:last-child.is-odd-sig { display: inline-flex; }
 
 /* Sin franja reservada abajo: la tira flotante se pone sobre tono y BPM. */
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-main { padding-bottom: 0; }
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
-  top: 50%; bottom: auto; right: 8px;
-  transform: translateY(-50%) scale(.98);
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-main { padding-bottom: 0; }
+/* La tira va en la SEGUNDA línea (donde están tono y BPM), pequeña: el título queda
+   siempre a la vista y casi toda la tarjeta sigue respondiendo al clic. */
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions {
+  top: auto; bottom: 5px; right: 8px;
+  padding: 2px; gap: 2px; border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .35);
+  transform: translateY(2px);
 }
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-actions,
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-actions {
-  transform: translateY(-50%);
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions .action-btn {
+  width: 26px; height: 22px; min-width: 0; padding: 0; border-radius: 6px;
 }
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-meta-line,
-#panel-setlist .gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-meta-line {
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions .action-btn svg { width: 13px; height: 13px; }
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open):hover .gi-song-actions,
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open):focus-within .gi-song-actions {
+  transform: none;
+}
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open):hover .gi-song-meta-line,
+#panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open):focus-within .gi-song-meta-line {
   visibility: hidden;
 }
 
@@ -76,3 +84,38 @@
    · «Click + secuencia» y «Cuenta de entrada» se partían en dos líneas en portátiles. */
 #metro-bpm-live { display: none; }
 .hm-section--sounds .hm-clickseq, .hm-section--sounds .hm-clickseq span { white-space: nowrap; }
+
+/* Onda: cabezal y parte ya tocada se mueven con transform / clip-path (sin re-maquetar). */
+.sw-played { width: 100%; clip-path: inset(0 100% 0 0); will-change: clip-path; }
+.sw-playhead { left: 0; will-change: transform; }
+
+/* ═══ Letra en un panel sobre los pads (ui/lyricsOverlay.js) ═══
+   El desplegable de la tarjeta queda oculto en Pads (su lógica sigue igual) y su
+   contenido se muestra en el sitio de los pads, con el mezclador debajo. */
+#panel-setlist .gi-lyrics-accordion { display: none !important; }
+#panel-drums.lyrics-mode .drum-grid { display: none; }
+#lyrics-overlay {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  background: linear-gradient(180deg, var(--surface-1, var(--bg-card)), var(--surface-2, var(--bg-surface)));
+  border: 1px solid var(--border); border-radius: var(--r-lg, 14px); overflow: hidden;
+}
+#lyrics-overlay[hidden] { display: none; }
+.lyr-ov-head {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--border); flex: none;
+}
+.lyr-ov-titles { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 10px; }
+.lyr-ov-title { font-size: 15px; font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lyr-ov-sub { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lyr-ov-tools { display: flex; gap: 6px; flex: none; }
+.lyr-ov-btn, .lyr-ov-close {
+  height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.lyr-ov-btn:hover, .lyr-ov-close:hover { color: var(--text); background: var(--glass-a, rgba(255,255,255,.06)); }
+.lyr-ov-btn.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.lyr-ov-close { width: 30px; padding: 0; font-size: 14px; }
+.lyr-ov-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px 18px; font-size: 15.5px; line-height: 1.5; }
+.lyr-ov-cols { column-width: 300px; column-gap: 36px; column-rule: 1px solid var(--border); }
+.lyr-ov-cols .chord-line { break-after: avoid-column; }
+.lyr-ov-cols .section-header-line { break-after: avoid-column; }

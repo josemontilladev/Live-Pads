@@ -11,6 +11,7 @@
 // Es un punto de partida: el usuario arrastra/renombra lo que no cuadre.
 
 import { detectSectionHeader } from './lyricsFormat.js';
+import { mono22050 } from '../analysis/analysisAudio.js';
 
 const NICE = { 'INTRO': 'Intro', 'VERSO': 'Verso', 'PRE-CORO': 'Pre Coro', 'CORO': 'Coro', 'PUENTE': 'Puente',
   'INSTRUMENTAL': 'Instrumental', 'INTERLUDIO': 'Interludio', 'SOLO': 'Solo', 'FINAL': 'Final', 'TAG': 'Tag' };
@@ -92,18 +93,13 @@ function runWorker(buffer, { bpm = 0, beatsPerBar = 4, mode = 'sections' } = {})
     const timer = setTimeout(() => done(null), 90000);
     worker.onmessage = (e) => { clearTimeout(timer); done(e.data || null); };
     worker.onerror = () => { clearTimeout(timer); done(null); };
-    // Mono y a ~22 kHz (el detector trabaja a 11 kHz): una copia ligera, porque el
-    // AudioBuffer sigue sonando y sus canales no se pueden transferir.
-    const L = buffer.getChannelData(0);
-    const R = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
-    const f = Math.max(1, Math.floor(buffer.sampleRate / 22050));
-    const n = Math.floor(L.length / f);
-    const mono = new Float32Array(n);
-    for (let i = 0, j = 0; i < n; i++) {
-      let s = 0;
-      for (let k = 0; k < f; k++, j++) s += R ? (L[j] + R[j]) * 0.5 : L[j];
-      mono[i] = s / f;
-    }
-    worker.postMessage({ left: mono, right: null, sampleRate: buffer.sampleRate / f, bpm: Number(bpm) || 0, beatsPerBar, mode }, [mono.buffer]);
+    // Mono a 22 050 Hz: la misma versión que usan los análisis (la calcula el motor de
+    // audio fuera de este hilo y se guarda). Antes se mezclaba aquí con un bucle sobre
+    // millones de muestras en cada llamada: en portátiles congelaba la app medio segundo.
+    // Se manda una copia (memcpy) porque la guardada la comparten otros análisis.
+    mono22050(buffer).then((m) => {
+      const mono = m.slice();
+      worker.postMessage({ left: mono, right: null, sampleRate: 22050, bpm: Number(bpm) || 0, beatsPerBar, mode }, [mono.buffer]);
+    }).catch(() => { clearTimeout(timer); done(null); });
   });
 }

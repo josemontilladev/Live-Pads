@@ -250,10 +250,20 @@ function textW(n) {
   textWCache.set(n, w);
   return w;
 }
+// Se pinta como mucho una vez por cuadro: la piden la pista, los acordes del modelo, la
+// rejilla, el zoom, el tono… y antes cada aviso la reconstruía entera (con cientos de
+// acordes, y forzando a recalcular la maquetación de la página cada vez).
+let renderRaf = 0;
 export function render() {
+  if (renderRaf) return;
+  renderRaf = requestAnimationFrame(() => { renderRaf = 0; renderNow(); });
+}
+function renderNow() {
   if (!on || !result || !lane || !E) return;
   lastShift = getTrackPitch() || 0;
-  const d = result.d || 1, w = lane.clientWidth || 1;
+  // Medidas primero (una sola maquetación); después se escribe.
+  const sc = root.querySelector('.sw-scroll');
+  const d = result.d || 1, w = lane.clientWidth || 1, base = (sc && sc.clientWidth) || w;
   const list = segsNow();
   lane.title = fromSong ? 'Acordes de la letra de la canción, colocados donde suenan (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
   root.classList.toggle('chords-from-song', fromSong);
@@ -281,8 +291,6 @@ export function render() {
   // Zoom con el que cabrían (casi) todos los nombres en dos filas: cada nombre
   // necesita hueco hasta el que va dos más allá (el de su misma fila). Se ignora
   // el 5 % más apretado (acordes de paso muy cortos) para no exagerar.
-  const sc = root.querySelector('.sw-scroll');
-  const base = (sc && sc.clientWidth) || w;
   const need = [];
   for (let k = 0; k + 2 < items.length; k++) {
     const dt = items[k + 2].s.s - items[k].s.s;

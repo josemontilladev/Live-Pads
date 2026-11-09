@@ -12,7 +12,7 @@
 
 .gi-song-item { position: relative; }
 
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
+.gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions {
   position: absolute;
   right: 8px;
   bottom: 6px;
@@ -28,14 +28,14 @@
   transition: opacity .14s ease, transform .14s ease;
   z-index: 2;
 }
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):hover .gi-song-actions,
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)):focus-within .gi-song-actions {
+.gi-song-item:not(.active-song):not(.lyrics-open):hover .gi-song-actions,
+.gi-song-item:not(.active-song):not(.lyrics-open):focus-within .gi-song-actions {
   opacity: 1;
   pointer-events: auto;
   transform: none;
 }
 /* En el menú flotante, botones solo-icono (el texto lo añade _redesign2.css). */
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions .action-btn::after {
+.gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions .action-btn::after {
   content: none;
 }
 
@@ -66,7 +66,7 @@
   pointer-events: auto;
 }
 /* La tira flotante, un poco más abajo: no roza el chip del compás. */
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions {
+.gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions {
   bottom: 4px;
   padding: 3px;
 }
@@ -77,5 +77,5 @@
 .gi-song-artist-row .gi-chip--genre { flex: none; height: 17px; line-height: 17px; padding: 0 7px; font-size: 10px; }
 /* La tira flotante tiene su propio hueco abajo (donde antes caía el género):
    al pasar el ratón no tapa ningún dato de la tarjeta. */
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-main { padding-bottom: 30px; }
-.gi-song-item:not(.active-song):not(:has(.gi-lyrics-accordion.open)) .gi-song-actions { bottom: 5px; }
+.gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-main { padding-bottom: 30px; }
+.gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions { bottom: 5px; }

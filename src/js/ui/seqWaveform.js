@@ -162,7 +162,12 @@ export function initSeqWaveform() {
   applyRole();
   window.addEventListener('livepads:track-cleared', onCleared);
   window.addEventListener('livepads:songs-changed', (e) => { if (e.detail && e.detail.markers) return; if (song) renderMarkers(); });
-  new ResizeObserver(() => { if (peaks && stage.clientWidth !== lastW) { drawWave(); renderMarkers(); renderLane(); } }).observe(stage);
+  // Cambio de ancho (zoom, ventana): el tamaño viene en el propio aviso (leer clientWidth
+  // aquí forzaba a recalcular la maquetación de toda la página) y se redibuja una vez por cuadro.
+  new ResizeObserver((entries) => {
+    const w = entries[0] && entries[0].contentRect.width;
+    if (peaks && w && Math.round(w) !== Math.round(lastW)) { stageW = w; renderMarkers(); renderLane(); }
+  }).observe(stage);
 }
 
 function onLibrarySynced() {
@@ -229,9 +234,10 @@ function hueAt(t, ms) {
 
 // Dibuja las barras de la onda. Con secciones, CADA barra toma el color de su sección
 // (no es una capa encima: el propio espectro cambia de color). `lit` = parte ya tocada.
-function drawOn(canvas, fallback, lit) {
-  const dpr = window.devicePixelRatio || 1;
-  const w = stage.clientWidth, h = wrap.clientHeight;
+function drawOn(canvas, fallback, lit, w, h) {
+  // Con mucho zoom el lienzo mide miles de píxeles: a densidad 1× (no se nota a ese
+  // ancho) cuesta la mitad o menos de dibujar y de memoria gráfica en portátiles.
+  const dpr = w > 4000 ? 1 : (window.devicePixelRatio || 1);
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   canvas.width = Math.floor(w * dpr); canvas.height = Math.floor(h * dpr);
   const ctx = canvas.getContext('2d');
@@ -255,19 +261,29 @@ function drawOn(canvas, fallback, lit) {
   }
 }
 
+// La onda se dibuja como mucho una vez por cuadro aunque la pidan varios avisos seguidos
+// (pista cargada, secciones, zoom, acordes…): antes cada uno la redibujaba entera.
+let drawRaf = 0;
+let stageW = 0;            // ancho del escenario conocido (ResizeObserver), para no medir
 function drawWave() {
+  if (drawRaf) return;
+  drawRaf = requestAnimationFrame(() => { drawRaf = 0; drawWaveNow(); });
+}
+function drawWaveNow() {
   if (!peaks || root.classList.contains('is-collapsed')) return;
-  lastW = stage.clientWidth;
-  const cs = getComputedStyle(root);
-  drawOn(canvasBase, 'rgba(255,255,255,0.32)', false);
-  drawOn(canvasPlayed, cs.getPropertyValue('--sw-played').trim() || '#fbae00', true);
-  playedClip.style.width = '0%';
-  drawRuler();
+  // Todas las medidas primero (una sola maquetación) y después se escribe.
+  const w = stage.clientWidth, h = wrap.clientHeight;
+  const played = getComputedStyle(root).getPropertyValue('--sw-played').trim() || '#fbae00';
+  lastW = stageW = w;
+  drawOn(canvasBase, 'rgba(255,255,255,0.32)', false, w, h);
+  drawOn(canvasPlayed, played, true, w, h);
+  drawRuler(w);
+  tick(true);   // cabezal y parte tocada, al nuevo ancho
 }
 
-function drawRuler() {
+function drawRuler(w = stageW || stage.clientWidth) {
   if (!duration) return;
-  const steps = [5, 10, 15, 30, 60, 120]; const w = stage.clientWidth;
+  const steps = [5, 10, 15, 30, 60, 120];
   const step = steps.find(s => (w / (duration / s)) >= 64) || 120;
   let html = '';
   for (let t = 0; t <= duration; t += step) html += `<span style="left:${(t / duration) * 100}%">${fmt(t)}</span>`;
@@ -278,6 +294,7 @@ function renderMarkers() {
   if (!song || !duration) { regionsEl.innerHTML = ''; markersEl.innerHTML = ''; return; }
   const ms = sortedMarkers();
   const edit = canEditActiveLibrary();
+  const sw = stageW || stage.clientWidth || 1;
   let reg = '', pills = '';
   ms.forEach((m, i) => {
     const end = i + 1 < ms.length ? ms[i + 1].t : duration;
@@ -287,7 +304,7 @@ function renderMarkers() {
     const tools = edit ? `<span class="sw-pill-tool sw-pill-menu" role="button" title="Opciones: renombrar, mover, eliminar">▾</span><span class="sw-pill-tool sw-pill-x" role="button" title="Quitar esta sección">✕</span>` : '';
     const tip = (m.auto ? 'Supuesta por LivePads (revísala) · ' : '') + (edit ? 'clic: ir y seleccionar (← → la mueven por compás) · arrastrar: mover · doble clic en la onda: repetir · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección');
     // Cada píldora cabe en el hueco hasta la siguiente (se recorta con «…»; al pasar el ratón se ve entera).
-    const gapPx = Math.max(22, ((end - m.t) / duration) * (stage.clientWidth || 1) - 4);
+    const gapPx = Math.max(22, ((end - m.t) / duration) * sw - 4);
     pills += `<button type="button" class="sw-pill${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue};--gap:${Math.round(gapPx)}px" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
@@ -316,10 +333,14 @@ function tick(force) {
   if (!audio || !duration) return;
   const t = Math.min(duration, audio.currentTime || 0);
   const pct = (t / duration) * 100;
-  playheadEl.style.left = pct + '%';
-  playedClip.style.width = pct + '%';
-  laneTick(t);
+  // En cada cuadro mientras suena: primero lo que MIDE (seguir el cabezal con zoom) y
+  // después lo que escribe. El cabezal y la parte tocada se mueven con transform y
+  // clip-path (los mueve la tarjeta gráfica): con left/width la página se volvía a
+  // maquetar 60 veces por segundo, en pleno directo.
   followPlayhead(t);
+  playheadEl.style.transform = `translateX(${(t / duration) * (stageW || stage.clientWidth)}px)`;
+  playedClip.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  laneTick(t);
   // Sección actual / siguiente (solo si cambió el segundo, para no tocar el DOM en cada frame).
   const sec = Math.floor(t);
   if (!force && sec === lastCur) return;
@@ -349,15 +370,35 @@ function seekTo(t) { if (audio && duration) { audio.currentTime = t; userScrollA
 // .sw-zoomer, cuyo ancho es zoom × 100 %: todo escala junto. Con zoom, el
 // cabezal se sigue solo mientras suena (salvo si te mueves a mano un momento).
 let autoFitDone = false;
+// Ancho visible del área de la onda, guardado por un ResizeObserver: medirlo en cada zoom
+// (justo después de cambiar el HTML de la onda) obligaba a re-maquetar toda la página.
+let scrollerW = 0;
+function viewW() {
+  if (!scrollerW && scroller) {
+    scrollerW = scroller.clientWidth;
+    new ResizeObserver((en) => { const w = en[0] && en[0].contentRect.width; if (w) scrollerW = w; }).observe(scroller);
+  }
+  return scrollerW || 1;
+}
 function maxZoom() {
-  const cw = (scroller && scroller.clientWidth) || 1;
+  const cw = viewW();
   return Math.max(1, Math.min(14000, Math.max(cw, duration * 60)) / cw);
 }
 function setZoom(z, anchorClientX, { silent = false } = {}) {
   if (!scroller || !zoomer) return;
   const nz = Math.max(1, Math.min(maxZoom(), Math.round(z * 100) / 100));
-  const cw = scroller.clientWidth || 1;
-  const oldW = zoomer.clientWidth || cw;
+  const cw = viewW();
+  if (silent) {
+    // Reinicio al cargar otra canción: sin anclas ni medidas.
+    zoom = nz;
+    zoomer.style.width = `${nz * 100}%`;
+    root.classList.toggle('is-zoomed', nz > 1.001);
+    if (zoomLvl) zoomLvl.textContent = nz > 1.001 ? `${nz < 10 ? nz.toFixed(1) : Math.round(nz)}×` : '1×';
+    progScroll = true; scroller.scrollLeft = 0;
+    requestAnimationFrame(() => { progScroll = false; });
+    return;
+  }
+  const oldW = cw * zoom;
   // Punto que se queda quieto: el ratón, o el cabezal (si se ve), o el centro.
   let ax = cw / 2;
   if (anchorClientX != null) ax = anchorClientX - scroller.getBoundingClientRect().left;
@@ -397,7 +438,7 @@ function wireZoom() {
 function followPlayhead(t) {
   if (!scroller || zoom <= 1.001 || !audio || audio.paused || scrubbing) return;
   if (performance.now() - userScrollAt < 3000) return;      // se movió a mano: no le quitamos la vista
-  const W = zoomer.clientWidth, cw = scroller.clientWidth;
+  const cw = viewW(), W = cw * zoom;   // anchos guardados: este código corre en cada cuadro
   const x = (t / duration) * W, left = scroller.scrollLeft;
   if (x < left + cw * 0.08 || x > left + cw * 0.85) {
     progScroll = true;

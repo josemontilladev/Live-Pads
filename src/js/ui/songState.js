@@ -174,9 +174,16 @@ function paintNowPlayingBanner(song) {
 // instead of cluttering the list.
 export function closeAllLyrics() {
   qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
+  qa('.gi-song-item.lyrics-open').forEach(c => c.classList.remove('lyrics-open'));
   qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
   setOpenAccordionSongId(null);
   setOpenAccordionServiceId(null);
+  notifyLyricsPanel();
+}
+
+// El panel de letra sobre los pads (lyricsOverlay.js) muestra el desplegable abierto.
+function notifyLyricsPanel() {
+  try { window.dispatchEvent(new Event('livepads:lyrics-panel')); } catch (_) {}
 }
 
 // Toggle a song's lyrics accordion open/closed WITHOUT a full re-render.
@@ -189,11 +196,13 @@ export function toggleLyricsAccordion(song, isService) {
     : (getOpenAccordionSongId() === id);
 
   qa('.gi-lyrics-accordion.open').forEach(a => a.classList.remove('open'));
+  qa('.gi-song-item.lyrics-open').forEach(c => c.classList.remove('lyrics-open'));
   qa('.action-btn.btn-lyrics.active').forEach(b => b.classList.remove('active'));
 
   if (wasOpen) {
     setOpenAccordionSongId(null);
     setOpenAccordionServiceId(null);
+    notifyLyricsPanel();
     return;
   }
 
@@ -212,8 +221,10 @@ export function toggleLyricsAccordion(song, isService) {
     const accordion = card.querySelector('.gi-lyrics-accordion');
     const btn = card.querySelector('.btn-lyrics');
     if (accordion) accordion.classList.add('open');
+    card.classList.add('lyrics-open');
     if (btn) btn.classList.add('active');
   }
+  notifyLyricsPanel();
 }
 
 // Apply the chord-visibility state to a single song card (whichever
@@ -227,6 +238,7 @@ export function paintChordVisibility(card, showChords) {
     toggleBtn.classList.toggle('active', showChords);
     toggleBtn.title = showChords ? 'Ocultar acordes' : 'Mostrar acordes';
   }
+  notifyLyricsPanel();
 }
 
 // Flip a song's `showChords` flag and update the visible cards in place —
