@@ -109,7 +109,7 @@ export async function hitDrum(id, type, btn) {
         const fileData = await window.electronAPI.openAudioFile();
         if (!fileData || !fileData.path) return;
         if (!/\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(fileData.path)) {
-          window.showToast?.('Ese archivo no es de audio. Usá WAV, MP3, OGG, M4A o FLAC.', 'error');
+          window.showToast?.('Ese archivo no es de audio. Usa WAV, MP3, OGG, M4A o FLAC.', 'error');
           return;
         }
         const resPath = await window.electronAPI.assignDrumSample({

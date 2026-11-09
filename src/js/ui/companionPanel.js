@@ -57,7 +57,7 @@ export function openCompanionPanel({ mount = null } = {}) {
         <button class="cp-copy" type="button" aria-label="Copiar URL" title="Copiar URL">${SVG_COPY}</button>
       </div>
       <div class="cp-iface-row" hidden>
-        <label class="cp-iface-label" for="cp-iface-select">¿No conecta? Probá otra interfaz:</label>
+        <label class="cp-iface-label" for="cp-iface-select">¿No conecta? Prueba otra interfaz:</label>
         <select id="cp-iface-select" class="cp-iface-select"></select>
       </div>
       <p class="cp-clients" hidden><span id="cp-clients-count">0</span> conectado(s)</p>

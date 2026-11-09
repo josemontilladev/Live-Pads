@@ -1865,7 +1865,7 @@ async function importFiles(fileList) {
         // El error nativo de decode ("Unable to decode audio data") no le dice
         // nada al usuario; lo traducimos a algo accionable.
         const msg = /decode/i.test(raw)
-          ? `No se pudo importar "${item.name}": formato de audio no soportado o archivo dañado. Probá reexportarlo como WAV 16-bit o MP3.`
+          ? `No se pudo importar "${item.name}": formato de audio no soportado o archivo dañado. Prueba a reexportarlo como WAV 16-bit o MP3.`
           : `No se pudo importar "${item.name}": ${raw}`;
         toast(msg);
       }
@@ -2757,7 +2757,7 @@ function wireStrip(root, id) {
   root.querySelector('[data-action="remove"]').onclick = async () => {
     const ok = await confirmDialogAsync({
       title: 'Eliminar pista',
-      message: '¿Eliminar esta pista? Podés deshacer con Ctrl+Z.',
+      message: '¿Eliminar esta pista? Puedes deshacer con Ctrl+Z.',
       confirmLabel: 'Eliminar', danger: true,
     });
     if (!ok) return;
@@ -3041,7 +3041,7 @@ function openTransposeSelectModal(semitones, onConfirm) {
         <h3>Transponer ${sign}${semitones} st</h3>
         <button class="stt-x ui-close ui-close--sm" data-act="cancel" aria-label="Cerrar">×</button>
       </div>
-      <p class="stt-hint">Elegí qué pistas transponer. El <b>click</b> y la <b>guía</b> van desmarcados (suenan feo al cambiarles el tono). Desmarcá también cualquier click/guía que hayas subido como audio.</p>
+      <p class="stt-hint">Elige qué pistas transponer. El <b>click</b> y la <b>guía</b> van desmarcados (suenan feo al cambiarles el tono). Desmarca también cualquier click/guía que hayas subido como audio.</p>
       <div class="stt-list">${rows}</div>
       <div class="stt-actions">
         <button class="stt-btn" data-act="cancel">Cancelar</button>
@@ -4828,7 +4828,7 @@ async function deleteSelectedTracks() {
   if (!ids.length) return;
   const ok = await confirmDialogAsync({
     title: 'Eliminar pistas',
-    message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Podés deshacer con Ctrl+Z.`,
+    message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Puedes deshacer con Ctrl+Z.`,
     confirmLabel: 'Eliminar', danger: true,
   });
   if (!ok) return;
@@ -4951,7 +4951,7 @@ function wireTrackSelection(root) {
       e.preventDefault();
       confirmDialogAsync({
         title: ids.length > 1 ? 'Eliminar pistas' : 'Eliminar pista',
-        message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Podés deshacer con Ctrl+Z.`,
+        message: `¿Eliminar ${ids.length} pista${ids.length === 1 ? '' : 's'}? Puedes deshacer con Ctrl+Z.`,
         confirmLabel: 'Eliminar', danger: true,
       }).then(ok => { if (ok) deleteTracksWithUndo(ids); });
       return;

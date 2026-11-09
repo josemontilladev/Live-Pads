@@ -950,7 +950,7 @@ function bindHamburgerMenu() {
       closeMenu();
       setIsMidiLearnMode(true);
       setMidiLearnTarget(null);
-      q('#midi-learn-overlay').innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo: hacé clic en un control <b>resaltado</b> y tocá tu controlador. Podés mapear varios seguidos. (Clic aquí para salir)';
+      q('#midi-learn-overlay').innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo: hacé clic en un control <b>resaltado</b> y toca tu controlador. Puedes mapear varios seguidos. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
       // Body-level flag → CSS dims the whole UI to emphasize learn-mode
       // is modal. Exit (in midiBindings.js) removes the class.

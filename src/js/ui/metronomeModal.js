@@ -287,7 +287,7 @@ export function openMetronomeModal() {
       </div>
 
       <svg class="mtm-radial" viewBox="0 0 200 200" role="img" aria-label="Compás (toca un segmento: normal · acento · silencio)"></svg>
-      <p class="mtm-radial-hint">Tocá un segmento: <b>normal → acento → silencio</b></p>
+      <p class="mtm-radial-hint">Toca un segmento: <b>normal → acento → silencio</b></p>
 
       <div class="mtm-grid">
         <label class="mtm-field">

@@ -20,6 +20,8 @@
   .stems-btn, .stems-mini-select, .stems-ms, .stems-row-export, .stems-row-remove, .stems-accent-chip,
   /* Ajustes, cuenta y Companion */
   .sb-btn, .sb-select, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-iface-select, .cp-toggle, .about-tour-btn,
+  /* Diálogo de confirmación y barra de selección de pistas */
+  .d-ok, .d-cancel, .dialog-actions button, .stems-sel-del,
   .ssl-slot-btn, .stems-mult-btn, .stems-console-selall, .ssl-search, .stl-search, .stl-views, .stl-views button
 ) { border-radius: 999px !important; }
 
