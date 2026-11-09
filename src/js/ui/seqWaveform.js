@@ -13,7 +13,13 @@
 // Datos: song.markers = [{ id, label, t }]  (t en segundos). Viajan con la
 // canción (Supabase, meta.markers). Stems los guarda al «Asignar a canción».
 
-import { computePeaks } from '../stems/waveform.js';
+import { computePeaksAsync } from '../stems/waveform.js';
+
+// Onda de cada pista, calculada una vez a máxima resolución (sirve para cualquier zoom)
+// y guardada: volver a una canción ya no la recalcula.
+const PEAK_POINTS = 24000;
+const peakCache = new Map();   // clave de pista → Float32Array
+const peakKey = (s, type, buf) => `${(s && (s.cloudId || s.id)) || 'x'}|${type || ''}|${buf.length}|${buf.sampleRate}`;
 import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog, confirmDialogAsync } from './dialog.js';
@@ -182,12 +188,23 @@ function onLoaded({ audio: a, song: s, type }) {
   const ready = () => {
     if (audio !== a || !a.buffer) return;
     duration = a.buffer.duration;
-    peaks = computePeaks(a.buffer, 2400);
-    root.classList.remove('is-loading');
-    drawWave(); renderMarkers(); startLoop();
-    laneTrackLoaded({ audio: a, song: s, type });
-    maybeAutoDetect();
-    loadGrid(a); loadChordTimes();
+    const key = peakKey(s, type, a.buffer);
+    const show = (pk) => {
+      if (audio !== a || !pk) return;
+      peaks = pk;
+      root.classList.remove('is-loading');
+      drawWave(); renderMarkers(); startLoop();
+      laneTrackLoaded({ audio: a, song: s, type });
+      maybeAutoDetect();
+      loadGrid(a); loadChordTimes();
+    };
+    if (peakCache.has(key)) { show(peakCache.get(key)); return; }
+    computePeaksAsync(a.buffer, PEAK_POINTS, { isCancelled: () => audio !== a }).then((pk) => {
+      if (!pk) return;
+      peakCache.set(key, pk);
+      if (peakCache.size > 40) peakCache.delete(peakCache.keys().next().value);
+      show(pk);
+    });
   };
   if (a.buffer) ready(); else a.addEventListener('loadedmetadata', ready, { once: true });
   a.addEventListener('play', startLoop);
@@ -241,9 +258,6 @@ function drawOn(canvas, fallback, lit) {
 function drawWave() {
   if (!peaks || root.classList.contains('is-collapsed')) return;
   lastW = stage.clientWidth;
-  // Con zoom hacen falta más puntos de onda (una barra cada 3 px).
-  const need = Math.min(24000, Math.ceil(lastW / 3));
-  if (audio && audio.buffer && peaks.length / 2 < need * 0.9) peaks = computePeaks(audio.buffer, Math.max(2400, need));
   const cs = getComputedStyle(root);
   drawOn(canvasBase, 'rgba(255,255,255,0.32)', false);
   drawOn(canvasPlayed, cs.getPropertyValue('--sw-played').trim() || '#fbae00', true);

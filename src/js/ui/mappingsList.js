@@ -59,6 +59,10 @@ function prettyKey(mapKey) {
     const n = parseInt(mapKey.slice(3), 10);
     if (Number.isFinite(n)) return `CC ${n}`;
   }
+  if (mapKey.startsWith('pc_')) {
+    const n = parseInt(mapKey.slice(3), 10);
+    if (Number.isFinite(n)) return `Program Change ${n}`;
+  }
   return mapKey;
 }
 

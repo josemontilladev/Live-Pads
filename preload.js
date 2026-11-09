@@ -34,8 +34,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   r2UploadFile: (args) => ipcRenderer.invoke('r2-upload-file', args),
   r2DownloadFile: (args) => ipcRenderer.invoke('r2-download-file', args),
   r2PutBytes: (args) => ipcRenderer.invoke('r2-put-bytes', args),
-  syncMongoSetlist: () => ipcRenderer.invoke('sync-mongo-setlist'),
-  pushMongoSetlist: (songs) => ipcRenderer.invoke('push-mongo-setlist', songs),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),
   assignDrumSample: (data) => ipcRenderer.invoke('assign-drum-sample', data),
   saveUserDrums: (data) => ipcRenderer.invoke('save-user-drums', data),
@@ -86,6 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stemsSeparateCancel: () => ipcRenderer.invoke('stems-separate-cancel'),
   // Pulsos y compases con el modelo local (Beat This!).
   analyzeBeats: (data) => ipcRenderer.invoke('analysis-beats', data),
+  analysisAudioChunk: (data) => ipcRenderer.invoke('analysis-audio-chunk', data),
   analyzeChordsModel: (data) => ipcRenderer.invoke('analysis-chords', data),
   onDeepLinkJoin: (cb) => ipcRenderer.on('deep-link-join', (_e, token) => cb(token)),
   onUpdateReady: (cb) => ipcRenderer.on('update-ready', (_e, info) => cb(info)),

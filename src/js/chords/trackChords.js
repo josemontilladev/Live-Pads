@@ -7,6 +7,7 @@
 
 import { CHORD_SR } from './chordEngine.js';
 import { analyzeInWorker } from './chordWorker.js';
+import { uploadForAnalysis, forgetUpload } from '../analysis/analysisAudio.js';
 
 export const LS_PREFS = 'livepads.chords';
 const LS_CACHE = 'livepads.chords.v1.';
@@ -133,14 +134,6 @@ export function canRefine() {
   return !!(window.electronAPI && window.electronAPI.analyzeChordsModel);
 }
 
-async function bufferToMono22050(buffer) {
-  const len = Math.max(1, Math.ceil(buffer.duration * 22050));
-  const off = new OfflineAudioContext(1, len, 22050);
-  const src = off.createBufferSource();
-  src.buffer = buffer; src.connect(off.destination); src.start();
-  return (await off.startRendering()).getChannelData(0);
-}
-
 // Tonalidad a partir de los acordes (la misma regla que la 2.ª pasada del motor):
 // los grados de cada tono pesan por su duración; tónica, primer y último acorde suman.
 const DEG_MAJ = [[0, false], [2, true], [4, true], [5, false], [7, false], [9, true]];
@@ -177,8 +170,8 @@ export function refineChords(id, buffer) {
   const job = refineChain.then(async () => {
     const base = cacheGet(id);
     if (!base || isRefined(base)) return null;
-    const mono = await bufferToMono22050(buffer);
-    const r = await window.electronAPI.analyzeChordsModel({ mono });
+    let r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(buffer) });
+    if (r && r.missing) { forgetUpload(buffer); r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(buffer) }); }
     if (!r || !Array.isArray(r.seg) || !r.seg.length) {
       if (r && r.error) console.warn('[LivePads] acordes (modelo):', r.error);
       return null;

@@ -62,3 +62,7 @@
   min-width: 26px;
   box-sizing: border-box;
 }
+
+/* Mezclador sin «tarjeta» propia: va dentro del panel de batería y su fondo/borde
+   propios se veían como una franja pegada debajo de los pads. Solo una línea fina lo separa. */
+#mixer-bar { background: none; border: 0; border-top: 1px solid var(--border); border-radius: 0; box-shadow: none; }

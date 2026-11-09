@@ -1,4 +1,5 @@
-• Acordes de la letra en la onda aunque la canción no tenga secciones marcadas: se colocan donde suenan, siguiendo lo que se oye (antes se veían solo los detectados).
-• Se leen mejor los cifrados escritos de distintas formas: «[Dm7] C Bb», «//Bb - F - Dm7 - C//», «INTERLUDIO-(RAP):», «CORO (x2)».
-• Al reproducir una tarjeta, la lista de canciones se queda a la vista (la letra ya no la tapa sola). La letra se abre con el botón «Letra»; quien prefiera que se abra sola puede activar «Auto» en la letra.
-• Actualizaciones desde la barra superior: un icono busca la versión nueva, muestra el progreso de la descarga y, cuando está lista, se convierte en «Reiniciar».
+• Más fluida en directo: cambiar de canción ya no congela la app (los golpes MIDI de la batería no se retrasan), y la app no se frena si otra ventana la tapa o la minimizas.
+• Batería sensible a la fuerza del golpe con controladores MIDI: suave = más bajo, fuerte = más alto (se puede desactivar en Ajustes → MIDI).
+• Compatible con más controladores MIDI: pedaleras y controladores de pie que envían «Program Change» ya se pueden asignar con Learn.
+• Arranca más rápido.
+• Mezclador más limpio, integrado bajo los pads de batería.

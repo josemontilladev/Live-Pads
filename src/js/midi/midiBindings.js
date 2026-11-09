@@ -156,9 +156,13 @@ export function bindMidiHandlers(deps) {
 
   engine.initMIDI(msg => {
     const [cmd, data1, data2] = msg.data;
+    // Mensajes de sistema (reloj 0xF8, active sensing 0xFE…): no llevan nada que mapear.
+    if (cmd >= 0xF0) return;
     const isNoteOn = cmd >= 144 && cmd <= 159;
     const isNoteOff = cmd >= 128 && cmd <= 143;
     const isCC = cmd >= 176 && cmd <= 191;
+    // Program Change (pedaleras y controladores de pie): un solo dato, siempre «pulsado».
+    const isPC = cmd >= 192 && cmd <= 207;
 
     // Stems workspace owns its own (independent) MIDI map + handling.
     if (getMidiScope() === 'stems') {
@@ -196,11 +200,12 @@ export function bindMidiHandlers(deps) {
       }
     }
 
-    if (!isNoteOn && !isCC) return;
-    const mapKey = isCC ? `cc_${data1}` : `note_${data1}`;
+    if (!isNoteOn && !isCC && !isPC) return;
+    const mapKey = isPC ? `pc_${data1}` : isCC ? `cc_${data1}` : `note_${data1}`;
+    const pressed = isPC || data2 > 0;
 
     if (getIsMidiLearnMode() && getMidiLearnTarget()) {
-      if (data2 > 0) {
+      if (pressed) {
         const target = getMidiLearnTarget();
         // STRICT uniqueness, both directions:
         //  • one function = one MIDI control → clear any MIDI key already
@@ -216,9 +221,11 @@ export function bindMidiHandlers(deps) {
       return;
     }
 
-    const mapping = getMapping(mapKey, data1);
+    // (el respaldo por número suelto es de mapeos antiguos de notas; no aplica a Program Change)
+    const mapping = getMapping(mapKey, isPC ? null : data1);
     if (mapping) {
       if (mapping.action === 'slider') {
+        if (isPC) return;
         const sliderEl = q('#' + mapping.id);
         if (sliderEl) {
           const min = parseFloat(sliderEl.min) || 0;
@@ -229,7 +236,7 @@ export function bindMidiHandlers(deps) {
         return;
       }
 
-      if (data2 > 0) {
+      if (pressed) {
         if (mapping.action === 'pad') {
           deps.onKeyClick(mapping.id);
         } else if (mapping.action === 'drum') {
@@ -239,7 +246,9 @@ export function bindMidiHandlers(deps) {
           const pad = resolveDrumPad(kit, mapping.id);
           if (pad) {
             // Audio FIRST (zero added latency), then the visual feedback.
-            if (!engine.playCustomDrum(pad.id, pad.id)) engine.playDrum(pad.type, pad.id);
+            // Con la fuerza del golpe (velocity) si es una nota.
+            const vel = isNoteOn ? data2 : undefined;
+            if (!engine.playCustomDrum(pad.id, pad.id, vel)) engine.playDrum(pad.type, pad.id, vel);
             const btn = q(`.drum-btn[data-drum="${pad.id}"]`);
             if (btn) { btn.classList.add('hit'); setTimeout(() => btn.classList.remove('hit'), 120); }
           }

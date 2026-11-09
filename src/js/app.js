@@ -1005,6 +1005,17 @@ function bindHamburgerMenu() {
       showToast(id ? `Usando: ${name}` : 'Escuchando todos los controladores.', 'success');
     };
   }
+  // Sensibilidad a la fuerza del golpe (velocity) en la batería. Activada por defecto.
+  const VEL_KEY = 'livepads-midi-velocity';
+  const velOn = (() => { try { return localStorage.getItem(VEL_KEY) !== '0'; } catch (_) { return true; } })();
+  const velBox = q('#set-midi-velocity');
+  if (velBox) {
+    velBox.checked = velOn;
+    velBox.onchange = () => {
+      try { localStorage.setItem(VEL_KEY, velBox.checked ? '1' : '0'); } catch (_) {}
+      if (engine) engine.velocitySensitive = velBox.checked;
+    };
+  }
   // Repinta al abrir la pestana MIDI y cuando cambian los dispositivos.
   document.querySelector('.stab[data-tab="midi"]')?.addEventListener('click', () => setTimeout(paintMidiInputs, 60));
   window.addEventListener('livepads:midi-devices', paintMidiInputs);

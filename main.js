@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { pathToFileURL } = require('url');
-const { MongoClient } = require('mongodb');
 const dns = require('dns');
 const companionServer = require('./companion/server');
 const QRCode = require('qrcode');
@@ -52,6 +51,14 @@ function sendDeepLinkToRenderer() {
     } catch (_) {}
   }
 }
+
+// App de directo: Chromium NO debe frenar la ventana cuando queda tapada, minimizada o
+// en segundo plano (sus temporizadores bajaban a uno por segundo: el metrónomo y la
+// interfaz se entrecortaban si alguien abría otra ventana encima en pleno servicio).
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
@@ -108,19 +115,6 @@ function initializeUserData() {
     try { fs.writeFileSync(marker, app.getVersion(), 'utf-8'); } catch (e) {}
   }
 
-  // Auto-initialize an empty config.json template. The user must fill in
-  // mongoUri locally — credentials are NEVER baked into the source tree.
-  const configPath = path.join(userDataPath, 'config.json');
-  if (!fs.existsSync(configPath)) {
-    try {
-      fs.writeFileSync(configPath, JSON.stringify({
-        mongoUri: "",
-        _note: "Pega aqui tu URI de MongoDB Atlas. Este archivo es local y NO se sube al repo."
-      }, null, 2), 'utf-8');
-    } catch (e) {
-      console.error("Failed to auto-create config.json:", e.message);
-    }
-  }
 }
 
 // Escritura atómica: escribe a un .tmp y renombra sobre el destino. Evita que
@@ -366,6 +360,7 @@ function createWindow() {
       // userData assets (audio samples, sequences) are served via the
       // privileged livepads:// protocol — see registerLivepadsProtocol().
       webSecurity: true,
+      backgroundThrottling: false,   // ver los interruptores de arriba (app de directo)
       // Herramientas de desarrollador solo en desarrollo (`npm run dev`): en la
       // app instalada no se pueden abrir (protege los planes y la sesión).
       devTools: !app.isPackaged,
@@ -1538,183 +1533,6 @@ ipcMain.handle('library-audio-repair', async () => {
   return { linked, cleared };
 });
 
-// Reuse one connected MongoClient across syncs (it keeps its own connection
-// pool) instead of opening + closing a fresh client every call. Pings to
-// confirm liveness; reconnects if the cached client is stale or the URI changed.
-// Validación de las URLs de config.json (editables por el usuario): el mongoUri
-// debe ser un esquema de Mongo y el giApiUrl http(s). Evita pasar cadenas
-// arbitrarias al cliente Mongo / fetch.
-function isValidMongoUri(u) {
-  return typeof u === 'string' && /^mongodb(\+srv)?:\/\/[^\s]+$/i.test(u.trim());
-}
-function isValidHttpUrl(u) {
-  try { const x = new URL(u); return x.protocol === 'http:' || x.protocol === 'https:'; }
-  catch (_) { return false; }
-}
-
-let _mongoClient = null, _mongoUri = null;
-async function getMongoClient(uri) {
-  if (_mongoClient && _mongoUri === uri) {
-    try { await _mongoClient.db('admin').command({ ping: 1 }); return _mongoClient; }
-    catch (e) { try { await _mongoClient.close(); } catch (_) {} _mongoClient = null; }
-  }
-  // Generous timeouts: Atlas free-tier clusters cold-start (or wake from
-  // idle) well past the old 4s, and mongodb+srv:// needs a DNS SRV/TXT
-  // lookup that can be slow on Windows — both produced spurious "Modo Local"
-  // errors despite a live connection.
-  const client = new MongoClient(uri, {
-    serverSelectionTimeoutMS: 15000,
-    connectTimeoutMS: 15000,
-    socketTimeoutMS: 20000,
-  });
-  await client.connect();
-  _mongoClient = client; _mongoUri = uri;
-  return client;
-}
-
-// Default GI.Setlist API base (HTTPS). Overridable via config.json `giApiUrl`.
-const DEFAULT_GI_API = 'https://gi-setlist.vercel.app';
-
-ipcMain.handle('sync-mongo-setlist', async () => {
-  const configPath = path.join(app.getPath('userData'), 'config.json');
-  let uri = '';
-  let apiBase = DEFAULT_GI_API;
-
-  try {
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config && typeof config.mongoUri === 'string' && isValidMongoUri(config.mongoUri)) {
-        uri = config.mongoUri.trim();
-      } else if (config && config.mongoUri && config.mongoUri.trim()) {
-        console.warn('config.mongoUri ignorado: no es una URI de Mongo válida.');
-      }
-      // Solo aceptamos un giApiUrl http(s) válido; cualquier otra cosa → default.
-      if (config && typeof config.giApiUrl === 'string' && isValidHttpUrl(config.giApiUrl.trim())) {
-        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
-      }
-    }
-  } catch (e) {
-    console.warn('Could not read config.json:', e.message);
-  }
-
-  const normalize = (songs) => songs.map(s => {
-    const obj = { ...s };
-    if (obj._id) obj._id = String(obj._id);
-    return obj;
-  });
-
-  // Primary: GI.Setlist HTTPS API (port 443). Works on networks that block
-  // MongoDB's port 27017 — the reason the web app connects fine while the
-  // desktop's direct driver times out with ReplicaSetNoPrimary.
-  const fetchFromApi = async () => {
-    const res = await net.fetch(`${apiBase}/api/songs`, { headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`API respondió ${res.status}`);
-    const data = await res.json();
-    if (!Array.isArray(data)) throw new Error('La respuesta de la API no es una lista');
-    return normalize(data);
-  };
-
-  // Fallback: direct MongoDB driver (needs `mongoUri` + an open port 27017).
-  const fetchFromMongo = async () => {
-    if (!uri) throw new Error('Sin mongoUri configurada para el fallback directo.');
-    const client = await getMongoClient(uri);
-    const songs = await client.db('gi-setlist').collection('songs').find({}).toArray();
-    return normalize(songs);
-  };
-
-  try {
-    return await fetchFromApi();
-  } catch (apiErr) {
-    console.warn('Sync vía API HTTPS falló, intentando Mongo directo:', apiErr.message);
-    try {
-      return await fetchFromMongo();
-    } catch (mongoErr) {
-      try { if (_mongoClient) await _mongoClient.close(); } catch (_) {}
-      _mongoClient = null;
-      console.error('Sync falló (API + Mongo):', mongoErr.message);
-      throw mongoErr;
-    }
-  }
-});
-
-// Push the local library UP to GI.Setlist via its HTTPS API. Serves both as
-// a cloud backup and the "reverse" direction of sync. Songs with a known
-// `_id` are updated (PUT); songs without one are created (POST) and their new
-// cloud id is returned so the renderer can store it (no duplicates next time).
-// Plain-text lyrics are wrapped back into the <p>-per-line HTML the web app
-// expects, so the round-trip stays clean.
-function plainLyricsToHtml(text) {
-  if (!text) return '';
-  return String(text).replace(/\r/g, '').split('\n')
-    .map(line => line.trim() === '' ? '<p><br></p>'
-      : `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>`)
-    .join('');
-}
-
-ipcMain.handle('push-mongo-setlist', async (_e, songs) => {
-  if (!Array.isArray(songs)) throw new Error('Lista de canciones inválida.');
-  let apiBase = DEFAULT_GI_API;
-  try {
-    const configPath = path.join(app.getPath('userData'), 'config.json');
-    if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      if (config && typeof config.giApiUrl === 'string' && config.giApiUrl.trim()) {
-        apiBase = config.giApiUrl.trim().replace(/\/+$/, '');
-      }
-    }
-  } catch (e) { /* fall back to default */ }
-
-  const idMap = {};   // localId -> new mongo _id (for newly created songs)
-  let created = 0, updated = 0;
-  const errors = [];
-
-  for (const s of songs) {
-    if (!s || !s.title) continue;
-    const body = {
-      title: s.title,
-      // GI.Setlist requires a non-empty artist — fall back so songs without
-      // one still upload instead of being silently rejected (HTTP 500).
-      artist: (s.artist && s.artist.trim()) ? s.artist : 'Desconocido',
-      lyrics: plainLyricsToHtml(s.lyrics || ''),
-      bpm: s.bpm || '',
-      key: s.key || '',
-      genre: s.genre || '',
-    };
-    // Solo se manda el enlace de YouTube cuando LO HAY: así rellena el campo
-    // `youtubeUrl` en GI.Setlist (la web usa eso para mostrar la carátula) sin
-    // pisar con vacío lo que ya estuviera puesto allá.
-    if (s.youtubeUrl && String(s.youtubeUrl).trim()) body.youtubeUrl = String(s.youtubeUrl).trim();
-    try {
-      if (s._id) {
-        const res = await net.fetch(`${apiBase}/api/songs/${s._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) updated++;
-        else errors.push(`${s.title} → HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
-      } else {
-        const res = await net.fetch(`${apiBase}/api/songs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        if (res.ok) {
-          const doc = await res.json();
-          if (doc && doc._id) idMap[s.id] = String(doc._id);
-          created++;
-        } else {
-          errors.push(`${s.title} → HTTP ${res.status}: ${(await res.text()).slice(0, 120)}`);
-        }
-      }
-    } catch (err) {
-      errors.push(`${s.title} → ${err.message}`);
-    }
-  }
-  if (errors.length) console.warn('[push] fallos:\n' + errors.join('\n'));
-  return { created, updated, idMap, errors };
-});
-
 ipcMain.handle('get-absolute-path', (_e, relativePath) => {
   if (typeof relativePath !== 'string') return '';
 
@@ -2248,8 +2066,7 @@ ipcMain.handle('companion-publish-playing', async (_e, playing) => {
   return true;
 });
 
-// Companion prefs live in their own file (kept out of config.json so the
-// MongoDB-only template stays clean). Currently a single flag, but easy to
+// Companion prefs live in their own file. Currently a single flag, but easy to
 // extend without touching schema migration logic.
 function companionPrefsPath() {
   return path.join(app.getPath('userData'), 'companion_prefs.json');
@@ -2492,6 +2309,35 @@ function separationModelsDir() {
 // Recibe audio mono a 22 050 Hz y devuelve { beats, downbeats, bpm, beatsPerBar, ep }.
 // Sin el modelo (instalaciones viejas) responde { unavailable: true } y la app
 // usa su detector anterior.
+// Audio para análisis subido por trozos desde la interfaz (analysisAudio.js):
+// token → Float32Array (mono 22 050 Hz). Se olvida a los 5 min o si hay más de 4.
+const analysisAudio = new Map();
+ipcMain.handle('analysis-audio-chunk', (_e, { token, offset, total, data } = {}) => {
+  if (!token || !(total > 0) || !data) return false;
+  let e = analysisAudio.get(token);
+  if (!e) {
+    e = { buf: new Float32Array(total), filled: 0, timer: null };
+    analysisAudio.set(token, e);
+    while (analysisAudio.size > 4) { const k = analysisAudio.keys().next().value; clearTimeout(analysisAudio.get(k).timer); analysisAudio.delete(k); }
+  }
+  clearTimeout(e.timer);
+  e.timer = setTimeout(() => analysisAudio.delete(token), 5 * 60 * 1000);
+  const n = Math.min(data.length, total - offset);
+  for (let i = 0; i < n; i++) e.buf[offset + i] = data[i] / 32768;
+  e.filled += n;
+  return true;
+});
+// Audio de un análisis: { token } (subido por trozos) o { mono } (compatibilidad).
+function analysisMono({ token, mono } = {}) {
+  if (token) {
+    const e = analysisAudio.get(token);
+    if (!e || e.filled < e.buf.length) return { missing: true };
+    return { mono: e.buf };
+  }
+  if (mono && mono.length) return { mono: mono instanceof Float32Array ? mono : new Float32Array(mono) };
+  return {};
+}
+
 // Corre en el hilo de análisis (analysisWorker.js): el espectrograma y la
 // inferencia no bloquean el proceso principal.
 function runAnalysisWorker(workerData) {
@@ -2509,11 +2355,13 @@ function runAnalysisWorker(workerData) {
   });
   return { worker, promise };
 }
-ipcMain.handle('analysis-beats', async (_e, { mono } = {}) => {
+ipcMain.handle('analysis-beats', async (_e, args = {}) => {
   const modelPath = path.join(separationModelsDir(), 'beat_this_final0.onnx');
   if (!fs.existsSync(modelPath)) return { unavailable: true };
+  const { mono, missing } = analysisMono(args);
+  if (missing) return { missing: true };
   if (!mono || !mono.length) throw new Error('Audio vacío');
-  const r = await runAnalysisWorker({ task: 'beats', mono: mono instanceof Float32Array ? mono : new Float32Array(mono), modelPath }).promise;
+  const r = await runAnalysisWorker({ task: 'beats', mono, modelPath }).promise;
   if (r && r.error) throw new Error(r.error);
   return r;
 });
@@ -2533,12 +2381,14 @@ function cancelChordJob() {
   try { j.worker.terminate(); } catch (_) {}
   return j.promise;
 }
-ipcMain.handle('analysis-chords', async (_e, { mono } = {}) => {
+ipcMain.handle('analysis-chords', async (_e, args = {}) => {
   const modelPath = path.join(separationModelsDir(), 'btc_chords_voca.onnx');
   if (!fs.existsSync(modelPath)) return { unavailable: true };
+  const { mono, missing } = analysisMono(args);
+  if (missing) return { missing: true };
   if (!mono || !mono.length) return { error: 'Audio vacío' };
   if (chordJob) return { busy: true };
-  const job = runAnalysisWorker({ task: 'chords', mono: mono instanceof Float32Array ? mono : new Float32Array(mono), modelPath });
+  const job = runAnalysisWorker({ task: 'chords', mono, modelPath });
   job.promise = job.promise.then((r) => {
     if (chordJob === job) chordJob = null;
     return r && Array.isArray(r.seg) ? { seg: r.seg, ep: r.ep } : r;

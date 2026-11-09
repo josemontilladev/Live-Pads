@@ -32,6 +32,8 @@ export class SynthEngine {
     this._clickBuffers = {};
     this._padAmbBuffers = {};    // bankId_note -> AudioBuffer
     this._crossfadeDur = 2.0;    // s — duración del crossfade al cambiar de pad (configurable)
+    // Batería sensible a la fuerza del golpe (velocity). Se cambia en Ajustes → MIDI.
+    try { this.velocitySensitive = localStorage.getItem('livepads-midi-velocity') !== '0'; } catch (_) { this.velocitySensitive = true; }
   }
 
   async init() {
@@ -414,10 +416,21 @@ export class SynthEngine {
 
   stopPad(fadeTime = 0.4) { this._stopPad(fadeTime); }
 
-  playDrum(type, padId) {
+  // Fuerza del golpe (velocity MIDI 1–127) → volumen. Curva suave: un golpe medio
+  // (≈ 80) suena al ~80 % y uno flojo no desaparece. Sin velocity (clic, teclado)
+  // o con la sensibilidad desactivada en Ajustes, suena a volumen completo.
+  _velDest(dest, vel) {
+    if (vel == null || this.velocitySensitive === false || !(vel > 0) || vel >= 127) return dest;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.18 + 0.82 * Math.pow(vel / 127, 0.75);
+    g.connect(dest);
+    return g;
+  }
+
+  playDrum(type, padId, vel) {
     if (!this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
-    const dest = this._getDrumDest(padId);
+    const dest = this._velDest(this._getDrumDest(padId), vel);
     // Use pack timbre if available
     const timbre = this.currentDrumPack?.timbres?.[type];
     if (timbre) { this._playPackDrum(type, dest, timbre); return; }
@@ -968,14 +981,14 @@ export class SynthEngine {
     }
   }
 
-  playCustomDrum(id, padId) {
+  playCustomDrum(id, padId, vel) {
     if (!this.customDrums[id]) return false;
     // Resume a suspended context BEFORE scheduling — a suspended ctx delays
     // (or swallows) the hit, which is unacceptable for live drum triggering.
     if (this.ctx.state === 'suspended') this.ctx.resume();
     const now = this.ctx.currentTime;
     const src = this.ctx.createBufferSource(); src.buffer = this.customDrums[id];
-    const dest = this._getDrumDest(padId);
+    const dest = this._velDest(this._getDrumDest(padId), vel);
     // Arranca desde el onset detectado para que el golpe suene al instante.
     src.connect(dest); src.start(now, this.customDrumOffsets[id] || 0);
     return true;
@@ -1221,11 +1234,18 @@ export class SynthEngine {
         } catch (_) {}
       }
     };
-    const sync = (evt, isInitial = false) => {
-      bindAll();
+    const sync = (evt, isInitial = false, poll = false) => {
       const ids = idsOf();
       const last = this._midiLastIds || [];
       const changed = ids.length !== last.length || ids.some((x, k) => x !== last[k]);
+      // El sondeo de cada segundo antes re-ligaba todo y repintaba la interfaz aunque
+      // no hubiera cambios (trabajo en el hilo del MIDI cada segundo). Ahora solo si
+      // cambió algo; y cada 10 s se re-abren los puertos por si Windows los cerró.
+      if (poll && !changed) {
+        if ((this._midiPollN = (this._midiPollN || 0) + 1) % 10 === 0) bindAll();
+        return;
+      }
+      bindAll();
       let useEvt = evt;
       if (!useEvt && changed && !isInitial) {
         const added = ids.find(id => !last.includes(id));
@@ -1246,7 +1266,7 @@ export class SynthEngine {
     // Respaldo de hot-plug (Windows a veces no dispara statechange): re-escaneo
     // cada 1 s para re-abrir/re-ligar puertos sin reiniciar. Costo ínfimo.
     if (this._midiPollTimer) clearInterval(this._midiPollTimer);
-    this._midiPollTimer = setInterval(() => sync(null), 1000);
+    this._midiPollTimer = setInterval(() => sync(null, false, true), 1000);
   }
 
   // Entradas MIDI visibles ahora mismo, para el selector de Ajustes.

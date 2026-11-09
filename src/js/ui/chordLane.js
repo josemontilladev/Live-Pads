@@ -236,13 +236,19 @@ async function editLyrics(s) {
 
 /** Dibuja la franja (al cargar, al cambiar preferencias, tono o ancho). */
 let measureCtx = null;
+const textWCache = new Map();   // los nombres se repiten mucho: se mide cada uno una vez
 function textW(n) {
+  let w = textWCache.get(n);
+  if (w != null) return w;
   if (!measureCtx) {
     measureCtx = document.createElement('canvas').getContext('2d');
     const ff = getComputedStyle(lane).fontFamily || 'sans-serif';
     measureCtx.font = `700 11px ${ff}`;
   }
-  return Math.ceil(measureCtx.measureText(n).width) + 12;   // + padding y la raya
+  w = Math.ceil(measureCtx.measureText(n).width) + 12;   // + padding y la raya
+  if (textWCache.size > 500) textWCache.clear();
+  textWCache.set(n, w);
+  return w;
 }
 export function render() {
   if (!on || !result || !lane || !E) return;

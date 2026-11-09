@@ -13,6 +13,8 @@
 // rejilla lo sigue.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { uploadForAnalysis, forgetUpload } from './analysisAudio.js';
+
 const LS = 'livepads.beats.v2.';
 const inflight = new Map();
 
@@ -42,15 +44,6 @@ export function trackKey(song, type, buffer) {
   return `${id}.${type || 'audio'}.${Math.round((buffer ? buffer.duration : 0) * 10)}`;
 }
 
-async function toMono22050(buffer) {
-  const len = Math.max(1, Math.ceil(buffer.duration * 22050));
-  const off = new OfflineAudioContext(1, len, 22050);   // mezcla a mono (L+R)/2 al conectar
-  const src = off.createBufferSource();
-  src.buffer = buffer; src.connect(off.destination); src.start();
-  const out = await off.startRendering();
-  return out.getChannelData(0);
-}
-
 export function isAvailable() { return !!(window.electronAPI && window.electronAPI.analyzeBeats); }
 
 export async function analyzeBeats(buffer, key) {
@@ -60,8 +53,8 @@ export async function analyzeBeats(buffer, key) {
   if (key && inflight.has(key)) return inflight.get(key);
   const job = (async () => {
     try {
-      const mono = await toMono22050(buffer);
-      const r = await window.electronAPI.analyzeBeats({ mono });
+      let r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer) });
+      if (r && r.missing) { forgetUpload(buffer); r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer) }); }
       if (!r || r.unavailable || !Array.isArray(r.beats) || r.beats.length < 8) return null;
       return key ? save(key, r) : r;
     } catch (e) {

@@ -20,7 +20,7 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "build:all": "electron-builder --win --mac --linux",
-    "rebuild": "electron-rebuild -f -w mongodb",
+    "rebuild": "electron-rebuild -f",
     "test:admin": "node tests/admin/run.mjs"
   },
   "devDependencies": {
@@ -33,7 +33,6 @@
     "@breezystack/lamejs": "^1.2.7",
     "electron-updater": "^6.8.3",
     "kissfft-js": "^0.1.8",
-    "mongodb": "^7.2.0",
     "onnxruntime-node": "^1.26.0",
     "qrcode": "^1.5.4",
     "soundtouchjs": "^0.3.0",
