@@ -4415,8 +4415,15 @@ function wireLibrary(root) {
     const tl = root.querySelector('.stems-head-tl');
     if (!loop || !tl) return;
     const sec = Math.max(0, (e.clientX - tl.getBoundingClientRect().left) / PX_PER_SEC);
-    addLoopFromLibrary(loop, { atSec: barSnap(sec, 'round'), repeats: libraryPanel.getRepeats(), sameTrack: libraryPanel.getSameTrack() })
-      .then(() => libraryPanel.markRecent(loop.id));
+    // Mismo camino que el «+»: la fila del panel gira y marca «✓ Agregado».
+    // Además, un aviso donde se soltó, hasta que el loop aparece en el timeline.
+    const chip = document.createElement('div');
+    chip.className = 'stems-drop-loading';
+    chip.style.left = `${e.clientX}px`;
+    chip.style.top = `${e.clientY}px`;
+    chip.innerHTML = `<span class="stems-drop-spin" aria-hidden="true"></span>Cargando «${esc(loop.title)}»…`;
+    document.body.appendChild(chip);
+    Promise.resolve(libraryPanel.add(loop, barSnap(sec, 'round'))).finally(() => chip.remove());
   });
 }
 

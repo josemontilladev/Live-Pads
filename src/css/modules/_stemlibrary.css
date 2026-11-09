@@ -833,3 +833,26 @@
 .stl-presult-txt { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .stl-presult-txt b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stl-presult-txt small { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ═══ Biblioteca más limpia: buscador arriba, sin «Ajustados…» ni «Armar por secciones» ═══ */
+.stl-filters[hidden], .stl-project[hidden], .stl-build[hidden] { display: none !important; }
+.stl-filters--top { margin-bottom: 2px; }
+.stl-loop-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.stl-loop-bars { font-size: 11.5px; color: var(--text-muted); }
+.stl-loop-meta .stl-st { margin: 0; }
+.stl-loop-warn { color: #f5a524; font-size: 12px; cursor: help; }
+
+/* Soltar un loop en el timeline: aviso junto al cursor mientras se carga */
+.stems-drop-loading {
+  position: fixed; z-index: 9600; transform: translate(12px, -50%); pointer-events: none;
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px;
+  background: var(--bg-surface, #141416); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text); font-size: 12px; font-weight: 650; box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  white-space: nowrap;
+}
+.stems-drop-spin {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent);
+  animation: stl-spin .7s linear infinite;
+}
+.stl-loop-meta { flex-wrap: nowrap; min-width: 0; overflow: hidden; } .stl-loop-meta > * { flex: none; }

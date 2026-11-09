@@ -87,11 +87,13 @@ export function mountLibraryPanel(host, api) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 6 15 12 9 18"/></svg>
       </button>
     </div>
-    <div class="stl-project" data-ref="project"></div>
+    <div class="stl-filters stl-filters--simple stl-filters--top">
+      <input class="stl-search" data-ref="text" type="search" placeholder="Buscar por canción o artista…" aria-label="Buscar por canción o artista">
+    </div>
+    <div class="stl-project" data-ref="project" hidden></div>
     <div class="stl-packs" data-ref="packs"></div>
     <div class="stl-packcard" data-ref="packcard" hidden></div>
-    <div class="stl-filters stl-filters--simple">
-      <input class="stl-search" data-ref="text" type="search" placeholder="Buscar por canción o artista…" aria-label="Buscar por canción o artista">
+    <div class="stl-filters stl-filters--simple" hidden>
       <select data-ref="instrument" aria-label="Instrumento" hidden>
         <option value="">Instrumento</option>
         ${Object.entries(INSTRUMENTS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
@@ -110,7 +112,7 @@ export function mountLibraryPanel(host, api) {
       <button type="button" class="stl-linkbtn" data-act="only-local">Ver solo los descargados</button>
     </div>
     <div class="stl-try" data-ref="try" hidden></div>
-    <button type="button" class="stl-build" data-act="build" data-ref="build" hidden title="Elige una estructura (Intro, Verso, Coro…) y arma la secuencia completa con loops de la biblioteca">
+    <button type="button" class="stl-build" data-act="build" data-ref="build" hidden data-removed title="Elige una estructura (Intro, Verso, Coro…) y arma la secuencia completa con loops de la biblioteca">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>
       Armar por secciones
     </button>
@@ -717,9 +719,10 @@ export function mountLibraryPanel(host, api) {
           <div class="stl-loop-title">${favs.has(l.id) ? '<span class="stl-star" title="Favorito">★</span>' : ''}${esc(l.title)}</div>
           <div class="stl-loop-meta">
             <span class="stl-tag stl-tag--${esc(l.instrument)}">${INSTRUMENTS[l.instrument] || esc(l.instrument)}</span>
-            ${Number(l.bpm)} BPM · ${l.musical_key ? esc(l.musical_key) : 'sin tono'} · ${l.bars} comp.
+            <span class="stl-loop-bars">${l.bars} comp.</span>
+            <span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span>
+            ${warn ? `<span class="stl-loop-warn" title="${esc(warn)} (${esc(fitTxt)})">⚠</span>` : ''}
           </div>
-          <div class="stl-loop-fit${warn ? ' is-warn' : ''}" ${warn ? `title="${esc(warn)}"` : ''}><span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span> ${esc(fitTxt)}${warn ? ' ⚠' : ''}</div>
         </div>
         ${locked
           ? `<button type="button" class="stl-add stl-add--locked" data-act="add" title="Este loop es parte de LivePads Pro">${SVG_LOCK}<span>Pro</span></button>`
@@ -1025,7 +1028,7 @@ export function mountLibraryPanel(host, api) {
     renderProject();
     ref('plan').hidden = api.canUsePro();
     if (!isLoggedIn()) { renderLoggedOut(); return; }
-    ref('build').hidden = false;
+    // «Armar por secciones» retirado del panel (se queda oculto).
     if (!state.loaded) {
       state.loaded = true;
       state.admin = await stemLibrary.isLibraryAdmin();
@@ -1066,7 +1069,7 @@ export function mountLibraryPanel(host, api) {
   }
 
   return {
-    open, openPack, close, toggle, stopPreview, getRepeats, getSameTrack, markRecent, openBuilder, usableLoopCount,
+    open, openPack, close, toggle, stopPreview, add, getRepeats, getSameTrack, markRecent, openBuilder, usableLoopCount,
     isOpen: () => !isCollapsed(),
     getLoop: (id) => loopsById.get(id) || null,
     // El proyecto cambió de BPM/tono: repinta los ajustes si está abierto.
