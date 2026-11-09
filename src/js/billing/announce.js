@@ -69,7 +69,7 @@ export async function maybeAnnouncePlans() {
   ov.id = 'plans-announce';
   ov.innerHTML = `
     <div class="pl-panel pl-announce" role="dialog" aria-label="${m.title}">
-      <div class="pl-head"><h3>Novedades</h3><button class="pl-close" type="button" aria-label="Cerrar">✕</button></div>
+      <div class="pl-head"><h3>Novedades</h3><button class="pl-close ui-close" type="button" aria-label="Cerrar">✕</button></div>
       <h2 class="pl-ann-title">${m.title}</h2>
       <p class="pl-ann-body">${m.body}</p>
       <p class="pl-mission">🙏 Cada suscripción sirve para seguir mejorando LivePads y ser de bendición para toda la comunidad cristiana: más funciones, más innovación y una app que evoluciona cada día hasta ser la app definitiva para la alabanza en las iglesias.</p>

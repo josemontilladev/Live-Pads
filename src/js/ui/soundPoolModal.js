@@ -75,7 +75,7 @@ export function openSoundPoolModal(padLabel, onAssign, onUploadNew) {
   titleWrap.appendChild(el('span', 'spm-badge', { text: 'Selector de sonido' }));
   titleWrap.appendChild(el('h3', 'spm-title', { text: padLabel }));
 
-  const closeBtn = el('button', 'spm-close', { title: 'Cerrar' });
+  const closeBtn = el('button', 'spm-close ui-close', { title: 'Cerrar' });
   closeBtn.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
   header.appendChild(titleWrap);

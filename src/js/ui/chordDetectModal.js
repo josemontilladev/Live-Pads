@@ -23,6 +23,7 @@ import { analyzeInWorker, releaseChordWorker } from '../chords/chordWorker.js';
 import { chordPrefs, saveChordPrefs, cacheGet, cachePut, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached } from '../chords/trackChords.js';
 import { youtubeId, youtubeTitle, createYtPlayer, startLoopback, createScanBuffer } from '../chords/ytScan.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
+import { closeButton } from './components.js';
 
 let prefs = chordPrefs();
 function savePrefs() { saveChordPrefs({ ...chordPrefs(), basic: prefs.basic, latin: prefs.latin, tab: prefs.tab }); }
@@ -584,7 +585,7 @@ export function openChordDetect() {
           <div class="chd-seg" data-pref="basic"><button type="button" data-v="1">Básicos</button><button type="button" data-v="0">Todos</button></div>
           <div class="chd-seg" data-pref="latin"><button type="button" data-v="0">C D E</button><button type="button" data-v="1">Do Re Mi</button></div>
         </div>
-        <button class="chd-close" type="button" aria-label="Cerrar">✕</button>
+        ${closeButton({ cls: 'chd-close' })}
       </div>
       <div class="chd-tabs">
         <button type="button" class="chd-tab" data-tab="track">Pista cargada</button>

@@ -96,7 +96,7 @@ export function mountPianoPanel(container, depsIn) {
         <span class="pk-rec-label">Grabar</span>
       </button>
       <span class="pk-status" id="pk-status"></span>
-      <button class="pk-close" id="pk-close" type="button" title="Cerrar piano" aria-label="Cerrar piano">✕</button>
+      <button class="pk-close ui-close" id="pk-close" type="button" title="Cerrar piano" aria-label="Cerrar piano">✕</button>
     </div>
     <div class="pk-keys" id="pk-keys"></div>
   `;

@@ -29,7 +29,7 @@ export function openCompanionPanel({ mount = null } = {}) {
     <div class="cp-panel" role="dialog" aria-modal="true" aria-labelledby="cp-title">
       <div class="cp-header">
         <h3 id="cp-title">Companion (móvil)</h3>
-        <button class="cp-close" type="button" aria-label="Cerrar">${SVG_CLOSE}</button>
+        <button class="cp-close ui-close" type="button" aria-label="Cerrar">${SVG_CLOSE}</button>
       </div>
       <p class="cp-subtitle">Visor pasivo de letras+acordes para los músicos en la misma WiFi.</p>
 

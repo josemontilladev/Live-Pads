@@ -1,0 +1,110 @@
+/* ═══ Componentes reutilizables ═══════════════════════════════════════════
+   Fuente única del aspecto y los efectos de los controles que se repiten en
+   toda la app. Para crearlos desde JS: src/js/ui/components.js.
+
+   .ui-close            Cerrar ventana/panel/modal (círculo 32 px, icono X)
+   .ui-close--sm        Cerrar en avisos y filas compactas (24 px)
+   .ui-remove           Quitar un elemento de una lista (22 px, rojo al pasar)
+
+   La clase antigua de cada botón (tun-close, pl-close…) queda solo para su
+   POSICIÓN; el aspecto lo pone el componente. El icono es siempre el mismo
+   (máscara SVG), así no importa si el botón trae «×», «✕» o un <svg>.
+   !important solo en lo visual: hay reglas antiguas con ids y más clases.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --ui-x-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3C/svg%3E");
+  --ui-ctl-bg: rgba(255, 255, 255, .06);
+  --ui-ctl-bg-hover: rgba(255, 255, 255, .13);
+  --ui-ease: var(--ease-spring, cubic-bezier(.34, 1.56, .64, 1));
+}
+
+/* ── Cerrar ── */
+.ui-close.ui-close {
+  flex: none !important;
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  width: 32px !important; height: 32px !important; min-width: 0 !important; min-height: 0 !important;
+  padding: 0 !important; border-radius: 50% !important;
+  background: var(--ui-ctl-bg) !important; border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important; box-shadow: none !important;
+  font-size: 0 !important; line-height: 0 !important; cursor: pointer;
+  transform: none !important; opacity: 1;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 180ms var(--ui-ease) !important;
+}
+.ui-close.ui-close > * { display: none !important; }
+.ui-close.ui-close::before {
+  content: '' !important; display: block !important; position: static !important;
+  width: 14px; height: 14px; background: currentColor !important;
+  -webkit-mask: var(--ui-x-icon) center / contain no-repeat;
+          mask: var(--ui-x-icon) center / contain no-repeat;
+  transition: transform 220ms var(--ui-ease);
+}
+.ui-close.ui-close::after { content: none !important; }
+.ui-close.ui-close:hover:not(:disabled) {
+  background: var(--ui-ctl-bg-hover) !important; border-color: var(--border-strong, rgba(255,255,255,.22)) !important;
+  color: var(--text) !important;
+}
+.ui-close.ui-close:hover:not(:disabled)::before { transform: rotate(90deg); }
+.ui-close.ui-close:active:not(:disabled) { transform: scale(.9) !important; transition-duration: 60ms !important; }
+.ui-close.ui-close:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 2px; }
+.ui-close.ui-close:disabled { opacity: .4; cursor: default; }
+
+.ui-close.ui-close--sm { width: 24px !important; height: 24px !important; }
+.ui-close.ui-close--sm::before { width: 11px; height: 11px; }
+
+/* ── Quitar (de una lista) ── */
+.ui-remove.ui-remove {
+  flex: none !important;
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  width: 22px !important; height: 22px !important; min-width: 0 !important; min-height: 0 !important;
+  padding: 0 !important; border-radius: 50% !important;
+  background: transparent !important; border: 1px solid transparent !important;
+  color: var(--text-muted) !important; box-shadow: none !important;
+  font-size: 0 !important; line-height: 0 !important; cursor: pointer;
+  transform: none !important;
+  transition: background 150ms ease, color 150ms ease, transform 180ms var(--ui-ease) !important;
+}
+.ui-remove.ui-remove > * { display: none !important; }
+.ui-remove.ui-remove::before {
+  content: '' !important; display: block !important; position: static !important;
+  width: 10px; height: 10px; background: currentColor !important;
+  -webkit-mask: var(--ui-x-icon) center / contain no-repeat;
+          mask: var(--ui-x-icon) center / contain no-repeat;
+}
+.ui-remove.ui-remove::after { content: none !important; }
+.ui-remove.ui-remove:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, #ff5d5d) 16%, transparent) !important;
+  color: var(--danger, #ff5d5d) !important;
+}
+.ui-remove.ui-remove:active:not(:disabled) { transform: scale(.88) !important; transition-duration: 60ms !important; }
+.ui-remove.ui-remove:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 1px; }
+
+/* ── Efectos comunes de todos los botones (pulsar y foco con teclado) ──
+   Misma respuesta en toda la app: al pulsar se hunden un poco y con Tab
+   muestran el mismo anillo. */
+:is(.action-btn, .icon-btn, .s-toggle, .stems-btn, .stems-tb-btn, .stems-zoom-btn, .stems-snap-btn,
+  .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
+  .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
+  .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn) {
+  transition: transform 180ms var(--ui-ease), background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+:is(.action-btn, .icon-btn, .s-toggle, .stems-btn, .stems-tb-btn, .stems-zoom-btn, .stems-snap-btn,
+  .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
+  .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
+  .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn):active:not(:disabled) {
+  transform: scale(var(--press-scale, .95));
+  transition-duration: 60ms;
+}
+:is(.action-btn, .icon-btn, .s-toggle, .stems-btn, .stems-tb-btn, .stems-zoom-btn, .stems-snap-btn,
+  .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
+  .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
+  .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* Botones de icono: círculo exacto (había reglas antiguas con !important y más
+   especificidad que los dejaban en 14 px), y los que faltaban por redondear. */
+.icon-btn.icon-btn, .kit-action-btn.kit-action-btn, .tun-string.tun-string { border-radius: 999px !important; }
+.tun-instrument.tun-instrument { border-radius: 999px !important; }

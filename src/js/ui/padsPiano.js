@@ -56,7 +56,7 @@ function ensureMounted(onChange) {
         <input type="range" id="pk-vol-pads" min="0" max="100" value="90" class="stems-range stems-range--fill" aria-label="Volumen del piano">
       </label>
       <button class="pk-reverb" id="pk-reverb-pads" type="button" title="Reverb (más profundidad)" aria-pressed="false">Reverb</button>
-      <button class="pk-close" id="pk-close-pads" type="button" title="Cerrar piano" aria-label="Cerrar piano">✕</button>
+      <button class="pk-close ui-close" id="pk-close-pads" type="button" title="Cerrar piano" aria-label="Cerrar piano">✕</button>
     </div>
     <div class="pk-keys" id="pk-keys-pads"></div>`;
   document.body.appendChild(panelEl);

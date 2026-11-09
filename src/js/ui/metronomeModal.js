@@ -7,6 +7,7 @@
 
 import { pushModal } from './modalStack.js';
 import { getClickSounds, loadClickBuffers } from '../stems/clickGenerator.js';
+import { closeButton } from './components.js';
 
 const LS_KEY = 'livepads.metronome';
 const LS_POS = 'livepads.metronome.pos';
@@ -269,7 +270,7 @@ export function openMetronomeModal() {
       <div class="mtm-head" data-drag>
         <span class="mtm-drag-dots" aria-hidden="true">⠿</span>
         <h3>Metrónomo</h3>
-        <button class="mtm-close" type="button" aria-label="Cerrar">✕</button>
+        ${closeButton({ cls: 'mtm-close' })}
       </div>
 
       <div class="mtm-bpm">

@@ -157,7 +157,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     <div class="stb-modal spu-modal" role="dialog" aria-modal="true" aria-label="${admin ? 'Administrar biblioteca de stems' : 'Compartir un pack con la comunidad'}">
       <header class="stb-head">
         <h3>${admin ? 'Biblioteca de stems · Administración' : 'Compartir un pack con la comunidad'}</h3>
-        <button type="button" class="stl-x" data-act="close" aria-label="Cerrar">×</button>
+        <button type="button" class="stl-x ui-close" data-act="close" aria-label="Cerrar">×</button>
       </header>
       <div class="spu-tabs" role="tablist">
         <button type="button" class="is-on" data-tab="upload" role="tab">${admin ? 'Subir pack' : 'Enviar pack'}</button>
@@ -452,7 +452,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       <td><select data-lf="feel">${feelOpts(feelOf(e.tags))}</select></td>
       ${admin ? `<td><select data-lf="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, e.tier)}</select></td>` : ''}
       <td><button type="button" class="stb-btn spu-save" data-act="saveLoop" data-id="${esc(l.id)}"${dirty ? '' : ' disabled'}>Guardar</button></td>
-      <td><button type="button" class="stb-del" data-act="deleteLoop" data-id="${esc(l.id)}" aria-label="Borrar loop" title="Borrar loop">×</button></td>
+      <td><button type="button" class="stb-del ui-remove" data-act="deleteLoop" data-id="${esc(l.id)}" aria-label="Borrar loop" title="Borrar loop">×</button></td>
     </tr>`;
   }
 
@@ -885,7 +885,7 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
         <td><select data-f="feel">${feelOpts(r.feel)}</select></td>
         ${admin ? `<td><select data-f="tier">${opts({ free: 'GRATIS', pro: 'PRO' }, r.tier || defaultTier())}</select></td>` : ''}
         <td class="spu-check" title="${!per && r.offTempo ? `No dura un número entero de compases a ${ref('packBpm').value} BPM: revisa el BPM del pack o activa «Cada loop con su propio BPM»` : durationOk(r) ? 'La duración cuadra con BPM y compases' : `Dura ${r.buffer.duration.toFixed(2)} s, pero ${r.bars} compases a ${r.bpm} BPM son ${(r.bars * 240 / r.bpm).toFixed(2)} s`}">${(!per && r.offTempo) || !durationOk(r) ? '⚠' : '✓'}</td>
-        <td><button type="button" class="stb-del" data-del="${i}" aria-label="Quitar">×</button></td>
+        <td><button type="button" class="stb-del ui-remove" data-del="${i}" aria-label="Quitar">×</button></td>
       </tr>`).join('')}</tbody>`;
     ref('bulk').hidden = !rows.length;
     refreshButton();

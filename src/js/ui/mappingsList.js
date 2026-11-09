@@ -99,7 +99,7 @@ function rowsHtml() {
           <kbd class="mp-key">${prettyKey(key)}</kbd>
           <span class="mp-arrow" aria-hidden="true">→</span>
           <span class="mp-target">${prettyTarget(target)}</span>
-          <button class="mp-clear" data-clear="${key}" type="button" aria-label="Quitar este mapeo" title="Quitar este mapeo">×</button>
+          <button class="mp-clear ui-remove" data-clear="${key}" type="button" aria-label="Quitar este mapeo" title="Quitar este mapeo">×</button>
         </li>
       `).join('')}
     </ul>
@@ -121,7 +121,7 @@ export function openMappingsList({ mount = null } = {}) {
     <div class="mp-panel" role="dialog" aria-modal="true" aria-labelledby="mp-title">
       <div class="mp-header">
         <h3 id="mp-title">Mapeos activos</h3>
-        <button class="mp-close" type="button" aria-label="Cerrar">
+        <button class="mp-close ui-close" type="button" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>

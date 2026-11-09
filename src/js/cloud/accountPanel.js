@@ -178,7 +178,7 @@ async function render() {
   panel.innerHTML = `
     <div class="acc-head">
       <h3>Mi cuenta y librerías</h3>
-      <button class="acc-x" data-act="close">×</button>
+      <button class="acc-x ui-close" data-act="close">×</button>
     </div>
     <div class="acc-user">
       <div class="acc-avatar">${escapeHtml(initial || 'U')}</div>

@@ -66,7 +66,7 @@ function render() {
   overlay.querySelector('.pl-panel').innerHTML = `
     <div class="pl-head">
       <h3>Planes de LivePads</h3>
-      <button class="pl-close" type="button" aria-label="Cerrar">✕</button>
+      <button class="pl-close ui-close" type="button" aria-label="Cerrar">✕</button>
     </div>
     ${reason ? `<div class="pl-reason">${esc(reason)}</div>` : ''}
     <div class="pl-status">${esc(statusLine(info))}${info.founder ? ' <span class="pl-founder">Fundador · 50 % para siempre</span>' : ''}</div>

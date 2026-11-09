@@ -146,7 +146,7 @@ export function openLyricsFullscreen(song, opts = {}) {
           <span data-ref="colsLabel">2 columnas</span>
         </button>
         <button type="button" class="lyr-toggle" data-act="chords" title="Mostrar u ocultar acordes (C)">Acordes</button>
-        <button type="button" class="lyr-close" data-act="close" title="Cerrar (Esc)" aria-label="Cerrar">
+        <button type="button" class="lyr-close ui-close" data-act="close" title="Cerrar (Esc)" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="18" height="18" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>

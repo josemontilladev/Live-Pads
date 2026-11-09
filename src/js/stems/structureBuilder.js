@@ -28,7 +28,7 @@ export function openStructureBuilder({ loops, packs, packId = '', project, hasTr
     <div class="stb-modal" role="dialog" aria-modal="true" aria-label="Armar por secciones">
       <header class="stb-head">
         <h3>Armar por secciones</h3>
-        <button type="button" class="stl-x stb-x" data-act="close" aria-label="Cerrar">×</button>
+        <button type="button" class="stl-x stb-x ui-close" data-act="close" aria-label="Cerrar">×</button>
       </header>
       <p class="stb-hint">Elige la estructura y los instrumentos. Te sugerimos un loop para cada sección, ajustado a <b>${Math.round(project.bpm * 100) / 100} BPM</b>${project.key ? ` en <b>${esc(project.key)}</b>` : ''}; cámbialo si quieres.</p>
       <div class="stb-bar">
@@ -103,7 +103,7 @@ export function openStructureBuilder({ loops, packs, packId = '', project, hasTr
         <td><select data-type="${r}" aria-label="Sección">${typeOptions(sec.type)}</select></td>
         <td><select data-bars="${r}" aria-label="Compases">${barOptions(sec.bars)}</select></td>
         ${insts.map((i) => `<td>${cell(sec, i, picks[r][i])}</td>`).join('')}
-        <td><button type="button" class="stb-del" data-del="${r}" title="Quitar sección" aria-label="Quitar sección">×</button></td>
+        <td><button type="button" class="stb-del ui-remove" data-del="${r}" title="Quitar sección" aria-label="Quitar sección">×</button></td>
       </tr>`).join('')}</tbody>
       <tfoot><tr><td colspan="${insts.length + 3}"><button type="button" class="stb-add" data-act="add">+ Añadir sección</button></td></tr></tfoot>`;
     const { totalBars } = sectionStarts(state.sections);

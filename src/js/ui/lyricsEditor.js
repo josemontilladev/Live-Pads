@@ -31,7 +31,7 @@ function modalHTML(song) {
         <h3 class="lyrics-modal-title">Editar Letra y Acordes</h3>
         <p class="lyrics-modal-subtitle">${esc(song.title)} — ${esc(song.artist) || 'Sin artista'} ${keyBadge}</p>
       </div>
-      <button class="modal-close-btn lyrics-modal-close">
+      <button class="modal-close-btn lyrics-modal-close ui-close">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>

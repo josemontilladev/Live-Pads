@@ -1,4 +1,5 @@
 import { q, esc } from '../utils/dom.js';
+import { closeButton } from './components.js';
 
 const ICONS = {
   info:    '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
@@ -34,7 +35,7 @@ export function showToast(message, type = 'info', opts = {}) {
   toast.className = `toast toast--${type}`;
   if (type === 'error' || type === 'warning') toast.setAttribute('role', 'alert');
   const action = opts.action && opts.action.label ? `<button class="toast-action" type="button">${esc(opts.action.label)}</button>` : '';
-  toast.innerHTML = `${icon}<span>${esc(message)}</span>${action}<button class="toast-close" aria-label="Cerrar" title="Cerrar">×</button>`;
+  toast.innerHTML = `${icon}<span>${esc(message)}</span>${action}${closeButton({ cls: 'toast-close', small: true })}`;
   container.appendChild(toast);
 
   requestAnimationFrame(() => toast.classList.add('toast--in'));

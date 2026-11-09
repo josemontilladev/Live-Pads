@@ -45,7 +45,7 @@ export function openSetlistsModal() {
       <div class="setlists-modal">
         <div class="setlists-head">
           <h3>Setlists guardados</h3>
-          <button class="setlists-x" data-act="close" aria-label="Cerrar"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          <button class="setlists-x ui-close" data-act="close" aria-label="Cerrar"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="setlists-save-form">
           <div class="sl-field sl-field--title">

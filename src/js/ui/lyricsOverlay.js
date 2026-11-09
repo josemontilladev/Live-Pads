@@ -13,6 +13,7 @@
 
 import { closeAllLyrics } from './songState.js';
 import { pushModal } from './modalStack.js';
+import { closeButton } from './components.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
 const LS_PREFS = 'livepads-lyricspanel-prefs';
@@ -138,7 +139,7 @@ function open(data) {
             <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
             <button type="button" class="lyp-btn" data-do="screen" title="Llevar la letra a otra pantalla (TV, segundo monitor)" aria-label="Otra pantalla"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
           </div>
-          <button class="tun-close" type="button" data-do="close" aria-label="Cerrar">✕</button>
+          ${closeButton({ cls: 'tun-close', attrs: { 'data-do': 'close' } })}
         </div>
         <div class="lyp-body lyrics-text-content"><div class="lyp-cols"></div></div>
       </div>`;

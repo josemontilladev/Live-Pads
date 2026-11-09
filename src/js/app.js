@@ -2422,7 +2422,7 @@ function showUpdateReady(info) {
   bar.innerHTML = `
     <span>Actualización lista${version} — reinicia para aplicarla.</span>
     <button id="update-restart">Reiniciar ahora</button>
-    <button id="update-later" class="update-banner__later" aria-label="Más tarde">✕</button>`;
+    <button id="update-later" class="update-banner__later ui-close ui-close--sm" aria-label="Más tarde">✕</button>`;
   document.body.appendChild(bar);
   requestAnimationFrame(() => bar.classList.add('is-in'));
   bar.querySelector('#update-restart').onclick = install;

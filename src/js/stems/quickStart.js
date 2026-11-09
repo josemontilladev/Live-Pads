@@ -23,7 +23,7 @@ export function openQuickStart({ bpm = 76, key = '', keyOptionsHtml = '', onStar
     <div class="stb-modal sqs-modal" role="dialog" aria-modal="true" aria-label="Armar una canción">
       <header class="stb-head">
         <h3>Armar una canción en 1 minuto</h3>
-        <button type="button" class="stl-x" data-act="close" aria-label="Cerrar">×</button>
+        <button type="button" class="stl-x ui-close" data-act="close" aria-label="Cerrar">×</button>
       </header>
       <p class="stb-hint">Dinos el tempo y el tono. Después eliges los instrumentos y LivePads arma la secuencia con loops de la Biblioteca, ya ajustados.</p>
       <div class="sqs-field">

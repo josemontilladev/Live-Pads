@@ -10,6 +10,7 @@
 
 import { pushModal } from './modalStack.js';
 import { autoCorrelate, freqToNoteInfo, NOTE_NAMES } from '../audio/pitchDetector.js';
+import { closeButton } from './components.js';
 
 // Presets de cuerdas al aire (MIDI, de grave a agudo). El tono de referencia se
 // calcula con la calibración A4 vigente.
@@ -301,7 +302,7 @@ export function openTunerModal() {
       <div class="tun-head" data-drag>
         <span class="mtm-drag-dots" aria-hidden="true">⠿</span>
         <h3>Afinador</h3>
-        <button class="tun-close" type="button" aria-label="Cerrar">✕</button>
+        ${closeButton({ cls: 'tun-close' })}
       </div>
 
       <div class="tun-display">

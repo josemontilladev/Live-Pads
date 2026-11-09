@@ -8,6 +8,7 @@
 // edición si no traen nada que anunciar.
 // ─────────────────────────────────────────────────────────────────────────
 import { pushModal } from './modalStack.js';
+import { closeButton } from './components.js';
 
 const SEEN_KEY = 'lp.whatsnew.seen';
 const EDITION = '2026-11-letra';
@@ -36,7 +37,7 @@ export function maybeShowWhatsNew({ onTryLibrary } = {}) {
   ov.id = 'whats-new';
   ov.innerHTML = `
     <div class="pl-panel pl-announce" role="dialog" aria-label="Qué hay de nuevo en LivePads">
-      <div class="pl-head"><h3>Novedades</h3><button class="pl-close" type="button" aria-label="Cerrar">✕</button></div>
+      <div class="pl-head"><h3>Novedades</h3>${closeButton({ cls: 'pl-close' })}</div>
       <h2 class="pl-ann-title">Qué hay de nuevo en LivePads</h2>
       <ul class="wn-list">
         ${ITEMS.map(([ico, t, d]) => `<li><span class="wn-ico" aria-hidden="true">${ico}</span><div><b>${t}</b><span>${d}</span></div></li>`).join('')}

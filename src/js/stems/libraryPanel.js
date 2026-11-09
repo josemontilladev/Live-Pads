@@ -669,7 +669,7 @@ export function mountLibraryPanel(host, api) {
     ov.className = 'stb-overlay';
     ov.innerHTML = `
       <div class="stb-modal stl-report-modal" role="dialog" aria-modal="true" aria-label="Reportar loop">
-        <header class="stb-head"><h3>Reportar "${esc(loop.title)}"</h3><button type="button" class="stl-x" data-act="close" aria-label="Cerrar">×</button></header>
+        <header class="stb-head"><h3>Reportar "${esc(loop.title)}"</h3><button type="button" class="stl-x ui-close" data-act="close" aria-label="Cerrar">×</button></header>
         <p class="stb-hint">El equipo de LivePads lo revisará. Si no cumple, se retira de la Biblioteca.</p>
         <div class="stl-report-reasons">
           ${Object.entries(stemLibrary.REPORT_REASONS).map(([v, l], i) => `<label><input type="radio" name="stl-reason" value="${v}"${i === 0 ? ' checked' : ''}> ${l}</label>`).join('')}

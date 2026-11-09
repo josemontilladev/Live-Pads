@@ -795,7 +795,7 @@ const SHELL_HTML = `
     <div class="stems-sel-bar" id="stems-sel-bar" hidden>
       <span class="stems-sel-count">0 pistas seleccionadas</span>
       <button class="stems-sel-del" id="stems-sel-del" type="button">Eliminar</button>
-      <button class="stems-sel-clear" id="stems-sel-clear" type="button" aria-label="Cancelar selección" title="Cancelar selección (Esc)">✕</button>
+      <button class="stems-sel-clear ui-remove" id="stems-sel-clear" type="button" aria-label="Cancelar selección" title="Cancelar selección (Esc)">✕</button>
     </div>
 
     <div class="stems-export-overlay" id="stems-export-overlay" hidden>
@@ -3039,7 +3039,7 @@ function openTransposeSelectModal(semitones, onConfirm) {
     <div class="stt-modal">
       <div class="stt-head">
         <h3>Transponer ${sign}${semitones} st</h3>
-        <button class="stt-x" data-act="cancel" aria-label="Cerrar">×</button>
+        <button class="stt-x ui-close ui-close--sm" data-act="cancel" aria-label="Cerrar">×</button>
       </div>
       <p class="stt-hint">Elegí qué pistas transponer. El <b>click</b> y la <b>guía</b> van desmarcados (suenan feo al cambiarles el tono). Desmarcá también cualquier click/guía que hayas subido como audio.</p>
       <div class="stt-list">${rows}</div>
@@ -3390,7 +3390,7 @@ function showSepToast(trackName) {
         <span class="stems-sep-toast-name">${escapeHtml(trackName)}</span>
       </div>
       <span class="stems-sep-toast-pct">0%</span>
-      <button class="stems-sep-toast-cancel" title="Cancelar separación" aria-label="Cancelar">✕</button>
+      <button class="stems-sep-toast-cancel ui-close ui-close--sm" title="Cancelar separación" aria-label="Cancelar">✕</button>
     </div>
     <div class="stems-sep-toast-stage">Preparando audio</div>
     <div class="stems-sep-toast-bar"><div class="stems-sep-toast-fill"></div></div>
@@ -4458,7 +4458,7 @@ function updateRangeBar() {
       <button data-act="fadein">Fade in</button>
       <button data-act="fadeout">Fade out</button>
       <button data-act="export">Exportar tramo</button>
-      <button data-act="close" class="srb-close" title="Cerrar (Esc)">×</button>`;
+      <button data-act="close" class="srb-close ui-close" title="Cerrar (Esc)">×</button>`;
     document.body.appendChild(bar);
     bar.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
@@ -5626,7 +5626,7 @@ function redrawMarkers() {
       <span class="stems-marker-flag" title="Arrastra para mover · click derecho para opciones">${SVG_FLAG}</span>
       <span class="stems-marker-label">${escapeHtml(m.label)}</span>
       ${effSectionKey ? `<span class="stems-marker-key" title="Tonalidad de esta sección">${escapeHtml(effSectionKey)}</span>` : ''}
-      <button class="stems-marker-remove" title="Quitar">×</button>
+      <button class="stems-marker-remove ui-remove" title="Quitar">×</button>
     `;
     el.querySelector('.stems-marker-remove').onclick = (e) => {
       e.stopPropagation();
@@ -6356,7 +6356,7 @@ function pickSongAndSlot({ withSlot = true, title = 'Asignar mezcla a…', hint 
       <div class="stems-assign-modal" role="dialog" aria-modal="true" aria-label="Asignar mezcla a una canción">
         <div class="sam-head">
           <span class="sam-title">${esc(title)}</span>
-          <button class="sam-close" aria-label="Cerrar">&times;</button>
+          <button class="sam-close ui-close" aria-label="Cerrar">&times;</button>
         </div>
         ${hint ? `<div class="sst-sub">${esc(hint)}</div>` : ''}
         <div class="sam-slot" role="group" aria-label="Slot destino" ${withSlot ? '' : 'hidden'}>

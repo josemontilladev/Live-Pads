@@ -226,7 +226,7 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
     <div class="stems-assign-modal sst-modal" role="dialog" aria-modal="true" aria-label="Pistas de la canción">
       <div class="sam-head">
         <span class="sam-title">Pistas de «${esc(song.title || 'Canción')}»</span>
-        <button class="sam-close" aria-label="Cerrar">&times;</button>
+        <button class="sam-close ui-close" aria-label="Cerrar">&times;</button>
       </div>
       <div class="sst-sub">Marca las pistas que quieres oír y cárgalas al timeline. Ahí puedes silenciar, poner en solo o ajustar el volumen de cada una mientras practicas.</div>
       <div class="sst-folder">
@@ -283,7 +283,7 @@ export function openSongStemsDialog(song, { onLoad } = {}) {
             <span class="sst-kind">${esc(STEM_KIND_BADGE[st.kind] || 'PISTA')}</span>
             ${local.has(livepadsRel(st.url)) ? '<span class="sst-loc is-local" title="Ya está en esta PC">✓ En esta PC</span>' : '<span class="sst-loc" title="Solo está en la nube: descárgala para tenerla aquí">☁ En la nube</span>'}
           </span>
-          <button type="button" class="sst-del" data-del title="Quitar esta pista de la canción">&times;</button>
+          <button type="button" class="sst-del ui-remove" data-del title="Quitar esta pista de la canción">&times;</button>
         </label>`).join('');
     }
     countEl.textContent = stems.length ? `${selected.size} de ${stems.length} seleccionadas` : '';
