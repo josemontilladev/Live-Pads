@@ -928,3 +928,5 @@
 .stl-pv-from { flex: none; font-size: 11px; font-weight: 650; color: var(--accent); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .stl-eq i { animation: none; height: 8px; } }
 .stl-loop-title .stl-pv-from { margin-left: 6px; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent); vertical-align: 1px; }
+.stl-foot label[hidden], .stl-foot-hint[hidden] { display: none !important; }
+.stl-foot[hidden] { display: none !important; }

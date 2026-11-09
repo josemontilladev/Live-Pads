@@ -125,16 +125,16 @@ export function mountLibraryPanel(host, api) {
     </div>
     <div class="stl-list" data-ref="list"></div>
     <footer class="stl-foot">
-      <label>Repetir
+      <label hidden>Repetir
         <select data-ref="repeats" aria-label="Repeticiones al agregar">
           <option value="1">1 vez</option><option value="2">2 veces</option>
           <option value="4" selected>4 veces</option><option value="8">8 veces</option>
         </select>
       </label>
-      <label class="stl-same" title="Activado: cada loop se suma a la pista de su instrumento (una pista de batería, una de bajo…). Desactivado: cada loop crea su propia pista.">
+      <label class="stl-same" hidden title="Activado: cada loop se suma a la pista de su instrumento (una pista de batería, una de bajo…). Desactivado: cada loop crea su propia pista.">
         <input type="checkbox" data-ref="same" checked> Sumar a la pista de su instrumento
       </label>
-      <span class="stl-foot-hint">Arrastra un loop a un compás o usa <b>+</b> para el cursor.</span>
+      <span class="stl-foot-hint" hidden>Arrastra un loop a un compás o usa <b>+</b> para el cursor.</span>
       <span class="stl-foot-plan" data-ref="plan" hidden>Plan Gratis: usa los loops <b>GRATIS</b>. Los <b>PRO</b>, importar tus audios y exportar son parte de Pro.</span>
     </footer>
     </div>`;
@@ -975,7 +975,7 @@ export function mountLibraryPanel(host, api) {
     setBusy(loop.id, true);
     try {
       // Una pista de canción completa (multitrack) entra una sola vez, no 4.
-      await api.addLoop(loop, { atSec, repeats: loop.bars > 16 ? 1 : getRepeats(), sameTrack: opts.sameTrack ?? getSameTrack() });
+      await api.addLoop(loop, { atSec, repeats: loop.bars > 16 ? 1 : getRepeats(), sameTrack: opts.sameTrack ?? (loop.bars > 16 ? false : getSameTrack()) });
       markRecent(loop.id);
       markRecentPack(loop.pack_id);
       state.localAll.add(loop.id);
@@ -1204,6 +1204,9 @@ export function mountLibraryPanel(host, api) {
     setCollapsed(false);
     renderProject();
     ref('plan').hidden = api.canUsePro();
+    // El pie solo queda para el aviso del plan Gratis (Repetir / Sumar ya no aplican).
+    const foot = el.querySelector('.stl-foot');
+    if (foot) foot.hidden = ref('plan').hidden;
     if (!isLoggedIn()) { renderLoggedOut(); return; }
     // «Armar por secciones» retirado del panel (se queda oculto).
     if (!state.loaded) {
