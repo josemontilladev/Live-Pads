@@ -28,12 +28,40 @@ function payloadFrom(card) {
   if (!card) return null;
   const content = card.querySelector('.lyrics-text-content');
   const key = (card.querySelector('.gi-key-chip, .gi-chip--key') || {}).textContent || '';
+  const box = card.closest('#gi-songs-container, #service-songs-container');
   return {
     title: (card.querySelector('.gi-song-title') || {}).textContent || '',
     artist: (card.querySelector('.gi-song-artist') || {}).textContent || '',
     key: key.trim(),
     html: content ? content.innerHTML : '',
+    // De qué tarjeta viene (para «Editar» / «Pantalla completa» y refrescar tras editar).
+    ref: box ? (card.dataset.serviceId != null
+      ? { box: box.id, attr: 'data-service-id', id: card.dataset.serviceId }
+      : { box: box.id, attr: 'data-song-id', id: card.dataset.songId }) : null,
   };
+}
+function findCard(ref) {
+  if (!ref || ref.id == null) return null;
+  return document.querySelector(`#${ref.box} .gi-song-item[${ref.attr}="${CSS.escape(String(ref.id))}"]`);
+}
+// Mientras el panel está abierto, se vigila su tarjeta: al guardar la letra en el editor
+// la tarjeta se vuelve a pintar y el panel se actualiza solo.
+let cardObs = null;
+function watchCard() {
+  if (cardObs) { cardObs.disconnect(); cardObs = null; }
+  const card = current && findCard(current.ref);
+  if (!card || !overlay) return;
+  cardObs = new MutationObserver(() => {
+    const fresh = payloadFrom(findCard(current && current.ref));
+    if (fresh && fresh.html !== current.html) { current = fresh; paint(); }
+  });
+  cardObs.observe(card, { childList: true, subtree: true, characterData: true });
+}
+function clickInCard(action) {
+  const card = current && findCard(current.ref);
+  const b = card && card.querySelector(`[data-action="${action}"]`);
+  if (b) b.click();
+  else window.showToast?.('Abre la canción desde la lista (Librería o Servicio) para editar su letra.', 'info');
 }
 
 function saveGeom() {
@@ -106,6 +134,8 @@ function open(data) {
             <button type="button" class="lyp-btn" data-do="bigger" title="Letra más grande" aria-label="Letra más grande">A+</button>
             <button type="button" class="lyp-btn" data-do="chords" title="Mostrar u ocultar los acordes">Acordes</button>
             <button type="button" class="lyp-btn" data-do="follow" title="Cambiar sola a la canción que suena">Seguir</button>
+            <button type="button" class="lyp-btn" data-do="edit" title="Editar la letra y los acordes">Editar</button>
+            <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)">Pantalla completa</button>
             <button type="button" class="lyp-btn" data-do="screen" title="Abrir también en una ventana aparte, para llevarla a otra pantalla (TV, segundo monitor)">Otra pantalla</button>
           </div>
           <button class="tun-close" type="button" data-do="close" aria-label="Cerrar">✕</button>
@@ -129,17 +159,21 @@ function open(data) {
       else if (w === 'chords') { prefs.chords = !prefs.chords; savePrefs(); paintPrefs(); }
       else if (w === 'follow') { prefs.follow = !prefs.follow; savePrefs(); paintPrefs(); window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow); }
       else if (w === 'screen') window.electronAPI?.lyricsWindowShow?.(current);
+      else if (w === 'edit') clickInCard('edit-lyrics');
+      else if (w === 'fs') clickInCard('lyrics-fullscreen');
     });
     popModal = pushModal(() => close());
     requestAnimationFrame(() => overlay && overlay.classList.add('open'));
   }
   paint();
   panel.querySelector('.lyp-body').scrollTop = 0;
+  watchCard();
 }
 
 function close() {
   if (!overlay) return;
   saveGeom();
+  if (cardObs) { cardObs.disconnect(); cardObs = null; }
   if (popModal) { popModal(); popModal = null; }
   overlay.classList.remove('open');
   const node = overlay; overlay = null; panel = null;
@@ -155,7 +189,13 @@ export function initLyricsOverlay() {
     closeAllLyrics();   // el desplegable (oculto en Pads) no se queda «abierto»
   });
   // «Letra» de la barra del espectro (liveLyrics.js) → la canción activa, en el panel.
-  window.addEventListener('livepads:open-lyrics', (e) => { if (e.detail) open(e.detail); });
+  window.addEventListener('livepads:open-lyrics', (e) => {
+    if (!e.detail) return;
+    // Para «Editar»: la tarjeta de la canción activa, si está en la lista.
+    const card = document.querySelector('#panel-setlist .gi-song-item.active-song');
+    const fromCard = card && payloadFrom(card);
+    open({ ...e.detail, ref: fromCard ? fromCard.ref : null });
+  });
   // Cambia la canción que suena → el panel (y la ventana de otra pantalla) la siguen.
   let lastId = null;
   window.addEventListener('livepads:song-state', () => {
@@ -166,7 +206,7 @@ export function initLyricsOverlay() {
       lastId = id;
       if (!prefs.follow) return;
       const data = payloadFrom(card);
-      if (overlay) { current = data; paint(); panel.querySelector('.lyp-body').scrollTop = 0; }
+      if (overlay) { current = data; paint(); panel.querySelector('.lyp-body').scrollTop = 0; watchCard(); }
       window.electronAPI?.lyricsWindowFollow?.(data);
     });
   });
