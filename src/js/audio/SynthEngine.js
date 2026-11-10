@@ -30,7 +30,8 @@ export class SynthEngine {
     this.currentDrumPack = null;
     this.currentPadBank = null; // active PAD_BANKS entry
     this.padMinor = false;      // tonalidades menores (solo bancos con `minor`)
-    this._minorLoops = {};      // bank.id → Promise<{ Am: [inicio, fin], … }>
+    this._loopInfo = {};        // url de loops.json → Promise<{ loops, sampleRate } | null>
+    this._padUsed = new WeakMap(); // buffer → última vez que sonó (WeakMap: no retiene buffers ya liberados)
     this._clickBuffers = {};
     this._padAmbBuffers = {};    // bankId_note -> AudioBuffer
     this._crossfadeDur = 2.0;    // s — duración del crossfade al cambiar de pad (configurable)
@@ -197,9 +198,10 @@ export class SynthEngine {
     }));
     if (this.currentPadBank !== bank) return;
 
-    // Phase 2: sequential decode of the rest, breathing between each.
+    // Phase 2: sequential decode of the rest, breathing between each (hasta el tope de memoria).
     for (const n of REST) {
       if (this.currentPadBank !== bank) break;
+      if (this._padBytes() >= SynthEngine.PAD_BUDGET_BYTES * 0.92) break;
       await this._ensurePadAmb(n);
       await new Promise(r => setTimeout(r, 50));
     }
@@ -305,11 +307,11 @@ export class SynthEngine {
         const buf = await this.ctx.decodeAudioData(ab);
         // Puntos de bucle: los exactos del banco (menores) o, si no, sin el
         // silencio que el MP3 deja en los bordes (evita el microcorte al repetir).
-        if (minor) {
-          // loops.json va en samples de SU frecuencia (44,1 kHz); el buffer puede
-          // estar a 48 kHz → se guarda en segundos.
-          const info = await this._loadMinorLoops(bank);
-          const lp = info && info.loops[`${simple}m`];
+        {
+          // Puntos de bucle exactos (mayores y menores). loops.json va en samples de
+          // SU frecuencia (44,1 kHz); el buffer puede estar a 48 kHz → en segundos.
+          const info = await this._loadLoops(bank, minor);
+          const lp = info && info.loops[minor ? `${simple}m` : fileName];
           if (lp) {
             const sec = [lp[0] / info.sampleRate, lp[1] / info.sampleRate];
             if (sec[1] <= buf.duration + 1e-3) buf.__loop = sec;
@@ -319,11 +321,13 @@ export class SynthEngine {
 
         // Store for this bank + key
         this._padAmbBuffers[cacheKey] = buf;
+        this._padUsed.set(buf, this._padUsed.get(buf) || 1);
         // Also store for enharmonic neighbor if same bank
         for (const [k, v] of Object.entries(noteToId)) {
           if (v === id) this._padAmbBuffers[`${bank.id}_${minor ? 'm_' : ''}${k}`] = buf;
         }
 
+        this._trimPadCache();
         console.log('Pad Amb loaded:', path);
       } catch(e) {
         console.warn('Pad Amb not loaded:', path, e.message);
@@ -336,14 +340,43 @@ export class SynthEngine {
     await loadPromise;
   }
 
-  _loadMinorLoops(bank) {
-    if (!bank.minor || !bank.minor.loops) return Promise.resolve(null);
-    if (!this._minorLoops[bank.id]) {
-      this._minorLoops[bank.id] = fetch(`${bank.folder}${bank.minor.folder}${bank.minor.loops}`)
+  // Puntos de bucle exactos del banco (loops.json junto a los MP3; los menores, en su carpeta).
+  _loadLoops(bank, minor) {
+    const file = minor ? (bank.minor && bank.minor.loops && `${bank.folder}${bank.minor.folder}${bank.minor.loops}`)
+      : (bank.loops && `${bank.folder}${bank.loops}`);
+    if (!file) return Promise.resolve(null);
+    if (!this._loopInfo[file]) {
+      this._loopInfo[file] = fetch(file)
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => (j && j.loops ? { loops: j.loops, sampleRate: j.sampleRate || 44100 } : null)).catch(() => null);
     }
-    return this._minorLoops[bank.id];
+    return this._loopInfo[file];
+  }
+
+  // Tope de memoria de los pads decodificados (equipos modestos primero). Un pad de 75 s
+  // mono a 48 kHz ocupa ~14 MB; estéreo, ~29 MB. Al pasarse, se liberan los menos usados
+  // (nunca el que está sonando); si vuelven a pedirse, se decodifican de nuevo.
+  static get PAD_BUDGET_BYTES() { return 190 * 1024 * 1024; }
+  _padBytes() {
+    const seen = new Set();
+    let total = 0;
+    for (const b of Object.values(this._padAmbBuffers)) {
+      if (b && !seen.has(b)) { seen.add(b); total += b.length * b.numberOfChannels * 4; }
+    }
+    return total;
+  }
+  _trimPadCache() {
+    const budget = SynthEngine.PAD_BUDGET_BYTES;
+    if (this._padBytes() <= budget) return;
+    const playing = new Set((this.activePadNodes || []).map((n) => n.src && n.src.buffer).filter(Boolean));
+    const bufs = [...new Set(Object.values(this._padAmbBuffers).filter(Boolean))]
+      .filter((b) => !playing.has(b))
+      .sort((a, b) => (this._padUsed.get(a) || 0) - (this._padUsed.get(b) || 0));
+    for (const b of bufs) {
+      if (this._padBytes() <= budget) break;
+      for (const [k, v] of Object.entries(this._padAmbBuffers)) if (v === b) delete this._padAmbBuffers[k];
+      this._padUsed.delete(b);
+    }
   }
 
   // Bordes en silencio (relleno del MP3): se salta al repetir. Solo mira los extremos.
@@ -455,6 +488,7 @@ export class SynthEngine {
 
   _playBufferPad(buffer, attack = 0.6) {
     const now = this.ctx.currentTime;
+    this._padUsed.set(buffer, now + 1);
     const src  = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.loop   = true;

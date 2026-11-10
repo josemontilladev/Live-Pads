@@ -1,0 +1,54 @@
+{
+ "sampleRate": 44100,
+ "note": "Puntos de bucle exactos (en samples del MP3 decodificado a 44,1 kHz): [inicio, fin)",
+ "loops": {
+  "Reawaken Worship Pads - Organic - 01 A": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 02 Bb": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 03 B": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 04 C": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 05 Db": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 06 D": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 07 Eb": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 08 E": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 09 F": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 10 Gb": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 11 G": [
+   5515,
+   3313015
+  ],
+  "Reawaken Worship Pads - Organic - 12 Ab": [
+   5515,
+   3313015
+  ]
+ }
+}

@@ -108,19 +108,22 @@ export const PAD_BANKS = [
     id: 'foundations', name: 'Foundations Pad',
     desc: 'Pad base sólido y profundo', color: '#1e3a6e',
     folder: P + 'Fundations Pad/',
-    pattern: 'Reawaken Worship Pads - Foundations - ' // suffix like '04 C.mp3'
+    pattern: 'Reawaken Worship Pads - Foundations - ', // suffix like '04 C.mp3'
+    loops: 'loops.json' // bucles sin corte de 75 s: puntos de bucle exactos
   },
   {
     id: 'organic', name: 'Organic Pad',
     desc: 'Ambiente orgánico y cálido', color: '#b45309',
     folder: P + 'Organic Pad/',
-    pattern: 'Reawaken Worship Pads - Organic - ' // suffix like '04 C.mp3'
+    pattern: 'Reawaken Worship Pads - Organic - ', // suffix like '04 C.mp3'
+    loops: 'loops.json'
   },
   {
     id: 'chris_rocha', name: 'Pad Chris Rocha',
     desc: 'Estilo profesional Chris Rocha', color: '#7c3aed',
     folder: P + 'Pad Chris Rocha/',
     pattern: '', // direct like 'C.mp3'
+    loops: 'loops.json',
     // Tonalidades menores: bucles sin corte (Menores/Am.mp3…) con sus puntos de
     // bucle exactos en loops.json (el MP3 añade relleno al principio y al final).
     minor: { folder: 'Menores/', loops: 'loops.json' }
