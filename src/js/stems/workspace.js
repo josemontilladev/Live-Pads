@@ -4966,7 +4966,7 @@ function wireTrackSelection(root) {
 
   document.addEventListener('keydown', (e) => {
     const ws = document.getElementById('workspace-stems');
-    if (!ws || ws.offsetParent === null) return;   // Stems no visible
+    if (!ws || document.body.dataset.workspace !== 'stems') return;   // Stems no visible
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
     // "?" abre la lista de atajos del timeline.

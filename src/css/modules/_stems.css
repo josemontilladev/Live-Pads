@@ -4,23 +4,30 @@
    #body but the Pads-only elements (stage, track player, etc.) don't
    bleed into the Stems workspace. */
 
-body[data-workspace="stems"] #stage,
-body[data-workspace="stems"] #track-player-bar,
-body[data-workspace="stems"] #now-playing-banner,
 body[data-workspace="stems"] #pad-bank-picker,
 body[data-workspace="stems"] #kit-bank-picker,
 body[data-workspace="stems"] #midi-learn-overlay {
   display: none !important;
 }
-/* #body is a flex item that holds the Pads layout. When all its in-flow
-   children are hidden we want it to collapse so #workspace-stems takes the
-   full vertical space. The #sidebar inside #body is position:fixed so it
-   remains reachable from any workspace. */
-body[data-workspace="stems"] #body {
-  flex: 0 0 0;
-  min-height: 0;
-  height: 0;
-  overflow: visible;
+/* Cambio de pantalla instantáneo: Pads y Stems ocupan la MISMA celda (grid) y la
+   pantalla oculta no se desmonta (display:none obligaba a recalcular estilos y
+   diseño de miles de nodos al volver): se «congela» con content-visibility:hidden,
+   que conserva su diseño ya calculado y deja de pintarla. #body nunca cambia de
+   tamaño, así que al volver no hay que recolocar nada. El #sidebar (fixed) vive en
+   #body y sigue accesible desde Stems porque #body en sí no se oculta. */
+#app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+#body, #workspace-stems { grid-area: 2 / 1; min-height: 0; min-width: 0; }
+#stage, #now-playing-banner, #seq-wave, #track-player-bar { contain-intrinsic-size: auto none; }
+body[data-workspace="stems"] #stage,
+body[data-workspace="stems"] #now-playing-banner,
+body[data-workspace="stems"] #seq-wave,
+body[data-workspace="stems"] #track-player-bar {
+  content-visibility: hidden;
+  visibility: hidden;      /* su propio fondo tampoco (la barra lleva z-index alto como item flex) */
 }
 
 /* ── Workspace switcher with sliding indicator ──────────────────── */
@@ -90,11 +97,18 @@ body[data-workspace="stems"] #body {
 
 /* ── Stems workspace shell ──────────────────────────────────────── */
 #workspace-stems {
-  flex: 1;
   display: flex;
-  min-height: 0;
+  position: relative;
+  z-index: 2;              /* encima de #body (misma celda); el #sidebar (fixed) va por encima */
+  background: var(--bg-main);
 }
-#workspace-stems.hidden { display: none; }
+/* Oculto = congelado (no display:none): al volver, su diseño sigue calculado. */
+#workspace-stems.hidden {
+  display: flex !important;
+  content-visibility: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
 
 /* Bento layout: the shell is a padded container on the app's base
    background; each major area (control deck, timeline, console) is a

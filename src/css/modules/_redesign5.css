@@ -64,7 +64,6 @@
   .kbd-hint { font-size: 9px; padding: 1px 5px; top: 6px; right: 6px; }
 }
 @media (max-height: 640px) {
-  #panel-metro .hm-section--sounds .hm-clickseq { display: none; }
   #mixer-bar .mx-title { display: none; }
   .key-indicator { display: none !important; }
   #panel-keys { padding: 8px; }
@@ -141,7 +140,6 @@
   #panel-metro .hm-bpm { grid-area: bpm; min-width: 0; }
   #panel-metro .hm-compas { grid-area: compas; display: flex; flex-direction: row; align-items: center; gap: 8px; }
   #panel-metro .hm-section--sounds { grid-area: sounds; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; align-items: center; min-width: 0; }
-  #panel-metro .hm-section--sounds .hm-clickseq { font-size: 10.5px; line-height: 1.15; }
   #panel-metro .hm-section--sounds .metro-dropdown { min-width: 0; width: 100%; }
   #panel-metro .metro-mult-row { display: flex; gap: 4px; }
 }
@@ -155,5 +153,5 @@
 /* La onda de Pads no existe en Stems (su reproductor es otro). */
 /* (antes body:has(#workspace-stems:not(.hidden)): un :has() en body obligaba a revisar
    los estilos de TODA la página en cualquier cambio del DOM → tirones en portátiles) */
-body[data-workspace="stems"] #seq-wave { display: none !important; }
+/* (se congela con content-visibility en _stems.css: sin display:none, que obligaba a rehacer su diseño) */
 @media (max-width: 1300px) { #panel-metro .hm-compas .metro-sig-select { min-width: 68px; width: 68px; } }

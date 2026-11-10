@@ -620,6 +620,12 @@ export function mountLibraryPanel(host, api) {
   const PVIEW_KEY = 'livepads-stl-packs-view';
   let packsView = 'grid';
   try { if (localStorage.getItem(PVIEW_KEY) === 'list') packsView = 'list'; } catch (_) {}
+  // Filtro del navegador de packs: todos · favoritos (♥) · descargados en este equipo.
+  const PFILTER_KEY = 'livepads-stl-packs-filter';
+  let packsFilter = 'all';
+  try { const f = localStorage.getItem(PFILTER_KEY); if (f === 'fav' || f === 'local') packsFilter = f; } catch (_) {}
+  const isPackHere = (pid) => { const c = packStatus(pid).cls; return c === 'local' || c === 'part'; };
+  const packPasses = (p, f = packsFilter) => f === 'fav' ? favPacks.has(p.id) : f === 'local' ? isPackHere(p.id) : true;
   function sortedPacks() {
     const rec = new Map(recentPacks.map((id, i) => [id, i]));
     return state.packs.slice().sort((a, b) => {
@@ -641,12 +647,18 @@ export function mountLibraryPanel(host, api) {
     } else {
       ref('packs').innerHTML = `
         <div class="stl-pbar">
-          <span class="stl-pbar-k">Packs <b>${state.packs.length}</b></span>
+          <div class="stl-pfilter ui-seg" role="group" aria-label="Mostrar packs">
+            ${[['all', 'Todos'], ['fav', 'Favoritos'], ['local', 'Descargados']].map(([f, t]) => {
+              const n = state.packs.filter((p) => packPasses(p, f)).length;
+              const tip = f === 'local' ? ' title="Packs (o parte de ellos) ya bajados a este equipo: funcionan sin internet"' : f === 'fav' ? ' title="Packs marcados con ♥"' : '';
+              return `<button type="button" class="stl-pf ui-seg-btn${packsFilter === f ? ' is-on' : ''}" data-act="pfilter" data-f="${f}" aria-pressed="${packsFilter === f}"${tip}>${t} <b>${n}</b></button>`;
+            }).join('')}
+          </div>
           <div class="stl-pview" role="group" aria-label="Ver packs como">
-            <button type="button" class="sb-icon${packsView === 'grid' ? ' is-on' : ''}" data-act="pview" data-v="grid" title="Cuadrícula" aria-label="Ver en cuadrícula" aria-pressed="${packsView === 'grid'}">
+            <button type="button" class="ui-btn ui-btn--icon ui-btn--sm${packsView === 'grid' ? ' is-on' : ''}" data-act="pview" data-v="grid" title="Cuadrícula" aria-label="Ver en cuadrícula" aria-pressed="${packsView === 'grid'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
             </button>
-            <button type="button" class="sb-icon${packsView === 'list' ? ' is-on' : ''}" data-act="pview" data-v="list" title="Lista" aria-label="Ver en lista" aria-pressed="${packsView === 'list'}">
+            <button type="button" class="ui-btn ui-btn--icon ui-btn--sm${packsView === 'list' ? ' is-on' : ''}" data-act="pview" data-v="list" title="Lista" aria-label="Ver en lista" aria-pressed="${packsView === 'list'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14" aria-hidden="true"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>
             </button>
           </div>
@@ -802,24 +814,37 @@ export function mountLibraryPanel(host, api) {
     const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const q = norm(ref('text').value).split(/\s+/).filter(Boolean);
     const packs = sortedPacks().filter((p) => {
+      if (!packPasses(p)) return false;
       const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
       return q.every((w) => hay.includes(w));
     });
     const list = ref('list');
-    if (!packs.length) { list.innerHTML = '<div class="stl-empty">Ningún pack coincide con esa canción o artista.</div>'; return; }
+    if (!packs.length) {
+      const msg = q.length ? 'Ningún pack coincide con esa canción o artista.'
+        : packsFilter === 'fav' ? 'Aún no tienes packs favoritos. Toca el ♥ de un pack para tenerlo siempre a mano aquí.'
+        : packsFilter === 'local' ? 'Todavía no hay packs en este equipo. Los que uses o descargues aparecerán aquí y funcionarán sin internet.'
+        : 'No hay packs.';
+      list.innerHTML = `<div class="stl-empty">${msg}</div>`;
+      return;
+    }
     const count = (pid) => state.catalog.filter((l) => l.pack_id === pid).length;
     list.innerHTML = `<div class="stl-pgrid stl-pgrid--${packsView}">` + packs.map((p) => {
       const st = packStatus(p.id);
       const n = count(p.id);
       const sub = p.artist || packMeta(p.id) || '';
-      return `<button type="button" class="stl-pcard" data-pick-pack="${esc(p.id)}" title="${esc(p.title)}${p.artist ? ' — ' + esc(p.artist) : ''}">
-        <span class="stl-pcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}${favPacks.has(p.id) ? `<i class="stl-pk-fav">${SVG_HEART}</i>` : ''}</span>
-        <span class="stl-pcard-txt">
-          <b>${esc(p.title)}</b>
-          ${sub ? `<span class="stl-pcard-sub">${esc(sub)}</span>` : ''}
-          <span class="stl-pcard-foot">${n} ${n === 1 ? 'track' : 'tracks'} <span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span></span>
-        </span>
-      </button>`;
+      const fav = favPacks.has(p.id);
+      const favTxt = fav ? 'Quitar de favoritos' : 'Añadir a favoritos';
+      return `<div class="stl-pcard-wrap">
+        <button type="button" class="stl-pcard" data-pick-pack="${esc(p.id)}" title="${esc(p.title)}${p.artist ? ' — ' + esc(p.artist) : ''}">
+          <span class="stl-pcard-cover"${p.cover_path ? ` data-cover="${esc(p.id)}"` : ''}>${p.cover_path ? '' : SVG_BOOK}</span>
+          <span class="stl-pcard-txt">
+            <b>${esc(p.title)}</b>
+            ${sub ? `<span class="stl-pcard-sub">${esc(sub)}</span>` : ''}
+            <span class="stl-pcard-foot">${n} ${n === 1 ? 'track' : 'tracks'} <span class="stl-st stl-st--${st.cls}" title="${esc(st.tip)}">${esc(st.txt)}</span></span>
+          </span>
+        </button>
+        <button type="button" class="stl-pcard-fav${fav ? ' is-on' : ''}" data-act="fav-pack" data-pid="${esc(p.id)}" aria-pressed="${fav}" title="${favTxt}" aria-label="${favTxt}">${SVG_HEART}</button>
+      </div>`;
     }).join('') + '</div>';
     paintCovers();
   }
@@ -1183,6 +1208,13 @@ export function mountLibraryPanel(host, api) {
     if (act0 === 'view-all') { setView('all'); return; }
     if (act0 === 'packs') { openPacksWindow(); return; }
     if (act0 === 'load-batch') { loadBatch(); return; }
+    if (act0 === 'pfilter') {
+      packsFilter = actEl.dataset.f === 'fav' || actEl.dataset.f === 'local' ? actEl.dataset.f : 'all';
+      try { localStorage.setItem(PFILTER_KEY, packsFilter); } catch (_) {}
+      renderPacks();
+      return;
+    }
+    if (act0 === 'fav-pack') { toggleFavPack(actEl.dataset.pid); return; }
     if (act0 === 'pview') {
       packsView = actEl.dataset.v === 'list' ? 'list' : 'grid';
       try { localStorage.setItem(PVIEW_KEY, packsView); } catch (_) {}

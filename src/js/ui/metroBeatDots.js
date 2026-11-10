@@ -41,6 +41,19 @@ export function buildMetroBeatDots(n) {
   }
 }
 
+/** ¿Está acentuado el tiempo i? (lo que muestran los puntos). */
+export function isBeatAccented(i) { return !!(metroRef && metroRef.accents.includes(i)); }
+/** Acentúa (o no) el tiempo i y actualiza su punto, como al tocarlo. */
+export function setBeatAccent(i, on) {
+  if (!metroRef || isBeatAccented(i) === !!on) return;
+  metroRef.toggleAccent(i);
+  const d = dots[i];
+  if (d) {
+    d.classList.toggle('accent', !!on);
+    d.title = on ? 'Acento activo (Click para quitar)' : 'Click para acentuar';
+  }
+}
+
 // Called by the metronome scheduler on each beat — pulses the matching dot
 // and refreshes the live BPM display.
 export function onMetroBeat(beat) {

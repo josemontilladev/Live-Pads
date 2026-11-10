@@ -861,13 +861,26 @@
 .stl-pbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .stl-pbar-k { font-size: 11px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
 .stl-pbar-k b { color: var(--text); margin-left: 3px; }
-.stl-pview { display: inline-flex; gap: 4px; }
-.stl-pview .sb-icon {
-  width: 28px; height: 28px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+.stl-pview { display: inline-flex; gap: 4px; flex: none; }
+/* Filtro Todos · Favoritos · Descargados (segmentado, compacto) */
+/* aspecto: .ui-seg; aquí solo lo justo para que quepa en el panel */
+.stl-pfilter { flex: 0 1 auto; gap: 1px; overflow: hidden; }
+.stl-pf { flex: 0 1 auto; gap: 3px; padding: 0 7px; font-size: 11px; }
+/* Corazón para marcar el pack sin abrir menús (siempre visible si es favorito) */
+.stl-pcard-wrap { position: relative; display: flex; min-width: 0; }
+.stl-pcard-wrap > .stl-pcard { flex: 1 1 auto; }
+.stl-pcard-fav {
+  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;
+  display: inline-grid; place-items: center; cursor: pointer; color: #fff;
+  background: rgba(0, 0, 0, .5); opacity: 0; transition: opacity 150ms ease, transform 150ms ease, color 150ms ease;
 }
-.stl-pview .sb-icon:hover { color: var(--text); border-color: var(--border-strong); }
-.stl-pview .sb-icon.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.stl-pcard-wrap:hover .stl-pcard-fav, .stl-pcard-fav:focus-visible, .stl-pcard-fav.is-on { opacity: 1; }
+.stl-pcard-fav.is-on { color: #ff6b81; }
+.stl-pcard-fav:hover { transform: scale(1.1); }
+.stl-pcard-fav:active { transform: scale(.92); }
+.stl-pgrid--list .stl-pcard-fav { top: 50%; right: 8px; margin-top: -13px; background: transparent; color: var(--text-muted); }
+.stl-pgrid--list .stl-pcard-fav.is-on { color: #ff6b81; }
+.stl-pgrid--list .stl-pcard-wrap > .stl-pcard { padding-right: 40px; }
 
 .stl-pgrid { display: grid; gap: 10px; padding: 4px 2px 8px; }
 .stl-pgrid--grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }

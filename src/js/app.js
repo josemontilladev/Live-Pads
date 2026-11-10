@@ -98,6 +98,7 @@ import { updateFilterCounts as updateFilterCountsModule } from './ui/genreFilter
 import { openSidebarTab, closeAllOverlays } from './ui/overlays.js';
 import { initDrumGrid, buildDrumGrid, hitDrum, resolveDrumPad } from './ui/drumGrid.js';
 import { initMetroBeatDots, buildMetroBeatDots, onMetroBeat } from './ui/metroBeatDots.js';
+import { initMetroOptions } from './ui/metroOptions.js';
 import { initDrumVolumes, buildDrumVolumes } from './ui/drumVolumes.js';
 import { KEYS_FLAT, KEYS_SHARP, KEY_MAP_PADS, KEY_MAP_DRUMS } from './data/musicConstants.js';
 import { syncSlider } from './utils/sliders.js';
@@ -835,6 +836,7 @@ function bindAll() {
   window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
   bindCountInToggle();
+  initMetroOptions();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());

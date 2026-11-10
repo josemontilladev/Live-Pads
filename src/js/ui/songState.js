@@ -83,7 +83,7 @@ export function refreshActiveSongHighlights() {
         // Traer la canción activa a la vista — pero solo si NO está ya visible
         // (no tironear el scroll si la card ya se ve) y solo con la Librería
         // visible (no robar scroll mientras el usuario navega en otra pestaña).
-        if (giContainer.offsetParent !== null && !isCardInView(match, giContainer)) {
+        if (giContainer.offsetParent !== null && document.body.dataset.workspace !== 'stems' && !isCardInView(match, giContainer)) {
           match.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }
@@ -113,7 +113,7 @@ export function refreshActiveSongHighlights() {
           match.classList.add('active-song');
           // Igual que en la Librería: traer la card a la vista solo si no está
           // ya visible, y solo con el panel Servicio visible.
-          if (svcContainer.offsetParent !== null && !isCardInView(match, svcContainer)) {
+          if (svcContainer.offsetParent !== null && document.body.dataset.workspace !== 'stems' && !isCardInView(match, svcContainer)) {
             match.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }

@@ -1,3 +1,4 @@
-• Pads mucho más ligeros: los 3 bancos se convirtieron en bucles sin corte de 75 s. La app usa ~240 MB menos de memoria con Chris Rocha (y cientos menos con Foundations y Organic) y cada pad carga en un tercio del tiempo.
-• Tope de memoria para los pads: en equipos modestos se mantienen cargados los más usados y el resto se carga al pulsarlo (empieza a sonar al instante igual).
-• Instalador ~110 MB más pequeño.
+• Cambiar entre Pads y Stems es unas 4 veces más rápido: la pantalla que no usas queda «en pausa» con todo listo, sin rehacerse al volver.
+• Biblioteca de Stems: filtra los packs por Todos, Favoritos o Descargados (los que ya tienes en el equipo y funcionan sin internet), y marca tus favoritos con el ♥ de cada pack.
+• Metrónomo: nuevo botón «Opciones» con Acentuar el tiempo 1, Click + secuencia, Cuenta de entrada y la escritura de los tonos. Ahora se alcanzan en cualquier tamaño de pantalla.
+• Botones y selectores más uniformes en toda la app.

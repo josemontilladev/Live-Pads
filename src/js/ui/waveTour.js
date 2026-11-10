@@ -73,7 +73,8 @@ let scheduled = false;
 export function maybeStartWaveTour(root, opts) {
   if (scheduled || open) return;
   try { if (localStorage.getItem(DONE_KEY) === '1') return; } catch (_) { return; }
-  if (!root || root.offsetParent === null) return;
+  const shown = () => root.offsetParent !== null && document.body.dataset.workspace !== 'stems';
+  if (!root || !shown()) return;
   scheduled = true;
-  setTimeout(() => { if (root.offsetParent !== null && root.querySelector('.sw-pill')) startWaveTour(root, opts); else scheduled = false; }, 900);
+  setTimeout(() => { if (shown() && root.querySelector('.sw-pill')) startWaveTour(root, opts); else scheduled = false; }, 900);
 }

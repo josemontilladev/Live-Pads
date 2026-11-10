@@ -5,6 +5,14 @@
    .ui-close            Cerrar ventana/panel/modal (círculo 32 px, icono X)
    .ui-close--sm        Cerrar en avisos y filas compactas (24 px)
    .ui-remove           Quitar un elemento de una lista (22 px, rojo al pasar)
+   .ui-btn              Botón de pastilla (30 px): texto y/o icono
+     --primary            relleno de acento (la acción principal)
+     --ghost              sin fondo ni borde (acciones discretas)
+     --icon               círculo solo con icono
+     --sm                 compacto (26 px)
+     .is-on / .is-open    activado / con su menú abierto
+   .ui-seg + .ui-seg-btn  Selector segmentado (una opción a la vez, .is-on)
+     .ui-seg--accent      la opción elegida va rellena de acento
 
    La clase antigua de cada botón (tun-close, pl-close…) queda solo para su
    POSICIÓN; el aspecto lo pone el componente. El icono es siempre el mismo
@@ -78,6 +86,44 @@
 .ui-remove.ui-remove:active:not(:disabled) { transform: scale(.88) !important; transition-duration: 60ms !important; }
 .ui-remove.ui-remove:focus-visible { outline: 2px solid var(--accent) !important; outline-offset: 1px; }
 
+/* ── Botón (pastilla) ── */
+.ui-btn {
+  position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted);
+  font: inherit; font-size: 12px; font-weight: 650; line-height: 1; text-decoration: none;
+}
+.ui-btn svg { flex: none; }
+.ui-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+.ui-btn.is-open { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
+.ui-btn.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.ui-btn:disabled { opacity: .45; cursor: default; }
+.ui-btn--primary { background: linear-gradient(180deg, var(--accent2, var(--accent)), var(--accent)); border-color: transparent; color: var(--on-accent, #0a0a0a); }
+.ui-btn--primary:hover:not(:disabled) { color: var(--on-accent, #0a0a0a); border-color: transparent; filter: brightness(1.06); }
+.ui-btn--ghost { background: transparent; border-color: transparent; }
+.ui-btn--ghost:hover:not(:disabled) { background: var(--bg-hover); border-color: transparent; }
+.ui-btn--sm { height: 26px; padding: 0 10px; font-size: 11.5px; }
+.ui-btn--icon { width: 30px; padding: 0; }
+.ui-btn--icon.ui-btn--sm { width: 26px; }
+
+/* ── Selector segmentado ── */
+.ui-seg {
+  display: inline-flex; gap: 2px; padding: 2px; min-width: 0; border-radius: 999px;
+  background: var(--bg-card, rgba(255,255,255,.04)); border: 1px solid var(--border);
+}
+.ui-seg-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
+  height: 24px; padding: 0 9px; border: 0; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  background: transparent; color: var(--text-muted); font: inherit; font-size: 11.5px; font-weight: 650;
+  letter-spacing: 0; text-transform: none;
+}
+.ui-seg-btn:hover { color: var(--text); }
+.ui-seg-btn.is-on { background: var(--bg-hover); color: var(--text); }
+.ui-seg--accent .ui-seg-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a0a); }
+.ui-seg-btn b { font-weight: 700; font-size: .92em; opacity: .7; }
+.ui-seg-btn.is-on b { opacity: 1; color: var(--accent); }
+.ui-seg--accent .ui-seg-btn.is-on b { color: inherit; }
+
 /* ── Efectos comunes de todos los botones (pulsar y foco con teclado) ──
    Misma respuesta en toda la app: al pulsar se hunden un poco y con Tab
    muestran el mismo anillo. */
@@ -85,14 +131,16 @@
   .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
   .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
   .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
-  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn) {
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn,
+  .ui-btn, .ui-seg-btn) {
   transition: transform 180ms var(--ui-ease), background 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
 }
 :is(.action-btn, .icon-btn, .s-toggle, .stems-btn, .stems-tb-btn, .stems-zoom-btn, .stems-snap-btn,
   .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
   .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
   .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
-  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn):active:not(:disabled) {
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn,
+  .ui-btn, .ui-seg-btn):active:not(:disabled) {
   transform: scale(var(--press-scale, .95));
   transition-duration: 60ms;
 }
@@ -100,7 +148,8 @@
   .sb-icon, .lyp-btn, .svc-btn, .svc-back, .svc-mini-btn, .svc-chooser-new, .svc-edit-btn, .nsl-btn,
   .tap-btn, .metro-mult-btn, .master-mute-btn, .mx-collapse, .source-seg-btn, .ssl-slot-btn,
   .ssl-libfilter, .stems-mult-btn, .stb-btn, .tun-cal-btn, .lw-btn, .ssl-add,
-  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn):focus-visible {
+  .sb-btn, .mp-io, .mp-clear-all, .acc-btn, .cp-hotspot-btn, .cp-copy, .cp-toggle, .about-tour-btn,
+  .ui-btn, .ui-seg-btn):focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
@@ -112,20 +161,7 @@
 /* ── Pads: selector Mayor / Menor (junto a «Pad») ── */
 .bank-label--row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pad-mode[hidden] { display: none; }
-.pad-mode {
-  display: inline-flex; padding: 2px; gap: 2px; border-radius: 999px;
-  background: var(--bg-card, rgba(255,255,255,.04)); border: 1px solid var(--border);
-}
-.pad-mode-btn {
-  height: 22px; padding: 0 10px; border: 0; border-radius: 999px; cursor: pointer;
-  background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 650;
-  letter-spacing: 0; text-transform: none;
-  transition: background 150ms ease, color 150ms ease, transform 180ms var(--ui-ease);
-}
-.pad-mode-btn:hover { color: var(--text); }
-.pad-mode-btn.is-on { background: var(--accent); color: var(--on-accent, #0a0a0a); }
-.pad-mode-btn:active { transform: scale(.95); }
-.pad-mode-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pad-mode .ui-seg-btn { height: 22px; padding: 0 10px; font-size: 11px; }   /* aspecto: .ui-seg */
 /* En menor, cada tecla muestra su acorde: A → Am */
 body.pads-minor .key-btn > span:first-child::after { content: 'm'; }
 body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 'm'; }

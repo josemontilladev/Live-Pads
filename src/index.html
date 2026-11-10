@@ -115,9 +115,9 @@
         <div id="bank-section">
           <div class="bank-row">
             <div class="bank-label bank-label--row">Pad
-              <div class="pad-mode" id="pad-mode" role="group" aria-label="Tonalidad del pad" hidden>
-                <button type="button" class="pad-mode-btn is-on" data-mode="major" title="Pads en tonalidad mayor">Mayor</button>
-                <button type="button" class="pad-mode-btn" data-mode="minor" title="Pads en tonalidad menor (Am, Bm…)">Menor</button>
+              <div class="pad-mode ui-seg ui-seg--accent" id="pad-mode" role="group" aria-label="Tonalidad del pad" hidden>
+                <button type="button" class="pad-mode-btn ui-seg-btn is-on" data-mode="major" title="Pads en tonalidad mayor">Mayor</button>
+                <button type="button" class="pad-mode-btn ui-seg-btn" data-mode="minor" title="Pads en tonalidad menor (Am, Bm…)">Menor</button>
               </div>
             </div>
             <div class="bank-selector">
@@ -201,18 +201,34 @@
               <option value="digital">Digital</option>
               <option value="cowbell" selected>Cowbell</option>
             </select>
-            <select id="metro-notation-select" class="metro-dropdown" aria-label="Escribir los tonos con sostenidos o bemoles" title="Escribir los tonos con sostenidos o bemoles">
-              <option value="flats">Tonos ♭ (Db)</option>
-              <option value="sharps" selected>Tonos ♯ (C#)</option>
-            </select>
-            <label class="hm-clickseq" title="Reproducir también el metrónomo cuando hay una secuencia cargada (para secuencias sin click)">
-              <input type="checkbox" id="click-with-seq">
-              <span>Click + secuencia</span>
-            </label>
-            <label class="hm-clickseq" title="Cuenta de entrada: un compás de clicks antes de arrancar la secuencia">
-              <input type="checkbox" id="countin-toggle">
-              <span>Cuenta de entrada</span>
-            </label>
+            <button type="button" id="metro-opts-btn" class="metro-opts-btn ui-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="metro-opts" title="Opciones del metrónomo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="9" cy="7" r="2.4" fill="var(--bg-card)"/><circle cx="15" cy="17" r="2.4" fill="var(--bg-card)"/></svg>
+              <span>Opciones</span><i class="metro-opts-dot" aria-hidden="true"></i>
+            </button>
+            <!-- Opciones del metrónomo (se mueve a <body> al iniciar: popover fijo, siempre alcanzable) -->
+            <div id="metro-opts" class="metro-opts" role="dialog" aria-label="Opciones del metrónomo" hidden>
+              <div class="mo-title">Metrónomo</div>
+              <label class="mo-row">
+                <span class="mo-txt"><b>Acentuar el tiempo 1</b><small>El primer golpe de cada compás suena distinto.</small></span>
+                <input type="checkbox" class="mo-switch" id="metro-accent-one">
+              </label>
+              <label class="mo-row">
+                <span class="mo-txt"><b>Click + secuencia</b><small>Suena también con una secuencia cargada (para las que no traen click).</small></span>
+                <input type="checkbox" class="mo-switch" id="click-with-seq">
+              </label>
+              <label class="mo-row">
+                <span class="mo-txt"><b>Cuenta de entrada</b><small>Un compás de clicks antes de arrancar la secuencia.</small></span>
+                <input type="checkbox" class="mo-switch" id="countin-toggle">
+              </label>
+              <div class="mo-sep" role="separator"></div>
+              <label class="mo-row mo-row--select">
+                <span class="mo-txt"><b>Escribir los tonos</b><small>Con sostenidos o con bemoles.</small></span>
+                <select id="metro-notation-select" class="metro-dropdown" aria-label="Escribir los tonos con sostenidos o bemoles">
+                  <option value="sharps" selected>♯ (C#)</option>
+                  <option value="flats">♭ (Db)</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           <div class="hm-section hm-mix mx-relocated">
