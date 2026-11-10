@@ -129,3 +129,13 @@
 /* En menor, cada tecla muestra su acorde: A → Am */
 body.pads-minor .key-btn > span:first-child::after { content: 'm'; }
 body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 'm'; }
+
+/* ── Rendimiento: las tarjetas fuera de pantalla no se maquetan ni se pintan ──
+   (listas de ~120 canciones; el navegador solo trabaja las que se ven y las que se
+   acercan al hacer scroll). «auto» recuerda el alto real una vez medido. */
+#gi-songs-container > .gi-song-item,
+#service-songs-container > .gi-song-item,
+#stems-setlist-list > .ssl-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 60px;
+}

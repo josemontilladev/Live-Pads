@@ -170,7 +170,11 @@ export function songCardInnerHTML(song, opts) {
   // Los acordes de la letra siguen al tono del servicio: si hoy se toca en G, el
   // acordeón muestra los acordes en G. La letra guardada no se toca.
   const semis = overridden ? keyDelta(baseKey, liveKey) : 0;
-  const lyricsText = (semis) ? transposeAll(song.lyrics || '', semis, prefersFlats(liveKey)) : song.lyrics;
+  // La letra con acordes solo se dibuja (y se transpone) si el acordeón está abierto. Cerrada,
+  // la tarjeta guarda el texto en bruto en un <template> (inerte: sin nodos ni estilos) y
+  // ensureCardLyrics() la dibuja la primera vez que alguien la necesita. Antes, 120 canciones
+  // con su letra sumaban ~15 000 nodos ocultos que el navegador recalculaba en cada cambio.
+  const lyricsText = isLyricsOpen ? ((semis) ? transposeAll(song.lyrics || '', semis, prefersFlats(liveKey)) : song.lyrics) : null;
 
   // El texto (carátula + título/artista/meta) ocupa TODO el ancho arriba para
   // que nada se corte en la barra angosta de Pads. Los iconos van en una tira
@@ -202,9 +206,20 @@ export function songCardInnerHTML(song, opts) {
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="4 14 4 20 10 20"/><polyline points="20 10 20 4 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
         </button>
       </div>
-      <div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">
-        ${formatLyrics(lyricsText)}
-      </div>
+      ${lyricsText != null
+        ? `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">${formatLyrics(lyricsText)}</div>`
+        : `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}" data-lazy="1" data-semis="${semis || 0}" data-flats="${semis && prefersFlats(liveKey) ? 1 : 0}"></div><template class="gi-lyrics-src">${esc(song.lyrics || '')}</template>`}
     </div>
   `;
+}
+
+/** Dibuja la letra de una tarjeta si aún no se había dibujado (ver renderSongCard). */
+export function ensureCardLyrics(card) {
+  const c = card && card.querySelector('.lyrics-text-content[data-lazy]');
+  if (!c) return;
+  const tpl = card.querySelector('template.gi-lyrics-src');
+  const raw = tpl ? tpl.content.textContent : '';
+  const semis = Number(c.dataset.semis) || 0;
+  c.innerHTML = formatLyrics(semis ? transposeAll(raw, semis, c.dataset.flats === '1') : raw);
+  delete c.dataset.lazy;
 }

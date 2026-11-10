@@ -47,7 +47,7 @@ export class SynthEngine {
     // lados). Guardamos el diagnostico para poder avisarlo en la UI.
     this.outputInfo = forceStereoOutput(this.ctx);
     this.masterGain = this.ctx.createGain(); this.masterGain.gain.value = 1;
-    this.padGain    = this.ctx.createGain(); this.padGain.gain.value = 0.75;
+    this.padGain    = this.ctx.createGain(); this.padGain.gain.value = 0.75 * 0.75; // 75 % con la curva de setPadVolume
     this.padPanNode = this.ctx.createStereoPanner();
     this.lpfNode    = this.ctx.createBiquadFilter(); this.lpfNode.type = 'lowpass';  this.lpfNode.frequency.value = 18000;
     this.hpfNode    = this.ctx.createBiquadFilter(); this.hpfNode.type = 'highpass'; this.hpfNode.frequency.value = 20;
@@ -135,7 +135,9 @@ export class SynthEngine {
   }
 
   setMasterVolume(v) { if(this.masterGain) this.masterGain.gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
-  setPadVolume(v) { if(this.padGain) this.padGain.gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
+  // Curva de volumen percibido (v²): lineal, al 10 % el pad sonaba a -20 dB y «al mínimo se oía
+  // fuerte»; así el 10 % es -40 dB, el 50 % -12 dB y el 100 % queda igual.
+  setPadVolume(v) { if(this.padGain) { const x = Math.max(0, Math.min(1, v)); this.padGain.gain.setTargetAtTime(x * x, this.ctx.currentTime, .05); } }
   setPadPan(v)    { if(this.padPanNode) this.padPanNode.pan.value = v; }
   setLPF(hz, on)  { this.lpfNode.frequency.setTargetAtTime(on?hz:18000, this.ctx.currentTime, .05); }
   setHPF(hz, on)  { this.hpfNode.frequency.setTargetAtTime(on?hz:20, this.ctx.currentTime, .05); }

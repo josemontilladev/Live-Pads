@@ -12,6 +12,7 @@
 
 import { q, qa } from '../utils/dom.js';
 import { getGiCardBySongId } from './giList.js';
+import { ensureCardLyrics } from './songCard.js';
 import { getActiveServiceIndex, getServiceSongs } from '../data/service.js';
 import { refreshServiceMeta } from './serviceListView.js';
 import { isTrackPlaying, isTrackLoaded, getCurrentType } from '../audio/trackPlayer.js';
@@ -218,6 +219,7 @@ export function toggleLyricsAccordion(song, isService) {
   const attr = isService ? 'data-service-id' : 'data-song-id';
   const card = q(`${containerSel} .gi-song-item[${attr}="${CSS.escape(String(id))}"]`);
   if (card) {
+    ensureCardLyrics(card);
     const accordion = card.querySelector('.gi-lyrics-accordion');
     const btn = card.querySelector('.btn-lyrics');
     if (accordion) accordion.classList.add('open');

@@ -14,6 +14,7 @@
 import { closeAllLyrics } from './songState.js';
 import { pushModal } from './modalStack.js';
 import { closeButton } from './components.js';
+import { ensureCardLyrics } from './songCard.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
 const LS_PREFS = 'livepads-lyricspanel-prefs';
@@ -27,6 +28,7 @@ const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 /** Datos de la letra de una tarjeta de la lista. */
 function payloadFrom(card) {
   if (!card) return null;
+  ensureCardLyrics(card);
   const content = card.querySelector('.lyrics-text-content');
   const key = (card.querySelector('.gi-key-chip, .gi-chip--key') || {}).textContent || '';
   const box = card.closest('#gi-songs-container, #service-songs-container');
