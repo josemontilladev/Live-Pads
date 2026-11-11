@@ -379,7 +379,13 @@ function createWindow() {
   // The async call doesn't block window creation; loadFile() runs after,
   // and the fresh fetch lands well within the first paint.
   watchWindowHealth(mainWindow);
-  mainWindow.webContents.session.clearCache()
+  // La caché solo hay que vaciarla cuando CAMBIA la versión (para no servir CSS/JS de la
+  // anterior tras actualizar). Hacerlo en cada arranque era trabajo de más en todos los inicios.
+  const verFile = path.join(app.getPath('userData'), 'cache-version.txt');
+  let cachedFor = '';
+  try { cachedFor = fs.readFileSync(verFile, 'utf8').trim(); } catch (_) {}
+  const sameVersion = app.isPackaged && cachedFor === app.getVersion();
+  (sameVersion ? Promise.resolve() : mainWindow.webContents.session.clearCache().then(() => { try { fs.writeFileSync(verFile, app.getVersion()); } catch (_) {} }))
     .then(() => mainWindow.loadFile('src/index.html'))
     .catch((err) => {
       console.warn('Cache clear failed, loading anyway:', err);
@@ -844,6 +850,46 @@ function downloadFileTo(url, dest) {
 }
 
 const YT_DLP_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+const YT_DLP_SUMS_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS';
+
+// Los binarios que la app descarga y EJECUTA (yt-dlp, deno) se comprueban contra la
+// huella SHA-256 que publica su propio release: una descarga cortada o alterada por
+// el camino ya no llega a ejecutarse. Sin la huella (sin red, release raro) no se da
+// por buena: mejor no descargar ese día que ejecutar algo sin comprobar.
+function sha256OfFile(fp) {
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256');
+    fs.createReadStream(fp).on('data', (d) => h.update(d)).on('end', () => resolve(h.digest('hex'))).on('error', reject);
+  });
+}
+async function fetchText(url) {
+  const r = await net.fetch(url);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.text();
+}
+/** true solo si la huella del archivo coincide con la publicada para ese nombre. */
+async function verifyDownload(fp, sumsUrl, fileName) {
+  try {
+    const sums = await fetchText(sumsUrl);
+    // Con nombre: la línea «huella  nombre» exacta (SHA2-256SUMS de yt-dlp).
+    // Sin nombre: la única huella del archivo (el .sha256sum de deno).
+    let expected = null;
+    if (fileName) {
+      for (const line of sums.split(/\r?\n/)) {
+        const m = line.trim().match(/^([a-f0-9]{64})\s+\*?(.+)$/i);
+        if (m && m[2].trim() === fileName) { expected = m[1].toLowerCase(); break; }
+      }
+    } else {
+      const m = sums.match(/\b([a-f0-9]{64})\b/i);
+      if (m) expected = m[1].toLowerCase();
+    }
+    if (!expected) return false;
+    return (await sha256OfFile(fp)) === expected;
+  } catch (err) {
+    appLog('warn', `verificación de ${fileName || path.basename(fp)}: ${(err && err.message) || err}`);
+    return false;
+  }
+}
 
 async function ensureYtDlp(force = false) {
   const binDir = path.join(app.getPath('userData'), 'bin');
@@ -862,14 +908,19 @@ async function ensureYtDlp(force = false) {
       if (force || ageDays > 3) {
         const tmp = exe + '.new';
         await downloadFileTo(YT_DLP_URL, tmp);
-        if (fs.existsSync(tmp) && fs.statSync(tmp).size > 1_000_000) fs.renameSync(tmp, exe);
+        if (fs.existsSync(tmp) && fs.statSync(tmp).size > 1_000_000 && await verifyDownload(tmp, YT_DLP_SUMS_URL, 'yt-dlp.exe')) fs.renameSync(tmp, exe);
         else { try { fs.unlinkSync(tmp); } catch (_) {} }
       }
     } catch (_) { /* sin red o falló la actualización → usar el que hay */ }
     return exe;
   }
-  await downloadFileTo(YT_DLP_URL, exe);
-  if (!fs.existsSync(exe) || fs.statSync(exe).size < 1_000_000) throw new Error('No se pudo descargar el componente de YouTube.');
+  const fresh = exe + '.new';
+  await downloadFileTo(YT_DLP_URL, fresh);
+  if (!fs.existsSync(fresh) || fs.statSync(fresh).size < 1_000_000 || !(await verifyDownload(fresh, YT_DLP_SUMS_URL, 'yt-dlp.exe'))) {
+    try { fs.unlinkSync(fresh); } catch (_) {}
+    throw new Error('No se pudo descargar el componente de YouTube.');
+  }
+  fs.renameSync(fresh, exe);
   return exe;
 }
 
@@ -887,6 +938,7 @@ async function ensureDeno() {
   const zip = path.join(binDir, 'deno.zip');
   try {
     await downloadFileTo(DENO_URL, zip);
+    if (!(await verifyDownload(zip, DENO_URL + '.sha256sum', ''))) return null;   // sin huella válida no se descomprime ni se usa
     const { execFileSync } = require('child_process');
     execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
       `Expand-Archive -LiteralPath '${zip.replace(/'/g, "''")}' -DestinationPath '${binDir.replace(/'/g, "''")}' -Force`],
@@ -1033,10 +1085,22 @@ async function exportYoutubeCookies() {
   return ruta;
 }
 
+// Las cookies de la cuenta de Google NO se dejan en un archivo de texto en disco:
+// el archivo se escribe justo antes de llamar a yt-dlp y se borra al terminar.
+function removeYtCookiesFile() { try { fs.unlinkSync(ytCookiesFile()); } catch (_) {} }
+// ¿Hay sesión de YouTube en la app? (solo mira las cookies; no escribe nada)
+async function youtubeSessionActive() {
+  try {
+    const { session } = require('electron');
+    const cookies = await session.fromPartition(YT_PARTITION).cookies.get({ domain: '.youtube.com' });
+    return cookies.some((c) => /^(SID|__Secure-1PSID|__Secure-3PSID)$/.test(c.name));
+  } catch (_) { return false; }
+}
+
 // ¿Hay una sesión de YouTube conectada en la app?
 ipcMain.handle('youtube-account-status', async () => {
-  const ruta = await exportYoutubeCookies();
-  return { connected: !!ruta };
+  removeYtCookiesFile();   // limpia el archivo que dejaban las versiones anteriores
+  return { connected: await youtubeSessionActive() };
 });
 
 // Abre una ventana para iniciar sesión en YouTube. Se resuelve cuando el
@@ -1059,8 +1123,7 @@ ipcMain.handle('youtube-login', async () => {
   });
   await win.loadURL('https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F');
   await new Promise((resolve) => win.on('closed', resolve));
-  const ruta = await exportYoutubeCookies();
-  return { connected: !!ruta };
+  return { connected: await youtubeSessionActive() };
 });
 
 // Cierra la sesión de YouTube de la app (borra su partición y el fichero).
@@ -1134,6 +1197,7 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
       const dir = await getDenoDir();
       try { await runYtDlp(['--cookies', cookieFile], dir); done = true; }
       catch (e) { firstErr = (e && e.message) ? e.message : firstErr; }
+      finally { removeYtCookiesFile(); }
     }
   }
 
@@ -1160,6 +1224,7 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
         const extra = hadOwnCookies ? ['--cookies', await exportYoutubeCookies()] : [];
         try { await runYtDlp(extra, dir); done = true; }
         catch (e) { firstErr = (e && e.message) ? e.message : firstErr; }
+        finally { removeYtCookiesFile(); }
       }
     } catch (_) { /* sin red o falló la actualización */ }
   }
@@ -1175,7 +1240,7 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
       // sobreviven al puente IPC) y ofrece el botón de conectar la cuenta.
       msg = 'YouTube pide una cuenta para este video (pasa con las subidas oficiales de los sellos). Conecta tu cuenta de YouTube en la app y vuelve a intentarlo: se hace una sola vez.';
     } else if (authLike) {
-      msg = 'YouTube rechazó la descarga incluso con tu cuenta conectada. Suele ser un video con DRM o restringido: probá con otro enlace de la misma canción.'
+      msg = 'YouTube rechazó la descarga incluso con tu cuenta conectada. Suele ser un video con DRM o restringido: prueba con otro enlace de la misma canción.'
           + (browserErr ? ' (detalle: ' + browserErr.slice(-140) + ')' : '');
     } else {
       msg = firstErr.slice(-300);
@@ -1475,6 +1540,10 @@ const CONTENT_TYPES = {
 
 // Sube un archivo local a R2 con la URL prefirmada (PUT). Devuelve su tamaño.
 ipcMain.handle('r2-upload-file', async (_e, { url, relPath }) => {
+  // Solo se sube al almacenamiento de la app (R2): una URL cualquiera no puede recibir archivos del usuario.
+  let dest;
+  try { dest = new URL(url); } catch (_) { throw new Error('URL inválida'); }
+  if (dest.protocol !== 'https:' || !dest.hostname.endsWith('.r2.cloudflarestorage.com')) throw new Error('Destino de subida no permitido');
   const abs = libraryRelToAbs(relPath);
   if (!abs) throw new Error('Ruta no permitida: ' + relPath);
   const st = fs.statSync(abs);
@@ -2809,17 +2878,17 @@ app.whenReady().then(() => {
           return new Response(null, { status: 416, headers: { ...baseHeaders, 'Content-Range': `bytes */${total}` } });
         }
         const chunkSize = end - start + 1;
-        const buf = Buffer.alloc(chunkSize);
-        const fd = await fs.promises.open(filePath, 'r');
-        try { await fd.read(buf, 0, chunkSize, start); } finally { await fd.close(); }
-        return new Response(buf, {
+        // En flujo: un «bytes=N-» de un <audio> al saltar ya no reserva en memoria todo
+        // lo que queda del archivo en cada salto; se lee del disco según se consume.
+        const body = require('stream').Readable.toWeb(fs.createReadStream(filePath, { start, end }));
+        return new Response(body, {
           status: 206,
           headers: { ...baseHeaders, 'Content-Range': `bytes ${start}-${end}/${total}`, 'Content-Length': String(chunkSize) },
         });
       }
 
-      const buf = await fs.promises.readFile(filePath);
-      return new Response(buf, { status: 200, headers: { ...baseHeaders, 'Content-Length': String(total) } });
+      const body = require('stream').Readable.toWeb(fs.createReadStream(filePath));
+      return new Response(body, { status: 200, headers: { ...baseHeaders, 'Content-Length': String(total) } });
     } catch (e) {
       console.warn('livepads:// fetch failed for', request.url, e.message);
       return new Response('Not Found', { status: 404 });

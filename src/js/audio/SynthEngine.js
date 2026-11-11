@@ -10,6 +10,30 @@ const MASTER_MAKEUP = 2.2;
 // click tiene que CORTAR cuando toca toda la banda. Su limitador dedicado evita
 // que sature y que apriete los pads. Súbelo/bájalo aquí si hace falta.
 const CLICK_MAKEUP = 3.2;
+// Ajustes de nivel del camino sin retraso (batería y click), calibrados midiendo
+// las mismas muestras por el camino antiguo (limitador) y por el nuevo.
+const DRUM_TRIM = 0.7;
+const CLICK_TRIM = 0.25;
+
+// Recortador suave SIN retraso (a diferencia de DynamicsCompressor, que añade 6 ms):
+// transparente hasta 0,6 y, por encima, se curva con suavidad hasta un techo de 0,95.
+// La entrada se reduce a la mitad para que la curva cubra señales de hasta ±2.
+// Sin sobremuestreo a propósito: el sobremuestreo también añade retraso.
+let _softCurve = null;
+function softClipper(ctx) {
+  if (!_softCurve) {
+    const n = 8193, T = 0.6, C = 0.95;
+    _softCurve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = ((i / (n - 1)) * 2 - 1) * 2, a = Math.abs(x);
+      _softCurve[i] = Math.sign(x) * (a <= T ? a : T + (C - T) * Math.tanh((a - T) / (C - T)));
+    }
+  }
+  const input = ctx.createGain(); input.gain.value = 0.5;
+  const output = ctx.createWaveShaper(); output.curve = _softCurve; output.oversample = 'none';
+  input.connect(output);
+  return { input, output };
+}
 
 import { forceStereoOutput } from './stereoOut.js';
 
@@ -86,7 +110,18 @@ export class SynthEngine {
     this.hpfNode.connect(this.padPanNode);
     this.padPanNode.connect(this.masterGain);
     this.drumGain.connect(this.drumPanNode);
-    this.drumPanNode.connect(this.masterGain);
+    // La batería NO pasa por el limitador del máster: un DynamicsCompressor retrasa
+    // todo lo que lo cruza 6 ms (medido: el golpe empezaba a los 6,5 ms; ahora a los
+    // 0,2 ms). Va por su propio camino sin retraso: volumen maestro → ganancia →
+    // recortador suave (WaveShaper, 0 ms). DRUM_TRIM compensa que aquel limitador
+    // aplastaba los golpes cortos, para que la batería suene al nivel de siempre.
+    this.drumMaster = this.ctx.createGain(); this.drumMaster.gain.value = 1;
+    this.drumMakeup = this.ctx.createGain(); this.drumMakeup.gain.value = MASTER_MAKEUP * DRUM_TRIM;
+    this.drumClip = softClipper(this.ctx);
+    this.drumPanNode.connect(this.drumMaster);
+    this.drumMaster.connect(this.drumMakeup);
+    this.drumMakeup.connect(this.drumClip.input);
+    this.drumClip.output.connect(this.ctx.destination);
     this.masterGain.connect(this.makeupNode);
     this.makeupNode.connect(this.limiterNode);
     this.limiterNode.connect(this.ctx.destination);
@@ -96,15 +131,15 @@ export class SynthEngine {
     // completa (antes iba directo a destination sin boost y se perdía), (2) tener
     // su propio limitador evita que "duckee" los pads en cada golpe (si compartiera
     // el limitador del máster, cada click haría dip en los pads → pumping).
+    // Sin retraso: antes pasaba por un DynamicsCompressor (+6 ms en cada click);
+    // ahora por un recortador suave (0 ms). CLICK_TRIM deja el click al mismo
+    // volumen que con aquel limitador, que lo aplastaba mucho.
     this.clickBus = this.ctx.createGain();
-    this.clickBus.gain.value = CLICK_MAKEUP;
-    this.clickLimiter = this.ctx.createDynamicsCompressor();
-    this.clickLimiter.threshold.value = -1.0;
-    this.clickLimiter.knee.value = 0;
-    this.clickLimiter.ratio.value = 20;
-    this.clickLimiter.attack.value = 0.002;
-    this.clickLimiter.release.value = 0.08;
-    this.clickBus.connect(this.clickLimiter);
+    this.clickBus.gain.value = CLICK_MAKEUP * CLICK_TRIM;
+    const clickClip = softClipper(this.ctx);
+    this.clickBus.connect(clickClip.input);
+    // «clickLimiter» = último nodo del camino del click (audioOutput.js lo reenruta a 3-4).
+    this.clickLimiter = clickClip.output;
     this.clickLimiter.connect(this.ctx.destination);
 
     // Keep-alive: a silent constant source keeps the AudioContext from idling
@@ -144,7 +179,10 @@ export class SynthEngine {
     else setTimeout(build, 800);
   }
 
-  setMasterVolume(v) { if(this.masterGain) this.masterGain.gain.setTargetAtTime(v,this.ctx.currentTime,.05); }
+  setMasterVolume(v) {
+    if (this.masterGain) this.masterGain.gain.setTargetAtTime(v, this.ctx.currentTime, .05);
+    if (this.drumMaster) this.drumMaster.gain.setTargetAtTime(v, this.ctx.currentTime, .05);   // la batería va por su camino sin retraso
+  }
   // Curva de volumen percibido (v²): lineal, al 10 % el pad sonaba a -20 dB y «al mínimo se oía
   // fuerte»; así el 10 % es -40 dB, el 50 % -12 dB y el 100 % queda igual.
   setPadVolume(v) { if(this.padGain) { const x = Math.max(0, Math.min(1, v)); this.padGain.gain.setTargetAtTime(x * x, this.ctx.currentTime, .05); } }
