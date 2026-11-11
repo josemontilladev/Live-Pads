@@ -43,7 +43,7 @@ jobs:
       - name: UI tests
         run: npm run test:ui
 
-      - name: Build and publish (fetches models, packages, uploads to Release)
+      - name: Build and publish (packages, uploads to Release)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Inicio con Google de escritorio (scripts/write-google-secret.mjs lo escribe en el build).

@@ -2350,11 +2350,110 @@ ipcMain.handle('assign-stems-mix', async (_e, { buffer, type, name } = {}) => {
   return toLivepadsUrl(relPath);
 });
 
-// Resolve the bundled separation models directory (extraResources in prod).
-function separationModelsDir() {
-  // En desarrollo se puede apuntar a otra carpeta (los .onnx pesan y dev/ se sincroniza).
-  if (!app.isPackaged && process.env.LIVEPADS_MODELS_DIR) return process.env.LIVEPADS_MODELS_DIR;
-  return app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, 'models');
+// ── Modelos de IA: se bajan al usarlos por primera vez ───────────────────
+// Antes iban dentro del instalador (~282 MB de 448): cada actualización los
+// volvía a descargar aunque no se usaran. Ahora viven en userData/models, se
+// bajan una sola vez cuando hacen falta (separar stems, analizar pulsos/acordes)
+// y las actualizaciones pesan mucho menos. Cada archivo se verifica (tamaño y
+// SHA-256) antes de darlo por bueno.
+const MODEL_REL = 'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models';
+const MODEL_OWN = 'https://github.com/josemontilladev/Live-Pads/releases/download/models-v1';
+const MODEL_FILES = {
+  'UVR-MDX-NET-Inst_HQ_3.onnx': { url: `${MODEL_REL}/UVR-MDX-NET-Inst_HQ_3.onnx`, size: 66759214, sha256: '317554b07fe1ea5279a77f2b1520a41ea4b93432560c4ffd08792c30fddf9adc' },
+  'kuielab_a_vocals.onnx':      { url: `${MODEL_REL}/kuielab_a_vocals.onnx`,      size: 29703204, sha256: 'daba83c2ee1afee9139766ad64c9b6808d6b6f092fff04bed3338be50baac721' },
+  'kuielab_a_drums.onnx':       { url: `${MODEL_REL}/kuielab_a_drums.onnx`,       size: 29703204, sha256: '40f586b7091934dd6f5563f0cba8f14bad57ce88440da1098bf388ea716c2901' },
+  'kuielab_a_bass.onnx':        { url: `${MODEL_REL}/kuielab_a_bass.onnx`,        size: 29703204, sha256: '0c3e77b9963185b1ea6bb46a4b8924137d9370fc1ccdefec7b1b416ef550dcaa' },
+  'kuielab_a_other.onnx':       { url: `${MODEL_REL}/kuielab_a_other.onnx`,       size: 29703204, sha256: '7b67a1dcb5f232153528c59960b4c7bf8dc736b8114de360af0e719633f53358' },
+  'beat_this_final0.onnx':      { url: `${MODEL_OWN}/beat_this_final0.onnx`,      size: 82952770, sha256: '41c9d33718e005db4241ab856cf55f2b9a0a7918d54957cf2d0276ad4bc80f28' },
+  'btc_chords_voca.onnx':       { url: `${MODEL_OWN}/btc_chords_voca.onnx`,       size: 13038363, sha256: 'd0738965a2cbd5c9ab88735fa74dd62a0ec534d6172a34e5447357e6e144bb7d' },
+};
+function userModelsDir() { return path.join(app.getPath('userData'), 'models'); }
+// Carpetas donde puede haber modelos, por orden: la de desarrollo, la del usuario
+// (descargados) y la del instalador (instalaciones antiguas que aún los traen).
+function modelDirs() {
+  const dirs = [];
+  if (!app.isPackaged && process.env.LIVEPADS_MODELS_DIR) dirs.push(process.env.LIVEPADS_MODELS_DIR);
+  dirs.push(userModelsDir());
+  dirs.push(app.isPackaged ? path.join(process.resourcesPath, 'models') : path.join(__dirname, 'models'));
+  return dirs;
+}
+function findModel(file) {
+  for (const d of modelDirs()) {
+    const fp = path.join(d, file);
+    try { if (fs.statSync(fp).size > 1000000) return fp; } catch (_) {}
+  }
+  return null;
+}
+const _modelDownloads = new Map();   // file → Promise (una sola descarga por archivo)
+function downloadModel(file, onProgress) {
+  if (_modelDownloads.has(file)) return _modelDownloads.get(file);
+  const spec = MODEL_FILES[file];
+  const job = (async () => {
+    if (!spec) throw new Error(`Modelo desconocido: ${file}`);
+    const dir = userModelsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = path.join(dir, file), part = dest + '.part';
+    const res = await net.fetch(spec.url);
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const hash = crypto.createHash('sha256');
+    const out = fs.createWriteStream(part);
+    let got = 0;
+    try {
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const buf = Buffer.from(value);
+        hash.update(buf);
+        got += buf.length;
+        if (!out.write(buf)) await new Promise((r) => out.once('drain', r));
+        if (onProgress) onProgress(got, spec.size);
+      }
+    } finally {
+      await new Promise((r) => out.end(r));
+    }
+    if (got !== spec.size || hash.digest('hex') !== spec.sha256) {
+      try { fs.unlinkSync(part); } catch (_) {}
+      throw new Error('La descarga llegó incompleta o dañada');
+    }
+    fs.renameSync(part, dest);
+    appLog('warn', `modelo descargado: ${file}`);
+    return dest;
+  })().finally(() => _modelDownloads.delete(file));
+  _modelDownloads.set(file, job);
+  return job;
+}
+// Asegura que TODOS los archivos pedidos estén en una misma carpeta y la devuelve.
+// onProgress(fracción 0..1, etiqueta) mientras descarga.
+async function ensureModels(files, onProgress) {
+  for (const d of modelDirs()) {
+    if (files.every((f) => { try { return fs.statSync(path.join(d, f)).size > 1000000; } catch (_) { return false; } })) return d;
+  }
+  const dir = userModelsDir();
+  const missing = files.filter((f) => { try { return fs.statSync(path.join(dir, f)).size <= 1000000; } catch (_) { return true; } });
+  const total = missing.reduce((n, f) => n + ((MODEL_FILES[f] && MODEL_FILES[f].size) || 0), 0) || 1;
+  const mb = Math.round(total / 1048576);
+  let before = 0;
+  for (const f of missing) {
+    try {
+      await downloadModel(f, (got) => {
+        if (onProgress) onProgress((before + got) / total, `Descargando el modelo de IA (solo la primera vez) · ${Math.round(((before + got) / total) * 100)} % de ${mb} MB`);
+      });
+    } catch (err) {
+      appLog('error', `modelo ${f}: ${(err && err.message) || err}`);
+      throw new Error(`No se pudo descargar el modelo de IA (${mb} MB). Hace falta internet la primera vez que se usa; después funciona sin conexión.`);
+    }
+    before += (MODEL_FILES[f] && MODEL_FILES[f].size) || 0;
+  }
+  return dir;
+}
+// Modelos de análisis (pulsos, acordes): si faltan, la app usa sus detectores clásicos
+// esta vez y el modelo se va bajando en segundo plano para la próxima.
+function modelOrFetchLater(file) {
+  const fp = findModel(file);
+  if (fp) return fp;
+  if (net.isOnline()) downloadModel(file).catch((err) => appLog('warn', `modelo ${file} (segundo plano): ${(err && err.message) || err}`));
+  return null;
 }
 
 // ── Análisis musical en local (Beat This!: pulsos y compases) ─────────────
@@ -2448,8 +2547,8 @@ function runAnalysisWorker(workerData) {
   return { worker, promise };
 }
 ipcMain.handle('analysis-beats', async (_e, args = {}) => {
-  const modelPath = path.join(separationModelsDir(), 'beat_this_final0.onnx');
-  if (!fs.existsSync(modelPath)) return { unavailable: true };
+  const modelPath = modelOrFetchLater('beat_this_final0.onnx');
+  if (!modelPath) return { unavailable: true };
   const { mono, missing } = analysisMono(args);
   if (missing) return { missing: true };
   if (!mono || !mono.length) throw new Error('Audio vacío');
@@ -2474,8 +2573,8 @@ function cancelChordJob() {
   return j.promise;
 }
 ipcMain.handle('analysis-chords', async (_e, args = {}) => {
-  const modelPath = path.join(separationModelsDir(), 'btc_chords_voca.onnx');
-  if (!fs.existsSync(modelPath)) return { unavailable: true };
+  const modelPath = modelOrFetchLater('btc_chords_voca.onnx');
+  if (!modelPath) return { unavailable: true };
   const { mono, missing } = analysisMono(args);
   if (missing) return { missing: true };
   if (!mono || !mono.length) return { error: 'Audio vacío' };
@@ -2493,21 +2592,16 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
   if (!channels || !channels[0]) throw new Error('Audio vacío');
   await cancelChordJob();   // la separación que pide la persona tiene prioridad
   const { separate, MODELS } = require('./stemSeparator');
-  const modelsDir = separationModelsDir();
-  // Verify the models this mode needs are present.
   const needed = (mode === '4stem')
     ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
     : (mode === 'otros')
       ? ['k_other']
       : ['inst_hq3'];
-  for (const k of needed) {
-    if (!fs.existsSync(path.join(modelsDir, MODELS[k].file))) {
-      throw new Error(`Modelo no encontrado: ${MODELS[k].file}`);
-    }
-  }
   const send = (fraction, stage, ep) => {
     try { if (!e.sender.isDestroyed()) e.sender.send('stems-separate-progress', { fraction, stage, ep }); } catch (_) {}
   };
+  // Los modelos que pide este modo: si no están en el equipo, se bajan ahora (una vez).
+  const modelsDir = await ensureModels(needed.map((k) => MODELS[k].file), (f, label) => send(f, label));
   separationCancel = false;
   try {
     const result = await separate({
