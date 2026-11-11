@@ -45,7 +45,9 @@ export function refreshLiveStrip() {
   set('ls-now-artist', now ? (now.artist || '') : (songs.length ? 'Elige una canción del servicio' : 'El servicio está vacío'));
   set('ls-now-key', now ? (getEffectiveKey(now) || '') : '');
   set('ls-next-title', next ? (next.title || 'Sin título') : (songs.length ? 'Fin del servicio' : '—'));
-  set('ls-next-key', next ? (getEffectiveKey(next) || '') : '');
+  // De la siguiente, tono y tempo: lo que hace falta para preparar el cambio.
+  const nextBpm = next && Number(next.bpm) > 0 ? `${Math.round(Number(next.bpm))} BPM` : '';
+  set('ls-next-key', next ? [getEffectiveKey(next) || '', nextBpm].filter(Boolean).join(' · ') : '');
   const pos = q('#ls-pos');
   if (pos) pos.textContent = idx >= 0 ? `${idx + 1} / ${songs.length}` : (songs.length ? `${songs.length} canciones` : '');
 }

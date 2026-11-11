@@ -102,6 +102,21 @@ function runChecks(ctx) {
     ok: ctxState === 'running'
   });
 
+  // 1b. Latencia de la salida de audio (lo que tarda un pad o un golpe en oírse).
+  if (engine && engine.ctx && ctxState === 'running') {
+    const ms = Math.round(((engine.ctx.baseLatency || 0) + (engine.ctx.outputLatency || 0)) * 1000);
+    if (ms > 0) {
+      const sr = Math.round(engine.ctx.sampleRate / 100) / 10;
+      out.push({
+        label: `Latencia de audio: ${ms} ms`,
+        detail: ms <= 30 ? `Excelente: la respuesta es inmediata · ${sr} kHz`
+          : ms <= 60 ? `Buena para tocar en vivo · ${sr} kHz`
+          : `Alta: se nota un retraso al tocar. Suele deberse a auriculares o altavoces Bluetooth; usa salida por cable o una interfaz de audio · ${sr} kHz`,
+        ok: ms <= 60
+      });
+    }
+  }
+
   // 2. Pad bank loaded
   const padBank = PAD_BANKS[getPadBankIdx()];
   out.push({
