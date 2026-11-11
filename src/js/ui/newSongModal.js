@@ -13,6 +13,7 @@ import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { pushModal } from './modalStack.js';
 import { cleanPastedLyrics, repairLyrics } from './lyricsFormat.js';
 import { parseChordPage } from '../data/chordImporter.js';
+import { parseSongFile } from '../data/songFileImport.js';
 import { confirmDialogAsync } from './dialog.js';
 import { getSongs } from '../state/store.js';
 import { requireRoom } from '../billing/license.js';
@@ -58,6 +59,11 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
         <button type="button" class="gi-edit-btn save newsong-import-btn" data-action="import-url">Importar</button>
       </div>
       <span class="newsong-import-hint">${FUENTES} — trae título, artista, tono y la letra con los acordes ya alineados.</span>
+      <div class="newsong-import-row newsong-import-row--file">
+        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-file">Importar archivos…</button>
+        <span class="newsong-import-hint">ChordPro (.cho, .crd, .pro), OpenSong o texto con acordes. Elige varios para traer tu repertorio de golpe.</span>
+        <input type="file" id="ns-file" multiple hidden accept=".cho,.crd,.chopro,.chordpro,.pro,.txt,.xml,text/plain,*/*">
+      </div>
     </div>`;
 
   const overlay = document.createElement('div');
@@ -147,6 +153,74 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
     }
   }
 
+  // ── Importar desde archivos (ChordPro, OpenSong, texto con acordes) ──────
+  const fileEl = modal.querySelector('#ns-file');
+  // UTF-8 y, si el archivo es antiguo (Windows-1252), se relee así para no romper tildes.
+  const readText = async (file) => {
+    const buf = await file.arrayBuffer();
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (_) { return new TextDecoder('windows-1252').decode(buf); }
+  };
+  const parsedFrom = async (file) => {
+    const p = parseSongFile(file.name, await readText(file));
+    p.lyrics = repairLyrics(p.lyrics || '');     // «acordes encima» → acordes en línea
+    // OpenSong sangra cada línea una columna (el hueco del n.º de estrofa): fuera tras unir los acordes.
+    if (p.format === 'OpenSong') p.lyrics = p.lyrics.replace(/^ (?=\S)/gm, '');
+    return p;
+  };
+  async function importarArchivos(files) {
+    const list = [...files].filter((f) => f.size > 0 && f.size < 2 * 1024 * 1024);
+    if (!list.length) { window.showToast?.('Esos archivos están vacíos o no son de texto.', 'error'); return; }
+    try {
+      if (list.length === 1) {
+        // Uno solo: rellena el formulario para revisarlo antes de guardar.
+        const p = await parsedFrom(list[0]);
+        if (!p.lyrics.trim()) throw new Error('el archivo no trae letra');
+        const titleEl = modal.querySelector('.edit-title');
+        if (titleEl && p.title && (!titleEl.value.trim() || titleEl.value.trim() === 'Nueva Canción')) titleEl.value = p.title;
+        rellenar('.edit-artist', p.artist);
+        rellenar('.edit-bpm', p.bpm);
+        if (p.key) {
+          const keyEl = modal.querySelector('.edit-key');
+          if (keyEl && !keyEl.value && [...keyEl.options].some(o => o.value === p.key)) keyEl.value = p.key;
+        }
+        if (lyricsEl) {
+          if (lyricsEl.value.trim() && lyricsEl.value.trim() !== p.lyrics.trim()) {
+            const ok = await confirmDialogAsync({ title: 'Reemplazar la letra', message: 'Ya hay letra escrita en el formulario. ¿La reemplazo con la del archivo?', confirmLabel: 'Reemplazar', danger: false });
+            if (!ok) return;
+          }
+          lyricsEl.value = p.lyrics;
+        }
+        window.showToast?.(`✓ «${p.title || list[0].name}» leída (${p.format}). Revísala y guarda.`, 'success');
+        return;
+      }
+      // Varios: cada archivo es una canción. Se crean todas de una vez.
+      const ok = await confirmDialogAsync({ title: 'Importar canciones', message: `¿Crear ${list.length} canciones a partir de estos archivos? Podrás editarlas después.`, confirmLabel: `Importar ${list.length}`, danger: false });
+      if (!ok) return;
+      let hechas = 0, vacias = 0;
+      for (const [i, f] of list.entries()) {
+        if (!requireRoom('songs', getSongs().length)) break;        // tope del plan
+        let p;
+        try { p = await parsedFrom(f); } catch (_) { vacias++; continue; }
+        if (!p.lyrics.trim()) { vacias++; continue; }
+        const song = {
+          id: `song_${Date.now()}_${i}`, addedAt: Date.now(),
+          title: p.title || f.name, artist: p.artist || '', bpm: p.bpm || '', key: p.key || '',
+          genre: defaults.genre || 'adoracion', tags: [], audio: { sequence: null, original: null },
+          timeSig: '4/4', lyrics: p.lyrics,
+        };
+        if (defaults.libraryId) song.libraryId = defaults.libraryId;
+        applyLibrarySelection(modal, song);
+        try { onSaved && onSaved(song); hechas++; } catch (err) { console.error('No se pudo crear la canción importada:', err); }
+      }
+      window.showToast?.(`✓ ${hechas} ${hechas === 1 ? 'canción importada' : 'canciones importadas'}${vacias ? ` · ${vacias} sin letra, omitidas` : ''}.`, hechas ? 'success' : 'error');
+      if (hechas) close();
+    } catch (err) {
+      window.showToast?.('No se pudo importar: ' + (err?.message || err), 'error');
+    }
+  }
+  if (fileEl) fileEl.addEventListener('change', () => { const fs = fileEl.files; if (fs && fs.length) importarArchivos(fs); fileEl.value = ''; });
+
   if (urlEl) urlEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); importar(); }
   });
@@ -154,6 +228,7 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
   modal.addEventListener('click', (e) => {
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (action === 'import-url') { importar(); return; }
+    if (action === 'import-file') { fileEl && fileEl.click(); return; }
     if (action === 'edit-cancel') { close(); return; }
     if (action !== 'edit-save') return;
     const titleEl = modal.querySelector('.edit-title');

@@ -7,6 +7,9 @@
 //   · 1 o 2 columnas; cada sección (Intro, Verso, Coro…) es un bloque que no
 //     se parte entre columnas.
 //   · Transponer −/+ (efímero, sobre el tono del servicio) y acordes sí/no.
+//   · Cejilla 0–9 (se recuerda por canción en este equipo): la canción suena en el
+//     mismo tono, pero los acordes se muestran con las posiciones que toca el
+//     guitarrista con la cejilla puesta (tono − cejilla).
 //   · Teclas: + / − tamaño · C acordes · F ajustar · 2 columnas ·
 //     ↓ / ↑ / Espacio desplazar · Esc cerrar.
 //
@@ -49,6 +52,18 @@ const LS_FONT = 'livepads.lyrics.fs.fontSize';
 const LS_CHORDS = 'livepads.lyrics.fs.chords';
 const LS_COLS = 'livepads.lyrics.fs.cols';
 const LS_FIT = 'livepads.lyrics.fs.fit';
+// Cejilla por canción: { idCanción: traste }. Preferencia personal del guitarrista
+// en este equipo (no viaja a la nube ni cambia la canción del resto del equipo).
+const LS_CAPO = 'livepads.lyrics.capo';
+const CAPO_MAX = 9;
+function readCapos() { try { return JSON.parse(localStorage.getItem(LS_CAPO) || '{}') || {}; } catch (_) { return {}; } }
+function capoOf(song) { const n = Number(readCapos()[song && song.id]); return Number.isFinite(n) ? Math.max(0, Math.min(CAPO_MAX, n)) : 0; }
+function saveCapo(song, n) {
+  if (!song || !song.id) return;
+  const m = readCapos();
+  if (n > 0) m[song.id] = n; else delete m[song.id];
+  try { localStorage.setItem(LS_CAPO, JSON.stringify(m)); } catch (_) {}
+}
 const FONT_MIN = 18;
 const FONT_MAX = 72;
 const FONT_STEP = 2;
@@ -108,6 +123,7 @@ export function openLyricsFullscreen(song, opts = {}) {
   const liveKey = opts.key || song.key || '';
   const baseSemis = keyDeltaSafe(song.key, liveKey);
   let semitones = baseSemis;
+  let capo = capoOf(song);
 
   overlay = document.createElement('div');
   overlay.className = 'lyr-fs';
@@ -130,6 +146,12 @@ export function openLyricsFullscreen(song, opts = {}) {
           <button type="button" data-act="trans-down" aria-label="Bajar un semitono">−</button>
           <span class="lyr-val" data-ref="trans">0</span>
           <button type="button" data-act="trans-up" aria-label="Subir un semitono">+</button>
+        </div>
+        <div class="lyr-group" role="group" aria-label="Cejilla" title="Cejilla: la canción suena igual; los acordes se muestran con las posiciones que tocas con la cejilla en ese traste. Se recuerda por canción.">
+          <em>Cejilla</em>
+          <button type="button" data-act="capo-down" aria-label="Cejilla un traste menos">−</button>
+          <span class="lyr-val" data-ref="capo">0</span>
+          <button type="button" data-act="capo-up" aria-label="Cejilla un traste más">+</button>
         </div>` : ''}
         <div class="lyr-group" role="group" aria-label="Tamaño de letra">
           <em>Tamaño</em>
@@ -163,7 +185,8 @@ export function openLyricsFullscreen(song, opts = {}) {
 
   // ── Pintado ──
   function renderText() {
-    const text = semitones === 0 ? song.lyrics : transposeAll(song.lyrics || '', semitones);
+    const shown = semitones - capo;   // con cejilla, se escriben las posiciones (tono − cejilla)
+    const text = shown === 0 ? song.lyrics : transposeAll(song.lyrics || '', shown);
     content.innerHTML = groupSections(formatLyrics(text));
   }
   function paintState() {
@@ -182,7 +205,13 @@ export function openLyricsFullscreen(song, opts = {}) {
       trans.classList.toggle('is-shifted', rel !== 0);
     }
     const key = ref('key');
-    if (key && song.key) key.textContent = transposeKeyLabel(song.key, semitones);
+    if (key && song.key) {
+      // El tono que suena; con cejilla se añade en qué posiciones se toca.
+      const sounding = transposeKeyLabel(song.key, semitones);
+      key.textContent = capo ? `${sounding} · posiciones de ${transposeKeyLabel(song.key, semitones - capo)}` : sounding;
+    }
+    const capoEl = ref('capo');
+    if (capoEl) { capoEl.textContent = String(capo); capoEl.classList.toggle('is-shifted', capo !== 0); }
   }
   // El tamaño más grande con el que todo cabe en el alto visible.
   function fitToScreen() {
@@ -232,6 +261,8 @@ export function openLyricsFullscreen(song, opts = {}) {
       case 'chords': showChords = !showChords; break;
       case 'trans-up': semitones = Math.min(11, semitones + 1); refresh({ rerender: true }); return;
       case 'trans-down': semitones = Math.max(-11, semitones - 1); refresh({ rerender: true }); return;
+      case 'capo-up': capo = Math.min(CAPO_MAX, capo + 1); saveCapo(song, capo); refresh({ rerender: true }); return;
+      case 'capo-down': capo = Math.max(0, capo - 1); saveCapo(song, capo); refresh({ rerender: true }); return;
       case 'close': close(); return;
       default: return;
     }
@@ -243,6 +274,7 @@ export function openLyricsFullscreen(song, opts = {}) {
     if (btn) act(btn.dataset.act);
   });
   ref('trans')?.addEventListener('dblclick', () => { semitones = baseSemis; refresh({ rerender: true }); });
+  ref('capo')?.addEventListener('dblclick', () => { capo = 0; saveCapo(song, 0); refresh({ rerender: true }); });
 
   // Escape lo gestiona modalStack; aquí el resto de atajos.
   const onKey = (e) => {

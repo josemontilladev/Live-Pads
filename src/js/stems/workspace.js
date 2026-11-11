@@ -6,6 +6,7 @@
 // ── engine: full module, includes reorderTracks now ─────────────
 import * as engine from './engine.js';
 import { registerPlayingProbe } from '../state/performing.js';
+import { estimateDecodedBytes, decodedBytesOfSeconds, memoryRisk } from './memoryEstimate.js';
 registerPlayingProbe(() => engine.isCurrentlyPlaying());
 import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
@@ -15,7 +16,7 @@ import { audioBufferToMp3 } from '../audio/mp3Buffer.js';
 import { createZip } from '../utils/zip.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
-import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory } from './history.js';
+import { pushHistory, undo as historyUndo, redo as historyRedo, clearHistory, onHistoryChange, undoLabels, redoLabels } from './history.js';
 import { detectTempoMeter, detectBeatAlignment } from './bpmDetector.js';
 import { analyzeBeats } from '../analysis/beatGrid.js';
 import { detectSections } from './sectionDetector.js';
@@ -266,6 +267,54 @@ export function addStemsMarker() {
 
 // Public hooks for the global keymap to invoke undo/redo from app.js.
 export function stemsUndo() { if (mounted) { flushNudge(); historyUndo(); } }
+
+// Botones Deshacer / Rehacer + lista de pasos (clic en un paso = volver hasta ahí).
+function bindHistoryUi(root) {
+  const undoBtn = root.querySelector('#stems-undo'), redoBtn = root.querySelector('#stems-redo');
+  const histBtn = root.querySelector('#stems-hist'), pop = root.querySelector('#stems-hist-pop');
+  if (!undoBtn || !redoBtn || !histBtn || !pop) return;
+  const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const closePop = () => { pop.classList.add('hidden'); histBtn.setAttribute('aria-expanded', 'false'); };
+  const paintPop = () => {
+    const un = undoLabels(), re = redoLabels();
+    pop.innerHTML =
+      (re.length ? `<div class="stems-hist-k">Rehacer</div>` + re.slice().reverse().map((l, i) =>
+        `<button type="button" class="stems-hist-item is-redo" data-redo="${re.length - i}" role="menuitem">${esc(l)}</button>`).join('') : '')
+      + `<div class="stems-hist-now">Estado actual</div>`
+      + (un.length ? un.slice(0, 40).map((l, i) =>
+        `<button type="button" class="stems-hist-item" data-undo="${i + 1}" role="menuitem" title="Deshacer hasta aquí (${i + 1} ${i ? 'pasos' : 'paso'})">${esc(l)}</button>`).join('')
+        : '<div class="stems-hist-empty">Aún no hay cambios que deshacer.</div>');
+  };
+  const sync = () => {
+    const un = undoLabels(), re = redoLabels();
+    undoBtn.disabled = !un.length;
+    redoBtn.disabled = !re.length;
+    histBtn.disabled = !un.length && !re.length;
+    undoBtn.title = un.length ? `Deshacer: ${un[0]} (Ctrl+Z)` : 'Deshacer (Ctrl+Z)';
+    redoBtn.title = re.length ? `Rehacer: ${re[0]} (Ctrl+Y)` : 'Rehacer (Ctrl+Y)';
+    if (!pop.classList.contains('hidden')) { if (histBtn.disabled) closePop(); else paintPop(); }
+  };
+  onHistoryChange(sync);
+  undoBtn.addEventListener('click', () => stemsUndo());
+  redoBtn.addEventListener('click', () => stemsRedo());
+  histBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (pop.classList.contains('hidden')) { paintPop(); pop.classList.remove('hidden'); histBtn.setAttribute('aria-expanded', 'true'); }
+    else closePop();
+  });
+  pop.addEventListener('click', (e) => {
+    const it = e.target.closest('.stems-hist-item');
+    if (!it) return;
+    const nu = Number(it.dataset.undo) || 0, nr = Number(it.dataset.redo) || 0;
+    for (let i = 0; i < nu; i++) stemsUndo();
+    for (let i = 0; i < nr; i++) stemsRedo();
+    closePop();
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (!pop.classList.contains('hidden') && !pop.contains(e.target) && !histBtn.contains(e.target)) closePop();
+  });
+  sync();
+}
 export function stemsRedo() { if (mounted) historyRedo(); }
 
 // Public entry point to trigger the tour manually (from menu / cheat-sheet).
@@ -540,6 +589,18 @@ const SHELL_HTML = `
             </button>
           </div>
         </div>
+        <div class="stems-histctl" role="group" aria-label="Deshacer y rehacer">
+          <button class="sb-icon" id="stems-undo" type="button" title="Deshacer (Ctrl+Z)" aria-label="Deshacer" disabled>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+          </button>
+          <button class="sb-icon" id="stems-redo" type="button" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 14 20 9 15 4"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
+          </button>
+          <button class="sb-icon stems-hist-more" id="stems-hist" type="button" title="Historial: ver los pasos y volver a cualquiera" aria-label="Historial de cambios" aria-haspopup="menu" aria-expanded="false" disabled>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="stems-generators-pop stems-hist-pop hidden" id="stems-hist-pop" role="menu"></div>
+        </div>
       </div>
 
       <div class="sb-zone sb-zone--transport stems-tb-mid">
@@ -634,6 +695,18 @@ const SHELL_HTML = `
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
         </button>
         <button class="sb-icon sb-icon--danger" id="stems-clear-markers" title="Borrar todos los marcadores (Ctrl+Z deshace)" aria-label="Borrar todos los marcadores">${SVG_TRASH}</button>
+        <!-- Directo: saltar entre secciones y repetir la actual. Son botones para poder
+             asignarlos a un pedal o a un pad MIDI (Aprender MIDI → clic en el botón). -->
+        <span class="sb-sep" aria-hidden="true"></span>
+        <button class="sb-icon" id="stems-sec-prev" type="button" title="Sección anterior (Re Pág) · asignable a MIDI" aria-label="Ir a la sección anterior">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M7 5h2v14H7zM20 5v14l-10-7z"/></svg>
+        </button>
+        <button class="sb-icon" id="stems-sec-next" type="button" title="Sección siguiente (Av Pág) · asignable a MIDI" aria-label="Ir a la sección siguiente">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M15 5h2v14h-2zM4 5v14l10-7z"/></svg>
+        </button>
+        <button class="sb-icon" id="stems-sec-loop" type="button" aria-pressed="false" title="Repetir la sección actual hasta que lo quites (Mayús+L) · asignable a MIDI" aria-label="Repetir la sección actual">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 2 21 6 17 10"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><polyline points="7 22 3 18 7 14"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>
+        </button>
       </div>
 
       <!-- Ensayo: repetir un tramo y bajar la velocidad -->
@@ -1675,6 +1748,9 @@ function wireArrangeEvents(root) {
   root.querySelector('#stems-clear-markers').onclick = () => onClearMarkers();
   root.querySelector('#stems-rebuild-guide').onclick = () => onRebuildGuide();
   root.querySelector('#stems-loop-toggle').onclick = () => toggleLoop();
+  root.querySelector('#stems-sec-prev')?.addEventListener('click', () => jumpSection(-1));
+  root.querySelector('#stems-sec-next')?.addEventListener('click', () => jumpSection(1));
+  root.querySelector('#stems-sec-loop')?.addEventListener('click', () => toggleSectionLoop());
 
   // Loop A-B "libres" — dropear al tiempo actual, doble-clic para limpiar.
   // Si después de setear ambos el loop no estaba activo, lo activamos
@@ -1813,6 +1889,32 @@ export function cancelImport() {
   return true;
 }
 
+// Aviso ANTES de cargar: cuánta memoria ocupará el proyecto con estos archivos y si
+// es demasiado para este equipo. Un multitrack grande en un PC modesto podía dejar
+// la app sin memoria a mitad de la carga. Devuelve false si la persona cancela.
+async function confirmMemoryFor(files) {
+  try {
+    let add = 0;
+    for (const f of files) {
+      let header = null;
+      if (/\.wave?$/i.test(f.name)) { try { header = await f.slice(0, 64).arrayBuffer(); } catch (_) {} }
+      add += estimateDecodedBytes(f.name, f.size, header);
+    }
+    const have = engine.getTracks().reduce((n, t) => n + decodedBytesOfSeconds(t.durationSec || 0), 0);
+    const risk = memoryRisk(have + add, navigator.deviceMemory || 4);
+    if (!risk.risky) return true;
+    const gb = (n) => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10).toString().replace('.', ',');
+    return await confirmDialogAsync({
+      title: 'Proyecto muy pesado para este equipo',
+      message: `Con ${files.length === 1 ? 'esta pista' : `estas ${files.length} pistas`} el proyecto ocupará unos ${gb(risk.totalGb)} GB de memoria`
+        + `${have ? ` (ya hay ${gb(have / 1024 ** 3)} GB cargados)` : ''}. `
+        + `En este equipo${risk.deviceGb < 8 ? ` (${gb(risk.deviceGb)} GB de RAM)` : ''} puede ir lento o cerrarse. `
+        + 'Para aligerarlo: carga menos pistas a la vez, usa pistas más cortas o junta las que no vayas a mezclar por separado.',
+      confirmLabel: 'Cargar de todos modos', cancelLabel: 'Cancelar', danger: false,
+    });
+  } catch (_) { return true; }   // si la cuenta falla, no se bloquea la importación
+}
+
 async function importFiles(fileList) {
   if (!fileList || !fileList.length) return;
   if (!proOnly('Importar tus propios audios')) return;
@@ -1820,6 +1922,7 @@ async function importFiles(fileList) {
     f.type.startsWith('audio/') || /\.(wav|mp3|ogg|aac|m4a|flac)$/i.test(f.name)
   );
   if (!files.length) return;
+  if (!(await confirmMemoryFor(files))) return;
 
   importInProgress = true;
   importAbort = false;
@@ -3789,6 +3892,8 @@ const STEMS_SHORTCUTS = [
   ['Ctrl + C / Ctrl + V', 'Copiar / pegar pista(s) en el cursor'],
   ['Supr / Retroceso', 'Eliminar el fragmento elegido, o la(s) pista(s) seleccionada(s)'],
   ['Ctrl + Z / Ctrl + Y', 'Deshacer / rehacer'],
+  ['Av Pág / Re Pág', 'Ir a la sección siguiente / anterior'],
+  ['Mayús + L', 'Repetir la sección actual'],
   ['Alt + S / Alt + M', 'Solo / silenciar la pista enfocada'],
   ['M', 'Añadir un marcador en el cursor'],
   ['Marcador enfocado + ← →', 'Mover el marcador (Shift = más fino)'],
@@ -4969,6 +5074,7 @@ function wireTrackSelection(root) {
   root.querySelector('#stems-sel-del')?.addEventListener('click', deleteSelectedTracks);
   root.querySelector('#stems-sel-clear')?.addEventListener('click', clearTrackSelection);
   root.querySelector('#stems-console-selall')?.addEventListener('click', selectAllTracks);
+  bindHistoryUi(root);
 
   document.addEventListener('keydown', (e) => {
     const ws = document.getElementById('workspace-stems');
@@ -4992,6 +5098,9 @@ function wireTrackSelection(root) {
       cutSelectedAtPlayhead();
       return;
     }
+    // Directo: Av Pág / Re Pág saltan de sección; Mayús+L repite la sección actual.
+    if (e.key === 'PageDown' || e.key === 'PageUp') { e.preventDefault(); jumpSection(e.key === 'PageDown' ? 1 : -1); return; }
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); toggleSectionLoop(); return; }
     // Ctrl/Cmd+E → dividir en el cursor (la existente queda con el audio antes,
     // una pista nueva con el de después).
     if ((e.ctrlKey || e.metaKey) && (e.key === 'e' || e.key === 'E')) {
@@ -5926,7 +6035,63 @@ function openMarkerMenu(x, y, markerId) {
   document.addEventListener('keydown', closeMarkerMenuOnEsc, { once: true });
 }
 
+// ── Directo: saltar entre secciones y repetir la actual ──────────────────
+// «Repetir sección» usa el bucle A-B sobre la sección donde está el cursor; al
+// saltar a otra con la repetición puesta, el bucle se muda con ella.
+let sectionLoopOn = false;
+const sortedMarkers = () => markers.slice().sort((a, b) => a.atSec - b.atSec);
+function sectionAt(sec) {
+  const ms = sortedMarkers();
+  let i = -1;
+  for (let k = 0; k < ms.length; k++) { if (ms[k].atSec <= sec + 0.02) i = k; else break; }
+  if (i < 0) return null;
+  return { marker: ms[i], start: ms[i].atSec, end: ms[i + 1] ? ms[i + 1].atSec : Math.max(ms[i].atSec + 1, engine.getDurationSec()) };
+}
+function applySectionLoop(sec) {
+  const s = sectionAt(sec);
+  if (!s) return false;
+  freeLoopA = s.start; freeLoopB = s.end; loopEnabled = true;
+  syncLoopRegion(); redrawMarkers();
+  document.getElementById('stems-loop-toggle')?.classList.toggle('is-on', true);
+  return true;
+}
+function paintSectionLoop() {
+  const b = document.getElementById('stems-sec-loop');
+  if (b) { b.classList.toggle('is-on', sectionLoopOn); b.setAttribute('aria-pressed', String(sectionLoopOn)); }
+}
+function jumpSection(dir) {
+  const ms = sortedMarkers();
+  if (!ms.length) { toast('Aún no hay secciones. Añádelas con «+ Añadir» o con «Detectar secciones».'); return; }
+  const t = engine.getCurrentSec();
+  let target;
+  if (dir > 0) target = ms.find((m) => m.atSec > t + 0.05);
+  else {
+    // Como en un reproductor: a más de 1 s dentro de la sección vuelve a su inicio; si no, a la anterior.
+    const before = ms.filter((m) => m.atSec < t - 1);
+    target = before[before.length - 1] || ms[0];
+  }
+  if (!target) return;                                   // ya es la última
+  if (sectionLoopOn) applySectionLoop(target.atSec);     // el bucle se muda a la sección nueva
+  resumeAutoFollow();
+  engine.seek(target.atSec);
+  refreshTransport();
+}
+function toggleSectionLoop() {
+  if (sectionLoopOn) {
+    sectionLoopOn = false;
+    freeLoopA = null; freeLoopB = null; loopEnabled = false;
+    syncLoopRegion(); redrawMarkers();
+    document.getElementById('stems-loop-toggle')?.classList.toggle('is-on', false);
+  } else {
+    if (!applySectionLoop(engine.getCurrentSec())) { toast('Coloca el cursor dentro de una sección (hace falta al menos un marcador antes).'); return; }
+    sectionLoopOn = true;
+  }
+  paintSectionLoop();
+  scheduleSave();
+}
+
 function toggleLoop() {
+  if (sectionLoopOn) { sectionLoopOn = false; paintSectionLoop(); }   // apagar el bucle a mano quita la repetición de sección
   loopEnabled = !loopEnabled;
   syncLoopRegion();
   redrawMarkers();

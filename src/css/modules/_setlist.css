@@ -1835,6 +1835,8 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   color: var(--blue);
 }
 .newsong-import-row { display: flex; gap: 6px; align-items: center; }
+.newsong-import-row--file { margin-top: 8px; gap: 10px; }
+.newsong-file-btn { flex: 0 0 auto; white-space: nowrap; }
 .newsong-import-input { flex: 1 1 auto; min-width: 0; }
 .newsong-import-btn { flex: 0 0 auto; white-space: nowrap; }
 .newsong-import-hint {
