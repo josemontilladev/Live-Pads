@@ -5,11 +5,13 @@
 
 // ── engine: full module, includes reorderTracks now ─────────────
 import * as engine from './engine.js';
+import { registerPlayingProbe } from '../state/performing.js';
+registerPlayingProbe(() => engine.isCurrentlyPlaying());
 import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
-import { audioBufferToMp3 } from '../audio/mp3Encode.js';
+import { audioBufferToMp3 } from '../audio/mp3Buffer.js';
 import { createZip } from '../utils/zip.js';
 import { buildGuideTrack } from './guideBuilder.js';
 import { SECTION_CUES, findCueById } from './sectionCatalog.js';
@@ -216,6 +218,10 @@ let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
 let saveDeferred = false; // hay un guardado pendiente que se pospuso por estar reproduciendo
+// Proyecto con nombre («Guardar como…» / «Abrir») del que el proyecto en curso es
+// copia de trabajo: { slug, name } o null. Sirve para ofrecer guardar los cambios
+// en él antes de abrir otro (antes se perdían sin aviso).
+let linkedProject = null;
 let pillTimer = null;
 
 function formatTime(sec) {
@@ -3148,7 +3154,7 @@ async function setStemsPitchShift(semitones, opts = {}) {
     console.error('Stems pitch shift failed:', err);
     const raw = err && err.message || String(err);
     const msg = /startRendering|createAudioBuffer|AudioBuffer\(/i.test(raw)
-      ? 'No hay memoria suficiente para transponer una pista tan larga. Cerrá otros proyectos/pistas o probá con pistas más cortas.'
+      ? 'No hay memoria suficiente para transponer una pista tan larga. Cierra otros proyectos o pistas, o prueba con pistas más cortas.'
       : raw;
     toastUi.error(msg);
   } finally {
@@ -7019,6 +7025,15 @@ async function doSave() {
   const pill = document.getElementById('stems-save-pill');
   if (pill) { pill.dataset.state = 'saving'; pill.textContent = 'Guardando…'; }
   try {
+    await projectStore.saveCurrent(buildSaveState());
+    flashSavedPill();
+  } catch (e) {
+    console.warn('Stem auto-save failed:', e);
+  }
+}
+
+// Estado completo del proyecto, listo para escribir en project.json.
+function buildSaveState() {
     const tracks = engine.getTracks().map(t => {
       const entry = trackRows.get(t.id);
       return {
@@ -7041,8 +7056,10 @@ async function doSave() {
         loopInstrument: trackLoopInstrument.get(t.id) || undefined,
       };
     });
-    await projectStore.saveCurrent({
+    return {
       projectName,
+      linkedSlug: linkedProject ? linkedProject.slug : undefined,   // proyecto con nombre del que es copia de trabajo
+      linkedName: linkedProject ? linkedProject.name : undefined,
       bpm, bpmFloat, beatsPerBar, beatValue,
       accentPattern,
       projectKey,             // clave musical (habilita armonías diatónicas)
@@ -7063,12 +7080,17 @@ async function doSave() {
       freeLoopA,
       freeLoopB,
       playSpeed
-    });
-    flashSavedPill();
-  } catch (e) {
-    console.warn('Stem auto-save failed:', e);
-  }
+    };
 }
+
+// Al cerrar la ventana: si quedaba un guardado en cola (o pospuesto por estar
+// reproduciendo), se escribe YA y de forma síncrona. Antes esos cambios se perdían.
+window.addEventListener('beforeunload', () => {
+  if (!saveTimer && !saveDeferred) return;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  saveDeferred = false;
+  try { window.electronAPI?.stemsSaveCurrentSync?.(buildSaveState()); } catch (_) {}
+});
 
 function flashSavedPill() {
   const pill = document.getElementById('stems-save-pill');
@@ -7084,6 +7106,7 @@ function flashSavedPill() {
 async function rehydrate(state) {
   clearHistory(); // un proyecto recién cargado arranca sin historial cruzado
   projectName = state.projectName || 'Mi proyecto';
+  linkedProject = state.linkedSlug ? { slug: state.linkedSlug, name: state.linkedName || state.projectName || state.linkedSlug } : null;
   document.getElementById('stems-project-name').value = projectName;
 
   if (typeof state.bpm === 'number') {
@@ -7256,8 +7279,10 @@ function openSaveAsModal() {
       // Flush any pending save first so the snapshot is up-to-date.
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
       await doSave();
-      await window.electronAPI.stemsSaveAs({ name });
+      const slug = await window.electronAPI.stemsSaveAs({ name });
       projectName = name;
+      linkedProject = { slug: slug || name, name };
+      scheduleSave();   // deja el enlace escrito en el proyecto en curso
       document.getElementById('stems-project-name').value = name;
       flashSavedPill();
       closeStemsModal();
@@ -7312,9 +7337,15 @@ async function openProjectsModal() {
     const slug = row.dataset.slug;
     row.querySelector('[data-act="open"]').onclick = async () => {
       try {
+        // El proyecto en curso se reemplaza: antes hay que decidir qué pasa con él.
+        if (!(await settleCurrentProjectBeforeOpen(list))) return;
         await resetProject();
         const state = await window.electronAPI.stemsLoadProject(slug);
-        if (state) await rehydrate(state);
+        if (state) {
+          await rehydrate(state);
+          linkedProject = { slug, name: state.projectName || slug };
+          scheduleSave();
+        }
         closeStemsModal();
       } catch (e) { toast('No se pudo abrir: ' + (e.message || e)); }
     };
@@ -7332,6 +7363,54 @@ async function openProjectsModal() {
       } catch (e) { toast('No se pudo eliminar: ' + (e.message || e)); }
     };
   });
+}
+// Antes de abrir otro proyecto: si el actual tiene contenido, se pregunta si
+// guardarlo (en su proyecto con nombre, o como uno nuevo). Devuelve false si el
+// usuario cancela. Abrir sin preguntar borraba todo lo editado desde el último
+// «Guardar como…».
+async function settleCurrentProjectBeforeOpen(existing = []) {
+  if (engine.getTracks().length === 0 && markers.length === 0) return true;
+  let name = linkedProject ? linkedProject.name : (projectName || 'Mi proyecto');
+  if (!linkedProject) {
+    // Sin enlace: no pisar un proyecto guardado que casualmente se llame igual.
+    const taken = new Set(existing.map((p) => String(p.name || '').toLowerCase()));
+    const base = name; let n = 2;
+    while (taken.has(name.toLowerCase())) name = `${base} (${n++})`;
+  }
+  const choice = await new Promise((resolve) => {
+    const ov = document.createElement('div');
+    ov.className = 'stems-modal';
+    ov.style.zIndex = '10001';
+    ov.innerHTML = `
+      <div class="stems-modal-card" role="dialog" aria-modal="true">
+        <h3>¿Guardar el proyecto actual?</h3>
+        <p>Al abrir otro proyecto, el que tienes en pantalla se cierra. ${linkedProject
+          ? `Puedes guardar sus cambios en <strong>${escapeHtml(name)}</strong>.`
+          : `Todavía no está guardado con nombre; puedes guardarlo como <strong>${escapeHtml(name)}</strong>.`}</p>
+        <div class="stems-modal-actions">
+          <button class="stems-btn stems-btn--subtle" data-c="cancel">Cancelar</button>
+          <button class="stems-btn stems-btn--subtle stems-btn--danger" data-c="discard">Abrir sin guardar</button>
+          <button class="stems-btn stems-btn--primary" data-c="save">Guardar y abrir</button>
+        </div>
+      </div>`;
+    const done = (v) => { document.removeEventListener('keydown', onKey, true); ov.remove(); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } };
+    ov.addEventListener('click', (e) => {
+      const c = e.target.closest('[data-c]');
+      if (c) done(c.dataset.c); else if (e.target === ov) done('cancel');
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(ov);
+    ov.querySelector('[data-c="save"]').focus();
+  });
+  if (choice === 'cancel') return false;
+  if (choice === 'save') {
+    if (engine.isCurrentlyPlaying()) engine.stop();     // con audio sonando el guardado se pospone
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    await projectStore.saveCurrent(buildSaveState());
+    await window.electronAPI.stemsSaveAs({ name });
+  }
+  return true;
 }
 function escCloseStemsModal(e) {
   if (e.key === 'Escape') closeStemsModal();
@@ -7384,6 +7463,7 @@ async function resetProject() {
   nextTrackId = 1;
   nextMarkerId = 1;
   projectName = 'Mi proyecto';
+  linkedProject = null;
   bpm = 120; bpmFloat = 120; beatsPerBar = 4; beatValue = 4;
   document.getElementById('stems-project-name').value = projectName;
   document.getElementById('stems-bpm').value = bpm;

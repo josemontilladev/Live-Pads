@@ -93,7 +93,11 @@ function setPreferredIp(ip) {
 }
 
 function serveStatic(req, res) {
-  let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  // Una URL mal formada («/%») hacía saltar decodeURIComponent y, sin nadie que lo
+  // atrapara, mostraba un diálogo de error del proceso principal sobre la app.
+  let urlPath;
+  try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); }
+  catch (_) { res.writeHead(400); res.end('Bad request'); return; }
   if (urlPath === '/') urlPath = '/index.html';
 
   // Prevent path traversal — only serve files inside CLIENT_DIR.

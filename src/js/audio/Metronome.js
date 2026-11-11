@@ -13,7 +13,10 @@
 // accumulated. With lookahead, even a delayed scheduler tick still produces
 // musically perfect timing — we just schedule more notes when we wake up.
 
-const LOOKAHEAD_SEC = 0.1;   // schedule this far ahead of currentTime
+// 0,2 s de margen: un tirón de la interfaz (redibujar la lista, guardar la
+// librería) de hasta ~175 ms ya no retrasa ni amontona clicks (con 0,1 s bastaba
+// uno de 75 ms). Los clicks ya programados se cancelan al parar (ver stop()).
+const LOOKAHEAD_SEC = 0.2;   // schedule this far ahead of currentTime
 const TICK_MS       = 25;    // how often the scheduler wakes
 
 export class Metronome {
@@ -36,6 +39,7 @@ export class Metronome {
     this._schedulerTimer = null;     // setInterval handle
     this._nextNoteTime   = 0;        // ctx.currentTime when next beat fires
     this._scheduledBeats = [];       // [{ timeoutId, when }] pending UI callbacks
+    this._pendingClicks  = [];       // [{ node, time }] clicks programados que aún no sonaron
   }
 
   start() {
@@ -64,6 +68,10 @@ export class Metronome {
     // strobe its beat dot after the user hit stop.
     for (const s of this._scheduledBeats) clearTimeout(s.timeoutId);
     this._scheduledBeats = [];
+    // Clicks ya programados que todavía no sonaron: fuera (al parar, se para).
+    const now = (this.engine && this.engine.ctx) ? this.engine.ctx.currentTime : 0;
+    for (const c of this._pendingClicks) { if (c.time > now) { try { c.node.stop(); } catch (_) {} } }
+    this._pendingClicks = [];
     this.currentBeat = 0;
   }
 
@@ -118,12 +126,14 @@ export class Metronome {
     // Garbage-collect already-fired visual callbacks
     const cutoff = Date.now();
     this._scheduledBeats = this._scheduledBeats.filter(s => s.when > cutoff);
+    if (this._pendingClicks.length) this._pendingClicks = this._pendingClicks.filter(c => c.time > ctxTime);
   }
 
   _scheduleBeat(time, beatIndex) {
     const isAccent = this.accents.includes(beatIndex);
     // Schedule the audio sample-accurately
-    this.engine.playClick(isAccent, this.sound, this.volume, this.pan, time);
+    const node = this.engine.playClick(isAccent, this.sound, this.volume, this.pan, time);
+    if (node && typeof node.stop === 'function') this._pendingClicks.push({ node, time });
 
     // Schedule the visual callback (beat dot animation) at the wall-clock
     // moment that corresponds to `time`. Using performance.now would be

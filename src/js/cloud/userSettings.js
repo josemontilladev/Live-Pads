@@ -141,18 +141,30 @@ async function handleFreshLogin() {
 // ── Sincronización al arrancar, ANTES de que el boot lea la config local ────
 // Si la nube tiene algo más nuevo, lo escribe en local y el arranque lo toma.
 // Si no hay nada en la nube (o hay cambios locales sin subir), lo sube luego.
-export async function bootSyncBeforeLoad() {
+export async function bootSyncBeforeLoad({ maxMs = 2000 } = {}) {
   if (!isCloudEnabled()) { return; }
   if (!isLoggedIn() || !isOnline()) { wireRuntime(); return; }
   const u = getUser();
   try {
-    const rows = await rest(`/user_settings?select=data,updated_at&user_id=eq.${u.id}`);
+    // Tope de espera: el arranque no puede colgarse de la red (con el token caducado
+    // y el internet caído eran hasta ~24 s). Si la nube no contesta a tiempo se
+    // arranca con lo local y NO se escribe nada después (pisar los archivos con la
+    // app ya cargada los desincronizaría); el próximo arranque lo vuelve a intentar.
+    const TIMEOUT = Symbol('timeout');
+    const rows = await Promise.race([
+      rest(`/user_settings?select=data,updated_at&user_id=eq.${u.id}`),
+      new Promise((r) => setTimeout(() => r(TIMEOUT), maxMs)),
+    ]);
+    if (rows === TIMEOUT) { wireRuntime(); return; }
     const row = Array.isArray(rows) ? rows[0] : null;
     if (row) lastCloudData = row.data;     // referencia para no pisar con vacío
     if (!row) {
       setDirty(true);                       // aún no hay nube → subiremos lo local
-    } else if (row.updated_at !== localStorage.getItem(STAMP_KEY)) {
-      await writeToLocal(row.data);          // nube más nueva → a local antes de cargar
+    } else if (row.updated_at !== localStorage.getItem(STAMP_KEY) && !isDirty()) {
+      // Nube distinta y aquí no hay nada pendiente de subir → a local antes de cargar.
+      // Con cambios locales sin subir (editados sin conexión) gana lo local y se sube
+      // después: antes la nube los pisaba en silencio.
+      await writeToLocal(row.data);
       localStorage.setItem(STAMP_KEY, row.updated_at);
       setDirty(false);
     }

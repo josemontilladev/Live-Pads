@@ -25,6 +25,7 @@ import { isLoggedIn } from './supabase.js';
 import { getActiveLibraryId } from './libraries.js';
 import { hasFeature } from '../billing/license.js';
 import { watchLibrary } from './realtime.js';
+import { isPerforming } from '../state/performing.js';
 
 const POLL_MS = 45000;            // ronda periódica
 const STARTUP_DELAY_MS = 4000;    // respiro tras arrancar antes del primer intento
@@ -56,6 +57,9 @@ function canPullNow() {
   if (!getActiveLibraryId()) return false;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return false;
   if (isPushInFlight()) return false;
+  // En pleno servicio (Modo en vivo o audio sonando) no se baja ni se redibuja la
+  // lista: ese trabajo comparte hilo con el MIDI. Se retoma solo al parar.
+  if (isPerforming()) return false;
   // Editor de letra abierto: no tocar la lista por debajo del usuario.
   if (typeof document !== 'undefined' && document.getElementById('gi-lyrics-modal')) return false;
   // Edición local muy reciente: deja que el auto-push (debounce 2s) la suba

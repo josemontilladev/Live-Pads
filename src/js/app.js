@@ -60,6 +60,7 @@ let authGateReady = Promise.resolve();
 window.__padsShowTour = () => startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
 import { openSpotlight, isSpotlightOpen, closeSpotlight, registerSpotlightProvider } from './ui/spotlight.js';
 import { initLiveMode, toggleLiveMode, isLiveMode } from './ui/liveMode.js';
+import { registerPlayingProbe } from './state/performing.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
@@ -247,6 +248,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Pad Amb files are lazy-loaded on first keypress (~48MB each, see _ensurePadAmb).
   metro = new Metronome(engine);
+  // «¿Se está tocando?» para pausar las tareas de fondo (sync, actualizaciones).
+  registerPlayingProbe(() => metro.running);
+  registerPlayingProbe(() => isTrackPlaying());
+  registerPlayingProbe(() => (engine.activePadNodes || []).length > 0);
   initMetroBeatDots(metro);
   metro.onBeat = onMetroBeat;
   metro.sound = 'cowbell';
@@ -269,7 +274,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('beforeunload', () => {
     if (giSaveTimer) {
       clearTimeout(giSaveTimer); giSaveTimer = null;
-      if (window.electronAPI) window.electronAPI.saveGiSetlist(getSongs());  // flush inmediato
+      // Síncrono: el invoke asíncrono puede perderse si la ventana se destruye a mitad.
+      if (window.electronAPI) (window.electronAPI.saveGiSetlistSync || window.electronAPI.saveGiSetlist)(getSongs());
     }
   });
   // Note: GI library state (songs, genre, active id, accordion ids) lives
@@ -521,20 +527,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // tope de tiempo: sin red ni sesión no retrasa nada (el login no se espera: la
   // sesión se restaura al principio del arranque).
   try {
+    // Arranque local primero: la app ya está lista con lo que hay en este equipo.
+    // A la nube se le dan como mucho 2,5 s con el preloader; si tarda más (WiFi de
+    // iglesia, internet caído con el WiFi conectado), la app abre igual y la
+    // sincronización termina en segundo plano (la lista se actualiza sola).
     const { bootSyncOnce } = await import('./cloud/libraryLive.js');
-    await bootSyncOnce({ onStatus: bootStatus, maxMs: 12000 });
+    const sync = bootSyncOnce({ onStatus: bootStatus, maxMs: 12000 }).catch(() => {});
+    await Promise.race([sync, new Promise((r) => setTimeout(r, 2500))]);
     bootStatus('Todo al día');
   } catch (_) {}
 
-  // Hide preloader smoothly
-  setTimeout(() => {
+  // Hide preloader smoothly (sin espera fija: antes se añadían 800 ms porque sí).
+  requestAnimationFrame(() => {
     const preloader = q('#preloader');
     if (preloader) {
       preloader.style.opacity = '0';
       preloader.style.visibility = 'hidden';
       setTimeout(() => preloader.remove(), 800); // clean from DOM
     }
-  }, 800);
+  });
 });
 
 /* ── BANK SELECTS ── */
@@ -832,7 +843,12 @@ function bindAll() {
   // Safety net: an unexpected error in any handler should be logged, never
   // bubble up as an uncaught exception that could leave the UI mid-action
   // during a live service.
-  window.addEventListener('error', (e) => { try { console.error('[LivePads] error:', e.message); } catch (_) {} });
+  window.addEventListener('error', (e) => {
+    try { console.error('[LivePads] error:', e.message); } catch (_) {}
+    // También al registro en disco (logs/app.log): en la app instalada no hay consola.
+    if (/ResizeObserver loop/.test(e.message || '')) return;   // aviso inofensivo del navegador
+    try { window.electronAPI?.appLog?.('error', `${e.message} @ ${String(e.filename || '').split('/').pop()}:${e.lineno}`); } catch (_) {}
+  });
   window.addEventListener('unhandledrejection', (e) => { try { console.error('[LivePads] promise rejection:', e.reason); } catch (_) {} });
   bindClickWithSeqToggle();
   bindCountInToggle();

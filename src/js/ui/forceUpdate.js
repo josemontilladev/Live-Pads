@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { pushModal } from './modalStack.js';
+import { isPerforming } from '../state/performing.js';
 
 const CHECK_EVERY_MS = 3 * 3600 * 1000;
 const DOWNLOAD_URL = 'https://github.com/josemontilladev/Live-Pads/releases/latest';
@@ -73,9 +74,15 @@ async function check() {
   if (!api?.getMinVersion || shown) return;
   try {
     const [cfg, current] = await Promise.all([api.getMinVersion(), api.getAppVersion()]);
-    if (cfg && current && cmpVersion(current, cfg.min) < 0) block(current, cfg);
+    if (cfg && current && cmpVersion(current, cfg.min) < 0) {
+      // Nunca en pleno servicio: si se está tocando (Modo en vivo o audio sonando),
+      // el bloqueo espera y se reintenta cada minuto hasta que se pare.
+      if (isPerforming()) { clearTimeout(retry); retry = setTimeout(check, 60 * 1000); return; }
+      block(current, cfg);
+    }
   } catch (_) { /* sin red: no se bloquea */ }
 }
+let retry = null;
 
 export function startForceUpdateWatch() {
   check();

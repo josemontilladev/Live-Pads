@@ -378,6 +378,7 @@ function createWindow() {
   // Cost: 5–20 ms per launch (cache is small for a local-file Electron app).
   // The async call doesn't block window creation; loadFile() runs after,
   // and the fresh fetch lands well within the first paint.
+  watchWindowHealth(mainWindow);
   mainWindow.webContents.session.clearCache()
     .then(() => mainWindow.loadFile('src/index.html'))
     .catch((err) => {
@@ -1166,13 +1167,13 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
     const e = (firstErr || '').toLowerCase();
     let msg;
     if (/drm/.test(e)) {
-      msg = 'Este video está protegido con DRM y no se puede descargar (subida oficial del sello). Usá otro enlace de la misma canción: una versión lyric, en vivo, o una subida no oficial.';
+      msg = 'Este video está protegido con DRM y no se puede descargar (subida oficial del sello). Usa otro enlace de la misma canción: una versión lyric, en vivo, o una subida no oficial.';
     } else if (/not available|unavailable|is private|been removed|members[- ]only|requested format is not available/.test(e)) {
-      msg = 'YouTube no permite descargar este video (DRM, privado, eliminado o restringido). Probá con otro enlace de la misma canción.';
+      msg = 'YouTube no permite descargar este video (DRM, privado, eliminado o restringido). Prueba con otro enlace de la misma canción.';
     } else if (authLike && !hadOwnCookies) {
       // La UI reconoce este caso por el texto (las propiedades del Error no
       // sobreviven al puente IPC) y ofrece el botón de conectar la cuenta.
-      msg = 'YouTube pide una cuenta para este video (pasa con las subidas oficiales de los sellos). Conectá tu cuenta de YouTube en la app y reintentá — se hace una sola vez.';
+      msg = 'YouTube pide una cuenta para este video (pasa con las subidas oficiales de los sellos). Conecta tu cuenta de YouTube en la app y vuelve a intentarlo: se hace una sola vez.';
     } else if (authLike) {
       msg = 'YouTube rechazó la descarga incluso con tu cuenta conectada. Suele ser un video con DRM o restringido: probá con otro enlace de la misma canción.'
           + (browserErr ? ' (detalle: ' + browserErr.slice(-140) + ')' : '');
@@ -1213,13 +1214,53 @@ ipcMain.handle('download-youtube-audio', async (_e, { url, title } = {}) => {
   return { url: toLivepadsUrl(path.join('Original Tracks', finalName)), cover };
 });
 
-ipcMain.handle('save-gi-setlist', async (_e, songs) => {
-  const data = { data: { songs } };
+// Copias de seguridad rotativas de la librería (Datos/backups): antes de pisar
+// canciones_app.json se guarda la versión anterior, como mucho una cada 30 min
+// —o siempre que la lista vaya a encogerse de golpe (borrado masivo, mezcla
+// mala)—, y se conservan las 12 últimas. Sin nube, era imposible recuperarse
+// de un guardado malo.
+const GI_BACKUP_KEEP = 12;
+const GI_BACKUP_EVERY_MS = 30 * 60 * 1000;
+let lastGiBackupAt = 0;
+function backupGiSetlist(nextCount) {
+  try {
+    const dbPath = getLibraryDbPath();
+    if (!fs.existsSync(dbPath)) return;
+    const prev = readJsonSafe(dbPath);
+    const prevCount = (prev && prev.data && Array.isArray(prev.data.songs)) ? prev.data.songs.length : 0;
+    if (!prevCount) return;                                   // nada que proteger
+    const shrink = nextCount < prevCount * 0.5 && prevCount - nextCount >= 3;
+    if (!shrink && Date.now() - lastGiBackupAt < GI_BACKUP_EVERY_MS) return;
+    const dir = path.join(path.dirname(dbPath), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
+    fs.copyFileSync(dbPath, path.join(dir, `canciones_${stamp}_${prevCount}.json`));
+    lastGiBackupAt = Date.now();
+    const old = fs.readdirSync(dir).filter((f) => /^canciones_\d{8}-\d{6}_\d+\.json$/.test(f)).sort();
+    for (const f of old.slice(0, Math.max(0, old.length - GI_BACKUP_KEEP))) {
+      try { fs.unlinkSync(path.join(dir, f)); } catch (_) {}
+    }
+  } catch (err) { console.warn('Copia de seguridad de la librería falló:', err.message); }
+}
+function saveGiSetlist(songs) {
+  const list = Array.isArray(songs) ? songs : [];
+  backupGiSetlist(list.length);
   // La BD se escribe en la carpeta de la librería (OneDrive si está
   // configurada) de forma atómica. Ya NO se espeja a defaults/ en dev: eso
   // ensuciaba git y, además, defaults es solo la semilla de primer arranque.
-  writeFileAtomic(getLibraryDbPath(), JSON.stringify(data, null, 2));
+  writeFileAtomic(getLibraryDbPath(), JSON.stringify({ data: { songs: list } }, null, 2));
+}
+ipcMain.handle('save-gi-setlist', async (_e, songs) => {
+  saveGiSetlist(songs);
   return true;
+});
+// Variante síncrona para el cierre (beforeunload): garantiza que el último
+// cambio llega al disco antes de que la ventana se destruya.
+ipcMain.on('save-gi-setlist-sync', (e, songs) => {
+  let ok = true;
+  try { saveGiSetlist(songs); } catch (err) { console.warn('save-gi-setlist-sync falló:', err.message); ok = false; }
+  e.returnValue = ok;
 });
 
 ipcMain.handle('load-gi-setlist', async () => {
@@ -2113,11 +2154,22 @@ function ensureStemsDir() {
   fs.mkdirSync(stemsFolder(), { recursive: true });
 }
 
-ipcMain.handle('stems-save-current', async (_e, state) => {
+// Escritura atómica (tmp + rename): un corte a mitad ya no deja project.json
+// truncado (antes el proyecto «aparecía vacío» al reabrir).
+function saveStemsCurrent(state) {
   ensureStemsDir();
-  const fp = path.join(stemsRoot(), 'project.json');
-  fs.writeFileSync(fp, JSON.stringify(state, null, 2), 'utf-8');
+  writeFileAtomic(path.join(stemsRoot(), 'project.json'), JSON.stringify(state, null, 2));
+}
+ipcMain.handle('stems-save-current', async (_e, state) => {
+  saveStemsCurrent(state);
   return true;
+});
+// Variante síncrona para el cierre de la ventana (beforeunload): el guardado
+// asíncrono puede perderse si la ventana se destruye a mitad.
+ipcMain.on('stems-save-current-sync', (e, state) => {
+  let ok = true;
+  try { saveStemsCurrent(state); } catch (err) { console.warn('stems-save-current-sync falló:', err.message); ok = false; }
+  e.returnValue = ok;
 });
 
 ipcMain.handle('stems-load-current', async () => {
@@ -2239,7 +2291,7 @@ ipcMain.handle('stems-save-file', async (_e, { id, name, buffer } = {}) => {
   // Strip the path-unsafe bits but keep the extension so decoders
   // pick the right format on rehydrate.
   const safeName = String(name || 'stem').replace(/[^a-z0-9._-]/gi, '_');
-  const fileName = `${id}_${safeName}`;
+  const fileName = `${String(id).replace(/[^a-z0-9._-]/gi, '_')}_${safeName}`;
   const relPath = path.join('StemProjects', 'current', 'stems', fileName);
   const absPath = path.join(app.getPath('userData'), relPath);
   fs.writeFileSync(absPath, Buffer.from(buffer));
@@ -2534,10 +2586,11 @@ ipcMain.handle('stems-remove-file', async (_e, livepadsUrl) => {
   const rest = livepadsUrl.startsWith('livepads://')
     ? livepadsUrl.slice('livepads://'.length).replace(/^app\//, '')
     : livepadsUrl;
-  const decoded = decodeURIComponent(rest);
-  // Only allow deletions under StemProjects/ — defense in depth.
-  if (!decoded.replace(/\\/g, '/').startsWith('StemProjects/')) return false;
-  const abs = path.join(app.getPath('userData'), decoded);
+  let decoded;
+  try { decoded = decodeURIComponent(rest); } catch (_) { return false; }
+  // Solo se borra DENTRO de StemProjects/ (ruta resuelta: «StemProjects/../../x» no pasa).
+  const abs = containInRoot(path.join(app.getPath('userData'), 'StemProjects'), decoded.replace(/\\/g, '/').replace(/^StemProjects\//, ''));
+  if (!abs || !decoded.replace(/\\/g, '/').startsWith('StemProjects/')) return false;
   if (fs.existsSync(abs)) {
     try { fs.unlinkSync(abs); } catch (e) { console.warn('Stem rm failed:', e.message); }
   }
@@ -2696,7 +2749,15 @@ app.whenReady().then(() => {
 
   checkForUpdates({ quiet: true });
   // Quien deja la app abierta días también recibe la actualización: se revisa cada 30 min.
-  setInterval(() => checkForUpdates({ quiet: true }), 30 * 60 * 1000);
+  setInterval(async () => {
+    // En pleno servicio (Modo en vivo o audio sonando) no se busca ni se descarga:
+    // verificar un instalador grande carga disco y CPU. Se reintenta en la siguiente ronda.
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()
+        && await mainWindow.webContents.executeJavaScript('!!(window.__lpPerforming && window.__lpPerforming())', true)) return;
+    } catch (_) {}
+    checkForUpdates({ quiet: true });
+  }, 30 * 60 * 1000);
 });
 
 // ── Actualizaciones (electron-updater + GitHub Releases) ──────────────────
@@ -2716,6 +2777,39 @@ let _updateReady = null;   // { version, notes } cuando ya se descargó una actu
 let _upd = { state: 'idle' };
 let _updCheck = null;      // búsqueda en curso (para no lanzar dos)
 let _updDownload = null;   // { token, promise, last, retried }
+
+// Registro general de la app (logs/app.log, rotado a 512 KB): errores del proceso
+// principal y de la ventana. Sin esto, un fallo en casa de un usuario no dejaba rastro.
+function appLog(level, msg) {
+  try {
+    const dir = path.join(app.getPath('userData'), 'logs');
+    fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, 'app.log');
+    try { if (fs.statSync(f).size > 512 * 1024) fs.renameSync(f, f + '.1'); } catch (_) {}
+    fs.appendFileSync(f, `${new Date().toISOString()} [${level}] v${app.getVersion()} ${String(msg).slice(0, 4000)}\n`);
+  } catch (_) {}
+}
+// Un error suelto en el proceso principal ya no muestra el diálogo de Electron
+// sobre la app (en pleno servicio): se anota y la app sigue.
+process.on('uncaughtException', (err) => { appLog('error', 'main uncaughtException: ' + ((err && err.stack) || err)); });
+process.on('unhandledRejection', (err) => { appLog('warn', 'main unhandledRejection: ' + ((err && err.stack) || err)); });
+ipcMain.on('app-log', (_e, level, msg) => { appLog(level === 'warn' ? 'warn' : 'error', 'renderer: ' + msg); });
+
+// Si la ventana muere (p. ej. sin memoria en Stems) o se cuelga, se recarga sola
+// en vez de quedarse en blanco. Tope de 3 recargas por minuto para no entrar en bucle.
+let _reloads = [];
+function watchWindowHealth(win) {
+  const reload = (why) => {
+    appLog('error', 'ventana: ' + why);
+    const now = Date.now();
+    _reloads = _reloads.filter((t) => now - t < 60000);
+    if (_reloads.length >= 3 || win.isDestroyed()) return;
+    _reloads.push(now);
+    try { win.webContents.reload(); } catch (_) {}
+  };
+  win.webContents.on('render-process-gone', (_e, d) => { if (d && d.reason !== 'clean-exit') reload('render-process-gone ' + d.reason + ' (' + d.exitCode + ')'); });
+  win.on('unresponsive', () => appLog('warn', 'ventana: unresponsive'));
+}
 
 function updLog(level, msg) {
   try {

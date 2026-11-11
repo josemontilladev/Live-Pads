@@ -18,7 +18,7 @@
 //  · La compresión corre en workers, varias pistas a la vez (una por núcleo).
 // ─────────────────────────────────────────────────────────────────────────
 
-import { audioBufferToMp3 } from '../audio/mp3Encode.js';
+import { audioBufferToMp3 } from '../audio/mp3Buffer.js';
 import { encodeMp3Async } from '../audio/mp3Pool.js';
 import { audioBufferToWav } from './clickGenerator.js';
 import { isMp3Name } from './mp3Info.js';
