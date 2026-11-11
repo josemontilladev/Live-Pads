@@ -30,12 +30,10 @@
     "mp3-cutter": "^1.0.6"
   },
   "dependencies": {
-    "@breezystack/lamejs": "^1.2.7",
     "electron-updater": "^6.8.3",
     "kissfft-js": "^0.1.8",
     "onnxruntime-node": "^1.26.0",
     "qrcode": "^1.5.4",
-    "soundtouchjs": "^0.3.0",
     "ws": "^8.20.1"
   },
   "build": {
@@ -66,6 +64,7 @@
       "beatTracker.js",
       "chordModel.js",
       "analysisWorker.js",
+      "separationWorker.js",
       "src/**/*",
       "companion/**/*",
       "!src/**/*.map",

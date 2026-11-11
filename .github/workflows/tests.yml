@@ -1,0 +1,29 @@
+name: Tests
+
+# Pruebas unitarias en cada subida de código (no solo al publicar una versión):
+# un fallo se ve en el momento, no el día del release. Son rápidas (Linux, sin
+# compilar la app). Las pruebas de interfaz siguen corriendo en release.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Las pruebas unitarias solo usan módulos propios: no hace falta instalar Electron ni los modelos.
+      - name: Unit tests
+        run: npm test

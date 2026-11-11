@@ -2660,7 +2660,7 @@ ipcMain.handle('analysis-chords', async (_e, args = {}) => {
 ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = {}) => {
   if (!channels || !channels[0]) throw new Error('Audio vacío');
   await cancelChordJob();   // la separación que pide la persona tiene prioridad
-  const { separate, MODELS } = require('./stemSeparator');
+  const { MODELS } = require('./stemSeparator');
   const needed = (mode === '4stem')
     ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
     : (mode === 'otros')
@@ -2671,27 +2671,46 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
   };
   // Los modelos que pide este modo: si no están en el equipo, se bajan ahora (una vez).
   const modelsDir = await ensureModels(needed.map((k) => MODELS[k].file), (f, label) => send(f, label));
-  separationCancel = false;
-  try {
-    const result = await separate({
+  // En un hilo aparte: el proceso principal queda libre (guardar, leer audio, MIDI…)
+  // durante los minutos que dura la separación.
+  const { Worker } = require('worker_threads');
+  const worker = new Worker(path.join(__dirname, 'separationWorker.js'), {
+    workerData: {
       channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
       sampleRate: sampleRate || 44100,
       mode: (mode === '4stem' || mode === 'otros') ? mode : '2stem',
       modelsDir,
       ep: ep || undefined,  // undefined → auto (DML then CPU)
-      onProgress: send,
-      shouldCancel: () => separationCancel,
+    },
+  });
+  separationWorker = worker;
+  try {
+    const result = await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (fn, v) => { if (settled) return; settled = true; fn(v); };
+      worker.on('message', (m) => {
+        if (!m) return;
+        if (m.type === 'progress') send(m.fraction, m.stage, m.ep);
+        else if (m.type === 'done') finish(resolve, m.result);
+        else if (m.type === 'error') finish(m.cancelled ? resolve : reject, m.cancelled ? { cancelled: true } : new Error(m.error));
+      });
+      worker.on('error', (err) => finish(reject, err));
+      worker.on('exit', (code) => finish(reject, new Error(`La separación se detuvo inesperadamente (código ${code}).`)));
     });
+    if (result.cancelled) return { cancelled: true };
     return { sampleRate: result.sampleRate, ep: result.ep, stems: result.stems };
-  } catch (err) {
-    if (err && err.cancelled) return { cancelled: true };
-    throw err;
+  } finally {
+    if (separationWorker === worker) separationWorker = null;
+    try { worker.terminate(); } catch (_) {}
   }
 });
 
-// Cooperative cancel — checked between inference windows/models.
-let separationCancel = false;
-ipcMain.handle('stems-separate-cancel', () => { separationCancel = true; return true; });
+// Cancelación cooperativa: el hilo la comprueba entre ventanas de inferencia.
+let separationWorker = null;
+ipcMain.handle('stems-separate-cancel', () => {
+  try { if (separationWorker) separationWorker.postMessage({ type: 'cancel' }); } catch (_) {}
+  return true;
+});
 
 // ── Cloud separation (hybrid) ─────────────────────────────────────────
 // Optional: when the user has configured a provider + API key AND there's
