@@ -700,6 +700,20 @@
                 <span class="sr-val" id="pad-crossfade-val">2.0 s</span>
               </div>
             </div>
+            <div class="sb-label">Salida de audio</div>
+            <div class="sb-card audio-out-card">
+              <div class="sb-row">
+                <span class="sr-label sr-label--wide">Dispositivo</span>
+                <select id="audio-out-select" class="metro-dropdown" aria-label="Dispositivo de salida de audio">
+                  <option value="">Predeterminada del sistema</option>
+                </select>
+              </div>
+              <div class="sb-div"></div>
+              <label class="sb-row audio-out-alt" title="Con una interfaz de 4 o más salidas: el click (metrónomo y pistas de click) y la guía salen por 3-4, y todo lo demás por 1-2.">
+                <span class="audio-out-alt-txt"><b>Click y guía por las salidas 3-4</b><small id="audio-out-hint">Para in-ears: la sala no oye el click.</small></span>
+                <input type="checkbox" class="mo-switch" id="audio-out-alt">
+              </label>
+            </div>
             <p class="set-hint">Volumen, pan y maestro viven en el Mezclador de la pantalla principal; el volumen de cada pad de batería, en su propia baldosa.</p>
 
             <!-- Sliders canónicos que siguen manejando el motor (los mueve el

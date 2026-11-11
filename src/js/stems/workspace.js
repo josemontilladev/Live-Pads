@@ -8,6 +8,9 @@ import * as engine from './engine.js';
 import { registerPlayingProbe } from '../state/performing.js';
 import { estimateDecodedBytes, decodedBytesOfSeconds, memoryRisk } from './memoryEstimate.js';
 registerPlayingProbe(() => engine.isCurrentlyPlaying());
+// Click y guía por las salidas 3-4 cuando se activa en Ajustes → Audio.
+window.addEventListener('livepads:audio-routing', (e) => { try { engine.setGuideToAltOutput(!!(e.detail && e.detail.alt)); } catch (_) {} });
+try { if (localStorage.getItem('livepads-click-alt') === '1') engine.setGuideToAltOutput(true); } catch (_) {}
 import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
@@ -583,6 +586,10 @@ const SHELL_HTML = `
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exportar MP3
             </button>
+            <button class="stems-btn stems-btn--subtle" id="stems-export-split" disabled role="menuitem" title="Para in-ears: el click y la guía salen solo por el canal izquierdo y la banda solo por el derecho, en un MP3. Con un cable en Y cada lado va a su sitio.">
+              <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 3v18"/><path d="M8 8H4v8h4"/><path d="M16 8h4v8h-4"/></svg>
+              Exportar click a la izquierda
+            </button>
             <button class="stems-btn stems-btn--subtle" id="stems-save-song-stems" disabled role="menuitem" title="Guarda CADA pista del timeline como pista separada de una canción. Después cualquiera puede cargar solo las que quiera para practicar (por ejemplo, todo menos su instrumento).">
               <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>
               Guardar pistas en canción
@@ -849,6 +856,8 @@ const SHELL_HTML = `
             <span class="stems-console-count" id="stems-console-count">0 pistas</span>
           </button>
           <button class="stems-console-selall" id="stems-console-selall" type="button" title="Seleccionar todas las pistas (Ctrl+A)">Seleccionar todas</button>
+          <!-- Grupos por instrumento (batería, voces…): silencio y volumen comunes. -->
+          <div class="stems-groups" id="stems-groups" role="group" aria-label="Grupos de pistas" hidden></div>
         </div>
         <div class="stems-console-header-right">
           <span class="stems-save-pill" id="stems-save-pill" hidden>Guardado ✓</span>
@@ -1683,6 +1692,17 @@ function wireArrangeEvents(root) {
   root.querySelector('#stems-export').onclick = async () => {
     if (engine.getTracks().length === 0) return;
     await runExport();
+  };
+  // Mezcla «por salidas»: click + guía a la izquierda, banda a la derecha.
+  const splitBtn = root.querySelector('#stems-export-split');
+  if (splitBtn) splitBtn.onclick = async () => {
+    const all = engine.getTracks();
+    if (!all.length) return;
+    if (!all.some((t) => t.kind === 'click' || t.kind === 'guide')) {
+      toast('Para esta exportación hace falta una pista de click o de guía (el lado izquierdo quedaría en silencio). Añade el click con «+ Pista».');
+      return;
+    }
+    await runExport({ splitGuide: true, suggestedName: `${projectName || 'mezcla'} (click izq - banda der)` });
   };
   const saveStemsBtn = root.querySelector('#stems-save-song-stems');
   if (saveStemsBtn) saveStemsBtn.onclick = saveTimelineAsSongStems;
@@ -2600,6 +2620,7 @@ function wireConsoleStrip(strip, id) {
         () => { engine.setTrackVolume(id, oldV / 100); syncConsoleStripVol(id, oldV); scheduleSave(); },
         () => { engine.setTrackVolume(id, newV / 100); syncConsoleStripVol(id, newV); scheduleSave(); }
       );
+      refreshQuickMix();   // el deslizador del grupo sigue a la pista más alta
     }
   });
   // Pan: oninput aplica en vivo; el undo se registra al SOLTAR (change) o en el
@@ -2713,10 +2734,91 @@ function quickMixState(groups) {
   return 'custom';
 }
 
+// ── Grupos de pistas: un silencio y un volumen para todo el instrumento ─────
+// Los grupos salen del rol de cada pista (el mismo que «Practicar»). Solo se
+// muestran los que juntan 2 o más pistas. El deslizador marca la pista MÁS ALTA
+// del grupo y, al moverlo, sube o baja todas a la vez guardando su equilibrio.
+const groupMax = (g) => Math.round(Math.max(0, ...g.tracks.map((t) => t.volume || 0)) * 100);
+function renderGroupBar(groups) {
+  const bar = document.getElementById('stems-groups');
+  if (!bar) return;
+  const gs = groups.filter((g) => !g.key.startsWith('t:') && g.tracks.length >= 2);
+  bar.hidden = gs.length === 0;
+  if (!gs.length) { bar.innerHTML = ''; return; }
+  // Mientras se arrastra un deslizador no se redibuja (se perdería el arrastre): solo se actualizan los estados.
+  const dragging = bar.querySelector('.stems-grp-vol:active');
+  const sig = gs.map((g) => `${g.key}:${g.tracks.length}`).join('|');
+  if (dragging || bar.dataset.sig === sig) {
+    for (const g of gs) {
+      const el = bar.querySelector(`.stems-grp[data-grp="${CSS.escape(g.key)}"]`);
+      if (!el) continue;
+      const muted = g.tracks.every((t) => t.muted);
+      const m = el.querySelector('.stems-grp-m');
+      m.classList.toggle('is-on', muted); m.setAttribute('aria-pressed', String(muted));
+      const v = el.querySelector('.stems-grp-vol');
+      if (v !== dragging) v.value = String(groupMax(g));
+    }
+    return;
+  }
+  bar.dataset.sig = sig;
+  bar.innerHTML = gs.map((g) => {
+    const muted = g.tracks.every((t) => t.muted);
+    return `<div class="stems-grp" data-grp="${esc(g.key)}" style="--grp-c:${STEM_ROLE_COLORS[g.key] || 'var(--accent)'}">
+      <button type="button" class="stems-grp-m${muted ? ' is-on' : ''}" data-grp-act="mute" aria-pressed="${muted}" title="Silenciar todo el grupo «${esc(g.label)}» (${g.tracks.length} pistas)">M</button>
+      <span class="stems-grp-name">${esc(g.label)} <i>${g.tracks.length}</i></span>
+      <input type="range" class="stems-range stems-grp-vol" min="0" max="100" value="${groupMax(g)}" aria-label="Volumen del grupo ${esc(g.label)}" title="Volumen del grupo: sube o baja sus ${g.tracks.length} pistas a la vez, conservando el equilibrio entre ellas">
+    </div>`;
+  }).join('');
+}
+function wireGroupBar() {
+  const bar = document.getElementById('stems-groups');
+  if (!bar || bar.dataset.wired) return;
+  bar.dataset.wired = '1';
+  const groupOf = (el) => quickMixGroups().find((g) => g.key === el.closest('.stems-grp')?.dataset.grp);
+  bar.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-grp-act="mute"]');
+    if (!btn) return;
+    const g = groupOf(btn);
+    if (!g) return;
+    const before = g.tracks.map((t) => [t.id, !!t.muted]);
+    const next = !g.tracks.every((t) => t.muted);
+    const apply = (list) => list.forEach(([id, on]) => applyTrackMute(id, on));
+    apply(before.map(([id]) => [id, next]));
+    pushHistory(next ? 'Silenciar grupo' : 'Activar grupo', () => apply(before), () => apply(before.map(([id]) => [id, next])));
+  });
+  // Volumen del grupo: al empezar a mover se toma una foto de los volúmenes; cada paso
+  // reescala todos respecto a esa foto (así el equilibrio no se degrada al arrastrar).
+  let drag = null;
+  const setAll = (list) => list.forEach(([id, v]) => { engine.setTrackVolume(id, v); syncConsoleStripVol(id, Math.round(v * 100)); });
+  bar.addEventListener('input', (e) => {
+    const sl = e.target.closest('.stems-grp-vol');
+    if (!sl) return;
+    if (!drag || drag.el !== sl) {
+      const g = groupOf(sl);
+      if (!g) return;
+      const base = g.tracks.map((t) => [t.id, t.volume || 0]);
+      drag = { el: sl, base, max: Math.max(...base.map(([, v]) => v)) };
+    }
+    const target = Number(sl.value) / 100;
+    // Si todo estaba a cero no hay equilibrio que guardar: todas al valor elegido.
+    drag.now = drag.base.map(([id, v]) => [id, Math.max(0, Math.min(1, drag.max > 0 ? v * (target / drag.max) : target))]);
+    setAll(drag.now);
+  });
+  bar.addEventListener('change', (e) => {
+    if (!e.target.closest('.stems-grp-vol') || !drag || !drag.now) { drag = null; return; }
+    const before = drag.base, after = drag.now;
+    drag = null;
+    pushHistory('Volumen del grupo', () => { setAll(before); scheduleSave(); refreshQuickMix(); }, () => { setAll(after); scheduleSave(); refreshQuickMix(); });
+    scheduleSave();
+  });
+}
+
 function refreshQuickMix() {
   const cell = document.querySelector('.stems-head-spacer');
-  if (!cell) return;
   const groups = quickMixGroups();
+  wireGroupBar();
+  renderGroupBar(groups);
+  if (!cell) return;
   let sel = cell.querySelector('#stems-practice');
   if (groups.length < 2) {
     if (sel) cell.innerHTML = '<span class="stems-head-spacer-label">Pistas</span>';
@@ -6477,6 +6579,8 @@ function refreshTransport() {
   if (recBtn) recBtn.disabled = !hasTracks && !takeSession;
   const exportBtn = document.getElementById('stems-export');
   if (exportBtn) exportBtn.disabled = !hasTracks;
+  const exportSplitBtn = document.getElementById('stems-export-split');
+  if (exportSplitBtn) exportSplitBtn.disabled = !hasTracks;
   const assignBtn = document.getElementById('stems-assign');
   if (assignBtn) assignBtn.disabled = !hasTracks;
   const saveStemsBtn = document.getElementById('stems-save-song-stems');
@@ -6561,7 +6665,7 @@ async function runExport(opts = {}) {
       const linear = stage === 'render' ? progress * 0.5 : 0.5 + progress * 0.5;
       fill.style.width = `${Math.round(linear * 100)}%`;
       stageEl.textContent = stage === 'render'
-        ? (isIndividual ? 'Renderizando pista individual' : 'Renderizando mezcla con paneos y volúmenes')
+        ? (isIndividual ? 'Renderizando pista individual' : opts.splitGuide ? 'Renderizando: click y guía a la izquierda, banda a la derecha' : 'Renderizando mezcla con paneos y volúmenes')
         : 'Codificando a MP3';
     }, opts);
 

@@ -170,6 +170,32 @@ export function getTrackLevel(id) {
 }
 
 export function getMasterVolume() { return masterGain ? masterGain.gain.value : 0.85; }
+
+// ── Click y guía por las salidas 3-4 (in-ears) ───────────────────────────
+// Con una interfaz de 4+ salidas, las pistas de click y de guía dejan el máster
+// (1-2, la sala) y salen por 3-4. La forma de la salida la pone audioOutput.js.
+let altOn = false, altBus = null;
+const isGuideKind = (k) => k === 'click' || k === 'guide';
+function ensureAltBus() {
+  if (altBus) return altBus;
+  altBus = ctx.createGain();
+  const sp = ctx.createChannelSplitter(2), mg = ctx.createChannelMerger(4);
+  altBus.connect(sp);
+  sp.connect(mg, 0, 2); sp.connect(mg, 1, 3);
+  mg.connect(ctx.destination);
+  return altBus;
+}
+export function setGuideToAltOutput(on) {
+  ensureCtx();
+  altOn = !!on && ctx.destination.channelCount >= 4;
+  for (const t of tracks.values()) {
+    if (!isGuideKind(t.kind)) continue;
+    try { t.panNode.disconnect(masterGain); } catch (_) {}
+    if (altBus) { try { t.panNode.disconnect(altBus); } catch (_) {} }
+    t.panNode.connect(altOn ? ensureAltBus() : masterGain);
+  }
+  return altOn;
+}
 export function setMasterVolume(v) {
   ensureCtx();
   masterGain.gain.value = Math.max(0, Math.min(1, v));
@@ -301,7 +327,7 @@ export async function addTrack({ id, name, arrayBuffer, audioBuffer, kind, offse
   const panNode = ctx.createStereoPanner();
   panNode.pan.value = 0;
   gainNode.connect(panNode);
-  panNode.connect(masterGain);
+  panNode.connect(altOn && isGuideKind(kind) ? ensureAltBus() : masterGain);
   // Tap post-fader/pan para el VU por pista (no altera el audio: el analyser es
   // solo una derivación de lectura). fftSize chico = barato con muchas pistas.
   const meterAnalyser = ctx.createAnalyser();

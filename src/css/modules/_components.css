@@ -124,6 +124,14 @@
 .ui-seg-btn.is-on b { opacity: 1; color: var(--accent); }
 .ui-seg--accent .ui-seg-btn.is-on b { color: inherit; }
 
+/* ── Ajustes → Audio → Salida de audio ── */
+.audio-out-card .metro-dropdown { flex: 1 1 auto; min-width: 0; }
+.audio-out-alt { cursor: pointer; align-items: center; gap: 12px; }
+.audio-out-alt.is-disabled { cursor: default; opacity: .6; }
+.audio-out-alt-txt { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.audio-out-alt-txt b { font-size: 13px; font-weight: 650; color: var(--text); }
+.audio-out-alt-txt small { font-size: 11.5px; line-height: 1.3; color: var(--text-muted); }
+
 /* ── Efectos comunes de todos los botones (pulsar y foco con teclado) ──
    Misma respuesta en toda la app: al pulsar se hunden un poco y con Tab
    muestran el mismo anillo. */

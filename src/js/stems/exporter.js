@@ -24,7 +24,13 @@ const MP3_SAMPLE_BLOCK = 1152; // lamejs canonical frame size
  *   onlyTrackIds — restrict the mix to a subset of tracks (used by
  *   "Export individual track…"). When omitted, every track is included
  *   exactly as it sounds in the live mix.
+ *   splitGuide — mezcla «por salidas» para in-ears: el click y la guía van solo
+ *   por el canal IZQUIERDO y todo lo demás (la banda) solo por el DERECHO, cada
+ *   lado en mono. Se ignora el paneo de cada pista; volumen, mute y solo se respetan.
  */
+/** Pistas que el músico oye por el lado del click: el click y la guía (cues). */
+export const isGuideTrack = (t) => t && (t.kind === 'click' || t.kind === 'guide');
+
 export async function exportMix(onProgress = () => {}, opts = {}) {
   const all = engine.getRawTracks();
   const tracks = opts.onlyTrackIds && opts.onlyTrackIds.length
@@ -68,7 +74,14 @@ export async function exportMix(onProgress = () => {}, opts = {}) {
     const gain = offline.createGain();
     gain.gain.value = t.volume;
     const pan = offline.createStereoPanner();
-    pan.pan.value = t.pan;
+    if (opts.splitGuide) {
+      // Todo a un lado. Con una pista estéreo, el paneo extremo SUMA sus dos canales
+      // (+6 dB si son iguales): se compensa para que no sature.
+      pan.pan.value = isGuideTrack(t) ? -1 : 1;
+      if (t.buffer.numberOfChannels > 1) gain.gain.value = t.volume * 0.7071;
+    } else {
+      pan.pan.value = t.pan;
+    }
     gain.connect(pan); pan.connect(offlineMaster);
     // Honour the per-track timeline offset. Individual exports normalise to
     // the track's own start (offset 0) so the stem isn't padded with silence.

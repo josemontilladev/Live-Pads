@@ -107,6 +107,25 @@
 #workspace-stems .sb-group--view { margin-left: auto; border-left: 0; padding-right: 2px; }
 #workspace-stems .sb-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--border); flex: none; }
 #workspace-stems #stems-sec-loop.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+/* ── Consola: grupos de pistas (silencio y volumen por instrumento) ── */
+.stems-groups { display: flex; align-items: center; gap: 6px; min-width: 0; margin-left: 6px; overflow-x: auto; scrollbar-width: none; }
+.stems-groups::-webkit-scrollbar { display: none; }
+.stems-groups[hidden] { display: none; }
+.stems-grp {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px 0 3px; border-radius: 999px;
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.stems-grp-m {
+  width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 0; cursor: pointer; font: inherit; font-size: 10px; font-weight: 800;
+  background: color-mix(in srgb, var(--grp-c) 22%, transparent); color: var(--grp-c);
+  transition: background 150ms ease, color 150ms ease, transform 180ms var(--ui-ease, ease);
+}
+.stems-grp-m:hover { background: color-mix(in srgb, var(--grp-c) 38%, transparent); }
+.stems-grp-m:active { transform: scale(.9); }
+.stems-grp-m.is-on { background: var(--danger, #ff5d5d); color: #fff; }
+.stems-grp-name { font-size: 11.5px; font-weight: 650; color: var(--text); white-space: nowrap; text-transform: capitalize; }
+.stems-grp-name i { font-style: normal; font-size: 10.5px; color: var(--text-muted); margin-left: 2px; }
+.stems-grp .stems-grp-vol { width: 64px; height: 14px; margin: 0; }
 /* Deshacer / Rehacer + historial */
 #workspace-stems .stems-histctl { position: relative; display: inline-flex; align-items: center; gap: 2px; }
 #workspace-stems .stems-hist-more { width: 20px; }

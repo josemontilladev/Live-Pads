@@ -415,7 +415,7 @@ function createWindow() {
   // Permisos permitidos: MIDI (controladores) y 'media' (micrófono, para el
   // Afinador). Todo lo demás se niega. El acceso real al micro lo sigue
   // gobernando el SO (privacidad de Windows); aquí solo no lo bloqueamos.
-  const ALLOWED = new Set(['midi', 'midiSysex', 'media', 'audioCapture', 'display-capture']);
+  const ALLOWED = new Set(['midi', 'midiSysex', 'media', 'audioCapture', 'display-capture', 'speaker-selection']);
   mainWindow.webContents.session.setPermissionCheckHandler((webContents, permission) => {
     return ALLOWED.has(permission);
   });

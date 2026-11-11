@@ -61,6 +61,8 @@ window.__padsShowTour = () => startTour(PADS_TOUR_STEPS, PADS_TOUR_KEY);
 import { openSpotlight, isSpotlightOpen, closeSpotlight, registerSpotlightProvider } from './ui/spotlight.js';
 import { initLiveMode, toggleLiveMode, isLiveMode } from './ui/liveMode.js';
 import { registerPlayingProbe } from './state/performing.js';
+import { applySavedOutput } from './audio/audioOutput.js';
+import { initAudioOutputSetting } from './ui/audioOutputSetting.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
@@ -853,6 +855,8 @@ function bindAll() {
   bindClickWithSeqToggle();
   bindCountInToggle();
   initMetroOptions();
+  // Salida de audio elegida (y click por 3-4): se aplica ya, y la lista de Ajustes se rellena sola.
+  applySavedOutput(engine).catch(() => {}).then(() => initAudioOutputSetting(() => engine));
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
