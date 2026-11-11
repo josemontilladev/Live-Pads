@@ -100,7 +100,7 @@ async function onReset() {
   }
   const ok = await confirmDialogAsync({
     title: 'Restaurar carpeta por defecto',
-    message: `Volver a usar la carpeta interna de LivePads:\n${state.defaultPath}\n\nLos audios en la carpeta custom no se borran — solo se deja de leerlos. Si querés migrarlos antes, cancelá y copialos a mano.`,
+    message: `Volver a usar la carpeta interna de LivePads:\n${state.defaultPath}\n\nLos audios en la carpeta custom no se borran — solo se deja de leerlos. Si quieres migrarlos antes, cancela y cópialos a mano.`,
     confirmLabel: 'Restaurar', danger: false,
   });
   if (!ok) return;

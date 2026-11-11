@@ -4049,7 +4049,7 @@ function makeTrimmedBuffer(buffer, removeSec) {
 async function cutSelectedAtPlayhead() {
   if (pitchApplying) return;
   const ids = targetTrackIds();
-  if (!ids.length) { showToast('Seleccioná una pista (Ctrl+clic) o hacé clic en una para cortar.', 'info'); return; }
+  if (!ids.length) { showToast('Selecciona una pista (Ctrl+clic) o haz clic en una para cortar.', 'info'); return; }
   const P = engine.getCurrentSec();
   if (P <= 0.02) { showToast('Mové el cursor (clic en el timeline) al punto de corte.', 'info'); return; }
 
@@ -4980,7 +4980,7 @@ async function normalizeSelectedTracks() {
 async function splitSelectedAtPlayhead(atSec, onlyIds) {
   if (pitchApplying) return;
   const ids = onlyIds || targetTrackIds();
-  if (!ids.length) { showToast('Seleccioná una pista para dividir.', 'info'); return; }
+  if (!ids.length) { showToast('Selecciona una pista para dividir.', 'info'); return; }
   const P = typeof atSec === 'number' ? atSec : engine.getCurrentSec();
   const trackById = new Map(engine.getTracks().map(t => [t.id, t]));
   const ops = [];
@@ -4999,7 +4999,7 @@ async function splitSelectedAtPlayhead(atSec, onlyIds) {
       () => { for (const op of ops) restoreClips(op.id, op.after); });
     showToast(`✂️ Dividida${ops.length > 1 ? 's' : ''} ${ops.length} pista${ops.length > 1 ? 's' : ''} en el cursor. Arrastra cada fragmento; clic derecho → Borrar fragmento. Ctrl+Z deshace.`, 'success');
   } else {
-    showToast('Poné el cursor DENTRO del audio de la pista para dividir.', 'info');
+    showToast('Pon el cursor DENTRO del audio de la pista para dividir.', 'info');
   }
 }
 
@@ -5018,7 +5018,7 @@ function copySelectedTracks() {
   if (stemsClipboard.length) {
     showToast(`📋 ${stemsClipboard.length} pista${stemsClipboard.length > 1 ? 's' : ''} copiada${stemsClipboard.length > 1 ? 's' : ''}. Ctrl+V para pegar en el cursor.`, 'info');
   } else {
-    showToast('Seleccioná una pista de audio para copiar.', 'info');
+    showToast('Selecciona una pista de audio para copiar.', 'info');
   }
 }
 

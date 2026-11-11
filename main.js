@@ -1994,6 +1994,57 @@ ipcMain.handle('open-external', async (_e, url) => {
 
 // Export the full mapping (both Pads + Stems scopes) to a user-chosen file —
 // lets the user back up or move their setup to another PC/controller.
+// ── Copia de seguridad completa de los datos (sin audios) ────────────────
+// Un solo archivo con todo lo que la persona ha construido en la app: canciones
+// (letras, acordes, tonos, secciones), mapeos MIDI, kits de batería propios y sus
+// preferencias. Los audios no van dentro: viven en la carpeta de audios, que se
+// copia aparte. Sirve para cambiar de equipo o volver atrás tras un error.
+const BACKUP_KIND = 'livepads-backup';
+ipcMain.handle('backup-save', async (_e, { prefs } = {}) => {
+  const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+  const res = await dialog.showSaveDialog(mainWindow, {
+    title: 'Guardar copia de seguridad',
+    defaultPath: `LivePads copia ${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.lpbackup`,
+    filters: [{ name: 'Copia de LivePads', extensions: ['lpbackup'] }],
+  });
+  if (res.canceled || !res.filePath) return null;
+  const db = readJsonSafe(getLibraryDbPath());
+  const songs = (db && db.data && Array.isArray(db.data.songs)) ? db.data.songs : [];
+  const data = {
+    kind: BACKUP_KIND, v: 1, app: app.getVersion(), savedAt: d.toISOString(),
+    songs,
+    midiMap: readJsonSafe(path.join(app.getPath('userData'), 'midi_map.json')),
+    userDrums: readJsonSafe(path.join(app.getPath('userData'), 'user_drums.json')),
+    prefs: (prefs && typeof prefs === 'object') ? prefs : {},
+  };
+  writeFileAtomic(res.filePath, JSON.stringify(data));
+  return { path: res.filePath, songs: songs.length };
+});
+// Abre una copia y devuelve su contenido para que la app lo resuma y pida confirmación.
+ipcMain.handle('backup-open', async () => {
+  const res = await dialog.showOpenDialog(mainWindow, {
+    title: 'Restaurar copia de seguridad',
+    properties: ['openFile'],
+    filters: [{ name: 'Copia de LivePads', extensions: ['lpbackup', 'json'] }],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  let j;
+  try { j = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf-8')); } catch (_) { return { error: 'Ese archivo no se puede leer.' }; }
+  if (!j || j.kind !== BACKUP_KIND || !Array.isArray(j.songs)) return { error: 'Ese archivo no es una copia de seguridad de LivePads.' };
+  return { data: j };
+});
+// Aplica una copia ya confirmada: canciones, mapeos MIDI y kits. (Las preferencias las
+// aplica la ventana.) Antes de pisar las canciones se guarda siempre la versión actual.
+ipcMain.handle('backup-apply', async (_e, data) => {
+  if (!data || data.kind !== BACKUP_KIND || !Array.isArray(data.songs)) throw new Error('Copia no válida');
+  lastGiBackupAt = 0;                       // fuerza una copia rotativa de lo que hay ahora
+  saveGiSetlist(data.songs);
+  if (data.midiMap && typeof data.midiMap === 'object') saveToBoth('midi_map.json', JSON.stringify(data.midiMap, null, 2));
+  if (data.userDrums && typeof data.userDrums === 'object') saveToBoth('user_drums.json', JSON.stringify(data.userDrums, null, 2));
+  appLog('warn', `copia restaurada: ${data.songs.length} canciones (guardada el ${data.savedAt || '?'})`);
+  return true;
+});
+
 ipcMain.handle('export-midi-map', async (_e, maps) => {
   const res = await dialog.showSaveDialog(mainWindow, {
     title: 'Exportar mapeos MIDI',

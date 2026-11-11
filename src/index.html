@@ -742,7 +742,7 @@
                  entre máquinas vía OneDrive/Dropbox/etc. -->
             <div class="sb-label">Archivos de audio</div>
             <div class="sb-card audio-lib-card">
-              <div class="audio-lib-desc">Carpeta donde se guardan Sequences y Original Tracks. Si usás OneDrive/Dropbox, configurá aquí esa ruta en cada máquina para que los audios se sincronicen automáticamente.</div>
+              <div class="audio-lib-desc">Carpeta donde se guardan Sequences y Original Tracks. Si usas OneDrive/Dropbox, configura aquí esa ruta en cada máquina para que los audios se sincronicen automáticamente.</div>
               <div class="audio-lib-row">
                 <span class="audio-lib-label">Ruta actual:</span>
                 <code class="audio-lib-path" id="audio-lib-path">…</code>
@@ -754,20 +754,29 @@
               <button class="acc-btn ghost sm audio-lib-audit-btn" id="btn-audio-lib-audit" title="Busca referencias rotas, audios huérfanos y archivos aún sin descargar de la nube">Revisar audios…</button>
               <div class="audio-lib-msg" id="audio-lib-msg" hidden></div>
             </div>
+
+            <div class="sb-label">Copia de seguridad</div>
+            <div class="sb-card audio-lib-card">
+              <div class="audio-lib-desc">Guarda en un archivo todas tus canciones (letras, acordes, tonos), los mapeos MIDI, tus kits de batería y tus preferencias. Úsalo para cambiar de equipo o para volver atrás. Los audios no van dentro: están en la carpeta de arriba.</div>
+              <div class="audio-lib-actions">
+                <button class="acc-btn ghost sm" id="btn-backup-save">Guardar copia…</button>
+                <button class="acc-btn ghost sm" id="btn-backup-restore">Restaurar copia…</button>
+              </div>
+            </div>
           </div>
 
           <!-- SECCIÓN: MIDI / TECLADO -->
           <div id="tab-midi" class="stab-body">
             <div class="sb-label">MIDI / Teclado</div>
             <div class="sb-card set-launch-card">
-              <p class="set-launch-desc">Asigná cualquier control de la app (pads, drums, transporte, volúmenes) a tu teclado o controlador MIDI con el modo Learn.</p>
+              <p class="set-launch-desc">Asigna cualquier control de la app (pads, drums, transporte, volúmenes) a tu teclado o controlador MIDI con el modo Learn.</p>
               <button class="sb-btn sb-btn--primary" id="set-midi-learn">Mapeo MIDI / Teclado (Learn)</button>
               <button class="sb-btn" id="set-mappings">Ver mapeos activos</button>
               <button class="sb-btn" id="set-midi-rescan" title="Vuelve a buscar tu controlador (si no lo reconoció o lo reconectaste)">Reconectar MIDI</button>
             </div>
             <div class="sb-card">
               <div class="sb-field-label">Controlador</div>
-              <p class="set-launch-desc">Si tenés varios dispositivos MIDI conectados, elegí cuál usar. Con «Todos» responde cualquiera.</p>
+              <p class="set-launch-desc">Si tienes varios dispositivos MIDI conectados, elige cuál usar. Con «Todos» responde cualquiera.</p>
               <select class="sb-select" id="set-midi-input" aria-label="Controlador MIDI">
                 <option value="">Todos los controladores</option>
               </select>

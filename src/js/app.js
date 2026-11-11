@@ -12,6 +12,7 @@ import { initDeepLink } from './cloud/deepLink.js';
 import { hideDialog, confirmDialogAsync } from './ui/dialog.js';
 import { openCheatSheet, closeCheatSheet, isCheatSheetOpen, ensureShortcutsRendered } from './ui/cheatSheet.js';
 import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
+import { initBackupSetting } from './ui/backupSetting.js';
 import { openPreflight, closePreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel, closeCompanionPanel } from './ui/companionPanel.js';
@@ -433,7 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Prepara la siguiente pero NO la lanza (control en vivo): avisamos
         // claramente para que no parezca que el set se cortó.
         serviceNextSong();
-        showToast('Siguiente preparada — pulsá Espacio para lanzar', 'info');
+        showToast('Siguiente preparada: pulsa Espacio para lanzar', 'info');
       }
     },
     // El botón Play del reproductor reproduce/pausa SEGÚN LA FUENTE seleccionada
@@ -471,6 +472,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   buildThemesList();
   ensureShortcutsRendered();
   initAudioLibrarySetting();
+  initBackupSetting({
+    getSongCount: () => getSongs().length,
+    flushSongs: async () => { if (window.electronAPI) await window.electronAPI.saveGiSetlist(getSongs()); },
+  });
   loadServiceSongs();
   bindAll();
   loadGiSetlistFromFile();
@@ -1005,7 +1010,7 @@ function bindHamburgerMenu() {
       closeMenu();
       setIsMidiLearnMode(true);
       setMidiLearnTarget(null);
-      q('#midi-learn-overlay').innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo: hacé clic en un control <b>resaltado</b> y toca tu controlador. Puedes mapear varios seguidos. (Clic aquí para salir)';
+      q('#midi-learn-overlay').innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="15" height="15" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>Modo Mapeo: haz clic en un control <b>resaltado</b> y toca tu controlador. Puedes mapear varios seguidos. (Clic aquí para salir)';
       q('#midi-learn-overlay').style.display = 'block';
       // Body-level flag → CSS dims the whole UI to emphasize learn-mode
       // is modal. Exit (in midiBindings.js) removes the class.
@@ -2177,7 +2182,7 @@ async function checkLibraryConflicts() {
     if (!count) return;
     const ok = await confirmDialogAsync({
       title: 'Copias en conflicto detectadas',
-      message: `OneDrive creó ${count} copia(s) en conflicto de tu librería (pasa si editás en las dos PCs antes de que sincronice):\n\n${conflicts.join('\n')}\n\n¿Fusionarlas ahora? Se agregan las canciones que falten y se completan los audios faltantes — sin pisar lo que ya tenés. Las copias se archivan en "_conflictos_resueltos/" por las dudas.`,
+      message: `OneDrive creó ${count} copia(s) en conflicto de tu librería (pasa si editas en las dos PCs antes de que sincronice):\n\n${conflicts.join('\n')}\n\n¿Fusionarlas ahora? Se agregan las canciones que falten y se completan los audios faltantes — sin pisar lo que ya tienes. Las copias se archivan en "_conflictos_resueltos/" por si acaso.`,
       confirmLabel: 'Fusionar', danger: false,
     });
     if (!ok) return;
