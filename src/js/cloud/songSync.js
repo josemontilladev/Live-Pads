@@ -62,7 +62,9 @@ function hashOf(s) {
   const stemList = Array.isArray(a.stems) ? a.stems.filter((x) => x && x.url) : [];
   const st = stemList.length ? '|s' + JSON.stringify(stemList.map((x) => [x.url, x.name || ''])) : '';
   const cv = s.cover ? '|c' + s.cover : '';
-  const str = syncContent(s) + mk + au + st + cv;
+  // Tonos por cantante («G · María»): igual que las secciones, solo cuentan si existen.
+  const sk = String(s.singerKeys || '').trim() ? '|v' + String(s.singerKeys).trim() : '';
+  const str = syncContent(s) + mk + au + st + cv + sk;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);
@@ -122,6 +124,12 @@ function toRow(song, libraryId) {
 
   if (song.lyrics && String(song.lyrics).trim()) row.lyrics = song.lyrics;
   else if (clearing) row.lyrics = null;
+
+  // Tonos por cantante → columna vocalist_key (la que GI App muestra como «Tono
+  // vocalista»). Misma regla: solo viaja si lo hay, o null si se vació a propósito.
+  const sk = String(song.singerKeys || '').trim();
+  if (sk) row.vocalist_key = sk.slice(0, 300);
+  else if (clearing) row.vocalist_key = null;
   return row;
 }
 
@@ -139,6 +147,7 @@ function fromRow(row) {
     genre:  row.genre || 'adoracion',
     tags:   Array.isArray(row.tags) ? row.tags : [],
     youtubeUrl: row.youtube_url || '',
+    singerKeys: row.vocalist_key || '',
     favorite:   !!m.favorite,
     addedAt:    m.addedAt || Date.parse(row.created_at) || Date.now(),
     showChords: !!m.showChords,

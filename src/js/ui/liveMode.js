@@ -4,6 +4,17 @@
 
 import { q } from '../utils/dom.js';
 import { getServiceSongs, getActiveServiceIndex, getEffectiveKey } from '../data/service.js';
+import { getSongs } from '../state/store.js';
+import { noteForKey, shiftShort } from '../utils/singerKeys.js';
+
+// «G ↓1 · María»: el tono de hoy, cuánto se movió respecto a la librería y para quién.
+function keyLine(song) {
+  const key = getEffectiveKey(song) || '';
+  if (!key || !song.key || key === song.key) return key;
+  const lib = (getSongs() || []).find((s) => (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id));
+  const who = noteForKey((lib ? lib.singerKeys : song.singerKeys) || '', key);
+  return [`${key} ${shiftShort(song.key, key)}`.trim(), who].filter(Boolean).join(' · ');
+}
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const fmtClock = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -43,11 +54,11 @@ export function refreshLiveStrip() {
   }
   set('ls-now-title', nowTitle);
   set('ls-now-artist', now ? (now.artist || '') : (songs.length ? 'Elige una canción del servicio' : 'El servicio está vacío'));
-  set('ls-now-key', now ? (getEffectiveKey(now) || '') : '');
+  set('ls-now-key', now ? keyLine(now) : '');
   set('ls-next-title', next ? (next.title || 'Sin título') : (songs.length ? 'Fin del servicio' : '—'));
   // De la siguiente, tono y tempo: lo que hace falta para preparar el cambio.
   const nextBpm = next && Number(next.bpm) > 0 ? `${Math.round(Number(next.bpm))} BPM` : '';
-  set('ls-next-key', next ? [getEffectiveKey(next) || '', nextBpm].filter(Boolean).join(' · ') : '');
+  set('ls-next-key', next ? [keyLine(next), nextBpm].filter(Boolean).join(' · ') : '');
   const pos = q('#ls-pos');
   if (pos) pos.textContent = idx >= 0 ? `${idx + 1} / ${songs.length}` : (songs.length ? `${songs.length} canciones` : '');
 }

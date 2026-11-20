@@ -128,6 +128,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
           <option value="adoracion" ${song.genre === 'adoracion' ? 'selected' : ''}>Adoración</option>
         </select>
       </div>
+      <input type="text" class="gi-edit-input edit-singerkeys" value="${esc(song.singerKeys || '')}" placeholder="Tonos por cantante (p. ej. G · María; E · Pedro)" title="Si alguien la canta en otro tono, anótalo aquí: tono · nombre. Varios, separados por punto y coma.">
       <input type="text" class="gi-edit-input edit-tags" value="${esc(Array.isArray(song.tags) ? song.tags.join(', ') : '')}" placeholder="Etiquetas (separadas por comas: rápida, navidad…)">
       ${audioSection}
       ${lyricsSection}

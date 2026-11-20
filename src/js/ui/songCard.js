@@ -10,6 +10,7 @@ import { formatLyrics } from './lyricsFormat.js';
 import { transposeAll } from './chordTransposer.js';
 import { voicesChipHtml } from './voiceRefs.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
+import { parseSingerKeys, shiftLabel, shiftShort, noteForKey } from '../utils/singerKeys.js';
 
 const capitalizeFirst = (s) => { const t = String(s).trim(); return t.charAt(0).toLocaleUpperCase('es') + t.slice(1); };
 
@@ -146,19 +147,44 @@ export function songCardInnerHTML(song, opts) {
   const baseKey = song.key || '';
   const liveKey = opts.serviceKey || baseKey;
   const overridden = !!(opts.serviceKey && baseKey && opts.serviceKey !== baseKey);
+  // Tonos por cantante guardados en la canción («G · María»). En el Servicio la
+  // tarjeta es una copia: la lista viva llega por opts.singerKeys.
+  const singerText = opts.singerKeys != null ? opts.singerKeys : (song.singerKeys || '');
+  const singers = parseSingerKeys(singerText).filter((x) => x.key !== baseKey);
   let keyMeta = '';
   if (opts.keyEditable) {
-    const label = overridden ? `${esc(baseKey)} → ${esc(liveKey)}` : (esc(liveKey) || 'Tono');
+    // Con otro tono para hoy: «A → G ↓1» y, si ese tono es el de alguien, su nombre.
+    const who = overridden ? noteForKey(singerText, liveKey) : '';
+    const shift = overridden ? shiftLabel(baseKey, liveKey) : '';
+    const label = overridden
+      ? `${esc(baseKey)} → ${esc(liveKey)} <span class="gi-key-shift">${esc(shiftShort(baseKey, liveKey))}</span>`
+      : (esc(liveKey) || 'Tono');
     const title = overridden
-      ? `Hoy en ${liveKey} (en la librería está en ${baseKey}). Clic para cambiar.`
+      ? `Hoy en ${liveKey}${who ? ` (${who})` : ''}: ${shift} respecto a ${baseKey}, el tono de la librería. Clic para cambiar.`
       : 'Tono de la canción. Clic para tocarla en otro tono solo en este servicio.';
     keyMeta = `<button type="button" class="gi-key-chip${overridden ? ' is-overridden' : ''}" data-action="key" title="${esc(title)}">${label}</button>`;
   } else if (baseKey) {
     keyMeta = `<span class="gi-chip gi-chip--key">${esc(baseKey)}</span>`;
   }
   // Metadatos como chips (tono destacado · BPM · compás · género).
+  // Si el tono de hoy es el de alguien, su nombre va delante del artista.
+  const singerToday = (opts.keyEditable && overridden) ? noteForKey(singerText, liveKey) : '';
+  // Línea propia bajo la tarjeta: «María · baja 1 tono (original A)». Así se lee
+  // entera sin pelearse por el sitio con el artista y el tempo.
+  const keyNote = (opts.keyEditable && overridden)
+    ? `<div class="gi-key-note">${singerToday ? `<b>${esc(singerToday)}</b> · ` : ''}${esc(shiftLabel(baseKey, liveKey))} <span>(original ${esc(baseKey)})</span></div>`
+    : '';
+  // Chip «Voz G · María»: quién la canta en otro tono (si hay varios, el primero y «+N»).
+  let singerChip = '';
+  if (singers.length && !overridden) {
+    const first = singers[0];
+    const all = singers.map((x) => `${x.note || 'Otro tono'}: ${x.key}${baseKey ? ` (${shiftLabel(baseKey, x.key)})` : ''}`).join(' · ');
+    const more = singers.length > 1 ? ` +${singers.length - 1}` : '';
+    singerChip = `<span class="gi-chip gi-chip--singer" title="${esc(all)}">${esc(first.key)}${first.note ? ` · ${esc(first.note)}` : ''}${more}</span>`;
+  }
   const metaLine = [
     keyMeta,
+    singerChip,
     song.bpm   ? `<span class="gi-chip">${esc(song.bpm)} BPM</span>` : '',
     voicesChipHtml(song),   // voces de referencia (grabadas desde GI App)
     `<span class="gi-chip${sigMeta === '4/4' ? '' : ' is-odd-sig'}">${sigMeta}</span>`,
@@ -189,6 +215,7 @@ export function songCardInnerHTML(song, opts) {
         <div class="gi-song-title">${titleHtml}</div>
         <div class="gi-song-artist-row"><div class="gi-song-artist">${artistHtml}</div>${genreChip}</div>
         ${metaLine ? `<div class="gi-song-meta-line">${metaLine}</div>` : ''}
+        ${keyNote}
         ${(includeAdd && opts.inService) ? INSERVICE_BADGE_HTML : ''}
       </div>
     </div>

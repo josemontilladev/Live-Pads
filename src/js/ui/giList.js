@@ -3,6 +3,7 @@
 // (the songs array, current genre, active song id) lives in app.js; this
 // module reads it via the deps getters passed to initGiList().
 
+import { cleanSingerKeys } from '../utils/singerKeys.js';
 import { q } from '../utils/dom.js';
 import { songCardInnerHTML, ICON_ADD_CHECK, ICON_ADD_PLUS, INSERVICE_BADGE_HTML } from './songCard.js';
 import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
@@ -227,7 +228,9 @@ export function renderGiList(filter = '', editSongId = null) {
         s.title,
         s.artist || '',
         Array.isArray(s.tags) ? s.tags.join(' ') : '',
-        s.lyrics ? String(s.lyrics).replace(/<[^>]*>/g, ' ') : '',
+        // Los acordes van DENTRO de la letra ("po[D]deroso"): se quitan sin dejar
+        // hueco para que la palabra quede entera y se pueda encontrar.
+        s.lyrics ? String(s.lyrics).replace(/\[[^\]\n]{1,12}\]/g, '').replace(/<[^>]*>/g, ' ') : '',
       ].join(' · '));
       const words = textTerm.split(/\s+/).filter(Boolean);
       if (!words.every(w => hay.includes(w))) return false;
@@ -593,6 +596,10 @@ function initDelegation() {
         song.artist = card.querySelector('.edit-artist').value.trim();
         song.bpm = card.querySelector('.edit-bpm').value.trim();
         song.key = card.querySelector('.edit-key').value;
+        {
+          const sk = card.querySelector('.edit-singerkeys');
+          if (sk) song.singerKeys = cleanSingerKeys(sk.value);
+        }
         song.timeSig = card.querySelector('.edit-timesig')?.value || song.timeSig || '4/4';
         song.genre = card.querySelector('.edit-genre').value;
         const tagsEl = card.querySelector('.edit-tags');

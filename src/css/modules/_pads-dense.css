@@ -237,3 +237,20 @@
 .lyp-title { flex: 0 1 auto; min-width: 4ch; font-size: 15px; }
 .lyp-sub { flex: 1 1 0; min-width: 0; }
 .lyp-cols .section-header-line { margin-bottom: 1.7em; }
+
+/* ── Tonos por cantante ── */
+.gi-chip.gi-chip--singer {
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: transparent; font-weight: 600; max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gi-chip--singer i, .gi-key-shift { font-style: normal; opacity: .8; font-weight: 700; }
+.gi-key-who { font-weight: 500; opacity: .85; }
+/* En el servicio el artista cede sitio al tono de hoy, pero no desaparece. */
+.gi-song-artist .gi-key-who { color: var(--accent); font-weight: 700; max-width: none; display: inline; }
+.gi-key-who { display: inline-block; max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.gi-key-note {
+  grid-column: 1 / -1; margin-top: 4px; font-size: 11.5px; line-height: 1.25;
+  color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gi-key-note b { font-weight: 700; }
+.gi-key-note span { color: var(--text-muted); }

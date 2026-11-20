@@ -11,7 +11,8 @@ import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { openVoicesMenu } from './voiceRefs.js';
 import { keyChoices, isKnownKey } from '../utils/musicKeys.js';
-import { confirmDialog } from './dialog.js';
+import { confirmDialog, showDialog } from './dialog.js';
+import { parseSingerKeys, upsertSingerKey, cleanSingerKeys, shiftLabel } from '../utils/singerKeys.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
@@ -509,6 +510,7 @@ function buildCard(song, index, activeIdx) {
     // tocamos en otro tono" tiene sentido.
     keyEditable: true,
     serviceKey: getEffectiveKey(song),
+    singerKeys: singerKeysOf(song),
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -532,6 +534,7 @@ export function repaintServiceCard(card, song) {
     // tocamos en otro tono" tiene sentido.
     keyEditable: true,
     serviceKey: getEffectiveKey(song),
+    singerKeys: singerKeysOf(song),
     removeBtnClass: 'btn-remove',
     removeBtnTitle: 'Quitar de la lista'
   });
@@ -570,6 +573,32 @@ function promoteKeyToLibrary(song, newKey) {
   renderServiceList();
 }
 
+// La canción de la LIBRERÍA que corresponde a una del servicio (que es una copia).
+function librarySongOf(song) {
+  return (getLibrarySongs() || []).find(s =>
+    (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id)) || null;
+}
+function singerKeysOf(song) {
+  const live = librarySongOf(song);
+  return (live ? live.singerKeys : song.singerKeys) || '';
+}
+// Guarda el tono de hoy en la canción, con el nombre de quien la canta, para que
+// la próxima vez baste un toque («G · María»).
+function saveSingerKey(song, key) {
+  const live = librarySongOf(song);
+  if (!live) { window.showToast?.('Esta canción no está en tu librería.', 'info'); return; }
+  showDialog(`¿Quién canta «${live.title}» en ${key}?`, 'Nombre (p. ej. María)', (name) => {
+    live.singerKeys = upsertSingerKey(live.singerKeys, key, name);
+    song.singerKeys = live.singerKeys;
+    deps.persistLibrary?.();
+    try { window.dispatchEvent(new Event('livepads:songs-changed')); } catch (_) {}
+    try { window.dispatchEvent(new Event('livepads:cloud-dirty')); } catch (_) {}
+    const who = String(name || '').trim();
+    window.showToast?.(`Guardado: «${live.title}» en ${key}${who ? ` para ${who}` : ''}.`, 'success');
+    renderServiceList();
+  });
+}
+
 function openKeyMenu(anchorEl, song, card) {
   const base = song.key || '';
   if (!isKnownKey(base)) {
@@ -589,11 +618,29 @@ function openKeyMenu(anchorEl, song, card) {
       onSelect: () => { clearKeyOverride(song); repaintServiceCard(card, song); deps.onKeyChanged?.(song); },
     });
     items.push({
+      label: `Guardar ${current} para un cantante…`,
+      icon: ICON_STAR,
+      onSelect: () => saveSingerKey(song, current),
+    });
+    items.push({
       label: `Fijar ${current} como tono de la biblioteca`,
       icon: ICON_STAR,
       onSelect: () => promoteKeyToLibrary(song, current),
     });
   }
+
+  // Tonos ya guardados para un cantante: un toque y queda en ese tono hoy.
+  parseSingerKeys(singerKeysOf(song)).filter((x) => x.key !== base).forEach((x) => {
+    items.push({
+      label: `${x.key} · ${x.note || 'otro tono'} (${shiftLabel(base, x.key)})`,
+      icon: x.key === current ? ICON_CHECK : '',
+      onSelect: () => {
+        setKeyOverride(song, x.key);
+        repaintServiceCard(card, song);
+        deps.onKeyChanged?.(song);
+      },
+    });
+  });
 
   keyChoices(base).forEach(({ key, label }) => {
     items.push({
@@ -741,6 +788,14 @@ function initDelegation() {
         song.bpm = card.querySelector('.edit-bpm').value;
         song.key = card.querySelector('.edit-key').value;
         song.genre = card.querySelector('.edit-genre').value;
+        {
+          const sk = card.querySelector('.edit-singerkeys');
+          if (sk) {
+            song.singerKeys = cleanSingerKeys(sk.value);
+            const live = librarySongOf(song);
+            if (live) live.singerKeys = song.singerKeys;
+          }
+        }
         deps.syncMetaToLibrary(oldKey, song);
         deps.persistServiceSongs();
         repaintServiceCard(card, song);
@@ -801,4 +856,27 @@ function initDelegation() {
       renderServiceList();
     }
   });
+}
+
+// Los tonos por cantante viven en la librería; las canciones del servicio son
+// copias. Cuando la librería carga o cambia (al arrancar llega DESPUÉS de pintar
+// el servicio), se refresca la copia y se repinta solo si algo cambió.
+let _singerKeysTimer = 0;
+function refreshSingerKeysFromLibrary() {
+  clearTimeout(_singerKeysTimer);
+  _singerKeysTimer = setTimeout(() => {
+    let changed = false;
+    for (const s of (getServiceSongs() || [])) {
+      const live = librarySongOf(s);
+      if (!live) continue;
+      const v = live.singerKeys || '';
+      if ((s.singerKeys || '') !== v) { s.singerKeys = v; changed = true; }
+    }
+    if (changed) renderServiceList();
+  }, 150);
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('livepads:songs-changed', refreshSingerKeysFromLibrary);
+  window.addEventListener('livepads:library-reload', refreshSingerKeysFromLibrary);
+  window.addEventListener('livepads:songs-updated', refreshSingerKeysFromLibrary);
 }

@@ -9,11 +9,11 @@
 //   mergeSong(base, mine, theirs) → { fields, conflicts: ['lyrics', …] }
 //     fields = valores fusionados de los campos compartidos
 
-export const SYNC_FIELDS = ['title', 'artist', 'lyrics', 'bpm', 'key', 'genre', 'tags', 'favorite', 'showChords', 'timeSig', 'youtubeUrl', 'markers'];
+export const SYNC_FIELDS = ['title', 'artist', 'lyrics', 'bpm', 'key', 'genre', 'tags', 'favorite', 'showChords', 'timeSig', 'youtubeUrl', 'markers', 'singerKeys'];
 
 export const FIELD_LABELS = {
   title: 'título', artist: 'artista', lyrics: 'letra', bpm: 'BPM', key: 'tono', genre: 'género',
-  tags: 'etiquetas', favorite: 'favorita', showChords: 'acordes', timeSig: 'compás', youtubeUrl: 'video', markers: 'secciones',
+  tags: 'etiquetas', favorite: 'favorita', showChords: 'acordes', timeSig: 'compás', youtubeUrl: 'video', markers: 'secciones', singerKeys: 'tonos por cantante',
 };
 
 function toTags(tags) {
@@ -26,7 +26,7 @@ function toTags(tags) {
 // espacios, no cuentan como cambio).
 function canon(field, v) {
   switch (field) {
-    case 'title': case 'artist': case 'youtubeUrl': return String(v || '').trim();
+    case 'title': case 'artist': case 'youtubeUrl': case 'singerKeys': return String(v || '').trim();
     case 'tags': return toTags(v).join(',');
     case 'favorite': case 'showChords': return !!v;
     case 'timeSig': return String(v || '4/4');
