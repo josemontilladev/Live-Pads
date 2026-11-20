@@ -18,6 +18,23 @@ export function getCurrentTheme() {
   return currentTheme;
 }
 
+// «Controles grandes» (pantallas táctiles): independiente del tema. Solo pone
+// data-touch="on" en la raíz; los tamaños viven en _theme-flat.css.
+const TOUCH_KEY = 'livepads.touch';
+export function isTouchMode() {
+  try { return localStorage.getItem(TOUCH_KEY) === '1'; } catch { return false; }
+}
+function paintTouchMode(on) {
+  if (on) document.documentElement.dataset.touch = 'on';
+  else delete document.documentElement.dataset.touch;
+}
+export function setTouchMode(on) {
+  try { localStorage.setItem(TOUCH_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+  paintTouchMode(on);
+  try { window.dispatchEvent(new Event('livepads:settings-changed')); } catch (_) {}
+}
+paintTouchMode(isTouchMode());
+
 // Visual-only theme switch: sets the CSS custom properties + body
 // backdrop. Used for both committed selections and the hover preview.
 function paintTheme(id) {
@@ -67,6 +84,8 @@ export function applyTheme(id) {
 export function buildThemesList() {
   const container = q('#themes-list');
   if (!container) return;
+  const touch = q('#touch-mode-switch');
+  if (touch) { touch.checked = isTouchMode(); touch.onchange = () => setTouchMode(touch.checked); }
   container.innerHTML = '';
   Object.keys(THEMES).forEach(id => {
     const t = THEMES[id];

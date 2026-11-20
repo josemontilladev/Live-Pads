@@ -304,3 +304,8 @@
   background: color-mix(in srgb, var(--accent) 35%, transparent) !important;
   color: var(--on-accent, #0a0a0a) !important; box-shadow: none; opacity: .55;
 }
+
+/* ── Barra simple: sin las herramientas de ensayo y de click ──
+   El botón «Menos / Más» de la fila de herramientas alterna .is-simple. */
+.stems-deck.is-simple .sb-adv { display: none !important; }
+.sb-tools-toggle { flex: none; }

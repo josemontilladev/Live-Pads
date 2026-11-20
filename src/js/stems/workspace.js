@@ -698,10 +698,10 @@ const SHELL_HTML = `
         <span class="sb-group-k">${SVG_FLAG} Secciones</span>
         <select id="stems-section-select" class="stems-mini-select" aria-label="Sección a añadir" title="Sección que se añade"></select>
         <button class="stems-btn stems-btn--accent sb-icon-txt" id="stems-add-marker" title="Añadir esa sección en la posición actual">${SVG_PLUS} Añadir</button>
-        <button class="sb-icon" id="stems-detect-sections" title="Detectar secciones: analiza la canción y coloca los marcadores (puedes editarlos a mano)" aria-label="Detectar secciones">
+        <button class="sb-icon sb-adv" id="stems-detect-sections" title="Detectar secciones: analiza la canción y coloca los marcadores (puedes editarlos a mano)" aria-label="Detectar secciones">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
         </button>
-        <button class="sb-icon sb-icon--danger" id="stems-clear-markers" title="Borrar todos los marcadores (Ctrl+Z deshace)" aria-label="Borrar todos los marcadores">${SVG_TRASH}</button>
+        <button class="sb-icon sb-icon--danger sb-adv" id="stems-clear-markers" title="Borrar todos los marcadores (Ctrl+Z deshace)" aria-label="Borrar todos los marcadores">${SVG_TRASH}</button>
         <!-- Directo: saltar entre secciones y repetir la actual. Son botones para poder
              asignarlos a un pedal o a un pad MIDI (Aprender MIDI → clic en el botón). -->
         <span class="sb-sep" aria-hidden="true"></span>
@@ -717,7 +717,7 @@ const SHELL_HTML = `
       </div>
 
       <!-- Ensayo: repetir un tramo y bajar la velocidad -->
-      <div class="sb-group stems-loop-group" role="group" aria-label="Ensayo">
+      <div class="sb-group stems-loop-group sb-adv" role="group" aria-label="Ensayo">
         <span class="sb-group-k">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
           Ensayo
@@ -740,7 +740,7 @@ const SHELL_HTML = `
       </div>
 
       <!-- Click y guía -->
-      <div class="sb-group" role="group" aria-label="Click y guía">
+      <div class="sb-group sb-adv" role="group" aria-label="Click y guía">
         <span class="sb-group-k">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 3h6l3 18H6z"/><line x1="12" y1="15" x2="16" y2="6"/></svg>
           Click
@@ -801,6 +801,7 @@ const SHELL_HTML = `
             <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
           </button>
         </div>
+        <button class="sb-icon sb-tools-toggle" id="stems-tools-toggle" type="button" aria-pressed="false" aria-label="Mostrar u ocultar herramientas" title="Barra simple o completa: oculta o muestra las herramientas de ensayo y de click (loop A-B, velocidad, sonido del click, acentos)"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="17" x2="9" y2="17"/></svg></button>
         <button class="sb-icon stems-help-btn" id="stems-help" title="Atajos del timeline (?) — zoom: Alt+rueda · altura de pistas: Ctrl+rueda" aria-label="Atajos de teclado">?</button>
       </div>
     </header>
@@ -1293,6 +1294,24 @@ function wireTopbarEvents(root) {
       sbDeck.classList.toggle('sb--sm', w < 1300);
       sbDeck.classList.toggle('sb--xs', w < 1150);
     }).observe(sbDeck);
+  }
+  // Barra simple: oculta las herramientas de ensayo y de click (.sb-adv). Solo es
+  // visual: los atajos de teclado y el mapeo MIDI de esos controles siguen activos.
+  const toolsToggle = root.querySelector('#stems-tools-toggle');
+  if (toolsToggle && sbDeck) {
+    const paintTools = (simple) => {
+      sbDeck.classList.toggle('is-simple', simple);
+      toolsToggle.classList.toggle('is-on', simple);
+      toolsToggle.setAttribute('aria-pressed', simple ? 'true' : 'false');
+    };
+    let simple = false;
+    try { simple = localStorage.getItem('stems-tools-simple') === '1'; } catch {}
+    paintTools(simple);
+    toolsToggle.onclick = () => {
+      simple = !simple;
+      try { localStorage.setItem('stems-tools-simple', simple ? '1' : '0'); } catch {}
+      paintTools(simple);
+    };
   }
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en
   // pausa, queda en 0. (Stop, en cambio, detiene.)
@@ -5441,8 +5460,11 @@ function drawTrackWaveform(id) {
   const t = tk;  // ya resuelto arriba — evita un segundo .find() O(n)
   // Per-track override wins over kind defaults; only fall back to the
   // theme accent when neither has been set.
+  // En un tema plano el fondo es azul: el azul del click no se vería.
+  const flat = document.documentElement.dataset.themeStyle === 'flat';
   const color = t?.color
     ? t.color
+    : flat ? currentAccent()
     : t?.kind === 'click' ? 'rgba(96, 165, 250, 0.9)'
     : t?.kind === 'guide' ? 'rgba(74, 222, 128, 0.9)'
     : currentAccent();

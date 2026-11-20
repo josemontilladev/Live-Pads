@@ -95,6 +95,25 @@ function enhance(input) {
   paint(knob, input);
 }
 
+const SELECTOR = '#mixer-bar input[type="range"].pan-slider, #stems-console-strips input[type="range"].stems-console-pan';
+let watching = false;
+
 export function ensureFlatKnobs() {
-  document.querySelectorAll('#mixer-bar input[type="range"].pan-slider').forEach(enhance);
+  document.querySelectorAll(SELECTOR).forEach(enhance);
+  // La consola de Stems crea y borra tiras al añadir o quitar pistas: se vigila
+  // solo ese contenedor (no el documento) y solo desde que se usa un tema plano.
+  if (watching) return;
+  const strips = document.getElementById('stems-console-strips');
+  if (!strips) return;
+  watching = true;
+  let queued = false;
+  new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      if (document.documentElement.dataset.themeStyle !== 'flat') return;
+      strips.querySelectorAll('input[type="range"].stems-console-pan').forEach(enhance);
+    });
+  }).observe(strips, { childList: true, subtree: true });
 }

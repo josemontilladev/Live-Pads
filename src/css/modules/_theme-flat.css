@@ -168,14 +168,6 @@
 :root[data-theme-style="flat"] ::-webkit-scrollbar-thumb { background: var(--flat-ink); border-radius: 0; }
 :root[data-theme-style="flat"] ::-webkit-scrollbar-track { background: transparent; }
 
-/* ── Tamaño táctil: nada que se toque mide menos de 36px ── */
-:root[data-theme-style="flat"] :is(.ws-tab, .ui-seg-btn, .source-seg-btn, .tap-btn, .s-toggle,
-    .metro-dropdown, .metro-opts-btn, .ssl-slot-btn) { min-height: 36px; }
-:root[data-theme-style="flat"] :is(.tp-pitch-btn, .master-mute-btn, .mx-collapse, .ssl-collapse-btn,
-    .stems-pitch-btn, .stems-bpm-detect, .stems-zoom-btn, .sb-icon, .ui-close--sm) {
-  min-width: 36px; min-height: 36px;
-}
-
 /* ── Más botones de la pantalla de Pads ── */
 :root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
     .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle) {
@@ -264,9 +256,33 @@
 :root[data-theme-style="flat"] .stems-cfader-handle::before,
 :root[data-theme-style="flat"] .stems-cfader-handle::after { background: var(--flat-paper) !important; }
 :root[data-theme-style="flat"] .stems-cmeter { background: var(--flat-ink); border: 0; border-radius: 0; }
-/* En la consola el alto es escaso: el pan ocupa algo menos que en el resto. */
-:root[data-theme-style="flat"] input[type="range"].stems-console-pan { height: 22px; }
-:root[data-theme-style="flat"] input[type="range"].stems-console-pan::-webkit-slider-thumb { width: 12px; height: 20px; margin-top: -7px; }
+/* Consola: el pan es una perilla (algo menor que la del mezclador de Pads). */
+:root[data-theme-style="flat"] #stems-console-strips input[type="range"].stems-console-pan:has(+ .flat-knob) { display: none; }
+:root[data-theme-style="flat"] #stems-console-strips .flat-knob { width: 36px; height: 36px; margin: 0 auto; }
+:root[data-theme-style="flat"] #stems-console-strips .flat-knob::after { top: 4px; height: 12px; }
+:root[data-theme-style="flat"] .stems-console-pan-row { align-items: center; }
 :root[data-theme-style="flat"] :is(.stems-console-strip-kind, .stems-row-kind, .stems-kind-badge) {
   background: var(--flat-ink) !important; color: var(--flat-paper) !important; border-color: var(--flat-ink) !important;
 }
+
+/* ═══ Controles grandes (pantallas táctiles) ════════════════════════════════
+   Van con el tema «Consola» y también con cualquier otro tema si se activa
+   Ajustes → Temas → «Controles grandes» (data-touch="on"). Nada que se toque
+   mide menos de 36px. */
+:root:is([data-theme-style="flat"], [data-touch="on"]) :is(.ws-tab, .ui-seg-btn, .source-seg-btn, .tap-btn, .s-toggle,
+    .metro-dropdown, .metro-opts-btn, .ssl-slot-btn, .metro-mult-btn) { min-height: 36px; }
+:root:is([data-theme-style="flat"], [data-touch="on"]) :is(.tp-pitch-btn, .master-mute-btn, .mx-collapse, .ssl-collapse-btn,
+    .stems-pitch-btn, .stems-bpm-detect, .stems-zoom-btn, .sb-icon, .ui-close--sm) {
+  min-width: 36px; min-height: 36px;
+}
+:root:is([data-theme-style="flat"], [data-touch="on"]) :is(.metro-adj, .kit-action-btn, .icon-btn) { min-width: 40px; min-height: 40px; }
+:root:is([data-theme-style="flat"], [data-touch="on"]) .stems-ms { min-width: 32px; min-height: 32px; }
+/* Con otros temas el riel no cambia: crece el tirador y la zona que se toca. */
+:root[data-touch="on"]:not([data-theme-style="flat"]) input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; }
+:root[data-touch="on"]:not([data-theme-style="flat"]) input[type="range"] { padding-block: 10px; background-clip: content-box !important; box-sizing: content-box; box-shadow: none; }
+/* Con controles grandes la fila de herramientas de Stems se aprieta un poco
+   para seguir cabiendo en una sola línea. */
+:root:is([data-theme-style="flat"], [data-touch="on"]) #workspace-stems .sb-row--tools { column-gap: 4px; }
+:root:is([data-theme-style="flat"], [data-touch="on"]) #workspace-stems .sb-group { gap: 4px; padding-left: 8px; padding-right: 6px; }
+:root:is([data-theme-style="flat"], [data-touch="on"]) #workspace-stems .stems-zoom-readout { display: none; }
+:root[data-touch="on"]:not([data-theme-style="flat"]) #mixer-bar input[type="range"] { box-shadow: none; }

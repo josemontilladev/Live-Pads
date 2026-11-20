@@ -82,7 +82,7 @@
 .stems-playhead { width: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
 
 /* ── Consola ────────────────────────────────────────────────────── */
-.stems-console { height: var(--stems-console-h, min(270px, 31vh)); background: linear-gradient(180deg, var(--surface-2), var(--bg-surface)); border-radius: var(--r-lg); border: 1px solid var(--border); }
+.stems-console { height: var(--stems-console-h, min(330px, 31vh)); background: linear-gradient(180deg, var(--surface-2), var(--bg-surface)); border-radius: var(--r-lg); border: 1px solid var(--border); }
 .stems-console-header { padding: 8px 14px; }
 .stems-console-strip { background: rgba(255,255,255,.03); border: 1px solid var(--border); }
 .stems-console-strip-name { font-size: 13px; }
