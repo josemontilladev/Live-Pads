@@ -118,48 +118,18 @@ const THEMES = {
   // El mismo estilo «consola» con los colores de GI Setlist. La paleta fina vive
   // en _theme-flat.css ([data-theme="gi_console"]).
   gi_console: {
-    name: 'Consola GI', desc: 'Amarillo y negro · estilo consola',
+    name: 'Consola GI', desc: 'Negro, grafito y amarillo · estilo consola',
     style: 'flat',
-    bg1: '#383A40', bg2: '#303137', bg3: '#0B0B0D',
-    bgHover: '#3E4046',
+    bg1: '#121213', bg2: '#17181A', bg3: '#26282D',
+    bgHover: '#303238',
     blue: '#FBAE00', accent2: '#FBAE00',
     onAccent: '#040405',
     text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.68)',
     border: 'rgba(255,255,255,0.10)',
     borderStrong: 'rgba(255,255,255,0.20)',
     glow: 'transparent',
-    gradient: 'linear-gradient(135deg, #46484F 0%, #383A40 36%, #2B2C31 70%, #212226 100%)',
-    swatch: 'linear-gradient(135deg,#1B1C1F 0 50%,#040405 50% 75%,#FBAE00 75%)'
-  },
-  // DE PRUEBA: dos variantes para comparar. Fondo negro con los controles en
-  // amarillo, y al revés (fondo amarillo, controles negros).
-  gi_gold_pads: {
-    name: 'Consola GI · pads amarillos', desc: 'Prueba · fondo negro, controles amarillos',
-    style: 'flat',
-    bg1: '#141415', bg2: '#1A1B1E', bg3: '#FBAE00',
-    bgHover: '#232428',
-    blue: '#FBAE00', accent2: '#FBAE00',
-    onAccent: '#0A0A0B',
-    text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.68)',
-    border: 'rgba(255,255,255,0.12)',
-    borderStrong: 'rgba(255,255,255,0.22)',
-    glow: 'transparent',
-    gradient: 'linear-gradient(135deg, #1E1F22 0%, #151617 40%, #0D0D0E 75%, #080808 100%)',
-    swatch: 'linear-gradient(135deg,#0D0D0E 0 50%,#FBAE00 50%)'
-  },
-  gi_gold_bg: {
-    name: 'Consola GI · fondo amarillo', desc: 'Prueba · fondo amarillo, controles negros',
-    style: 'flat',
-    bg1: '#FBAE00', bg2: '#F2A600', bg3: '#0B0B0D',
-    bgHover: '#E69C00',
-    blue: '#0B0B0D', accent2: '#0B0B0D',
-    onAccent: '#FFFFFF',
-    text: '#0B0B0D', textMuted: 'rgba(11,11,13,0.70)',
-    border: 'rgba(0,0,0,0.14)',
-    borderStrong: 'rgba(0,0,0,0.30)',
-    glow: 'transparent',
-    gradient: 'linear-gradient(135deg, #FFC21F 0%, #FBAE00 40%, #F0A200 75%, #E39700 100%)',
-    swatch: 'linear-gradient(135deg,#FBAE00 0 50%,#0B0B0D 50%)'
+    gradient: 'linear-gradient(135deg, #1A1B1D 0%, #121213 40%, #0B0B0C 75%, #070707 100%)',
+    swatch: 'linear-gradient(135deg,#0B0B0C 0 50%,#2A2C31 50% 75%,#FBAE00 75%)'
   }
 };
 

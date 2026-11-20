@@ -663,70 +663,27 @@
 :root[data-theme-style="flat"] .stems-snap-btn.is-on svg { color: var(--flat-ink-lo) !important; }
 :root[data-theme-style="flat"] .stems-row-grip { color: var(--flat-text); opacity: .8; }
 
-/* ═══ DE PRUEBA · Consola GI con los controles en amarillo ══════════════════
-   Fondo negro; pads, notas y botones en amarillo con el texto en negro. Lo
-   encendido pasa a blanco. Las ranuras de deslizadores y las perillas siguen
-   oscuras para que el relleno se lea. */
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] {
-  --flat-ink: #FBAE00;
-  --flat-ink-hi: #FFC02E;
-  --flat-ink-lo: #0A0A0B;
-  --flat-ink-bg: linear-gradient(180deg, #FFC533 0%, #FBAE00 55%, #EDA100 100%);
-  --flat-paper: #FFFFFF;
-  --flat-text: #0A0A0B;
-  --flat-outline: rgba(255, 255, 255, 0.22);
-  --flat-bg: linear-gradient(135deg, #1E1F22 0%, #151617 40%, #0D0D0E 75%, #080808 100%);
-  --flat-side: #151617;
-  --flat-deep: #1A1B1E;
-  --flat-panel: rgba(255, 255, 255, 0.05);
-}
-/* Lo que es texto sobre el FONDO (no sobre un control) sigue en claro. */
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] :is(.mx-master .mx-name, .mx-lbl, .bank-label, .tray-header, .stems-row-grip),
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .sidebar-nav .stab { color: #FFFFFF !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .sidebar-nav .stab svg { background: #FBAE00; color: #0A0A0B; border-color: #FBAE00; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .sidebar-nav .stab.active { color: #0A0A0B !important; }
-/* Canciones, campos y listas: oscuros (son para leer, no para golpear). */
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] :is(.gi-song-item, .ssl-row, .svc-pick) { background: #101011 !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] :is(select, .metro-dropdown, .stems-mini-select, .stems-speed-select,
-    .gi-lib-select, .gi-search-input, .ssl-search, .stems-field, textarea,
-    input:not([type="range"]):not([type="checkbox"]):not([type="radio"])) { background: #101011 !important; color: #FFFFFF !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: #E09700 !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] :is(.drum-btn .drum-label, .drum-btn .drum-tile-pct, .key-btn) { color: #0A0A0B !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .kbd-hint { border-color: #0A0A0B; color: #0A0A0B; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] :is(.flat-knob, #mixer-bar .flat-knob) { background: #0A0A0B; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .flat-knob::after { background: #FBAE00 !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] input[type="range"] { --flat-paper: #FBAE00; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .drum-btn input[type="range"] { --flat-paper: #FFFFFF; }
-:root[data-theme-style="flat"][data-theme="gi_gold_pads"] .beat-dot { background: #101011; }
-
-/* ═══ DE PRUEBA · Consola GI con el fondo en amarillo ═══════════════════════
-   Como la consola azul, cambiando el azul por amarillo: controles negros con
-   texto blanco y, sobre el fondo, el texto en negro. */
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] {
-  --flat-ink: #0B0B0D;
-  --flat-ink-hi: #17181B;
-  --flat-ink-lo: #050506;
-  --flat-paper: #FFFFFF;
+/* ═══ Consola GI (definitivo): fondo negro, controles en grafito ════════════
+   El fondo es negro; los pads, notas y botones son un negro más claro (grafito)
+   con su filo gris, para que se separen del fondo. Los detalles van en amarillo
+   (lo encendido, los rellenos, la raya de las perillas) y el texto en blanco. */
+:root[data-theme-style="flat"][data-theme="gi_console"] {
+  --flat-paper: #FBAE00;
   --flat-text: #FFFFFF;
-  --flat-outline: rgba(0, 0, 0, 0.32);
-  --flat-bg: linear-gradient(135deg, #FFC21F 0%, #FBAE00 40%, #F0A200 75%, #E39700 100%);
-  --flat-side: #F5AA00;
-  --flat-deep: #EFA300;
-  --flat-panel: rgba(0, 0, 0, 0.09);
+  --flat-bg: linear-gradient(135deg, #1A1B1D 0%, #121213 40%, #0B0B0C 75%, #070707 100%);
+  --flat-side: #141415;
+  --flat-deep: #17181A;
+  --flat-panel: rgba(255, 255, 255, 0.04);
+  --flat-ink: #26282D;
+  --flat-ink-hi: #30333A;
+  --flat-ink-lo: #0A0A0B;
+  --flat-ink-bg: linear-gradient(180deg, #31343B 0%, #272A2F 55%, #202226 100%);
+  --flat-outline: rgba(255, 255, 255, 0.20);
 }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.mx-master .mx-name, .mx-lbl, .mx-name, .mx-val, .bank-label, .tray-header, .stems-row-grip),
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .sidebar-nav .stab,
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .sidebar-nav .stab .stab-text small { color: #0B0B0D !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .sidebar-nav .stab.active { background: #0B0B0D !important; border-color: #0B0B0D !important; color: #FFFFFF !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .sidebar-nav .stab.active .stab-text small { color: rgba(255, 255, 255, 0.7) !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .sidebar-nav { background: rgba(0, 0, 0, 0.08) !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: #2A2B2F !important; }
-/* Dentro de las tarjetas y controles negros, el texto sigue claro. */
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.gi-song-item, .ssl-row, .svc-pick, .drum-btn, .key-btn, .stems-console-strip) { color: #FFFFFF; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.gi-song-item, .ssl-row, .svc-pick) :is(.gi-song-title, .ssl-row-title) { color: #FFFFFF; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.gi-song-item, .ssl-row, .svc-pick) :is(.gi-song-artist, .ssl-row-artist, .ssl-row-meta, .gi-chip) { color: rgba(255, 255, 255, 0.75); }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.drum-btn .drum-label, .drum-btn .drum-tile-pct) { color: #FFFFFF; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] .stems-console-strip { background: #0B0B0D !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.drum-btn.hit, .drum-btn:active) :is(.drum-label, .drum-tile-pct) { color: #0B0B0D; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.gi-empty, .gi-empty *, .ssl-empty, .svc-empty, .svc-empty *):not(button):not(button *) { color: #0B0B0D !important; }
-:root[data-theme-style="flat"][data-theme="gi_gold_bg"] :is(.tp-pitch-val, .stems-pitch-val) { color: #FFFFFF !important; }
+/* Sostenidos: un punto más oscuros que las notas naturales. */
+:root[data-theme-style="flat"][data-theme="gi_console"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: #17181B !important; }
+/* Canciones: tarjetas algo más oscuras que los botones (son para leer). */
+:root[data-theme-style="flat"][data-theme="gi_console"] :is(.gi-song-item, .ssl-row, .svc-pick) { background: linear-gradient(180deg, #202226 0%, #1A1B1E 100%) !important; }
+/* Detalles en amarillo: atajo de teclado de cada pad y pulsos del metrónomo. */
+:root[data-theme-style="flat"][data-theme="gi_console"] .kbd-hint { border-color: #FBAE00; color: #FBAE00; }
+:root[data-theme-style="flat"][data-theme="gi_console"] .beat-dot { background: #0A0A0B; }

@@ -1,4 +1,4 @@
-• Dos temas de prueba para comparar: «Consola GI · pads amarillos» (fondo negro, controles amarillos) y «Consola GI · fondo amarillo» (fondo amarillo, controles negros).
-• Temas Consola: corregido el texto que desaparecía al pasar el ratón por la opción elegida (Mayor, 1x, Librería, Secuencia) y la etiqueta del imán en Stems.
-• Pads de batería con tamaño estable: ya no crecen al doble cuando no hay canción cargada.
-• Avisos: la X de cerrar queda siempre alineada a la derecha.
+• Tema «Consola GI» definitivo: fondo negro, botones y pads en grafito con filo gris, y los detalles en amarillo y blanco.
+• Se retiran los dos temas de prueba (pads amarillos y fondo amarillo).
+• Temas Consola: corregido el texto que desaparecía al pasar el ratón por la opción elegida y la etiqueta del imán en Stems.
+• Pads de batería con tamaño estable y la X de los avisos siempre a la derecha.
