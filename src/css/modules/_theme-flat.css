@@ -687,3 +687,24 @@
 /* Detalles en amarillo: atajo de teclado de cada pad y pulsos del metrónomo. */
 :root[data-theme-style="flat"][data-theme="gi_console"] .kbd-hint { border-color: #FBAE00; color: #FBAE00; }
 :root[data-theme-style="flat"][data-theme="gi_console"] .beat-dot { background: #0A0A0B; }
+
+/* ═══ Consola GI — ajuste de tonos ═════════════════════════════════════════
+   Fondo negro liso (como el tema GI.Setlist), contenedores apenas más claros y
+   neutros (sin tinte gris azulado), y los controles un punto por encima. */
+:root[data-theme-style="flat"][data-theme="gi_console"] {
+  --flat-bg: #0A0A0A;
+  --flat-side: #101010;
+  --flat-deep: #131313;
+  --flat-panel: #131313;
+  --flat-ink: #1C1C1D;
+  --flat-ink-hi: #242425;
+  --flat-ink-lo: #070707;
+  --flat-ink-bg: linear-gradient(180deg, #232324 0%, #1C1C1D 55%, #171718 100%);
+  --flat-outline: rgba(255, 255, 255, 0.14);
+}
+:root[data-theme-style="flat"][data-theme="gi_console"] :is(#panel-metro, #panel-keys, #panel-setlist, #bank-section,
+    .stems-deck, #stems-library, #stems-setlist, #stems-console) { border: 1px solid rgba(255, 255, 255, 0.06) !important; }
+:root[data-theme-style="flat"][data-theme="gi_console"] :is(.mx-channel, .stems-mixer-strip, .sb-card, .theme-item) { background: #181818 !important; }
+:root[data-theme-style="flat"][data-theme="gi_console"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: #111111 !important; }
+:root[data-theme-style="flat"][data-theme="gi_console"] :is(.gi-song-item, .ssl-row, .svc-pick) { background: #1A1A1B !important; }
+:root[data-theme-style="flat"][data-theme="gi_console"] .stems-console-strip { background: #1A1A1B !important; }
