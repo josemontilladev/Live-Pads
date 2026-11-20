@@ -121,7 +121,7 @@
   padding-right: 24px;
   transition: border-color 0.2s;
 }
-.metro-dropdown:hover { border-color: var(--blue); background: var(--bg-hover); }
+.metro-dropdown:hover { border-color: var(--blue); background-color: var(--bg-hover); }
 .metro-dropdown:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(255,188,0,0.15); }
 
 /* ── PANEL KEYS ── */

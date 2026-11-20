@@ -605,6 +605,33 @@ function setPadMinor(on) {
   // Si hay un pad sonando, pasa a la otra tonalidad con el crossfade de siempre.
   if (getActiveKey()) engine.playPad(getActiveKey(), PAD_BANKS[getPadBankIdx()].synth);
 }
+// Modo (mayor/menor) que pide la canción preparada. Se aplica al lanzar su pad
+// (no antes: si suena el pad de la canción anterior, no se le cambia el modo).
+// null = la canción no tiene tono reconocible; se deja el modo que haya.
+let _preparedPadMinor = null;
+function preparePadModeFor(song) {
+  const p = parseKey(song && song.key);
+  _preparedPadMinor = p ? p.minor : null;
+  if (_preparedPadMinor === null) return;
+  // Sin pad sonando, se alinea ya: el selector Mayor/Menor muestra lo que sonará.
+  if (!getActiveKey()) applyPreparedPadMode({ replay: false, consume: false });
+}
+// Pone el modo de la canción preparada. Solo en bancos con pads menores. Al
+// lanzar la canción se «consume»: si luego alguien cambia Mayor/Menor a mano,
+// no se le deshace al cambiar de fuente.
+function applyPreparedPadMode({ replay, consume = true }) {
+  if (_preparedPadMinor === null) return;
+  const want = _preparedPadMinor;
+  if (consume) _preparedPadMinor = null;
+  const bank = PAD_BANKS[getPadBankIdx()];
+  if (!(bank && bank.minor)) return;
+  if (padMinorWanted() === want) return;
+  if (replay) setPadMinor(want);
+  else {
+    try { localStorage.setItem(PAD_MINOR_KEY, want ? '1' : '0'); } catch {}
+    syncPadMode();
+  }
+}
 q('#pad-mode')?.addEventListener('click', (e) => {
   const b = e.target.closest('.pad-mode-btn');
   if (b) setPadMinor(b.dataset.mode === 'minor');
@@ -811,6 +838,8 @@ function onKeyClick(key) {
       }
     });
   } else {
+    // La tecla de la canción preparada suena en el modo de la canción.
+    if (key === getPreparedPadKey()) applyPreparedPadMode({ replay: false });
     // Audio FIRST (zero added latency), then all the visual state.
     engine.playPad(key, PAD_BANKS[getPadBankIdx()].synth);
     setActiveKey(key);
@@ -1553,7 +1582,7 @@ function toggleMetro() {
   // de la barra inferior, y dos "Play" iguales confundían cuál lanzar.
   btn.innerHTML = getMetroRunning()
     ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9 3h6l3.5 18h-13z"/><path d="M12 15l5-8"/><path d="M8 15h8"/></svg>';
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M10.4 3.2A1.6 1.6 0 0 1 12 2a1.6 1.6 0 0 1 1.6 1.2l4.5 16.4A1.9 1.9 0 0 1 16.3 22H7.7a1.9 1.9 0 0 1-1.8-2.4z"/><path d="M8.5 17h7"/><path d="M12 17 18 5.5"/><circle cx="15" cy="11.25" r="1.6" fill="currentColor"/></svg>';
   btn.classList.toggle('running', getMetroRunning());
   if (!getMetroRunning()) {
     qa('.beat-dot').forEach(d => d.classList.remove('on'));
@@ -1615,6 +1644,7 @@ function prepareNextSongKey(song) {
   }
 
   if (!song.key) return;
+  preparePadModeFor(song);
   let key = song.key.replace('m', '').trim();
   const esToEn = { 'Do':'C', 'Re':'D', 'Mi':'E', 'Fa':'F', 'Sol':'G', 'La':'A', 'Si':'B' };
   for (const es in esToEn) {
@@ -1687,6 +1717,7 @@ function triggerMasterPlayPause() {
 
   // Secuencia (por defecto): pad + secuencia (con cuenta de entrada) o metrónomo.
   if (getPreparedPadKey() && !getActiveKey()) onKeyClick(getPreparedPadKey());
+  else if (getActiveKey() && getActiveKey() === getPreparedPadKey()) applyPreparedPadMode({ replay: true });
   if (isSequenceLoaded()) {
     // Cuenta de entrada (si está activa): un compás de clicks y luego arranca
     // la secuencia justo en el "1".
@@ -1870,6 +1901,7 @@ function getActiveSongForSource() {
 function ensurePadPlaying() {
   const key = getPreparedPadKey() || getActiveKey();
   if (key && !getActiveKey()) onKeyClick(key);
+  else if (getActiveKey() && getActiveKey() === getPreparedPadKey()) applyPreparedPadMode({ replay: true });
 }
 
 function selectSource(which) {
@@ -2301,10 +2333,20 @@ function applyGiSong(song) {
       // poder recalcular el pad correcto cuando el usuario transponga el tono
       // del reproductor con los botones ▲/▼ del track player.
       _songBaseKeySemitone = keys.indexOf(key);
-      if (getActiveKey()) {
-        // If a pad is playing, smoothly crossfade to the new key
+      // Modo del pad (mayor/menor) según el tono de la canción ("Am" → menor).
+      const pk = parseKey(liveKey);
+      _preparedPadMinor = pk ? pk.minor : null;
+      if (getActiveKey() === key) {
+        // Ya suena esa nota (p. ej. de A a Am): se queda sonando y, si cambia el
+        // modo, pasa a él con el fundido. (onKeyClick la habría apagado.)
+        applyPreparedPadMode({ replay: true });
+      } else if (getActiveKey()) {
+        // If a pad is playing, smoothly crossfade to the new key (ya en su modo)
+        applyPreparedPadMode({ replay: false });
         onKeyClick(key);
       } else {
+        // Sin pad sonando: el selector Mayor/Menor muestra ya lo que sonará.
+        applyPreparedPadMode({ replay: false, consume: false });
         // If no pad is playing, just prepare the key for master trigger
         setPreparedPadKey(key);
         qa('.key-btn').forEach(b => {

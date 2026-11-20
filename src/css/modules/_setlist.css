@@ -1463,7 +1463,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
   background-position: right 8px center;
   transition: border-color 0.2s, background 0.2s;
 }
-.gi-lib-select:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.gi-lib-select:hover { border-color: var(--border-strong); background-color: var(--bg-hover); }
 .gi-lib-select:focus, .gi-lib-select:focus-visible { border-color: var(--border-strong); box-shadow: none; outline: none; }
 
 /* ── Acción "Eliminar duplicados" en el menú del filtro de Librería ── */

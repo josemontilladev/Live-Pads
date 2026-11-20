@@ -79,3 +79,11 @@
    al pasar el ratón no tapa ningún dato de la tarjeta. */
 .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-main { padding-bottom: 30px; }
 .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions { bottom: 5px; }
+
+/* Tarjetas del servicio (con flechas de orden ↑↓ arriba a la derecha): en una
+   tarjeta compacta la tira flotante llegaba a la misma altura que las flechas y
+   las tapaba. Se aparta a la izquierda de las flechas. */
+.gi-song-item.has-order:not(.active-song):not(.lyrics-open) .gi-song-actions,
+#panel-setlist .gi-song-item.has-order:not(.active-song):not(.lyrics-open) .gi-song-actions {
+  right: 68px;
+}

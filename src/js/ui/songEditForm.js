@@ -40,6 +40,8 @@ export function applyLibrarySelection(formEl, song) {
 export const TIME_SIGNATURES = ['2/4', '3/4', '4/4', '6/8', '12/8'];
 export const TIME_SIG_BEATS = { '2/4': 2, '3/4': 3, '4/4': 4, '6/8': 6, '12/8': 12 };
 
+const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 const KEYS_WITH_LABELS = [
   ['C', 'C (Do)'], ['C#', 'C# (Do#)'], ['Db', 'Db (Reb)'],
   ['D', 'D (Re)'], ['D#', 'D# (Re#)'], ['Eb', 'Eb (Mib)'],
@@ -58,10 +60,22 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
   const titlePlaceholder = placeholderForNewSong ? 'Título (Requerido)' : 'Título';
   const libraryRow = showLibrary ? libraryRowHTML(song, placeholderForNewSong) : '';
 
-  const keyOptions = ['<option value="" ' + (!song.key ? 'selected' : '') + '>-- Tono --</option>']
-    .concat(KEYS_WITH_LABELS.map(([k, label]) =>
-      `<option value="${k}" ${song.key === k ? 'selected' : ''}>${label}</option>`
-    )).join('');
+  // Tonos mayores y menores ("Am" = La menor): con un banco de pads menores, una
+  // canción en menor prepara el pad en menor. Un tono guardado que no está en la
+  // lista (p. ej. "Solm" escrito a mano o venido de GI App) se conserva como
+  // opción propia: si no, guardar el formulario lo borraba.
+  const curKey = song.key || '';
+  const listed = KEYS_WITH_LABELS.some(([k]) => k === curKey || k + 'm' === curKey);
+  const opt = (value, label) =>
+    `<option value="${value}" ${curKey === value ? 'selected' : ''}>${label}</option>`;
+  const keyOptions = ['<option value="" ' + (!curKey ? 'selected' : '') + '>-- Tono --</option>']
+    .concat(curKey && !listed ? [`<option value="${escAttr(curKey)}" selected>${escAttr(curKey)}</option>`] : [])
+    .concat('<optgroup label="Mayores">')
+    .concat(KEYS_WITH_LABELS.map(([k, label]) => opt(k, label)))
+    .concat('</optgroup><optgroup label="Menores">')
+    .concat(KEYS_WITH_LABELS.map(([k, label]) => opt(k + 'm', label.replace(/^(\S+) \((.+)\)$/, '$1m ($2 menor)'))))
+    .concat('</optgroup>')
+    .join('');
 
   // Compás (clave del metrónomo): se aplica al metrónomo al lanzar la canción.
   const curSig = song.timeSig || '4/4';
