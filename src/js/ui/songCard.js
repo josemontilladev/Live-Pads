@@ -8,6 +8,7 @@
 import { esc } from '../utils/dom.js';
 import { formatLyrics } from './lyricsFormat.js';
 import { transposeAll } from './chordTransposer.js';
+import { voicesChipHtml } from './voiceRefs.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 
 const capitalizeFirst = (s) => { const t = String(s).trim(); return t.charAt(0).toLocaleUpperCase('es') + t.slice(1); };
@@ -159,6 +160,7 @@ export function songCardInnerHTML(song, opts) {
   const metaLine = [
     keyMeta,
     song.bpm   ? `<span class="gi-chip">${esc(song.bpm)} BPM</span>` : '',
+    voicesChipHtml(song),   // voces de referencia (grabadas desde GI App)
     `<span class="gi-chip${sigMeta === '4/4' ? '' : ' is-odd-sig'}">${sigMeta}</span>`,
     // Mayúscula inicial solo al mostrar ("alabanza" y "Alabanza" se ven igual);
     // el dato guardado no se toca.

@@ -124,6 +124,17 @@
 .ui-seg-btn.is-on b { opacity: 1; color: var(--accent); }
 .ui-seg--accent .ui-seg-btn.is-on b { color: inherit; }
 
+/* ── Tarjeta de canción: botón «Voces N» (voces de referencia de GI App) ── */
+.gi-voices-chip {
+  display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, #a78bfa 45%, transparent); background: color-mix(in srgb, #a78bfa 14%, transparent);
+  color: #c4b5fd; font: inherit; font-size: 10.5px; font-weight: 700; white-space: nowrap;
+  transition: background 150ms ease, transform 180ms var(--ui-ease, ease);
+}
+.gi-voices-chip:hover { background: color-mix(in srgb, #a78bfa 26%, transparent); }
+.gi-voices-chip:active { transform: scale(.95); }
+.gi-voices-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* ── Ajustes → Audio → Salida de audio ── */
 .audio-out-card .metro-dropdown { flex: 1 1 auto; min-width: 0; }
 .audio-out-alt { cursor: pointer; align-items: center; gap: 12px; }

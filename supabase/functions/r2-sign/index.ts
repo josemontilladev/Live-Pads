@@ -167,7 +167,12 @@ Deno.serve(async (req) => {
   const rows = await mRes.json();
   const role = Array.isArray(rows) && rows.length ? rows[0].role : null;
   if (!role) return json({ error: 'No perteneces a esta librería' }, 403);
-  if ((op === 'put' || op === 'delete') && role !== 'owner' && role !== 'editor')
+  // Voces de referencia (2.ª, 3.ª voz…): cualquier MIEMBRO puede subir a «Voces/»
+  // (audios cortos, hasta 25 MB). Borrar y el resto de carpetas, solo editores.
+  const isVoiceUpload = op === 'put' && path.startsWith('Voces/');
+  if (isVoiceUpload && Number(body.size) > 25 * 1024 * 1024)
+    return json({ error: 'El audio de la voz supera 25 MB.', code: 'too_large' }, 413);
+  if ((op === 'put' || op === 'delete') && !isVoiceUpload && role !== 'owner' && role !== 'editor')
     return json({ error: 'Necesitas permiso de edición para cambiar archivos' }, 403);
 
   const key = `lib/${libraryId}/${path}`;

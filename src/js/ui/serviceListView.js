@@ -9,6 +9,7 @@ import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSong
 import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { openVoicesMenu } from './voiceRefs.js';
 import { keyChoices, isKnownKey } from '../utils/musicKeys.js';
 import { confirmDialog } from './dialog.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
@@ -685,6 +686,7 @@ function initDelegation() {
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: onServiceAudioAssigned(card) });
         return;
+      case 'voices':    e.stopPropagation(); openVoicesMenu(actionEl, song); return;
       case 'remove':    deps.removeFromService(song.serviceId); return;
       case 'move-up': {
         const idx = parseInt(card.dataset.index, 10);

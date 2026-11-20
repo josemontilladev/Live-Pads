@@ -1,1 +1,1 @@
-• Voces de referencia (2.ª, 3.ª voz…) que se graban desde GI App: LivePads ahora las conserva al sincronizar, las descarga a tu carpeta de audios y «Liberar espacio» ya no las borra de la nube. Actualiza todos los PC del equipo antes de grabar voces.
+• Voces de referencia en el PC: las canciones con voces grabadas desde GI App muestran un botón «Voces» para escucharlas (melodía, 2.ª voz, 3.ª voz…).

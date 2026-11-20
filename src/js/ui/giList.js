@@ -7,6 +7,7 @@ import { q } from '../utils/dom.js';
 import { songCardInnerHTML, ICON_ADD_CHECK, ICON_ADD_PLUS, INSERVICE_BADGE_HTML } from './songCard.js';
 import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
+import { openVoicesMenu } from './voiceRefs.js';
 import { showLoadAudioMenu, assignFromYoutube } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
@@ -535,6 +536,7 @@ function initDelegation() {
         else showLoadAudioMenu({ anchor: e.target.closest('.action-btn'), song, type: 'original',
           loadAndPlayTrack: deps.loadAndPlayTrack, onAssigned: (s) => { deps.persist(); repaintGiCard(card, s); } });
         return;
+      case 'voices':    e.stopPropagation(); openVoicesMenu(actionEl, song); return;
       case 'add':       handleAddToService(song, card, actionEl); return;
       case 'toggle-lyrics':
         // Sin letra → abre el editor directo para agregarla; con letra → acordeón.
