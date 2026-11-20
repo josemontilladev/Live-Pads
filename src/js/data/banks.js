@@ -102,18 +102,18 @@ const THEMES = {
   // sin sombras, degradados ni brillos. `style: 'flat'` activa además las reglas de
   // src/css/modules/_theme-flat.css (perillas, deslizadores y pads planos).
   console: {
-    name: 'Consola', desc: 'Plano · azul, negro y blanco',
+    name: 'Consola', desc: 'Azul, negro y blanco · estilo consola',
     style: 'flat',
-    bg1: '#2448C9', bg2: '#1D3BA9', bg3: '#20232C',
+    bg1: '#1A4A94', bg2: '#173A82', bg3: '#0E1015',
     bgHover: '#17328F',
     blue: '#FFFFFF', accent2: '#FFFFFF',
-    onAccent: '#14161C',
+    onAccent: '#08090C',
     text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.72)',
     border: 'rgba(0,0,0,0.28)',
-    borderStrong: '#20232C',
+    borderStrong: 'rgba(255,255,255,0.24)',
     glow: 'transparent',
-    gradient: '#2448C9',
-    swatch: 'linear-gradient(135deg,#2448C9 0 50%,#20232C 50% 75%,#FFFFFF 75%)'
+    gradient: 'linear-gradient(135deg, #2262B0 0%, #1A4A94 38%, #123470 72%, #0D2656 100%)',
+    swatch: 'linear-gradient(135deg,#1A4A94 0 50%,#0E1015 50% 75%,#FFFFFF 75%)'
   }
 };
 

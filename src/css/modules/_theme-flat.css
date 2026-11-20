@@ -13,14 +13,17 @@
   --accent-grad: var(--accent);
   /* Negro suavizado (carbón) con un bisel muy leve: arriba un punto más claro,
      abajo un punto más oscuro. Se nota como relieve, no como degradado. */
-  --flat-ink: #20232C;
-  --flat-ink-hi: #2E323E;
-  --flat-ink-lo: #171A21;
-  --flat-ink-bg: linear-gradient(180deg, var(--flat-ink-hi) 0%, var(--flat-ink) 42%, var(--flat-ink-lo) 100%);
-  --flat-bevel: var(--flat-ink-hi) var(--flat-ink) var(--flat-ink-lo) var(--flat-ink);
+  --flat-ink: #0E1015;
+  --flat-ink-hi: #181B22;
+  --flat-ink-lo: #08090C;
+  --flat-ink-bg: linear-gradient(180deg, var(--flat-ink-hi) 0%, var(--flat-ink) 55%, var(--flat-ink-lo) 100%);
+  /* Contorno gris fino: es lo que hace que el negro se vea pulido y no pesado. */
+  --flat-outline: rgba(255, 255, 255, 0.24);
+  --flat-bevel: var(--flat-outline);
+  --flat-panel: rgba(6, 16, 44, 0.30);
   --flat-paper: #FFFFFF;
   --flat-blue: #2448C9;
-  --flat-deep: #1D3BA9;
+  --flat-deep: #173A82;
   --flat-line: 2px;
   --flat-r: 12px;
   --surface-1: var(--flat-ink);
@@ -418,3 +421,90 @@
   background: var(--flat-paper) !important; color: var(--flat-ink-lo) !important;
 }
 :root[data-theme-style="flat"] .kit-action-btn { opacity: 1; }
+
+/* ═══ Acabado de consola: negro con contorno fino ═══════════════════════════
+   Los controles son negros con un filo gris de 1 px; el fondo es un azul con un
+   degradado suave en diagonal y los paneles lo dejan ver (velo oscuro, sin
+   borde). Los deslizadores son una ranura negra que se llena de blanco y las
+   perillas llevan la raya desde el centro hasta el borde. */
+:root[data-theme-style="flat"] body { background: linear-gradient(135deg, #2262B0 0%, #1A4A94 38%, #123470 72%, #0D2656 100%) fixed !important; }
+:root[data-theme-style="flat"] :is(#panel-metro, #panel-keys, #panel-setlist, #bank-section,
+    .stems-deck, #stems-library, #pad-volume-tray, #stems-setlist, #stems-console,
+    .mx-channel, .stems-mixer-strip, .sb-card, .theme-item) {
+  background: var(--flat-panel) !important;
+}
+:root[data-theme-style="flat"] #sidebar-inner { background: #123470 !important; }
+:root[data-theme-style="flat"] .gi-sticky-header { background: transparent !important; }
+:root[data-theme-style="flat"] .stems-console-strip { background: rgba(255, 255, 255, 0.06) !important; }
+:root[data-theme-style="flat"] .stems-row-strip { background: var(--flat-panel) !important; }
+
+/* Filo gris en todo lo que se toca. */
+:root[data-theme-style="flat"] .drum-btn { border: 1px solid var(--flat-outline) !important; }
+:root[data-theme-style="flat"] .key-btn,
+:root[data-theme-style="flat"] .key-btn:is([data-key*="#"], [data-key*="b"]) { border: 1px solid var(--flat-outline) !important; }
+:root[data-theme-style="flat"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: rgba(0, 0, 0, 0.28) !important; }
+:root[data-theme-style="flat"] .key-btn.active,
+:root[data-theme-style="flat"] .key-btn.active:is([data-key*="#"], [data-key*="b"]) { background: var(--flat-paper) !important; border-color: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] :is(select, .metro-dropdown, .stems-mini-select, .stems-speed-select,
+    .gi-lib-select, .gi-search-input, .ssl-search, .stems-field, textarea,
+    input:not([type="range"]):not([type="checkbox"]):not([type="radio"])) {
+  border: 1px solid var(--flat-outline) !important;
+}
+:root[data-theme-style="flat"] :is(.gi-song-item, .ssl-row, .svc-pick) { background: var(--flat-ink-bg) !important; border: 1px solid var(--flat-outline); }
+:root[data-theme-style="flat"] :is(.gi-song-item.active-song, .ssl-row.is-active) { border-color: var(--flat-paper); }
+:root[data-theme-style="flat"] .beat-dot { border: 1px solid var(--flat-outline); border-radius: 50%; }
+:root[data-theme-style="flat"] .beat-dot.accent { border: 1px solid var(--flat-paper); }
+
+/* Perillas: disco negro con aro gris y la raya del centro al borde. */
+:root[data-theme-style="flat"] .flat-knob,
+:root[data-theme-style="flat"] #mixer-bar .flat-knob { background: var(--flat-ink-lo); border: 1.5px solid var(--flat-outline); }
+:root[data-theme-style="flat"] .flat-knob::after,
+:root[data-theme-style="flat"] #mixer-bar .flat-knob::after,
+:root[data-theme-style="flat"] #stems-console-strips .flat-knob::after {
+  top: 1px; height: calc(50% - 1px); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--flat-paper);
+}
+
+/* Deslizadores: ranura negra que se llena de blanco (--pct lo pone sliders.js). */
+:root[data-theme-style="flat"] input[type="range"],
+:root[data-theme-style="flat"] #mixer-bar input[type="range"] {
+  height: 16px; border-radius: 8px; box-sizing: border-box;
+  border: 1px solid var(--flat-outline);
+  background: linear-gradient(to right, var(--flat-paper) var(--pct, 0%), var(--flat-ink-lo) var(--pct, 0%)) !important;
+  padding: 0 2px;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-runnable-track,
+:root[data-theme-style="flat"] input[type="range"]:is(.pan-slider, .stems-pan-slider)::-webkit-slider-runnable-track {
+  height: 14px; background: transparent; border-radius: 7px;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].stems-console-pan::-webkit-slider-thumb {
+  width: 8px; height: 10px; margin-top: 2px; border-radius: 4px;
+  background: var(--flat-paper); border: 0;
+}
+/* Con relleno, el tirador se funde con él; queda una marca oscura para verlo. */
+:root[data-theme-style="flat"] input[type="range"].blue-slider::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"].blue-slider::-webkit-slider-thumb {
+  width: 4px; background: var(--flat-ink); border-radius: 2px;
+}
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"],
+:root[data-touch="on"][data-theme-style="flat"] #mixer-bar input[type="range"] { height: 24px; border-radius: 12px; }
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-runnable-track { height: 22px; }
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb { height: 16px; margin-top: 3px; }
+
+/* Deslizador vertical de la consola de Stems: ranura negra con relleno blanco. */
+:root[data-theme-style="flat"] .stems-cfader-track { background: var(--flat-ink-lo); border: 1px solid var(--flat-outline); width: 14px; border-radius: 7px; }
+:root[data-theme-style="flat"] .stems-cfader-fill { display: block; background: var(--flat-paper); width: 8px; border-radius: 4px; }
+:root[data-theme-style="flat"] .stems-cfader-handle {
+  width: 22px; height: 6px; background: var(--flat-paper) !important; border: 1px solid var(--flat-ink) !important; border-radius: 3px;
+}
+:root[data-theme-style="flat"] .stems-cfader-handle::before,
+:root[data-theme-style="flat"] .stems-cfader-handle::after { display: none; }
+/* El maestro de Stems lleva su propio porcentaje (--fill). */
+:root[data-theme-style="flat"] input[type="range"].stems-range--fill {
+  background: linear-gradient(to right, var(--flat-paper) var(--fill, 85%), var(--flat-ink-lo) var(--fill, 85%)) !important;
+}
+:root[data-theme-style="flat"] input[type="range"].stems-range--fill::-webkit-slider-thumb { width: 4px; background: var(--flat-ink); border-radius: 2px; }
+/* La cápsula 1x / 2x se ajusta a su contenido (en portátil el «2x» se salía). */
+:root[data-theme-style="flat"] .metro-mult-row { width: auto; max-width: none; flex: none; }
+:root[data-theme-style="flat"] .metro-mult-row > button { min-width: 44px; flex: 1 1 auto; }

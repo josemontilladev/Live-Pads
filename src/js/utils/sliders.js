@@ -6,6 +6,8 @@
 export function syncSlider(el) {
   if (!el) return;
   const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
+  // El tema «Consola» dibuja su propio relleno a partir de este porcentaje.
+  el.style.setProperty('--pct', pct + '%');
   if (!el.classList.contains('grey-slider')) {
     el.style.background = `linear-gradient(to right,var(--blue) ${pct}%,rgba(255,255,255,.12) ${pct}%)`;
   }
