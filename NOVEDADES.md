@@ -1,1 +1,1 @@
-• Voces de referencia en el PC: las canciones con voces grabadas desde GI App muestran un botón «Voces» para escucharlas (melodía, 2.ª voz, 3.ª voz…).
+• Tema nuevo «Consola»: un estilo plano en azul, negro y blanco, sin sombras ni degradados. Pads negros con su LED de color, deslizadores blancos con tirador negro, perillas de paneo en el mezclador y controles más grandes, pensados para pantallas táctiles. Actívalo en Ajustes → Temas.

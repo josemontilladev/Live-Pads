@@ -1,0 +1,272 @@
+/* ═══ Tema «Consola»: diseño plano ═══════════════════════════════════════
+   Solo aplica con :root[data-theme-style="flat"] (lo pone themes.js cuando el
+   tema lleva style: 'flat'). Azul sólido de fondo, controles en negro y blanco,
+   sin sombras, degradados ni brillos; los controles se reducen a su forma mínima,
+   como en una consola de directo, y crecen para poder tocarse con el dedo.
+
+   Tres papeles de color, siempre los mismos:
+     · negro  → lo que se toca (pads, botones, tiradores) y las «pantallas» de datos
+     · blanco → lo que está activo/encendido, los rieles y el texto
+     · azul   → el fondo; un azul más oscuro agrupa (paneles)
+   ═══════════════════════════════════════════════════════════════════════ */
+:root[data-theme-style="flat"] {
+  --accent-grad: var(--accent);
+  --flat-ink: #0B0B0F;
+  --flat-paper: #FFFFFF;
+  --flat-blue: #2448C9;
+  --flat-deep: #1D3BA9;
+  --flat-line: 2px;
+  --flat-r: 12px;
+  --surface-1: var(--flat-ink);
+}
+
+/* ── Sin profundidad: fuera sombras, brillos y desenfoques ── */
+:root[data-theme-style="flat"] *,
+:root[data-theme-style="flat"] *::before,
+:root[data-theme-style="flat"] *::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* ── Paneles: un bloque de azul más oscuro, sin borde ni degradado ── */
+:root[data-theme-style="flat"] :is(#panel-metro, #panel-keys, #panel-setlist, #bank-section,
+    #sidebar-inner, .stems-deck, #stems-library, #pad-volume-tray) {
+  background: var(--flat-deep) !important;
+  border-color: transparent !important;
+}
+:root[data-theme-style="flat"] #stems-ruler { background: var(--flat-ink) !important; }
+:root[data-theme-style="flat"] :is(.mx-channel, .stems-mixer-strip) {
+  background: var(--flat-deep) !important;
+  border-color: transparent !important;
+}
+
+/* ── Pads de batería: bloque negro; al golpear, blanco ── */
+:root[data-theme-style="flat"] .drum-btn {
+  background: var(--flat-ink) !important;
+  border: 0 !important;
+  border-radius: var(--flat-r);
+  transition: none;
+}
+/* El color del pad pasa a ser un LED cuadrado, como en una consola. */
+:root[data-theme-style="flat"] .drum-btn::before {
+  left: 14px; right: auto; top: 14px; width: 10px; height: 10px;
+  border-radius: 2px; opacity: 1;
+}
+:root[data-theme-style="flat"] .drum-btn .drum-label { font-weight: 700; color: var(--flat-paper); }
+:root[data-theme-style="flat"] .drum-btn .drum-tile-vol { opacity: 1; }
+:root[data-theme-style="flat"] .drum-btn .drum-tile-pct { color: var(--flat-paper); font-size: 11px; }
+:root[data-theme-style="flat"] :is(.drum-btn.hit, .drum-btn:active) { background: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] :is(.drum-btn.hit, .drum-btn:active) :is(.drum-label, .drum-tile-pct) { color: var(--flat-ink); }
+:root[data-theme-style="flat"] .kbd-hint {
+  background: transparent; border: var(--flat-line) solid var(--flat-paper);
+  color: var(--flat-paper); font-weight: 700;
+}
+:root[data-theme-style="flat"] .drum-btn.hit .kbd-hint { border-color: var(--flat-ink); color: var(--flat-ink); background: transparent; }
+
+/* ── Notas: negras; la que suena, blanca; la preparada, con marco blanco ── */
+:root[data-theme-style="flat"] .key-btn,
+:root[data-theme-style="flat"] .key-btn:is([data-key*="#"], [data-key*="b"]) {
+  background: var(--flat-ink) !important;
+  border: var(--flat-line) solid var(--flat-ink) !important;
+  border-radius: var(--flat-r);
+  color: var(--flat-paper);
+  font-weight: 700;
+  transition: none;
+}
+/* Sostenidos: solo el contorno, para distinguirlos de un vistazo. */
+:root[data-theme-style="flat"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: transparent !important; }
+:root[data-theme-style="flat"] .key-btn.active,
+:root[data-theme-style="flat"] .key-btn.active:is([data-key*="#"], [data-key*="b"]) {
+  background: var(--flat-paper) !important; border-color: var(--flat-paper) !important; color: var(--flat-ink);
+}
+:root[data-theme-style="flat"] .key-btn.prepared { border-color: var(--flat-paper) !important; border-style: dashed !important; }
+
+/* ── Botones: negro con glifo blanco; encendido = blanco con glifo negro ── */
+:root[data-theme-style="flat"] :is(.icon-btn, .ui-btn, .tap-btn, .stems-btn, .sb-icon, .sb-btn,
+    .stems-zoom-btn, .stems-pitch-btn, .tp-pitch-btn, .tp-stop, .tp-restart, .tp-loop,
+    .tp-autoadvance, .tp-seqonly, .kit-action-btn, .mx-collapse, .master-mute-btn,
+    .metro-opts-btn, .stems-bpm-detect, .ssl-collapse-btn, .stems-snap-btn, .action-btn) {
+  background: var(--flat-ink) !important;
+  border-color: var(--flat-ink) !important;
+  color: var(--flat-paper) !important;
+}
+:root[data-theme-style="flat"] :is(.icon-btn, .ui-btn, .tap-btn, .stems-btn, .sb-icon, .sb-btn,
+    .stems-zoom-btn, .stems-pitch-btn, .tp-pitch-btn, .tp-stop, .tp-restart, .tp-loop,
+    .tp-autoadvance, .tp-seqonly, .kit-action-btn, .mx-collapse, .master-mute-btn,
+    .metro-opts-btn, .stems-bpm-detect, .ssl-collapse-btn, .stems-snap-btn, .action-btn):is(:hover, .is-on, .is-open, .active, .is-active, .is-running),
+:root[data-theme-style="flat"] :is(.ui-btn--primary, .stems-btn--primary, .stems-btn--accent, .tp-play) {
+  background: var(--flat-paper) !important;
+  border-color: var(--flat-paper) !important;
+  color: var(--flat-ink) !important;
+}
+
+/* ── Selectores de opción (segmentos): caja negra, opción elegida en blanco ── */
+:root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .ws-tabs, .gi-tabs, .stems-mult, .metro-mult) {
+  background: var(--flat-ink) !important; border-color: var(--flat-ink) !important;
+}
+:root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
+    .metro-mult-btn, .stems-mult-btn, .stems-accent-chip, .ssl-slot-btn) {
+  background: var(--flat-ink) !important; border-color: var(--flat-ink) !important;
+  color: var(--flat-paper) !important; font-weight: 700;
+}
+:root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
+    .metro-mult-btn, .stems-mult-btn, .stems-accent-chip, .ssl-slot-btn):is(.is-on, .active, .is-active) {
+  background: var(--flat-paper) !important; border-color: var(--flat-paper) !important;
+  color: var(--flat-ink) !important;
+}
+
+/* ── «Pantallas»: listas desplegables y campos, caja negra con texto blanco ── */
+:root[data-theme-style="flat"] :is(select, .metro-dropdown, .stems-mini-select, .stems-speed-select,
+    .gi-lib-select, .gi-search-input, .ssl-search, .stems-field, textarea,
+    input:not([type="range"]):not([type="checkbox"]):not([type="radio"])) {
+  background-color: var(--flat-ink) !important;
+  border-color: var(--flat-ink) !important;
+  color: var(--flat-paper) !important;
+}
+:root[data-theme-style="flat"] :is(select, textarea, input:not([type="range"])):focus-visible {
+  outline: var(--flat-line) solid var(--flat-paper); outline-offset: 2px;
+}
+:root[data-theme-style="flat"] ::placeholder { color: rgba(255, 255, 255, 0.6); }
+
+/* ── Deslizadores: riel blanco, tirador negro. La zona que se toca mide 28px
+      de alto aunque el riel sea fino. ── */
+:root[data-theme-style="flat"] input[type="range"] {
+  height: 28px;
+  background: transparent !important;
+  border-radius: 0;
+  cursor: pointer;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 3px; background: var(--flat-paper);
+}
+/* Pan: marca negra en el centro del riel. */
+:root[data-theme-style="flat"] input[type="range"]:is(.pan-slider, .stems-pan-slider)::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--flat-paper) calc(50% - 1.5px), var(--flat-ink) calc(50% - 1.5px), var(--flat-ink) calc(50% + 1.5px), var(--flat-paper) calc(50% + 1.5px));
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb {
+  width: 14px; height: 26px; margin-top: -10px;
+  border-radius: 5px; background: var(--flat-ink);
+  border: var(--flat-line) solid var(--flat-paper);
+  transition: none;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb:hover { transform: none; }
+:root[data-theme-style="flat"] input[type="range"].is-muted { opacity: 0.45; }
+
+/* ── Texto: blanco pleno; lo secundario apenas atenuado ── */
+:root[data-theme-style="flat"] .mx-master .mx-name { color: var(--flat-paper); }
+:root[data-theme-style="flat"] :is(.mx-lbl, .bank-label, .tray-header) { color: var(--flat-paper); opacity: 0.85; }
+
+/* ── Menús y ventanas: bloque negro con borde blanco fino ── */
+:root[data-theme-style="flat"] :is(.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu,
+    .stems-generators-pop, .stems-proj-dropdown) {
+  background: var(--flat-ink) !important;
+  border: var(--flat-line) solid var(--flat-paper) !important;
+}
+
+/* ── Barras de desplazamiento sobrias ── */
+:root[data-theme-style="flat"] ::-webkit-scrollbar-thumb { background: var(--flat-ink); border-radius: 0; }
+:root[data-theme-style="flat"] ::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Tamaño táctil: nada que se toque mide menos de 36px ── */
+:root[data-theme-style="flat"] :is(.ws-tab, .ui-seg-btn, .source-seg-btn, .tap-btn, .s-toggle,
+    .metro-dropdown, .metro-opts-btn, .ssl-slot-btn) { min-height: 36px; }
+:root[data-theme-style="flat"] :is(.tp-pitch-btn, .master-mute-btn, .mx-collapse, .ssl-collapse-btn,
+    .stems-pitch-btn, .stems-bpm-detect, .stems-zoom-btn, .sb-icon, .ui-close--sm) {
+  min-width: 36px; min-height: 36px;
+}
+
+/* ── Más botones de la pantalla de Pads ── */
+:root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
+    .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle) {
+  background: var(--flat-ink) !important;
+  border-color: var(--flat-ink) !important;
+  color: var(--flat-paper) !important;
+}
+:root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
+    .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle):is(:hover, .active, .is-on, .playing, .is-playing),
+:root[data-theme-style="flat"] :is(.empty-cta--primary, .svc-btn--primary) {
+  background: var(--flat-paper) !important;
+  border-color: var(--flat-paper) !important;
+  color: var(--flat-ink) !important;
+}
+:root[data-theme-style="flat"] :is(.metro-adj, .kit-action-btn) { min-width: 40px; min-height: 40px; }
+
+/* Pulsos del metrónomo: LEDs cuadrados. Apagado negro, encendido blanco. */
+:root[data-theme-style="flat"] .beat-dot {
+  width: 14px; height: 14px; border-radius: 3px;
+  background: var(--flat-ink); border: 0; transition: none;
+}
+:root[data-theme-style="flat"] .beat-dot.accent { border: var(--flat-line) solid var(--flat-paper); background: var(--flat-ink); }
+:root[data-theme-style="flat"] .beat-dot.on,
+:root[data-theme-style="flat"] .beat-dot.accent.on { background: var(--flat-paper); }
+:root[data-theme-style="flat"] .beat-dot:hover { transform: none; }
+
+/* Mezclador: mismos deslizadores planos (sus reglas propias llevan #mixer-bar). */
+:root[data-theme-style="flat"] #mixer-bar input[type="range"] { height: 28px; border-radius: 0; background: transparent !important; }
+:root[data-theme-style="flat"] #mixer-bar input[type="range"]::-webkit-slider-thumb {
+  width: 14px; height: 26px; margin-top: -10px; border-radius: 5px;
+  background: var(--flat-ink); border: var(--flat-line) solid var(--flat-paper);
+}
+:root[data-theme-style="flat"] .mx-name { font-size: 13.5px; font-weight: 700; }
+:root[data-theme-style="flat"] .mx-val { font-weight: 700; }
+
+/* ── Perilla de paneo (flatKnobs.js): disco negro con una raya blanca ──
+      Fuera del tema plano no existe; dentro, sustituye al deslizador de pan. */
+.flat-knob { display: none; }
+:root[data-theme-style="flat"] #mixer-bar input[type="range"].pan-slider:has(+ .flat-knob) { display: none; }
+:root[data-theme-style="flat"] .flat-knob {
+  display: block; position: relative; flex: none;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--flat-ink);
+  cursor: grab; touch-action: none; outline: none;
+  transform: rotate(var(--knob-rot, 0deg));
+}
+:root[data-theme-style="flat"] .flat-knob::after {
+  content: ''; position: absolute; left: 50%; top: 5px;
+  width: 4px; height: 15px; margin-left: -2px; border-radius: 2px;
+  background: var(--flat-paper);
+}
+:root[data-theme-style="flat"] .flat-knob.is-dragging { cursor: grabbing; }
+:root[data-theme-style="flat"] .flat-knob:focus-visible { outline: var(--flat-line) solid var(--flat-paper); outline-offset: 3px; }
+
+/* Canal del mezclador: perilla a la izquierda, volumen a todo el ancho a su lado. */
+:root[data-theme-style="flat"] .mx-channel {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "name name" "pan vol";
+  column-gap: 16px; row-gap: 4px; align-items: end;
+}
+:root[data-theme-style="flat"] .mx-channel > .mx-name { grid-area: name; }
+:root[data-theme-style="flat"] .mx-channel > .mx-ctrl:has(.pan-slider) { grid-area: pan; align-items: center; min-width: 52px; }
+:root[data-theme-style="flat"] .mx-channel > .mx-ctrl:not(:has(.pan-slider)) { grid-area: vol; }
+
+/* ── Stems: paneles, consola y pistas ── */
+:root[data-theme-style="flat"] :is(#stems-setlist, #stems-console) {
+  background: var(--flat-deep) !important; border-color: transparent !important;
+}
+:root[data-theme-style="flat"] .stems-console-strip {
+  background: var(--flat-blue) !important; border-color: transparent !important;
+}
+:root[data-theme-style="flat"] .stems-row-strip { background: var(--flat-deep) !important; }
+/* M / S: negro apagado; encendido conserva su color de aviso (se lee de lejos). */
+:root[data-theme-style="flat"] .stems-ms {
+  background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-paper);
+  font-weight: 700; min-width: 32px; min-height: 32px;
+}
+/* Deslizador vertical de la consola: riel blanco, tirador negro. */
+:root[data-theme-style="flat"] .stems-cfader-track { background: var(--flat-paper); border: 0; width: 6px; }
+:root[data-theme-style="flat"] .stems-cfader-fill { display: none; }
+:root[data-theme-style="flat"] .stems-cfader-handle {
+  background: var(--flat-ink) !important;
+  border: var(--flat-line) solid var(--flat-paper) !important;
+  border-radius: 5px;
+}
+:root[data-theme-style="flat"] .stems-cfader-handle::before,
+:root[data-theme-style="flat"] .stems-cfader-handle::after { background: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] .stems-cmeter { background: var(--flat-ink); border: 0; border-radius: 0; }
+/* En la consola el alto es escaso: el pan ocupa algo menos que en el resto. */
+:root[data-theme-style="flat"] input[type="range"].stems-console-pan { height: 22px; }
+:root[data-theme-style="flat"] input[type="range"].stems-console-pan::-webkit-slider-thumb { width: 12px; height: 20px; margin-top: -7px; }
+:root[data-theme-style="flat"] :is(.stems-console-strip-kind, .stems-row-kind, .stems-kind-badge) {
+  background: var(--flat-ink) !important; color: var(--flat-paper) !important; border-color: var(--flat-ink) !important;
+}

@@ -97,6 +97,23 @@ const THEMES = {
     glow: 'rgba(197,251,58,0.20)',
     gradient: 'radial-gradient(at 18% 0%, rgba(197,251,58,0.07) 0%, transparent 45%), linear-gradient(155deg, #0a0a0b 0%, #121214 50%, #0a0a0b 100%)',
     swatch: 'linear-gradient(135deg,#defe8a,#c5fb3a 50%,#121214)'
+  },
+  // Diseño plano tipo consola de directo: azul sólido, controles en negro y blanco,
+  // sin sombras, degradados ni brillos. `style: 'flat'` activa además las reglas de
+  // src/css/modules/_theme-flat.css (perillas, deslizadores y pads planos).
+  console: {
+    name: 'Consola', desc: 'Plano · azul, negro y blanco',
+    style: 'flat',
+    bg1: '#2448C9', bg2: '#1D3BA9', bg3: '#0B0B0F',
+    bgHover: '#17328F',
+    blue: '#FFFFFF', accent2: '#FFFFFF',
+    onAccent: '#0B0B0F',
+    text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.72)',
+    border: 'rgba(0,0,0,0.28)',
+    borderStrong: '#0B0B0F',
+    glow: 'transparent',
+    gradient: '#2448C9',
+    swatch: 'linear-gradient(135deg,#2448C9 0 50%,#0B0B0F 50% 75%,#FFFFFF 75%)'
   }
 };
 

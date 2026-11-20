@@ -37,6 +37,13 @@ function paintTheme(id) {
   s.setProperty('--glow', t.glow || 'rgba(255,255,255,0.10)');
   s.setProperty('--text', t.text || '#ffffff');
   s.setProperty('--text-muted', t.textMuted || '#a3a3a3');
+  // Color del texto sobre el acento (los temas con acento claro lo necesitan oscuro).
+  if (t.onAccent) s.setProperty('--on-accent', t.onAccent); else s.removeProperty('--on-accent');
+  // Estilo estructural del tema (p. ej. «flat»: sin sombras ni degradados) → CSS propio.
+  if (t.style) document.documentElement.dataset.themeStyle = t.style;
+  else delete document.documentElement.dataset.themeStyle;
+  // Las perillas del tema plano se cargan solo si hace falta (los demás temas no las pagan).
+  if (t.style === 'flat') import('./flatKnobs.js').then(m => m.ensureFlatKnobs()).catch(() => {});
 
   const fallbackBg = `linear-gradient(155deg, ${t.bg1} 0%, ${t.bg2} 50%, ${t.bg1} 100%)`;
   document.body.style.background = t.gradient || fallbackBg;
