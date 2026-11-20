@@ -139,7 +139,7 @@ try {
       return { conPista: bar.classList.contains('has-track'), progreso: shown('#tp-progress'), tiempos: shown('.tp-time'), titulo: document.getElementById('tp-title').textContent };
     })()`);
     assert(!r.conPista && !r.progreso && !r.tiempos, `barra sin pista: ${JSON.stringify(r)}`);
-    assert(/elige una canción/.test(r.titulo), `título: "${r.titulo}"`);
+    assert(/Sin pista · toca una canción/.test(r.titulo), `título: "${r.titulo}"`);
   });
 
   await check('Stems abre con plan Gratis (sin ventana de planes)', async () => {

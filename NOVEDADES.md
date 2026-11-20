@@ -3,3 +3,5 @@
 • Los tonos por cantante se sincronizan con el equipo y aparecen en GI App como «Tono vocalista».
 • Búsqueda: ahora encuentra frases de la letra aunque la palabra tenga un acorde en medio.
 • Modo en vivo en portátil: las 12 notas caben enteras (antes la última fila quedaba recortada).
+• Letra acoplada en Pads: ya no flota tapando cosas a medias; ocupa el hueco central y se ajusta sola a la ventana. Acordes más grandes, sin montarse sobre el texto, y botones para subir y bajar la letra.
+• Mapeo MIDI y de teclado ampliado: tempo, tap, silenciar maestro, modo en vivo, abrir, subir y bajar la letra, pads en mayor o menor y perillas de paneo.
