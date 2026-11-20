@@ -59,6 +59,16 @@ export function maybeStartTour(storageKey = STORAGE_KEY, steps = STEPS) {
   requestAnimationFrame(() => startTour(steps, storageKey));
 }
 
+// El control de un paso cuenta solo si se ve: la pantalla oculta (Pads o Stems)
+// sigue en el DOM, así que no basta con que exista.
+function visibleTarget(selector) {
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  if (typeof el.checkVisibility === 'function' && !el.checkVisibility()) return null;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 ? el : null;
+}
+
 export function startTour(steps = STEPS, storageKey = STORAGE_KEY) {
   let idx = 0;
   const overlay = document.createElement('div');
@@ -82,11 +92,13 @@ export function startTour(steps = STEPS, storageKey = STORAGE_KEY) {
     // Skip steps whose target isn't on screen (e.g. a button that only
     // exists once a track is loaded) so the tour never points at nothing.
     let guard = 0;
-    while (idx < steps.length && !document.querySelector(steps[idx].target) && guard++ < steps.length) idx++;
-    if (idx >= steps.length) { close(); return; }
+    while (idx < steps.length && !visibleTarget(steps[idx].target) && guard++ < steps.length) idx++;
+    // Ningún paso tiene su control a la vista (p. ej. se cambió de pantalla antes
+    // de empezar): se cierra SIN darla por vista, para que salga cuando toque.
+    if (idx >= steps.length) { close(false); return; }
     const step = steps[idx];
-    const target = document.querySelector(step.target);
-    if (!target) { close(); return; }
+    const target = visibleTarget(step.target);
+    if (!target) { close(false); return; }
     const rect = target.getBoundingClientRect();
     const spot = overlay.querySelector('#stems-tour-spot');
     const pad = 8;
@@ -119,7 +131,11 @@ export function startTour(steps = STEPS, storageKey = STORAGE_KEY) {
     if (markSeen) try { localStorage.setItem(storageKey, '1'); } catch (e) {}
     overlay.remove();
     window.removeEventListener('resize', render);
+    document.removeEventListener('click', onTabSwitch, true);
   };
+  // Cambiar de pantalla (Pads ↔ Stems) cierra la guía: sus pasos son de la otra.
+  const onTabSwitch = (e) => { if (e.target.closest && e.target.closest('.ws-tab')) close(false); };
+  document.addEventListener('click', onTabSwitch, true);
 
   overlay.querySelector('#stems-tour-skip').onclick = () => close(true);
   overlay.querySelector('#stems-tour-prev').onclick = () => { if (idx > 0) { idx--; render(); } };

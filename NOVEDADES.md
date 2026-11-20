@@ -1,4 +1,7 @@
-• Controles grandes para pantallas táctiles: actívalo en Ajustes → Temas y los botones y deslizadores crecen con cualquier tema.
-• Stems: botón para dejar la barra en modo simple (oculta las herramientas de ensayo y de click cuando no las necesitas).
-• Stems: la consola abre más alta en pantallas grandes, así el deslizador de volumen de cada pista se ve completo.
-• Tema «Consola»: perillas de paneo también en la consola de Stems y ondas de click y guía en blanco.
+• Sincronización: las pistas separadas de una canción ya no se pierden entre equipos (llegan aunque tengas tu propia secuencia y no se borran por una versión antigua).
+• La guía de Stems ya no aparece encima de la pantalla de Pads.
+• Mezclador en portátil: el paneo vuelve como una perilla junto a cada canal (antes se ocultaba por falta de espacio).
+• Pantalla táctil: la primera vez que tocas la pantalla con el dedo, LivePads te ofrece activar los controles grandes.
+• Controles grandes: el volumen de cada pad se guarda tras el botón «Niveles de pads», para no moverlo sin querer al golpear.
+• Stems: cada canción tiene un botón «⋯» para asignarle audio (antes solo con clic derecho) y la barra vuelve a mostrar los nombres Importar, Biblioteca y Exportar en portátil.
+• Textos más claros: «Secuencia» y «Original» en lugar de «Sec» y «Orig».

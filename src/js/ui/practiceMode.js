@@ -272,7 +272,7 @@ function announceRate() {
 
 function need() {
   if (audio) return true;
-  showToast('Carga una canción (Sec u Orig) para usar el modo práctica.', 'info');
+  showToast('Carga la Secuencia o el Original de una canción para usar el modo práctica.', 'info');
   return false;
 }
 

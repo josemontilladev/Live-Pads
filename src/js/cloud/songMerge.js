@@ -65,11 +65,38 @@ export function mergeSong(base, mine, theirs) {
 // (audio.voices: 2.ª, 3.ª voz… grabadas desde GI App) solo se editan en el móvil:
 // las de la nube mandan siempre. Antes se descartaban con el resto del audio de la
 // nube y, al subir después cualquier cambio de esa canción, se borraban para todos.
-export function keepLocalAudio(localAudio, incomingAudio) {
+export function keepLocalAudio(localAudio, incomingAudio, localDirty = false) {
   const hasLocal = localAudio && (localAudio.sequence || localAudio.original);
-  if (!hasLocal) return incomingAudio || localAudio || { sequence: null, original: null };
+  const stems = mergeStems(localAudio, incomingAudio, localDirty);
+  if (!hasLocal) {
+    const base = incomingAudio || localAudio || { sequence: null, original: null };
+    if (stems === undefined) return base;
+    const out = { ...base };
+    if (stems) out.stems = stems; else delete out.stems;
+    return out;
+  }
   const out = { ...localAudio };
   const voices = incomingAudio && Array.isArray(incomingAudio.voices) ? incomingAudio.voices : null;
   if (voices && voices.length) out.voices = voices; else delete out.voices;
+  if (stems !== undefined) { if (stems) out.stems = stems; else delete out.stems; }
   return out;
+}
+
+// Pistas separadas de la canción (audio.stems) al aplicar una fila de la nube.
+// Devuelve la lista final, null (sin pistas) o undefined (no tocar lo que haya).
+//  · La nube no dice nada de pistas (fila antigua, o subida por un equipo que
+//    aún no las conocía) → se conservan las locales: nunca se borran por omisión.
+//  · Mi copia tiene cambios sin subir → se juntan: las mías más las de la nube
+//    que yo no tenga.
+//  · Estoy al día → manda la nube (así también llega que alguien quitó una).
+function mergeStems(localAudio, incomingAudio, localDirty) {
+  const valid = (list) => (Array.isArray(list) ? list.filter((x) => x && x.url) : []);
+  const local = valid(localAudio && localAudio.stems);
+  const cloudSays = !!incomingAudio && Array.isArray(incomingAudio.stems);
+  if (!cloudSays) return local.length ? local : undefined;
+  const cloud = valid(incomingAudio.stems);
+  if (!localDirty) return cloud.length ? cloud : null;
+  const seen = new Set(local.map((x) => x.url));
+  const out = local.concat(cloud.filter((x) => !seen.has(x.url)));
+  return out.length ? out : null;
 }

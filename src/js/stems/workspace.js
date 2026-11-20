@@ -1293,6 +1293,9 @@ function wireTopbarEvents(root) {
       sbDeck.classList.toggle('sb--md', w < 1580);
       sbDeck.classList.toggle('sb--sm', w < 1300);
       sbDeck.classList.toggle('sb--xs', w < 1150);
+      // En la barra estrecha los datos de la canción bajan a su propia fila y
+      // queda sitio para los nombres de Importar / Biblioteca / Exportar.
+      sbDeck.classList.toggle('sb--labels', w < 1150 && w >= 860);
     }).observe(sbDeck);
   }
   // Barra simple: oculta las herramientas de ensayo y de click (.sb-adv). Solo es
@@ -6914,7 +6917,7 @@ function renderSetlistPanel(filter = '') {
   if (hintEl) {
     hintEl.textContent = isSlot
       ? `Clic en una canción → asigna la mezcla como ${slotLabel}. Las atenuadas ya la tienen.`
-      : 'Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.';
+      : 'Toca una canción para cargarla en el timeline · botón ⋯ para asignarle audio.';
   }
 
   if (!songs.length) {
@@ -6959,6 +6962,9 @@ function renderSetlistPanel(filter = '') {
       </span>
       <span class="ssl-lyrics ${s.lyrics ? '' : 'is-empty'}" data-act="lyrics" title="${s.lyrics ? 'Ver letra y acordes' : 'Sin letra'}" role="button" aria-label="Ver letra y acordes">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      </span>
+      <span class="ssl-more" data-act="more" role="button" aria-label="Asignar audio a esta canción" title="Asignar secuencia, original, pistas o carátula">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
       </span>
       ${check}
     </button>`;
@@ -7021,6 +7027,12 @@ function bindSetlistPanel() {
     if (!row) return;
     const song = getSongs().find(s => String(s.id) === row.dataset.id);
     if (!song) return;
+    // Botón ⋯: el mismo menú que el clic derecho (que con el dedo no existe).
+    if (e.target.closest('.ssl-more')) {
+      e.stopPropagation();
+      openSongAudioMenu(row, song);
+      return;
+    }
     // Icono de letra: abre el visor de letra + acordes (no reproduce ni asigna).
     if (e.target.closest('.ssl-lyrics')) {
       e.stopPropagation();

@@ -455,7 +455,7 @@ export async function pullLibrarySongs(opts = {}) {
     // Solo si MI copia tiene cambios sin subir (keepLocalText); si estoy al día, que un
     // compañero quite todas las secciones también se aplica.
     if (keepLocalText && (!incoming.markers || !incoming.markers.length) && Array.isArray(localMarkers) && localMarkers.length) target.markers = localMarkers;
-    target.audio = keepLocalAudio(localAudio, incomingAudio);
+    target.audio = keepLocalAudio(localAudio, incomingAudio, !!keepLocalText);
     // Igual que el audio: una fila sin carátula no borra la carátula local (las
     // filas antiguas de la nube no traen `meta.cover`).
     if (!incoming.cover && localCover) target.cover = localCover;
@@ -490,7 +490,7 @@ export async function pullLibrarySongs(opts = {}) {
         if (!m.conflicts.length) {
           const localAudio = existing.audio, localCover = existing.cover;
           Object.assign(existing, incoming, m.fields, { id: existing.id });
-          existing.audio = keepLocalAudio(localAudio, incoming.audio);
+          existing.audio = keepLocalAudio(localAudio, incoming.audio, true);
           if (!incoming.cover && localCover) existing.cover = localCover;
           seal(existing, incoming);   // base = lo que hay en la nube → queda "por subir"
           merged++; refreshed++;

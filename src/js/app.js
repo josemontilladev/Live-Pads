@@ -54,6 +54,12 @@ const PADS_TOUR_STEPS = [
   { target: '#btn-menu',        title: 'Menú y Ajustes',        body: 'Desde aquí: <b>Mapeo MIDI/Teclado (Learn)</b>, temas, atajos de teclado, companion y más. Casi todo se controla sin ratón — mapea cualquier control a tu controlador.' },
 ];
 function maybeStartPadsTour() { maybeStartTour(PADS_TOUR_KEY, PADS_TOUR_STEPS); }
+// Pantalla a la vista AHORA (la guía se pide con retraso: tras el login y la carga
+// de Stems; para entonces el usuario pudo haber cambiado de pestaña).
+function activeWorkspace() {
+  const t = document.querySelector('.ws-tab.is-active');
+  return t ? t.dataset.workspace : 'pads';
+}
 
 // El tour de bienvenida no debe solaparse con la pantalla de login: esperamos
 // a que el usuario termine con el auth gate (inicie sesión o entre sin cuenta).
@@ -1457,9 +1463,13 @@ function applyWorkspace(name) {
   // workspace. After that it can be re-launched manually. Entering Stems
   // also lazily loads + mounts the heavy Stems workspace.
   if (valid === 'stems') {
-    authGateReady.then(() => ensureStemsMounted().then(() => maybeStartTour()));
+    authGateReady.then(() => ensureStemsMounted().then(() => {
+      // La consola de Stems se monta tarde: con el tema plano sus perillas se crean ahora.
+      if (document.documentElement.dataset.themeStyle === 'flat') import('./ui/flatKnobs.js').then(m => m.ensureFlatKnobs()).catch(() => {});
+      if (activeWorkspace() === 'stems') maybeStartTour();
+    }));
   } else {
-    authGateReady.then(() => maybeStartPadsTour());
+    authGateReady.then(() => { if (activeWorkspace() === 'pads') maybeStartPadsTour(); });
   }
 }
 

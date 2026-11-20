@@ -286,3 +286,63 @@
 :root:is([data-theme-style="flat"], [data-touch="on"]) #workspace-stems .sb-group { gap: 4px; padding-left: 8px; padding-right: 6px; }
 :root:is([data-theme-style="flat"], [data-touch="on"]) #workspace-stems .stems-zoom-readout { display: none; }
 :root[data-touch="on"]:not([data-theme-style="flat"]) #mixer-bar input[type="range"] { box-shadow: none; }
+
+/* ═══ Perilla de paneo fuera del tema plano ═════════════════════════════════
+   En pantallas bajas (≤ 780 px de alto) el paneo del mezclador no cabía como
+   deslizador y se ocultaba: ahora es una perilla junto al nombre del canal, sin
+   gastar alto. Vale para todos los temas. */
+@media (max-height: 780px) {
+  #mixer-bar .mx-channel {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "name vol" "pan vol";
+    column-gap: 12px; row-gap: 2px; align-items: center;
+  }
+  #mixer-bar .mx-channel > .mx-name { grid-area: name; }
+  #mixer-bar .mx-channel > .mx-ctrl:not(:has(.pan-slider)) { grid-area: vol; }
+  #mixer-bar .mx-channel > .mx-ctrl:first-of-type:has(.flat-knob) {
+    grid-area: pan; display: flex; flex-direction: row; align-items: center; gap: 6px; min-width: 0;
+  }
+  #mixer-bar .mx-channel > .mx-ctrl:has(.flat-knob) .mx-lbl { display: none; }
+  #mixer-bar .mx-channel > .mx-ctrl:has(.flat-knob) .mx-ctrl-head { order: 2; flex: none; width: auto; gap: 0; }
+  #mixer-bar .mx-channel > .mx-ctrl:has(.flat-knob) .mx-val { min-width: 0; width: auto; text-align: left; }
+  #mixer-bar input[type="range"].pan-slider:has(+ .flat-knob) { display: none; }
+  #mixer-bar .flat-knob {
+    display: block; position: relative; flex: none;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--bg-surface); border: 1px solid var(--border-strong);
+    cursor: grab; touch-action: none; outline: none;
+    transform: rotate(var(--knob-rot, 0deg));
+  }
+  #mixer-bar .flat-knob::after {
+    content: ''; position: absolute; left: 50%; top: 3px;
+    width: 3px; height: 10px; margin-left: -1.5px; border-radius: 2px;
+    background: var(--accent);
+  }
+  #mixer-bar .flat-knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  :root[data-theme-style="flat"] #mixer-bar .flat-knob { width: 32px; height: 32px; background: var(--flat-ink); border: 0; }
+  :root[data-theme-style="flat"] #mixer-bar .flat-knob::after { top: 4px; width: 4px; height: 10px; margin-left: -2px; background: var(--flat-paper); }
+  :root[data-theme-style="flat"] #mixer-bar .mx-channel { grid-template-areas: "name vol" "pan vol"; align-items: center; row-gap: 2px; }
+  :root[data-theme-style="flat"] #mixer-bar .mx-channel > .mx-ctrl:has(.pan-slider) { min-width: 0; }
+}
+
+/* ═══ Niveles de pads (solo con controles grandes) ══════════════════════════
+   Con el dedo es fácil mover el volumen de un pad al golpearlo: se guarda tras
+   el botón «Niveles de pads» del mezclador. */
+.mx-pad-levels { display: none; }
+:root[data-touch="on"] .mx-pad-levels {
+  display: inline-flex; align-items: center; margin-left: 12px; padding: 0 14px;
+  min-height: 36px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 12px; font-weight: 600;
+  background: var(--bg-surface); color: var(--text); border: 1px solid var(--border-strong);
+}
+:root[data-touch="on"] .mx-pad-levels.is-on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+:root[data-touch="on"] body:not(.pad-levels-open) .drum-btn .drum-tile-vol { display: none; }
+:root[data-touch="on"] body:not(.pad-levels-open) .drum-btn { justify-content: center; }
+:root[data-touch="on"][data-theme-style="flat"] .mx-pad-levels { background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-paper); }
+:root[data-touch="on"][data-theme-style="flat"] .mx-pad-levels.is-on { background: var(--flat-paper); border-color: var(--flat-paper); color: var(--flat-ink); }
+/* En pantallas bajas el volumen por pad ya no se muestra nunca: el botón sobra. */
+@media (max-height: 780px) { :root[data-touch="on"] .mx-pad-levels { display: none; } }
+
+/* Botón «⋯» de las canciones de Stems con controles grandes. */
+:root:is([data-theme-style="flat"], [data-touch="on"]) :is(.ssl-more, .ssl-lyrics) { width: 32px; height: 32px; }
+:root:is([data-theme-style="flat"], [data-touch="on"]) .ssl-more { top: 42px; }

@@ -309,3 +309,17 @@
    El botón «Menos / Más» de la fila de herramientas alterna .is-simple. */
 .stems-deck.is-simple .sb-adv { display: none !important; }
 .sb-tools-toggle { flex: none; }
+
+/* Barra estrecha con sitio de sobra en la fila 1: vuelven los nombres de
+   Importar / Biblioteca / Exportar (solo con icono no se entendían). */
+#workspace-stems .sb--sm.sb--labels .sb-zone--project .stems-btn { font-size: 12px; gap: 5px; width: auto; padding: 0 11px; }
+#workspace-stems .sb--sm.sb--labels .sb-project .stems-project-name { width: 10ch; }
+
+/* Botón «⋯» de cada canción del panel: asignar audio sin clic derecho. */
+.ssl-more {
+  position: absolute; top: 34px; right: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; border-radius: 6px;
+  color: var(--text-muted); cursor: pointer;
+}
+.ssl-more:hover { background: rgba(255, 255, 255, 0.08); color: var(--accent); }

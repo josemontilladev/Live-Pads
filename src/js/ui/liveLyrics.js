@@ -371,7 +371,7 @@ function paintHint() {
     manual: 'Letra sincronizada a mano · exacta. Toca una línea para saltar a ella.',
     sections: 'Karaoke por secciones · el tiempo de cada línea es una estimación. Usa «Sincronizar» para dejarla exacta.',
     whole: 'Karaoke aproximado: marca las secciones en la onda (Intro, Verso, Coro…) para afinarlo.',
-    none: audio ? '' : 'Reproduce una pista (Sec u Orig) para seguir la letra mientras suena.',
+    none: audio ? '' : 'Reproduce la Secuencia o el Original de la canción para seguir la letra mientras suena.',
   }[timingKind];
   hintEl.textContent = msg || '';
 }
@@ -435,7 +435,7 @@ function syncUi() {
 }
 
 function startSync() {
-  if (!audio || audio.paused === undefined) { hintEl.textContent = 'Primero carga la pista de la canción (botón Sec u Orig) y luego pulsa Sincronizar.'; return; }
+  if (!audio || audio.paused === undefined) { hintEl.textContent = 'Primero carga la pista de la canción (su botón de Secuencia u Original) y luego pulsa Sincronizar.'; return; }
   const els = Array.from(bodyEl.querySelectorAll('.lyric-line'));
   if (!els.length) { hintEl.textContent = 'Esta canción no tiene letra para sincronizar.'; return; }
   syncing = { els, times: [], idx: 0 };
