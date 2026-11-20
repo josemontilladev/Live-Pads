@@ -708,3 +708,16 @@
 :root[data-theme-style="flat"][data-theme="gi_console"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: #111111 !important; }
 :root[data-theme-style="flat"][data-theme="gi_console"] :is(.gi-song-item, .ssl-row, .svc-pick) { background: #1A1A1B !important; }
 :root[data-theme-style="flat"][data-theme="gi_console"] .stems-console-strip { background: #1A1A1B !important; }
+
+/* Tirador de los deslizadores: blanco con aro oscuro. Del mismo color que el
+   relleno no se distinguía dónde estaba el tope. */
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].blue-slider::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"].blue-slider::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].stems-range--fill::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].stems-console-pan::-webkit-slider-thumb {
+  width: 14px; height: 14px; margin-top: -2px; border-radius: 50%;
+  background: #FFFFFF; border: 2px solid var(--flat-ink-lo); box-sizing: border-box;
+}
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -3px; border-width: 3px; }

@@ -1,1 +1,1 @@
-• Modo en vivo: los pads de batería vuelven a llenar todo el espacio (quedaba un hueco vacío debajo).
+• Temas Consola: el tirador de los deslizadores ahora es blanco con aro oscuro, para ver bien dónde está el tope del volumen.
