@@ -217,3 +217,13 @@ body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 
 /* El velo del panel de Ajustes mide lo mismo que el panel: al tener este las
    esquinas redondeadas, el velo (rectangular) asomaba detrás como un borde recto. */
 #sidebar-overlay { background: transparent !important; }
+
+/* Avisos: el texto ocupa el ancho y la X queda siempre pegada a la derecha
+   (antes cada aviso medía según su texto y las X no se alineaban). */
+.toast-container { align-items: stretch; }
+.toast > span { flex: 1 1 auto; min-width: 0; }
+.toast .toast-close { flex: none; margin-left: auto; }
+
+/* Pads de batería: un tamaño estable. Sin canción cargada crecían hasta llenar
+   el hueco (el doble de altos); ahora quedan como en el modo en vivo. */
+.drum-grid { max-height: 472px; }

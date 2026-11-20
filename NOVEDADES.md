@@ -1,4 +1,4 @@
-• Onda de la canción más despejada: a la vista quedan «Letra» y «Más»; Acordes, Práctica, Sección y el zoom pasan al menú «Más».
-• Tema «Consola GI» con más contraste: fondo grafito en lugar de casi negro, para que los controles se distingan.
-• Deslizadores de volumen pulidos en los temas Consola: la barra va dentro de la ranura, con aire alrededor y extremos redondeados.
-• Panel de Ajustes: ya no asoma un borde recto detrás de la esquina redondeada.
+• Dos temas de prueba para comparar: «Consola GI · pads amarillos» (fondo negro, controles amarillos) y «Consola GI · fondo amarillo» (fondo amarillo, controles negros).
+• Temas Consola: corregido el texto que desaparecía al pasar el ratón por la opción elegida (Mayor, 1x, Librería, Secuencia) y la etiqueta del imán en Stems.
+• Pads de batería con tamaño estable: ya no crecen al doble cuando no hay canción cargada.
+• Avisos: la X de cerrar queda siempre alineada a la derecha.
