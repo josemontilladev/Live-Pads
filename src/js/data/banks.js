@@ -104,16 +104,16 @@ const THEMES = {
   console: {
     name: 'Consola', desc: 'Plano · azul, negro y blanco',
     style: 'flat',
-    bg1: '#2448C9', bg2: '#1D3BA9', bg3: '#0B0B0F',
+    bg1: '#2448C9', bg2: '#1D3BA9', bg3: '#20232C',
     bgHover: '#17328F',
     blue: '#FFFFFF', accent2: '#FFFFFF',
-    onAccent: '#0B0B0F',
+    onAccent: '#14161C',
     text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.72)',
     border: 'rgba(0,0,0,0.28)',
-    borderStrong: '#0B0B0F',
+    borderStrong: '#20232C',
     glow: 'transparent',
     gradient: '#2448C9',
-    swatch: 'linear-gradient(135deg,#2448C9 0 50%,#0B0B0F 50% 75%,#FFFFFF 75%)'
+    swatch: 'linear-gradient(135deg,#2448C9 0 50%,#20232C 50% 75%,#FFFFFF 75%)'
   }
 };
 

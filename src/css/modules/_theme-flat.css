@@ -11,7 +11,13 @@
    ═══════════════════════════════════════════════════════════════════════ */
 :root[data-theme-style="flat"] {
   --accent-grad: var(--accent);
-  --flat-ink: #0B0B0F;
+  /* Negro suavizado (carbón) con un bisel muy leve: arriba un punto más claro,
+     abajo un punto más oscuro. Se nota como relieve, no como degradado. */
+  --flat-ink: #20232C;
+  --flat-ink-hi: #2E323E;
+  --flat-ink-lo: #171A21;
+  --flat-ink-bg: linear-gradient(180deg, var(--flat-ink-hi) 0%, var(--flat-ink) 42%, var(--flat-ink-lo) 100%);
+  --flat-bevel: var(--flat-ink-hi) var(--flat-ink) var(--flat-ink-lo) var(--flat-ink);
   --flat-paper: #FFFFFF;
   --flat-blue: #2448C9;
   --flat-deep: #1D3BA9;
@@ -35,7 +41,7 @@
   background: var(--flat-deep) !important;
   border-color: transparent !important;
 }
-:root[data-theme-style="flat"] #stems-ruler { background: var(--flat-ink) !important; }
+:root[data-theme-style="flat"] #stems-ruler { background: var(--flat-ink-bg) !important; }
 :root[data-theme-style="flat"] :is(.mx-channel, .stems-mixer-strip) {
   background: var(--flat-deep) !important;
   border-color: transparent !important;
@@ -43,7 +49,7 @@
 
 /* ── Pads de batería: bloque negro; al golpear, blanco ── */
 :root[data-theme-style="flat"] .drum-btn {
-  background: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
   border: 0 !important;
   border-radius: var(--flat-r);
   transition: none;
@@ -67,7 +73,7 @@
 /* ── Notas: negras; la que suena, blanca; la preparada, con marco blanco ── */
 :root[data-theme-style="flat"] .key-btn,
 :root[data-theme-style="flat"] .key-btn:is([data-key*="#"], [data-key*="b"]) {
-  background: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
   border: var(--flat-line) solid var(--flat-ink) !important;
   border-radius: var(--flat-r);
   color: var(--flat-paper);
@@ -87,8 +93,8 @@
     .stems-zoom-btn, .stems-pitch-btn, .tp-pitch-btn, .tp-stop, .tp-restart, .tp-loop,
     .tp-autoadvance, .tp-seqonly, .kit-action-btn, .mx-collapse, .master-mute-btn,
     .metro-opts-btn, .stems-bpm-detect, .ssl-collapse-btn, .stems-snap-btn, .action-btn) {
-  background: var(--flat-ink) !important;
-  border-color: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
+  border-color: var(--flat-bevel) !important;
   color: var(--flat-paper) !important;
 }
 :root[data-theme-style="flat"] :is(.icon-btn, .ui-btn, .tap-btn, .stems-btn, .sb-icon, .sb-btn,
@@ -103,11 +109,11 @@
 
 /* ── Selectores de opción (segmentos): caja negra, opción elegida en blanco ── */
 :root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .ws-tabs, .gi-tabs, .stems-mult, .metro-mult) {
-  background: var(--flat-ink) !important; border-color: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important; border-color: var(--flat-bevel) !important;
 }
 :root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
     .metro-mult-btn, .stems-mult-btn, .stems-accent-chip, .ssl-slot-btn) {
-  background: var(--flat-ink) !important; border-color: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important; border-color: var(--flat-bevel) !important;
   color: var(--flat-paper) !important; font-weight: 700;
 }
 :root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
@@ -121,7 +127,7 @@
     .gi-lib-select, .gi-search-input, .ssl-search, .stems-field, textarea,
     input:not([type="range"]):not([type="checkbox"]):not([type="radio"])) {
   background-color: var(--flat-ink) !important;
-  border-color: var(--flat-ink) !important;
+  border-color: var(--flat-bevel) !important;
   color: var(--flat-paper) !important;
 }
 :root[data-theme-style="flat"] :is(select, textarea, input:not([type="range"])):focus-visible {
@@ -160,7 +166,7 @@
 /* ── Menús y ventanas: bloque negro con borde blanco fino ── */
 :root[data-theme-style="flat"] :is(.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu,
     .stems-generators-pop, .stems-proj-dropdown) {
-  background: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
   border: var(--flat-line) solid var(--flat-paper) !important;
 }
 
@@ -171,8 +177,8 @@
 /* ── Más botones de la pantalla de Pads ── */
 :root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
     .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle) {
-  background: var(--flat-ink) !important;
-  border-color: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
+  border-color: var(--flat-bevel) !important;
   color: var(--flat-paper) !important;
 }
 :root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
@@ -249,7 +255,7 @@
 :root[data-theme-style="flat"] .stems-cfader-track { background: var(--flat-paper); border: 0; width: 6px; }
 :root[data-theme-style="flat"] .stems-cfader-fill { display: none; }
 :root[data-theme-style="flat"] .stems-cfader-handle {
-  background: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important;
   border: var(--flat-line) solid var(--flat-paper) !important;
   border-radius: 5px;
 }
@@ -262,7 +268,7 @@
 :root[data-theme-style="flat"] #stems-console-strips .flat-knob::after { top: 4px; height: 12px; }
 :root[data-theme-style="flat"] .stems-console-pan-row { align-items: center; }
 :root[data-theme-style="flat"] :is(.stems-console-strip-kind, .stems-row-kind, .stems-kind-badge) {
-  background: var(--flat-ink) !important; color: var(--flat-paper) !important; border-color: var(--flat-ink) !important;
+  background: var(--flat-ink-bg) !important; color: var(--flat-paper) !important; border-color: var(--flat-bevel) !important;
 }
 
 /* ═══ Controles grandes (pantallas táctiles) ════════════════════════════════
@@ -346,3 +352,69 @@
 /* Botón «⋯» de las canciones de Stems con controles grandes. */
 :root:is([data-theme-style="flat"], [data-touch="on"]) :is(.ssl-more, .ssl-lyrics) { width: 32px; height: 32px; }
 :root:is([data-theme-style="flat"], [data-touch="on"]) .ssl-more { top: 42px; }
+
+/* ── Relieve en lo que no llevaba !important ── */
+:root[data-theme-style="flat"] .flat-knob,
+:root[data-theme-style="flat"] #mixer-bar .flat-knob,
+:root[data-theme-style="flat"] .stems-ms { background: var(--flat-ink-bg); }
+:root[data-theme-style="flat"] .stems-ms { border-color: var(--flat-bevel); }
+
+/* ── Bordes: fuera los contornos blancos sueltos ──
+   Con el acento en blanco, cada «borde de acento» salía como una raya blanca.
+   Las tarjetas y filas se separan por el bloque de color; el blanco se reserva
+   para lo elegido. */
+:root[data-theme-style="flat"] { --border: rgba(255, 255, 255, 0.10); }
+:root[data-theme-style="flat"] .theme-div { display: none; }
+:root[data-theme-style="flat"] .themes-list { display: flex; flex-direction: column; gap: 8px; }
+:root[data-theme-style="flat"] .theme-item {
+  background: var(--flat-deep); border: 2px solid transparent; border-radius: var(--flat-r); padding: 12px 14px;
+}
+:root[data-theme-style="flat"] .theme-item:hover { background: var(--flat-deep); border-color: rgba(255, 255, 255, 0.45); }
+:root[data-theme-style="flat"] .theme-item.active { background: var(--flat-deep); border-color: var(--flat-paper); }
+:root[data-theme-style="flat"] .theme-swatch { border: 0; border-radius: 8px; }
+:root[data-theme-style="flat"] .sb-card { border-color: transparent !important; background: var(--flat-deep) !important; border-radius: var(--flat-r); }
+:root[data-theme-style="flat"] :is(.gi-song-item, .ssl-row, .svc-pick) { border-color: transparent; }
+:root[data-theme-style="flat"] :is(.gi-song-item.active-song, .ssl-row.is-active) { border-color: var(--flat-paper); }
+
+/* ═══ Cápsulas: un solo acabado para todos los grupos de opciones ══════════
+   Mismo patrón que «Mayor / Menor»: un contenedor carbón de extremos redondos
+   con 3 px de aire, las opciones dentro sin fondo ni borde, y la elegida como
+   una pastilla blanca. Antes cada grupo iba por su cuenta (pastillas sueltas,
+   aros blancos dobles, cajas cuadradas). */
+:root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; border-radius: 999px;
+  background: var(--flat-ink-bg) !important;
+  border: 1px solid; border-color: var(--flat-bevel) !important;
+  outline: 0;
+}
+:root[data-theme-style="flat"] .setlist-tabs-toggle { display: flex; }
+:root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) > :is(button, .s-toggle) {
+  background: transparent !important; border: 0 !important; outline: 0;
+  border-radius: 999px !important; color: var(--flat-paper) !important;
+  min-height: 32px; margin: 0;
+}
+:root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) > :is(button, .s-toggle):hover {
+  background: rgba(255, 255, 255, 0.10) !important;
+}
+:root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) > :is(.is-on, .active, .is-active) {
+  background: var(--flat-paper) !important; color: var(--flat-ink-lo) !important;
+}
+:root[data-theme-style="flat"] .setlist-tabs-toggle > .s-toggle { flex: 1; }
+:root[data-theme-style="flat"] .metro-mult-row > button { min-width: 52px; }
+:root[data-theme-style="flat"] .tp-pitch-group > * { min-width: 32px; }
+
+/* Barra de buscar / filtrar / añadir: sin la franja negra cuadrada detrás. */
+:root[data-theme-style="flat"] .gi-sticky-header { background: var(--flat-deep) !important; }
+/* Tira de acciones que aparece al pasar por una canción: una cápsula más. */
+:root[data-theme-style="flat"] #panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions {
+  background: var(--flat-ink-lo) !important; border: 1px solid var(--flat-ink-hi) !important;
+  border-radius: 999px; padding: 3px; gap: 2px;
+}
+:root[data-theme-style="flat"] #panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions .action-btn {
+  background: transparent !important; border: 0 !important; border-radius: 999px; width: 28px; height: 24px;
+}
+:root[data-theme-style="flat"] #panel-setlist .gi-song-item:not(.active-song):not(.lyrics-open) .gi-song-actions .action-btn:hover {
+  background: var(--flat-paper) !important; color: var(--flat-ink-lo) !important;
+}
+:root[data-theme-style="flat"] .kit-action-btn { opacity: 1; }
