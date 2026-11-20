@@ -218,3 +218,22 @@
 .drum-btn { position: relative; }
 .drum-btn .drum-tile-vol { position: absolute; left: 12px; right: 12px; bottom: 10px; margin: 0; }
 .drum-btn .drum-label { margin: auto 0; text-align: center; }
+
+/* ── Letra acoplada: ocupa el hueco de batería + mezclador como un panel más ── */
+.lyp-panel.is-docked { resize: none; border-radius: var(--r-xl, 16px); }
+.lyp-panel.is-docked .mtm-drag-dots { opacity: .45; }
+/* Acordes sobre la letra: más grandes y en negrita (se leen a un metro del atril). */
+.lyp-cols .inline-chord { font-size: .74em; font-weight: 700; transform: translateY(-1.3em); }
+/* El hueco para el acorde lo da el interlineado (no un margen arriba): así, si la
+   línea no cabe y se parte en dos, el acorde de la segunda mitad también tiene su
+   sitio y no cae encima del texto de la primera. */
+.lyp-cols .lyric-line.has-inline-chords { margin-top: .25em; margin-bottom: 0; line-height: 2.15; }
+.lyp-body.hide-chords .lyric-line.has-inline-chords { margin-top: .12em; line-height: 1.45; }
+/* Columnas anchas: una línea de letra cabe entera casi siempre. */
+.lyp-cols { column-width: 21em; }
+.lyp-cols .chord-line { font-size: .84em; font-weight: 700; }
+/* Cabecera: el título manda; el artista y el tono ceden antes que él. */
+.lyp-titles { gap: 10px; }
+.lyp-title { flex: 0 1 auto; min-width: 4ch; font-size: 15px; }
+.lyp-sub { flex: 1 1 0; min-width: 0; }
+.lyp-cols .section-header-line { margin-bottom: 1.7em; }

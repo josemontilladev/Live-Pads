@@ -1,7 +1,7 @@
-• Sincronización: las pistas separadas de una canción ya no se pierden entre equipos (llegan aunque tengas tu propia secuencia y no se borran por una versión antigua).
-• La guía de Stems ya no aparece encima de la pantalla de Pads.
-• Mezclador en portátil: el paneo vuelve como una perilla junto a cada canal (antes se ocultaba por falta de espacio).
-• Pantalla táctil: la primera vez que tocas la pantalla con el dedo, LivePads te ofrece activar los controles grandes.
-• Controles grandes: el volumen de cada pad se guarda tras el botón «Niveles de pads», para no moverlo sin querer al golpear.
-• Stems: cada canción tiene un botón «⋯» para asignarle audio (antes solo con clic derecho) y la barra vuelve a mostrar los nombres Importar, Biblioteca y Exportar en portátil.
-• Textos más claros: «Secuencia» y «Original» en lugar de «Sec» y «Orig».
+• Letra acoplada: al abrir la letra en Pads ya no flota tapando cosas a medias; ocupa el hueco central como un panel más y se ajusta sola al tamaño de la ventana. Con el botón «Acoplar» (o arrastrándola) vuelve a ser flotante.
+• Acordes sobre la letra más grandes y en negrita, y ya no se montan sobre el texto cuando una línea no cabe y se parte en dos (también en pantalla completa).
+• Letra en columnas más anchas: cada línea cabe entera casi siempre.
+• Botones para subir y bajar la letra, asignables a un pedal o botón MIDI.
+• Mapeo MIDI y de teclado ampliado: tempo −1 / +1, tap, silenciar maestro, modo en vivo, abrir y cerrar la letra, subir y bajar la letra, pads en mayor o menor y las perillas de paneo.
+• Mapeo con teclado: fuente, transponer, reiniciar, auto-avance y demás acciones ya responden a una tecla (antes solo funcionaban por MIDI).
+• Textos más claros en el reproductor y en el modo de mapeo.

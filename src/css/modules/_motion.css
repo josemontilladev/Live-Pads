@@ -297,3 +297,22 @@ body.live-mode #live-strip { animation: strip-in 0.35s var(--ease-release); }
 .ls-now-title.ls-swap { animation: np-swap-in 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
 /* Slider de volumen de las baldosas: aparece al posar el ratón, sin salto. */
 .drum-tile-vol { transition: opacity 0.18s var(--ease-release); }
+
+/* Más controles asignables (midi/extraButtons.js) y las perillas de paneo. */
+body.midi-learning #bpm-minus,
+body.midi-learning #bpm-plus,
+body.midi-learning #tap-tempo,
+body.midi-learning .master-mute-btn--mx,
+body.midi-learning #btn-live-mode,
+body.midi-learning #sw-lyrics,
+body.midi-learning .gi-song-item.active-song .action-btn.btn-lyrics,
+body.midi-learning .lyp-panel [data-do="up"],
+body.midi-learning .lyp-panel [data-do="down"],
+body.midi-learning .pad-mode-btn,
+body.midi-learning .flat-knob {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent),
+              0 0 14px color-mix(in srgb, var(--accent) 60%, transparent) !important;
+  animation: midi-mappable-pulse 1.3s ease-in-out infinite;
+}

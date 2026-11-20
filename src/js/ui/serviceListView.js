@@ -262,7 +262,7 @@ export function showServiceCreate(opts = {}) {
       setServiceSongs([...selected].map(id => byId.get(id)).filter(Boolean));
       hideServiceCreate();
       renderServiceList({ keepScroll: true });
-      window.showToast?.(`✓ ${selected.size} ${selected.size === 1 ? 'canción' : 'canciones'} en el servicio.`, 'success');
+      window.showToast?.(`${selected.size} ${selected.size === 1 ? 'canción' : 'canciones'} en el servicio.`, 'success');
       return;
     }
     if (act === 'create') {

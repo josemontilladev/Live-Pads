@@ -19,7 +19,7 @@ import { confirmDialogAsync } from '../ui/dialog.js';
 
 // Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
 // _pads-clean.css) y el título indica cómo cargar una.
-const EMPTY_TITLE = 'Sin pista · elige una canción y pulsa su botón de Secuencia u Original';
+const EMPTY_TITLE = 'Sin pista · toca una canción de la lista para cargarla y pulsa Play';
 function setHasTrack(on) {
   q('#track-player-bar')?.classList.toggle('has-track', on);
 }

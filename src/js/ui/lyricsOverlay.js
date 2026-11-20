@@ -22,6 +22,15 @@ let overlay = null, panel = null, popModal = null;
 let current = null;   // { title, artist, key, html }
 let prefs = { size: 20, chords: true, follow: true };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem(LS_PREFS) || '{}')); } catch (_) {}
+// Acoplada: la letra ocupa exactamente el hueco de la batería y el mezclador
+// (columna central) y lo sigue al cambiar el tamaño de la ventana, así nunca
+// queda tapando a medias otra cosa. Es lo normal en una instalación nueva; quien
+// ya la tenía colocada a mano conserva su sitio (y puede acoplarla con el botón).
+if (typeof prefs.docked !== 'boolean') {
+  let hadGeom = false;
+  try { hadGeom = !!localStorage.getItem(LS_GEOM); } catch (_) {}
+  prefs.docked = !hadGeom;
+}
 const savePrefs = () => { try { localStorage.setItem(LS_PREFS, JSON.stringify(prefs)); } catch (_) {} };
 const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -67,8 +76,59 @@ function clickInCard(action) {
   else window.showToast?.('Abre la canción desde la lista (Librería o Servicio) para editar su letra.', 'info');
 }
 
+// Hueco donde se acopla: de la parte alta de la batería al final del mezclador.
+function dockRect() {
+  const grid = document.getElementById('drum-grid');
+  const mixer = document.getElementById('mixer-bar');
+  const vis = (el) => el && el.getClientRects().length && (typeof el.checkVisibility !== 'function' || el.checkVisibility());
+  if (!vis(grid)) return null;
+  const g = grid.getBoundingClientRect();
+  const m = vis(mixer) ? mixer.getBoundingClientRect() : g;
+  const left = Math.min(g.left, m.left), right = Math.max(g.right, m.right);
+  let top = g.top;
+  const bottom = Math.max(g.bottom, m.bottom);
+  // Pantallas bajas (portátil): ese hueco da para dos líneas. Se sube hasta cubrir
+  // también el metrónomo; el tempo ya lo pone la canción y el click se maneja abajo.
+  if (bottom - top < 330) {
+    const metro = document.getElementById('panel-metro');
+    if (vis(metro)) top = Math.min(top, metro.getBoundingClientRect().top);
+  }
+  if (right - left < 280 || bottom - top < 160) return null;
+  return { left, top, width: right - left, height: bottom - top };
+}
+let dockSize = null;      // último tamaño puesto por el acople (para distinguir un redimensionado manual)
+function fitDock() {
+  if (!panel || !prefs.docked) return false;
+  const r = dockRect();
+  if (!r) return false;
+  dockSize = { w: Math.round(r.width), h: Math.round(r.height) };
+  panel.style.left = `${Math.round(r.left)}px`; panel.style.top = `${Math.round(r.top)}px`;
+  panel.style.width = `${dockSize.w}px`; panel.style.height = `${dockSize.h}px`;
+  panel.style.transform = 'none';
+  return true;
+}
+function setDocked(on) {
+  prefs.docked = on; savePrefs();
+  if (panel) {
+    panel.classList.toggle('is-docked', on);
+    const b = panel.querySelector('[data-do="dock"]');
+    if (b) b.classList.toggle('is-on', on);
+  }
+  if (on && !fitDock()) window.showToast?.('Aquí no hay hueco para acoplar la letra; queda flotante.', 'info');
+}
+let dockWatch = null;
+function watchDock() {
+  if (dockWatch) return;
+  let raf = 0;
+  const refit = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fitDock); };
+  const ro = new ResizeObserver(refit);
+  for (const id of ['drum-grid', 'mixer-bar']) { const el = document.getElementById(id); if (el) ro.observe(el); }
+  window.addEventListener('resize', refit);
+  dockWatch = () => { ro.disconnect(); window.removeEventListener('resize', refit); cancelAnimationFrame(raf); dockWatch = null; };
+}
+
 function saveGeom() {
-  if (!panel) return;
+  if (!panel || prefs.docked) return;
   const r = panel.getBoundingClientRect();
   try { localStorage.setItem(LS_GEOM, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) })); } catch (_) {}
 }
@@ -88,6 +148,7 @@ function makeDraggable(handle) {
   handle.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button, input, select, label')) return;
     dragging = true;
+    if (prefs.docked) setDocked(false);        // arrastrarla la suelta del acople
     const r = panel.getBoundingClientRect();
     panel.style.left = `${r.left}px`; panel.style.top = `${r.top}px`; panel.style.transform = 'none';
     sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
@@ -120,6 +181,8 @@ function paintPrefs() {
   body.classList.toggle('hide-chords', !prefs.chords);
   panel.querySelector('[data-do="chords"]').classList.toggle('is-on', prefs.chords);
   panel.querySelector('[data-do="follow"]').classList.toggle('is-on', prefs.follow);
+  panel.querySelector('[data-do="dock"]').classList.toggle('is-on', !!prefs.docked);
+  panel.classList.toggle('is-docked', !!prefs.docked);
 }
 
 function open(data) {
@@ -133,10 +196,13 @@ function open(data) {
           <span class="mtm-drag-dots" aria-hidden="true">⠿</span>
           <div class="lyp-titles"><b class="lyp-title">Letra</b><span class="lyp-sub"></span></div>
           <div class="lyp-tools">
+            <button type="button" class="lyp-btn" data-do="up" title="Subir la letra (asignable a un pedal o botón MIDI)" aria-label="Subir la letra"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="down" title="Bajar la letra (asignable a un pedal o botón MIDI)" aria-label="Bajar la letra"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
             <button type="button" class="lyp-btn lyp-btn--txt" data-do="smaller" title="Letra más pequeña" aria-label="Letra más pequeña"><span class="lyp-a lyp-a--sm">A</span></button>
             <button type="button" class="lyp-btn lyp-btn--txt" data-do="bigger" title="Letra más grande" aria-label="Letra más grande"><span class="lyp-a lyp-a--lg">A</span></button>
             <button type="button" class="lyp-btn" data-do="chords" title="Mostrar u ocultar los acordes" aria-label="Acordes"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
             <button type="button" class="lyp-btn" data-do="follow" title="Seguir la canción que suena (cambia sola)" aria-label="Seguir la canción"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg></button>
+            <button type="button" class="lyp-btn" data-do="dock" title="Acoplar la letra al centro de la pantalla (o soltarla para moverla)" aria-label="Acoplar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg></button>
             <button type="button" class="lyp-btn" data-do="edit" title="Editar la letra y los acordes" aria-label="Editar"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
             <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
             <button type="button" class="lyp-btn" data-do="screen" title="Llevar la letra a otra pantalla (TV, segundo monitor)" aria-label="Otra pantalla"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
@@ -148,18 +214,31 @@ function open(data) {
     document.body.appendChild(overlay);
     panel = overlay.querySelector('.lyp-panel');
     makeDraggable(overlay.querySelector('[data-drag]'));
-    restoreGeom();
-    // Guardar el tamaño al soltar el redimensionado (esquina).
+    if (!fitDock()) restoreGeom();
+    watchDock();
+    // Guardar el tamaño al soltar el redimensionado (esquina). Si estaba acoplada
+    // y el tamaño ya no es el del acople, es que la redimensionaron a mano: se suelta.
     let rt = 0;
-    new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(saveGeom, 300); }).observe(panel);
+    new ResizeObserver(() => {
+      if (prefs.docked && dockSize && panel) {
+        if (Math.abs(panel.offsetWidth - dockSize.w) > 3 || Math.abs(panel.offsetHeight - dockSize.h) > 3) setDocked(false);
+        return;
+      }
+      clearTimeout(rt); rt = setTimeout(saveGeom, 300);
+    }).observe(panel);
     overlay.addEventListener('click', (e) => {
       const b = e.target.closest('[data-do]');
       if (!b) return;
       const w = b.dataset.do;
       if (w === 'close') close();
+      else if (w === 'up' || w === 'down') {
+        const body = panel.querySelector('.lyp-body');
+        body.scrollBy({ top: (w === 'down' ? 1 : -1) * Math.max(80, body.clientHeight * 0.8), behavior: 'smooth' });
+      }
       else if (w === 'smaller') { prefs.size = Math.max(12, prefs.size - 2); savePrefs(); paintPrefs(); }
       else if (w === 'bigger') { prefs.size = Math.min(48, prefs.size + 2); savePrefs(); paintPrefs(); }
       else if (w === 'chords') { prefs.chords = !prefs.chords; savePrefs(); paintPrefs(); }
+      else if (w === 'dock') setDocked(!prefs.docked);
       else if (w === 'follow') { prefs.follow = !prefs.follow; savePrefs(); paintPrefs(); window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow); }
       else if (w === 'screen') window.electronAPI?.lyricsWindowShow?.(current);
       else if (w === 'edit') clickInCard('edit-lyrics');
@@ -177,6 +256,7 @@ function close() {
   if (!overlay) return;
   saveGeom();
   if (cardObs) { cardObs.disconnect(); cardObs = null; }
+  if (dockWatch) dockWatch();
   if (popModal) { popModal(); popModal = null; }
   overlay.classList.remove('open');
   const node = overlay; overlay = null; panel = null;

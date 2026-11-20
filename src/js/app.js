@@ -2055,7 +2055,7 @@ function onKey(e) {
     clearMappingForTarget(getMidiLearnTarget(), true);
     addMapping(`kbd_${k}`, getMidiLearnTarget());
     const kName = k.replace('Key', '').replace('Digit', '');
-    q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado! ${getMidiLearnTarget().action.toUpperCase()} a la tecla ${kName}. Selecciona otro o sal.`;
+    q('#midi-learn-overlay').innerHTML = `✅ ¡Asignado a la tecla ${kName}! Selecciona otro control o sal.`;
     setMidiLearnTarget(null);
     updateKeyHints();
     return;
@@ -2089,6 +2089,10 @@ function onKey(e) {
       servicePrevSong();
     } else if (mapping.action === 'next_song') {
       serviceNextSong();
+    } else {
+      // El resto de acciones (fuente, transponer, tempo, letra…) equivalen a pulsar
+      // su botón. Antes, asignadas a una tecla, no hacían nada.
+      import('./midi/extraButtons.js').then(m => m.runClickAction(mapping)).catch(() => {});
     }
     return;
   }

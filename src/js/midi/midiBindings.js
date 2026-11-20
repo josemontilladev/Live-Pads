@@ -39,6 +39,7 @@ let padsNoteHandler = null;
 export function setPadsNoteHandler(fn) { padsNoteHandler = fn; }
 import { servicePrevSong, serviceNextSong } from '../data/service.js';
 import { resolveDrumPad } from '../ui/drumGrid.js';
+import { extraButtonFor, clickExtraButton, extraButtonLabel } from './extraButtons.js';
 import {
   getKitBankIdx,
   getIsMidiLearnMode, setIsMidiLearnMode,
@@ -292,6 +293,8 @@ export function bindMidiHandlers(deps) {
           q('#tp-pitch-up')?.click();   // transponer la pista +1 semitono
         } else if (mapping.action === 'pitch_down') {
           q('#tp-pitch-down')?.click(); // transponer la pista −1 semitono
+        } else if (mapping.action === 'button') {
+          clickExtraButton(mapping.id); // tempo, tap, silenciar, letra… (extraButtons.js)
         }
       }
       return;
@@ -341,7 +344,11 @@ export function bindMidiHandlers(deps) {
     const mult2Btn  = e.target.closest('#btn-mult-2');
     const pitchUpBtn   = e.target.closest('#tp-pitch-up');
     const pitchDownBtn = e.target.closest('#tp-pitch-down');
-    const slider    = e.target.closest('input[type="range"]');
+    // La perilla de paneo (flatKnobs.js) es otro mando del mismo deslizador.
+    const knob      = e.target.closest('.flat-knob');
+    const knobInput = knob && knob.previousElementSibling && knob.previousElementSibling.matches('input[type="range"]') ? knob.previousElementSibling : null;
+    const slider    = knobInput || e.target.closest('input[type="range"]');
+    const extraBtn  = extraButtonFor(e.target);
 
     let target = null;
     if (keyBtn)        target = { action: 'pad',       id: keyBtn.dataset.key };
@@ -365,11 +372,13 @@ export function bindMidiHandlers(deps) {
     else if (pitchUpBtn) target = { action: 'pitch_up' };
     else if (pitchDownBtn) target = { action: 'pitch_down' };
     else if (slider && slider.id) target = { action: 'slider', id: slider.id };
+    else if (extraBtn) target = { action: 'button', id: extraBtn };
     else return; // unmappable
 
     e.stopPropagation();
     e.preventDefault();
     setMidiLearnTarget(target);
-    q('#midi-learn-overlay').innerHTML = `Esperando MIDI para: <b>${target.action.toUpperCase()} ${target.id || ''}</b>... Toca tu controlador.`;
+    const what = target.action === 'button' ? extraButtonLabel(target.id) : `${target.action.toUpperCase()} ${target.id || ''}`;
+    q('#midi-learn-overlay').innerHTML = `Esperando MIDI para: <b>${what}</b>... Toca tu controlador.`;
   }, true);
 }

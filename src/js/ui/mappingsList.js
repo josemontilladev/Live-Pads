@@ -11,6 +11,7 @@ import { getMidiMap, getAllMidiMaps, deleteMapping, clearAllMappings, importMidi
 import { pushModal } from './modalStack.js';
 import { confirmDialog } from './dialog.js';
 import { livePrefix } from './liveGuard.js';
+import { extraButtonLabel } from '../midi/extraButtons.js';
 
 let mounted = null;
 let popModal = null;
@@ -32,6 +33,9 @@ const ACTION_LABELS = {
   pitch_up:   'Transponer +1 semitono',
   pitch_down: 'Transponer −1 semitono',
   slider:    'Slider',
+  toggle_seq_only: 'Play/Pausa solo secuencia',
+  metro_mult: 'Click a tiempo o doble',
+  source:    'Fuente',
   // Stems workspace (independent map)
   st_play:       'Stems · Play/Pausa',
   st_stop:       'Stems · Stop',
@@ -68,6 +72,7 @@ function prettyKey(mapKey) {
 
 function prettyTarget(target) {
   if (!target) return '?';
+  if (target.action === 'button') return extraButtonLabel(target.id);
   const action = ACTION_LABELS[target.action] || target.action;
   if (target.id) return `${action} · ${target.id}`;
   return action;

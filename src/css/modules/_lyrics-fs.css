@@ -134,3 +134,10 @@ body.lyrics-fs-open { overflow: hidden; }
 .lyr-content .section-header-line + .lyrics-spacer { display: none; }
 /* Solo letra: una sección que solo tiene acordes (Intro, Interludio…) no aporta. */
 .lyr-content.hide-chords .lyr-sec:not(:has(.lyric-line)) { display: none; }
+
+/* Líneas con acordes que se parten en dos: el hueco para el acorde lo da el
+   interlineado, así el acorde de la segunda mitad no cae sobre la primera. */
+.lyr-content .lyric-line.has-inline-chords { margin-top: .2em; line-height: 2.1; }
+.lyr-content.hide-chords .lyric-line.has-inline-chords { margin-top: 0; line-height: 1.32; }
+.lfs-content .lyric-line.has-inline-chords { margin-top: .2em; line-height: 2.2; }
+.lfs-content.hide-chords .lyric-line.has-inline-chords { margin-top: 0; line-height: inherit; }
