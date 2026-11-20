@@ -199,3 +199,21 @@ body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 
    «Crossfade» era más ancha que su hueco fijo y pisaba el deslizador). */
 .sb-row > .sr-label { flex: none; width: auto; min-width: 58px; white-space: nowrap; }
 .sb-row > input[type="range"], .sb-row > select { flex: 1 1 auto; min-width: 0; }
+
+/* ── Menú «Más» de la cabecera de la onda (ui/waveMore.js) ── */
+.sw-more-wrap { position: relative; display: inline-flex; }
+#sw-more.has-active { border-color: var(--accent); color: var(--accent); }
+.sw-more-pop {
+  position: fixed; z-index: 9000; display: flex; flex-direction: column; gap: 4px;
+  min-width: 190px; padding: 8px; border-radius: 14px;
+  background: var(--bg-card); border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.sw-more-pop[hidden] { display: none; }
+.sw-more-pop > .sw-btn { width: 100%; height: 34px; justify-content: flex-start; padding: 0 12px; font-size: 12.5px; }
+.sw-more-pop > .sw-btn[hidden] { display: none; }
+.sw-more-pop > .sw-zoom { align-self: stretch; justify-content: space-between; margin: 2px 0 0; }
+
+/* El velo del panel de Ajustes mide lo mismo que el panel: al tener este las
+   esquinas redondeadas, el velo (rectangular) asomaba detrás como un borde recto. */
+#sidebar-overlay { background: transparent !important; }

@@ -13,6 +13,7 @@
 // Datos: song.markers = [{ id, label, t }]  (t en segundos). Viajan con la
 // canción (Supabase, meta.markers). Stems los guarda al «Asignar a canción».
 
+import './waveMore.js';
 import { computePeaksAsync } from '../stems/waveform.js';
 
 // Onda de cada pista, calculada una vez a máxima resolución (sirve para cualquier zoom)

@@ -1,5 +1,4 @@
-• Tema nuevo «Consola GI»: el mismo estilo de consola en amarillo y negro, los colores de GI Setlist. Actívalo en Ajustes → Temas.
-• Menú de Ajustes rediseñado en los temas Consola: filas limpias con su icono, la sección elegida bien legible y títulos en una sola línea.
-• Ventanas, menús y diálogos de los temas Consola con un solo acabado: mismo borde fino, mismas esquinas y sin bordes de colores sueltos. Pre-vuelo, mapeos y companion ya no se ven como una ventana dentro de otra.
-• Ajustes de audio: la etiqueta «Crossfade» ya no se monta sobre su deslizador.
-• Al crear una canción también se guardan los tonos por cantante.
+• Onda de la canción más despejada: a la vista quedan «Letra» y «Más»; Acordes, Práctica, Sección y el zoom pasan al menú «Más».
+• Tema «Consola GI» con más contraste: fondo grafito en lugar de casi negro, para que los controles se distingan.
+• Deslizadores de volumen pulidos en los temas Consola: la barra va dentro de la ranura, con aire alrededor y extremos redondeados.
+• Panel de Ajustes: ya no asoma un borde recto detrás de la esquina redondeada.

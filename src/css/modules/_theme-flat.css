@@ -596,3 +596,58 @@
 :root[data-theme-style="flat"] .set-embed :is(.pf-panel, .mp-panel, .cp-panel) .ui-close { display: none; }
 :root[data-theme-style="flat"] #sidebar .theme-item.active { border-color: var(--flat-paper) !important; }
 :root[data-theme-style="flat"] #sidebar .theme-item:hover { border-color: rgba(255, 255, 255, 0.45) !important; }
+
+/* Menú «Más» de la onda, con el acabado de los demás menús. */
+:root[data-theme-style="flat"] .sw-more-pop { background: var(--flat-side) !important; border: 1px solid var(--flat-outline) !important; }
+:root[data-theme-style="flat"] .sw-btn { background: var(--flat-ink-bg); border: 1px solid var(--flat-outline); color: var(--flat-text); }
+:root[data-theme-style="flat"] .sw-btn:is(.sw-btn--accent, [aria-pressed="true"], .is-on) { background: var(--flat-paper); border-color: var(--flat-paper); color: var(--flat-ink-lo); }
+:root[data-theme-style="flat"] #sw-more.has-active { border-color: var(--flat-paper); color: var(--flat-paper); }
+
+/* ═══ Deslizadores pulidos ═════════════════════════════════════════════════
+   La barra de relleno va DENTRO de la ranura, con 3 px de aire alrededor y los
+   dos extremos redondeados (el tirador es la tapa redonda del relleno), como
+   una barra de nivel. Antes el relleno tocaba el borde y acababa en corte recto. */
+:root[data-theme-style="flat"] input[type="range"],
+:root[data-theme-style="flat"] #mixer-bar input[type="range"] {
+  height: 18px; border-radius: 9px; padding: 3px;
+  background:
+    linear-gradient(to right, var(--flat-paper) var(--pct, 0%), transparent var(--pct, 0%)) content-box,
+    var(--flat-ink-lo) border-box !important;
+}
+:root[data-theme-style="flat"] input[type="range"].stems-range--fill {
+  background:
+    linear-gradient(to right, var(--flat-paper) var(--fill, 85%), transparent var(--fill, 85%)) content-box,
+    var(--flat-ink-lo) border-box !important;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-runnable-track,
+:root[data-theme-style="flat"] input[type="range"]:is(.pan-slider, .stems-pan-slider)::-webkit-slider-runnable-track {
+  height: 10px; border-radius: 5px;
+}
+:root[data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"]::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].blue-slider::-webkit-slider-thumb,
+:root[data-theme-style="flat"] #mixer-bar input[type="range"].blue-slider::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].stems-range--fill::-webkit-slider-thumb,
+:root[data-theme-style="flat"] input[type="range"].stems-console-pan::-webkit-slider-thumb {
+  width: 10px; height: 10px; margin-top: 0; border-radius: 50%;
+  background: var(--flat-paper); border: 0;
+}
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"],
+:root[data-touch="on"][data-theme-style="flat"] #mixer-bar input[type="range"] { height: 26px; border-radius: 13px; padding: 4px; }
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-runnable-track { height: 16px; border-radius: 8px; }
+:root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: 0; }
+
+/* ═══ Consola GI: más contraste ════════════════════════════════════════════
+   El fondo pasa de casi negro a grafito, para que los controles negros se
+   separen de él; el filo gris sube un punto y los paneles aclaran un poco. */
+:root[data-theme-style="flat"][data-theme="gi_console"] {
+  --flat-bg: linear-gradient(135deg, #46484F 0%, #383A40 36%, #2B2C31 70%, #212226 100%);
+  --flat-side: #2B2C31;
+  --flat-deep: #303137;
+  --flat-panel: rgba(255, 255, 255, 0.06);
+  --flat-outline: rgba(255, 255, 255, 0.26);
+  --flat-ink: #0B0B0D;
+  --flat-ink-hi: #151618;
+  --flat-ink-lo: #050506;
+}
+:root[data-theme-style="flat"][data-theme="gi_console"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: rgba(0, 0, 0, 0.30) !important; }

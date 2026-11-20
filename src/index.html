@@ -522,28 +522,37 @@
         <span class="sw-next"></span>
         <span class="sw-chordnow" title="Acorde que suena y el siguiente"><b></b><span></span></span>
         <div class="sw-actions">
-          <button type="button" class="sw-btn" id="sw-chords" aria-pressed="false" title="Acordes sobre el espectro: se detectan de la pista (una vez, en segundo plano) y se van marcando mientras suena">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            Acordes
-          </button>
           <button type="button" class="sw-btn" id="sw-lyrics" aria-pressed="false" title="Letra en vivo: la letra con acordes de la canción, siguiéndola mientras suena">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
             Letra
           </button>
-          <button type="button" class="sw-btn" id="sw-practice" aria-pressed="false" title="Modo práctica: reproduce más lento (sin cambiar el tono) y repite un tramo A–B">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.3 17a9 9 0 1 1 17.4 0"/></svg>
-            Práctica <span class="sw-practice-state"></span>
-          </button>
-          <button type="button" class="sw-btn sw-btn--accent" id="sw-add" title="Marcar una sección en la posición actual (Intro, Verso, Coro…)">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Sección
-          </button>
-          <div class="sw-zoom" role="group" aria-label="Zoom de la onda">
-            <button type="button" class="sw-zbtn" id="sw-zoom-out" title="Alejar (Ctrl + rueda sobre la onda)" aria-label="Alejar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-            <button type="button" class="sw-zbtn sw-zlvl" id="sw-zoom-fit" title="Ver toda la canción">1×</button>
-            <button type="button" class="sw-zbtn" id="sw-zoom-in" title="Acercar (Ctrl + rueda sobre la onda)" aria-label="Acercar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <!-- Lo que no se usa a cada momento vive en «Más» (ui/waveMore.js). -->
+          <div class="sw-more-wrap">
+            <button type="button" class="sw-btn" id="sw-more" aria-haspopup="menu" aria-expanded="false" title="Más herramientas: acordes, práctica, marcar secciones y zoom de la onda">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+              Más
+            </button>
+            <div class="sw-more-pop" id="sw-more-pop" role="menu" hidden>
+              <button type="button" class="sw-btn" id="sw-chords" aria-pressed="false" title="Acordes sobre el espectro: se detectan de la pista (una vez, en segundo plano) y se van marcando mientras suena">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                Acordes
+              </button>
+              <button type="button" class="sw-btn" id="sw-practice" aria-pressed="false" title="Modo práctica: reproduce más lento (sin cambiar el tono) y repite un tramo A–B">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.3 17a9 9 0 1 1 17.4 0"/></svg>
+                Práctica <span class="sw-practice-state"></span>
+              </button>
+              <button type="button" class="sw-btn sw-btn--accent" id="sw-add" title="Marcar una sección en la posición actual (Intro, Verso, Coro…)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Sección
+              </button>
+              <div class="sw-zoom" role="group" aria-label="Zoom de la onda">
+                <button type="button" class="sw-zbtn" id="sw-zoom-out" title="Alejar (Ctrl + rueda sobre la onda)" aria-label="Alejar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                <button type="button" class="sw-zbtn sw-zlvl" id="sw-zoom-fit" title="Ver toda la canción">1×</button>
+                <button type="button" class="sw-zbtn" id="sw-zoom-in" title="Acercar (Ctrl + rueda sobre la onda)" aria-label="Acercar"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+              </div>
+              <button type="button" class="sw-btn sw-chordfit" id="sw-chordfit" hidden title="Amplía la onda lo justo para que se lean todos los acordes (se va desplazando sola mientras suena)">Ver todos los acordes</button>
+            </div>
           </div>
-          <button type="button" class="sw-btn sw-chordfit" id="sw-chordfit" hidden title="Amplía la onda lo justo para que se lean todos los acordes (se va desplazando sola mientras suena)">Ver todos los acordes</button>
           <button type="button" class="sw-btn sw-btn--icon" id="sw-collapse" title="Contraer / expandir la onda" aria-label="Contraer o expandir la onda">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           </button>

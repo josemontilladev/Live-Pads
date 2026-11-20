@@ -120,15 +120,15 @@ const THEMES = {
   gi_console: {
     name: 'Consola GI', desc: 'Amarillo y negro · estilo consola',
     style: 'flat',
-    bg1: '#1B1C1F', bg2: '#1A1B1E', bg3: '#08090A',
-    bgHover: '#232428',
+    bg1: '#383A40', bg2: '#303137', bg3: '#0B0B0D',
+    bgHover: '#3E4046',
     blue: '#FBAE00', accent2: '#FBAE00',
     onAccent: '#040405',
     text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.68)',
     border: 'rgba(255,255,255,0.10)',
     borderStrong: 'rgba(255,255,255,0.20)',
     glow: 'transparent',
-    gradient: 'linear-gradient(135deg, #26272B 0%, #1B1C1F 38%, #131314 72%, #0C0C0D 100%)',
+    gradient: 'linear-gradient(135deg, #46484F 0%, #383A40 36%, #2B2C31 70%, #212226 100%)',
     swatch: 'linear-gradient(135deg,#1B1C1F 0 50%,#040405 50% 75%,#FBAE00 75%)'
   }
 };
