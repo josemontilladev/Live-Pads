@@ -109,11 +109,27 @@ const THEMES = {
     blue: '#FFFFFF', accent2: '#FFFFFF',
     onAccent: '#08090C',
     text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.72)',
-    border: 'rgba(0,0,0,0.28)',
+    border: 'rgba(255,255,255,0.12)',
     borderStrong: 'rgba(255,255,255,0.24)',
     glow: 'transparent',
     gradient: 'linear-gradient(135deg, #2262B0 0%, #1A4A94 38%, #123470 72%, #0D2656 100%)',
     swatch: 'linear-gradient(135deg,#1A4A94 0 50%,#0E1015 50% 75%,#FFFFFF 75%)'
+  },
+  // El mismo estilo «consola» con los colores de GI Setlist. La paleta fina vive
+  // en _theme-flat.css ([data-theme="gi_console"]).
+  gi_console: {
+    name: 'Consola GI', desc: 'Amarillo y negro · estilo consola',
+    style: 'flat',
+    bg1: '#1B1C1F', bg2: '#1A1B1E', bg3: '#08090A',
+    bgHover: '#232428',
+    blue: '#FBAE00', accent2: '#FBAE00',
+    onAccent: '#040405',
+    text: '#FFFFFF', textMuted: 'rgba(255,255,255,0.68)',
+    border: 'rgba(255,255,255,0.10)',
+    borderStrong: 'rgba(255,255,255,0.20)',
+    glow: 'transparent',
+    gradient: 'linear-gradient(135deg, #26272B 0%, #1B1C1F 38%, #131314 72%, #0C0C0D 100%)',
+    swatch: 'linear-gradient(135deg,#1B1C1F 0 50%,#040405 50% 75%,#FBAE00 75%)'
   }
 };
 

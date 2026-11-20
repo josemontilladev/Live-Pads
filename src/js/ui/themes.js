@@ -86,6 +86,8 @@ function paintTheme(id) {
   // Estilo estructural del tema (p. ej. «flat»: sin sombras ni degradados) → CSS propio.
   if (t.style) document.documentElement.dataset.themeStyle = t.style;
   else delete document.documentElement.dataset.themeStyle;
+  // El id del tema, para que el CSS de un estilo pueda cambiar solo la paleta.
+  document.documentElement.dataset.theme = id;
   // Las perillas de paneo se cargan solo si hacen falta: con el tema plano, o en
   // pantallas bajas (ahí el paneo del mezclador no cabe como deslizador).
   if (t.style === 'flat' || lowScreen.matches) loadKnobs();

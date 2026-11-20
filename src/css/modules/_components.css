@@ -194,3 +194,8 @@ body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 
   content-visibility: auto;
   contain-intrinsic-size: auto 60px;
 }
+
+/* Etiquetas de fila en Ajustes: nunca se montan sobre su control (la etiqueta
+   «Crossfade» era más ancha que su hueco fijo y pisaba el deslizador). */
+.sb-row > .sr-label { flex: none; width: auto; min-width: 58px; white-space: nowrap; }
+.sb-row > input[type="range"], .sb-row > select { flex: 1 1 auto; min-width: 0; }

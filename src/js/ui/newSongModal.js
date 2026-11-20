@@ -17,6 +17,7 @@ import { parseSongFile } from '../data/songFileImport.js';
 import { confirmDialogAsync } from './dialog.js';
 import { getSongs } from '../state/store.js';
 import { requireRoom } from '../billing/license.js';
+import { cleanSingerKeys } from '../utils/singerKeys.js';
 
 // Fuentes soportadas por el importador (la lista blanca real vive en main.js,
 // que es quien hace la petición; esto es solo el texto de ayuda).
@@ -238,6 +239,10 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
     newSong.artist = modal.querySelector('.edit-artist').value.trim();
     newSong.bpm = modal.querySelector('.edit-bpm').value.trim();
     newSong.key = modal.querySelector('.edit-key').value;
+    {
+      const sk = modal.querySelector('.edit-singerkeys');
+      if (sk && sk.value.trim()) newSong.singerKeys = cleanSingerKeys(sk.value);
+    }
     newSong.timeSig = modal.querySelector('.edit-timesig')?.value || '4/4';
     newSong.genre = modal.querySelector('.edit-genre').value;
     const tagsEl = modal.querySelector('.edit-tags');

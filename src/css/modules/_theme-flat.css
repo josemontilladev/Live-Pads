@@ -21,6 +21,9 @@
   --flat-outline: rgba(255, 255, 255, 0.24);
   --flat-bevel: var(--flat-outline);
   --flat-panel: rgba(6, 16, 44, 0.30);
+  --flat-text: #FFFFFF;
+  --flat-bg: linear-gradient(135deg, #2262B0 0%, #1A4A94 38%, #123470 72%, #0D2656 100%);
+  --flat-side: #123470;
   --flat-paper: #FFFFFF;
   --flat-blue: #2448C9;
   --flat-deep: #173A82;
@@ -62,14 +65,14 @@
   left: 14px; right: auto; top: 14px; width: 10px; height: 10px;
   border-radius: 2px; opacity: 1;
 }
-:root[data-theme-style="flat"] .drum-btn .drum-label { font-weight: 700; color: var(--flat-paper); }
+:root[data-theme-style="flat"] .drum-btn .drum-label { font-weight: 700; color: var(--flat-text); }
 :root[data-theme-style="flat"] .drum-btn .drum-tile-vol { opacity: 1; }
-:root[data-theme-style="flat"] .drum-btn .drum-tile-pct { color: var(--flat-paper); font-size: 11px; }
+:root[data-theme-style="flat"] .drum-btn .drum-tile-pct { color: var(--flat-text); font-size: 11px; }
 :root[data-theme-style="flat"] :is(.drum-btn.hit, .drum-btn:active) { background: var(--flat-paper) !important; }
 :root[data-theme-style="flat"] :is(.drum-btn.hit, .drum-btn:active) :is(.drum-label, .drum-tile-pct) { color: var(--flat-ink); }
 :root[data-theme-style="flat"] .kbd-hint {
   background: transparent; border: var(--flat-line) solid var(--flat-paper);
-  color: var(--flat-paper); font-weight: 700;
+  color: var(--flat-text); font-weight: 700;
 }
 :root[data-theme-style="flat"] .drum-btn.hit .kbd-hint { border-color: var(--flat-ink); color: var(--flat-ink); background: transparent; }
 
@@ -79,7 +82,7 @@
   background: var(--flat-ink-bg) !important;
   border: var(--flat-line) solid var(--flat-ink) !important;
   border-radius: var(--flat-r);
-  color: var(--flat-paper);
+  color: var(--flat-text);
   font-weight: 700;
   transition: none;
 }
@@ -98,7 +101,7 @@
     .metro-opts-btn, .stems-bpm-detect, .ssl-collapse-btn, .stems-snap-btn, .action-btn) {
   background: var(--flat-ink-bg) !important;
   border-color: var(--flat-bevel) !important;
-  color: var(--flat-paper) !important;
+  color: var(--flat-text) !important;
 }
 :root[data-theme-style="flat"] :is(.icon-btn, .ui-btn, .tap-btn, .stems-btn, .sb-icon, .sb-btn,
     .stems-zoom-btn, .stems-pitch-btn, .tp-pitch-btn, .tp-stop, .tp-restart, .tp-loop,
@@ -117,7 +120,7 @@
 :root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
     .metro-mult-btn, .stems-mult-btn, .stems-accent-chip, .ssl-slot-btn) {
   background: var(--flat-ink-bg) !important; border-color: var(--flat-bevel) !important;
-  color: var(--flat-paper) !important; font-weight: 700;
+  color: var(--flat-text) !important; font-weight: 700;
 }
 :root[data-theme-style="flat"] :is(.ui-seg-btn, .source-seg-btn, .ws-tab, .s-toggle, .stab,
     .metro-mult-btn, .stems-mult-btn, .stems-accent-chip, .ssl-slot-btn):is(.is-on, .active, .is-active) {
@@ -131,7 +134,7 @@
     input:not([type="range"]):not([type="checkbox"]):not([type="radio"])) {
   background-color: var(--flat-ink) !important;
   border-color: var(--flat-bevel) !important;
-  color: var(--flat-paper) !important;
+  color: var(--flat-text) !important;
 }
 :root[data-theme-style="flat"] :is(select, textarea, input:not([type="range"])):focus-visible {
   outline: var(--flat-line) solid var(--flat-paper); outline-offset: 2px;
@@ -163,8 +166,8 @@
 :root[data-theme-style="flat"] input[type="range"].is-muted { opacity: 0.45; }
 
 /* ── Texto: blanco pleno; lo secundario apenas atenuado ── */
-:root[data-theme-style="flat"] .mx-master .mx-name { color: var(--flat-paper); }
-:root[data-theme-style="flat"] :is(.mx-lbl, .bank-label, .tray-header) { color: var(--flat-paper); opacity: 0.85; }
+:root[data-theme-style="flat"] .mx-master .mx-name { color: var(--flat-text); }
+:root[data-theme-style="flat"] :is(.mx-lbl, .bank-label, .tray-header) { color: var(--flat-text); opacity: 0.85; }
 
 /* ── Menús y ventanas: bloque negro con borde blanco fino ── */
 :root[data-theme-style="flat"] :is(.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu,
@@ -182,7 +185,7 @@
     .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle) {
   background: var(--flat-ink-bg) !important;
   border-color: var(--flat-bevel) !important;
-  color: var(--flat-paper) !important;
+  color: var(--flat-text) !important;
 }
 :root[data-theme-style="flat"] :is(.metro-main-btn, .metro-adj, .accent-btn, .svc-btn, .svc-back,
     .service-nav-btn, .empty-cta, .gi-search-toggle, .gi-filter-toggle):is(:hover, .active, .is-on, .playing, .is-playing),
@@ -251,7 +254,7 @@
 :root[data-theme-style="flat"] .stems-row-strip { background: var(--flat-deep) !important; }
 /* M / S: negro apagado; encendido conserva su color de aviso (se lee de lejos). */
 :root[data-theme-style="flat"] .stems-ms {
-  background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-paper);
+  background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-text);
   font-weight: 700; min-width: 32px; min-height: 32px;
 }
 /* Deslizador vertical de la consola: riel blanco, tirador negro. */
@@ -271,7 +274,7 @@
 :root[data-theme-style="flat"] #stems-console-strips .flat-knob::after { top: 4px; height: 12px; }
 :root[data-theme-style="flat"] .stems-console-pan-row { align-items: center; }
 :root[data-theme-style="flat"] :is(.stems-console-strip-kind, .stems-row-kind, .stems-kind-badge) {
-  background: var(--flat-ink-bg) !important; color: var(--flat-paper) !important; border-color: var(--flat-bevel) !important;
+  background: var(--flat-ink-bg) !important; color: var(--flat-text) !important; border-color: var(--flat-bevel) !important;
 }
 
 /* ═══ Controles grandes (pantallas táctiles) ════════════════════════════════
@@ -347,7 +350,7 @@
 :root[data-touch="on"] .mx-pad-levels.is-on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 :root[data-touch="on"] body:not(.pad-levels-open) .drum-btn .drum-tile-vol { display: none; }
 :root[data-touch="on"] body:not(.pad-levels-open) .drum-btn { justify-content: center; }
-:root[data-touch="on"][data-theme-style="flat"] .mx-pad-levels { background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-paper); }
+:root[data-touch="on"][data-theme-style="flat"] .mx-pad-levels { background: var(--flat-ink); border-color: var(--flat-ink); color: var(--flat-text); }
 :root[data-touch="on"][data-theme-style="flat"] .mx-pad-levels.is-on { background: var(--flat-paper); border-color: var(--flat-paper); color: var(--flat-ink); }
 /* En pantallas bajas el volumen por pad ya no se muestra nunca: el botón sobra. */
 @media (max-height: 780px) { :root[data-touch="on"] .mx-pad-levels { display: none; } }
@@ -394,7 +397,7 @@
 :root[data-theme-style="flat"] .setlist-tabs-toggle { display: flex; }
 :root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) > :is(button, .s-toggle) {
   background: transparent !important; border: 0 !important; outline: 0;
-  border-radius: 999px !important; color: var(--flat-paper) !important;
+  border-radius: 999px !important; color: var(--flat-text) !important;
   min-height: 32px; margin: 0;
 }
 :root[data-theme-style="flat"] :is(.ui-seg, .source-seg, .setlist-tabs-toggle, .metro-mult-row, .tp-pitch-group, .stems-mult, .ssl-slots) > :is(button, .s-toggle):hover {
@@ -427,13 +430,13 @@
    degradado suave en diagonal y los paneles lo dejan ver (velo oscuro, sin
    borde). Los deslizadores son una ranura negra que se llena de blanco y las
    perillas llevan la raya desde el centro hasta el borde. */
-:root[data-theme-style="flat"] body { background: linear-gradient(135deg, #2262B0 0%, #1A4A94 38%, #123470 72%, #0D2656 100%) fixed !important; }
+:root[data-theme-style="flat"] body { background: var(--flat-bg) fixed !important; }
 :root[data-theme-style="flat"] :is(#panel-metro, #panel-keys, #panel-setlist, #bank-section,
     .stems-deck, #stems-library, #pad-volume-tray, #stems-setlist, #stems-console,
     .mx-channel, .stems-mixer-strip, .sb-card, .theme-item) {
   background: var(--flat-panel) !important;
 }
-:root[data-theme-style="flat"] #sidebar-inner { background: #123470 !important; }
+:root[data-theme-style="flat"] #sidebar-inner { background: var(--flat-side) !important; }
 :root[data-theme-style="flat"] .gi-sticky-header { background: transparent !important; }
 :root[data-theme-style="flat"] .stems-console-strip { background: rgba(255, 255, 255, 0.06) !important; }
 :root[data-theme-style="flat"] .stems-row-strip { background: var(--flat-panel) !important; }
@@ -508,3 +511,88 @@
 /* La cápsula 1x / 2x se ajusta a su contenido (en portátil el «2x» se salía). */
 :root[data-theme-style="flat"] .metro-mult-row { width: auto; max-width: none; flex: none; }
 :root[data-theme-style="flat"] .metro-mult-row > button { min-width: 44px; flex: 1 1 auto; }
+
+/* ═══ Menú lateral de Ajustes ══════════════════════════════════════════════
+   Las entradas no son bloques negros: son filas limpias con su icono en una
+   ficha. La elegida es una pastilla blanca con su texto (título y subtítulo)
+   en oscuro; antes el subtítulo quedaba blanco sobre blanco. */
+:root[data-theme-style="flat"] .sidebar-nav { background: rgba(0, 0, 0, 0.22) !important; padding: 20px 12px 14px; }
+:root[data-theme-style="flat"] .sidebar-nav .stab {
+  background: transparent !important; border: 1px solid transparent !important;
+  color: var(--flat-text) !important; font-weight: 700;
+  padding: 8px 10px; gap: 12px; min-height: 48px; border-radius: 12px !important; margin-bottom: 2px;
+}
+:root[data-theme-style="flat"] .sidebar-nav .stab svg {
+  width: 30px; height: 30px; padding: 6px; box-sizing: border-box; border-radius: 9px; opacity: 1;
+  background: var(--flat-ink-lo); border: 1px solid var(--flat-outline); color: var(--flat-text);
+}
+:root[data-theme-style="flat"] .sidebar-nav .stab .stab-text { gap: 2px; }
+:root[data-theme-style="flat"] .sidebar-nav .stab .stab-text small { color: rgba(255, 255, 255, 0.62); font-weight: 500; }
+:root[data-theme-style="flat"] .sidebar-nav .stab:hover { background: rgba(255, 255, 255, 0.08) !important; }
+:root[data-theme-style="flat"] .sidebar-nav .stab.active {
+  background: var(--flat-paper) !important; border-color: var(--flat-paper) !important; color: var(--flat-ink-lo) !important;
+}
+:root[data-theme-style="flat"] .sidebar-nav .stab.active .stab-text small { color: rgba(8, 9, 12, 0.66); }
+:root[data-theme-style="flat"] .sidebar-nav .stab.active svg { background: var(--flat-ink-lo); border-color: var(--flat-ink-lo); color: var(--flat-text); }
+/* Columna del menú con ancho suficiente: los títulos van en una sola línea. */
+:root[data-theme-style="flat"] .sidebar-nav { flex: 0 0 204px; width: 204px; box-sizing: border-box; }
+:root[data-theme-style="flat"] .sidebar-nav .stab .stab-text { white-space: nowrap; overflow: hidden; }
+:root[data-theme-style="flat"] .sidebar-nav .stab .stab-text small { display: block; overflow: hidden; text-overflow: ellipsis; }
+
+/* ═══ Consola GI: el mismo estilo en amarillo y negro ═══════════════════════
+   Solo cambian las variables: fondo carbón, controles negros con el mismo filo
+   gris y el amarillo de GI Setlist para todo lo encendido. El texto sigue en
+   blanco; sobre el amarillo va en negro. */
+:root[data-theme-style="flat"][data-theme="gi_console"] {
+  --flat-paper: #FBAE00;
+  --flat-text: #FFFFFF;
+  --flat-bg: linear-gradient(135deg, #26272B 0%, #1B1C1F 38%, #131314 72%, #0C0C0D 100%);
+  --flat-side: #141415;
+  --flat-deep: #1A1B1E;
+  --flat-panel: rgba(255, 255, 255, 0.045);
+  --flat-ink: #08090A;
+  --flat-ink-hi: #101113;
+  --flat-ink-lo: #040405;
+  --flat-outline: rgba(255, 255, 255, 0.20);
+}
+:root[data-theme-style="flat"][data-theme="gi_console"] .key-btn:is([data-key*="#"], [data-key*="b"]) { background: rgba(255, 255, 255, 0.04) !important; }
+
+/* ═══ Ventanas, menús y contenedores: un solo borde ═════════════════════════
+   Cada ventana traía el suyo (negro, azul, degradado; radios de 12 y 14; filas
+   con borde verde o turquesa). Ahora: fondo del tema, un filo gris de 1 px y
+   esquinas de 18 px. Dentro, los bloques usan un filo más tenue y sin colores. */
+:root[data-theme-style="flat"] :is([role="dialog"], .pf-panel, .mp-panel, .cp-panel, .pl-panel, .chd-panel,
+    .mtm-panel, .tun-panel, .lyp-panel, .stems-newsong-modal, .setlists-modal, .dialog-box, .metro-opts,
+    .auth-card, .acc-panel, .modal-content, .stems-tour-card) {
+  background: var(--flat-side) !important;
+  border: 1px solid var(--flat-outline) !important;
+  border-radius: 18px !important;
+}
+/* Bordes interiores: mismo tono para todos, sin verdes, turquesas ni negros. */
+:root[data-theme-style="flat"] :is([role="dialog"], .pf-panel, .mp-panel, .cp-panel, .pl-panel, .chd-panel,
+    .mtm-panel, .tun-panel, .stems-newsong-modal, .setlists-modal, .dialog-box, .metro-opts, .auth-card,
+    .acc-panel, .modal-content, #sidebar) :is(div, section, article, header, footer, li, p, label, form, fieldset) {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* Bloques dentro de una ventana: velo del tema y esquinas de 12 px. */
+:root[data-theme-style="flat"] :is(.pf-row, .cp-hint, .newsong-import, .mo-row, .pl-card, .pl-plan, .pl-note,
+    .mp-row, .set-launch-card, .acc-card, .chd-card) {
+  background: var(--flat-panel) !important; border-radius: 12px !important;
+}
+/* Paneles incrustados en Ajustes (pre-vuelo, mapeos, companion): no son una
+   ventana dentro de otra; se funden con la página. */
+:root[data-theme-style="flat"] .set-embed :is(.pf-panel, .mp-panel, .cp-panel) {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important;
+}
+/* El panel de Ajustes: un filo a la derecha en lugar de una esquina suelta. */
+:root[data-theme-style="flat"] #sidebar-inner { border-right: 1px solid var(--flat-outline) !important; border-radius: 0 18px 18px 0; }
+:root[data-theme-style="flat"] .sidebar-nav { border-right: 1px solid rgba(255, 255, 255, 0.10) !important; }
+/* Menús desplegables: mismo acabado que las ventanas. */
+:root[data-theme-style="flat"] :is(.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu,
+    .stems-generators-pop, .stems-proj-dropdown) {
+  background: var(--flat-side) !important; border: 1px solid var(--flat-outline) !important; border-radius: 14px !important;
+}
+:root[data-theme-style="flat"] .toast { border: 1px solid var(--flat-outline) !important; border-radius: 14px !important; background: var(--flat-side) !important; }
+:root[data-theme-style="flat"] .set-embed :is(.pf-panel, .mp-panel, .cp-panel) .ui-close { display: none; }
+:root[data-theme-style="flat"] #sidebar .theme-item.active { border-color: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] #sidebar .theme-item:hover { border-color: rgba(255, 255, 255, 0.45) !important; }
