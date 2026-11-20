@@ -13,7 +13,7 @@ import { htmlToPlainLyrics } from '../utils/text.js';
 import { logActivity } from './activity.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
 import { hasFeature } from '../billing/license.js';
-import { snapshot, mergeSong } from './songMerge.js';
+import { snapshot, mergeSong, keepLocalAudio } from './songMerge.js';
 
 // Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
 // canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
@@ -449,12 +449,13 @@ export async function pullLibrarySongs(opts = {}) {
     const localLyrics = target.lyrics;
     const localCover = target.cover;
     const localMarkers = target.markers;
+    const incomingAudio = incoming.audio;
     Object.assign(target, incoming, { id: target.id });
     // Las secciones (markers) locales no se borran por una fila de la nube que aún no las trae.
     // Solo si MI copia tiene cambios sin subir (keepLocalText); si estoy al día, que un
     // compañero quite todas las secciones también se aplica.
     if (keepLocalText && (!incoming.markers || !incoming.markers.length) && Array.isArray(localMarkers) && localMarkers.length) target.markers = localMarkers;
-    if (localAudio && (localAudio.sequence || localAudio.original)) target.audio = localAudio;
+    target.audio = keepLocalAudio(localAudio, incomingAudio);
     // Igual que el audio: una fila sin carátula no borra la carátula local (las
     // filas antiguas de la nube no traen `meta.cover`).
     if (!incoming.cover && localCover) target.cover = localCover;
@@ -489,7 +490,7 @@ export async function pullLibrarySongs(opts = {}) {
         if (!m.conflicts.length) {
           const localAudio = existing.audio, localCover = existing.cover;
           Object.assign(existing, incoming, m.fields, { id: existing.id });
-          if (localAudio && (localAudio.sequence || localAudio.original)) existing.audio = localAudio;
+          existing.audio = keepLocalAudio(localAudio, incoming.audio);
           if (!incoming.cover && localCover) existing.cover = localCover;
           seal(existing, incoming);   // base = lo que hay en la nube → queda "por subir"
           merged++; refreshed++;
@@ -552,7 +553,7 @@ export function resolveConflictUseTheirs(cloudId, theirs) {
   if (!s || !theirs) return false;
   const localAudio = s.audio;
   Object.assign(s, theirs, { id: s.id });
-  if (localAudio && (localAudio.sequence || localAudio.original)) s.audio = localAudio;
+  s.audio = keepLocalAudio(localAudio, theirs.audio);
   seal(s);
   setSongs(songs.slice()); notifyUpdated();
   return true;

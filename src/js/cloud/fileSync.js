@@ -39,7 +39,11 @@ export function collectReferencedPaths(songs) {
   (songs || getSongs()).forEach((s) => {
     const a = s.audio || {};
     const stemUrls = Array.isArray(a.stems) ? a.stems.map((st) => st && st.url) : [];
-    [a.original, a.sequence, s.cover, ...stemUrls].forEach((u) => {
+    // Voces de referencia (2.ª, 3.ª voz…) que se graban desde GI App: viven en
+    // audio.voices[].path. Sin contarlas aquí, «Liberar espacio» las daría por
+    // sobrantes y las borraría de la nube, y esta PC no las bajaría.
+    const voiceUrls = Array.isArray(a.voices) ? a.voices.map((v) => v && v.path) : [];
+    [a.original, a.sequence, s.cover, ...stemUrls, ...voiceUrls].forEach((u) => {
       const rel = urlToRelPath(u);
       if (rel) set.add(rel);
     });

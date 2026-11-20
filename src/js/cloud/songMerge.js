@@ -59,3 +59,17 @@ export function mergeSong(base, mine, theirs) {
   }
   return { fields, conflicts };
 }
+
+// Al aplicar una fila de la nube, este equipo conserva SUS rutas de secuencia y
+// original (pueden ser locales y aún no subidas). Pero las VOCES de referencia
+// (audio.voices: 2.ª, 3.ª voz… grabadas desde GI App) solo se editan en el móvil:
+// las de la nube mandan siempre. Antes se descartaban con el resto del audio de la
+// nube y, al subir después cualquier cambio de esa canción, se borraban para todos.
+export function keepLocalAudio(localAudio, incomingAudio) {
+  const hasLocal = localAudio && (localAudio.sequence || localAudio.original);
+  if (!hasLocal) return incomingAudio || localAudio || { sequence: null, original: null };
+  const out = { ...localAudio };
+  const voices = incomingAudio && Array.isArray(incomingAudio.voices) ? incomingAudio.voices : null;
+  if (voices && voices.length) out.voices = voices; else delete out.voices;
+  return out;
+}

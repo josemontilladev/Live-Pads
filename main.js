@@ -153,7 +153,7 @@ function saveToBoth(relativeSubPath, contentString) {
 const AUDIO_LIBRARY_CFG_FILE = 'audio-library.json';
 // Loops/ = caché local de la biblioteca de stems oficial (Loops/<pack>/<archivo>),
 // para que lo ya usado en el editor siga sonando sin internet.
-const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers', 'Stems', 'Loops'];
+const AUDIO_LIBRARY_SUBFOLDERS = ['Sequences', 'Original Tracks', 'Covers', 'Stems', 'Loops', 'Voces'];   // Voces: referencias de 2.ª/3.ª voz grabadas desde GI App
 
 function readAudioLibraryConfig() {
   try {

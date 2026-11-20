@@ -1,2 +1,1 @@
-• Copia de seguridad completa: en Ajustes → Archivos de audio puedes guardar en un archivo todas tus canciones, los mapeos MIDI, tus kits de batería y tus preferencias, y restaurarlo en este u otro equipo. Antes de restaurar se guarda sola una copia de lo que había.
-• Textos de la app unificados (sin mezclar «vos» y «tú»).
+• Voces de referencia (2.ª, 3.ª voz…) que se graban desde GI App: LivePads ahora las conserva al sincronizar, las descarga a tu carpeta de audios y «Liberar espacio» ya no las borra de la nube. Actualiza todos los PC del equipo antes de grabar voces.
