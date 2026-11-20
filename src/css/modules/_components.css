@@ -227,3 +227,5 @@ body.pads-minor .key-indicator :is(.ki-written, .ki-sounding)::after { content: 
 /* Pads de batería: un tamaño estable. Sin canción cargada crecían hasta llenar
    el hueco (el doble de altos); ahora quedan como en el modo en vivo. */
 .drum-grid { max-height: 472px; }
+/* En modo en vivo no hay mezclador debajo: los pads llenan todo el hueco. */
+body.live-mode .drum-grid { max-height: none; }
