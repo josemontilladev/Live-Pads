@@ -1428,6 +1428,10 @@ function wireTopbarEvents(root) {
   root.querySelector('#stems-row-shorter')?.addEventListener('click', () => setRowHeight(ROW_HEIGHT - 14));
   root.querySelector('#stems-help')?.addEventListener('click', openShortcutsCheatSheet);
   wireToolbarPopover(root.querySelector('#stems-snap-trigger'), root.querySelector('#stems-snap-pop'));
+  // La opción activa se marca al abrir el menú (antes solo al cambiarla, así que
+  // al arrancar no aparecía marcada ninguna).
+  root.querySelector('#stems-snap-trigger')?.addEventListener('click', () => paintSnapUI());
+  paintSnapUI();
   root.querySelector('#stems-snap-pop').addEventListener('click', (e) => {
     const opt = e.target.closest('[data-snap]');
     if (!opt) return;
@@ -5811,7 +5815,9 @@ function paintSnapUI() {
   if (lbl) lbl.textContent = snapEnabled ? (SNAP_NAMES[snapDivision] || 'Tiempo') : 'Libre';
   const active = snapEnabled ? snapDivision : 'off';
   document.querySelectorAll('#stems-snap-pop [data-snap]').forEach((o) => {
-    const on = o.dataset.snap === active;
+    // snapDivision es un número (1, 0.5…) y data-snap, texto: se comparan como texto
+    // (con === nunca coincidían y el menú no marcaba la opción activa).
+    const on = o.dataset.snap === String(active);
     o.classList.toggle('is-on', on);
     o.setAttribute('aria-checked', on ? 'true' : 'false');
   });

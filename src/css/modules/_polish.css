@@ -633,3 +633,29 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 
 /* Modo en vivo: tarjeta «Ahora» con el filo del tema (no blanco). */
 :root[data-theme-style="flat"] #live-strip { border-color: var(--flat-outline) !important; }
+
+/* ═══ Detalles menores ════════════════════════════════════════════════════ */
+
+/* Imán: la opción activa bien marcada (fondo; el punto ya lo pone la app). */
+.stems-snap-opt { border-radius: 10px !important; }
+.stems-snap-opt.is-on { background: color-mix(in srgb, var(--text) 10%, transparent) !important; }
+.stems-snap-pop { border-radius: 14px !important; padding: 6px !important; }
+
+/* Menús de Stems (Pista, Exportar): lista plana como el de Proyecto, sin
+   cápsulas con borde dentro de la caja. */
+.stems-generators-pop:not(.stems-snap-pop):not(.stems-hist-pop) { padding: 6px !important; gap: 2px !important; border-radius: 14px !important; min-width: 220px; }
+.stems-generators-pop:not(.stems-snap-pop):not(.stems-hist-pop) .stems-btn {
+  width: 100% !important; height: 36px !important; justify-content: flex-start !important; gap: 10px !important;
+  padding: 0 12px !important; border-radius: 10px !important;
+  background: transparent !important; border: 0 !important; box-shadow: none !important;
+  color: var(--text) !important; font-size: 13px !important; font-weight: 600 !important;
+}
+.stems-generators-pop:not(.stems-snap-pop):not(.stems-hist-pop) .stems-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 10%, transparent) !important; }
+.stems-generators-pop:not(.stems-snap-pop):not(.stems-hist-pop) .stems-btn:disabled { opacity: .45 !important; }
+.stems-proj-dropdown { padding: 6px !important; border-radius: 14px !important; }
+.stems-proj-item { height: 36px; border-radius: 10px !important; font-weight: 600 !important; }
+.stems-proj-item:hover { background: color-mix(in srgb, var(--text) 10%, transparent) !important; color: var(--text) !important; }
+
+/* Metrónomo y afinador: se siguen redimensionando desde la esquina, pero sin
+   el tirador gris del sistema que cortaba la esquina redondeada. */
+:is(.mtm-panel, .tun-panel)::-webkit-resizer { background: transparent; border: 0; }
