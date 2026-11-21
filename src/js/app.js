@@ -322,6 +322,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const i = getActiveServiceIndex();
       if (i >= 0 && getServiceSongs()[i] === song) applyGiSong(song);
       reapplyKeyShift(song);   // la secuencia/original cargada pasa al tono nuevo
+      // Letra en vivo, panel de letra y otra pantalla: en el tono del día.
+      window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
     },
     persistLibrary: persistGiSongs,
     syncLyricsToLibrary: (song) => {
@@ -2387,6 +2389,27 @@ function linkedPitchFollow(song, delta) {
   if (!delta || !isKeyLinked()) return;
   const live = libraryLive(song);
   if (!live || !live.key) return;
+  // En el SERVICIO (ensayos): ▼ ▲ cambia el tono del día (el chip). La letra y el
+  // tono de la librería se quedan en el original; la letra se MUESTRA en el tono
+  // del chip. El ajuste manual vuelve a donde estaba: el chip lo absorbe, así el
+  // audio suena igual y el pad no se mueve dos veces.
+  const svcVisible = !q('#service-setlist-list')?.classList.contains('hidden');
+  const inService = getServiceSongs().some((c) => (live.cloudId && c.cloudId === live.cloudId) || String(c.id) === String(live.id));
+  if (svcVisible && inService) {
+    const eff = getEffectiveKey(live) || live.key;
+    const manual = (Number(song.audio && song.audio.pitch) || 0) - delta;
+    if (song.audio) song.audio.pitch = manual;
+    if (!live.audio) live.audio = {};
+    live.audio.pitch = manual;
+    setKeyOverride(live, shiftKey(eff, delta));
+    persistGiSongs();
+    syncServiceWithLibrary();
+    reapplyKeyShift(song);
+    renderServiceList();
+    window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+    return;
+  }
   const ch = linkedPitchStep(live, delta);
   if (!ch) return;
   const ov = getKeyOverride(live);

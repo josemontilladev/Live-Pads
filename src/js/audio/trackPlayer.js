@@ -659,8 +659,8 @@ export function bindTrackPlayerControls() {
     tpLink.classList.toggle('on', on);
     tpLink.setAttribute('aria-pressed', on ? 'true' : 'false');
     tpLink.title = on
-      ? 'Tono ligado: ▼ ▲ y el tono de la tarjeta mueven también los acordes de la letra (y el pad). Clic para desligar.'
-      : 'Tono desligado: ▼ ▲ solo transporta el audio y el pad; la tarjeta y la letra no cambian. Clic para ligar.';
+      ? 'Tono ligado: ▼ ▲ mueve también el tono de la canción y los acordes de la letra (en el Servicio, el tono del día). Clic para desligar.'
+      : 'Tono desligado: ▼ ▲ solo transporta el audio y el pad; el tono y la letra no cambian. Clic para ligar.';
   };
   if (tpLink) tpLink.onclick = () => { setKeyLinked(!isKeyLinked()); paintLink(); };
   paintLink();

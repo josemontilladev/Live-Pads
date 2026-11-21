@@ -324,6 +324,18 @@ export function initLyricsOverlay() {
     const fromCard = card && payloadFrom(card);
     open({ ...e.detail, ref: fromCard ? fromCard.ref : null });
   });
+  // La tarjeta se volvió a pintar (otro tono del día, letra editada…): el panel
+  // abierto toma la versión nueva (el observador quedó en la tarjeta vieja).
+  const refreshFromCard = () => requestAnimationFrame(() => {
+    if (!overlay || !current || !current.ref) return;
+    const fresh = payloadFrom(findCard(current.ref));
+    if (fresh && (fresh.html !== current.html || fresh.key !== current.key)) {
+      current = fresh; paint(); watchCard();
+      window.electronAPI?.lyricsWindowFollow?.(fresh);
+    }
+  });
+  window.addEventListener('livepads:songs-changed', refreshFromCard);
+  window.addEventListener('livepads:service-changed', refreshFromCard);
   // Cambia la canción que suena → el panel (y la ventana de otra pantalla) la siguen.
   let lastId = null;
   window.addEventListener('livepads:song-state', () => {

@@ -5,6 +5,7 @@
 // getters passed to initServiceList().
 
 import { q, esc } from '../utils/dom.js';
+import { linkedKeyChange } from '../utils/keyLink.js';
 import { listSavedSetlists, loadSavedSetlist, deleteSavedSetlist, getServiceSongs, getCurrentSetlistName, getCurrentSetlistId, createNewSetlist, updateSetlistMeta, duplicateSetlist, setServiceSongs, getEffectiveKey, getKeyOverride, setKeyOverride, clearKeyOverride } from '../data/service.js';
 import { songCardInnerHTML, songCoverHtml } from './songCard.js';
 import { songEditFormHTML } from './songEditForm.js';
@@ -561,7 +562,16 @@ function promoteKeyToLibrary(song, newKey) {
   const live = (getLibrarySongs() || []).find(s =>
     (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id));
   if (!live) { window.showToast?.('Esta canción no está en tu librería.', 'info'); return; }
+  // El tono del día pasa a ser el de la canción: la letra se transporta y el audio
+  // sigue sonando igual (antes, al quitar el chip, volvía al tono de la grabación).
+  const ch = linkedKeyChange(live, live.key, newKey);
   live.key = newKey;
+  if (ch) {
+    live.lyrics = ch.lyrics;
+    if (!live.audio) live.audio = {};
+    live.audio.pitch = ch.pitch;
+    live.audio.keyPitch = ch.keyPitch;
+  }
   clearKeyOverride(song);
   // A disco primero: songs-changed re-renderiza y programa el push a la nube,
   // pero no escribe canciones_app.json. Sin esto el tono nuevo se perdía al
@@ -571,6 +581,8 @@ function promoteKeyToLibrary(song, newKey) {
   try { window.dispatchEvent(new Event('livepads:cloud-dirty')); } catch (_) {}
   window.showToast?.(`✓ «${live.title}» queda en ${newKey} para todo el equipo.`, 'success');
   renderServiceList();
+  // Tras sincronizar las copias del servicio (songs-changed): pista y pad al día.
+  deps.onKeyChanged?.(song);
 }
 
 // La canción de la LIBRERÍA que corresponde a una del servicio (que es una copia).

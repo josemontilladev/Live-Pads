@@ -1,3 +1,2 @@
-• Tono ligado (🔗 junto a ▼ ▲ del reproductor): al cambiar el tono de la tarjeta, LivePads pregunta si pasar también los acordes de la letra y el audio al tono nuevo; el pad le sigue solo. Con ▼ ▲ la tarjeta y los acordes se mueven a la vez que el audio.
-• «Solo corregir» deja la letra y el audio como están, para cuando el tono estaba mal anotado. Con el 🔗 apagado, ▼ ▲ solo transporta el audio y el pad.
-• La letra se puede seguir llevando a otro tono por su cuenta desde el editor de letra («Llevar a…»).
+• Servicio y ensayos: con el 🔗 encendido, ▼ ▲ del reproductor cambia el tono del día de una sola vez: el chip de la tarjeta, el pad y los acordes de la letra (en la tarjeta, en el panel de letra y en la otra pantalla). La letra guardada sigue en su tono original.
+• «Fijar como tono de la biblioteca» ahora pasa también la letra al tono nuevo y el audio sigue sonando igual (antes volvía al tono de la grabación).
