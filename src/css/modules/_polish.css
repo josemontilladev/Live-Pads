@@ -757,3 +757,304 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 .lyr-content .chw { padding-top: .78em; }
 .lyr-content .chw > .inline-chord { top: 0; left: 0; transform: none; line-height: 1.1; font-size: .62em; }
 .lyr-content.hide-chords .chw { padding-top: 0; }
+
+/* ═══ Menús y ventanas emergentes modernos (nov. 2026) ═══════════════════════
+   Un solo lenguaje para todo lo que se despliega: menú ⋯ de la tarjeta, menús
+   de Stems (clic derecho, generadores, proyecto), filtros, «Más» de la onda y
+   Opciones del metrónomo. Superficie del tema translúcida con desenfoque,
+   filo tenue, esquinas de 16 px, sombra suave y filas tipo píldora: lo mismo
+   que las ventanas nuevas (diálogos, inicio de sesión). */
+:root {
+  --menu-bg: color-mix(in srgb, var(--flat-side, var(--bg-surface)) 86%, transparent);
+  --menu-line: rgba(255, 255, 255, .10);
+  --menu-hover: rgba(255, 255, 255, .08);
+  --menu-text: rgba(255, 255, 255, .86);
+  --menu-dim: rgba(255, 255, 255, .52);
+  --menu-shadow: 0 24px 56px -12px rgba(0, 0, 0, .6), 0 2px 8px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+@keyframes lpMenuIn { from { opacity: 0; transform: translateY(-4px) scale(.985); } to { opacity: 1; transform: none; } }
+:root :is(.card-more-menu, .stems-context-menu, .orig-src-menu, .gi-filter-menu, .stems-generators-pop,
+    .stems-proj-dropdown, .sw-more-pop, .metro-opts, .stems-snap-menu) {
+  background: var(--menu-bg) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(1.35); backdrop-filter: blur(22px) saturate(1.35);
+  border: 1px solid var(--menu-line) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--menu-shadow) !important;
+  padding: 6px !important;
+  gap: 1px !important;
+  animation: lpMenuIn .14s cubic-bezier(.2, .8, .2, 1);
+}
+/* Filas: píldora suave, icono atenuado que se enciende al pasar. */
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button:not(.smc-type-btn):not(.smc-more), .orig-src-menu button) {
+  min-height: 36px; padding: 0 12px !important; gap: 12px !important;
+  border-radius: 10px !important; border: 0 !important; background: transparent !important;
+  color: var(--menu-text) !important; font-size: 13px !important; font-weight: 500 !important;
+  transition: background .12s ease, color .12s ease;
+}
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button, .orig-src-menu button) :is(svg, .cmm-ico) {
+  color: var(--menu-dim); opacity: 1; transition: color .12s ease; flex: none;
+}
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button:not(.smc-type-btn):not(.smc-more), .orig-src-menu button):hover {
+  background: var(--menu-hover) !important; color: #fff !important;
+}
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button, .orig-src-menu button):hover :is(svg, .cmm-ico) { color: #fff; }
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button).danger:hover { background: rgba(255, 90, 90, .14) !important; color: #ff8a8a !important; }
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button).danger:hover :is(svg, .cmm-ico) { color: #ff8a8a; }
+.card-more-item .cmm-ico { width: 16px; height: 16px; }
+.card-more-item .cmm-ico svg { width: 15px; height: 15px; }
+/* Separadores dentro de los menús: una línea tenue con aire. */
+:root :is(.card-more-menu, .stems-context-menu) :is(hr, .cmm-sep, .stems-ctx-sep, .menu-sep) {
+  border: 0 !important; height: 1px; margin: 4px 8px !important; background: var(--menu-line) !important;
+}
+
+/* «Más» de la onda: filas del menú, no botones sueltos (antes eran píldoras
+   blancas y negras apiladas). La opción encendida lleva un punto, no un relleno. */
+:root .sw-more-pop { min-width: 210px; }
+:root .sw-more-pop > .sw-btn {
+  height: 36px !important; padding: 0 12px !important; gap: 12px; justify-content: flex-start;
+  background: transparent !important; border: 0 !important; border-radius: 10px !important;
+  color: var(--menu-text) !important; font-size: 13px !important; font-weight: 500 !important;
+}
+:root .sw-more-pop > .sw-btn svg { color: var(--menu-dim); }
+:root .sw-more-pop > .sw-btn:hover { background: var(--menu-hover) !important; color: #fff !important; }
+:root .sw-more-pop > .sw-btn:hover svg { color: #fff; }
+:root .sw-more-pop > .sw-btn:is([aria-pressed="true"], .is-on) { color: #fff !important; background: rgba(255, 255, 255, .06) !important; }
+:root .sw-more-pop > .sw-btn:is([aria-pressed="true"], .is-on) svg { color: #fff; }
+:root .sw-more-pop > .sw-btn:is([aria-pressed="true"], .is-on)::after {
+  content: ''; margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--flat-paper, var(--accent));
+}
+:root .sw-more-pop > .sw-zoom { margin: 4px 2px 2px !important; padding-top: 6px; border-top: 1px solid var(--menu-line); }
+
+/* Opciones del metrónomo: filas sin caja propia (antes cada una era un bloque
+   con fondo), solo el resalte al pasar; título discreto. */
+:root .metro-opts { width: 320px; }
+:root .metro-opts .mo-title { padding: 8px 12px 6px; font-size: 10.5px; letter-spacing: .12em; color: var(--menu-dim); }
+:root .metro-opts .mo-row { background: transparent !important; border: 0 !important; border-radius: 12px !important; padding: 10px 12px; }
+:root .metro-opts .mo-row:hover { background: var(--menu-hover) !important; }
+:root .metro-opts .mo-txt b { color: #fff; font-weight: 600; }
+:root .metro-opts .mo-txt small { color: var(--menu-dim); }
+:root .metro-opts .mo-sep { margin: 4px 12px; background: var(--menu-line); }
+
+/* Interruptores: SIEMPRE píldora. La regla general de los campos
+   (input:not([type=range]) { border-radius: 6px }) pesaba más y los dejaba
+   cuadrados. */
+input.mo-switch, input[type="checkbox"].mo-switch { border-radius: 999px !important; width: 36px !important; height: 20px !important; }
+input.mo-switch::after { border-radius: 50% !important; }
+input.mo-switch:checked::after { transform: translateX(16px); }
+
+/* ── Las dos X de abajo (canción preparada y pista): mismo tamaño, mismo
+   acabado y en la misma vertical. ── */
+#np-close-btn, #tp-close-btn {
+  width: 30px !important; height: 30px !important; flex: none;
+  background: rgba(255, 255, 255, .08) !important; border: 1px solid var(--menu-line) !important;
+  color: rgba(255, 255, 255, .8) !important; box-shadow: none !important;
+}
+#np-close-btn::before, #tp-close-btn::before { width: 12px !important; height: 12px !important; }
+#np-close-btn:hover, #tp-close-btn:hover { background: rgba(255, 255, 255, .16) !important; color: #fff !important; }
+/* La barra de la pista tiene 12 px más de margen a la derecha que la de la
+   canción preparada: se compensa para que las dos X caigan una sobre otra. */
+/* (ya no hace falta compensar: ver «Pads: misma anchura abajo que arriba») */
+
+/* ── Stems: asas de los paneles laterales, visibles y táctiles ──────────────
+   Las de 8 × 34 px apenas se veían y con el dedo costaba acertarles. Ahora
+   18 × 60 px, opacas, con tres puntos claros, y una zona de toque invisible de
+   44 × 80 px alrededor (::after). */
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
+  width: 18px !important; height: 60px !important; opacity: 1;
+  background: var(--flat-ink, var(--bg-card)) !important;
+  border: 1px solid var(--flat-outline, var(--border-strong)) !important;
+  color: rgba(255, 255, 255, .75) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35) !important;
+  touch-action: manipulation;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron)::before {
+  width: 4px; height: 4px; box-shadow: 0 -8px 0 currentColor, 0 8px 0 currentColor;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron)::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 80px; transform: translate(-50%, -50%);
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"]):is(:hover, :active),
+#workspace-stems :is(.stems-setlist .ssl-rail:hover, .stl-rail:hover) .ssl-rail-chevron {
+  width: 20px !important; height: 68px !important; color: #fff !important; border-color: rgba(255, 255, 255, .5) !important;
+}
+#workspace-stems #stems-setlist-collapse, #workspace-stems .stems-setlist .ssl-rail-chevron { right: -10px; }
+#workspace-stems .stems-library .ssl-collapse-btn[data-act="close"], #workspace-stems .stems-library .ssl-rail-chevron { left: -10px; }
+
+/* «Más» de la onda: el zoom, sin caja propia; una línea lo separa. */
+:root .sw-more-pop > .sw-zoom { background: transparent !important; border: 0 !important; border-top: 1px solid var(--menu-line) !important; border-radius: 0 !important; padding: 6px 0 0 !important; }
+:root .sw-more-pop .sw-zbtn { background: transparent !important; border: 0 !important; border-radius: 10px !important; color: var(--menu-text) !important; min-width: 36px; height: 32px; }
+:root .sw-more-pop .sw-zbtn:hover { background: var(--menu-hover) !important; color: #fff !important; }
+
+/* (#lp-boost no existe: dentro de :is() solo sube la especificidad para ganar a
+   la regla general de campos del tema plano, que lleva tres :not().) */
+/* ═══ Ventana de canción (nueva / editar) ════════════════════════════════════
+   Mismo lenguaje que los menús y diálogos nuevos: superficie translúcida con
+   desenfoque, fondo velado detrás, encabezado limpio, bloques sin cajas duras,
+   campos con relleno suave (no negros) y foco visible. */
+.stems-newsong-overlay {
+  background: rgba(3, 8, 20, .55) !important;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: lpFadeIn .16s ease-out;
+}
+@keyframes lpFadeIn { from { opacity: 0; } to { opacity: 1; } }
+:root .stems-newsong-modal {
+  width: 520px !important; max-width: 94vw;
+  padding: 24px 24px 22px !important;
+  background: var(--menu-bg) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(1.35); backdrop-filter: blur(26px) saturate(1.35);
+  border: 1px solid var(--menu-line) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 40px 90px -20px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+  animation: lpMenuIn .2s cubic-bezier(.2, .8, .2, 1);
+  scrollbar-width: thin;
+}
+:root .stems-newsong-modal .newsong-head { border-bottom: 0 !important; padding-bottom: 0; margin-bottom: 20px; gap: 14px; }
+:root .stems-newsong-modal .newsong-head-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, .06)) !important;
+  border: 1px solid rgba(255, 255, 255, .14); color: #fff !important;
+}
+:root .stems-newsong-modal .newsong-head-title { font-size: 19px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+:root .stems-newsong-modal .newsong-head-sub { font-size: 12.5px; color: var(--menu-dim); margin-top: 2px; }
+/* Importar: un bloque suave, sin borde. */
+:root .stems-newsong-modal .newsong-import {
+  background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 18px !important;
+  padding: 14px !important; margin-bottom: 18px;
+}
+:root .stems-newsong-modal .newsong-import-label { color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+:root .stems-newsong-modal .newsong-import-hint { color: var(--menu-dim); font-size: 11.5px; line-height: 1.4; }
+:root .stems-newsong-modal .gi-edit-form { border: 0 !important; background: transparent !important; padding: 0 !important; gap: 10px; }
+:root .stems-newsong-modal .gi-edit-lib-row { padding-bottom: 14px; margin-bottom: 4px; border-bottom: 1px solid var(--menu-line) !important; }
+:root .stems-newsong-modal .gi-edit-lib-label,
+:root .stems-newsong-modal .gi-edit-lyrics-label { color: var(--menu-dim) !important; font-size: 12px; font-weight: 600; }
+/* Campos: relleno velado y filo tenue; al enfocar, filo claro y halo. */
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-input {
+  height: 42px; min-height: 42px;
+  background-color: rgba(3, 10, 30, .38) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important;
+  color: #fff !important; font-size: 13.5px !important;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) textarea.gi-edit-input { height: auto; min-height: 120px; padding: 12px 14px !important; border-radius: 16px !important; }
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-input::placeholder { color: rgba(255, 255, 255, .42) !important; }
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-input:hover { border-color: rgba(255, 255, 255, .22) !important; }
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-input:focus {
+  outline: 0 !important; border-color: rgba(255, 255, 255, .55) !important;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .10) !important; background-color: rgba(3, 10, 30, .5) !important;
+}
+:root :is(.stems-newsong-modal, #lp-boost) .newsong-import .gi-edit-input { background-color: rgba(3, 10, 30, .45) !important; }
+/* Botones: Guardar blanco; Cancelar fantasma. */
+:root .stems-newsong-modal .gi-edit-actions { margin-top: 8px; gap: 10px; }
+:root :is(.stems-newsong-modal, .gi-edit-form) .gi-edit-btn { height: 44px; font-size: 14px !important; font-weight: 600 !important; }
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-btn.cancel,
+:root :is(.stems-newsong-modal, #lp-boost) .newsong-file-btn {
+  background: transparent !important; border: 1px solid rgba(255, 255, 255, .22) !important; color: #fff !important;
+}
+:root :is(.stems-newsong-modal, .gi-edit-form, #lp-boost) .gi-edit-btn.cancel:hover,
+:root :is(.stems-newsong-modal, #lp-boost) .newsong-file-btn:hover { background: rgba(255, 255, 255, .08) !important; border-color: rgba(255, 255, 255, .4) !important; }
+:root :is(.stems-newsong-modal, #lp-boost) .newsong-file-btn { height: 38px; }
+
+/* Metrónomo: el botón cuadrado medía 60 px en una fila de 52 y se salía por
+   arriba y por abajo; ahora ocupa justo la fila, así las dos filas (botones
+   arriba, controles abajo) quedan a la misma altura en todas las columnas. */
+@media (min-width: 1301px) {
+  #panel-metro > .hm-play .metro-main-btn { height: 52px !important; min-height: 0 !important; }
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron)::before {
+  width: 4px !important; height: 4px !important; border-radius: 50% !important; background: currentColor !important;
+  box-shadow: 0 -8px 0 currentColor, 0 8px 0 currentColor !important;
+}
+
+/* ── Pads: misma anchura abajo que arriba ─────────────────────────────────
+   Los paneles usan el margen del escenario (20 px; 14 y 12 en pantallas más
+   bajas). El espectro iba con 14 fijos, la franja «Preparada» con 12 y el
+   reproductor con 24: ahora los tres siguen el mismo margen, así el borde del
+   espectro, las X y los paneles caen en la misma vertical. */
+:root { --stage-pad: 20px; }
+@media (max-height: 900px) { :root { --stage-pad: 14px; } }
+@media (max-height: 850px) { :root { --stage-pad: 12px; } }
+#seq-wave { margin-left: var(--stage-pad) !important; margin-right: var(--stage-pad) !important; }
+#now-playing-banner, #track-player-bar { padding-left: var(--stage-pad) !important; padding-right: var(--stage-pad) !important; }
+
+/* ── Stems: icono del BPM centrado ── el botón guarda la palabra «Detectar»
+   (oculta, tamaño 0) pero su espaciado entre letras seguía ocupando 2 px y empujaba el reloj a la izquierda. */
+#workspace-stems .stems-deck .sb-chip .stems-bpm-detect, :root :is(.stems-bpm-detect, #lp-boost) { letter-spacing: 0 !important; word-spacing: 0 !important; font-size: 0 !important; gap: 0 !important; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; }
+:root :is(.stems-bpm-detect, #lp-boost) svg { display: block; margin: 0; width: 13px; height: 13px; }
+
+/* ── Stems: el panel de Canciones se abre y se cierra con el mismo
+   movimiento que el de Biblioteca: el ancho se desliza y el contenido aparece
+   con un fundido (antes saltaba de golpe). El contenido conserva su ancho
+   mientras el panel crece, así no se reacomoda a media animación. */
+#workspace-stems .stems-setlist {
+  overflow: clip; overflow-clip-margin: 16px;
+  transition: width .28s cubic-bezier(.4, 0, .2, 1), padding .28s cubic-bezier(.4, 0, .2, 1), background .28s ease;
+}
+#workspace-stems .stems-setlist:not(.collapsed) > :not(.ssl-rail):not(#stems-setlist-collapse) {
+  min-width: 274px; animation: lpSslIn .3s ease both;
+}
+#workspace-stems .stems-setlist.collapsed > .ssl-rail { animation: lpSslRail .3s ease both; }
+@keyframes lpSslIn { 0%, 30% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes lpSslRail { 0%, 35% { opacity: 0; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #workspace-stems .stems-setlist { transition: none; }
+  #workspace-stems .stems-setlist > * { animation: none !important; }
+}
+
+/* ── «Más» de la onda: todas las filas legibles ───────────────────────────
+   La regla de los botones activos (letra oscura sobre blanco) también pintaba
+   de oscuro «Sección» y «Acordes» dentro del menú, que ya no tiene fondo blanco.
+   Iconos del mismo tamaño y «Ver todos los acordes» alineado con el resto. */
+:root[data-theme-style] .sw-more-pop > .sw-btn,
+:root[data-theme-style] .sw-more-pop > .sw-btn:is([aria-pressed="true"], .is-on, .sw-btn--accent),
+:root[data-theme-style] .sw-more-pop > .sw-btn:is([aria-pressed="true"], .is-on, .sw-btn--accent) * { color: #fff !important; }
+:root .sw-more-pop > .sw-btn svg { width: 15px !important; height: 15px !important; flex: none; color: rgba(255, 255, 255, .7) !important; }
+:root .sw-more-pop > .sw-btn.sw-chordfit { padding-left: 39px !important; }
+:root .sw-more-pop > .sw-btn:disabled, #seq-wave.is-readonly .sw-more-pop #sw-add { opacity: .5; }
+:root .sw-more-pop .sw-practice-state { margin-left: auto; font-size: 11px; color: rgba(255, 255, 255, .6); }
+
+/* ── Espectro: aire bajo la franja «Preparada» (la X ya no lo roza) ── */
+#seq-wave { margin-top: 8px !important; }
+
+/* ── Biblioteca de Stems: «Nube / Descargar» y casillas redondeadas ── */
+.stl-batch { flex-wrap: wrap; row-gap: 8px; }
+.stl-src {
+  flex: 1 0 100%; display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+  background: rgba(0, 0, 0, .28); border: 1px solid var(--menu-line);
+}
+.stl-src-btn {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  color: rgba(255, 255, 255, .72); font-size: 12px; font-weight: 600; touch-action: manipulation;
+  transition: background .15s ease, color .15s ease;
+}
+.stl-src-btn:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.stl-src-btn.is-on { background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a0a); }
+#stems-library :is(.stl-pick, .stl-batch-all) input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; flex: none; margin: 0; cursor: pointer; position: relative;
+  width: 20px !important; height: 20px !important; border-radius: 7px !important;
+  background: rgba(0, 0, 0, .3) !important; border: 1.5px solid rgba(255, 255, 255, .35) !important;
+  transition: background .15s ease, border-color .15s ease;
+}
+#stems-library :is(.stl-pick, .stl-batch-all) input[type="checkbox"]:hover { border-color: rgba(255, 255, 255, .7) !important; }
+#stems-library :is(.stl-pick, .stl-batch-all) input[type="checkbox"]:checked { background: var(--flat-paper, #fff) !important; border-color: var(--flat-paper, #fff) !important; }
+#stems-library :is(.stl-pick, .stl-batch-all) input[type="checkbox"]:checked::after {
+  content: ""; position: absolute; left: 6px; top: 2.5px; width: 5px; height: 10px;
+  border: solid var(--flat-ink-lo, #0a0a0a); border-width: 0 2.2px 2.2px 0; transform: rotate(45deg);
+}
+
+/* Pistas de Stems que vienen de la nube: etiqueta «NUBE» junto al tipo. */
+.stems-row.is-cloud .stems-row-kind::after {
+  content: "NUBE"; margin-left: 5px; padding: 0 5px; border-radius: 999px;
+  border: 1px solid currentColor; font-size: .85em; opacity: .8;
+}
+/* Nube / Descargar y «Cargar todas»: misma tipografía, altura y forma (el
+   botón no heredaba la fuente de la app y «Descargar» salía en otra letra). */
+.stl-src-btn, #stems-library .stl-batch-go {
+  font-family: inherit !important; font-size: 12.5px !important; font-weight: 650 !important; letter-spacing: 0 !important;
+  height: 32px !important; border-radius: 999px !important;
+}
+#stems-library .stl-batch-go { padding: 0 16px !important; }
+.stl-src-btn.is-on { box-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
+.stl-batch { padding: 8px !important; border-radius: 16px !important; }
+.stl-src { height: 38px; box-sizing: border-box; }
+.stl-batch-all { padding-left: 6px; }

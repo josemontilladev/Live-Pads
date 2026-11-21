@@ -1580,6 +1580,18 @@ ipcMain.handle('r2-download-file', async (_e, { url, relPath }) => {
   return { size: buf.length };
 });
 
+// Trae un archivo de la biblioteca de stems A MEMORIA (sin escribirlo en disco):
+// modo «desde la nube» del panel de Biblioteca, para equipos con poco espacio.
+// Va por el proceso principal por el mismo motivo que r2-download-file (CORS).
+ipcMain.handle('r2-fetch-bytes', async (_e, { url }) => {
+  let u;
+  try { u = new URL(url); } catch (_) { throw new Error('URL inválida'); }
+  if (u.protocol !== 'https:') throw new Error('Origen no permitido');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`R2 rechazó la descarga (${res.status})`);
+  return new Uint8Array(await res.arrayBuffer());
+});
+
 // Sube bytes (no un archivo de la biblioteca) con una URL prefirmada de R2.
 // Lo usa el panel de administración de la biblioteca de stems: audio, escucha
 // previa y portada se generan en el renderer. Va por aquí porque desde el

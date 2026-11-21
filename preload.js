@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openLibraryFolder: (relDir) => ipcRenderer.invoke('open-library-folder', relDir),
   r2UploadFile: (args) => ipcRenderer.invoke('r2-upload-file', args),
   r2DownloadFile: (args) => ipcRenderer.invoke('r2-download-file', args),
+  r2FetchBytes: (args) => ipcRenderer.invoke('r2-fetch-bytes', args),
   r2PutBytes: (args) => ipcRenderer.invoke('r2-put-bytes', args),
   getAbsolutePath: (relPath) => ipcRenderer.invoke('get-absolute-path', relPath),
   assignDrumSample: (data) => ipcRenderer.invoke('assign-drum-sample', data),

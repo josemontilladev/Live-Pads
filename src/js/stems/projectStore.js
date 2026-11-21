@@ -32,7 +32,8 @@ export async function saveStem(id, originalName, arrayBuffer) {
 }
 
 export async function removeStem(livepadsUrl) {
-  if (!livepadsUrl || !window.electronAPI?.stemsRemoveFile) return;
+  // Pistas «desde la nube» (lpcloud:…): no hay archivo en este equipo que borrar.
+  if (!livepadsUrl || !/^livepads:/i.test(livepadsUrl) || !window.electronAPI?.stemsRemoveFile) return;
   await window.electronAPI.stemsRemoveFile(livepadsUrl);
 }
 

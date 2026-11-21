@@ -170,7 +170,7 @@ import { fitLoop, barsToSamples } from './loopFit.js';
 import { planMerge, mergeChannel } from './loopMerge.js';
 import { SECTION_TYPES, sectionStarts } from './loopStructure.js';
 import { renderLoop } from './loopRender.js';
-import { ensureLoopLocal, trackLoopEvent, listPacks as listLibraryPacks } from '../cloud/stemLibrary.js';
+import { ensureLoopLocal, trackLoopEvent, listPacks as listLibraryPacks, getLoadSource, streamLoopAudio } from '../cloud/stemLibrary.js';
 import { openQuickStart } from './quickStart.js';
 import { startTake, listInputs, playClicks, calibrateLatency, getCalibratedLatency, setCalibratedLatency } from './takeRecorder.js';
 import { hasFeature, requireFeature } from '../billing/license.js';
@@ -2232,6 +2232,7 @@ function appendTrackRow(id, savedPath) {
   row.className = `stems-row stems-row--${track.kind}`;
   row.dataset.trackId = id;
   if (savedPath) row.dataset.path = savedPath;
+  if (isCloudPath(savedPath)) { row.classList.add('is-cloud'); row.title = 'Pista desde la nube: no ocupa espacio en este equipo (necesita internet al abrir el proyecto). Clic derecho → «Guardar en este equipo».'; }
   row.innerHTML = buildRowHtml(track);
   rows.appendChild(row);
 
@@ -2675,6 +2676,7 @@ function buildTrackMenuItems(id) {
   if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export')?.click() });
   items.push({ icon: ICON_MENU_RENAME, label: 'Renombrar pista', onSelect: () => { const inp = row.querySelector('.stems-row-name'); if (inp) { inp.focus(); inp.select(); } } });
   items.push({ icon: ICON_MENU_COLOR,  label: 'Cambiar color…',  onSelect: () => btn('color')?.click() });
+  if (isCloudPath(row.dataset.path)) items.push({ icon: ICON_MENU_EXP, label: 'Guardar en este equipo (sin internet)', onSelect: () => keepCloudTrackLocal(id) });
   if (btn('remove'))     items.push({ icon: SVG_TRASH,      label: 'Eliminar pista', danger: true, onSelect: () => btn('remove').click() });
   return items;
 }
@@ -4223,7 +4225,7 @@ function sliceBuffer(buffer, startSec, endSec) {
 
 // Crea una pista de audio NUEVA desde un buffer (al final de la lista) y la
 // persiste. Hereda color/pan/volumen si se pasan. Usado por dividir y pegar.
-async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume, kind = 'stem', clips }) {
+async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan, volume, kind = 'stem', clips, cloudRef }) {
   const id = `t${nextTrackId++}`;
   await engine.addTrack({ id, name: name || 'Pista', audioBuffer: buffer, kind, offsetSec });
   if (Array.isArray(clips) && clips.length) engine.setClips(id, clips.map(({ id: _old, ...c }) => c));
@@ -4231,10 +4233,48 @@ async function addAudioTrackFromBuffer({ buffer, name, color, offsetSec = 0, pan
   if (typeof pan === 'number') engine.setTrackPan(id, pan);
   if (typeof volume === 'number') engine.setTrackVolume(id, volume);
   let savedPath = '';
-  try { savedPath = (await projectStore.saveStem(id, 'clip.wav', audioBufferToWav(buffer))) || ''; }
-  catch (e) { console.warn('No se pudo guardar la pista nueva:', e); }
+  if (cloudRef) savedPath = cloudRef;   // desde la nube: no se escribe nada en disco
+  else {
+    try { savedPath = (await projectStore.saveStem(id, 'clip.wav', audioBufferToWav(buffer))) || ''; }
+    catch (e) { console.warn('No se pudo guardar la pista nueva:', e); }
+  }
   appendTrackRow(id, savedPath);
   return id;
+}
+
+// ── Pistas «desde la nube» ───────────────────────────────────────────────
+// En el proyecto se guarda «lpcloud:{…}»: qué loop es y cómo se ajustó (tempo,
+// tono, repeticiones). Al reabrir se vuelve a traer y a ajustar igual.
+const CLOUD_PREFIX = 'lpcloud:';
+const isCloudPath = (p) => typeof p === 'string' && p.startsWith(CLOUD_PREFIX);
+function cloudRefFor(loop, fit, opts) {
+  const l = { id: loop.id, audio_path: loop.audio_path, bpm: loop.bpm, musical_key: loop.musical_key,
+    bars: loop.bars, beats_per_bar: loop.beats_per_bar, instrument: loop.instrument, title: loop.title };
+  return CLOUD_PREFIX + encodeURIComponent(JSON.stringify({ v: 1, loop: l, fit, opts }));
+}
+async function restoreCloudTrack(p) {
+  const spec = JSON.parse(decodeURIComponent(p.slice(CLOUD_PREFIX.length)));
+  const raw = await engine.decodeAudio(await streamLoopAudio(spec.loop));
+  return renderLoop(raw, spec.fit, spec.opts || {});
+}
+// Pistas de la nube que no se pudieron traer al abrir (sin internet): se
+// conservan tal cual en project.json para no perderlas al guardar.
+let unrestoredCloudTracks = [];
+// «Guardar en este equipo»: la pista deja de depender de internet.
+async function keepCloudTrackLocal(id) {
+  const entry = trackRows.get(id);
+  const buf = engine.getTrackBuffer(id);
+  if (!entry || !buf) return;
+  try {
+    const saved = await projectStore.saveStem(id, 'clip.wav', audioBufferToWav(buf));
+    if (saved) {
+      entry.row.dataset.path = saved;
+      entry.row.classList.remove('is-cloud');
+      entry.row.removeAttribute('title');
+      scheduleSave();
+      showToast('Pista guardada en este equipo: ya funciona sin internet.', 'success');
+    }
+  } catch (e) { showToast('No se pudo guardar la pista en este equipo.', 'error'); }
 }
 
 // ── Biblioteca de stems: loops oficiales ajustados al proyecto ─────────────
@@ -4340,11 +4380,17 @@ async function prepareLoopBuffer(loop, { repeats = 1, totalBars } = {}) {
     { bpm: bpmFloat, key: projectKey, beatsPerBar }
   );
   const key = `${loop.id}|${fit.ratio.toFixed(6)}|${fit.semitones}|${repeats}|${totalBars || ''}|${bpmFloat}`;
+  const opts = { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats, totalBars };
+  // «Desde la nube»: la pista guardará solo esta referencia (no su audio).
+  const cloud = getLoadSource() === 'cloud';
+  const ref = cloud ? cloudRefFor(loop, fit, opts) : null;
   const hit = preparedLoops.get(key);
-  if (hit) { preparedLoops.delete(key); preparedLoops.set(key, hit); return hit; }
-  const url = await ensureLoopLocal(loop);
-  const raw = await engine.decodeAudio(await projectStore.fetchStem(url));
-  const buf = await renderLoop(raw, fit, { beatsPerBar: loop.beats_per_bar, projectBpm: bpmFloat, repeats, totalBars });
+  if (hit) { preparedLoops.delete(key); preparedLoops.set(key, hit); hit.__lpCloud = ref; return hit; }
+  const raw = await engine.decodeAudio(cloud
+    ? await streamLoopAudio(loop)
+    : await projectStore.fetchStem(await ensureLoopLocal(loop)));
+  const buf = await renderLoop(raw, fit, opts);
+  buf.__lpCloud = ref;
   if (bufBytes(buf) <= PREPARED_MAX_BYTES / 2) {
     preparedLoops.set(key, buf);
     let total = 0;
@@ -4463,6 +4509,8 @@ async function placeLoopBuffer(loop, buffer, atSec, { sameTrack = true } = {}) {
   const role = LOOP_ROLE[loop.instrument];
   let target = sameTrack && currentStemsPitch === 0 ? findLoopTrack(loop.instrument) : null;
   if (target && engine.getClipCount(target) > 1) target = null;   // cortada en fragmentos: pista nueva
+  // Desde la nube: cada loop en su pista (fundirlo crearía audio nuevo que habría que guardar).
+  if (buffer.__lpCloud) target = null;
 
   if (target) {
     const t = engine.getTracks().find(x => x.id === target);
@@ -4502,7 +4550,7 @@ async function placeLoopBuffer(loop, buffer, atSec, { sameTrack = true } = {}) {
   }
 
   const spec = {
-    buffer, offsetSec: atSec, kind: role || 'other',
+    buffer, offsetSec: atSec, kind: role || 'other', cloudRef: buffer.__lpCloud || null,
     // Con "misma pista" la pista acabará con varios loops: se nombra por instrumento.
     name: sameTrack ? instrumentLabel(loop.instrument) : loop.title,
     color: role ? STEM_ROLE_COLORS[role] : undefined,
@@ -7437,7 +7485,7 @@ function buildSaveState() {
         instrument: t.kind === 'midi' ? (trackInstrument.get(t.id) || 'piano') : undefined,
         loopInstrument: trackLoopInstrument.get(t.id) || undefined,
       };
-    });
+    }).concat(unrestoredCloudTracks.filter((u) => !engine.getTracks().some((t) => t.id === u.id)));
     return {
       projectName,
       linkedSlug: linkedProject ? linkedProject.slug : undefined,   // proyecto con nombre del que es copia de trabajo
@@ -7534,13 +7582,16 @@ async function rehydrate(state) {
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   }
   let restoreDone = 0;
+  unrestoredCloudTracks = [];
   const decoded = await Promise.all(trackList.map(async (t) => {
     try {
-      const arrayBuffer = await projectStore.fetchStem(t.path);
-      const audioBuffer = await engine.decodeAudio(arrayBuffer);
+      const audioBuffer = isCloudPath(t.path)
+        ? await restoreCloudTrack(t.path)
+        : await engine.decodeAudio(await projectStore.fetchStem(t.path));
       return { t, audioBuffer };
     } catch (e) {
       console.warn('Could not load stem', t.id, e);
+      if (isCloudPath(t.path)) unrestoredCloudTracks.push(t);
       return null;
     } finally {
       if (trackList.length) updateRestoreOverlay(++restoreDone, trackList.length);
@@ -7573,6 +7624,10 @@ async function rehydrate(state) {
     }
   }
 
+  if (unrestoredCloudTracks.length) {
+    const n = unrestoredCloudTracks.length;
+    showToast(`${n} ${n === 1 ? 'pista está' : 'pistas están'} en la nube y no se ${n === 1 ? 'pudo' : 'pudieron'} traer. Revisa tu conexión y vuelve a abrir el proyecto: no se han perdido.`, 'warning');
+  }
   if (state.markers) markers = state.markers;
   if (typeof state.nextTrackId === 'number') nextTrackId = state.nextTrackId;
   if (typeof state.nextMarkerId === 'number') nextMarkerId = state.nextMarkerId;
@@ -7813,6 +7868,7 @@ function formatRelTime(ms) {
 }
 
 async function resetProject() {
+  unrestoredCloudTracks = [];
   if (engine.isCurrentlyPlaying()) engine.stop();
   for (const id of Array.from(trackRows.keys())) {
     const entry = trackRows.get(id);

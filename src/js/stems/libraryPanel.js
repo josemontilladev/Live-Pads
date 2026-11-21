@@ -968,7 +968,16 @@ export function mountLibraryPanel(host, api) {
     box.hidden = !all;
     if (!all) return;
     const allOn = n > 0 && n === all;
+    const src = stemLibrary.getLoadSource();
     box.innerHTML = `
+      <div class="stl-src" role="group" aria-label="Dónde se guardan las pistas al cargarlas">
+        <button type="button" class="stl-src-btn${src === 'cloud' ? ' is-on' : ''}" data-act="src" data-src="cloud" aria-pressed="${src === 'cloud'}"
+          title="Desde la nube: las pistas se cargan sin guardarse en este equipo (no ocupan espacio). Al abrir el proyecto otra vez se vuelven a traer, así que hace falta internet.">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 1 0-.42-8.98 6 6 0 1 0-11.06 3.1A3.5 3.5 0 0 0 6.5 19h11z"/></svg>Nube</button>
+        <button type="button" class="stl-src-btn${src === 'download' ? ' is-on' : ''}" data-act="src" data-src="download" aria-pressed="${src === 'download'}"
+          title="Descargar a este equipo: las pistas se guardan aquí y funcionan sin internet (ocupan espacio en el disco).">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Descargar</button>
+      </div>
       <label class="stl-batch-all"><input type="checkbox" data-act-sel="all"${allOn ? ' checked' : ''}${batchBusy ? ' disabled' : ''}> Todas</label>
       <span class="stl-batch-n">${n ? `${n} de ${all}` : `${all} pistas`}</span>
       <button type="button" class="stb-btn stb-btn--primary stl-batch-go" data-act="load-batch"${batchBusy ? ' disabled' : ''}>
@@ -1208,6 +1217,15 @@ export function mountLibraryPanel(host, api) {
     if (act0 === 'view-all') { setView('all'); return; }
     if (act0 === 'packs') { openPacksWindow(); return; }
     if (act0 === 'load-batch') { loadBatch(); return; }
+    if (act0 === 'src') {
+      const v = actEl.dataset.src === 'cloud' ? 'cloud' : 'download';
+      stemLibrary.setLoadSource(v);
+      paintBatch();
+      showToast(v === 'cloud'
+        ? 'Las pistas se cargarán desde la nube, sin ocupar espacio en este equipo (hace falta internet al abrir el proyecto).'
+        : 'Las pistas se descargarán a este equipo y funcionarán sin internet.', 'info');
+      return;
+    }
     if (act0 === 'pfilter') {
       packsFilter = actEl.dataset.f === 'fav' || actEl.dataset.f === 'local' ? actEl.dataset.f : 'all';
       try { localStorage.setItem(PFILTER_KEY, packsFilter); } catch (_) {}

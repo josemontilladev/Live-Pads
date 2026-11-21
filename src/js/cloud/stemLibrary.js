@@ -293,6 +293,36 @@ export function ensureLoopLocal(loop) {
   return ensureLocal(loop, 'audio');
 }
 
+// ── Cargar desde la nube o descargar al equipo ─────────────────────────────
+// «cloud»: el audio se trae a memoria al usarlo y no se guarda en este equipo
+// (ni en la caché ni como copia dentro del proyecto); al reabrir el proyecto se
+// vuelve a traer. «download» (por defecto): se guarda y funciona sin internet.
+const SOURCE_KEY = 'stems-lib-source';
+export function getLoadSource() { try { return localStorage.getItem(SOURCE_KEY) === 'cloud' ? 'cloud' : 'download'; } catch (_) { return 'download'; } }
+export function setLoadSource(v) { try { localStorage.setItem(SOURCE_KEY, v === 'cloud' ? 'cloud' : 'download'); } catch (_) {} }
+
+/**
+ * Audio completo del loop como ArrayBuffer, SIN guardarlo en disco. Si ya está en
+ * la caché de este equipo se usa esa copia (no ocupa nada nuevo). Lanza
+ * 'plan_required' como ensureLoopLocal.
+ */
+export async function streamLoopAudio(loop) {
+  const api = window.electronAPI;
+  const rel = localPathFor(loop, 'audio');
+  try {
+    const { present } = await api.libraryFilesStat([rel]);
+    if (present.length) {
+      const res = await fetch(`livepads://app/${rel.split('/').map(encodeURIComponent).join('/')}`);
+      if (res.ok) return await res.arrayBuffer();
+    }
+  } catch (_) {}
+  let url;
+  try { url = await signLoop(loop.id, 'audio'); }
+  catch (e) { if (/Pro/.test(e.message)) e.code = 'plan_required'; throw e; }
+  const bytes = await api.r2FetchBytes({ url });
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+}
+
 /** Escucha previa (libre). Sin preview propia, cae al audio completo. */
 export function ensurePreviewLocal(loop) {
   return ensureLocal(loop, loop.preview_path ? 'preview' : 'audio');
