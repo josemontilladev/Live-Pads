@@ -1072,3 +1072,151 @@ input.mo-switch:checked::after { transform: translateX(16px); }
 /* Todas las etiquetas de tipo de pista (AUDIO, CLICK, OTROS…): con aire dentro. */
 #workspace-stems .stems-row-kind { padding: 3px 9px !important; line-height: 1.3 !important; }
 #workspace-stems .stems-row.is-cloud .stems-row-kind { padding: 3px 4px 3px 9px !important; }
+
+/* ═══ Resto de ventanas con el diseño nuevo ═════════════════════════════════
+   Editor de letra, Setlists guardados, Planes, progreso de exportar de Stems y
+   paneles de Ajustes: misma superficie translúcida que «Nueva canción», bloques
+   internos sin cajas duras, campos velados y botones píldora. (#lp-boost: solo
+   sube la especificidad sobre las reglas del tema plano.) */
+:root :is(.lyrics-modal-panel, .setlists-modal, .pl-panel, .stems-export-panel, #lp-boost) {
+  background: var(--menu-bg) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(1.35); backdrop-filter: blur(26px) saturate(1.35);
+  border: 1px solid var(--menu-line) !important;
+  border-radius: 24px !important;
+  box-shadow: 0 40px 90px -20px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+}
+.lyrics-modal-overlay, .setlists-overlay, .pl-overlay, .stems-export-overlay {
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+
+/* Editor de letra */
+:root .lyrics-modal-panel { padding: 22px 22px 18px !important; }
+:root .lyrics-modal-header { border: 0 !important; padding-bottom: 4px !important; }
+:root .lyrics-modal-title { font-size: 19px !important; font-weight: 700 !important; letter-spacing: -.01em; color: #fff !important; text-transform: none !important; }
+:root .lyrics-modal-subtitle { font-size: 12.5px !important; color: var(--menu-dim) !important; margin-top: 3px !important; }
+:root .lyrics-key-badge { border-radius: 999px !important; padding: 1px 8px !important; }
+:root :is(.lyrics-editor-toolbar, #lp-boost) {
+  background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 18px !important; padding: 10px 12px !important;
+}
+:root :is(.lyrics-editor-toolbar, #lp-boost) :is(.format-tool-btn, .format-select, .lyr-key-target, .transpose-counter) { border-radius: 999px !important; }
+:root :is(.editor-container, #lp-boost) {
+  background: rgba(3, 10, 30, .38) !important; border: 1px solid rgba(255, 255, 255, .12) !important; border-radius: 18px !important;
+}
+:root :is(.editor-container, #lp-boost):focus-within { border-color: rgba(255, 255, 255, .45) !important; box-shadow: 0 0 0 4px rgba(255, 255, 255, .08); }
+:root :is(.editor-textarea, .editor-highlight, #lp-boost) { background: transparent !important; }
+:root .lyrics-modal-footer { border-top: 1px solid var(--menu-line) !important; }
+:root .lyrics-shortcut-hint { color: var(--menu-dim) !important; }
+:root :is(.lyrics-modal-panel, #lp-boost) .modal-btn { height: 42px; padding: 0 22px !important; border-radius: 999px !important; font-weight: 600 !important; font-size: 13.5px !important; }
+:root :is(.lyrics-modal-panel, #lp-boost) .cancel-btn { background: transparent !important; border: 1px solid rgba(255, 255, 255, .22) !important; color: #fff !important; }
+:root :is(.lyrics-modal-panel, #lp-boost) .cancel-btn:hover { background: rgba(255, 255, 255, .08) !important; }
+
+/* Setlists guardados */
+:root .setlists-modal { padding: 22px !important; }
+:root .setlists-head { border: 0 !important; }
+:root .setlists-head :is(h2, h3, .setlists-title) { font-size: 19px !important; font-weight: 700 !important; color: #fff !important; }
+:root :is(.setlists-save-form, #lp-boost) { background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 18px !important; padding: 14px !important; }
+:root :is(.setlists-modal, #lp-boost) :is(.sl-title, .sl-date) {
+  height: 42px; border-radius: 999px !important; background-color: rgba(3, 10, 30, .45) !important; border: 1px solid rgba(255, 255, 255, .12) !important; color: #fff !important; padding: 0 14px !important;
+}
+:root :is(.setlists-modal, #lp-boost) .sl-save-btn { height: 42px; border-radius: 999px !important; padding: 0 20px !important; font-weight: 600 !important; }
+:root :is(.setlists-modal, #lp-boost) .setlists-row { background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 14px !important; }
+:root :is(.setlists-modal, #lp-boost) .setlists-row:hover { background: rgba(255, 255, 255, .09) !important; }
+:root .setlists-empty { color: var(--menu-dim) !important; }
+
+/* Progreso de exportar (Stems) */
+:root .stems-export-panel { padding: 26px 30px !important; }
+:root .stems-export-panel h3 { font-size: 17px !important; font-weight: 700 !important; }
+:root .stems-export-stage { color: var(--menu-dim) !important; }
+:root .stems-export-bar { height: 8px !important; border-radius: 999px !important; background: rgba(0, 0, 0, .3) !important; overflow: hidden; }
+:root .stems-export-fill { border-radius: 999px !important; background: var(--flat-paper, #fff) !important; }
+
+/* Planes */
+:root :is(.pl-panel, #lp-boost) :is(.pl-plan, .pl-card) { background: rgba(255, 255, 255, .05) !important; border: 1px solid transparent !important; border-radius: 20px !important; }
+:root :is(.pl-panel, #lp-boost) .pl-card--pro { border-color: rgba(255, 255, 255, .3) !important; }
+:root :is(.pl-panel, #lp-boost) .pl-note { border-radius: 14px !important; }
+
+/* Paneles de Ajustes (MIDI, Pre-vuelo, Companion, Audio…): bloques suaves sin
+   filo y filas del pre-vuelo como tarjetas ligeras. */
+:root :is(#sidebar, #lp-boost) :is(.sb-card, .pf-row, .mp-row, .cp-hint, .set-launch-card, .acc-card) {
+  background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 16px !important;
+}
+:root :is(#sidebar, #lp-boost) .pf-row { padding: 10px 14px !important; }
+:root :is(#sidebar, #lp-boost) .pf-summary { border-radius: 14px !important; }
+:root :is(#sidebar, #lp-boost) :is(.sb-select, select) { border-radius: 999px !important; }
+:root :is(.pl-panel, #lp-boost) .pl-reason { border-radius: 16px !important; background: rgba(255, 255, 255, .08) !important; border: 0 !important; }
+:root :is(.pl-panel, #lp-boost) .pl-head { border: 0 !important; }
+/* Ventanas grandes: casi opacas. El desenfoque propio no actúa cuando el velo de
+   detrás ya desenfoca, y el contenido de atrás (pads, letras) se transparentaba. */
+:root { --win-bg: color-mix(in srgb, var(--flat-side, var(--bg-surface)) 97%, transparent); }
+:root :is(.lyrics-modal-panel, .setlists-modal, .pl-panel, .stems-export-panel, .stems-newsong-modal, #lp-boost) {
+  background: var(--win-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+
+/* ── Pantallas bajas (≈900 px) con el espectro abierto ─────────────────────
+   Los pads se encogen y, según su alto real (consulta de contenedor), el
+   contenido se reacomoda: la tecla rápida pasa a la esquina en pequeño (antes
+   se montaba sobre el nombre del tono) y el pad de batería compacta su nombre
+   y su volumen en vez de solaparlos. */
+.key-btn, .drum-btn { container-type: size; }
+@container (max-height: 72px) {
+  .key-btn .kbd-hint { position: absolute !important; top: 4px !important; right: 4px !important; transform: scale(.78); transform-origin: top right; margin: 0 !important; }
+  .drum-btn .kbd-hint { transform: scale(.8); transform-origin: top right; }
+  .drum-btn .drum-label { font-size: 15px !important; line-height: 1.1 !important; }
+  .drum-btn .drum-tile-vol { margin-top: 2px !important; }
+}
+@container (max-height: 56px) {
+  .key-btn .kbd-hint { display: none !important; }
+  .drum-btn .drum-label { font-size: 13px !important; }
+}
+@media (max-height: 950px) {
+  body:has(#seq-wave:not(.is-empty)) #seq-wave { margin-top: 4px !important; }
+}
+/* El pad de batería no puede cambiar su propio relleno desde la consulta de
+   contenedor: en pantallas bajas con el espectro abierto, relleno compacto. */
+@media (max-height: 950px) {
+  body:has(#seq-wave:not(.is-empty)) .drum-btn { padding: 6px 12px 26px !important; }
+  body:has(#seq-wave:not(.is-empty)) .drum-btn .drum-tile-vol { bottom: 6px !important; }
+  body:has(#seq-wave:not(.is-empty)) .drum-btn .drum-label { line-height: 1.1 !important; }
+}
+
+/* ═══ Todas las ventanas con el mismo acabado ═══════════════════════════════
+   Metrónomo, afinador, letra flotante, acordes, paleta de comandos, diálogos,
+   conflictos de sincronización, novedades, selector de sonidos, MIDI,
+   pre-vuelo, companion, cuenta y todas las de Stems (asignar, nube, armar
+   canción, atajos, piano roll, tour): superficie del tema casi opaca, filo
+   tenue, esquinas de 22 px y sombra suave. Por dentro, los bloques ya usan el
+   velo del tema (12–16 px) y los botones son píldoras. */
+:root :is(.mtm-panel, .tun-panel, .lyp-panel:not(.is-docked), .chd-panel, .chd-sheet, .sp-panel, .cfl-panel, .dialog-box,
+    .spm-box, .pf-panel, .mp-panel, .cp-panel, .acc-panel, .stems-modal-card, .stems-assign-modal, .stems-cloud-panel,
+    .stb-modal, .stt-modal, .pr-modal, .stems-tour-card, .modal-content, .wt-bubble, #lp-boost):not(.set-embed *) {
+  background: var(--win-bg) !important;
+  border: 1px solid var(--menu-line) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 32px 80px -20px rgba(0, 0, 0, .65), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
+}
+/* Títulos de ventana: un poco más de presencia. */
+:root :is(.dialog-box, .cfl-panel, .stb-modal, .stt-modal, .stems-assign-modal, .stems-modal-card, .spm-box) :is(h2, h3):first-of-type {
+  font-weight: 700 !important; letter-spacing: -.01em;
+}
+/* Botones de las ventanas: píldoras. */
+:root :is(.dialog-box, .cfl-panel, .stb-modal, .stt-modal, .stems-assign-modal, .stems-modal-card, .spm-box, .chd-panel, .stems-cloud-panel, .pr-modal)
+    button:not(.ui-close):not([role="tab"]):not(.mo-switch) { border-radius: 999px; }
+/* Avisos (toasts): misma superficie y esquinas. */
+:root .toast { background: var(--win-bg) !important; border: 1px solid var(--menu-line) !important; border-radius: 16px !important; box-shadow: 0 18px 44px -12px rgba(0, 0, 0, .55) !important; }
+/* Paleta de comandos: el buscador ocupa la fila, sin caja propia (la regla
+   general de campos lo dejaba negro de 172 px). Filas con resalte suave. */
+:root :is(.sp-panel, #lp-boost) .sp-input {
+  flex: 1 1 auto !important; width: auto !important; min-width: 0; height: 40px;
+  background: transparent !important; background-color: transparent !important; border: 0 !important; box-shadow: none !important;
+  outline: 0 !important; font-size: 15px !important; color: #fff !important; padding: 0 !important;
+}
+:root :is(.sp-panel, #lp-boost) .sp-input::placeholder { color: rgba(255, 255, 255, .45) !important; }
+:root :is(.sp-panel, #lp-boost) .sp-hint { border-radius: 8px !important; }
+:root :is(.sp-panel, #lp-boost) :is(.sp-item, .sp-row, [role="option"]) { border-radius: 12px !important; }
+:root :is(.sp-panel, #lp-boost) :is(.sp-item, .sp-row, [role="option"]):is(.is-active, .active, [aria-selected="true"]) {
+  background: rgba(255, 255, 255, .10) !important; border-color: transparent !important; box-shadow: none !important;
+}
+:root :is(.sp-panel, #lp-boost) .sp-search-row { border-bottom: 1px solid var(--menu-line) !important; background: transparent !important; padding: 6px 16px !important; }
+:root :is(.sp-panel, #lp-boost) .sp-hint { flex: none !important; width: auto !important; padding: 2px 8px !important; background: rgba(255, 255, 255, .08) !important; border: 1px solid var(--menu-line) !important; color: var(--menu-dim) !important; }
+/* Ventanas: totalmente opacas (al 97 % aún se adivinaban los pads detrás). */
+:root { --win-bg: var(--flat-side, var(--bg-surface)); }
