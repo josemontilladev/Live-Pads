@@ -1,2 +1,1 @@
-• Servicio y ensayos: con el 🔗 encendido, ▼ ▲ del reproductor cambia el tono del día de una sola vez: el chip de la tarjeta, el pad y los acordes de la letra (en la tarjeta, en el panel de letra y en la otra pantalla). La letra guardada sigue en su tono original.
-• «Fijar como tono de la biblioteca» ahora pasa también la letra al tono nuevo y el audio sigue sonando igual (antes volvía al tono de la grabación).
+• Letra a pantalla completa: los acordes ya no se montan sobre el título de la sección ni se descolocan; cada acorde queda sobre su palabra y las líneas largas se parten sin dejar huecos.

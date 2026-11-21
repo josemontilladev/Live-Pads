@@ -747,3 +747,13 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 
 ): que se vean como tales. */
 #dialog-message { white-space: pre-line; }
+
+/* ── Pantalla completa: el acorde ocupa su propio sitio ───────────────────
+   Antes flotaba (translateY) sobre un interlineado grande: bajo un rótulo de
+   sección se montaba encima («PRE-ESTRIBILLO» + «Bb») y una línea partida en
+   dos dejaba un hueco enorme. Ahora cada palabra con acorde (.chw) reserva arriba
+   la altura del acorde: solo crecen los renglones que llevan acordes. */
+.lyr-content .lyric-line.has-inline-chords { margin-top: .15em; line-height: 1.32; }
+.lyr-content .chw { padding-top: .78em; }
+.lyr-content .chw > .inline-chord { top: 0; left: 0; transform: none; line-height: 1.1; font-size: .62em; }
+.lyr-content.hide-chords .chw { padding-top: 0; }
