@@ -8,9 +8,11 @@
 import { CHORD_SR } from './chordEngine.js';
 import { analyzeInWorker } from './chordWorker.js';
 import { uploadForAnalysis, forgetUpload } from '../analysis/analysisAudio.js';
+import { parseLyricStructure, keyOffset, parseChord } from '../ui/songStructure.js';
+import { parseKey } from '../utils/musicKeys.js';
 
 export const LS_PREFS = 'livepads.chords';
-const LS_CACHE = 'livepads.chords.v1.';
+const LS_CACHE = 'livepads.chords.v2.';   // v2: letra/tonalidad como guía y duración mínima
 const MAX_CACHE = 40;
 
 export function chordPrefs() {
@@ -128,7 +130,67 @@ export async function analyzeFileCached(id, file, onProgress) {
 // acorde que está en el cifrado pasa del 74 % al 85 % (mejor en 35 de 40).
 let refineChain = Promise.resolve();
 const refining = new Map();
-const isRefined = (r) => !!(r && r.src === 'btc');
+const isRefined = (r, sig) => !!(r && r.src === 'btc' && (sig == null || r.ctx === sig));
+
+const mod12 = (v) => ((v % 12) + 12) % 12;
+/**
+ * Qué sabe la canción de sí misma, para que el detector no «invente»:
+ * - Con acordes en la letra: esos acordes (en el tono del AUDIO: el original puede
+ *   estar en el tono del artista) son el vocabulario; lo demás casi no puede salir.
+ * - Sin ellos: la tonalidad (la de la canción para la secuencia; la detectada para
+ *   el original, que puede ir en otro tono) favorece sus acordes.
+ * - El BPM, para que ningún acorde dure menos de 2 pulsos.
+ */
+export function chordContext(song, type, base) {
+  if (!song) return null;
+  const ctx = { bpm: Number(song.bpm) || 0 };
+  let secs = [];
+  try { secs = song.lyrics ? parseLyricStructure(song.lyrics) : []; } catch (_) { secs = []; }
+  const names = new Set();
+  for (const s of secs) for (const c of (s.chords || [])) if (c && c.n) names.add(c.n);
+  const lyr = [...names].map((n) => parseChord(n)).filter(Boolean).map((c) => ({ r: c.r, m: c.q === 1 || c.q === 4 }));
+  let off = null;
+  if (lyr.length >= 2 && base && Array.isArray(base.seg) && base.seg.length) {
+    off = keyOffset(secs, base.seg);
+    if (off && off.score >= 0.45) {
+      // acorde_letra = acorde_audio + k  →  acorde_audio = acorde_letra − k
+      const seen = new Set();
+      ctx.vocab = lyr.map((v) => ({ r: mod12(v.r - off.k), m: v.m })).filter((v) => { const k = v.r + (v.m ? 12 : 0); if (seen.has(k)) return false; seen.add(k); return true; });
+    }
+  }
+  if (!ctx.vocab) {
+    const pk = parseKey(song.key);
+    if (pk && type === 'sequence') ctx.key = { k: pk.semitone, m: !!pk.minor };
+    else if (pk && off && off.score >= 0.45) ctx.key = { k: mod12(pk.semitone - off.k), m: !!pk.minor };
+    else if (base && Number.isFinite(base.k)) ctx.key = { k: base.k, m: !!base.m };
+  }
+  ctx.sig = JSON.stringify([ctx.vocab || null, ctx.key || null, ctx.bpm || 0]);
+  return ctx;
+}
+
+/** Funde los acordes que duran menos de `min` s con el vecino más largo (o igual). */
+export function enforceMinDuration(seg, min) {
+  if (!(min > 0) || !Array.isArray(seg)) return seg;
+  let out = seg.map((x) => ({ ...x }));
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (let i = 0; i < out.length; i++) {
+      const x = out[i];
+      if (x.e - x.s >= min) continue;
+      const p = out[i - 1], n = out[i + 1];
+      const into = !p ? n : !n ? p : ((p.e - p.s) >= (n.e - n.s) ? p : n);
+      if (!into) continue;
+      if (into === p) p.e = x.e; else n.s = x.s;
+      out.splice(i, 1); i--; changed = true;
+    }
+    // Vecinos iguales tras fundir → uno solo.
+    const m = [];
+    for (const x of out) { const l = m[m.length - 1]; if (l && l.r === x.r && l.q === x.q) l.e = x.e; else m.push(x); }
+    out = m;
+    if (!changed) break;
+  }
+  return out;
+}
 
 export function canRefine() {
   return !!(window.electronAPI && window.electronAPI.analyzeChordsModel);
@@ -163,21 +225,32 @@ export function keyFromSegments(seg, duration, prev) {
 }
 
 /** Afinar los acordes de una pista con el modelo (una sola vez; en cola, de una en una). */
-export function refineChords(id, buffer) {
+// `analysisBuffer`: lo que se analiza (p. ej. la mezcla de stems sin voz ni batería);
+// `buffer` sigue siendo la pista cargada (su duración y su id).
+export function refineChords(id, buffer, song = null, type = '', analysisBuffer = null) {
   if (!id || !buffer || !canRefine() || String(id).startsWith('yt.')) return Promise.resolve(null);
-  if (isRefined(cacheGet(id))) return Promise.resolve(null);
+  const src = analysisBuffer ? '|stems' : '';
+  const sig0 = song ? (chordContext(song, type, cacheGet(id))?.sig || '') + src : null;
+  if (isRefined(cacheGet(id), sig0)) return Promise.resolve(null);
   if (refining.has(id)) return refining.get(id);
   const job = refineChain.then(async () => {
     const base = cacheGet(id);
-    if (!base || isRefined(base)) return null;
-    let r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(buffer) });
-    if (r && r.missing) { forgetUpload(buffer); r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(buffer) }); }
+    const ctx = song ? chordContext(song, type, base) : null;
+    if (ctx) ctx.sig += src;
+    if (!base || isRefined(base, ctx ? ctx.sig : null)) return null;
+    const input = analysisBuffer || buffer;
+    const args = () => ({ key: ctx && ctx.key, vocab: ctx && ctx.vocab });
+    let r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(input), ...args() });
+    if (r && r.missing) { forgetUpload(input); r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(input), ...args() }); }
     if (!r || !Array.isArray(r.seg) || !r.seg.length) {
       if (r && r.error) console.warn('[LivePads] acordes (modelo):', r.error);
       return null;
     }
-    const key = keyFromSegments(r.seg, base.d || buffer.duration, base);
-    const res = { ...base, seg: r.seg, k: key.k, m: key.m, src: 'btc' };
+    // Ningún acorde de menos de 2 pulsos (los cambios sueltos de 1 s eran ruido).
+    const seg = ctx && ctx.bpm > 0 ? enforceMinDuration(r.seg, 2 * 60 / ctx.bpm) : r.seg;
+    // Tono: el que se usó como guía si lo hay; si no, el que sale de los acordes.
+    const key = (ctx && ctx.key) ? ctx.key : keyFromSegments(seg, base.d || buffer.duration, base);
+    const res = { ...base, seg, k: key.k, m: key.m, src: 'btc', ctx: ctx ? ctx.sig : null, guide: r.prior || '', stems: !!analysisBuffer };
     cachePut(id, res);
     announce(id, res);
     return res;

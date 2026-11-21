@@ -18,6 +18,16 @@
 export function chordEngineFactory() {
   const SR = 11025;
   const LETTERS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  // Notación según el tono: en Cm se lee Bb/Ab; en E, G#m/D#.
+  const SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const FLAT_MAJ = new Set([5, 10, 3, 8, 1, 6]);     // F Bb Eb Ab Db Gb
+  const FLAT_MIN = new Set([2, 7, 0, 5, 10, 3]);     // Dm Gm Cm Fm Bbm Ebm
+  const lettersFor = (key) => {
+    if (!key || !Number.isFinite(key.k)) return LETTERS;
+    const k = ((key.k % 12) + 12) % 12;
+    return (key.m ? FLAT_MIN : FLAT_MAJ).has(k) ? FLATS : SHARPS;
+  };
   const SOLFEGE = ['Do', 'Do#', 'Re', 'Mib', 'Mi', 'Fa', 'Fa#', 'Sol', 'Lab', 'La', 'Sib', 'Si'];
   // [sufijo, intervalos, penalización para preferir tríadas]
   const QUALITIES = [
@@ -35,9 +45,9 @@ export function chordEngineFactory() {
   const rnd = (x) => (x < 0 ? -Math.round(-x) : Math.round(x));
 
   /** Nombre de un acorde {r, q, b}. latin = Do/Re…; basic = solo mayor/menor; shift = semitonos. */
-  function chordName(c, { latin = false, basic = false, shift = 0 } = {}) {
+  function chordName(c, { latin = false, basic = false, shift = 0, key = null } = {}) {
     if (!c || c.r < 0) return 'N';
-    const names = latin ? SOLFEGE : LETTERS;
+    const names = latin ? SOLFEGE : lettersFor(key);
     let q = QUALITIES[c.q][0];
     if (basic) q = (q.startsWith('m') && q !== 'maj7') ? 'm' : '';
     const b = c.b >= 0 && c.b !== c.r && !basic ? '/' + names[mod(c.b + shift, 12)] : '';

@@ -33,7 +33,10 @@ self.onmessage = (e) => {
     self.postMessage({ bpm: tempo, beatsPerBar: bar, offsetSec });
     return;
   }
+  // Pista de voz (stems), si la hay: mismo formato que la mezcla.
+  const v = e.data.vocal;
+  const vocalBuffer = v && v.length ? { sampleRate, length: v.length, duration: v.length / sampleRate, numberOfChannels: 1, getChannelData: () => v } : null;
   let sections = [];
-  try { sections = detectSections(shim, { bpm: tempo, beatsPerBar: bar }); } catch (_) {}
+  try { sections = detectSections(shim, { bpm: tempo, beatsPerBar: bar, vocalBuffer }); } catch (_) {}
   self.postMessage({ sections, bpm: tempo, beatsPerBar: bar });
 };

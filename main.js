@@ -2703,10 +2703,13 @@ ipcMain.handle('analysis-chords', async (_e, args = {}) => {
   if (missing) return { missing: true };
   if (!mono || !mono.length) return { error: 'Audio vacío' };
   if (chordJob) return { busy: true };
-  const job = runAnalysisWorker({ task: 'chords', mono, modelPath });
+  // Tonalidad y acordes de la letra (si los hay): el modelo los prefiere.
+  const key = args.key && Number.isFinite(args.key.k) ? { k: args.key.k | 0, m: !!args.key.m } : null;
+  const vocab = Array.isArray(args.vocab) ? args.vocab.slice(0, 48).map((v) => ({ r: v.r | 0, m: !!v.m })) : null;
+  const job = runAnalysisWorker({ task: 'chords', mono, modelPath, key, vocab });
   job.promise = job.promise.then((r) => {
     if (chordJob === job) chordJob = null;
-    return r && Array.isArray(r.seg) ? { seg: r.seg, ep: r.ep } : r;
+    return r && Array.isArray(r.seg) ? { seg: r.seg, ep: r.ep, prior: r.prior } : r;
   });
   chordJob = job;
   return job.promise;

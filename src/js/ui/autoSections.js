@@ -84,7 +84,7 @@ export function barGridInBackground(buffer, opts = {}) {
   return runWorker(buffer, { ...opts, mode: 'grid' });
 }
 
-function runWorker(buffer, { bpm = 0, beatsPerBar = 4, mode = 'sections' } = {}) {
+function runWorker(buffer, { bpm = 0, beatsPerBar = 4, mode = 'sections', vocalBuffer = null } = {}) {
   return new Promise((resolve) => {
     let worker;
     try { worker = new Worker(new URL('../stems/sectionWorker.js', import.meta.url), { type: 'module' }); }
@@ -97,9 +97,11 @@ function runWorker(buffer, { bpm = 0, beatsPerBar = 4, mode = 'sections' } = {})
     // audio fuera de este hilo y se guarda). Antes se mezclaba aquí con un bucle sobre
     // millones de muestras en cada llamada: en portátiles congelaba la app medio segundo.
     // Se manda una copia (memcpy) porque la guardada la comparten otros análisis.
-    mono22050(buffer).then((m) => {
+    // Con la pista de voz (stems), el detector sabe qué tramos son cantados.
+    Promise.all([mono22050(buffer), vocalBuffer ? mono22050(vocalBuffer).catch(() => null) : Promise.resolve(null)]).then(([m, v]) => {
       const mono = m.slice();
-      worker.postMessage({ left: mono, right: null, sampleRate: 22050, bpm: Number(bpm) || 0, beatsPerBar, mode }, [mono.buffer]);
+      const vocal = v ? v.slice() : null;
+      worker.postMessage({ left: mono, right: null, sampleRate: 22050, bpm: Number(bpm) || 0, beatsPerBar, mode, vocal }, vocal ? [mono.buffer, vocal.buffer] : [mono.buffer]);
     }).catch(() => { clearTimeout(timer); done(null); });
   });
 }

@@ -174,8 +174,12 @@ async function request() {
 
 // Después del análisis rápido, el preciso (pistas separadas) en segundo plano; al terminar
 // llega por «livepads:chords-ready» y la franja se redibuja sola.
-function refine(t, myId) {
-  const job = T.refineChords(myId, t.audio.buffer);
+async function refine(t, myId) {
+  // Con pistas separadas en este equipo: se analizan los instrumentos sin voz ni batería.
+  let harm = null;
+  try { harm = (await (await import('../chords/stemMix.js')).stemBuffers(t.song, t.audio.buffer.duration)).harmonic; } catch (_) { harm = null; }
+  if (id !== myId) return;
+  const job = T.refineChords(myId, t.audio.buffer, t.song, t.type, harm);
   if (!job || !lane) return;
   lane.classList.add('is-refining');
   job.finally(() => { if (id === myId) lane.classList.remove('is-refining'); });
@@ -185,7 +189,7 @@ function nameOf(c) {
   const p = prefs();
   // Acorde escrito en la letra y la pista en el tono de la letra: tal cual se escribió.
   if (c.n && !p.latin && ((lastShift - songK) % 12 + 12) % 12 === 0) return c.n;
-  return E.chordName(c, { latin: p.latin, basic: p.basic && !c.n, shift: lastShift });
+  return E.chordName(c, { latin: p.latin, basic: p.basic && !c.n, shift: lastShift, key: result && Number.isFinite(result.k) ? { k: result.k + lastShift, m: !!result.m } : null });
 }
 
 // ── Corregir acordes ──────────────────────────────────────────────────────

@@ -659,3 +659,11 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 /* Metrónomo y afinador: se siguen redimensionando desde la esquina, pero sin
    el tirador gris del sistema que cortaba la esquina redondeada. */
 :is(.mtm-panel, .tun-panel)::-webkit-resizer { background: transparent; border: 0; }
+
+/* Onda de Pads: un botón activo (Acordes, Letra…) es blanco con letra oscura. La
+   regla #sw-chords[aria-pressed] (con id) ganaba y pintaba la letra con el color
+   de acento, que en los temas Consola es blanco: blanco sobre blanco. */
+:root[data-theme-style="flat"] .sw-btn:is([aria-pressed="true"], .is-on, .sw-btn--accent),
+:root[data-theme-style="flat"] .sw-btn:is([aria-pressed="true"], .is-on, .sw-btn--accent) * {
+  color: var(--flat-ink-lo) !important;
+}

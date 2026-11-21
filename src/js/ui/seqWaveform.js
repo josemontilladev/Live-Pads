@@ -25,6 +25,7 @@ import { getSongs } from '../state/store.js';
 import { openCardMoreMenu, openContextMenu } from './cardMoreMenu.js';
 import { showDialog, confirmDialogAsync } from './dialog.js';
 import { buildAutoMarkers, detectSectionsInBackground, barGridInBackground } from './autoSections.js';
+import { regularizePhrases, unifyRepeats } from './sectionPhrases.js';
 import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
 import { parseLyricStructure, keyOffset, labelSegments, refineSectionStarts } from './songStructure.js';
 import { loopSection } from './practiceMode.js';
@@ -582,20 +583,27 @@ async function autoDetect({ auto = false } = {}) {
     const lyr = parseLyricStructure(s.lyrics);
     // La letra trae sus secciones: se analizan también los acordes de la pista para
     // saber qué tramo es cada sección (verso, coro…) comparando acordes.
-    const chordsP = lyr.length >= 2 ? trackChordsFor(s, a).catch(() => null) : Promise.resolve(null);
-    const [raw, ch] = await Promise.all([detectSectionsInBackground(a.buffer, { bpm, beatsPerBar }), chordsP]);
+    // Acordes de la pista: con letra, para saber qué tramo es cada sección; sin
+    // letra, para reconocer el mismo coro por su progresión (unifyRepeats).
+    const chordsP = trackChordsFor(s, a).catch(() => null);
+    // Pista de voz (stems en este equipo): el detector distingue lo cantado de lo instrumental.
+    let vocalBuffer = null;
+    try { vocalBuffer = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).vocals; } catch (_) { vocalBuffer = null; }
+    const [raw, ch] = await Promise.all([detectSectionsInBackground(a.buffer, { bpm, beatsPerBar, vocalBuffer }), chordsP]);
     const dur = a.buffer.duration;
+    const det = (ch && ch.seg) || [];
+    // La rejilla de compases (si llega a tiempo): límites en compás y frases de 4/8.
+    const g = grid || await Promise.race([gridPromise || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
     if (lyr.length >= 2 && raw.length >= 2) {
-      const det = (ch && ch.seg) || [];
       const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
       const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
-      // La rejilla de compases (si llega a tiempo) para ajustar cada inicio al compás.
-      const g = grid || await Promise.race([gridPromise || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
       // Cada sección empieza donde entra su primer acorde de la letra (a menos de un compás).
       found = refineSectionStarts(labelSegments(segs, lyr, det, k), lyr, det, k, g, dur)
         .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+      found = regularizePhrases(found, g, dur);
     } else {
-      found = buildAutoMarkers(raw, s.lyrics, dur);
+      // Sin letra: compás y frases, y el mismo coro con el mismo nombre.
+      found = unifyRepeats(regularizePhrases(buildAutoMarkers(raw, s.lyrics, dur), g, dur), det, g, dur);
     }
   } catch (e) { console.warn('[LivePads] detección de secciones:', e); }
   detecting = null; root.classList.remove('is-detecting');
@@ -740,8 +748,10 @@ async function trackChordsFor(s, a) {
   const T = await import('../chords/trackChords.js');
   const id = T.trackChordId(s, trackType, a.buffer);
   const r = T.cacheGet(id) || await T.analyzeBufferCached(id, a.buffer);
+  let harm = null;
+  try { harm = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).harmonic; } catch (_) { harm = null; }
   const better = await Promise.race([
-    T.refineChords(id, a.buffer).catch(() => null),
+    T.refineChords(id, a.buffer, s, trackType, harm).catch(() => null),
     new Promise((res) => setTimeout(() => res(null), 30000)),
   ]);
   return better || T.cacheGet(id) || r;

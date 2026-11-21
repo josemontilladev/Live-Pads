@@ -161,8 +161,40 @@ function classToChord(c) {
   return { r: Math.floor(c / 14), q: VOCA_Q[c % 14], b: -1 };
 }
 
-/** Viterbi sobre log-softmax: quedarse no cuesta, cambiar cuesta `pen`. */
-function smoothPath(logits, frames, classes, pen = PEN) {
+// Calidades del modelo que suenan «menores» (min dim min6 min7 minmaj7 dim7 hdim7).
+const MINORISH = new Set([0, 2, 4, 6, 7, 10, 11]);
+// Acordes de cada tonalidad: [grado, ¿menor?]. Mayor: I ii iii IV V vi y bVII (muy
+// común en alabanza). Menor: i III iv v V VI VII.
+const DIA_MAJ = [[0, false], [2, true], [4, true], [5, false], [7, false], [9, true], [10, false]];
+const DIA_MIN = [[0, true], [3, false], [5, true], [7, true], [7, false], [8, false], [10, false]];
+// Cuánto se castiga, por cuadro (log-prob), un acorde fuera de lo esperado:
+// - con los acordes de la letra (vocab): casi prohibido (la letra manda).
+// - con solo la tonalidad: castigo moderado (un acorde prestado claro aún sale).
+const OUT_OF_VOCAB = 4;
+const OUT_OF_KEY = 1.2;
+/**
+ * Preferencia por clase (log). opts.vocab = [{r, m}] acordes de la letra;
+ * opts.key = {k, m} tonalidad. Sin nada, todo 0 (como antes).
+ */
+function buildPrior(classes, opts = {}) {
+  const prior = new Float32Array(classes);
+  const vocab = Array.isArray(opts.vocab) && opts.vocab.length ? opts.vocab : null;
+  const key = opts.key && Number.isFinite(opts.key.k) ? opts.key : null;
+  if (!vocab && !key) return null;
+  const allowed = new Set();
+  if (vocab) for (const v of vocab) allowed.add(((v.r % 12) + 12) % 12 + (v.m ? 12 : 0));
+  else for (const [d, mi] of (key.m ? DIA_MIN : DIA_MAJ)) allowed.add((key.k + d) % 12 + (mi ? 12 : 0));
+  const pen = vocab ? OUT_OF_VOCAB : OUT_OF_KEY;
+  for (let c = 0; c < Math.min(classes, 168); c++) {
+    const r = Math.floor(c / 14), minor = MINORISH.has(c % 14);
+    if (!allowed.has(r + (minor ? 12 : 0))) prior[c] = -pen;
+  }
+  return prior;
+}
+
+/** Viterbi sobre log-softmax: quedarse no cuesta, cambiar cuesta `pen`. `prior` (opcional)
+ *  suma a cada clase su preferencia (acordes de la letra o de la tonalidad). */
+function smoothPath(logits, frames, classes, pen = PEN, prior = null) {
   const lp = new Float32Array(frames * classes);
   for (let f = 0; f < frames; f++) {
     const o = f * classes;
@@ -171,7 +203,7 @@ function smoothPath(logits, frames, classes, pen = PEN) {
     let sum = 0;
     for (let c = 0; c < classes; c++) sum += Math.exp(logits[o + c] - m);
     const l = m + Math.log(sum);
-    for (let c = 0; c < classes; c++) lp[o + c] = logits[o + c] - l;
+    for (let c = 0; c < classes; c++) lp[o + c] = logits[o + c] - l + (prior ? prior[c] : 0);
   }
   const path = new Int32Array(frames);
   if (!frames) return path;
@@ -211,8 +243,9 @@ function pathToSegments(path, duration) {
 async function detectChords(mono, modelPath, opts = {}) {
   const { feat, frames } = logCqt(mono);
   const { logits, classes, ep } = await chordLogits(feat, frames, modelPath, { mean: VOCA.mean, std: VOCA.std, ep: opts.ep });
-  const path = smoothPath(logits, frames, classes, opts.pen != null ? opts.pen : PEN);
-  return { seg: pathToSegments(path, mono.length / SR), ep };
+  const prior = buildPrior(classes, opts);
+  const path = smoothPath(logits, frames, classes, opts.pen != null ? opts.pen : PEN, prior);
+  return { seg: pathToSegments(path, mono.length / SR), ep, prior: prior ? (opts.vocab && opts.vocab.length ? 'letra' : 'tono') : '' };
 }
 
-module.exports = { logCqt, chordLogits, detectChords, smoothPath, pathToSegments, classToChord, VOCA, SR, HOP, STEPS, BINS, FPS };
+module.exports = { logCqt, chordLogits, detectChords, smoothPath, buildPrior, pathToSegments, classToChord, VOCA, SR, HOP, STEPS, BINS, FPS };
