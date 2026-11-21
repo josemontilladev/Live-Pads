@@ -389,8 +389,21 @@ async function startTrackPlayback(url, title, type) {
   audio = new PitchAudio(audioCtx);
   // Restaurar tono guardado en la canción (si lo hay) antes de cargar el audio.
   {
-    const manual = Number((currentSong && currentSong.audio && currentSong.audio.pitch) || 0) || 0;
-    currentPitch = Math.max(-12, Math.min(12, keyShiftFor(currentSong) + manual));
+    let manual = Number((currentSong && currentSong.audio && currentSong.audio.pitch) || 0) || 0;
+    const shift = keyShiftFor(currentSong);
+    // Paso al transporte automático (1.0.275): antes el tono del servicio no movía
+    // el audio y había quien lo compensaba a mano con ▼ ▲. Si lo guardado es
+    // EXACTAMENTE el transporte del servicio, era esa compensación: se pone a 0
+    // (una sola vez por canción) para no transportar el doble.
+    if (currentSong && currentSong.audio && !currentSong.audio.pitchAuto) {
+      if (manual !== 0 && manual === shift) {
+        manual = 0;
+        currentSong.audio.pitch = 0;
+      }
+      currentSong.audio.pitchAuto = true;
+      if (typeof deps.persistSong === 'function') { try { deps.persistSong(currentSong); } catch (_) {} }
+    }
+    currentPitch = Math.max(-12, Math.min(12, shift + manual));
   }
   audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
