@@ -225,6 +225,7 @@ export function songCardInnerHTML(song, opts) {
       <button class="action-btn btn-seq ${seqCls}" data-action="play-seq" title="Cargar la secuencia de esta canción (después pulsa Play)">${ICON_SEQ}</button>
       <button class="action-btn btn-orig ${origCls}" data-action="play-orig" title="Cargar la canción original (después pulsa Play)">${ICON_ORIG}</button>
       ${includeAdd ? addBtnHtml(opts.inService) : ''}
+      <button class="action-btn btn-more" data-action="more" title="Más opciones (editar, audio, letra…)" aria-label="Más opciones">${ICON_MORE}</button>
     </div>
 
     <div class="gi-lyrics-accordion ${isLyricsOpen ? 'open' : ''}">

@@ -685,3 +685,43 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 .lyr-key-target:disabled { opacity: .45; cursor: default; }
 :root[data-theme-style="flat"] .lyr-key-tools { background: var(--flat-ink); border-color: var(--flat-outline); }
 :root[data-theme-style="flat"] .lyr-key-target { background-color: var(--flat-side) !important; border-color: var(--flat-outline) !important; }
+
+/* ── Formulario de la canción: sección «Audio» ordenada ──────────────────────
+   Una fila por pista: nombre, «✓ asignado» en una línea y botones pequeños en
+   cápsula que bajan a la línea siguiente si no caben (antes se partía el texto
+   y «Desde YouTube» se salía de la tarjeta). */
+.gi-edit-audio-row {
+  display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 8px !important;
+  padding: 6px 0 !important;
+}
+.gi-edit-audio-label { flex: 0 0 74px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.gi-edit-audio-status {
+  display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px;
+  white-space: nowrap; font-size: 12px; font-weight: 700;
+}
+.gi-edit-audio-status.has { background: color-mix(in srgb, #22c55e 14%, transparent); color: #4ade80 !important; }
+.gi-edit-audio-clear {
+  width: 26px !important; height: 26px !important; min-width: 0 !important; padding: 0 !important; border-radius: 50% !important;
+  display: inline-flex !important; align-items: center; justify-content: center;
+}
+.gi-edit-audio-assign {
+  height: 28px !important; padding: 0 12px !important; border-radius: 999px !important; white-space: nowrap;
+  font-size: 12px !important; font-weight: 700 !important; border-style: solid !important;
+}
+:root[data-theme-style="flat"] .gi-edit-audio-assign { background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; }
+:root[data-theme-style="flat"] .gi-edit-audio-clear { background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; }
+
+/* ── Botón ⋯ (más opciones) en la canción seleccionada ──
+   Abre el mismo menú que el clic derecho o mantener pulsado; así se ve que hay
+   más opciones. En las demás tarjetas no aparece (sigue el clic derecho). */
+.gi-song-item:not(.active-song) .gi-song-actions .btn-more { display: none !important; }
+.gi-song-item.active-song .gi-song-actions .btn-more {
+  display: inline-flex !important; align-items: center; justify-content: center;
+  width: 32px !important; height: 32px !important; padding: 0 !important; border-radius: 50% !important; margin-left: auto;
+}
+.gi-song-item.active-song .gi-song-actions .btn-add + .btn-more { margin-left: 6px; }
+.gi-song-item.active-song .gi-song-actions .btn-more svg { width: 16px; height: 16px; }
+.gi-song-item.active-song .gi-song-actions .btn-more::after { content: none !important; }
+:root[data-theme-style="flat"] .gi-song-item.active-song .gi-song-actions .btn-more {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}

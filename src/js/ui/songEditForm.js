@@ -114,7 +114,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
                  <button class="gi-edit-audio-clear ui-remove" data-action="clear-audio-orig" type="button" title="Quitar audio original">×</button>`
               : ''}
             <button class="gi-edit-audio-assign" data-action="assign-audio-orig" type="button">${origPath ? 'Reemplazar' : 'Asignar archivo'}</button>
-            <button class="gi-edit-audio-assign gi-edit-audio-yt" data-action="yt-audio-orig" type="button" title="Descargar el audio desde un enlace de YouTube (requiere internet)">▶ Desde YouTube</button>
+            <button class="gi-edit-audio-assign gi-edit-audio-yt" data-action="yt-audio-orig" type="button" title="Descargar el audio desde un enlace de YouTube (requiere internet)">▶ YouTube</button>
           </div>
         </div>
       </details>
