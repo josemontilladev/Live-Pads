@@ -1058,3 +1058,17 @@ input.mo-switch:checked::after { transform: translateX(16px); }
 .stl-batch { padding: 8px !important; border-radius: 16px !important; }
 .stl-src { height: 38px; box-sizing: border-box; }
 .stl-batch-all { padding-left: 6px; }
+/* Etiqueta de pista + «nube»: más aire y la marca en minúscula y discreta. */
+#workspace-stems .stems-row.is-cloud .stems-row-kind {
+  display: inline-flex !important; align-items: center; gap: 6px; padding: 3px 4px 3px 9px !important;
+}
+#workspace-stems .stems-row.is-cloud .stems-row-kind::after {
+  content: "nube" !important; margin: 0 !important; padding: 1px 7px !important;
+  text-transform: none !important; letter-spacing: .02em !important; font-size: 9px !important; font-weight: 600 !important;
+  line-height: 1.3; border: 0 !important; border-radius: 999px; opacity: 1 !important;
+  background: rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .85);
+}
+#workspace-stems .stems-row-name { padding-left: 10px !important; padding-right: 10px !important; }
+/* Todas las etiquetas de tipo de pista (AUDIO, CLICK, OTROS…): con aire dentro. */
+#workspace-stems .stems-row-kind { padding: 3px 9px !important; line-height: 1.3 !important; }
+#workspace-stems .stems-row.is-cloud .stems-row-kind { padding: 3px 4px 3px 9px !important; }
