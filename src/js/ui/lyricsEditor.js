@@ -2,6 +2,25 @@ import { esc } from '../utils/dom.js';
 import { wrapTextareaSelection, insertTextAtCursor } from '../utils/text.js';
 import { formatLyrics, highlightSyntax, autoFormatLyrics, repairLyrics, cleanPastedLyrics, describeRepair } from './lyricsFormat.js';
 import { transposeAll, keyPrefersFlats } from './chordTransposer.js';
+import { parseLyricStructure, parseChord } from './songStructure.js';
+import { keyFromSegments } from '../chords/trackChords.js';
+import { noteName, keyDelta } from '../utils/musicKeys.js';
+
+// Tono en que está ESCRITA la letra (por sus acordes), independiente del tono
+// de la tarjeta: la letra puede haberse escrito o transportado a otro tono.
+export function lyricKeyOf(text) {
+  let secs = [];
+  try { secs = parseLyricStructure(text || ''); } catch (_) { return null; }
+  const ch = [];
+  for (const s of secs) for (const c of (s.chords || [])) { const p = c && c.n ? parseChord(c.n) : null; if (p) ch.push(p); }
+  if (ch.length < 2) return null;
+  const k = keyFromSegments(ch.map((c, i) => ({ s: i, e: i + 1, r: c.r, q: c.q })), ch.length, null);
+  const flats = keyPrefersFlats(noteName(k.k, true) + (k.m ? 'm' : ''));
+  return { k: k.k, m: k.m, name: noteName(k.k, !!flats) + (k.m ? 'm' : '') };
+}
+const KEY_ROOTS = [['C', 'C'], ['Db', 'C#'], ['D', 'D'], ['Eb', 'D#'], ['E', 'E'], ['F', 'F'], ['Gb', 'F#'], ['G', 'G'], ['Ab', 'G#'], ['A', 'A'], ['Bb', 'A#'], ['B', 'B']];
+// Nombre habitual de cada tono (mayor: Db Eb F Gb Ab Bb; menor: C#m D#m F#m G#m Bbm…).
+const keyLabel = (i, minor) => (minor ? (keyPrefersFlats(KEY_ROOTS[i][0] + 'm') ? KEY_ROOTS[i][0] : KEY_ROOTS[i][1]) + 'm' : (keyPrefersFlats(KEY_ROOTS[i][0]) ? KEY_ROOTS[i][0] : KEY_ROOTS[i][1]));
 import { parseChordPage } from '../data/chordImporter.js';
 import { showDialog, confirmDialog, confirmDialogAsync } from './dialog.js';
 import { pushModal } from './modalStack.js';
@@ -22,7 +41,7 @@ const SECTION_INSERTS = {
 
 function modalHTML(song) {
   const keyBadge = song.key
-    ? `<span class="lyrics-key-badge">Tono: ${esc(song.key)}</span>`
+    ? `<span class="lyrics-key-badge" title="Tono de la tarjeta (el de los acordes de la letra se elige abajo, en «Letra en…»)">Tarjeta: ${esc(song.key)}</span>`
     : '';
 
   return `
@@ -55,6 +74,10 @@ function modalHTML(song) {
         <button type="button" class="format-tool-btn autoformat-btn" data-action="autoformat" title="Auto-formato: detecta y marca las secciones (CORO, VERSO…) del texto pegado. Los acordes se reconocen solos.">✨ Auto</button>
         <button type="button" class="format-tool-btn repair-btn" data-action="repair" title="Reparar letra: limpia lo pegado de la web (caracteres invisibles, basura) y une cada acorde con su sílaba, para que ocupe una línea en vez de dos.">🔧 Reparar</button>
         <div class="toolbar-sep"></div>
+        <div class="lyr-key-tools" title="Tono en que están escritos los acordes de esta letra (no cambia el tono de la tarjeta)">
+          <span class="lyr-key-label">Letra en <b class="lyr-key-now">—</b></span>
+          <select class="lyr-key-target" aria-label="Llevar los acordes a otro tono"><option value="">Llevar a…</option></select>
+        </div>
         <div class="transpose-group" title="Transponer todos los acordes ±1 semitono">
           <button type="button" class="format-tool-btn transpose-btn" data-action="transpose-down" title="Bajar medio tono">▼</button>
           <span class="transpose-counter" data-shift="0">0</span>
@@ -117,7 +140,7 @@ export function openLyricsEditorModal(song, onSaveCallback) {
 
   // Accidental preference: flat-leaning keys (F, Bb, Eb, ...) get flat names
   // on transposition; sharp keys get sharps. Null = preserve original per chord.
-  const preferFlats = keyPrefersFlats(song.key);
+  let preferFlats = keyPrefersFlats(song.key);
 
   setTimeout(() => {
     overlay.style.opacity = '1';
@@ -260,6 +283,31 @@ export function openLyricsEditorModal(song, onSaveCallback) {
 
   /* ── Transposition controls ── */
   const transposeCounter = overlay.querySelector('.transpose-counter');
+  // «Letra en X» y la lista «Llevar a…» (en el mismo modo: mayor o menor).
+  const keyNowEl = overlay.querySelector('.lyr-key-now');
+  const keySel = overlay.querySelector('.lyr-key-target');
+  const paintLyricKey = () => {
+    const lk = lyricKeyOf(textarea.value);
+    keyNowEl.textContent = lk ? lk.name : '—';
+    keySel.disabled = !lk;
+    const minor = !!(lk && lk.m);
+    keySel.innerHTML = '<option value="">Llevar a…</option>' + KEY_ROOTS.map((_, i) => {
+      const lbl = keyLabel(i, minor);
+      return `<option value="${lbl}" ${lk && lk.k === i ? 'disabled' : ''}>${lbl}</option>`;
+    }).join('');
+    return lk;
+  };
+  keySel.onchange = () => {
+    const target = keySel.value;
+    const lk = lyricKeyOf(textarea.value);
+    keySel.value = '';
+    if (!target || !lk) return;
+    const d = keyDelta(lk.name, target);
+    if (!d) return;
+    // Notación del tono DESTINO (bemoles en F, Bb, Eb…), no la de la tarjeta.
+    preferFlats = keyPrefersFlats(target);
+    applyTranspose(d);
+  };
   const applyTranspose = (delta) => {
     if (!textarea.value) return;
     const currentShift = parseInt(transposeCounter.dataset.shift || '0', 10);
@@ -281,16 +329,19 @@ export function openLyricsEditorModal(song, onSaveCallback) {
     textarea.selectionStart = Math.min(savedSelStart, textarea.value.length);
     textarea.selectionEnd = Math.min(savedSelEnd, textarea.value.length);
     refreshHighlight();
+    paintLyricKey();
   };
+  paintLyricKey();
+  textarea.addEventListener('input', () => { clearTimeout(paintLyricKey._t); paintLyricKey._t = setTimeout(paintLyricKey, 400); });
 
-  overlay.querySelector('[data-action="transpose-up"]').onclick = (e) => {
-    e.stopPropagation();
-    applyTranspose(1);
+  // ▼ ▲: la notación sigue al tono al que se llega (no al de la tarjeta).
+  const stepTo = (d) => {
+    const lk = lyricKeyOf(textarea.value);
+    if (lk) preferFlats = keyPrefersFlats(noteName(lk.k + d, true) + (lk.m ? 'm' : ''));
+    applyTranspose(d);
   };
-  overlay.querySelector('[data-action="transpose-down"]').onclick = (e) => {
-    e.stopPropagation();
-    applyTranspose(-1);
-  };
+  overlay.querySelector('[data-action="transpose-up"]').onclick = (e) => { e.stopPropagation(); stepTo(1); };
+  overlay.querySelector('[data-action="transpose-down"]').onclick = (e) => { e.stopPropagation(); stepTo(-1); };
 
   /* ── Import letra+acordes desde URL ──
      Pide la URL, descarga el HTML vía IPC (whitelist en main), parsea y

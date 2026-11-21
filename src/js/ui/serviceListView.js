@@ -802,7 +802,7 @@ function initDelegation() {
         deps.persistServiceSongs();
         repaintServiceCard(card, song);
         // Tono nuevo: reemplaza al fijado para el servicio y llega al pad (app.js).
-        if (keyChanged) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song: librarySongOf(song) || song } }));
+        if (keyChanged || song.key) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song: librarySongOf(song) || song } }));
         return;
       }
       case 'edit-cancel':

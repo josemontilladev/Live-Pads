@@ -395,11 +395,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncSlider,
     // Persiste cualquier cambio en la canción (ej. pitch del track player).
     persistSong: (song) => {
-      const giSong = getSongs().find(s => s.title === song.title && s.artist === song.artist);
+      const same = (s) => (song.cloudId && s.cloudId === song.cloudId) || (song.id != null && String(s.id) === String(song.id));
+      const giSong = getSongs().find(same) || getSongs().find(s => s.title === song.title && s.artist === song.artist);
       if (giSong && giSong !== song) {
         if (!giSong.audio) giSong.audio = {};
         Object.assign(giSong.audio, song.audio || {});
       }
+      // Las copias de esa canción en el servicio, con el mismo ajuste (y a disco).
+      let svcChanged = false;
+      for (const c of getServiceSongs()) {
+        if (c === song || !(same(c) || (giSong && ((giSong.cloudId && c.cloudId === giSong.cloudId) || String(c.id) === String(giSong.id))))) continue;
+        if (!c.audio) c.audio = {};
+        c.audio.pitch = (song.audio || {}).pitch;
+        c.audio.pitchAuto = (song.audio || {}).pitchAuto;
+        svcChanged = true;
+      }
+      if (svcChanged || getServiceSongs().includes(song)) saveServiceSongs();
       persistGiSongs();
     },
     onAudioPathAssigned: (song, type, newPath) => {

@@ -638,7 +638,8 @@ function initDelegation() {
         // Toda edición guardada → sincronizar a la nube (sin re-render extra).
         window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
         // Tono nuevo: que mande sobre el fijado para el servicio y llegue al pad (app.js).
-        if ((song.key || '') !== oldKey) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song } }));
+        // (Aunque no cambie: si el servicio tenía fijado otro tono, al guardar la tarjeta manda el de la tarjeta.)
+        if ((song.key || '') !== oldKey || song.key) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song } }));
         const sortChanged = oldTitle !== song.title;
         const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
         if (libChanged) {
