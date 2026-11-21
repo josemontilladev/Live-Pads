@@ -80,13 +80,13 @@ import {
   initService, getServiceSongs, getActiveServiceIndex, setActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
-  serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey
+  serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey, clearKeyOverride
 } from './data/service.js';
-import { parseKey } from './utils/musicKeys.js';
+import { parseKey, keyDelta } from './utils/musicKeys.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
-  setPlayBtnIcon
+  setPlayBtnIcon, reapplyKeyShift
 } from './audio/trackPlayer.js';
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
@@ -320,6 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     onKeyChanged: (song) => {
       const i = getActiveServiceIndex();
       if (i >= 0 && getServiceSongs()[i] === song) applyGiSong(song);
+      reapplyKeyShift(song);   // la secuencia/original cargada pasa al tono nuevo
     },
     persistLibrary: persistGiSongs,
     syncLyricsToLibrary: (song) => {
@@ -457,6 +458,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Al cambiar el tono (+1/-1 semitono), actualiza el pad de notas para que
     // el botón resaltado refleje la tonalidad real de la canción en ese momento.
     onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
+    // Semitonos de la grabación (tono de la librería) al tono de este servicio.
+    getKeyShift: (song) => {
+      if (!song || !song.key) return 0;
+      const eff = getEffectiveKey(song);
+      if (!eff || eff === song.key) return 0;
+      return keyDelta(song.key, eff) || 0;
+    },
   });
 
   await licenseReady;
@@ -1247,6 +1255,23 @@ function bindRestOfApp() {
     // actualizó un compañero se refrescaba en la Librería pero el servicio
     // seguía mostrando (y tocando) el tono, BPM y letra viejos.
     if (syncServiceWithLibrary()) renderServiceList();
+  });
+
+  // Se cambió el tono de una canción (al editarla, en la Librería o en el Servicio).
+  // El tono fijado «para este servicio» manda sobre el de la librería: si se
+  // quedaba, la tarjeta mostraba el nuevo (Cm) pero el pad seguía en el viejo
+  // (D#), y el servicio lo marcaba como «baja de tono». Elegir un tono nuevo lo
+  // reemplaza: se quita el del servicio, se refrescan sus copias y, si es la
+  // canción cargada, el pad pasa ya al tono nuevo (en mayor o menor).
+  window.addEventListener('livepads:song-key-changed', (ev) => {
+    const song = ev?.detail?.song;
+    if (!song) return;
+    clearKeyOverride(song);
+    syncServiceWithLibrary();
+    renderServiceList();
+    reapplyKeyShift(song);
+    const live = getSongs().find((s) => (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id));
+    if (live && getActiveSongIdFromStore() != null && String(getActiveSongIdFromStore()) === String(live.id)) applyGiSong(live);
   });
 
   // Descarga automática de carátulas y audios (sin pulsar "Sincronizar"): un aviso
@@ -2374,7 +2399,11 @@ function applyGiSong(song) {
       // Guardar el semitono base (0-11) de la nota raíz de esta canción para
       // poder recalcular el pad correcto cuando el usuario transponga el tono
       // del reproductor con los botones ▲/▼ del track player.
-      _songBaseKeySemitone = keys.indexOf(key);
+      // Base = tono de la LIBRERÍA (el de la grabación). El pad suena en base +
+      // transporte del audio, que ya incluye el del servicio: así no se cuenta dos
+      // veces (antes, con el servicio en F y la secuencia bajada a mano, el pad
+      // acababa en D#).
+      { const bk = parseKey(song.key); _songBaseKeySemitone = bk ? bk.semitone : keys.indexOf(key); }
       // Modo del pad (mayor/menor) según el tono de la canción ("Am" → menor).
       const pk = parseKey(liveKey);
       _preparedPadMinor = pk ? pk.minor : null;

@@ -616,6 +616,7 @@ function initDelegation() {
       case 'edit-save': {
         const oldTitle = song.title;
         const oldGenre = song.genre;
+        const oldKey = song.key || '';
         const valTitle = card.querySelector('.edit-title').value.trim();
         song.title = valTitle || 'Nueva Canción';
         song.artist = card.querySelector('.edit-artist').value.trim();
@@ -636,6 +637,8 @@ function initDelegation() {
         deps.updateFilterCounts();
         // Toda edición guardada → sincronizar a la nube (sin re-render extra).
         window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+        // Tono nuevo: que mande sobre el fijado para el servicio y llegue al pad (app.js).
+        if ((song.key || '') !== oldKey) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song } }));
         const sortChanged = oldTitle !== song.title;
         const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
         if (libChanged) {

@@ -786,7 +786,9 @@ function initDelegation() {
         song.title = card.querySelector('.edit-title').value;
         song.artist = card.querySelector('.edit-artist').value;
         song.bpm = card.querySelector('.edit-bpm').value;
+        const prevKey = song.key || '';
         song.key = card.querySelector('.edit-key').value;
+        const keyChanged = (song.key || '') !== prevKey;
         song.genre = card.querySelector('.edit-genre').value;
         {
           const sk = card.querySelector('.edit-singerkeys');
@@ -799,6 +801,8 @@ function initDelegation() {
         deps.syncMetaToLibrary(oldKey, song);
         deps.persistServiceSongs();
         repaintServiceCard(card, song);
+        // Tono nuevo: reemplaza al fijado para el servicio y llega al pad (app.js).
+        if (keyChanged) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song: librarySongOf(song) || song } }));
         return;
       }
       case 'edit-cancel':

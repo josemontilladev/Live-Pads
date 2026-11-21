@@ -96,13 +96,20 @@ export const getTrackPitch  = () => currentPitch;
 
 // Ajusta el tono del audio cargado en semitonos (sin alterar el tempo).
 // Se acota a ±12 semitonos. Persiste por canción vía deps.persistSong (si existe).
+// Transporte automático por el tono del SERVICIO: la grabación está en el tono
+// de la librería; si ese día se toca en otro (p. ej. G → F), el audio se mueve
+// solo esos semitonos. Lo que se guarda en la canción es únicamente el ajuste
+// manual (▼ ▲), para no acumularlo ni llevarlo a otros servicios.
+function keyShiftFor(song) {
+  try { return Math.round(Number(deps.getKeyShift ? deps.getKeyShift(song) : 0) || 0); } catch (_) { return 0; }
+}
 export function setTrackPitch(n) {
   const v = Math.max(-12, Math.min(12, Math.round(Number(n) || 0)));
   currentPitch = v;
   if (audio) { try { audio.pitchSemitones = v; } catch (_) {} }
   if (currentSong) {
     if (!currentSong.audio) currentSong.audio = {};
-    currentSong.audio.pitch = v;
+    currentSong.audio.pitch = v - keyShiftFor(currentSong);
     if (typeof deps.persistSong === 'function') {
       try { deps.persistSong(currentSong); } catch (_) {}
     }
@@ -112,6 +119,18 @@ export function setTrackPitch(n) {
   if (typeof deps.onPitchChange === 'function') {
     try { deps.onPitchChange(v, currentSong); } catch (_) {}
   }
+}
+
+/** Vuelve a aplicar el transporte del servicio a la pista cargada (el tono del
+ *  servicio o el de la librería cambió). Conserva el ajuste manual. */
+export function reapplyKeyShift(song) {
+  if (!audio || !currentSong) return;
+  if (song && currentSong !== song && !((song.cloudId && song.cloudId === currentSong.cloudId) || String(song.id) === String(currentSong.id))) return;
+  const manual = Number((currentSong.audio && currentSong.audio.pitch) || 0) || 0;
+  currentPitch = Math.max(-12, Math.min(12, keyShiftFor(currentSong) + manual));
+  try { audio.pitchSemitones = currentPitch; } catch (_) {}
+  paintPitchUI();
+  if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch, currentSong); } catch (_) {} }
 }
 
 function paintPitchUI() {
@@ -369,12 +388,17 @@ async function startTrackPlayback(url, title, type) {
   if (!ensureAudioCtx()) { console.warn('Web Audio no disponible'); return; }
   audio = new PitchAudio(audioCtx);
   // Restaurar tono guardado en la canción (si lo hay) antes de cargar el audio.
-  currentPitch = Number((currentSong && currentSong.audio && currentSong.audio.pitch) || 0) || 0;
+  {
+    const manual = Number((currentSong && currentSong.audio && currentSong.audio.pitch) || 0) || 0;
+    currentPitch = Math.max(-12, Math.min(12, keyShiftFor(currentSong) + manual));
+  }
   audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
   currentType = type;
   connectPanGraph();
   paintPitchUI();
+  // El pad sigue al tono real del audio (incluido el transporte del servicio).
+  if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch, currentSong); } catch (_) {} }
   // La onda con secciones (ui/seqWaveform.js) escucha este evento.
   try { window.dispatchEvent(new CustomEvent('livepads:track-loaded', { detail: { audio, song: currentSong, type } })); } catch (_) {}
 
