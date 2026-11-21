@@ -639,7 +639,7 @@ function initDelegation() {
         window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
         // Tono nuevo: que mande sobre el fijado para el servicio y llegue al pad (app.js).
         // (Aunque no cambie: si el servicio tenía fijado otro tono, al guardar la tarjeta manda el de la tarjeta.)
-        if ((song.key || '') !== oldKey || song.key) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song } }));
+        if ((song.key || '') !== oldKey || song.key) window.dispatchEvent(new CustomEvent('livepads:song-key-changed', { detail: { song, oldKey } }));
         const sortChanged = oldTitle !== song.title;
         const filterChanged = getCurrentGenre() !== 'all' && oldGenre !== song.genre;
         if (libChanged) {

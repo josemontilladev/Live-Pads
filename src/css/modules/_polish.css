@@ -725,3 +725,25 @@ body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform
 :root[data-theme-style="flat"] .gi-song-item.active-song .gi-song-actions .btn-more {
   background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
 }
+
+/* ── 🔗 Tono ligado (junto a ▼ ▲ del reproductor) ───────────────────────
+   Encendido: eslabón en color de acento; apagado: atenuado y con la cadena
+   «abierta» (los dos eslabones se separan). */
+.tp-pitch-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 22px; padding: 0; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-muted); opacity: .55; cursor: pointer;
+  transition: color .15s, opacity .15s;
+}
+.tp-pitch-link svg path { transition: transform .18s ease; }
+.tp-pitch-link:not(.on) .lk-a { transform: translate(1.5px, -1.5px); }
+.tp-pitch-link:not(.on) .lk-b { transform: translate(-1.5px, 1.5px); }
+.tp-pitch-link.on { color: var(--blue); opacity: 1; }
+.tp-pitch-link:hover { opacity: 1; }
+:root[data-theme-style="flat"] .tp-pitch-group > .tp-pitch-link { min-width: 28px; color: var(--flat-text) !important; opacity: .5; }
+:root[data-theme-style="flat"] .tp-pitch-group > .tp-pitch-link.on { opacity: 1; color: var(--flat-accent, var(--blue)) !important; }
+
+/* Los avisos traen párrafos (
+
+): que se vean como tales. */
+#dialog-message { white-space: pre-line; }

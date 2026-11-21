@@ -16,6 +16,7 @@ import { PitchAudio } from './pitchAudio.js';
 import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+import { isKeyLinked, setKeyLinked } from '../utils/keyLink.js';
 
 // Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
 // _pads-clean.css) y el título indica cómo cargar una.
@@ -636,10 +637,33 @@ export function bindTrackPlayerControls() {
   const tpPitchUp = q('#tp-pitch-up');
   const tpPitchDown = q('#tp-pitch-down');
   const tpPitchReset = q('#tp-pitch-val');
-  if (tpPitchUp)   tpPitchUp.onclick   = () => setTrackPitch(currentPitch + 1);
-  if (tpPitchDown) tpPitchDown.onclick = () => setTrackPitch(currentPitch - 1);
+  // Ajuste A MANO (▼ ▲, doble clic, MIDI): con «Tono ligado», app.js mueve también
+  // el tono de la tarjeta y los acordes de la letra (deps.onManualPitchStep).
+  const manualPitch = (target) => {
+    const prev = currentPitch;
+    setTrackPitch(target);
+    const d = currentPitch - prev;
+    if (d && currentSong && typeof deps.onManualPitchStep === 'function') {
+      try { deps.onManualPitchStep(currentSong, d); } catch (e) { console.warn('[trackPlayer] tono ligado:', e); }
+    }
+  };
+  if (tpPitchUp)   tpPitchUp.onclick   = () => manualPitch(currentPitch + 1);
+  if (tpPitchDown) tpPitchDown.onclick = () => manualPitch(currentPitch - 1);
   // Doble-clic en el contador para resetear a 0.
-  if (tpPitchReset) tpPitchReset.ondblclick = () => setTrackPitch(0);
+  if (tpPitchReset) tpPitchReset.ondblclick = () => manualPitch(0);
+  // 🔗 Tono ligado: encadena tarjeta + pad + acordes de la letra + audio.
+  const tpLink = q('#tp-pitch-link');
+  const paintLink = () => {
+    if (!tpLink) return;
+    const on = isKeyLinked();
+    tpLink.classList.toggle('on', on);
+    tpLink.setAttribute('aria-pressed', on ? 'true' : 'false');
+    tpLink.title = on
+      ? 'Tono ligado: ▼ ▲ y el tono de la tarjeta mueven también los acordes de la letra (y el pad). Clic para desligar.'
+      : 'Tono desligado: ▼ ▲ solo transporta el audio y el pad; la tarjeta y la letra no cambian. Clic para ligar.';
+  };
+  if (tpLink) tpLink.onclick = () => { setKeyLinked(!isKeyLinked()); paintLink(); };
+  paintLink();
   paintPitchUI();
 }
 

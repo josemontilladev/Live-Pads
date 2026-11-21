@@ -80,9 +80,10 @@ import {
   initService, getServiceSongs, getActiveServiceIndex, setActiveServiceIndex,
   loadServiceSongs, saveServiceSongs, addToService, removeFromService,
   reorderService, syncActiveByTitleArtist, peekNextServiceSong,
-  serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey, clearKeyOverride
+  serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey, clearKeyOverride, getKeyOverride, setKeyOverride
 } from './data/service.js';
 import { parseKey, keyDelta } from './utils/musicKeys.js';
+import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shiftKey } from './utils/keyLink.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
@@ -408,6 +409,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!c.audio) c.audio = {};
         c.audio.pitch = (song.audio || {}).pitch;
         c.audio.pitchAuto = (song.audio || {}).pitchAuto;
+        c.audio.keyPitch = (song.audio || {}).keyPitch;
         svcChanged = true;
       }
       if (svcChanged || getServiceSongs().includes(song)) saveServiceSongs();
@@ -469,6 +471,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Al cambiar el tono (+1/-1 semitono), actualiza el pad de notas para que
     // el botón resaltado refleje la tonalidad real de la canción en ese momento.
     onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
+    // ▼ ▲ a mano con «Tono ligado»: la tarjeta y los acordes de la letra siguen al audio.
+    onManualPitchStep: (song, delta) => linkedPitchFollow(song, delta),
     // Semitonos de la grabación (tono de la librería) al tono de este servicio.
     getKeyShift: (song) => {
       if (!song || !song.key) return 0;
@@ -1278,11 +1282,40 @@ function bindRestOfApp() {
     const song = ev?.detail?.song;
     if (!song) return;
     clearKeyOverride(song);
-    syncServiceWithLibrary();
-    renderServiceList();
-    reapplyKeyShift(song);
-    const live = getSongs().find((s) => (song.cloudId && s.cloudId === song.cloudId) || String(s.id) === String(song.id));
-    if (live && getActiveSongIdFromStore() != null && String(getActiveSongIdFromStore()) === String(live.id)) applyGiSong(live);
+    // «Tono ligado»: ¿se transporta todo (letra + audio) o solo se corrige el tono?
+    // Se pregunta ANTES de recargar la pista (un aviso de audio no pisa el diálogo).
+    const oldKey = ev.detail.oldKey || '';
+    const live = libraryLive(song) || song;
+    const ch = (isKeyLinked() && oldKey && live.key && oldKey !== live.key) ? linkedKeyChange(live, oldKey, live.key) : null;
+    const hasChords = /[[A-G]/.test(live.lyrics || '');
+    const hasAudio = !!(live.audio && (live.audio.sequence || live.audio.original));
+    if (!ch || (!hasChords && !hasAudio)) { refreshAfterKeyEdit(song); return; }
+    const what = [hasChords && 'los acordes de la letra', hasAudio && 'el audio (secuencia / original)'].filter(Boolean).join(' y ');
+    confirmDialogAsync({
+      title: `Cambiar tono de ${oldKey} a ${live.key}`,
+      message: `¿Paso también ${what} a ${live.key} (${ch.delta > 0 ? '+' : ''}${ch.delta} semitono${Math.abs(ch.delta) === 1 ? '' : 's'})?
+
+«Solo corregir» deja la letra y el audio como están: útil si el tono estaba mal anotado.`,
+      confirmLabel: 'Transportar todo',
+      cancelLabel: 'Solo corregir',
+      danger: false,
+    }).then((ok) => {
+      if (!live.audio) live.audio = {};
+      if (ok) {
+        live.lyrics = ch.lyrics;
+        live.audio.pitch = ch.pitch;
+        live.audio.keyPitch = ch.keyPitch;
+      } else {
+        // «Solo corregir»: el tono de la tarjeta pasa a ser el que SUENA ahora
+        // (grabación + transporte), así el pad no arrastra un transporte anterior.
+        live.audio.keyPitch = Number(live.audio.pitch) || 0;
+      }
+      persistGiSongs();
+      window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+      if (ok) renderGiList(q('#gi-search')?.value || '');
+      refreshAfterKeyEdit(live);
+      if (ok) showToast(`${live.title || 'Canción'}: letra y audio pasados a ${live.key}.`, 'success');
+    });
   });
 
   // Descarga automática de carátulas y audios (sin pulsar "Sincronizar"): un aviso
@@ -2331,6 +2364,47 @@ const renderServiceList = renderServiceListModule;
 
 
 
+// ── Tono ligado ─────────────────────────────────────────────────────────
+function libraryLive(song) {
+  if (!song) return null;
+  return getSongs().find((s) => (song.cloudId && s.cloudId === song.cloudId) || (song.id != null && String(s.id) === String(song.id))) || null;
+}
+function isActiveLibrarySong(live) {
+  const id = getActiveSongIdFromStore();
+  return !!(live && id != null && String(id) === String(live.id));
+}
+/** Tras cambiar tono/letra/audio de una canción: servicio, reproductor y pad al día. */
+function refreshAfterKeyEdit(song) {
+  syncServiceWithLibrary();
+  renderServiceList();
+  reapplyKeyShift(song);
+  const live = libraryLive(song);
+  if (isActiveLibrarySong(live)) applyGiSong(live);
+}
+/** ▼ ▲ del reproductor con «Tono ligado»: el audio ya se movió `delta`; la tarjeta
+ *  (y el tono fijado para el servicio, si lo hay) y los acordes le siguen. */
+function linkedPitchFollow(song, delta) {
+  if (!delta || !isKeyLinked()) return;
+  const live = libraryLive(song);
+  if (!live || !live.key) return;
+  const ch = linkedPitchStep(live, delta);
+  if (!ch) return;
+  const ov = getKeyOverride(live);
+  live.key = ch.key;
+  live.lyrics = ch.lyrics;
+  if (!live.audio) live.audio = {};
+  live.audio.keyPitch = ch.keyPitch;
+  if (song && song !== live && song.audio) live.audio.pitch = song.audio.pitch;
+  if (ov) setKeyOverride(live, shiftKey(ov, delta));
+  persistGiSongs();
+  syncServiceWithLibrary();
+  renderServiceList();
+  window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+  // Tarjetas, letra en vivo y carril de acordes se repintan; el audio y el pad ya
+  // están en su sitio (sin recargar la pista: se puede pulsar en pleno directo).
+  window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+}
+
 function applyGiSong(song) {
   // Switching songs → fold away the previous song's open lyrics so the list
   // stays tidy.
@@ -2414,7 +2488,7 @@ function applyGiSong(song) {
       // transporte del audio, que ya incluye el del servicio: así no se cuenta dos
       // veces (antes, con el servicio en F y la secuencia bajada a mano, el pad
       // acababa en D#).
-      { const bk = parseKey(song.key); _songBaseKeySemitone = bk ? bk.semitone : keys.indexOf(key); }
+      { const rs = recordingSemitone(song); _songBaseKeySemitone = rs != null ? rs : keys.indexOf(key); }
       // Modo del pad (mayor/menor) según el tono de la canción ("Am" → menor).
       const pk = parseKey(liveKey);
       _preparedPadMinor = pk ? pk.minor : null;
