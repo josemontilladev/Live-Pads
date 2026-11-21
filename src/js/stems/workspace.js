@@ -83,6 +83,80 @@ const STEM_PALETTE = [
   '#3b82f6'  // blue
 ];
 let nextStemColorIdx = 0;
+// ── Barra de Stems siempre en 2 filas ─────────────────────────────────────
+// Ninguna fila se parte en dos: si lo de una fila no cabe (p. ej. con los dos
+// paneles laterales abiertos), sus piezas menos usadas pasan, en este orden, al
+// menú «⋯» del final de la fila. Se mueven los MISMOS elementos (conservan IDs,
+// eventos, atajos y mapeo MIDI) y vuelven a su sitio en cuanto hay espacio.
+const SB_OVERFLOW = [
+  { row: '.sb-row--main', before: null,
+    order: ['.sb-chip--pitch', '.sb-zone--song > .sb-chip:nth-child(3)', '.sb-zone--song > .sb-chip:nth-child(2)', '.stems-histctl', '.sb-chip--bpm'] },
+  { row: '.sb-row--tools', before: '.sb-group--view',
+    order: ['.sb-group.sb-adv:not(.stems-loop-group)', '.stems-loop-group', '.sb-row--tools > .sb-group:first-child'] },
+];
+const _sbMoved = new Map();   // elemento movido → comentario que marca su sitio
+function sbOverflowFor(deck, cfg) {
+  const row = deck.querySelector(cfg.row);
+  if (!row) return null;
+  let wrap = row.querySelector(':scope > .sb-overflow');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'sb-overflow';
+    wrap.innerHTML = '<button class="sb-icon sb-overflow-btn" type="button" aria-haspopup="true" aria-expanded="false" title="Más controles (no caben en la barra)" aria-label="Más controles">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>' +
+      '<div class="sb-overflow-pop" role="group" aria-label="Más controles" hidden></div>';
+    const before = cfg.before ? row.querySelector(':scope > ' + cfg.before) : null;
+    row.insertBefore(wrap, before);
+    const btn = wrap.firstElementChild, pop = wrap.lastElementChild;
+    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!pop.hidden) { close(); return; }
+      pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth;
+      pop.style.top = (r.bottom + 6) + 'px';
+      pop.style.left = Math.max(8, Math.min(r.right - pw, window.innerWidth - pw - 8)) + 'px';
+    });
+    document.addEventListener('pointerdown', (e) => { if (!pop.hidden && !wrap.contains(e.target) && !e.target.closest?.('.stems-generators-pop, .stems-proj-dropdown')) close(); }, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) close(); });
+  }
+  return { row, wrap, pop: wrap.lastElementChild };
+}
+let _sbPieceRO = null, _sbFitTimer = 0;
+// Mientras un panel se despliega el ancho cambia en cada fotograma: se espera a
+// que se asiente y se reajusta una sola vez (reajustar en cada fotograma
+// entorpecía la animación).
+function scheduleFitStemsBar(deck) {
+  clearTimeout(_sbFitTimer);
+  _sbFitTimer = setTimeout(() => fitStemsBar(deck), 90);
+}
+function fitStemsBar(deck) {
+  if (!deck || !deck.offsetParent) return;     // oculta (otra pantalla): se ajusta al volver
+  // Si una pieza cambia de ancho (aparece «Aplicar», otra sección…), reajustar.
+  if (!_sbPieceRO && 'ResizeObserver' in window) {
+    _sbPieceRO = new ResizeObserver(() => scheduleFitStemsBar(deck));
+    deck.querySelectorAll('.sb-row--main > .sb-zone, .sb-zone--song > .sb-chip, .sb-row--tools > .sb-group').forEach((el) => _sbPieceRO.observe(el));
+  }
+  for (const cfg of SB_OVERFLOW) {
+    const o = sbOverflowFor(deck, cfg);
+    if (!o) continue;
+    // Todo a su sitio y medir de nuevo.
+    for (const el of [...o.pop.children]) { const mark = _sbMoved.get(el); if (mark) { mark.replaceWith(el); _sbMoved.delete(el); } }
+    o.wrap.classList.remove('is-on');
+    const fits = () => o.row.scrollWidth <= o.row.clientWidth + 1;
+    if (fits()) { o.pop.hidden = true; continue; }
+    o.wrap.classList.add('is-on');
+    for (const sel of cfg.order) {
+      const el = o.row.querySelector(sel);
+      if (!el || el.closest('.sb-overflow') || el.offsetParent === null) continue;
+      const mark = document.createComment('sb-overflow');
+      el.before(mark); _sbMoved.set(el, mark);
+      o.pop.appendChild(el);
+      if (fits()) break;
+    }
+  }
+}
+
 function nextStemColor() {
   const c = STEM_PALETTE[nextStemColorIdx % STEM_PALETTE.length];
   nextStemColorIdx++;
@@ -1293,9 +1367,7 @@ function wireTopbarEvents(root) {
       sbDeck.classList.toggle('sb--md', w < 1580);
       sbDeck.classList.toggle('sb--sm', w < 1300);
       sbDeck.classList.toggle('sb--xs', w < 1150);
-      // En la barra estrecha los datos de la canción bajan a su propia fila y
-      // queda sitio para los nombres de Importar / Biblioteca / Exportar.
-      sbDeck.classList.toggle('sb--labels', w < 1150 && w >= 860);
+      scheduleFitStemsBar(sbDeck);
     }).observe(sbDeck);
   }
   // Barra simple: oculta las herramientas de ensayo y de click (.sb-adv). Solo es
@@ -1314,6 +1386,7 @@ function wireTopbarEvents(root) {
       simple = !simple;
       try { localStorage.setItem('stems-tools-simple', simple ? '1' : '0'); } catch {}
       paintTools(simple);
+      fitStemsBar(sbDeck);
     };
   }
   // Volver al inicio SIN detener: si está sonando, sigue desde 0; si está en

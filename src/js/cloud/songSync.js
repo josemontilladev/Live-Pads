@@ -507,7 +507,13 @@ export async function pullLibrarySongs(opts = {}) {
           continue;
         }
         if (fromOther) {
+          // Lo que NO choca se aplica ya (p. ej. el tono nuevo de un compañero
+          // aunque aquí haya otra edición en la letra); solo queda en espera lo
+          // que choca. No se sella: la canción sigue «por subir» y el push no
+          // pisa la nube (staleCloudIds la ve más nueva) hasta que se resuelva.
+          for (const f of Object.keys(m.fields)) if (!m.conflicts.includes(f)) existing[f] = m.fields[f];
           conflicts.push({ cloudId: row.id, title: existing.title, byName: incoming.updatedByName, theirs: incoming, fields: m.conflicts });
+          refreshed++;
           continue;
         }
       }

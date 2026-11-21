@@ -158,7 +158,9 @@ try {
     const w0 = await evaluate(`document.getElementById('stems-library').getBoundingClientRect().width`);
     assert(w0 < 60, `plegado mide ${w0}px`);
     await evaluate(`document.querySelector('#stems-library .stl-rail').click()`);
-    await sleep(600);
+    // Se espera a que termine la animación de apertura (no un tiempo fijo: en un
+    // equipo cargado 600 ms no siempre bastaban y la prueba fallaba sin motivo).
+    try { await waitFor(`document.getElementById('stems-library').getBoundingClientRect().width > 300`, 3000); } catch (_) {}
     const w1 = await evaluate(`document.getElementById('stems-library').getBoundingClientRect().width`);
     assert(w1 > 300, `expandido mide ${w1}px`);
     const msg = await evaluate(`document.querySelector('#stems-library .stl-list').textContent`);

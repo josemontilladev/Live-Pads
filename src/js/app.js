@@ -340,7 +340,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (giCard) repaintGiCard(giCard, giSong);
     },
     syncMetaToLibrary: (oldKey, song) => {
-      const giSong = getSongs().find(s => (s.title + '\x00' + s.artist) === oldKey);
+      // Por identidad (cloudId / id) primero; título+artista solo para copias viejas.
+      const giSong = getSongs().find(s => (song.cloudId && s.cloudId === song.cloudId) || (song.id != null && String(s.id) === String(song.id)))
+        || getSongs().find(s => (s.title + '\x00' + s.artist) === oldKey);
       if (!giSong) return;
       giSong.title = song.title;
       giSong.artist = song.artist;
@@ -348,6 +350,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       giSong.key = song.key;
       giSong.genre = song.genre;
       persistGiSongs();
+      // Editar desde el Servicio también se sube a la nube: antes solo se guardaba
+      // en este equipo y los compañeros nunca veían, p. ej., el tono nuevo.
+      try { window.dispatchEvent(new Event('livepads:cloud-dirty')); } catch (_) {}
       // Title/artist may have moved the library card in sort order → full re-render.
       renderGiList(q('#gi-search').value);
     },
@@ -1290,13 +1295,19 @@ function bindRestOfApp() {
   // Debounced para agrupar ráfagas de ediciones; best-effort (silencioso si no
   // hay sesión/red). Avisa con un toast sutil solo cuando SUBE canciones nuevas.
   let cloudSyncTimer = null;
+  // Reintento con espera creciente (30 s, 1, 2, 4 min… hasta 5) si la subida
+  // falla: antes un fallo (sin red, sesión caducada) dejaba el cambio solo en
+  // este equipo hasta la siguiente edición.
+  let cloudRetryTimer = null, cloudRetryDelay = 30000;
   function scheduleCloudAutoSync() {
     if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+    if (cloudRetryTimer) { clearTimeout(cloudRetryTimer); cloudRetryTimer = null; }
     cloudSyncTimer = setTimeout(async () => {
       cloudSyncTimer = null;
       try {
         const { autoPushActiveLibrary } = await import('./cloud/songSync.js');
         const r = await autoPushActiveLibrary();
+        cloudRetryDelay = 30000;   // subió bien: el próximo fallo vuelve a esperar poco
         if (r && r.created > 0) {
           showToast(`${r.created} canción(es) sincronizada(s) con la nube.`, 'success');
         }
@@ -1317,9 +1328,26 @@ function bindRestOfApp() {
         // un fallo persistente aquí estuvo meses mudo (lotes con claves mixtas
         // rechazados por PostgREST) y las letras nunca llegaban a GI.Setlist.
         try { console.warn('[LivePads] auto-push a la nube falló:', e && e.message); } catch (_) {}
+        cloudRetryTimer = setTimeout(() => { cloudRetryTimer = null; scheduleCloudAutoSync(); }, cloudRetryDelay);
+        cloudRetryDelay = Math.min(cloudRetryDelay * 2, 300000);
       }
     }, 2000);
   }
+  // Lo que quedó sin subir (app cerrada antes de los 2 s, sin red, un fallo) se
+  // sube en cuanto se puede: tras cada bajada de la nube (también la del
+  // arranque) y al recuperar la conexión.
+  // Como mucho una vez por minuto: con un conflicto sin resolver la subida se
+  // aplaza y pide otra bajada, que volvería a llamar aquí (bucle cada 2-3 s).
+  let lastPendingPush = 0;
+  async function pushIfPending() {
+    try {
+      if (Date.now() - lastPendingPush < 60000 || cloudSyncTimer || cloudRetryTimer) return;
+      const { countPendingSongs } = await import('./cloud/songSync.js');
+      if (countPendingSongs() > 0) { lastPendingPush = Date.now(); scheduleCloudAutoSync(); }
+    } catch (_) {}
+  }
+  window.addEventListener('livepads:library-synced', pushIfPending);
+  window.addEventListener('online', () => { cloudRetryDelay = 30000; scheduleCloudAutoSync(); });
   // Señal genérica "cambió data de canciones, sincronizá" — NO re-renderiza la
   // lista (a diferencia de songs-changed), para editar metadatos/letra sin
   // reconstruir la vista en cada cambio. La disparan giList al guardar una

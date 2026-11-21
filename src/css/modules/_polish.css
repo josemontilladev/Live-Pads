@@ -1,0 +1,155 @@
+/* ═══ Pulido (nov. 2026) ═══════════════════════════════════════════════════
+   Va el último en index.css: corrige detalles de alineación y de acabado que
+   las capas anteriores dejaban sueltos. Cada bloque explica qué arregla. */
+
+/* ── Metrónomo de Pads: dos líneas alineadas ──────────────────────────────
+   Cada sección (play · BPM · compás · sonido) es una columna de dos filas de
+   alto fijo: arriba botón / − 120 + / 4/4 / Cowbell; abajo puntos / deslizador /
+   1x·2x / Opciones. Antes cada columna se centraba por su cuenta y las piezas de
+   arriba (y las de abajo) quedaban a alturas distintas. Solo en la disposición
+   de una fila (a ≤1300 px el panel ya pasa a una cuadrícula propia). */
+@media (min-width: 1301px) {
+  #panel-metro.horizontal-metro { align-items: center; }
+  #panel-metro > :is(.hm-play, .hm-bpm, .hm-compas, .hm-section--sounds) {
+    display: grid; grid-template-rows: 52px 40px; row-gap: 8px;
+    align-items: center; align-content: center;
+  }
+  #panel-metro > .hm-play { justify-items: center; }
+  #panel-metro > :is(.hm-bpm, .hm-compas, .hm-section--sounds) > * { margin-top: 0; margin-bottom: 0; }
+}
+
+/* ── Desplegables: la lista abierta con el estilo redondeado de la app ─────
+   `appearance: base-select` (select personalizable de Chromium) dibuja la lista
+   dentro de la página en vez de la nativa de Windows (cuadrada y con el azul del
+   sistema), así se le puede dar el acabado de los menús. El botón conserva su
+   flecha de siempre (imagen de fondo); la flecha propia del navegador se oculta. */
+select { appearance: base-select !important; align-items: center; }
+select::picker-icon { display: none; }
+select::picker(select) {
+  appearance: base-select;
+  margin-block: 6px;
+  padding: 6px;
+  min-width: anchor-size(width);
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+  scrollbar-width: thin;
+}
+:root select option {
+  display: flex; align-items: center;
+  min-height: 32px; padding: 6px 12px; border-radius: 9px;
+  background: transparent; color: var(--text);
+  font-size: 13px; font-weight: 550; white-space: nowrap; cursor: pointer;
+}
+:root select option::checkmark { display: none; }
+:root select option:is(:hover, :focus-visible) { background: var(--bg-hover); outline: none; }
+:root select option:checked { background: color-mix(in srgb, var(--accent) 20%, transparent); font-weight: 700; }
+:root select option:disabled { opacity: .45; cursor: default; }
+:root select optgroup {
+  display: block; padding: 6px 0 2px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted);
+}
+:root select optgroup + optgroup { margin-top: 4px; border-top: 1px solid var(--border); }
+/* Temas Consola: mismo acabado que sus menús (fondo del panel lateral, filo fino). */
+:root[data-theme-style="flat"] select::picker(select) {
+  background: var(--flat-side); color: var(--flat-text, #fff);
+  border: 1px solid var(--flat-outline);
+}
+:root[data-theme-style="flat"] select option { color: var(--flat-text, #fff); }
+:root[data-theme-style="flat"] select option:is(:hover, :focus-visible) { background: rgba(255, 255, 255, .10); }
+:root[data-theme-style="flat"] select option:checked { background: var(--flat-paper); color: var(--flat-ink); }
+
+/* ── Pads: la barra de progreso se rellena ────────────────────────────────
+   _trackplayer.css le da 7 px de alto con un #id, que gana al estilo del tema
+   Consola (ranura con 3 px de aire): el relleno quedaba en 1 px y solo se veía
+   el círculo moverse. */
+:root[data-theme-style="flat"] #tp-progress {
+  height: 14px; padding: 3px; border-radius: 7px; box-sizing: border-box;
+}
+:root[data-theme-style="flat"] #tp-progress::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; }
+:root[data-theme-style="flat"] #tp-progress::-webkit-slider-thumb { margin-top: -3px; }
+
+/* ── Stems: nombre del proyecto en una sola píldora ───────────────────────
+   En los temas Consola el campo heredaba la caja negra con borde de todos los
+   campos de texto y quedaba como un rectángulo metido dentro de la píldora. */
+:root[data-theme-style="flat"] #workspace-stems .sb-project {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important;
+  padding: 0 3px 0 14px; gap: 2px;
+}
+:root[data-theme-style="flat"] #workspace-stems .sb-project:focus-within { border-color: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] #workspace-stems .sb-project .stems-project-name {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important; outline: none; padding: 0 !important;
+}
+:root[data-theme-style="flat"] #workspace-stems .sb-project .sb-icon {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: transparent !important; border: 0 !important; color: var(--flat-text, #fff) !important;
+}
+:root[data-theme-style="flat"] #workspace-stems .sb-project .sb-icon:is(:hover, [aria-expanded="true"]) {
+  background: rgba(255, 255, 255, .12) !important;
+}
+
+/* ── Stems: flecha de los paneles laterales en el centro del borde ─────────
+   Contraído o desplegado, el botón para abrir/cerrar Canciones y Biblioteca es
+   una pestaña redonda en la mitad del borde interior del panel (antes estaba
+   arriba, en el título). */
+#workspace-stems .stems-setlist { overflow: visible; }
+#workspace-stems .stems-library { overflow: clip; overflow-clip-margin: 16px; }
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
+  position: absolute; top: 50%; z-index: 6;
+  width: 26px; height: 26px; margin: 0;
+  transform: translateY(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+#workspace-stems #stems-setlist-collapse,
+#workspace-stems .stems-setlist .ssl-rail-chevron { right: -14px; }
+#workspace-stems .stems-library .ssl-collapse-btn[data-act="close"],
+#workspace-stems .stems-library .ssl-rail-chevron { left: -14px; }
+#workspace-stems .stems-library .stl-body { overflow: visible; }
+
+/* ── Stems: la barra siempre en 2 filas ───────────────────────────────────
+   Ninguna fila se parte: lo que no cabe pasa al botón «⋯» del final de su fila
+   (workspace.js, fitStemsBar). Anula las reglas de ancho pequeño que bajaban
+   los datos de la canción a otra fila y ponían las herramientas en 2×2. */
+#workspace-stems .stems-deck.sb > :is(.sb-row--main, .sb-row--tools) {
+  display: flex !important; flex-wrap: nowrap !important; align-items: center;
+}
+#workspace-stems .stems-deck.sb > .sb-row--main { justify-content: space-between; }
+#workspace-stems .stems-deck.sb .sb-row--main > * { flex: 0 0 auto !important; margin: 0 !important; }
+#workspace-stems .stems-deck.sb .sb-zone--song { justify-content: flex-end; }
+#workspace-stems .stems-deck.sb .sb-row--tools > .sb-group { flex: 0 0 auto; justify-self: auto; }
+#workspace-stems .stems-deck.sb .sb-row--tools > .sb-group--view { margin-left: auto; }
+/* Fila 2 a la misma altura que la 1 (32 px) y un poco más apretada. */
+#workspace-stems .sb-row--tools { gap: 6px; }
+#workspace-stems .sb-row--tools :is(.stems-btn, .sb-icon, .stems-snap-btn, .stems-speed, .stems-mini-select, .stems-click-mult) {
+  height: 32px; box-sizing: border-box;
+}
+#workspace-stems .sb-row--tools .sb-icon { width: 32px; }
+#workspace-stems .sb--sm .sb-row--tools .sb-group { padding: 0 6px; }
+
+/* Botón «⋯» y su menú con lo que no cabe. */
+#workspace-stems .sb-overflow { position: relative; flex: 0 0 auto; display: none; }
+#workspace-stems .sb-overflow.is-on { display: inline-flex; }
+#workspace-stems .sb-overflow-btn { width: 32px; height: 32px; }
+#workspace-stems .sb-overflow-pop {
+  position: fixed; z-index: 9400; display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  padding: 10px; max-width: min(92vw, 520px);
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+}
+#workspace-stems .sb-overflow-pop[hidden] { display: none; }
+#workspace-stems .sb-overflow-pop > .sb-group { flex-wrap: wrap; border-left: 0 !important; padding: 0 !important; margin: 0 !important; justify-content: flex-start !important; }
+#workspace-stems .sb-overflow-pop > .sb-group + .sb-group { padding-top: 8px !important; border-top: 1px solid var(--border) !important; }
+#workspace-stems .sb-overflow-pop > :not(.sb-group) { align-self: flex-start; }
+:root[data-theme-style="flat"] #workspace-stems .sb-overflow-pop { background: var(--flat-side); border-color: var(--flat-outline); }
+/* Botones redondos de la fila 2 a 32 px (como los de la fila 1) y chips un poco
+   más justos: con los dos paneles abiertos en una pantalla de 1920 px cabe todo. */
+#workspace-stems .sb-row--tools :is(#stems-detect-sections, #stems-clear-markers, #stems-sec-prev, #stems-sec-next,
+    #stems-sec-loop, #stems-loop-a, #stems-loop-b, #stems-tools-toggle, #stems-help) {
+  width: 32px !important; height: 32px !important; min-width: 0 !important; padding: 0 !important;
+}
+#workspace-stems .sb-chip { padding-left: 10px; }
