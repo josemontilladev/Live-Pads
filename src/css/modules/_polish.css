@@ -93,23 +93,44 @@ select::picker(select) {
   background: rgba(255, 255, 255, .12) !important;
 }
 
-/* ── Stems: flecha de los paneles laterales en el centro del borde ─────────
-   Contraído o desplegado, el botón para abrir/cerrar Canciones y Biblioteca es
-   una pestaña redonda en la mitad del borde interior del panel (antes estaba
-   arriba, en el título). */
+/* ── Stems: asa de los paneles laterales en el centro del borde ────────────
+   Contraído o desplegado, Canciones y Biblioteca se abren/cierran con un asa
+   fina de 3 puntos verticales en la mitad del borde interior del panel (antes:
+   botón con flecha arriba, en el título; luego un círculo con flecha que
+   llamaba demasiado la atención). */
 #workspace-stems .stems-setlist { overflow: visible; }
 #workspace-stems .stems-library { overflow: clip; overflow-clip-margin: 16px; }
 #workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
   position: absolute; top: 50%; z-index: 6;
-  width: 26px; height: 26px; margin: 0;
+  width: 12px !important; height: 40px !important; min-width: 0 !important; min-height: 0 !important;
+  margin: 0; padding: 0; border-radius: 999px !important;
+  display: inline-flex; align-items: center; justify-content: center;
   transform: translateY(-50%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  background: var(--bg-card) !important; border: 1px solid var(--border-strong) !important;
+  color: var(--text-muted) !important; box-shadow: none !important; cursor: pointer;
+  transition: color .15s, border-color .15s, height .15s;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) svg { display: none; }
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron)::before {
+  content: ""; width: 3px; height: 3px; border-radius: 50%; background: currentColor;
+  box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"]):hover,
+#workspace-stems :is(.stems-setlist .ssl-rail:hover, .stl-rail:hover) .ssl-rail-chevron {
+  color: var(--text) !important; border-color: var(--text-muted) !important; height: 48px !important;
+}
+:root[data-theme-style="flat"] #workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
+  background: var(--flat-ink) !important; border-color: var(--flat-outline) !important;
 }
 #workspace-stems #stems-setlist-collapse,
-#workspace-stems .stems-setlist .ssl-rail-chevron { right: -14px; }
+#workspace-stems .stems-setlist .ssl-rail-chevron { right: -7px; }
 #workspace-stems .stems-library .ssl-collapse-btn[data-act="close"],
-#workspace-stems .stems-library .ssl-rail-chevron { left: -14px; }
+#workspace-stems .stems-library .ssl-rail-chevron { left: -7px; }
 #workspace-stems .stems-library .stl-body { overflow: visible; }
+
+/* ── Pads: deslizador del BPM centrado con el botón TAP ── */
+#panel-metro .hm-bpm-slider-wrap { display: flex; align-items: center; }
+#panel-metro .hm-bpm-slider-wrap > input[type="range"] { margin-top: 0; margin-bottom: 0; align-self: center; }
 
 /* ── Stems: la barra siempre en 2 filas ───────────────────────────────────
    Ninguna fila se parte: lo que no cabe pasa al botón «⋯» del final de su fila
@@ -153,3 +174,54 @@ select::picker(select) {
   width: 32px !important; height: 32px !important; min-width: 0 !important; padding: 0 !important;
 }
 #workspace-stems .sb-chip { padding-left: 10px; }
+
+/* ── Stems: cada control encaja en su cápsula ─────────────────────────────
+   El mínimo táctil de 36 px de los temas Consola (pensado para pantallas
+   táctiles) estiraba los botones redondos de la barra a 32×36 (óvalos) y hacía
+   que Detectar, −/+ de Transp., el zoom o 1x/2x se salieran de su cápsula.
+   Sin «Controles grandes»: botones redondos de 32, cápsulas de 32 con sus piezas
+   de 26 y 3 px de aire. Con «Controles grandes» todo pasa a 36/30, igual de redondo. */
+:root:not([data-touch="on"]) #workspace-stems .stems-deck.sb :is(.sb-icon, .stems-pitch-btn, .stems-bpm-detect, .stems-zoom-btn, .stems-tb-btn) {
+  min-width: 0 !important; min-height: 0 !important;
+}
+#workspace-stems .stems-deck.sb .sb-icon { width: 32px; height: 32px; }
+#workspace-stems .stems-deck.sb .sb-project .sb-icon { width: 26px; height: 26px; }
+#workspace-stems .stems-deck.sb .stems-hist-more { width: 22px; border-radius: 999px; }
+
+/* Cápsulas de datos (BPM · Compás · Tono · Transp.): el valor sin caja propia. */
+#workspace-stems .stems-deck.sb .sb-chip { height: 32px; padding: 0 3px 0 10px; gap: 6px; }
+#workspace-stems .stems-deck.sb .sb-chip:not(.sb-chip--bpm):not(.sb-chip--pitch) { padding-right: 4px; }
+#workspace-stems .stems-deck.sb .sb-chip :is(input, select) {
+  height: 26px; min-height: 0 !important; padding-top: 0; padding-bottom: 0;
+  background-color: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 999px;
+}
+#workspace-stems .stems-deck.sb .sb-chip .stems-bpm-detect {
+  height: 26px !important; min-height: 0 !important; padding: 0 10px; border-radius: 999px; margin: 0;
+}
+#workspace-stems .stems-deck.sb.sb--md .sb-chip .stems-bpm-detect { width: 26px !important; padding: 0 !important; }
+#workspace-stems .stems-deck.sb .sb-chip--pitch .stems-pitch-btn { width: 26px !important; height: 26px !important; }
+#workspace-stems .stems-deck.sb .sb-chip--pitch .stems-pitch-apply { height: 26px; min-height: 0; }
+
+/* Zoom (− + encajar) y 1x/2x: cápsula de 32 con botones de 26. */
+#workspace-stems .stems-deck.sb :is(.stems-zoomctl, .stems-click-mult) {
+  height: 32px; box-sizing: border-box; padding: 0 3px; gap: 2px; border-radius: 999px; align-items: center;
+}
+#workspace-stems .stems-deck.sb .stems-zoomctl .stems-zoom-btn:not(.stems-zoom-fit),
+#workspace-stems .stems-deck.sb .stems-click-mult > button { width: 26px !important; height: 26px !important; padding: 0 !important; border-radius: 50% !important; }
+#workspace-stems .stems-deck.sb .stems-zoomctl .stems-zoom-fit { height: 26px !important; min-height: 0 !important; border-radius: 999px !important; }
+#workspace-stems .stems-deck.sb .stems-accent-chip { width: 24px !important; height: 24px !important; min-height: 0 !important; padding: 0 !important; border-radius: 50% !important; }
+
+/* Velocidad: una sola cápsula (antes, cápsula de esquinas cuadradas con otra dentro). */
+#workspace-stems .stems-deck.sb .stems-speed {
+  display: inline-flex; align-items: center; height: 32px; box-sizing: border-box;
+  padding: 0 3px 0 4px; border-radius: 999px; gap: 0;
+}
+#workspace-stems .stems-deck.sb .stems-speed .stems-speed-select {
+  height: 26px; min-height: 0 !important; padding: 0 18px 0 8px;
+  background-color: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 999px;
+}
+
+/* Controles grandes: los mismos círculos, a 36 px. */
+:root[data-touch="on"] #workspace-stems .stems-deck.sb .sb-icon { width: 36px; height: 36px; }
+:root[data-touch="on"] #workspace-stems .stems-deck.sb :is(.sb-chip, .stems-zoomctl, .stems-click-mult, .stems-speed) { height: 40px; }
+:root[data-touch="on"] #workspace-stems .stems-deck.sb :is(.stems-pitch-btn, .stems-zoom-btn:not(.stems-zoom-fit), .stems-click-mult > button) { width: 32px !important; height: 32px !important; }
