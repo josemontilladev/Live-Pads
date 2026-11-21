@@ -1,4 +1,6 @@
-• Stems: los botones redondos de la barra vuelven a ser círculos (algunos salían ovalados).
-• Stems: BPM, Compás, Tono, Transponer, velocidad, 1x/2x y zoom encajan dentro de su cápsula, con el mismo margen.
-• Stems: los paneles de Canciones y Biblioteca se abren y cierran con un asa discreta de 3 puntos en el centro del borde.
-• Pads: el deslizador del BPM queda alineado con el botón TAP.
+• Borrar una canción ya la elimina también de la librería compartida: antes volvía a aparecer al sincronizar. Si no se puede borrar de la nube (sin permiso o sin conexión), te avisa.
+• Eliminar duplicados también los borra de la nube, y la sincronización ya no crea copias repetidas.
+• Letra: cada acorde queda encima de su sílaba (antes algunos se desplazaban al verla), también si la línea se parte en una pantalla estrecha.
+• Letra: las líneas de acordes como «C - G - Em - D x4» tienen el mismo tamaño que los demás acordes.
+• El panel de la letra se agranda o se achica arrastrando desde cualquier borde o esquina.
+• «Otra pantalla»: la ventana de la letra sale con el tema que tengas elegido.

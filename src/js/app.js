@@ -1360,7 +1360,18 @@ function bindRestOfApp() {
     const cloudId = ev?.detail?.cloudId;
     if (!cloudId) return;
     const title = ev?.detail?.title;
-    import('./cloud/songSync.js').then(m => m.deleteCloudSong(cloudId, title)).catch(() => {});
+    // Si la nube no deja borrarla (rol de solo lectura) o falla la red, avisar:
+    // antes fallaba en silencio y la canción «volvía» en la siguiente bajada.
+    const onlyHere = () => showToast(`«${title || 'La canción'}» solo se eliminó en este equipo: no se pudo borrar de la librería compartida (sin permiso de edición o sin conexión). Volverá a aparecer al sincronizar.`, 'warning');
+    import('./cloud/songSync.js')
+      .then(m => m.deleteCloudSong(cloudId, title, ev?.detail?.libraryId || null))
+      .then((ok) => { if (ok === false) onlyHere(); })
+      .catch((e) => {
+        const msg = String(e && e.message || '');
+        // Sin sesión o sin librería: uso solo local, no hay nada que avisar.
+        if (/Inicia sesión|librería activa/i.test(msg)) return;
+        onlyHere();
+      });
     // Registra el borrado en el historial del equipo (best-effort).
     import('./cloud/libraries.js').then(({ getActiveLibraryId }) => {
       const libId = getActiveLibraryId();

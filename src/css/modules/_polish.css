@@ -225,3 +225,39 @@ select::picker(select) {
 :root[data-touch="on"] #workspace-stems .stems-deck.sb .sb-icon { width: 36px; height: 36px; }
 :root[data-touch="on"] #workspace-stems .stems-deck.sb :is(.sb-chip, .stems-zoomctl, .stems-click-mult, .stems-speed) { height: 40px; }
 :root[data-touch="on"] #workspace-stems .stems-deck.sb :is(.stems-pitch-btn, .stems-zoom-btn:not(.stems-zoom-fit), .stems-click-mult > button) { width: 32px !important; height: 32px !important; }
+
+/* ── Panel de la letra: se redimensiona desde cualquier borde o esquina ──────
+   (lyricsOverlay.js, makeResizable). Las asas son franjas invisibles de 8 px
+   en el borde; el cursor indica hacia dónde estira. Sustituye a la esquina de
+   `resize: both`, que solo servía abajo a la derecha y no con la letra acoplada. */
+.lyp-panel, .lyp-panel.is-docked { resize: none; }
+.lyp-rz { position: absolute; z-index: 5; pointer-events: auto; }
+.lyp-rz--n, .lyp-rz--s { left: 12px; right: 12px; height: 8px; cursor: ns-resize; }
+.lyp-rz--e, .lyp-rz--w { top: 12px; bottom: 12px; width: 8px; cursor: ew-resize; }
+.lyp-rz--n { top: 0; } .lyp-rz--s { bottom: 0; }
+.lyp-rz--e { right: 0; } .lyp-rz--w { left: 0; }
+.lyp-rz--ne, .lyp-rz--nw, .lyp-rz--se, .lyp-rz--sw { width: 20px; height: 20px; }
+.lyp-rz--ne { top: 0; right: 0; cursor: nesw-resize; } .lyp-rz--sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.lyp-rz--nw { top: 0; left: 0; cursor: nwse-resize; } .lyp-rz--se { bottom: 0; right: 0; cursor: nwse-resize; }
+.lyp-panel.is-resizing, .lyp-panel.is-resizing * { user-select: none; }
+
+/* ── Ventana de la letra en otra pantalla, con el tema elegido ─────────────── */
+:root[data-theme-style="flat"] body.lyrics-window { background: var(--flat-bg) !important; }
+:root[data-theme-style="flat"] body.lyrics-window .lw-head { background: var(--flat-side); border-bottom-color: var(--flat-outline); }
+:root[data-theme-style="flat"] body.lyrics-window .lw-btn { background: var(--flat-ink); border-color: var(--flat-outline); color: var(--flat-text, #fff); border-radius: 999px; }
+:root[data-theme-style="flat"] body.lyrics-window .lw-btn.is-on { background: var(--flat-paper); border-color: var(--flat-paper); color: var(--flat-ink); }
+
+/* ── Letra: cada acorde viaja con su palabra (lyricsFormat.js, .chw) ──────── */
+.chw { position: relative; display: inline-block; white-space: nowrap; text-indent: 0; }
+/* Ventana de la otra pantalla: el mismo interlineado que el panel de la letra.
+   El hueco del acorde lo da la altura de línea, así que si la línea se parte en
+   dos, los acordes de la segunda mitad no caen sobre el texto de la primera. */
+body.lyrics-window .lw-cols .inline-chord { font-size: .74em; font-weight: 700; transform: translateY(-1.3em); }
+body.lyrics-window .lw-cols .lyric-line.has-inline-chords { margin-top: .25em; margin-bottom: 0; line-height: 2.15; }
+body.lyrics-window .lw-body.hide-chords .lyric-line.has-inline-chords { margin-top: .12em; line-height: 1.45; }
+/* Bajo un rótulo de sección, sitio para los acordes de la primera línea. */
+body.lyrics-window .lw-cols .section-header-line { margin-bottom: .45em; }
+body.lyrics-window .lw-cols .section-header-line + .lyric-line.has-inline-chords { margin-top: .85em; }
+/* Líneas solo de acordes (intro, «C - G - Em - D x4»…) del mismo tamaño que los
+   acordes sobre la letra: antes iban un punto más grandes. */
+.lyp-cols .chord-line, body.lyrics-window .lw-cols .chord-line { font-size: .74em; font-weight: 700; }

@@ -8,6 +8,14 @@
 // a la canción que suena en LivePads.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { paintThemeVars, savedThemeId, THEME_STORAGE_KEY } from './ui/themeVars.js';
+
+// El mismo tema que la ventana principal (antes salía siempre con los colores
+// base). Si se cambia el tema con la ventana abierta, se repinta sola: las dos
+// ventanas comparten localStorage y el evento 'storage' avisa del cambio.
+paintThemeVars(savedThemeId());
+window.addEventListener('storage', (e) => { if (e.key === THEME_STORAGE_KEY) paintThemeVars(savedThemeId()); });
+
 const api = window.electronAPI;
 const $ = (s) => document.querySelector(s);
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (_) { return d; } };

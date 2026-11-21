@@ -118,10 +118,26 @@ function hasAlignment(line) {
 
 // Inserta los acordes dentro de la letra en su columna. Se recorre de derecha a
 // izquierda para que cada inserción no desplace las posiciones pendientes.
-function inlineChordsInto(chordLine, lyricLine) {
+// `pad` (solo al mostrar): si hay acordes más allá del final de la letra, se
+// alarga con espacios de cifra (U+2007, no se colapsan) hasta su columna; sin
+// esto todos esos acordes se anclaban al último carácter y se montaban.
+function inlineChordsInto(chordLine, lyricLine, { pad = false } = {}) {
   const chords = chordPositions(chordLine);
   if (!chords.length) return null;
   let out = lyricLine;
+  if (pad) {
+    const base = out.replace(/\s+$/, '');
+    const first = chords.findIndex((c) => c.col >= base.length);
+    if (first >= 0) {
+      // Los acordes que van después de la última palabra (sobre una nota tenida)
+      // empiezan a 2 espacios de ella, no con todo el hueco del editor: si no, en
+      // una columna estrecha se partían en filas sueltas. Entre ellos se conserva
+      // su separación original.
+      const shift = Math.max(0, chords[first].col - base.length - 2);
+      for (let k = first; k < chords.length; k++) chords[k] = { ...chords[k], col: chords[k].col - shift };
+      out = base.padEnd(chords[chords.length - 1].col, ' ') + ' ';
+    }
+  }
   let limite = out.length; // ningún acorde puede pisar al que ya insertamos
   for (let k = chords.length - 1; k >= 0; k--) {
     const { token, col } = chords[k];
@@ -315,11 +331,45 @@ export function describeRepair(before, after) {
   };
 }
 
+// Al MOSTRAR la letra, una línea de acordes encima de una de letra se une a ella
+// anclando cada acorde a su sílaba (como [C]Puedo ver…). En el editor (letra de
+// ancho fijo) las columnas cuadran, pero al verla la letra usa una fuente
+// proporcional y los acordes iban en su propia línea de ancho fijo: cuanto más a
+// la derecha, más se desplazaban de su sílaba. El texto guardado no cambia.
+// Mismas reglas que mergeChordLines (varios acordes sin alineación se quedan como
+// fila aparte: sería inventarse dónde van).
+export function mergeChordLinesForDisplay(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const cur = lines[i], next = lines[i + 1];
+    if (isChordLine(cur) && canMerge(cur) && !/\[[^\]]+\]\S|\S\[[^\]]+\]/.test(cur) &&
+        next != null && next.trim() && !isChordLine(next) && !detectSectionHeader(next) &&
+        !(next.trim().startsWith('[') && next.trim().endsWith(']')) && !/\[[^\]]+\]/.test(next)) {
+      const merged = inlineChordsInto(cur, next, { pad: true });
+      if (merged != null) { out.push(merged); i++; continue; }
+    }
+    out.push(cur);
+  }
+  return out;
+}
+
+// «C - G - Em - D x4 Times» / «Am F C G (x2) veces»: una progresión con su
+// indicación de repetición. La palabra «Times» / «veces» hacía que no contara
+// como línea de acordes y se pintaba como letra (más grande que los demás
+// acordes). Solo para mostrarla: la detección general no cambia.
+const REPEAT_TAIL = /\s+(?:\(?\s*x\s*\d+\s*\)?|\(?\s*\d+\s*x\s*\)?)(?:\s+(?:times|veces|vez))?\s*$/i;
+export function isRepeatedProgression(line) {
+  const s = String(line || '');
+  if (!REPEAT_TAIL.test(s)) return false;
+  const rest = s.replace(REPEAT_TAIL, '');
+  return isChordLine(rest) && chordPositions(rest).length >= 2;
+}
+
 export function formatLyrics(lyrics) {
   if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
 
   const cleanLyrics = lyrics.replace(/\r/g, '');
-  const lines = cleanLyrics.split('\n');
+  const lines = mergeChordLinesForDisplay(cleanLyrics.split('\n'));
   let html = '';
 
   for (let i = 0; i < lines.length; i++) {
@@ -331,7 +381,10 @@ export function formatLyrics(lyrics) {
       continue;
     }
 
-    const isBracketedHeader = trimmed.startsWith('[') && trimmed.endsWith(']') && !isChordLine(trimmed);
+    // Un único corchete que abarca toda la línea («[CORO]»). Antes bastaba con
+    // empezar por «[» y acabar en «]», y «[C]Puedo ver tu hermosura[G]» salía
+    // como encabezado.
+    const isBracketedHeader = /^\[[^\[\]]+\]$/.test(trimmed) && !isChordLine(trimmed);
     // Encabezado "suelto" (sin corchetes): "CORO", "CORO:", "Verso 2", "Pre-Coro"…
     // detectSectionHeader ya descarta líneas largas, de acordes, o letras que
     // solo empiezan con una palabra clave ("Verso favorito mío" sigue siendo letra).
@@ -343,14 +396,20 @@ export function formatLyrics(lyrics) {
       continue;
     }
 
-    if (isChordLine(rawLine)) {
+    if (isChordLine(rawLine) || isRepeatedProgression(rawLine)) {
       const formattedChords = rawLine.replace(/\[|\]/g, '');
       html += `<div class="chord-line">${esc(formattedChords)}</div>`;
     } else {
       const hasChords = /\[([^\]<>]+)\]/.test(rawLine);
       // Escape the raw line first, then re-inject [chord] markers as spans.
       const escapedLine = esc(rawLine);
-      const formattedLyrics = escapedLine.replace(/\[([^\]]+)\]/g, (match, chord) => `<span class="inline-chord">${chord}</span>`);
+      // Cada acorde va unido a la palabra que empieza en su sílaba (.chw, sin
+      // cortes): si la línea se parte, el acorde baja con su palabra (antes se
+      // quedaba arriba, sobre otra). Los espacios de relleno (U+2007, ver
+      // mergeChordLinesForDisplay) admiten corte para no desbordar la columna.
+      const formattedLyrics = escapedLine
+        .replace(/\[([^\]]+)\]([^\s\[ ]*)/g, (match, chord, word) => `<span class="chw"><span class="inline-chord">${chord}</span>${word || '​'}</span>`)
+        .replace(/ /g, ' <wbr>');
       html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${formattedLyrics}</div>`;
     }
   }

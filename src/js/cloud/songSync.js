@@ -310,9 +310,16 @@ async function pushSongsToLibraryCore(allSongs, libId, { force = false } = {}) {
   const withoutCloud = songs.filter(s => !s.cloudId);
   if (withoutCloud.length) {
     const existRows = await rest(`/songs?library_id=eq.${libId}&select=id,title,artist,key`);
+    // nkey → TODAS las filas con esa clave (no solo la primera): si la nube ya
+    // tiene dos filas iguales y la primera está vinculada, la copia local se
+    // enlaza con la segunda en vez de crear una TERCERA (así se multiplicaban
+    // los duplicados que luego «volvían» al borrarlos).
     const cloudByKey = new Map();
+    const dead = deletedIds(libId, 'song');
     (Array.isArray(existRows) ? existRows : []).forEach(r => {
-      const k = nkey(r); if (!cloudByKey.has(k)) cloudByKey.set(k, r.id);
+      if (dead.has(String(r.id))) return;   // borrada por el equipo: no se re-vincula
+      const k = nkey(r); if (!cloudByKey.has(k)) cloudByKey.set(k, []);
+      cloudByKey.get(k).push(r.id);
     });
     // Un registro de la nube solo puede vincularse a UNA canción local: si hay
     // duplicados locales (mismo título+artista+tono), enlazar los dos al mismo
@@ -321,8 +328,8 @@ async function pushSongsToLibraryCore(allSongs, libId, { force = false } = {}) {
     // row a second time".
     const usedCloudIds = new Set(songs.map(s => s.cloudId).filter(Boolean));
     withoutCloud.forEach(s => {
-      const id = cloudByKey.get(nkey(s));
-      if (id && !usedCloudIds.has(id)) {
+      const id = (cloudByKey.get(nkey(s)) || []).find((x) => !usedCloudIds.has(x));
+      if (id) {
         s.cloudId = id; s.libraryId = libId; linked++;
         usedCloudIds.add(id);
       }
@@ -586,12 +593,22 @@ export async function resolveConflictKeepMine(cloudId) {
 // lo hace la UI. La lápida es lo que hace que el borrado sea DEFINITIVO para el
 // equipo: sin ella, el primer compañero que aún la tuviera local la re-insertaba
 // con el mismo uuid en su siguiente auto-push.
-export async function deleteCloudSong(cloudId, title) {
+//
+// Devuelve true si el borrado quedó hecho para el equipo (fila borrada o lápida
+// registrada) y false si solo se pudo borrar en este equipo (sin permiso de
+// editor, p. ej.): la UI lo avisa. `libraryId`: la librería de la canción (si
+// no, la activa).
+export async function deleteCloudSong(cloudId, title, libraryId = null) {
   if (!cloudId) return false;
-  const libId = requireContext();
-  await rest(`/songs?id=eq.${cloudId}`, { method: 'DELETE', prefer: 'return=minimal' });
-  await recordDeletion(libId, 'song', cloudId, title);
-  return true;
+  const libId = libraryId || requireContext();
+  if (!isLoggedIn()) throw new Error('Inicia sesión para usar la nube.');
+  // Primero se marca como borrada en memoria: si mientras tanto corre una bajada
+  // o una subida, no la vuelve a traer ni a subir.
+  deletedIds(libId, 'song').add(String(cloudId));
+  const rows = await rest(`/songs?id=eq.${cloudId}`, { method: 'DELETE', prefer: 'return=representation' });
+  const tomb = await recordDeletion(libId, 'song', cloudId, title);
+  // Sin fila borrada y sin lápida = la nube no nos dejó (rol de solo lectura).
+  return (Array.isArray(rows) && rows.length > 0) || tomb;
 }
 
 // Auto-sync puntual: sube SOLO el youtube_url de una canción que YA existe en la

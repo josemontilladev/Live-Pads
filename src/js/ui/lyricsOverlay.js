@@ -166,6 +166,50 @@ function makeDraggable(handle) {
   handle.addEventListener('pointercancel', end);
 }
 
+// Redimensionar arrastrando cualquier borde o esquina (antes solo la esquina
+// inferior derecha, y nada si estaba acoplada). Igual que al moverla por la
+// cabecera, redimensionarla la suelta del acople; el tamaño se recuerda.
+const LYP_MIN_W = 320, LYP_MIN_H = 200;
+function makeResizable() {
+  for (const dir of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+    const h = document.createElement('div');
+    h.className = `lyp-rz lyp-rz--${dir}`;
+    h.setAttribute('aria-hidden', 'true');
+    panel.appendChild(h);
+    let start = null;
+    h.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (prefs.docked) setDocked(false);
+      const r = panel.getBoundingClientRect();
+      panel.style.left = `${r.left}px`; panel.style.top = `${r.top}px`; panel.style.transform = 'none';
+      panel.style.width = `${r.width}px`; panel.style.height = `${r.height}px`;
+      start = { x: e.clientX, y: e.clientY, l: r.left, t: r.top, w: r.width, h: r.height };
+      panel.classList.add('is-resizing');
+      try { h.setPointerCapture(e.pointerId); } catch (_) {}
+      e.preventDefault(); e.stopPropagation();
+    });
+    h.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      const dx = e.clientX - start.x, dy = e.clientY - start.y;
+      let { l, t, w, h: ht } = start;
+      const maxR = window.innerWidth - 8, maxB = window.innerHeight - 8;
+      if (dir.includes('e')) w = Math.min(maxR - l, Math.max(LYP_MIN_W, start.w + dx));
+      if (dir.includes('s')) ht = Math.min(maxB - t, Math.max(LYP_MIN_H, start.h + dy));
+      if (dir.includes('w')) { const nl = Math.max(8, Math.min(start.l + start.w - LYP_MIN_W, start.l + dx)); w = start.w + (start.l - nl); l = nl; }
+      if (dir.includes('n')) { const nt = Math.max(8, Math.min(start.t + start.h - LYP_MIN_H, start.t + dy)); ht = start.h + (start.t - nt); t = nt; }
+      panel.style.left = `${l}px`; panel.style.top = `${t}px`;
+      panel.style.width = `${w}px`; panel.style.height = `${ht}px`;
+    });
+    const end = (e) => {
+      if (!start) return;
+      start = null; panel.classList.remove('is-resizing'); saveGeom();
+      try { h.releasePointerCapture(e.pointerId); } catch (_) {}
+    };
+    h.addEventListener('pointerup', end);
+    h.addEventListener('pointercancel', end);
+  }
+}
+
 function paint() {
   if (!panel || !current) return;
   panel.querySelector('.lyp-title').textContent = current.title || 'Letra';
@@ -214,6 +258,7 @@ function open(data) {
     document.body.appendChild(overlay);
     panel = overlay.querySelector('.lyp-panel');
     makeDraggable(overlay.querySelector('[data-drag]'));
+    makeResizable();
     if (!fitDock()) restoreGeom();
     watchDock();
     // Guardar el tamaño al soltar el redimensionado (esquina). Si estaba acoplada

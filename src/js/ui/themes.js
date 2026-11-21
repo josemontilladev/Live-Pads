@@ -1,18 +1,11 @@
 import { q, esc } from '../utils/dom.js';
 import { THEMES } from '../data/banks.js';
-
-const STORAGE_KEY = 'livepads.theme';
+import { paintThemeVars, savedThemeId, THEME_STORAGE_KEY as STORAGE_KEY } from './themeVars.js';
 
 // Restore the user's last selection on boot. Falls back to gi_setlist if
 // the saved value is missing or no longer matches a known theme (handles
 // the case where a theme was renamed/removed between versions).
-let currentTheme = (() => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && THEMES[saved]) return saved;
-  } catch { /* localStorage may throw in private mode */ }
-  return 'gi_setlist';
-})();
+let currentTheme = savedThemeId();
 
 export function getCurrentTheme() {
   return currentTheme;
@@ -65,35 +58,12 @@ paintTouchMode(isTouchMode());
 // Visual-only theme switch: sets the CSS custom properties + body
 // backdrop. Used for both committed selections and the hover preview.
 function paintTheme(id) {
-  const t = THEMES[id];
+  // Variables, data-theme y fondo: themeVars.js (lo comparte la ventana de la letra).
+  const t = paintThemeVars(id);
   if (!t) return;
-
-  const s = document.documentElement.style;
-  s.setProperty('--blue', t.blue);
-  s.setProperty('--accent', t.blue); // semantic alias — `--blue` is legacy
-  s.setProperty('--accent2', t.accent2 || t.blue);
-  s.setProperty('--bg-main', t.bg1);
-  s.setProperty('--bg-card', t.bg2);
-  s.setProperty('--bg-surface', t.bg3);
-  s.setProperty('--bg-hover', t.bgHover || '#1f1f1f');
-  s.setProperty('--border', t.border || 'rgba(255,255,255,0.08)');
-  s.setProperty('--border-strong', t.borderStrong || t.border || 'rgba(255,255,255,0.18)');
-  s.setProperty('--glow', t.glow || 'rgba(255,255,255,0.10)');
-  s.setProperty('--text', t.text || '#ffffff');
-  s.setProperty('--text-muted', t.textMuted || '#a3a3a3');
-  // Color del texto sobre el acento (los temas con acento claro lo necesitan oscuro).
-  if (t.onAccent) s.setProperty('--on-accent', t.onAccent); else s.removeProperty('--on-accent');
-  // Estilo estructural del tema (p. ej. «flat»: sin sombras ni degradados) → CSS propio.
-  if (t.style) document.documentElement.dataset.themeStyle = t.style;
-  else delete document.documentElement.dataset.themeStyle;
-  // El id del tema, para que el CSS de un estilo pueda cambiar solo la paleta.
-  document.documentElement.dataset.theme = id;
   // Las perillas de paneo se cargan solo si hacen falta: con el tema plano, o en
   // pantallas bajas (ahí el paneo del mezclador no cabe como deslizador).
   if (t.style === 'flat' || lowScreen.matches) loadKnobs();
-
-  const fallbackBg = `linear-gradient(155deg, ${t.bg1} 0%, ${t.bg2} 50%, ${t.bg1} 100%)`;
-  document.body.style.background = t.gradient || fallbackBg;
 }
 
 // Public: commits a theme as the user's choice. Hover preview uses

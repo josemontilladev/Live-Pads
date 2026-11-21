@@ -79,6 +79,33 @@ export function refreshInServiceState() {
   });
 }
 
+// Borra canciones de la librería: en este equipo Y en la librería compartida.
+// Antes «Eliminar» (menú de la tarjeta) y «Eliminar duplicados» solo las
+// quitaban aquí: la fila seguía en la nube, sin lápida, y la siguiente bajada
+// la volvía a traer. Si otra copia local comparte el mismo cloudId (duplicado
+// de la MISMA fila), solo se borra aquí: borrar la fila se llevaría las dos.
+function deleteLibrarySongs(list) {
+  // La canción de la tarjeta puede ser una copia: se busca la de la lista por id.
+  const all = getSongs();
+  const toDelete = list.map((x) => (all.includes(x) ? x : all.find((s) => s.id === x.id))).filter(Boolean);
+  const gone = new Set(toDelete);
+  const kept = getSongs().filter((s) => !gone.has(s));
+  setSongs(kept);
+  deps.persist();
+  deps.updateFilterCounts();
+  const still = new Set(kept.map((s) => s.cloudId).filter(Boolean));
+  const sent = new Set();
+  for (const s of toDelete) {
+    if (!s.cloudId || still.has(s.cloudId) || sent.has(s.cloudId)) continue;
+    sent.add(s.cloudId);
+    try {
+      window.dispatchEvent(new CustomEvent('livepads:song-deleted', {
+        detail: { cloudId: s.cloudId, title: s.title, libraryId: s.libraryId || null },
+      }));
+    } catch (_) {}
+  }
+}
+
 // Quita canciones repetidas (mismo título + artista + tono, normalizados).
 // Conserva una por grupo, prefiriendo la vinculada a la nube (cloudId). Los
 // duplicados intencionales en OTRA tonalidad NO se tocan. No muta; devuelve el
@@ -116,9 +143,8 @@ function wireDedupe() {
       message: `Se encontraron ${removed} canción(es) repetida(s) (mismo título, artista y tono). ¿Dejar solo una de cada una? Los duplicados a propósito en otra tonalidad se conservan.`,
       confirmLabel: 'Eliminar', danger: true,
       onConfirm: () => {
-        setSongs(kept);
-        deps.persist();
-        deps.updateFilterCounts();
+        const keep = new Set(kept);
+        deleteLibrarySongs(getSongs().filter((s) => !keep.has(s)));
         renderGiList(q('#gi-search')?.value || '');
         window.showToast?.(`${removed} duplicado(s) eliminado(s).`, 'success');
       },
@@ -483,9 +509,8 @@ function openGiCardMenu(anchorEl, song, card) {
           confirmLabel: 'Eliminar',
           danger: true,
           onConfirm: () => {
-            setSongs(getSongs().filter(s => s.id !== song.id));
-            deps.persist();
-            deps.updateFilterCounts();
+            // En este equipo y en la librería compartida (antes solo aquí: volvía).
+            deleteLibrarySongs([song]);
             card.remove();
             renumberGiCards();
             ensureEmptyState();
@@ -646,17 +671,10 @@ function initDelegation() {
           confirmLabel: 'Eliminar',
           danger: true,
           onConfirm: () => {
-            setSongs(getSongs().filter(s => s.id !== song.id));
-            deps.persist();
-            deps.updateFilterCounts();
+            deleteLibrarySongs([song]);
             card.remove();
             renumberGiCards();
             ensureEmptyState();
-            // Si la canción está en la nube, propaga el borrado a la librería
-            // (offline-first: el módulo de nube lo ignora sin red o sin permiso).
-            if (song.cloudId) {
-              try { window.dispatchEvent(new CustomEvent('livepads:song-deleted', { detail: { cloudId: song.cloudId, title: song.title } })); } catch (_) {}
-            }
           }
         });
         return;
