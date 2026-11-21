@@ -15,8 +15,12 @@
 
   <!-- Preloader -->
   <div id="preloader">
-    <img src="assets/logo.png" alt="Live Pads Logo" class="preloader-logo">
-    <div class="preloader-title">LIVE PADS</div>
+    <!-- Marca animada: el logo (cápsula ámbar con barras) como un ecualizador. -->
+    <div class="pl-mark" role="img" aria-label="LivePads">
+      <div class="pl-halo" aria-hidden="true"></div>
+      <div class="pl-icon" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="preloader-title">LivePads</div>
     <div class="preloader-version" id="preloader-version"></div>
     <div class="preloader-bar"><div class="preloader-fill"></div></div>
     <div class="preloader-status" id="preloader-status" aria-live="polite"></div>
@@ -45,7 +49,7 @@
 
     <div class="topbar-center">
       <div class="topbar-logo">
-        <span class="topbar-logo-text">Live Pads</span>
+        <span class="topbar-logo-text">LivePads</span>
         <!-- Logo inline (SVG) para que el FONDO siga el color del theme. -->
         <svg class="topbar-logo-img" viewBox="0 0 48 48" role="img" aria-label="LivePads">
           <rect x="2" y="2" width="44" height="44" rx="11" fill="var(--accent)"/>
@@ -794,7 +798,7 @@
             </div>
             <div class="sb-card">
               <label class="hm-clickseq set-velocity" title="El volumen de los pads de batería sigue la fuerza con que golpeas (velocity MIDI), como en una batería electrónica">
-                <input type="checkbox" id="set-midi-velocity" checked>
+                <input type="checkbox" class="mo-switch" id="set-midi-velocity" checked>
                 <span>Batería sensible a la fuerza del golpe</span>
               </label>
               <p class="set-hint">Golpe suave = más bajo, fuerte = más alto. Desactívalo si tu controlador manda siempre la misma fuerza o suena muy bajo.</p>
@@ -806,7 +810,7 @@
           <div id="tab-preflight" class="stab-body">
             <div class="sb-label">Pre-vuelo del servicio</div>
             <div class="sb-card set-launch-card">
-              <p class="set-launch-desc">Verificá que todo esté listo antes de empezar: audio, MIDI, secuencias y letras de cada canción del servicio.</p>
+              <p class="set-launch-desc">Comprueba que todo esté listo antes de empezar: audio, MIDI, secuencias y letras de cada canción del servicio.</p>
               <button class="sb-btn" id="set-preflight">Revisar de nuevo</button>
             </div>
             <div class="set-embed" id="embed-preflight"></div>
@@ -854,7 +858,7 @@
           <div id="tab-about" class="stab-body">
             <div class="about-sidebar-panel">
               <img src="assets/logo.png" alt="Logo" class="about-logo">
-              <h3 class="about-title">LIVE PADS</h3>
+              <h3 class="about-title">LivePads</h3>
               <div class="about-version" id="about-version">Edición Profesional</div>
 
               <div class="about-update">
@@ -938,7 +942,7 @@
     </button>
     <button class="menu-item" id="menu-about">
       <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      Acerca de Live Pads…
+      Acerca de LivePads…
     </button>
   </div>
 

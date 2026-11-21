@@ -29,6 +29,10 @@ export function setLiveMode(on) {
   if (btn) btn.setAttribute('aria-pressed', String(on));
   if (on) {
     q('#sidebar')?.classList.remove('open');
+    // Las ventanas flotantes (metrónomo, piano, afinador) tapaban los pads en vivo.
+    import('./metronomeModal.js').then((m) => m.closeMetronomeModal?.()).catch(() => {});
+    import('./padsPiano.js').then((m) => m.closePadsPiano?.()).catch(() => {});
+    import('./tunerModal.js').then((m) => m.closeTunerModal?.()).catch(() => {});
     const svcTab = q('.s-toggle[data-target="service-setlist-list"]');
     if (svcTab && !svcTab.classList.contains('active')) svcTab.click();
   }

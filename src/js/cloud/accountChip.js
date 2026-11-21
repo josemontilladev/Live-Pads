@@ -15,7 +15,7 @@ function esc(s) {
 function paint(btn) {
   if (!isLoggedIn()) {
     btn.classList.add('is-guest');
-    btn.innerHTML = '<span class="acc-chip-avatar">·</span><span class="acc-chip-text"><b>Iniciar sesión</b><i>Sincroniza con tu equipo</i></span>';
+    btn.innerHTML = '<span class="acc-chip-avatar acc-chip-avatar--guest"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span class="acc-chip-text"><b>Iniciar sesión</b><i>Sincroniza con tu equipo</i></span>';
     btn.title = 'Iniciar sesión';
     return;
   }

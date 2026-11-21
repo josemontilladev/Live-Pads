@@ -261,3 +261,375 @@ body.lyrics-window .lw-cols .section-header-line + .lyric-line.has-inline-chords
 /* Líneas solo de acordes (intro, «C - G - Em - D x4»…) del mismo tamaño que los
    acordes sobre la letra: antes iban un punto más grandes. */
 .lyp-cols .chord-line, body.lyrics-window .lw-cols .chord-line { font-size: .74em; font-weight: 700; }
+
+/* ── Login: el campo no lleva caja propia dentro de la suya (los temas Consola
+   ponen fondo y borde a todos los campos de texto) ── */
+:root #auth-gate .auth-input input,
+:root[data-theme-style="flat"] #auth-gate .auth-input input {
+  background-color: transparent !important; border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important; outline: none !important; min-height: 0 !important; padding: 0 !important;
+}
+
+/* ═══ Revisión de pantallas (nov. 2026) ════════════════════════════════════ */
+
+/* Ajustes: velo de toda la ventana detrás del panel (app.js lo saca del panel;
+   dentro, el transform del panel lo dejaba del tamaño del propio panel). */
+body > #sidebar-overlay {
+  position: fixed; inset: 0; z-index: 2999;
+  background: rgba(0, 0, 0, .5) !important; backdrop-filter: blur(2px);
+  opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+body:has(#sidebar.open) > #sidebar-overlay { opacity: 1; pointer-events: auto; }
+
+/* Ajustes: menú lateral sin textos cortados a media letra; iconos redondos. */
+.sidebar-nav .stab-text { min-width: 0; white-space: normal; line-height: 1.2; }
+.sidebar-nav .stab-text small { white-space: normal; }
+.sidebar-nav .stab svg { border-radius: 50% !important; }
+
+/* Modales: el velo tapa también la barra superior. */
+.stems-newsong-overlay { z-index: 8000; }
+
+/* Formularios de canción (tarjeta y «Nueva canción»): cápsulas, texto a la
+   izquierda y flecha en los desplegables. */
+.gi-edit-input { border-radius: 999px !important; text-align: left !important; padding-left: 14px !important; }
+textarea.gi-edit-input, .gi-edit-lyrics { border-radius: 14px !important; }
+select.gi-edit-input {
+  padding-right: 30px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 12px center !important; background-size: 11px !important;
+}
+.gi-edit-btn { border-radius: 999px !important; }
+.gi-edit-lyrics { scrollbar-width: thin; }
+:root[data-theme-style="flat"] .gi-edit-btn:not(.save) {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}
+:root[data-theme-style="flat"] .gi-edit-btn.save {
+  background: var(--flat-paper) !important; border: 1px solid var(--flat-paper) !important; color: var(--flat-ink) !important;
+}
+/* «Importar desde un enlace»: sin borde propio (no es una caja dentro de la caja). */
+:root[data-theme-style="flat"] .newsong-import { border: 0 !important; }
+
+/* Menú de la tarjeta: se despega del fondo y no corta sus opciones. */
+.card-more-menu { min-width: 260px; box-shadow: 0 18px 44px rgba(0, 0, 0, .5) !important; }
+
+/* MIDI: botones de importar/exportar como los demás del tema. */
+:root[data-theme-style="flat"] .mp-io {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; border-radius: 999px !important;
+}
+
+/* Biblioteca (Ajustes) y botones fantasma: negros con filo, como el resto. */
+:root[data-theme-style="flat"] .acc-btn.ghost {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; border-radius: 999px !important;
+}
+
+/* Setlist: descargar/subir negros, como buscar / filtrar / +. */
+:root[data-theme-style="flat"] #panel-setlist .accent-btn {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}
+
+/* Interruptores: inactivo legible (negro con filo y bola gris), igual tamaño. */
+:root[data-theme-style="flat"] .mo-switch:not(:checked) {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important;
+}
+:root[data-theme-style="flat"] .mo-switch:not(:checked)::after { background: rgba(255, 255, 255, .55) !important; }
+:root[data-theme-style="flat"] .mo-switch:checked { background: var(--flat-paper) !important; border-color: var(--flat-paper) !important; }
+:root[data-theme-style="flat"] .mo-switch:checked::after { background: var(--flat-ink) !important; }
+.set-velocity { display: flex; align-items: center; gap: 10px; }
+
+/* Temas: el título ya está arriba del panel; no se repite. */
+#tab-themes .themes-header { display: none; }
+/* Interruptor dentro de una fila de casilla (.hm-clickseq): su tamaño de interruptor. */
+.hm-clickseq input.mo-switch { width: 34px; height: 20px; border-radius: 999px; }
+/* Menú de Ajustes: el nombre puede ir en dos líneas antes que cortarse. */
+.sidebar-nav .stab .stab-text { flex: 1 1 auto; }
+.sidebar-nav .stab { white-space: normal !important; overflow: visible !important; height: auto !important; min-height: 44px; }
+
+/* Stems: ayuda de atajos. Centrada, como mucho el 86 % de la altura, cabecera
+   fija con ×, lista con scroll propio y filas sin caja. */
+.stems-newsong-modal.stems-shortcuts {
+  width: 580px; max-height: min(86vh, 780px); display: flex; flex-direction: column; overflow: hidden;
+}
+.stems-shortcuts-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.stems-shortcuts-title { margin: 0 !important; font-size: 17px !important; font-weight: 800 !important; }
+.stems-shortcuts-x {
+  width: 32px; height: 32px; padding: 0; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-surface); border: 1px solid var(--border-strong); color: var(--text);
+}
+:root[data-theme-style="flat"] .stems-shortcuts-x { background: var(--flat-ink); border-color: var(--flat-outline); }
+.stems-shortcuts-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; gap: 0 !important; margin: 0 -6px 14px !important; padding: 0 6px; scrollbar-width: thin; }
+.stems-shortcut-row {
+  display: grid !important; grid-template-columns: 190px 1fr; align-items: center; gap: 14px;
+  padding: 8px 2px !important; background: none !important; border: 0 !important; border-radius: 0 !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.stems-shortcut-row:last-child { border-bottom: 0 !important; }
+.stems-shortcut-row kbd { justify-self: start; }
+.stems-shortcut-row span { color: var(--text) !important; }
+.stems-shortcuts > .gi-edit-btn { flex: none; }
+
+/* Stems: con la barra estrecha, los botones de la barra se quedan en icono pero
+   las opciones de sus menús conservan el texto. */
+#workspace-stems .stems-deck.sb .stems-generators-pop .stems-btn {
+  font-size: 12.5px !important; gap: 8px !important; width: auto !important; padding: 0 12px !important; justify-content: flex-start !important;
+}
+#workspace-stems .stems-deck.sb .stems-generators-pop .stems-btn svg + svg { display: inline; }
+
+/* Login: iconos de las ventajas redondos; textos pequeños con más contraste. */
+.auth-feat-icon { border-radius: 50% !important; }
+.auth-divider, .auth-foot-note, .auth-lead { color: color-mix(in srgb, var(--text, #fff) 78%, transparent) !important; }
+.auth-features li { color: color-mix(in srgb, var(--text, #fff) 80%, transparent) !important; }
+
+/* Pre-vuelo: filas informativas con indicador neutro (ni ✓ verde ni aviso). */
+#preflight-overlay .pf-row--info { border-color: rgba(255, 255, 255, .14); }
+#preflight-overlay .pf-row--info .pf-icon { background: rgba(255, 255, 255, .10); color: var(--text-muted); }
+#preflight-overlay .pf-summary.is-ok { color: var(--text) !important; }
+
+/* Pre-vuelo y Companion dentro de Ajustes: el título ya está arriba; sin cabecera
+   propia repetida ni una × que no cierra nada. */
+.set-embed :is(.pf-header, .cp-header) { display: none !important; }
+
+/* Companion: lo marcado como oculto se oculta de verdad (el QR vacío y los
+   campos sin dato se veían como un cuadro blanco y cajas vacías). */
+.cp-panel [hidden] { display: none !important; }
+.cp-autostart { display: flex; align-items: center; gap: 10px; }
+.cp-actions { display: flex; }
+.cp-actions .cp-toggle { flex: 1; }
+:root[data-theme-style="flat"] :is(.cp-hotspot-btn, .cp-fw-btn, .cp-copy) {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; border-radius: 999px !important;
+}
+:root[data-theme-style="flat"] .cp-toggle {
+  background: var(--flat-paper) !important; color: var(--flat-ink) !important; border: 0 !important; border-radius: 999px !important;
+}
+:root[data-theme-style="flat"] .cp-hint { border: 0 !important; }
+.set-embed .ui-close { display: none !important; }
+
+/* ── Piano ──
+   La letra del teclado del PC usaba el color de acento: en los temas Consola es
+   blanco, sobre tecla blanca no se leía. En las blancas va oscura. */
+.pk-white .pk-pckey { color: #15171c !important; background: rgba(0, 0, 0, .10) !important; font-weight: 700; }
+.pk-white .pk-name { color: #4a4d55 !important; }
+:root[data-theme-style="flat"] .pk-oct-btn {
+  width: 32px !important; height: 32px !important; padding: 0 !important; border-radius: 50% !important;
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}
+:root[data-theme-style="flat"] .pk-reverb {
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; border-radius: 999px !important;
+}
+:root[data-theme-style="flat"] .pk-reverb:is(.is-on, [aria-pressed="true"]) { background: var(--flat-paper) !important; color: var(--flat-ink) !important; border-color: var(--flat-paper) !important; }
+
+/* ── Metrónomo (ventana) ──
+   −/+ redondos, subdivisión en cápsulas, selectores con flecha y la misma
+   paleta que la pantalla principal. */
+:root[data-theme-style="flat"] .mtm-step {
+  width: 36px !important; height: 36px !important; border-radius: 50% !important;
+  background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}
+:root[data-theme-style="flat"] .mtm-sub-btn {
+  border-radius: 999px !important; background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important;
+}
+:root[data-theme-style="flat"] .mtm-sub-btn.is-on { background: var(--flat-paper) !important; color: var(--flat-ink) !important; border-color: var(--flat-paper) !important; }
+:is(.mtm-beats, .mtm-sound) {
+  border-radius: 999px !important; padding-right: 30px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right 12px center !important; background-size: 11px !important;
+}
+:root[data-theme-style="flat"] .mtm-bpm-input { color: var(--flat-text, #fff) !important; }
+.sidebar-nav .stab .stab-text { white-space: normal !important; overflow: visible !important; }
+.sidebar-nav .stab .stab-text small { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+.cp-autostart input.mo-switch { width: 34px !important; height: 20px !important; border-radius: 999px !important; }
+
+/* ═══ Pantalla de carga ════════════════════════════════════════════════════
+   Marca animada: la cápsula ámbar del logo con sus barras moviéndose como un
+   ecualizador, un halo que respira, el nombre que aparece y una línea de
+   progreso con brillo. Aparece antes de que cargue el tema: estética propia
+   (la del login y la página de Google). Todo con transform/opacity (GPU). */
+#preloader {
+  background:
+    radial-gradient(800px 520px at 50% 42%, rgba(251, 174, 0, .14), transparent 68%),
+    #0b0c10 !important;
+}
+#preloader .pl-mark { position: relative; width: 96px; height: 96px; margin-bottom: 26px; display: grid; place-items: center; }
+#preloader .pl-halo {
+  position: absolute; inset: -26px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(251, 174, 0, .35), transparent 65%);
+  animation: plHalo 2.4s ease-in-out infinite;
+}
+#preloader .pl-icon {
+  position: relative; width: 96px; height: 96px; border-radius: 26px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: linear-gradient(160deg, #FFC93A 0%, #FBAE00 45%, #E58A00 100%);
+  box-shadow: 0 18px 40px rgba(251, 140, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .45);
+  animation: plIn .6s cubic-bezier(.2, .8, .2, 1) both;
+}
+#preloader .pl-icon i {
+  display: block; width: 7px; height: 46px; border-radius: 4px; background: #14110a;
+  transform-origin: center; animation: plBar 1.1s ease-in-out infinite;
+}
+#preloader .pl-icon i:nth-child(1) { animation-delay: -.9s; }
+#preloader .pl-icon i:nth-child(2) { animation-delay: -.45s; }
+#preloader .pl-icon i:nth-child(3) { animation-delay: 0s; }
+#preloader .pl-icon i:nth-child(4) { animation-delay: -.6s; }
+#preloader .pl-icon i:nth-child(5) { animation-delay: -.25s; }
+#preloader .preloader-title {
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif !important;
+  font-size: 30px !important; font-weight: 800 !important; letter-spacing: -.03em !important; color: #fff !important;
+  animation: plUp .6s .12s cubic-bezier(.2, .8, .2, 1) both;
+}
+#preloader .preloader-version { color: #9aa0ab !important; animation: plUp .6s .2s cubic-bezier(.2, .8, .2, 1) both; }
+#preloader .preloader-bar {
+  width: 168px !important; height: 3px !important; margin-top: 22px !important; border-radius: 999px !important;
+  background: rgba(255, 255, 255, .08) !important; animation: plUp .6s .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+#preloader .preloader-fill {
+  width: 45% !important; border-radius: 999px !important;
+  background: linear-gradient(90deg, transparent, #FBAE00 40%, #FFD36B 60%, transparent) !important;
+  animation: plSweep 1.3s cubic-bezier(.45, 0, .25, 1) infinite !important;
+}
+#preloader .preloader-status { color: #9aa0ab !important; margin-top: 14px; font-size: 12px; min-height: 16px; }
+@keyframes plBar { 0%, 100% { transform: scaleY(.32); } 50% { transform: scaleY(1); } }
+@keyframes plHalo { 0%, 100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes plIn { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+@keyframes plUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes plSweep { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
+@media (prefers-reduced-motion: reduce) {
+  #preloader .pl-halo, #preloader .pl-icon i, #preloader .preloader-fill { animation-duration: 3s !important; }
+  #preloader :is(.pl-icon, .preloader-title, .preloader-version, .preloader-bar) { animation: none !important; }
+}
+
+/* ═══ Lista pendiente de la revisión ══════════════════════════════════════ */
+
+/* Planes: el motivo es un aviso (no parece un campo), las tres tarjetas acaban
+   igual (botón o «Tu plan» a todo el ancho, abajo) y la nota final sin caja. */
+.pl-reason {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px !important; border-radius: 999px !important;
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important; border: 0 !important;
+  font-weight: 650; color: var(--text) !important;
+}
+.pl-reason::before {
+  content: ''; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / 13px no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center / 13px no-repeat;
+}
+.pl-card { padding: 18px !important; border-radius: 18px !important; gap: 10px !important; }
+.pl-card ul { flex: 1 1 auto; }
+.pl-card > :is(.pl-tag, .pl-buy, .pl-login, .pl-hint, .pl-lib) { align-self: stretch !important; margin-top: auto; }
+.pl-card > .pl-tag {
+  display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 999px !important;
+  font-size: 13px; font-weight: 700; background: transparent !important; color: var(--text) !important;
+  border: 1px solid var(--border-strong);
+}
+.pl-card > :is(.pl-buy, .pl-login) { height: 40px; border-radius: 999px !important; justify-content: center; }
+.pl-card > .pl-lib + .pl-buy { margin-top: 8px; }
+.pl-mission { background: none !important; border: 0 !important; padding: 4px 8px !important; }
+.pl-seg em { color: inherit !important; opacity: .8; }
+:root[data-theme-style="flat"] .pl-card > .pl-tag { border-color: var(--flat-outline); }
+:root[data-theme-style="flat"] .pl-buy { background: var(--flat-paper) !important; color: var(--flat-ink) !important; border: 0 !important; }
+
+/* Modo en vivo: los avisos arriba al centro, donde no tapan pads ni teclas. */
+body.live-mode .toast-container { top: 72px; bottom: auto; right: 50%; transform: translateX(50%); align-items: center; }
+
+/* Acerca: el nombre como en el resto de la app; botón como los demás. */
+.about-title { font-family: Inter, 'Segoe UI', system-ui, sans-serif !important; font-size: 26px !important; font-weight: 800 !important; letter-spacing: -.02em !important; text-transform: none !important; }
+.about-tour-btn { border-radius: 999px !important; }
+:root[data-theme-style="flat"] .about-tour-btn { background: var(--flat-ink) !important; border: 1px solid var(--flat-outline) !important; color: var(--flat-text, #fff) !important; }
+
+/* Teclas de atajo: el mismo estilo en Ajustes y en la ayuda de Stems. */
+#shortcuts-content kbd, .stems-shortcut-row kbd {
+  display: inline-flex; align-items: center; min-height: 24px; padding: 2px 9px; border-radius: 8px;
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif !important; font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: rgba(255, 255, 255, .08) !important; border: 1px solid var(--border-strong) !important;
+  border-bottom-width: 2px !important; color: var(--text) !important; box-shadow: none !important;
+}
+:root[data-theme-style="flat"] :is(#shortcuts-content kbd, .stems-shortcut-row kbd) { background: var(--flat-ink) !important; border-color: var(--flat-outline) !important; }
+
+/* Avatares: icono en vez de un punto suelto. */
+.acc-chip-avatar--guest { display: inline-flex; align-items: center; justify-content: center; }
+.svc-day--draft { display: inline-flex !important; align-items: center; justify-content: center; }
+
+/* Afinador: en espera, la nota es un guion grande y tenue (no un hueco); las
+   etiquetas pequeñas, legibles. */
+.tun-panel.is-idle .tun-note-name { opacity: .35; }
+.tun-panel :is(.tun-cents-label, .tun-scale, .tun-hz, small) { color: color-mix(in srgb, var(--text) 75%, transparent) !important; }
+
+/* Consola de Stems: el valor del paneo en mayúsculas y la misma letra que el
+   resto; fader y medidor centrados en el canal, tirador en cápsula. */
+.stems-console-pan-readout { font-family: Inter, 'Segoe UI', system-ui, sans-serif !important; text-transform: uppercase; }
+.stems-cfader-row { justify-content: center !important; gap: 10px !important; }
+.stems-cfader-row .stems-cfader { flex: 0 0 34px !important; }
+:root[data-theme-style="flat"] .stems-cfader-handle {
+  width: 30px !important; height: 14px !important; border-radius: 999px !important;
+  background: #fff !important; border: 2px solid var(--flat-ink-lo) !important; box-shadow: 0 2px 6px rgba(0, 0, 0, .35) !important;
+}
+:root[data-theme-style="flat"] .stems-cfader-handle::before,
+:root[data-theme-style="flat"] .stems-cfader-handle::after { display: none !important; }
+/* Modo en vivo: la salida, un botón de verdad (antes un texto diminuto). */
+#btn-live-exit.ls-exit {
+  height: 32px; padding: 0 16px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: var(--bg-surface); border: 1px solid var(--border-strong); color: var(--text); cursor: pointer;
+}
+:root[data-theme-style="flat"] #btn-live-exit.ls-exit { background: var(--flat-ink) !important; border-color: var(--flat-outline) !important; color: var(--flat-text, #fff) !important; }
+
+/* ── Stems: regla de tiempo a todo el alto si no hay marcadores ──────────────
+   Debajo de la regla hay una franja de 18 px para los marcadores de sección
+   (Intro, Coro…). Sin marcadores era un hueco vacío: la regla ocupa todo y lo
+   que se alinea con ella (líneas, bucle, rango) sube. Con marcadores, vuelve. */
+#workspace-stems .stems-arrange-inner:not(:has(.stems-marker-layer .stems-marker)) .stems-head-tl { height: 40px; }
+#workspace-stems .stems-arrange-inner:not(:has(.stems-marker-layer .stems-marker)) .stems-ruler { inset: 0; }
+#workspace-stems .stems-arrange-inner:not(:has(.stems-marker-layer .stems-marker)) .stems-marker-layer { display: none; }
+#workspace-stems .stems-arrange-inner:not(:has(.stems-marker-layer .stems-marker)) :is(.stems-marker-lines, .stems-loop-overlay, .stems-range-overlay) { top: 40px; }
+#workspace-stems .stems-arrange-inner:not(:has(.stems-marker-layer .stems-marker)) .stems-row { scroll-margin-top: 44px; }
+
+/* ── Asas de los paneles laterales, más discretas ── */
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
+  width: 8px !important; height: 34px !important; opacity: .55;
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent) !important;
+  border-color: color-mix(in srgb, var(--border-strong) 70%, transparent) !important;
+  transition: opacity .15s, height .15s, width .15s;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron)::before {
+  width: 2px; height: 2px; box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor;
+}
+#workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"]):hover,
+#workspace-stems :is(.stems-setlist .ssl-rail:hover, .stl-rail:hover) .ssl-rail-chevron {
+  opacity: 1; width: 10px !important; height: 44px !important;
+}
+:root[data-theme-style="flat"] #workspace-stems :is(#stems-setlist-collapse, .stems-library .ssl-collapse-btn[data-act="close"], .ssl-rail-chevron) {
+  background: color-mix(in srgb, var(--flat-ink) 75%, transparent) !important; border-color: var(--flat-outline) !important;
+}
+#workspace-stems #stems-setlist-collapse, #workspace-stems .stems-setlist .ssl-rail-chevron { right: -5px; }
+#workspace-stems .stems-library .ssl-collapse-btn[data-act="close"], #workspace-stems .stems-library .ssl-rail-chevron { left: -5px; }
+
+/* ═══ Últimos detalles de la revisión ══════════════════════════════════════ */
+/* Tono en las tarjetas del Servicio: la misma cápsula que en la Librería. */
+.gi-key-chip {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text); font-weight: 700; font-size: 11px;
+}
+:root[data-theme-style="flat"] .gi-key-chip { border-color: var(--flat-outline); }
+/* «‹ Servicios» a la misma altura que ⏮ ⏭. */
+.svc-back { height: 34px !important; padding: 0 14px !important; border-radius: 999px !important; display: inline-flex; align-items: center; gap: 6px; }
+#panel-setlist .service-nav-btn { width: 34px !important; height: 34px !important; min-width: 0 !important; min-height: 0 !important; }
+
+/* Librería: avatar e insignia «En servicio» con la paleta del tema. */
+:root[data-theme-style="flat"] #panel-setlist .gi-song-cover { background: var(--flat-ink) !important; border: 1px solid var(--flat-outline); border-radius: 12px !important; }
+:root[data-theme-style="flat"] #panel-setlist .gi-cover-fallback { color: var(--flat-text, #fff) !important; }
+:root[data-theme-style="flat"] .gi-inservice-badge {
+  background: transparent !important; color: var(--flat-text, #fff) !important;
+  border: 1px solid var(--flat-outline) !important; border-radius: 999px !important;
+}
+
+/* Companion: el estado «Apagado/Activo» es una etiqueta, no un campo. */
+#companion-overlay .cp-status { background: transparent !important; border: 0 !important; padding: 2px 0 !important; }
+
+/* MIDI: el interruptor a la derecha, como en el resto de Ajustes. */
+.set-velocity { flex-direction: row-reverse; justify-content: space-between; }
+
+/* Formularios: el texto de ejemplo del título, tenue como los demás. */
+.gi-edit-input--title::placeholder { font-weight: 500 !important; opacity: .65; }
+
+/* Menú de Ajustes: todas las entradas con la misma altura. */
+.sidebar-nav .stab { min-height: 54px !important; }
+
+/* Modo en vivo: tarjeta «Ahora» con el filo del tema (no blanco). */
+:root[data-theme-style="flat"] #live-strip { border-color: var(--flat-outline) !important; }

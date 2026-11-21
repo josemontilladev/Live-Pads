@@ -1768,6 +1768,42 @@ ipcMain.handle('auth-clear-session', async () => {
 // Supabase devuelve los tokens en el fragmento (#access_token=…), que el
 // navegador NO manda al servidor; por eso la página de callback los lee con JS
 // y los reenvía a /token.
+// Página que ve el usuario en el navegador al entrar con Google: misma estética
+// que la pantalla de acceso de la app (fondo oscuro, luz ámbar del logo, tarjeta
+// redondeada) y el logo real incrustado (la página la sirve el loopback, sin
+// acceso a los archivos de la app).
+let _oauthLogo = null;
+function oauthBrand() {
+  if (_oauthLogo === null) {
+    try { _oauthLogo = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, 'src/assets/logo.png')).toString('base64'); }
+    catch (_) { _oauthLogo = ''; }
+  }
+  return '<div class="brand">' + (_oauthLogo ? '<img src="' + _oauthLogo + '" alt="" width="40" height="40">' : '') + '<span>LivePads</span></div>';
+}
+const OAUTH_CSS = `
+  *{box-sizing:border-box} html,body{height:100%;margin:0}
+  body{display:grid;place-items:center;padding:24px;color:#f4f5f7;font-family:Inter,"Segoe UI",system-ui,sans-serif;
+    background:radial-gradient(900px 560px at 20% 20%,rgba(251,174,0,.16),transparent 70%),
+      radial-gradient(700px 480px at 85% 90%,rgba(251,120,0,.10),transparent 70%),#0b0c10}
+  .card{width:min(440px,100%);padding:40px 34px 30px;border-radius:24px;text-align:center;
+    background:rgba(22,24,31,.92);border:1px solid rgba(255,255,255,.10);box-shadow:0 30px 80px rgba(0,0,0,.55);
+    animation:in .25s ease}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .brand{display:inline-flex;align-items:center;gap:12px;margin-bottom:30px;font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .brand img{border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .icon{width:72px;height:72px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(251,174,0,.14);border:1px solid rgba(251,174,0,.40);color:#FBAE00}
+  .icon.err{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.40);color:#ff7b7b}
+  .spin{width:28px;height:28px;border-radius:50%;border:3px solid rgba(251,174,0,.25);border-top-color:#FBAE00;animation:s .8s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  h1{margin:0 0 10px;font-size:24px;font-weight:800;letter-spacing:-.02em}
+  p{margin:0 auto;max-width:34ch;color:#c4c8d0;font-size:15px;line-height:1.55}
+  .foot{margin-top:28px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);
+    display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12.5px;color:#9aa0ab}
+  .foot a{color:#c4c8d0;text-decoration:none;font-weight:600} .foot a:hover{color:#fff}
+  .auto[hidden]{display:none}
+  @media (prefers-reduced-motion:reduce){.card{animation:none}.spin{animation-duration:2s}}
+`;
 const OAUTH_PORT = 8788; // debe figurar en Supabase → Auth → Redirect URLs como http://127.0.0.1:8788/callback
 ipcMain.handle('auth-oauth', async (_e, opts) => {
   const http = require('http');
@@ -1793,31 +1829,13 @@ ipcMain.handle('auth-oauth', async (_e, opts) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LivePads · Inicio de sesión</title>
-<style>
-  *{box-sizing:border-box} html,body{height:100%;margin:0}
-  body{display:grid;place-items:center;padding:24px;background:#08090b radial-gradient(90% 70% at 50% 0%,#1a1d14 0%,#08090b 62%);
-    color:#f4f5f7;font-family:Inter,"Segoe UI",system-ui,sans-serif}
-  .card{width:min(420px,100%);padding:36px 32px 30px;border-radius:20px;text-align:center;
-    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 80px rgba(0,0,0,.55)}
-  .brand{display:inline-flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:26px}
-  .brand i{width:30px;height:30px;border-radius:9px;background:#c6f432;display:grid;place-items:center}
-  .brand i b{display:flex;gap:2px;align-items:center}.brand i b span{width:3px;border-radius:2px;background:#0c0d08}
-  .icon{width:64px;height:64px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;
-    background:rgba(198,244,50,.12);border:1px solid rgba(198,244,50,.35);color:#c6f432}
-  .icon.err{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.4);color:#ff6b6b}
-  .spin{width:26px;height:26px;border-radius:50%;border:3px solid rgba(198,244,50,.25);border-top-color:#c6f432;animation:s .8s linear infinite}
-  @keyframes s{to{transform:rotate(360deg)}}
-  h1{margin:0 0 8px;font-size:22px;font-weight:700}
-  p{margin:0;color:#a3a8b1;font-size:14.5px;line-height:1.55}
-  .foot{margin-top:24px;font-size:12px;color:#6f7580}
-  .foot a{color:#a3a8b1}
-</style></head>
+<style>${OAUTH_CSS}</style></head>
 <body><main class="card">
-  <div class="brand"><i><b><span style="height:8px"></span><span style="height:14px"></span><span style="height:10px"></span><span style="height:16px"></span></b></i>LivePads</div>
+  ${oauthBrand()}
   <div class="icon" id="ic"><div class="spin"></div></div>
   <h1 id="t">Iniciando sesión…</h1>
   <p id="m">Un momento, estamos conectando tu cuenta con la app.</p>
-  <div class="foot"><a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
+  <div class="foot"><span class="auto" id="auto" hidden>Esta pestaña se cerrará sola.</span><a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
 </main>
 <script>
   var data = location.hash ? location.hash.slice(1) : location.search.slice(1);
@@ -1832,6 +1850,7 @@ ipcMain.handle('auth-oauth', async (_e, opts) => {
   } else {
     fetch('/token?' + data).then(function(){
       show(true, '¡Listo! Ya entraste', 'Vuelve a LivePads: tu cuenta ya está conectada. Puedes cerrar esta pestaña.');
+      var au = document.getElementById('auto'); if (au) au.hidden = false;
       setTimeout(function(){ try { window.close(); } catch(e){} }, 2500);
     }).catch(function(){ show(false, 'No se pudo completar', 'Vuelve a LivePads e inténtalo de nuevo.'); });
   }
@@ -1885,28 +1904,13 @@ function oauthResultPage(ok, title, text) {
     : '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LivePads · Inicio de sesión</title>
-<style>
-  *{box-sizing:border-box} html,body{height:100%;margin:0}
-  body{display:grid;place-items:center;padding:24px;background:#08090b radial-gradient(90% 70% at 50% 0%,#1a1d14 0%,#08090b 62%);
-    color:#f4f5f7;font-family:Inter,"Segoe UI",system-ui,sans-serif}
-  .card{width:min(420px,100%);padding:36px 32px 30px;border-radius:20px;text-align:center;
-    background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 80px rgba(0,0,0,.55)}
-  .brand{display:inline-flex;align-items:center;gap:10px;font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:26px}
-  .brand i{width:30px;height:30px;border-radius:9px;background:#c6f432;display:grid;place-items:center}
-  .brand i b{display:flex;gap:2px;align-items:center}.brand i b span{width:3px;border-radius:2px;background:#0c0d08}
-  .icon{width:64px;height:64px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;
-    background:rgba(198,244,50,.12);border:1px solid rgba(198,244,50,.35);color:#c6f432}
-  .icon.err{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.4);color:#ff6b6b}
-  h1{margin:0 0 8px;font-size:22px;font-weight:700}
-  p{margin:0;color:#a3a8b1;font-size:14.5px;line-height:1.55}
-  .foot{margin-top:24px;font-size:12px;color:#6f7580} .foot a{color:#a3a8b1}
-</style></head>
+<style>${OAUTH_CSS}</style></head>
 <body><main class="card">
-  <div class="brand"><i><b><span style="height:8px"></span><span style="height:14px"></span><span style="height:10px"></span><span style="height:16px"></span></b></i>LivePads</div>
+  ${oauthBrand()}
   <div class="icon${ok ? '' : ' err'}">${icon}</div>
   <h1>${esc(title)}</h1>
   <p>${esc(text)}</p>
-  <div class="foot"><a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
+  <div class="foot">${ok ? '<span class="auto">Esta pestaña se cerrará sola.</span>' : ''}<a href="https://livepads.online" target="_blank" rel="noopener">livepads.online</a></div>
 </main>${ok ? '<script>setTimeout(function(){try{window.close()}catch(e){}},2500)</script>' : ''}</body></html>`;
 }
 

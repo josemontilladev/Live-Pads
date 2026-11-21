@@ -17,6 +17,8 @@ import { getMidiMap } from '../midi/midiMap.js';
 let mounted = null;
 
 const SVG_OK = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" fill="none" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>`;
+// Filas informativas (MIDI sin mapear, Companion): ni ✓ verde ni aviso, un indicador neutro.
+const SVG_INFO = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
 const SVG_WARN = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
 
 /**
@@ -49,8 +51,8 @@ export function openPreflight(ctx = {}) {
       <p class="pf-subtitle">Antes de empezar el servicio:</p>
       <ul class="pf-list">
         ${checks.map(c => `
-          <li class="pf-row ${c.ok ? 'pf-row--ok' : 'pf-row--warn'}">
-            <span class="pf-icon" aria-hidden="true">${c.ok ? SVG_OK : SVG_WARN}</span>
+          <li class="pf-row ${c.info ? 'pf-row--info' : (c.ok ? 'pf-row--ok' : 'pf-row--warn')}">
+            <span class="pf-icon" aria-hidden="true">${c.info ? SVG_INFO : (c.ok ? SVG_OK : SVG_WARN)}</span>
             <div class="pf-text">
               <span class="pf-label">${c.label}</span>
               ${c.detail ? `<span class="pf-detail">${c.detail}</span>` : ''}
@@ -140,7 +142,8 @@ function runChecks(ctx) {
   out.push({
     label: 'MIDI mapeado',
     detail: mappingCount > 0 ? `${mappingCount} controles asignados` : 'Sin mapeo MIDI (puedes usar teclado o el ratón)',
-    ok: true // informational
+    ok: true, // informativa: no cuenta como aviso
+    info: mappingCount === 0,
   });
 
   // 5. Service list populated
@@ -169,7 +172,8 @@ function runChecks(ctx) {
   const companionRow = {
     label: 'Companion (móvil)',
     detail: 'Comprobando…',
-    ok: true
+    ok: true,
+    info: true
   };
   out.push(companionRow);
 
@@ -182,6 +186,11 @@ function runChecks(ctx) {
         : 'Apagado — actívalo desde el menú si tu banda quiere las letras en el móvil';
       const detailEl = row.querySelector('.pf-detail');
       if (detailEl) detailEl.textContent = detail;
+      // Activo: ✓ verde; apagado: se queda con el indicador neutro.
+      if (status.running) {
+        row.classList.remove('pf-row--info'); row.classList.add('pf-row--ok');
+        const ic = row.querySelector('.pf-icon'); if (ic) ic.innerHTML = SVG_OK;
+      }
     }).catch(() => {});
   }
 

@@ -111,17 +111,18 @@ function render() {
         ${cur('church') ? '<div class="pl-tag">Tu plan</div>' : libs.length
           ? `<select class="pl-lib">${libs.map((l) => `<option value="${esc(l.id)}" ${l.id === active ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}</select>
              <button type="button" class="acc-btn pl-buy" data-plan="church">Elegir Iglesia</button>`
-          : `<div class="pl-hint">${isLoggedIn() ? 'Crea una librería en Mi cuenta para contratarlo.' : ''}</div>`}
+          : isLoggedIn()
+            ? '<div class="pl-hint">Crea una librería en Mi cuenta para contratarlo.</div>'
+            : '<button type="button" class="acc-btn ghost pl-login">Inicia sesión para elegirlo</button>'}
       </div>
     </div>
     <div class="pl-foot">
-      ${!isLoggedIn() ? '<button type="button" class="acc-btn pl-login">Crear cuenta / Iniciar sesión</button>' : ''}
       ${paidOwn ? '<button type="button" class="acc-btn ghost sm pl-manage">Administrar pago en PayPal</button>' : ''}
       ${paidOwn && info.status !== 'canceled' ? '<button type="button" class="acc-btn ghost sm pl-cancel">Cancelar renovación</button>' : ''}
       ${isLoggedIn() ? '<button type="button" class="acc-btn ghost sm pl-refresh">Ya pagué · comprobar</button>' : ''}
     </div>
     <div class="pl-msg" aria-live="polite"></div>
-    <div class="pl-mission">🙏 Cada suscripción sirve para seguir mejorando LivePads y ser de bendición para toda la comunidad cristiana: más funciones, más innovación y una app que evoluciona cada día hasta ser la app definitiva para la alabanza en las iglesias.</div>
+    <div class="pl-mission">Cada suscripción sirve para seguir mejorando LivePads y ser de bendición para toda la comunidad cristiana: más funciones, más innovación y una app que evoluciona cada día hasta ser la app definitiva para la alabanza en las iglesias.</div>
     <div class="pl-legal">Pagos seguros con PayPal. Cancela cuando quieras desde aquí o desde PayPal.</div>
   `;
 }

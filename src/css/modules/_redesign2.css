@@ -82,7 +82,7 @@
 
 .sidebar-nav { flex: 0 0 210px; padding: 22px 12px 14px; gap: 3px; background: rgba(0,0,0,.28); }
 .sidebar-nav::before {
-  content: "Live Pads"; display: block; padding: 2px 10px 18px;
+  content: "LivePads"; display: block; padding: 2px 10px 18px;
   font-size: 17px; font-weight: 600; letter-spacing: -0.03em; color: var(--text);
 }
 .sidebar-nav-title { padding: 0 10px 6px; font-size: 10px; font-weight: 600; letter-spacing: .14em; opacity: .75; }

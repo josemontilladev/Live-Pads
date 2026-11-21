@@ -68,7 +68,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
   const listed = KEYS_WITH_LABELS.some(([k]) => k === curKey || k + 'm' === curKey);
   const opt = (value, label) =>
     `<option value="${value}" ${curKey === value ? 'selected' : ''}>${label}</option>`;
-  const keyOptions = ['<option value="" ' + (!curKey ? 'selected' : '') + '>-- Tono --</option>']
+  const keyOptions = ['<option value="" ' + (!curKey ? 'selected' : '') + '>Tono</option>']
     .concat(curKey && !listed ? [`<option value="${escAttr(curKey)}" selected>${escAttr(curKey)}</option>`] : [])
     .concat('<optgroup label="Mayores">')
     .concat(KEYS_WITH_LABELS.map(([k, label]) => opt(k, label)))
@@ -143,7 +143,7 @@ export function songEditFormHTML(song, { placeholderForNewSong = false, showLibr
         </select>
       </div>
       <input type="text" class="gi-edit-input edit-singerkeys" value="${esc(song.singerKeys || '')}" placeholder="Tonos por cantante (p. ej. G · María; E · Pedro)" title="Si alguien la canta en otro tono, anótalo aquí: tono · nombre. Varios, separados por punto y coma.">
-      <input type="text" class="gi-edit-input edit-tags" value="${esc(Array.isArray(song.tags) ? song.tags.join(', ') : '')}" placeholder="Etiquetas (separadas por comas: rápida, navidad…)">
+      <input type="text" class="gi-edit-input edit-tags" value="${esc(Array.isArray(song.tags) ? song.tags.join(', ') : '')}" placeholder="Etiquetas: rápida, navidad…">
       ${audioSection}
       ${lyricsSection}
       <div class="gi-edit-actions">

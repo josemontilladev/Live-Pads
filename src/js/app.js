@@ -963,6 +963,9 @@ function bindSidebarAndTabs() {
   // (El engranaje se retiró; el panel de Ajustes se abre con el menú ☰.)
   const gear = q('#btn-settings-toggle');
   if (gear) gear.onclick = () => q('#sidebar').classList.toggle('open');
+  // El velo de Ajustes vive fuera del panel: dentro, el transform del panel lo
+  // limitaba al propio panel y el resto de la app seguía a pleno brillo y activa.
+  { const ov = q('#sidebar-overlay'); if (ov && ov.parentElement !== document.body) document.body.appendChild(ov); }
   q('#sidebar-overlay').onclick = () => q('#sidebar').classList.remove('open');
   const btnClose = q('#btn-sidebar-close');
   if (btnClose) btnClose.onclick = () => q('#sidebar').classList.remove('open');

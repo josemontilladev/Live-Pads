@@ -4106,7 +4106,7 @@ function openShortcutsCheatSheet() {
   overlay.id = 'stems-shortcuts-overlay';
   overlay.className = 'stems-newsong-overlay';
   overlay.innerHTML = `<div class="stems-newsong-modal stems-shortcuts">
-    <h3 class="stems-shortcuts-title">⌨️ Atajos del timeline</h3>
+    <div class="stems-shortcuts-head"><h3 class="stems-shortcuts-title">Atajos de Stems</h3><button class="stems-shortcuts-x" data-action="close" type="button" title="Cerrar" aria-label="Cerrar"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="stems-shortcuts-list">
       ${STEMS_SHORTCUTS.map(([k, d]) => `<div class="stems-shortcut-row"><kbd>${escapeHtml(k)}</kbd><span>${escapeHtml(d)}</span></div>`).join('')}
     </div>

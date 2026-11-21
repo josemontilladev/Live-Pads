@@ -31,7 +31,7 @@ const SECTIONS = [
   {
     title: 'Pads de notas',
     rows: [
-      ['1 – = (fila superior)', 'Tocar C, C#, D … B'],
+      ['1 … =', 'Tocar C, C#, D … B (fila de números)'],
       ['Esc',             'Silenciar pad activo'],
     ],
   },

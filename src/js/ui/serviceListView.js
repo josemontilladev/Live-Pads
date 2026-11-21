@@ -137,7 +137,7 @@ export function showServiceChooser() {
     <button class="svc-chooser-new" data-act="new"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nuevo servicio</button>
     ${showSearch ? `<input type="text" class="svc-chooser-search" placeholder="Buscar servicio…" value="${esc(chooserSearch)}">` : ''}
     ${unsaved ? `<div class="svc-chooser-item svc-unsaved" data-act="current" title="Abrir la lista sin guardar">
-      <span class="svc-day svc-day--draft" aria-hidden="true"><b>•</b></span>
+      <span class="svc-day svc-day--draft" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="9" y1="7" x2="20" y2="7"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="17" x2="16" y2="17"/><circle cx="4.5" cy="7" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="17" r="1"/></svg></span>
       <span class="svc-chooser-info"><span class="svc-chooser-name">Lista sin guardar</span>
         <span class="svc-chooser-meta">${curN} ${curN === 1 ? 'canción' : 'canciones'}</span></span>
       <button class="svc-mini-btn" data-act="save-current">Guardar</button>

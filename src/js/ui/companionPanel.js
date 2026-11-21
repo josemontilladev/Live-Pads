@@ -76,7 +76,7 @@ export function openCompanionPanel({ mount = null } = {}) {
       </div>
 
       <label class="cp-autostart">
-        <input type="checkbox" id="cp-autostart">
+        <input type="checkbox" class="mo-switch" id="cp-autostart">
         <span>Iniciar al abrir LivePads</span>
       </label>
 
