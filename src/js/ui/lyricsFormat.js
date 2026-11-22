@@ -408,7 +408,7 @@ export function formatLyrics(lyrics) {
       // quedaba arriba, sobre otra). Los espacios de relleno (U+2007, ver
       // mergeChordLinesForDisplay) admiten corte para no desbordar la columna.
       const formattedLyrics = escapedLine
-        .replace(/\[([^\]]+)\]([^\s\[ ]*)/g, (match, chord, word) => `<span class="chw"><span class="inline-chord">${chord}</span>${word || '​'}</span>`)
+        .replace(/\[([^\]]+)\]([^\s\[ ]*)/g, (match, chord, word) => `<span class="chw${word ? '' : ' chw--bare'}"><span class="inline-chord">${chord}</span>${word || '​'}</span>`)
         .replace(/ /g, ' <wbr>');
       html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${formattedLyrics}</div>`;
     }

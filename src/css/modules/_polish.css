@@ -1247,3 +1247,26 @@ input.mo-switch:checked::after { transform: translateX(16px); }
 :root :is(.acc-panel, #lp-boost) .acc-lib-list > * { border: 0 !important; background: rgba(255, 255, 255, .05) !important; border-radius: 14px !important; }
 :root :is(.acc-panel, #lp-boost) .acc-lib-list > :is(.active, .is-active, [aria-current]) { background: rgba(255, 255, 255, .11) !important; }
 :root :is(.acc-panel, #lp-boost) .lib-badge { border-radius: 999px !important; padding: 2px 10px !important; }
+
+/* ═══ Letra con acordes: acordes legibles y sin encimarse ═══════════════════
+   El acorde va encima de su sílaba y cada palabra con acorde (.chw) reserva arriba
+   su altura (así solo crecen los renglones con acordes y nada se monta). Los
+   acordes sueltos, sin letra debajo (intro «[Dm][Dm][C]…», .chw--bare), ocupan
+   su propio ancho: antes se dibujaban todos en el mismo punto, encimados.
+   Tamaños más equilibrados: el acorde sube y la letra baja un punto. */
+:is(.lyp-cols, body.lyrics-window .lw-cols) .chw { padding-top: 1.05em !important; }
+:is(.lyp-cols, body.lyrics-window .lw-cols) .chw > .inline-chord { top: 0 !important; left: 0 !important; transform: none !important; line-height: 1.15 !important; }
+:is(.lyp-cols, body.lyrics-window .lw-cols) .lyric-line.has-inline-chords { line-height: 1.3 !important; margin-top: .2em !important; }
+:is(.lyp-body, body.lyrics-window .lw-body).hide-chords .chw { padding-top: 0 !important; }
+:is(.lyp-cols, body.lyrics-window .lw-cols, .lyr-content, .lyrics-text-content) .chw--bare { padding-top: 0 !important; display: inline-flex !important; flex-direction: column; vertical-align: bottom; }
+:is(.lyp-cols, body.lyrics-window .lw-cols, .lyr-content, .lyrics-text-content) .chw--bare > .inline-chord { position: static !important; padding-right: .6em; }
+:is(.lyp-body, body.lyrics-window .lw-body, .lyr-content, .lyrics-text-content).hide-chords .chw--bare { display: none !important; }
+/* Panel flotante de la letra: proporción letra / acordes. */
+.lyp-cols .lyric-line { font-size: .9em !important; }
+.lyp-cols .inline-chord { font-size: .95em !important; font-weight: 700 !important; }
+.lyp-cols .chord-line { font-size: .86em !important; font-weight: 700 !important; letter-spacing: .02em; }
+/* Otra pantalla: misma proporción. */
+body.lyrics-window .lw-cols .inline-chord { font-size: .9em !important; }
+body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
+/* Pantalla completa: acorde un poco mayor. */
+.lyr-content .chw > .inline-chord { font-size: .7em !important; }
