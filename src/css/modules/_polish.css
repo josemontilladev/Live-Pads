@@ -1346,3 +1346,16 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
 .lyrics-editor-toolbar .chord-btn:hover { background: rgba(255, 255, 255, .14) !important; }
 .lrp-preview .inline-chord, .lrp-preview .chord-line { font-size: .92em !important; }
 .lyrics-editor-toolbar .chord-btn { width: auto !important; min-width: 0 !important; padding: 0 14px !important; display: inline-flex !important; align-items: center; justify-content: center; }
+
+/* ── Stems: M y S se ven claramente cuando están activos ──────────────────
+   El estilo plano los pintaba todos de negro y tapaba el estado. Como en una
+   mesa: Mute encendido en ámbar, Solo en azul claro, con brillo. */
+:root :is(.stems-ms--mute, #lp-boost).is-on {
+  background: #F5A524 !important; border-color: #F5A524 !important; color: #1a1300 !important;
+  box-shadow: 0 0 0 2px rgba(245, 165, 36, .25), 0 0 14px rgba(245, 165, 36, .55) !important;
+}
+:root :is(.stems-ms--solo, #lp-boost).is-on {
+  background: #5CC8FF !important; border-color: #5CC8FF !important; color: #00182a !important;
+  box-shadow: 0 0 0 2px rgba(92, 200, 255, .25), 0 0 14px rgba(92, 200, 255, .55) !important;
+}
+:root :is(.stems-ms, #lp-boost).is-on:hover { filter: brightness(1.08); }

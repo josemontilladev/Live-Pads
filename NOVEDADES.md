@@ -1,3 +1,3 @@
-• Editor de letra: el menú ⋯ Herramientas ya abre siempre (se cerraba solo en el mismo instante si el editor hacía scroll).
-• Arranque más fluido: al abrir LivePads, la canción se muestra al momento y su análisis (secciones, acordes, compases) espera unos segundos a que la app termine de cargar; mientras, la onda avisa «Preparando la canción…».
-• Los análisis con IA (acordes y pulso) usan la mitad de los núcleos del procesador: la app y el audio siguen ágiles mientras se analiza.
+• GI App al día con LivePads: al guardar o cambiar un servicio en LivePads, su programa en GI App se actualiza solo (canciones, orden y tonos), sin tocar bienvenida, oración, avisos ni responsables. Un servicio nuevo con fecha de hoy en adelante aparece también en GI App.
+• Stems: los botones M (silenciar) y S (solo) se ven claramente cuando están activos: ámbar y azul.
+• Pads: la onda ya no sale como un bloque blanco en canciones largas con zoom (algunas gráficas no admiten lienzos tan anchos).

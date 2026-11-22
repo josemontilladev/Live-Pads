@@ -35,6 +35,7 @@ import {
 import { getSongs } from '../state/store.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
 import { hasFeature } from '../billing/license.js';
+import { planServiceItems } from './serviceItemsPlan.js';
 
 function requireContext() {
   if (!isLoggedIn()) throw new Error('Inicia sesión para usar la nube.');
@@ -133,12 +134,83 @@ export async function upsertSharedSetlist(name, date, songsArg, keysArg, cloudId
   if (target && deletedIds(libId, 'setlist').has(String(target))) target = null;
 
   const saved = await writeRow(target, row);
+  // El servicio de GI App ligado a este setlist (programa con canciones, avisos,
+  // oración…) se pone al día: antes los cambios hechos en LivePads no llegaban.
+  const setlistId = (saved && saved.id) || target;
+  if (setlistId) {
+    try { await syncServiceProgram(libId, setlistId, row.name, row.meta && row.meta.date, songs, keys); }
+    catch (e) { try { console.warn('[setlistSync] no se pudo actualizar el servicio de GI App:', e && e.message); } catch (_) {} }
+  }
   return {
     id: (saved && saved.id) || target,
     updatedAt: (saved && saved.updated_at) || null,
     saved: song_ids.length,
     skipped,
   };
+}
+
+// ── Programa del servicio en GI App ───────────────────────────────────────
+// Busca los servicios de GI App ligados al setlist (services.setlist_id) y deja
+// sus CANCIONES como en LivePads: añade, quita, reordena y pone el tono; lo que
+// no es canción (bienvenida, oración, avisos, predicación…) no se toca. Si el
+// setlist aún no tiene servicio y tiene fecha, se crea para que aparezca en GI
+// App. Solo editores (la base de datos lo exige); si no, no pasa nada.
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+// Una vez por sesión, tras bajar los setlists: los de hoy en adelante dejan su
+// programa de GI App igual que en LivePads (recupera cambios hechos antes de que
+// existiera este camino). Si ya coincide, no escribe nada.
+let programReconciled = false;
+async function reconcilePrograms(libId) {
+  if (programReconciled) return;
+  programReconciled = true;
+  const today = todayKey();
+  for (const s of listSavedSetlists()) {
+    if (!s.cloudId || !s.date || String(s.date) < today) continue;
+    try { await syncServiceProgram(libId, s.cloudId, s.name, s.date, s.songs || [], s.keys || {}); } catch (_) {}
+  }
+}
+
+async function syncServiceProgram(libId, setlistId, name, date, songs, keys) {
+  let svcs = await rest(`/services?setlist_id=eq.${setlistId}&select=id,title,date`);
+  svcs = Array.isArray(svcs) ? svcs : [];
+  if (!svcs.length) {
+    // Solo servicios de hoy en adelante: subir setlists viejos no debe llenar
+    // GI App de servicios pasados.
+    if (!date || String(date) < todayKey()) return;
+    const created = await rest('/services', {
+      method: 'POST', body: { library_id: libId, title: name, date, setlist_id: setlistId }, prefer: 'return=representation',
+    });
+    svcs = Array.isArray(created) ? created : (created ? [created] : []);
+  }
+  const byCloud = new Map();
+  (songs || []).forEach((s) => { if (s && s.cloudId) byCloud.set(String(s.cloudId), s); });
+  const songIds = (songs || []).map((s) => s && s.cloudId).filter(Boolean).map(String);
+  // Igual que GI App: cada canción lleva su tono (el del servicio o el de la tarjeta).
+  const keyMap = {};
+  songIds.forEach((id) => { const s = byCloud.get(id); keyMap[id] = (keys && keys[id]) || (s && s.key) || null; });
+  const titleOf = (id) => (byCloud.get(id) || {}).title || 'Canción';
+  for (const svc of svcs) {
+    // Nombre y fecha del servicio, como el setlist.
+    const patch = {};
+    if (name && svc.title !== name) patch.title = name;
+    if (date && svc.date && svc.date !== date) patch.date = date;
+    if (Object.keys(patch).length) await rest(`/services?id=eq.${svc.id}`, { method: 'PATCH', body: patch, prefer: 'return=minimal' });
+    const items = await rest(`/service_items?service_id=eq.${svc.id}&select=id,position,kind,song_id,key&order=position.asc`);
+    const plan = planServiceItems(Array.isArray(items) ? items : [], songIds, keyMap, titleOf);
+    if (!plan.changed) continue;
+    if (plan.deletes.length) await rest(`/service_items?id=in.(${plan.deletes.join(',')})`, { method: 'DELETE', prefer: 'return=minimal' });
+    for (const u of plan.updates) {
+      const { id, ...body } = u;
+      await rest(`/service_items?id=eq.${id}`, { method: 'PATCH', body, prefer: 'return=minimal' });
+    }
+    if (plan.creates.length) {
+      await rest('/service_items', {
+        method: 'POST', prefer: 'return=minimal',
+        body: plan.creates.map((c) => ({ ...c, service_id: svc.id, library_id: libId, duration_min: 5 })),
+      });
+    }
+  }
 }
 
 // Borra de la nube el setlist compartido con ese nombre (compat con la UI que
@@ -203,6 +275,7 @@ export async function autoSyncSetlists() {
   try { down = await pullSharedSetlists(); } catch (_) {}
   let up = { pushed: 0, skipped: 0 };
   try { up = await pushSavedSetlists(); } catch (_) {}
+  try { await reconcilePrograms(getActiveLibraryId()); } catch (_) {}
   return { ...down, ...up };
 }
 

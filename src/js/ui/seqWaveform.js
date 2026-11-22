@@ -261,10 +261,16 @@ function drawOn(canvas, fallback, lit, w, h) {
   // Con mucho zoom el lienzo mide miles de píxeles: a densidad 1× (no se nota a ese
   // ancho) cuesta la mitad o menos de dibujar y de memoria gráfica en portátiles.
   const dpr = w > 4000 ? 1 : (window.devicePixelRatio || 1);
+  // Tope de 8192 píxeles reales: muchas gráficas integradas no admiten texturas
+  // más anchas y, con mucho zoom en una canción larga (3–4 min → hasta 14 000 px),
+  // el lienzo no se pintaba y la onda salía como un bloque blanco. Se dibuja a
+  // menos resolución y se estira: a ese zoom no se nota.
+  const MAX_PX = 8192;
+  const sx = Math.min(dpr, MAX_PX / Math.max(1, w));
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
-  canvas.width = Math.floor(w * dpr); canvas.height = Math.floor(h * dpr);
+  canvas.width = Math.max(1, Math.floor(w * sx)); canvas.height = Math.floor(h * dpr);
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  ctx.scale(sx, dpr);
   ctx.clearRect(0, 0, w, h);
   const n = peaks.length / 2, mid = h / 2, amp = mid - 3;
   const bar = 2, gap = 1, step = bar + gap, cols = Math.floor(w / step);
