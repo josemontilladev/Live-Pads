@@ -14,6 +14,7 @@
 import { closeAllLyrics } from './songState.js';
 import { pushModal } from './modalStack.js';
 import { closeButton } from './components.js';
+import { openCardMoreMenu } from './cardMoreMenu.js';
 import { ensureCardLyrics } from './songCard.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
@@ -229,6 +230,29 @@ function paintPrefs() {
   panel.classList.toggle('is-docked', !!prefs.docked);
 }
 
+// ⋯ Herramientas: las acciones del panel con su nombre (antes eran 10 iconos
+// sueltos). Los botones originales siguen en la cabecera, ocultos: los pedales y
+// botones MIDI asignados a «subir / bajar la letra» los siguen pulsando.
+function openToolsMenu(anchorBtn) {
+  const go = (w) => panel?.querySelector(`.lyp-tools [data-do="${w}"]`)?.click();
+  const I = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  openCardMoreMenu(anchorBtn, [
+    { icon: I('<polyline points="6 15 12 9 18 15"/>'), label: 'Subir la letra', onSelect: () => go('up') },
+    { icon: I('<polyline points="6 9 12 15 18 9"/>'), label: 'Bajar la letra', onSelect: () => go('down') },
+    { sep: true },
+    { icon: I('<path d="M4 20l6-16 6 16M6.5 14h7"/><path d="M17 8h4M19 6v4"/>'), label: `Letra más grande · ${prefs.size}`, onSelect: () => go('bigger') },
+    { icon: I('<path d="M4 20l6-16 6 16M6.5 14h7"/><path d="M17 8h4"/>'), label: 'Letra más pequeña', onSelect: () => go('smaller') },
+    { sep: true },
+    { icon: I('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'), label: 'Mostrar acordes', checked: !!prefs.chords, onSelect: () => go('chords') },
+    { icon: I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'), label: 'Seguir la canción que suena', hint: 'Cambia sola al cambiar de canción', checked: !!prefs.follow, onSelect: () => go('follow') },
+    { icon: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/>'), label: 'Acoplar al centro', hint: 'Ocupa el hueco de la batería y el mezclador', checked: !!prefs.docked, onSelect: () => go('dock') },
+    { sep: true },
+    { icon: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'), label: 'Editar letra y acordes', onSelect: () => go('edit') },
+    { icon: I('<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'), label: 'Pantalla completa', hint: 'Para leer en vivo, desde lejos', onSelect: () => go('fs') },
+    { icon: I('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'), label: 'Llevar a otra pantalla', hint: 'TV o segundo monitor', onSelect: () => go('screen') },
+  ]);
+}
+
 function open(data) {
   current = data;
   if (!overlay) {
@@ -251,6 +275,10 @@ function open(data) {
             <button type="button" class="lyp-btn" data-do="fs" title="Letra a pantalla completa (uso en vivo)" aria-label="Pantalla completa"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
             <button type="button" class="lyp-btn" data-do="screen" title="Llevar la letra a otra pantalla (TV, segundo monitor)" aria-label="Otra pantalla"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
           </div>
+          <button type="button" class="lyp-more" data-do="more" aria-haspopup="menu" title="Herramientas de la letra: tamaño, acordes, seguir la canción, pantalla completa…">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            <span>Herramientas</span>
+          </button>
           ${closeButton({ cls: 'tun-close', attrs: { 'data-do': 'close' } })}
         </div>
         <div class="lyp-body lyrics-text-content"><div class="lyp-cols"></div></div>
@@ -276,6 +304,7 @@ function open(data) {
       if (!b) return;
       const w = b.dataset.do;
       if (w === 'close') close();
+      else if (w === 'more') openToolsMenu(b);
       else if (w === 'up' || w === 'down') {
         const body = panel.querySelector('.lyp-body');
         body.scrollBy({ top: (w === 'down' ? 1 : -1) * Math.max(80, body.clientHeight * 0.8), behavior: 'smooth' });

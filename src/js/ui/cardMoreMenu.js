@@ -58,11 +58,21 @@ function buildMenu(items) {
   menu.className = 'card-more-menu';
   menu.setAttribute('role', 'menu');
   items.forEach(it => {
+    // Separador: { sep: true } (opcionalmente con título: { sep: true, label }).
+    if (it.sep) {
+      const d = document.createElement('div');
+      d.className = 'cmm-sep' + (it.label ? ' cmm-sep--label' : '');
+      if (it.label) d.textContent = it.label;
+      menu.appendChild(d);
+      return;
+    }
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'card-more-item' + (it.danger ? ' danger' : '');
-    btn.setAttribute('role', 'menuitem');
-    btn.innerHTML = `<span class="cmm-ico">${it.icon || ''}</span><span class="cmm-label">${it.label}</span>`;
+    btn.className = 'card-more-item' + (it.danger ? ' danger' : '') + (it.hint ? ' has-hint' : '') + (it.checked ? ' is-checked' : '');
+    btn.setAttribute('role', it.checked != null ? 'menuitemcheckbox' : 'menuitem');
+    if (it.checked != null) btn.setAttribute('aria-checked', it.checked ? 'true' : 'false');
+    // hint: explicación corta bajo la opción; checked: ✓ a la derecha (opción activa).
+    btn.innerHTML = `<span class="cmm-ico">${it.icon || ''}</span><span class="cmm-label">${it.label}${it.hint ? `<small class="cmm-hint">${it.hint}</small>` : ''}</span>${it.checked ? '<span class="cmm-check" aria-hidden="true">✓</span>' : ''}`;
     btn.onclick = (e) => {
       e.stopPropagation();
       close();

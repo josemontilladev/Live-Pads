@@ -1,2 +1,3 @@
-• Editor de letra: el texto ya no se ve doble y los acordes y secciones se ven resaltados en color.
-• Tono ligado para todo el equipo: si alguien transporta una canción (sube o baja semitonos con el tono ligado), al resto le llega igual que el cambio de tono de la tarjeta. Si la canción está sonando, el audio y el pad se ponen al día solos.
+• Nuevo: «Cambiar la letra (conservar acordes)». En el editor de letra, ⋯ Herramientas → pega la letra nueva sin acordes y LivePads coloca encima los acordes que ya tenía la canción (sección por sección), con vista previa antes de aplicar.
+• Editor de letra más simple: a la vista solo Sección, Acorde, el tono de la letra, Vista previa y Herramientas; el resto, en el menú ⋯ con una explicación de cada opción.
+• Panel de la letra: las herramientas (tamaño, acordes, seguir la canción, acoplar, pantalla completa, otra pantalla…) ahora en un menú ⋯ con sus nombres, en vez de una fila de iconos.

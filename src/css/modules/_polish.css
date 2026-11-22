@@ -1281,3 +1281,68 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
 }
 :root :is(.editor-container, #lp-boost) .editor-textarea::selection { background: rgba(255, 255, 255, .22); -webkit-text-fill-color: transparent; }
 :root :is(.editor-container, #lp-boost) .editor-highlight { padding: 16px !important; border: 0 !important; color: #e8edf5 !important; }
+
+/* ═══ Herramientas de la letra: menú ⋯ en vez de una fila de iconos ═════════ */
+/* Panel flotante: los iconos sueltos se ocultan (siguen ahí para los pedales
+   MIDI); en la cabecera solo «⋯ Herramientas» y cerrar. */
+.lyp-panel .lyp-tools { display: none !important; }
+.lyp-more, .lyr-tools-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 14px 0 11px;
+  border-radius: 999px; border: 1px solid var(--menu-line, rgba(255,255,255,.12)); background: rgba(255, 255, 255, .06);
+  color: #fff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; touch-action: manipulation; flex: none;
+  transition: background .15s ease, border-color .15s ease;
+}
+.lyp-more:hover, .lyr-tools-btn:hover, .lyp-more[aria-expanded="true"], .lyr-tools-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .3); }
+.lyp-head .lyp-more { margin-left: auto; margin-right: 6px; }
+/* Menús: separadores, explicación bajo cada opción y ✓ de las activas. */
+.card-more-menu .cmm-sep { height: 1px; margin: 4px 8px; background: var(--menu-line, rgba(255,255,255,.1)); }
+.card-more-menu .cmm-sep--label { height: auto; background: none; padding: 6px 10px 2px; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--menu-dim); }
+.card-more-menu .card-more-item.has-hint { min-height: 46px; align-items: center; padding-top: 6px !important; padding-bottom: 6px !important; }
+.card-more-menu .cmm-label { display: flex; flex-direction: column; gap: 1px; text-align: left; min-width: 0; }
+.card-more-menu .cmm-hint { font-size: 11.5px; font-weight: 400; color: var(--menu-dim, rgba(255,255,255,.55)); line-height: 1.3; }
+.card-more-menu .cmm-check { margin-left: auto; padding-left: 14px; font-weight: 700; color: #fff; }
+.card-more-menu .card-more-item:not(.is-checked)[role="menuitemcheckbox"] .cmm-label { opacity: .8; }
+
+/* Editor de letra: barra simple — Sección · Acorde · tono · Vista previa · ⋯ */
+.lyrics-editor-toolbar .chord-btn { padding: 0 12px !important; white-space: nowrap; }
+.lyrics-editor-toolbar .lyrics-preview-btn {
+  display: inline-flex !important; align-items: center; gap: 7px; height: 32px; width: auto !important; padding: 0 14px !important;
+  border-radius: 999px !important; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+}
+.lyr-more-tools[hidden] { display: none !important; }
+
+/* Ventana «Cambiar la letra conservando los acordes». */
+:root .lrp-modal { width: 940px !important; max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; }
+.lrp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0; flex: 1 1 auto; }
+.lrp-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.lrp-label { font-size: 12px; font-weight: 700; color: #fff; }
+.lrp-label small { font-weight: 500; color: var(--menu-dim); }
+:root :is(.lrp-modal, #lp-boost) .lrp-input { height: 52vh !important; min-height: 260px; resize: none; font-size: 13.5px !important; line-height: 1.55; }
+.lrp-preview {
+  height: 52vh; min-height: 260px; overflow-y: auto; padding: 12px 16px; border-radius: 16px;
+  background: rgba(255, 255, 255, .05); font-size: 15px;
+}
+.lrp-preview .chw { padding-top: 1.05em; }
+.lrp-preview .chw > .inline-chord { top: 0; left: 0; transform: none; line-height: 1.15; }
+.lrp-preview .lyric-line.has-inline-chords { line-height: 1.3; margin-top: .2em; }
+.lrp-empty { color: var(--menu-dim); font-size: 13px; }
+.lrp-tip { margin: 12px 2px 0; font-size: 12px; color: var(--menu-dim); line-height: 1.45; }
+@media (max-width: 760px) { .lrp-cols { grid-template-columns: 1fr; } }
+/* Capas: los menús ⋯ y la ventana «Cambiar la letra» van por encima del editor
+   de letra y de cualquier ventana (antes se abrían por detrás). */
+.card-more-menu { z-index: 2147483000 !important; }
+.lrp-overlay { z-index: 2147482000 !important; }
+/* Barra del editor: cada control con su ancho (el selector de sección pisaba
+   «Acorde») y el botón del enlace, que ahora vive en Herramientas, oculto. */
+.lyrics-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; row-gap: 10px; }
+.lyrics-editor-toolbar > * { flex: none; }
+.lyrics-editor-toolbar .lyrics-section-select { width: auto !important; min-width: 118px; height: 32px; }
+.lyrics-editor-toolbar .import-url-btn[hidden] { display: none !important; }
+.lyrics-editor-toolbar .toolbar-sep { margin: 0 2px; }
+/* Vista previa de «Cambiar la letra»: acordes legibles. */
+.lrp-preview .inline-chord { font-size: .82em !important; font-weight: 700; }
+.lrp-preview .chord-line { font-size: .82em !important; font-weight: 700; }
+.lyrics-editor-toolbar .chord-btn { height: 32px; background: rgba(255, 255, 255, .06) !important; border: 1px solid var(--menu-line) !important; border-radius: 999px !important; color: #fff !important; font-weight: 600 !important; }
+.lyrics-editor-toolbar .chord-btn:hover { background: rgba(255, 255, 255, .14) !important; }
+.lrp-preview .inline-chord, .lrp-preview .chord-line { font-size: .92em !important; }
+.lyrics-editor-toolbar .chord-btn { width: auto !important; min-width: 0 !important; padding: 0 14px !important; display: inline-flex !important; align-items: center; justify-content: center; }
