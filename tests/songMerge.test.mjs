@@ -41,7 +41,7 @@ test('snapshot copia los arreglos (no comparte referencias)', () => {
 import { adoptCloudKeyPitch } from '../src/js/cloud/songMerge.js';
 test('tono ligado del audio: llega del equipo si no tengo cambios sin subir', () => {
   const local = { sequence: 'a.mp3', pitch: 0, keyPitch: 0 };
-  assert.deepEqual(adoptCloudKeyPitch(local, { keyPitch: -2, pitch: -2 }), { sequence: 'a.mp3', pitch: -2, keyPitch: -2 });
+  assert.deepEqual(adoptCloudKeyPitch(local, { keyPitch: -2, pitch: -2, keyPitchSet: true }), { sequence: 'a.mp3', pitch: -2, keyPitch: -2, keyPitchSet: true });
   // Con cambios míos sin subir, se queda lo mío.
   assert.equal(adoptCloudKeyPitch(local, { keyPitch: -2 }, true), local);
   // Fila de una versión anterior (sin keyPitch): no toca lo local.

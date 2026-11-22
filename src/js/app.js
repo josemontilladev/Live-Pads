@@ -83,7 +83,7 @@ import {
   serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey, clearKeyOverride, getKeyOverride, setKeyOverride
 } from './data/service.js';
 import { parseKey, keyDelta } from './utils/musicKeys.js';
-import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shiftKey, reconcileLinkedPitch } from './utils/keyLink.js';
+import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shiftKey, reconcileLinkedPitch, resetStrayPitches } from './utils/keyLink.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
@@ -412,6 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         c.audio.pitch = (song.audio || {}).pitch;
         c.audio.pitchAuto = (song.audio || {}).pitchAuto;
         c.audio.keyPitch = (song.audio || {}).keyPitch;
+        c.audio.keyPitchSet = !!(song.audio || {}).keyPitchSet;
         svcChanged = true;
       }
       if (svcChanged || getServiceSongs().includes(song)) saveServiceSongs();
@@ -479,7 +480,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // pad recalcula su base (grabación = tarjeta − keyPitch).
     onKeyLinkAdopted: (song) => {
       const live = libraryLive(song);
-      if (live && live !== song) { if (!live.audio) live.audio = {}; live.audio.keyPitch = song.audio.keyPitch; live.audio.pitch = song.audio.pitch; persistGiSongs(); syncServiceWithLibrary(); }
+      if (live && live !== song) { if (!live.audio) live.audio = {}; live.audio.keyPitch = song.audio.keyPitch; live.audio.pitch = song.audio.pitch; live.audio.keyPitchSet = !!song.audio.keyPitchSet; persistGiSongs(); syncServiceWithLibrary(); }
       const rs = recordingSemitone(live || song);
       if (rs != null && isActiveLibrarySong(live || song)) { _songBaseKeySemitone = rs; applyNotepadPitchShift(getTrackPitch()); }
     },
@@ -1314,11 +1315,11 @@ function bindRestOfApp() {
       if (ok) {
         live.lyrics = ch.lyrics;
         live.audio.pitch = ch.pitch;
-        live.audio.keyPitch = ch.keyPitch;
+        live.audio.keyPitch = ch.keyPitch; live.audio.keyPitchSet = true; live.audio.keyPitchSet = true;
       } else {
         // «Solo corregir»: el tono de la tarjeta pasa a ser el que SUENA ahora
         // (grabación + transporte), así el pad no arrastra un transporte anterior.
-        live.audio.keyPitch = Number(live.audio.pitch) || 0;
+        live.audio.keyPitch = Number(live.audio.pitch) || 0; live.audio.keyPitchSet = true;
       }
       persistGiSongs();
       window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
@@ -2345,12 +2346,30 @@ async function loadGiSetlistFromFile(skipConflictCheck = false) {
       if (plain !== s.lyrics) { s.lyrics = plain; changed++; }
     }
   }
+  // Repertorio limpio (una sola vez por equipo): los semitonos guardados por
+  // versiones anteriores (sin la marca de «cambio hecho con el tono ligado»)
+  // hacían sonar canciones en un tono que ya no iba. Se ponen a 0: cada canción
+  // suena en el tono de su tarjeta. Se sube a la nube para que el equipo también.
+  let cleaned = 0;
+  try {
+    if (localStorage.getItem(PITCH_CLEANUP_KEY) !== '1') {
+      cleaned = resetStrayPitches(songs);
+      localStorage.setItem(PITCH_CLEANUP_KEY, '1');
+      if (cleaned) changed++;
+    }
+  } catch (_) {}
   setSongs(songs);
   if (changed && window.electronAPI) window.electronAPI.saveGiSetlist(songs);
+  if (cleaned) {
+    try { syncServiceWithLibrary(); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+    setTimeout(() => showToast(`Repertorio revisado: ${cleaned} ${cleaned === 1 ? 'canción tenía' : 'canciones tenían'} semitonos guardados de versiones anteriores. Ahora todas suenan en el tono de su tarjeta.`, 'info'), 1500);
+  }
   updateFilterCounts();
   renderGiList();
   if (!skipConflictCheck) checkLibraryConflicts();
 }
+const PITCH_CLEANUP_KEY = 'livepads-pitch-cleanup-v2';
 
 // Si OneDrive creó copias en conflicto de la BD (editar en 2 PCs a la vez),
 // ofrece fusionarlas en vez de perder datos en silencio.
@@ -2437,7 +2456,7 @@ function linkedPitchFollow(song, delta) {
   live.key = ch.key;
   live.lyrics = ch.lyrics;
   if (!live.audio) live.audio = {};
-  live.audio.keyPitch = ch.keyPitch;
+  live.audio.keyPitch = ch.keyPitch; live.audio.keyPitchSet = true;
   if (song && song !== live && song.audio) live.audio.pitch = song.audio.pitch;
   if (ov) setKeyOverride(live, shiftKey(ov, delta));
   persistGiSongs();

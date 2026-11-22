@@ -570,7 +570,7 @@ function promoteKeyToLibrary(song, newKey) {
     live.lyrics = ch.lyrics;
     if (!live.audio) live.audio = {};
     live.audio.pitch = ch.pitch;
-    live.audio.keyPitch = ch.keyPitch;
+    live.audio.keyPitch = ch.keyPitch; live.audio.keyPitchSet = true;
   }
   clearKeyOverride(song);
   // A disco primero: songs-changed re-renderiza y programa el push a la nube,

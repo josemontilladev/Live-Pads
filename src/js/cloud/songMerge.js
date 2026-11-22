@@ -110,5 +110,5 @@ export function adoptCloudKeyPitch(audio, incomingAudio, localDirty = false) {
   const v = incomingAudio.keyPitch;
   if (v === undefined || v === null || v === '') return audio;
   const kp = Number(v) || 0;
-  return { ...(audio || {}), keyPitch: kp, pitch: kp };
+  return { ...(audio || {}), keyPitch: kp, pitch: kp, keyPitchSet: !!incomingAudio.keyPitchSet };
 }

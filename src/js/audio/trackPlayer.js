@@ -134,11 +134,19 @@ export function reapplyKeyShift(song) {
   if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch, currentSong); } catch (_) {} }
 }
 
+// El contador marca cuánto se movió la canción DESDE QUE SE ABRIÓ: al abrirla
+// siempre está en 0 (suena en el tono de su tarjeta / del servicio). Lo que se
+// mueve con el tono ligado pasa a la tarjeta, así que la próxima vez vuelve a 0.
+let pitchBase = 0;
 function paintPitchUI() {
   const lbl = q('#tp-pitch-val');
   if (!lbl) return;
-  lbl.textContent = currentPitch > 0 ? '+' + currentPitch : String(currentPitch);
-  const shifted = currentPitch !== 0;
+  const shown = currentPitch - pitchBase;
+  lbl.textContent = shown > 0 ? '+' + shown : String(shown);
+  lbl.title = shown
+    ? `Movida ${shown > 0 ? '+' : ''}${shown} semitono(s) desde que la abriste · doble clic: volver`
+    : 'En el tono de la tarjeta · doble clic: volver aquí';
+  const shifted = shown !== 0;
   lbl.classList.toggle('shifted', shifted);
   // Borde del grupo también se tinta para feedback visible aun sin mirar
   // el número.
@@ -418,6 +426,7 @@ async function startTrackPlayback(url, title, type) {
       }
     }
     currentPitch = Math.max(-12, Math.min(12, shift + manual));
+    pitchBase = currentPitch;   // al abrir, el contador marca 0
   }
   audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
@@ -663,7 +672,8 @@ export function bindTrackPlayerControls() {
   if (tpPitchUp)   tpPitchUp.onclick   = () => manualPitch(currentPitch + 1);
   if (tpPitchDown) tpPitchDown.onclick = () => manualPitch(currentPitch - 1);
   // Doble-clic en el contador para resetear a 0.
-  if (tpPitchReset) tpPitchReset.ondblclick = () => manualPitch(0);
+  // Doble clic: volver a como estaba al abrirla (el tono de su tarjeta).
+  if (tpPitchReset) tpPitchReset.ondblclick = () => manualPitch(pitchBase);
   // 🔗 Tono ligado: encadena tarjeta + pad + acordes de la letra + audio.
   const tpLink = q('#tp-pitch-link');
   const paintLink = () => {
@@ -683,6 +693,7 @@ export function bindTrackPlayerControls() {
     if (isKeyLinked() && currentSong) {
       if (!currentSong.audio) currentSong.audio = {};
       currentSong.audio.keyPitch = Number(currentSong.audio.pitch) || 0;
+      currentSong.audio.keyPitchSet = true;
       if (typeof deps.persistSong === 'function') { try { deps.persistSong(currentSong); } catch (_) {} }
       if (typeof deps.onKeyLinkAdopted === 'function') { try { deps.onKeyLinkAdopted(currentSong); } catch (_) {} }
     }
@@ -697,7 +708,7 @@ export function clearTrackUI() {
   // Sin pista = sin transposición que mostrar. Reseteamos el contador a 0 para
   // que NO arrastre el ±N de la canción anterior (la transposición es por
   // canción; una sin pista cargada no hereda la de otra).
-  currentPitch = 0;
+  currentPitch = 0; pitchBase = 0;
   paintPitchUI();
   const tt = q('#tp-title'); if (tt) tt.textContent = 'Sin pista seleccionada';
   const tc = q('#tp-time-current'); if (tc) tc.textContent = '0:00';

@@ -81,9 +81,9 @@ export function linkedPitchStep(song, delta) {
 
 /**
  * Pone de acuerdo lo guardado con el tono ligado (la tarjeta manda):
- *  - Canción de antes del tono ligado (sin keyPitch): el ajuste manual que tenía
- *    era a propósito (la tarjeta dice el tono que se toca y el audio se bajó a
- *    mano). Se incorpora: keyPitch = pitch. Suena igual y el pad sigue a la tarjeta.
+ *  - Canción de antes del tono ligado (sin keyPitch): el ajuste que tenía es un
+ *    resto de versiones pasadas (en vivo sonaba en un tono que ya no iba). Se
+ *    descarta: suena en el tono de la tarjeta (pitch = keyPitch = 0).
  *  - Con keyPitch: un ajuste que no está en la tarjeta (▼ ▲ con el 🔗 apagado) se
  *    descarta: pitch = keyPitch.
  * Devuelve { pitch, keyPitch, changed }.
@@ -92,8 +92,27 @@ export function reconcileLinkedPitch(audio) {
   const a = audio || {};
   const pitch = Number(a.pitch) || 0;
   if (a.keyPitch === undefined || a.keyPitch === null || a.keyPitch === '') {
-    return { pitch, keyPitch: pitch, changed: true };
+    return { pitch: 0, keyPitch: 0, changed: true };
   }
   const kp = Number(a.keyPitch) || 0;
   return { pitch: kp, keyPitch: kp, changed: pitch !== kp };
+}
+
+/**
+ * Limpieza única del repertorio: semitonos guardados que NO vienen de un cambio
+ * hecho con el tono ligado (sin la marca keyPitchSet) se ponen a 0. Devuelve
+ * cuántas canciones cambió. Pura sobre la lista.
+ */
+export function resetStrayPitches(songs) {
+  let n = 0;
+  for (const s of songs || []) {
+    const a = s && s.audio;
+    if (!a || a.keyPitchSet) continue;
+    if ((Number(a.pitch) || 0) !== 0 || (Number(a.keyPitch) || 0) !== 0 || a.keyPitch === undefined) {
+      const had = (Number(a.pitch) || 0) !== 0 || (Number(a.keyPitch) || 0) !== 0;
+      a.pitch = 0; a.keyPitch = 0;
+      if (had) n++;
+    }
+  }
+  return n;
 }

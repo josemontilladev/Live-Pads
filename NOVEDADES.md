@@ -1,3 +1,2 @@
-• GI App al día con LivePads: al guardar o cambiar un servicio en LivePads, su programa en GI App se actualiza solo (canciones, orden y tonos), sin tocar bienvenida, oración, avisos ni responsables. Un servicio nuevo con fecha de hoy en adelante aparece también en GI App.
-• Stems: los botones M (silenciar) y S (solo) se ven claramente cuando están activos: ámbar y azul.
-• Pads: la onda ya no sale como un bloque blanco en canciones largas con zoom (algunas gráficas no admiten lienzos tan anchos).
+• Repertorio limpio: al abrir esta versión, LivePads revisa todas las canciones y pone a 0 los semitonos guardados por versiones anteriores (hacían sonar algunas en un tono que ya no iba). Cada canción suena en el tono de su tarjeta. Los cambios hechos con el tono ligado se conservan.
+• El contador de semitonos del reproductor marca 0 al abrir cualquier canción: muestra cuánto la has movido desde que la abriste. Con el tono ligado, lo que muevas pasa a la tarjeta, y la próxima vez vuelve a marcar 0. Doble clic en el número: volver a como estaba al abrirla.
