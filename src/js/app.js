@@ -810,6 +810,13 @@ function paintNextSongKeyHint() {
   q(`.key-btn[data-key="${key}"]`)?.classList.add('next-key');
 }
 
+function cardKeySemitone() {
+  const id = getActiveSongIdFromStore();
+  if (id == null) return null;
+  const song = getSongs().find((x) => String(x.id) === String(id));
+  const pk = song ? parseKey(getEffectiveKey(song)) : null;
+  return pk ? pk.semitone : null;
+}
 function updateKeyIndicator() {
   paintNextSongKeyHint();
   const el = q('#key-indicator');
@@ -818,7 +825,12 @@ function updateKeyIndicator() {
   if (!sounding) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   const active = !!getActiveKey();
   const keys = getUseFlats() ? KEYS_FLAT : KEYS_SHARP;
-  const written = (_songBaseKeySemitone != null) ? keys[_songBaseKeySemitone] : null;
+  // Se compara con el tono de la TARJETA (o el fijado para el servicio), no con
+  // el de la grabación: una canción grabada en D y pasada a C con el tono ligado
+  // debe decir «C», no «D → C». La flecha solo sale si el audio suena distinto a
+  // lo que dice la tarjeta (▼ ▲ con el 🔗 apagado).
+  const cardSemi = cardKeySemitone();
+  const written = cardSemi != null ? keys[cardSemi] : null;
   const transposed = !!(written && written !== sounding);
   el.classList.remove('hidden');
   el.classList.toggle('is-active', active);          // sonando (vs solo preparado)
@@ -2448,6 +2460,7 @@ function linkedPitchFollow(song, delta) {
     renderServiceList();
     window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
     window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+    updateKeyIndicator();
     return;
   }
   const ch = linkedPitchStep(live, delta);
@@ -2466,6 +2479,7 @@ function linkedPitchFollow(song, delta) {
   // Tarjetas, letra en vivo y carril de acordes se repintan; el audio y el pad ya
   // están en su sitio (sin recargar la pista: se puede pulsar en pleno directo).
   window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+  updateKeyIndicator();
 }
 
 // Tono ligado: un semitono guardado que no está en el tono de la tarjeta (restos

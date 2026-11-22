@@ -1169,7 +1169,7 @@ input.mo-switch:checked::after { transform: translateX(16px); }
   .drum-btn .drum-label { font-size: 13px !important; }
 }
 @media (max-height: 950px) {
-  body:has(#seq-wave:not(.is-empty)) #seq-wave { margin-top: 4px !important; }
+  body:has(#seq-wave:not(.is-empty)) #seq-wave { margin-top: 0 !important; }
 }
 /* El pad de batería no puede cambiar su propio relleno desde la consulta de
    contenedor: en pantallas bajas con el espectro abierto, relleno compacto. */
@@ -1359,3 +1359,9 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
   box-shadow: 0 0 0 2px rgba(92, 200, 255, .25), 0 0 14px rgba(92, 200, 255, .55) !important;
 }
 :root :is(.stems-ms, #lp-boost).is-on:hover { filter: brightness(1.08); }
+
+/* ── Franja «Preparada / Sonando» debajo del espectro, más compacta ──
+   Arriba queda limpio (el escenario y los pads ganan alto) y la franja se lee
+   junto al reproductor, que es donde se mira al tocar. */
+#seq-wave { margin-top: 0 !important; margin-bottom: 4px !important; }
+#now-playing-banner.np-strip { border-top: 0 !important; padding-top: 0 !important; padding-bottom: 2px !important; min-height: 32px; }
