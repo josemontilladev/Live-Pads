@@ -16,7 +16,7 @@ import { PitchAudio } from './pitchAudio.js';
 import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
-import { isKeyLinked, setKeyLinked } from '../utils/keyLink.js';
+import { isKeyLinked, setKeyLinked, reconcileLinkedPitch } from '../utils/keyLink.js';
 
 // Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
 // _pads-clean.css) y el título indica cómo cargar una.
@@ -404,6 +404,19 @@ async function startTrackPlayback(url, title, type) {
       currentSong.audio.pitchAuto = true;
       if (typeof deps.persistSong === 'function') { try { deps.persistSong(currentSong); } catch (_) {} }
     }
+    // Tono ligado: el tono de la tarjeta manda. Un ajuste manual guardado que no
+    // está reflejado en la tarjeta (restos de antes del tono ligado, o de ▼ ▲ con
+    // el 🔗 apagado) se descarta: la canción suena en el tono que dice la tarjeta.
+    if (currentSong && isKeyLinked()) {
+      if (!currentSong.audio) currentSong.audio = {};
+      const r = reconcileLinkedPitch(currentSong.audio);
+      if (r.changed) {
+        manual = r.pitch;
+        currentSong.audio.pitch = r.pitch;
+        currentSong.audio.keyPitch = r.keyPitch;
+        if (typeof deps.persistSong === 'function') { try { deps.persistSong(currentSong); } catch (_) {} }
+      }
+    }
     currentPitch = Math.max(-12, Math.min(12, shift + manual));
   }
   audio.pitchSemitones = currentPitch;
@@ -662,7 +675,18 @@ export function bindTrackPlayerControls() {
       ? 'Tono ligado: ▼ ▲ mueve también el tono de la canción y los acordes de la letra (en el Servicio, el tono del día). Clic para desligar.'
       : 'Tono desligado: ▼ ▲ solo transporta el audio y el pad; el tono y la letra no cambian. Clic para ligar.';
   };
-  if (tpLink) tpLink.onclick = () => { setKeyLinked(!isKeyLinked()); paintLink(); };
+  if (tpLink) tpLink.onclick = () => {
+    setKeyLinked(!isKeyLinked()); paintLink();
+    // Al volver a ligar, lo que suena AHORA queda como el tono de la tarjeta: el
+    // ajuste hecho con el 🔗 apagado pasa a formar parte del tono ligado (sin
+    // semitonos sueltos). Para dejar una canción limpia: 🔗 apagado → 0 → 🔗.
+    if (isKeyLinked() && currentSong) {
+      if (!currentSong.audio) currentSong.audio = {};
+      currentSong.audio.keyPitch = Number(currentSong.audio.pitch) || 0;
+      if (typeof deps.persistSong === 'function') { try { deps.persistSong(currentSong); } catch (_) {} }
+      if (typeof deps.onKeyLinkAdopted === 'function') { try { deps.onKeyLinkAdopted(currentSong); } catch (_) {} }
+    }
+  };
   paintLink();
   paintPitchUI();
 }

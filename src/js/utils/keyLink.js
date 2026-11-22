@@ -78,3 +78,22 @@ export function linkedPitchStep(song, delta) {
     keyPitch: clamp(keyPitchOf(song) + delta),
   };
 }
+
+/**
+ * Pone de acuerdo lo guardado con el tono ligado (la tarjeta manda):
+ *  - Canción de antes del tono ligado (sin keyPitch): el ajuste manual que tenía
+ *    era a propósito (la tarjeta dice el tono que se toca y el audio se bajó a
+ *    mano). Se incorpora: keyPitch = pitch. Suena igual y el pad sigue a la tarjeta.
+ *  - Con keyPitch: un ajuste que no está en la tarjeta (▼ ▲ con el 🔗 apagado) se
+ *    descarta: pitch = keyPitch.
+ * Devuelve { pitch, keyPitch, changed }.
+ */
+export function reconcileLinkedPitch(audio) {
+  const a = audio || {};
+  const pitch = Number(a.pitch) || 0;
+  if (a.keyPitch === undefined || a.keyPitch === null || a.keyPitch === '') {
+    return { pitch, keyPitch: pitch, changed: true };
+  }
+  const kp = Number(a.keyPitch) || 0;
+  return { pitch: kp, keyPitch: kp, changed: pitch !== kp };
+}

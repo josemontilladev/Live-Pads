@@ -46,3 +46,16 @@ test('nombres de tono al mover', () => {
   assert.equal(shiftKey('Am', 1), 'Bbm');
   assert.equal(shiftKey('C', 3), 'Eb');
 });
+
+import { reconcileLinkedPitch } from '../src/js/utils/keyLink.js';
+test('canción antigua con bajada a mano: se incorpora (suena igual, la tarjeta manda)', () => {
+  assert.deepEqual(reconcileLinkedPitch({ pitch: -2 }), { pitch: -2, keyPitch: -2, changed: true });
+  assert.deepEqual(reconcileLinkedPitch({}), { pitch: 0, keyPitch: 0, changed: true });
+});
+test('con tono ligado: un ajuste suelto (▼ ▲ con el 🔗 apagado) se descarta', () => {
+  assert.deepEqual(reconcileLinkedPitch({ pitch: 3, keyPitch: -2 }), { pitch: -2, keyPitch: -2, changed: true });
+  assert.deepEqual(reconcileLinkedPitch({ pitch: -2, keyPitch: -2 }), { pitch: -2, keyPitch: -2, changed: false });
+  // Grabada en C, tarjeta en C con −2 incorporado: el pad (grabación + audio) cae en la tarjeta.
+  const r = reconcileLinkedPitch({ pitch: -2 });
+  assert.equal(((0 - r.keyPitch) + r.pitch + 12) % 12, 0);
+});

@@ -83,11 +83,11 @@ import {
   serviceNextSong, servicePrevSong, syncServiceWithLibrary, getEffectiveKey, clearKeyOverride, getKeyOverride, setKeyOverride
 } from './data/service.js';
 import { parseKey, keyDelta } from './utils/musicKeys.js';
-import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shiftKey } from './utils/keyLink.js';
+import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shiftKey, reconcileLinkedPitch } from './utils/keyLink.js';
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
-  setPlayBtnIcon, reapplyKeyShift
+  setPlayBtnIcon, reapplyKeyShift, getTrackPitch
 } from './audio/trackPlayer.js';
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
@@ -475,6 +475,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     onPitchChange: (pitchSemitones, _song) => applyNotepadPitchShift(pitchSemitones),
     // ▼ ▲ a mano con «Tono ligado»: la tarjeta y los acordes de la letra siguen al audio.
     onManualPitchStep: (song, delta) => linkedPitchFollow(song, delta),
+    // Se volvió a ligar el tono: lo que suena es ahora el tono de la tarjeta; el
+    // pad recalcula su base (grabación = tarjeta − keyPitch).
+    onKeyLinkAdopted: (song) => {
+      const live = libraryLive(song);
+      if (live && live !== song) { if (!live.audio) live.audio = {}; live.audio.keyPitch = song.audio.keyPitch; live.audio.pitch = song.audio.pitch; persistGiSongs(); syncServiceWithLibrary(); }
+      const rs = recordingSemitone(live || song);
+      if (rs != null && isActiveLibrarySong(live || song)) { _songBaseKeySemitone = rs; applyNotepadPitchShift(getTrackPitch()); }
+    },
     // Semitonos de la grabación (tono de la librería) al tono de este servicio.
     getKeyShift: (song) => {
       if (!song || !song.key) return 0;
@@ -2428,7 +2436,25 @@ function linkedPitchFollow(song, delta) {
   window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
 }
 
+// Tono ligado: un semitono guardado que no está en el tono de la tarjeta (restos
+// de antes del tono ligado) se descarta, para que la tarjeta mande sobre el audio
+// y el pad. Se corrige en la librería y en sus copias del servicio.
+function normalizeLinkedPitch(song) {
+  if (!isKeyLinked() || !song || !song.audio) return false;
+  const r = reconcileLinkedPitch(song.audio);
+  if (!r.changed) return false;
+  song.audio.pitch = r.pitch;
+  song.audio.keyPitch = r.keyPitch;
+  const live = libraryLive(song);
+  if (live && live !== song) { if (!live.audio) live.audio = {}; live.audio.pitch = r.pitch; live.audio.keyPitch = r.keyPitch; }
+  persistGiSongs();
+  syncServiceWithLibrary();
+  window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+  return true;
+}
+
 function applyGiSong(song) {
+  normalizeLinkedPitch(song);
   // Switching songs → fold away the previous song's open lyrics so the list
   // stays tidy.
   closeAllLyrics();
