@@ -14,6 +14,8 @@ import {
 } from '../state/store.js';
 import { exportGiSetlistToFile } from '../data/giSetlistLoader.js';
 import { renderGiList, getLibraryScope } from './giList.js';
+import { toggleToken } from '../utils/songQuery.js';
+import { openCardMoreMenu } from './cardMoreMenu.js';
 import { openNewSongModal } from './newSongModal.js';
 import { limitOf, requireRoom } from '../billing/license.js';
 
@@ -126,8 +128,45 @@ function bindSearchAndAdd(deps) {
     if (!clearBtn) return;
     clearBtn.classList.toggle('hidden', !searchInput.value);
   };
+  // Filtros rápidos (píldoras) y ayuda «?»: añaden o quitan su filtro del texto
+  // del buscador, así lo que se ve escrito es siempre lo que se está filtrando.
+  const chips = q('#gi-search-chips');
+  const paintChips = () => {
+    if (!chips) return;
+    const toks = new Set(String(searchInput.value).toLowerCase().split(/s+/).filter(Boolean));
+    chips.querySelectorAll('[data-tok]').forEach((b) => b.classList.toggle('is-on', toks.has(b.dataset.tok)));
+  };
+  const applyText = (v) => {
+    searchInput.value = v;
+    refreshClearBtn(); paintChips();
+    renderGiList(v);
+    searchInput.focus();
+    searchInput.setSelectionRange(v.length, v.length);
+  };
+  if (chips) chips.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tok]');
+    if (b) applyText(toggleToken(searchInput.value, b.dataset.tok));
+  });
+  const helpBtn = q('#gi-search-help');
+  if (helpBtn) helpBtn.onclick = (e) => {
+    e.stopPropagation();
+    const add = (tok) => () => { const v = searchInput.value.trim(); applyText((v ? v + ' ' : '') + tok); };
+    openCardMoreMenu(helpBtn, [
+      { sep: true, label: 'Escribe y combina' },
+      { label: 'Palabras sueltas', hint: 'Título, artista, etiquetas o una frase de la letra (sin tildes; tolera una falta)', onSelect: () => searchInput.focus() },
+      { label: 'tono:G', hint: 'Por tono (tono:Am, tono:F#…)', onSelect: add('tono:') },
+      { label: 'bpm:120 · bpm:110-130 · bpm:>120', hint: 'Por tempo: exacto (±2), rango, más o menos de', onSelect: add('bpm:') },
+      { label: 'artista:hillsong', hint: 'Solo de ese artista', onSelect: add('artista:') },
+      { label: 'tag:navidad', hint: 'Por etiqueta', onSelect: add('tag:') },
+      { label: 'tiene:secuencia · sin:letra', hint: 'Con o sin secuencia, original, letra o acordes', onSelect: add('tiene:') },
+      { label: 'modo:menor', hint: 'Canciones en tono menor (o modo:mayor)', onSelect: add('modo:') },
+      { sep: true },
+      { label: 'Enter abre la primera · Esc limpia', onSelect: () => searchInput.focus() },
+    ]);
+  };
   searchInput.oninput = (e) => {
     refreshClearBtn();
+    paintChips();
     debouncedRender(e.target.value);
   };
   // Enter "commits" the current filter by applying the FIRST card in the
@@ -160,11 +199,15 @@ function bindSearchAndAdd(deps) {
   if (searchToggle && searchRow && searchInput) {
     const expand = () => {
       searchRow.classList.remove('search-collapsed');
+      if (chips) chips.hidden = false;
       searchToggle.setAttribute('aria-expanded', 'true');
       requestAnimationFrame(() => searchInput.focus());
     };
     const collapseIfEmpty = () => {
+      // No colapsar mientras se usan las píldoras o la ayuda.
+      if (searchRow.matches(':focus-within') || (chips && chips.matches(':focus-within')) || document.querySelector('.card-more-menu')) return;
       if (!searchInput.value) {
+        if (chips) chips.hidden = true;
         searchRow.classList.add('search-collapsed');
         searchToggle.setAttribute('aria-expanded', 'false');
       }

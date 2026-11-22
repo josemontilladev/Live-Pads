@@ -1,2 +1,3 @@
-• Pads: el indicador de tono muestra el tono de la tarjeta (una canción pasada de D a C dice «C», no «D → C»). La flecha solo aparece si el audio suena en otro tono que el de la tarjeta.
-• La franja «Preparada / Sonando» pasa debajo del espectro, junto al reproductor: arriba queda más limpio y los pads ganan espacio.
+• Buscador de la Librería renovado: busca en título, artista, etiquetas y letra (sin tildes y tolerando una falta de ortografía), muestra la frase de la letra que coincide, el número de resultados y filtros rápidos (Secuencia, Original, Con/Sin letra, Mayor, Menor). Filtros escritos: tono:G · bpm:110-130 · bpm:>120 · artista:… · tag:… · tiene:/sin: · modo:menor. Pulsa «?» para ver la ayuda.
+• Carril de acordes: el acorde que suena ahora se lee bien (letra oscura sobre la píldora clara).
+• Menú de filtros de la Librería renovado: grupos «Mostrar» y «Herramientas», icono en cada opción, contadores más discretos y la opción elegida resaltada.

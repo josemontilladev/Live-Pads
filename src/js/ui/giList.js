@@ -5,6 +5,7 @@
 
 import { cleanSingerKeys } from '../utils/singerKeys.js';
 import { q } from '../utils/dom.js';
+import { parseQuery, matchSong, hasFilters } from '../utils/songQuery.js';
 import { songCardInnerHTML, ICON_ADD_CHECK, ICON_ADD_PLUS, INSERVICE_BADGE_HTML } from './songCard.js';
 import { songEditFormHTML, applyLibrarySelection } from './songEditForm.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
@@ -179,6 +180,12 @@ function matchScore(s, term) {
   return 10; // solo letra
 }
 
+// Nº de resultados junto a los filtros rápidos (null = sin búsqueda activa).
+function paintSearchCount(n) {
+  const el = q('#gi-search-count');
+  if (el) el.textContent = n == null ? '' : (n === 1 ? '1 resultado' : n + ' resultados');
+}
+
 export function renderGiList(filter = '', editSongId = null) {
   const container = q('#gi-songs-container');
   if (!container) return;
@@ -226,40 +233,21 @@ export function renderGiList(filter = '', editSongId = null) {
   //   - "tono:X" or "key:X" prefix: filters by song.key starting with X
   //     (e.g. "tono:g" matches G, Gm, G#, Gb \u2014 useful for finding songs
   //     compatible with the current key on the fly)
-  const lower = filter.trim().toLowerCase();
-  const keyPrefix = (lower.startsWith('tono:') || lower.startsWith('key:'))
-    ? lower.replace(/^(tono|key):\s*/, '').trim()
-    : null;
-  const tagPrefix = (keyPrefix === null && (lower.startsWith('tag:') || lower.startsWith('etiqueta:')))
-    ? lower.replace(/^(tag|etiqueta):\s*/, '').trim()
-    : null;
-  const textTerm = (keyPrefix === null && tagPrefix === null) ? normText(filter) : '';
+  // Buscador (utils/songQuery.js): texto libre en título, artista, etiquetas y
+  // letra (sin tildes, tolera una falta de ortografía) + filtros (tono:, bpm:,
+  // artista:, tag:, tiene:/sin:, modo:).
+  const query = parseQuery(filter);
+  const textTerm = query.words.join(' ');
+  const hits = new Map();
+  const searching = !!(textTerm || hasFilters(query));
 
   const currentGenre = getCurrentGenre() || 'all';
   const filtered = songs.filter(s => {
     if (!matchesLibraryScope(s)) return false;
-    if (keyPrefix !== null) {
-      // Empty key prefix \u2192 show all songs that HAVE a key set.
-      if (!s.key) return false;
-      if (!s.key.toLowerCase().startsWith(keyPrefix)) return false;
-    } else if (tagPrefix !== null) {
-      const tags = Array.isArray(s.tags) ? s.tags : [];
-      if (!tags.some(t => String(t).toLowerCase().includes(tagPrefix))) return false;
-    } else {
-      // Búsqueda libre tolerante: normaliza acentos/mayúsculas y exige que TODAS
-      // las palabras del término aparezcan (en cualquier orden) en título /
-      // artista / tags / letra. Así "alabare" encuentra "Alabaré" y
-      // "santo siempre" encuentra "Santo Por Siempre".
-      const hay = normText([
-        s.title,
-        s.artist || '',
-        Array.isArray(s.tags) ? s.tags.join(' ') : '',
-        // Los acordes van DENTRO de la letra ("po[D]deroso"): se quitan sin dejar
-        // hueco para que la palabra quede entera y se pueda encontrar.
-        s.lyrics ? String(s.lyrics).replace(/\[[^\]\n]{1,12}\]/g, '').replace(/<[^>]*>/g, ' ') : '',
-      ].join(' · '));
-      const words = textTerm.split(/\s+/).filter(Boolean);
-      if (!words.every(w => hay.includes(w))) return false;
+    if (searching) {
+      const m = matchSong(s, query);
+      if (!m) return false;
+      hits.set(s, m);
     }
     if (currentGenre === 'all') return true;
     if (currentGenre === 'favoritos') return !!s.favorite;
@@ -275,10 +263,11 @@ export function renderGiList(filter = '', editSongId = null) {
   //     decenas de canciones que mencionan "Cristo" en la letra.
   //   · "Recientes" → más nuevas primero.
   //   · Resto → alfabético por título (accent-insensitive, locale ES).
+  paintSearchCount(searching ? filtered.length : null);
   if (textTerm) {
     filtered.sort((a, b) => {
-      const sb = matchScore(b, textTerm);
-      const sa = matchScore(a, textTerm);
+      const sb = (hits.get(b) || {}).score || 0;
+      const sa = (hits.get(a) || {}).score || 0;
       if (sb !== sa) return sb - sa;
       return (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' });
     });
@@ -327,18 +316,29 @@ export function renderGiList(filter = '', editSongId = null) {
   // before touching the DOM, so unmounted cards are harmless no-ops.
   // Only the plain-text search term gets highlighted — the "tono:G"
   // mode filters by key, which doesn't map to a substring in title/artist.
-  const highlightTerm = keyPrefix === null ? textTerm : '';
+  const highlightTerm = textTerm;
+  // Si una canción solo coincide por la LETRA, se ve la frase encontrada.
+  const withSnippet = (card, song) => {
+    const h = hits.get(song);
+    if (h && h.snippet && card) {
+      const el = document.createElement('div');
+      el.className = 'gi-search-snippet';
+      el.textContent = '«' + h.snippet + '»';
+      (card.querySelector('.gi-song-info, .gi-song-main') || card).appendChild(el);
+    }
+    return card;
+  };
 
   if (filtered.length <= CHUNK_THRESHOLD) {
     const fragment = document.createDocumentFragment();
-    filtered.forEach((song, idx) => fragment.appendChild(buildCard(song, idx, editSongId, highlightTerm)));
+    filtered.forEach((song, idx) => fragment.appendChild(withSnippet(buildCard(song, idx, editSongId, highlightTerm), song)));
     container.appendChild(fragment);
     return;
   }
 
   const firstChunk = document.createDocumentFragment();
   const firstCount = Math.min(CHUNK_SIZE, filtered.length);
-  for (let i = 0; i < firstCount; i++) firstChunk.appendChild(buildCard(filtered[i], i, editSongId, highlightTerm));
+  for (let i = 0; i < firstCount; i++) firstChunk.appendChild(withSnippet(buildCard(filtered[i], i, editSongId, highlightTerm), filtered[i]));
   container.appendChild(firstChunk);
 
   const token = ++renderToken;
@@ -358,7 +358,7 @@ export function renderGiList(filter = '', editSongId = null) {
     if (performance.now() - (container.__giLastScroll || 0) < 200) { schedule(streamNext); return; }
     const frag = document.createDocumentFragment();
     const end = Math.min(cursor + CHUNK_SIZE, filtered.length);
-    for (let i = cursor; i < end; i++) frag.appendChild(buildCard(filtered[i], i, editSongId, highlightTerm));
+    for (let i = cursor; i < end; i++) frag.appendChild(withSnippet(buildCard(filtered[i], i, editSongId, highlightTerm), filtered[i]));
     container.appendChild(frag);
     cursor = end;
     if (cursor < filtered.length) schedule(streamNext);

@@ -1365,3 +1365,73 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
    junto al reproductor, que es donde se mira al tocar. */
 #seq-wave { margin-top: 0 !important; margin-bottom: 4px !important; }
 #now-playing-banner.np-strip { border-top: 0 !important; padding-top: 0 !important; padding-bottom: 2px !important; min-height: 32px; }
+
+/* Carril de acordes: el acorde que suena ahora va en una píldora clara con la
+   letra OSCURA (en los temas Consola el acento es blanco y el texto también lo
+   era: blanco sobre blanco). */
+#seq-wave .sw-ch.is-current:not(.no-label) {
+  background: var(--flat-paper, #fff) !important; color: var(--flat-ink-lo, #0a0a14) !important;
+  -webkit-text-fill-color: var(--flat-ink-lo, #0a0a14); border-left-color: var(--flat-paper, #fff) !important;
+  border-radius: 5px; font-weight: 800; box-shadow: 0 0 10px rgba(255, 255, 255, .35);
+}
+
+/* ═══ Buscador de la Librería ════════════════════════════════════════════════
+   Campo amplio con lupa, limpiar y ayuda «?»; debajo, filtros rápidos en
+   píldoras y el número de resultados; en las tarjetas que coinciden por la
+   letra, la frase encontrada. */
+.gi-search-wrap { position: relative; display: flex; align-items: center; }
+.gi-search-wrap .gi-search-ico { position: absolute; left: 13px; color: rgba(255, 255, 255, .55); pointer-events: none; }
+:root :is(.gi-search-wrap, #lp-boost) #gi-search {
+  height: 40px !important; border-radius: 999px !important; padding: 0 64px 0 38px !important; font-size: 13.5px !important;
+  background-color: rgba(3, 10, 30, .40) !important; border: 1px solid rgba(255, 255, 255, .14) !important; color: #fff !important;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+:root :is(.gi-search-wrap, #lp-boost) #gi-search::placeholder { color: rgba(255, 255, 255, .45) !important; }
+:root :is(.gi-search-wrap, #lp-boost) #gi-search:focus { outline: 0 !important; border-color: rgba(255, 255, 255, .55) !important; box-shadow: 0 0 0 4px rgba(255, 255, 255, .08) !important; }
+.gi-search-wrap .gi-search-clear { position: absolute; right: 36px; }
+.gi-search-help {
+  position: absolute; right: 7px; width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .8); font: 700 12px/1 inherit; cursor: pointer;
+}
+.gi-search-help:hover, .gi-search-help[aria-expanded="true"] { background: rgba(255, 255, 255, .16); color: #fff; }
+.gi-search-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 2px 4px; }
+.gi-search-chips[hidden] { display: none; }
+.gi-chip-f {
+  height: 26px; padding: 0 11px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .16);
+  background: transparent; color: rgba(255, 255, 255, .78); font: 600 11.5px/1 inherit; cursor: pointer; touch-action: manipulation;
+}
+.gi-chip-f:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.gi-chip-f.is-on { background: var(--flat-paper, #fff); border-color: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); }
+.gi-search-count { margin-left: auto; font-size: 11.5px; color: rgba(255, 255, 255, .55); }
+.gi-search-snippet {
+  margin-top: 3px; font-size: 11.5px; font-style: italic; color: rgba(255, 255, 255, .7);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.card-more-menu .cmm-sep.cmm-sep--label { height: auto !important; background: none !important; margin: 2px 0 0 !important; padding: 6px 12px 4px !important; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+
+/* ═══ Menú de filtros de la Librería ═════════════════════════════════════════
+   Como los demás menús: títulos de grupo, icono en cada opción, contador en
+   píldora discreta y la opción elegida resaltada (con su contador en blanco). */
+:root :is(.gi-filter-menu, #lp-boost) { min-width: 240px !important; padding: 6px !important; }
+.gi-filter-menu .gi-filter-title { padding: 8px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+:root :is(.gi-filter-menu, #lp-boost) :is(.gi-filter-option, .gi-filter-action) {
+  display: flex !important; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  min-height: 38px; padding: 0 10px 0 12px !important; border: 0 !important; border-radius: 10px !important;
+  background: transparent !important; color: rgba(255, 255, 255, .86) !important; font: inherit; font-size: 13px !important; font-weight: 500 !important;
+  cursor: pointer; text-align: left; transition: background .12s ease;
+}
+:root :is(.gi-filter-menu, #lp-boost) :is(.gi-filter-option, .gi-filter-action):hover { background: rgba(255, 255, 255, .08) !important; color: #fff !important; }
+.gi-filter-menu .gi-filter-option-label { display: inline-flex; align-items: center; gap: 11px; color: inherit !important; }
+.gi-filter-menu .gi-filter-ico { flex: none; color: rgba(255, 255, 255, .55); }
+.gi-filter-menu :is(.gi-filter-option, .gi-filter-action):hover .gi-filter-ico { color: #fff; }
+:root :is(.gi-filter-menu, #lp-boost) .gi-filter-option-count {
+  min-width: 28px; height: 20px; padding: 0 8px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .08) !important; color: rgba(255, 255, 255, .7) !important; font-size: 11px; font-weight: 700; border: 0 !important;
+}
+:root :is(.gi-filter-menu, #lp-boost) .gi-filter-option.active { background: rgba(255, 255, 255, .12) !important; color: #fff !important; font-weight: 700 !important; }
+.gi-filter-menu .gi-filter-option.active .gi-filter-ico { color: #fff; }
+:root :is(.gi-filter-menu, #lp-boost) .gi-filter-option.active .gi-filter-option-count { background: var(--flat-paper, #fff) !important; color: var(--flat-ink-lo, #0a0a14) !important; }
+.gi-filter-menu .gi-filter-option--fav.active .gi-filter-ico { color: #F5C542; fill: #F5C542; }
+.gi-filter-menu .gi-filter-sep { height: 1px; margin: 6px 8px; background: rgba(255, 255, 255, .1) !important; border: 0 !important; }
+:root :is(.gi-filter-menu, #lp-boost) .gi-filter-action:hover { background: rgba(255, 90, 90, .14) !important; color: #ff8a8a !important; }
+.gi-filter-menu .gi-filter-action:hover .gi-filter-ico { color: #ff8a8a; }
