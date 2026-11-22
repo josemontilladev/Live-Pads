@@ -13,7 +13,7 @@ import { htmlToPlainLyrics } from '../utils/text.js';
 import { logActivity } from './activity.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
 import { hasFeature } from '../billing/license.js';
-import { snapshot, mergeSong, keepLocalAudio } from './songMerge.js';
+import { snapshot, mergeSong, keepLocalAudio, adoptCloudKeyPitch } from './songMerge.js';
 
 // Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
 // canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
@@ -64,7 +64,12 @@ function hashOf(s) {
   const cv = s.cover ? '|c' + s.cover : '';
   // Tonos por cantante («G · María»): igual que las secciones, solo cuentan si existen.
   const sk = String(s.singerKeys || '').trim() ? '|v' + String(s.singerKeys).trim() : '';
-  const str = syncContent(s) + mk + au + st + cv + sk;
+  // Tono ligado: cuánto se transporta el audio para sonar en el tono de la
+  // tarjeta (keyPitch) es del EQUIPO, igual que el tono: si alguien baja una
+  // canción, al resto le llega bajada. Solo cuenta si no es 0 (firmas intactas).
+  const kp = Number(a.keyPitch) || 0;
+  const tp = kp ? '|t' + kp : '';
+  const str = syncContent(s) + mk + au + st + cv + sk + tp;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);
@@ -472,6 +477,9 @@ export async function pullLibrarySongs(opts = {}) {
     // compañero quite todas las secciones también se aplica.
     if (keepLocalText && (!incoming.markers || !incoming.markers.length) && Array.isArray(localMarkers) && localMarkers.length) target.markers = localMarkers;
     target.audio = keepLocalAudio(localAudio, incomingAudio, !!keepLocalText);
+    // El transporte ligado del audio viaja con la canción: si la nube lo trae y no
+    // tengo cambios propios sin subir, manda el de la nube (pitch = keyPitch).
+    target.audio = adoptCloudKeyPitch(target.audio, incomingAudio, !!keepLocalText);
     // Igual que el audio: una fila sin carátula no borra la carátula local (las
     // filas antiguas de la nube no traen `meta.cover`).
     if (!incoming.cover && localCover) target.cover = localCover;

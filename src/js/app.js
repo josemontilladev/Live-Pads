@@ -1328,6 +1328,19 @@ function bindRestOfApp() {
     });
   });
 
+  // Llegó de la nube un cambio de tono ligado (un compañero transportó la
+  // canción): si es la que está cargada, audio y pad se ponen al día ya.
+  window.addEventListener('livepads:library-synced', () => {
+    const cs = getCurrentSong();
+    if (!cs) return;
+    const live = libraryLive(cs);
+    if (live && isActiveLibrarySong(live)) {
+      const rs = recordingSemitone(live);
+      if (rs != null) _songBaseKeySemitone = rs;
+    }
+    reapplyKeyShift(cs);
+  });
+
   // Descarga automática de carátulas y audios (sin pulsar "Sincronizar"): un aviso
   // al empezar y otro al terminar; el progreso fino vive en el panel Mi cuenta.
   window.addEventListener('livepads:file-sync', (ev) => {

@@ -100,3 +100,15 @@ function mergeStems(localAudio, incomingAudio, localDirty) {
   const out = local.concat(cloud.filter((x) => !seen.has(x.url)));
   return out.length ? out : null;
 }
+
+// Tono ligado del audio (keyPitch) al aplicar una fila de la nube: es del equipo,
+// como el tono de la tarjeta. Si la nube lo trae y mi copia no tiene cambios sin
+// subir, manda el de la nube (pitch = keyPitch); si no lo trae (fila de una
+// versión anterior), se queda el local.
+export function adoptCloudKeyPitch(audio, incomingAudio, localDirty = false) {
+  if (localDirty || !incomingAudio) return audio;
+  const v = incomingAudio.keyPitch;
+  if (v === undefined || v === null || v === '') return audio;
+  const kp = Number(v) || 0;
+  return { ...(audio || {}), keyPitch: kp, pitch: kp };
+}

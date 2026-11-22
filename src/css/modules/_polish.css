@@ -1270,3 +1270,14 @@ body.lyrics-window .lw-cols .inline-chord { font-size: .9em !important; }
 body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
 /* Pantalla completa: acorde un poco mayor. */
 .lyr-content .chw > .inline-chord { font-size: .7em !important; }
+/* Editor de letra: dos capas alineadas (debajo el texto con los acordes
+   resaltados, encima el área de escritura TRANSPARENTE con solo el cursor). La
+   regla general de campos del tema le ponía letra blanca y un borde de 1 px: al
+   quitarle el fondo negro se veían las dos capas desplazadas (texto «doble»). */
+:root :is(.editor-container, #lp-boost) .editor-textarea {
+  color: transparent !important; -webkit-text-fill-color: transparent !important; caret-color: #fff !important;
+  border: 0 !important; box-shadow: none !important; outline: 0 !important; border-radius: 0 !important;
+  padding: 16px !important; margin: 0 !important; background-color: transparent !important;
+}
+:root :is(.editor-container, #lp-boost) .editor-textarea::selection { background: rgba(255, 255, 255, .22); -webkit-text-fill-color: transparent; }
+:root :is(.editor-container, #lp-boost) .editor-highlight { padding: 16px !important; border: 0 !important; color: #e8edf5 !important; }

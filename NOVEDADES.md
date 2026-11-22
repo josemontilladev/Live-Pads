@@ -1,2 +1,2 @@
-• Tono ligado: el tono de la tarjeta manda sobre el audio y el pad. Las canciones que tenían semitonos guardados de antes los conservan (suenan igual) y el pad pasa a ir en el tono de la tarjeta.
-• Para dejar una canción sin semitonos guardados: apaga el 🔗, lleva los semitonos a 0 (doble clic en el número) y vuelve a encender el 🔗. Lo que suena queda como el tono de la tarjeta.
+• Editor de letra: el texto ya no se ve doble y los acordes y secciones se ven resaltados en color.
+• Tono ligado para todo el equipo: si alguien transporta una canción (sube o baja semitonos con el tono ligado), al resto le llega igual que el cambio de tono de la tarjeta. Si la canción está sonando, el audio y el pad se ponen al día solos.
