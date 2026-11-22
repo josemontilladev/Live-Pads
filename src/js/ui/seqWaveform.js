@@ -45,6 +45,20 @@ let titleEl, nowEl, nextEl, addBtn, collapseBtn, confirmBtn;
 let audio = null, song = null, peaks = null, duration = 0, raf = 0, lastW = 0, trackType = '';
 let scrubbing = false;
 let detecting = null;   // canción que se está analizando
+// Arranque en calma: al abrir LivePads se carga la última canción y su análisis
+// (pulso con IA, secciones, acordes, voces) coincidía con todo lo demás que se
+// monta al inicio: la app se trababa unos segundos. Ahora, en los primeros
+// segundos, la onda se ve al momento y el análisis espera a que la app esté libre.
+const CALM_START_MS = 12000;
+let calmPending = null; // canción cuyo análisis está esperando al arranque
+function whenCalm(fn) {
+  const wait = CALM_START_MS - performance.now();
+  if (wait <= 0) { fn(); return; }
+  setTimeout(() => {
+    if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => fn(), { timeout: 4000 });
+    else fn();
+  }, wait);
+}
 let selectedId = null;  // etiqueta seleccionada (← → la mueven, Supr la quita)
 let grid = null;        // { barSec, beatSec, off } rejilla de compases de la pista
 let chordTimes = [];    // cambios de acorde detectados (para pegar etiquetas)
@@ -201,9 +215,16 @@ function onLoaded({ audio: a, song: s, type }) {
       peaks = pk;
       root.classList.remove('is-loading');
       drawWave(); renderMarkers(); startLoop();
-      laneTrackLoaded({ audio: a, song: s, type });
-      maybeAutoDetect();
-      loadGrid(a); loadChordTimes();
+      const analyze = () => {
+        if (calmPending === s) calmPending = null;
+        if (audio !== a) return;
+        laneTrackLoaded({ audio: a, song: s, type });
+        maybeAutoDetect();
+        loadGrid(a); loadChordTimes();
+        tick(true);
+      };
+      if (performance.now() < CALM_START_MS) { calmPending = s; tick(true); whenCalm(analyze); }
+      else analyze();
     };
     if (peakCache.has(key)) { show(peakCache.get(key)); return; }
     computePeaksAsync(a.buffer, PEAK_POINTS, { isCancelled: () => audio !== a }).then((pk) => {
@@ -354,7 +375,8 @@ function tick(force) {
   markersEl.querySelectorAll('.sw-pill').forEach(p => p.classList.toggle('is-current', !!cur && p.dataset.id === cur.id));
   nowEl.innerHTML = cur ? `<i style="--h:${sectionHue(cur.label)}"></i>${escapeHtml(cur.label)}`
     : ms.length ? 'Antes de la 1.ª sección'
-    : detecting === song ? '<span class="sw-detecting">Detectando secciones…</span>'
+    : detecting === song ? '<span class="sw-detecting">Analizando la canción: secciones y acordes…</span>'
+    : calmPending === song ? '<span class="sw-detecting">Preparando la canción… (se analiza en unos segundos)</span>'
     : canEditActiveLibrary() ? `Sin secciones · <button type="button" class="sw-auto-link">${ICO_AUTO}Detectar automáticamente</button>`
     : 'Sin secciones';
   nextEl.textContent = next ? `Siguiente: ${next.label} en ${fmt(next.t - t)}` : (ms.length ? 'Última sección' : '');

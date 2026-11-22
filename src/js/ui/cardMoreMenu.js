@@ -11,6 +11,7 @@
 
 let currentMenu = null;
 let currentAnchor = null;
+let anchorRect = null;   // dónde estaba el botón al abrir (para no cerrar por scrolls ajenos)
 
 function close() {
   if (currentMenu) {
@@ -21,6 +22,7 @@ function close() {
     currentAnchor.setAttribute('aria-expanded', 'false');
     currentAnchor = null;
   }
+  anchorRect = null;
   window.removeEventListener('keydown', onKey, true);
   window.removeEventListener('mousedown', onDocDown, true);
   window.removeEventListener('resize', close, true);
@@ -48,7 +50,15 @@ function onScroll(e) {
   const t = e.target;
   const scrolledHoldsAnchor = !!(currentAnchor && t && typeof t.contains === 'function' && t !== document && t.contains(currentAnchor));
   const isDocScroll = !t || typeof t.contains !== 'function' || t === document;
-  if (scrolledHoldsAnchor || isDocScroll) close();
+  if (!(scrolledHoldsAnchor || isDocScroll)) return;
+  // Solo si el botón se MOVIÓ de verdad. Un scroll que no lo desplaza (el editor
+  // de letra al recibir el clic, la letra que se va siguiendo al sonar…) cerraba
+  // el menú en el mismo instante en que se abría: «Herramientas no abre».
+  if (currentAnchor && anchorRect) {
+    const r = currentAnchor.getBoundingClientRect();
+    if (Math.abs(r.top - anchorRect.top) < 3 && Math.abs(r.left - anchorRect.left) < 3) return;
+  }
+  close();
 }
 
 // Construye el menú (mismo markup/estilo para anclado y contextual) y suscribe
@@ -105,6 +115,7 @@ export function openCardMoreMenu(anchorBtn, items) {
 
   currentMenu = menu;
   currentAnchor = anchorBtn;
+  anchorRect = anchorBtn.getBoundingClientRect();
   anchorBtn.setAttribute('aria-expanded', 'true');
 }
 

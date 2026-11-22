@@ -109,6 +109,11 @@ function logCqt(mono) {
 }
 
 let ort = null;
+// Hilos del motor: por defecto ONNX usa TODOS los núcleos y, con acordes y pulso
+// a la vez, la app entera iba lenta mientras analizaba. La mitad basta y deja
+// el resto para la interfaz y el audio.
+const ORT_THREADS = Math.max(1, Math.floor((require('os').cpus().length || 2) / 2));
+const ortOptions = (p) => ({ executionProviders: [p], intraOpNumThreads: ORT_THREADS, interOpNumThreads: 1 });
 const sessions = new Map();
 async function session(modelPath, ep) {
   const key = modelPath + '|' + (ep || '');
@@ -118,7 +123,7 @@ async function session(modelPath, ep) {
   let last;
   for (const p of order) {
     try {
-      const s = { s: await ort.InferenceSession.create(modelPath, { executionProviders: [p] }), ep: p };
+      const s = { s: await ort.InferenceSession.create(modelPath, ortOptions(p)), ep: p };
       sessions.set(key, s);
       return s;
     } catch (e) { last = e; }

@@ -166,6 +166,11 @@ function postprocess(beatL, downL) {
 }
 
 let cached = null;   // { path, ep, session }
+// Hilos del motor: por defecto ONNX usa TODOS los núcleos y, con acordes y pulso
+// a la vez, la app entera iba lenta mientras analizaba. La mitad basta y deja
+// el resto para la interfaz y el audio.
+const ORT_THREADS = Math.max(1, Math.floor((require('os').cpus().length || 2) / 2));
+const ortOptions = (p) => ({ executionProviders: [p], intraOpNumThreads: ORT_THREADS, interOpNumThreads: 1 });
 async function getSession(modelPath, preferred) {
   const ort = require('onnxruntime-node');
   if (cached && cached.path === modelPath) return { ort, session: cached.session, ep: cached.ep };
@@ -173,7 +178,7 @@ async function getSession(modelPath, preferred) {
   let lastErr;
   for (const ep of order) {
     try {
-      const session = await ort.InferenceSession.create(modelPath, { executionProviders: [ep] });
+      const session = await ort.InferenceSession.create(modelPath, ortOptions(ep));
       cached = { path: modelPath, ep, session };
       return { ort, session, ep };
     } catch (e) { lastErr = e; }
