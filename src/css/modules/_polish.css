@@ -1481,3 +1481,38 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
 /* Formulario de subida: artista del pack existente. */
 .spu-pack--artist { grid-template-columns: minmax(0, 1fr) !important; max-width: 420px; }
 .spu-pack--artist[hidden] { display: none !important; }
+/* ═══ Pads: el mezclador llega hasta abajo ═════════════════════════════════
+   Las tarjetas del mezclador terminan en la misma línea que las columnas de
+   canciones y de tonos (antes quedaban 16 px más arriba: relleno inferior del
+   mezclador + del panel). El espacio ganado, y un poco del aire de la
+   cabecera del mezclador, se lo quedan los drum pads (#drum-grid crece solo).
+   En vivo el mezclador se oculta: ahí el panel conserva su margen para el
+   hover de los pads. */
+body:not(.live-mode) #panel-drums { padding-bottom: 0 !important; }
+body:not(.live-mode) #panel-drums > #mixer-bar { padding-top: 4px !important; padding-bottom: 0 !important; }
+body:not(.live-mode) #panel-drums > #mixer-bar .mx-title { padding-bottom: 4px !important; }
+/* ── X de la franja «Preparada»: sutil ──────────────────────────────────────
+   En una franja tan fina el círculo de 30 px con borde pesaba demasiado. Ahora
+   24 px, sin fondo ni borde (aparecen al pasar el ratón), y con su centro en la
+   misma vertical que la X grande de la barra de la pista (30 px → 3 px a cada
+   lado). */
+:root #np-close-btn {
+  width: 24px !important; height: 24px !important; margin-right: 3px !important;
+  background: transparent !important; border-color: transparent !important;
+  color: rgba(255, 255, 255, .45) !important;
+}
+:root #np-close-btn::before { width: 10px !important; height: 10px !important; }
+:root #np-close-btn:hover { background: rgba(255, 255, 255, .12) !important; border-color: var(--menu-line) !important; color: #fff !important; }
+/* ── Sin franja «Preparada» ─────────────────────────────────────────────────
+   La tarjeta de la canción y el reproductor ya dicen qué está preparado y qué
+   suena: la franja sobraba. Su X (deseleccionar) pasa a la del reproductor
+   (app.js), que toma también su estilo sutil: 24 px, sin fondo ni borde
+   hasta pasar el ratón. */
+:root #now-playing-banner { display: none !important; }
+:root #tp-close-btn {
+  width: 24px !important; height: 24px !important;
+  background: transparent !important; border-color: transparent !important;
+  color: rgba(255, 255, 255, .45) !important; box-shadow: none !important;
+}
+:root #tp-close-btn::before { width: 10px !important; height: 10px !important; }
+:root #tp-close-btn:hover { background: rgba(255, 255, 255, .12) !important; border-color: var(--menu-line) !important; color: #fff !important; }

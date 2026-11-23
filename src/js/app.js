@@ -1708,17 +1708,20 @@ function bindGlobalHandlers() {
     // Deselect button — clears the active song (library + service), which
     // hides the banner and drops the .active-song highlight. Stops
     // propagation so it doesn't also trigger the jump-to-card click above.
+    const deselectSong = (e) => {
+      if (e) e.stopPropagation();
+      setActiveSongId(null);
+      setActiveServiceIndex(-1);
+      qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
+      refreshActiveSongHighlights();
+      updateKeyIndicator();
+    };
     const npClose = q('#np-close-btn');
-    if (npClose) {
-      npClose.onclick = (e) => {
-        e.stopPropagation();
-        setActiveSongId(null);
-        setActiveServiceIndex(-1);
-        qa('.gi-song-item.queued-next').forEach(c => c.classList.remove('queued-next'));
-        refreshActiveSongHighlights();
-        updateKeyIndicator();
-      };
-    }
+    if (npClose) npClose.onclick = deselectSong;
+    // La franja «Preparada» ya no se muestra (la tarjeta y el reproductor bastan): la X del reproductor,
+    // además de cerrar la pista (trackPlayer.js), deselecciona la canción como hacía la de la franja.
+    const tpClose = q('#tp-close-btn');
+    if (tpClose) tpClose.addEventListener('click', () => deselectSong());
   }
 }
 

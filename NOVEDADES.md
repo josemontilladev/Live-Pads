@@ -1,3 +1,3 @@
-• Stems: los buscadores de Canciones y de la Biblioteca ahora son como el de Pads: lupa, limpiar, ayuda «?», filtros rápidos en píldoras y el número de resultados. Canciones busca también en la letra (y muestra la frase) y entiende tono:, bpm:, artista:, tiene:/sin: y modo:. La Biblioteca busca por nombre, artista, género y tracks, y filtra por artista:, genero:, tono:, bpm: y Gratis/PRO.
-• Biblioteca de stems: al agregar loops a un pack existente se puede poner o corregir su artista.
-• Pads: la píldora «Secuencia» del buscador ya se marca al activarla.
+• Detectar acordes mucho más preciso: el panel ahora usa el modelo entrenado y los acordes de la letra de la canción (antes solo el análisis rápido). Medido con 80 audios de la biblioteca: del 81–88 % al 98–99 % del tiempo con un acorde de la canción. El tono sale bien también en canciones menores (antes un tema en Dm podía decir «C»).
+• Pads: el mezclador baja hasta la línea de las columnas de canciones y tonos, y los drum pads son más grandes.
+• Reproductor más limpio: sin la franja «Preparada» (la tarjeta y el reproductor ya lo dicen). Su X, ahora discreta, cierra la pista y deselecciona la canción.

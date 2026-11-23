@@ -158,8 +158,13 @@ export function chordContext(song, type, base) {
       ctx.vocab = lyr.map((v) => ({ r: mod12(v.r - off.k), m: v.m })).filter((v) => { const k = v.r + (v.m ? 12 : 0); if (seen.has(k)) return false; seen.add(k); return true; });
     }
   }
-  if (!ctx.vocab) {
-    const pk = parseKey(song.key);
+  const pk = parseKey(song.key);
+  if (ctx.vocab) {
+    // Con los acordes de la letra, el tono que se MUESTRA es el de la canción llevado al tono del audio.
+    // Antes se deducía de los acordes con preferencia por el mayor y un tema en Dm salía «C».
+    // (El modelo sigue guiándose por el vocabulario: con vocab, la tonalidad no cambia la preferencia.)
+    if (pk) ctx.key = { k: mod12(pk.semitone - off.k), m: !!pk.minor };
+  } else {
     if (pk && type === 'sequence') ctx.key = { k: pk.semitone, m: !!pk.minor };
     else if (pk && off && off.score >= 0.45) ctx.key = { k: mod12(pk.semitone - off.k), m: !!pk.minor };
     else if (base && Number.isFinite(base.k)) ctx.key = { k: base.k, m: !!base.m };

@@ -20,7 +20,7 @@
 import { pushModal } from './modalStack.js';
 import { CHORD_SR, chordName, keyName, pitchClasses, makeResampler } from '../chords/chordEngine.js';
 import { analyzeInWorker, releaseChordWorker } from '../chords/chordWorker.js';
-import { chordPrefs, saveChordPrefs, cacheGet, cachePut, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached } from '../chords/trackChords.js';
+import { chordPrefs, saveChordPrefs, cacheGet, cachePut, cacheDel, trackChordId, analyzeBufferCached, analyzeFileCached, refineChords, canRefine } from '../chords/trackChords.js';
 import { youtubeId, youtubeTitle, createYtPlayer, startLoopback, createScanBuffer } from '../chords/ytScan.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 import { closeButton } from './components.js';
@@ -113,7 +113,10 @@ function renderTrackPane() {
   // Si ya está analizada (caché), se muestra al instante.
   if (info && info.buf && (!source || source.id !== info.id)) {
     const cached = cacheGet(info.id);
-    if (cached) showResult(cached, { kind: 'track', id: info.id, title: info.song.title, songId: info.song.id, type: info.type });
+    if (cached) {
+      showResult(cached, { kind: 'track', id: info.id, title: info.song.title, songId: info.song.id, type: info.type });
+      if (cached.src !== 'btc' && !busy) refineTrack(info);
+    }
   }
 }
 
@@ -129,12 +132,29 @@ async function runTrack(force) {
     setProgress(0.02, 'Preparando el audio…');
     const r = await analyzeBufferCached(info.id, info.buf, (p, l) => setProgress(p, l), force);
     showResult(r, { kind: 'track', id: info.id, title: info.song.title, songId: info.song.id, type: info.type });
+    refineTrack(info);
   } catch (e) {
     if (overlay && String(e && e.message) !== 'cancelado') setStatus('No se pudo analizar el audio. ' + ((e && e.message) || ''), 'error');
   } finally {
     busy = false; setProgress(null);
     if (overlay) renderTrackPane();
   }
+}
+
+// Afinado con el modelo entrenado + los acordes de la letra (lo mismo que la franja de acordes del espectro).
+// Antes el panel se quedaba con el análisis rápido: acordes que no están en la canción y el tono equivocado.
+async function refineTrack(info) {
+  if (!info || !info.buf || !canRefine()) return;
+  const cur = cacheGet(info.id);
+  if (cur && cur.src === 'btc') return;
+  setStatus('Afinando los acordes con el modelo y la letra de la canción…');
+  let harm = null;
+  try { harm = (await (await import('../chords/stemMix.js')).stemBuffers(info.song, info.buf.duration)).harmonic; } catch (_) { harm = null; }
+  const r = await refineChords(info.id, info.buf, info.song, info.type, harm).catch(() => null);
+  if (!overlay || !source || source.id !== info.id) return;
+  const best = r || cacheGet(info.id);
+  if (best && best.src === 'btc') { showResult(best, source); setStatus(''); }
+  else setStatus('');
 }
 
 async function runFile(file) {
