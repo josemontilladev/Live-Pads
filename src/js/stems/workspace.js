@@ -39,6 +39,8 @@ import { songEditFormHTML, applyLibrarySelection } from '../ui/songEditForm.js';
 import { openNewSongModal } from '../ui/newSongModal.js';
 import { showToast } from '../ui/toast.js';
 import { esc } from '../utils/dom.js';
+import { searchBoxHtml, bindSearchBox } from '../ui/searchBox.js';
+import { parseQuery, matchSong } from '../utils/songQuery.js';
 import { read as storageRead, write as storageWrite, remove as storageRemove } from '../utils/storage.js';
 
 // Toast helper local — el módulo emite muchísimos avisos al usuario; antes
@@ -606,12 +608,19 @@ const SHELL_HTML = `
          <button class="ssl-slot-btn" data-slot="original" title="Ver las de Original">Original</button>
        </div>
      </div>
-     <div class="ssl-search-row">
-      <input class="ssl-search" type="text" placeholder="Buscar canción…" aria-label="Buscar canción">
-      <button class="ssl-libfilter" id="stems-setlist-libfilter" type="button" hidden title="Ver solo las canciones que tienen sus pistas por separado en la Biblioteca" aria-label="Solo canciones con pistas en la Biblioteca">
+     <div class="ssl-searchbox">${searchBoxHtml({
+       placeholder: 'Canción, artista o una frase de la letra…',
+       label: 'Buscar canción',
+       inputClass: 'ssl-search',
+       chips: [
+         ['tiene:secuencia', 'Con secuencia'], ['tiene:original', 'Con original'],
+         ['tiene:letra', 'Con letra'], ['sin:letra', 'Sin letra'],
+         ['modo:mayor', 'Mayor'], ['modo:menor', 'Menor'],
+       ],
+       extra: `<button class="ssl-libfilter" id="stems-setlist-libfilter" type="button" hidden title="Ver solo las canciones que tienen sus pistas por separado en la Biblioteca" aria-label="Solo canciones con pistas en la Biblioteca">
         <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" fill="none" width="14" height="14"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      </button>
-    </div>
+      </button>`,
+     })}</div>
      <div class="ssl-list" id="stems-setlist-list"></div>
      <div class="ssl-hint">Clic → carga y reproduce en el timeline · Clic derecho → asignar audio.</div>
    </aside>
@@ -6960,6 +6969,7 @@ function pickSongAndSlot({ withSlot = true, title = 'Asignar mezcla a…', hint 
 // multitrack y, de un clic en una canción, le asigna la mezcla al slot elegido
 // (Secuencia u Original) sin pasar por el modal.
 let setlistPanelSlot = 'all';   // 'all' | 'sequence' | 'original'
+let setlistSearch = null;   // buscador del panel de Canciones (ui/searchBox.js)
 let setlistOnlyLib = false;     // filtro «solo las que tienen pistas en la Biblioteca»
 
 // ── Canciones ↔ packs de la Biblioteca ──
@@ -7035,10 +7045,15 @@ function renderSetlistPanel(filter = '') {
     libFilterBtn.classList.toggle('is-on', setlistOnlyLib);
     libFilterBtn.hidden = !(libPackIndex && libPackIndex.size);
   }
+  // Mismo buscador que la Librería de Pads: título, artista, etiquetas y letra + filtros (tono:, bpm:, tiene:…).
+  const q = parseQuery(f);
+  const hits = new Map();
   const songs = all
-    .filter(s => !f || `${s.title || ''} ${s.artist || ''}`.toLowerCase().includes(f))
+    .filter(s => { if (!f) return true; const h = matchSong(s, q); if (h) hits.set(s, h); return !!h; })
     .filter(s => !setlistOnlyLib || libraryPackFor(s))
-    .sort((a, b) => (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
+    .sort((a, b) => (q.words.length ? (hits.get(b)?.score || 0) - (hits.get(a)?.score || 0) : 0)
+      || (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
+  setlistSearch?.setCount(f || setlistOnlyLib ? `${songs.length} ${songs.length === 1 ? 'canción' : 'canciones'}` : '');
 
   const hintEl = document.querySelector('#stems-setlist .ssl-hint');
   if (hintEl) {
@@ -7082,6 +7097,7 @@ function renderSetlistPanel(filter = '') {
       <span class="ssl-row-info">
         <span class="ssl-row-title">${esc(s.title || 'Sin título')}</span>
         <span class="ssl-row-artist">${esc(s.artist || 'Sin artista')}</span>
+        ${hits.get(s)?.snippet ? `<span class="ssl-snippet">«${esc(hits.get(s).snippet)}»</span>` : ''}
         <span class="ssl-row-meta">
           ${music ? `<span class="ssl-meta-music">${esc(music)}</span>` : ''}
           ${badges ? `<span class="ssl-tags">${badges}</span>` : ''}
@@ -7105,9 +7121,21 @@ function bindSetlistPanel() {
   const searchEl = panel.querySelector('.ssl-search');
   const collapseBtn = document.getElementById('stems-setlist-collapse');
 
+  // Buscador (como el de Pads): píldoras de filtros, ayuda «?» y número de resultados.
+  let searchTimer = null;
+  setlistSearch = bindSearchBox(panel.querySelector('.ssl-searchbox'), {
+    onChange: (v) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => renderSetlistPanel(v), 120); },
+    help: [
+      { label: 'Palabras sueltas', hint: 'Título, artista, etiquetas o una frase de la letra (sin tildes; tolera una falta)' },
+      { label: 'tono:G', hint: 'Por tono (tono:Am, tono:F#…)', tok: 'tono:' },
+      { label: 'bpm:120 · bpm:110-130 · bpm:>120', hint: 'Por tempo: exacto (±2), rango, más o menos de', tok: 'bpm:' },
+      { label: 'artista:hillsong', hint: 'Solo de ese artista', tok: 'artista:' },
+      { label: 'tag:navidad', hint: 'Por etiqueta', tok: 'tag:' },
+      { label: 'tiene:secuencia · sin:letra', hint: 'Con o sin secuencia, original, letra o acordes', tok: 'tiene:' },
+      { label: 'modo:menor', hint: 'Canciones en tono menor (o modo:mayor)', tok: 'modo:' },
+    ],
+  });
   renderSetlistPanel();
-
-  if (searchEl) searchEl.oninput = () => renderSetlistPanel(searchEl.value);
   // Estado colapsado recordado entre sesiones (igual que la consola).
   // Panel de canciones: recordamos la elección del usuario; si nunca eligió, en
   // ventanas angostas arranca contraído para dejarle el ancho al deck y al timeline.

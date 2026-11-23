@@ -30,6 +30,8 @@ import { showToast } from '../ui/toast.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { pushModal } from '../ui/modalStack.js';
 import { closeButton } from '../ui/components.js';
+import { searchBoxHtml, bindSearchBox } from '../ui/searchBox.js';
+import { parsePackQuery, matchPack, packQueryActive } from '../utils/packQuery.js';
 
 export const LOOP_DRAG_TYPE = 'application/x-livepads-loop';
 
@@ -87,9 +89,15 @@ export function mountLibraryPanel(host, api) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 6 15 12 9 18"/></svg>
       </button>
     </div>
-    <div class="stl-filters stl-filters--simple stl-filters--top">
-      <input class="stl-search" data-ref="text" type="search" placeholder="Buscar por canción o artista…" aria-label="Buscar por canción o artista">
-    </div>
+    <div class="stl-filters stl-filters--top stl-searchbox" data-ref="searchbox">${searchBoxHtml({
+      placeholder: 'Canción, artista o género…',
+      label: 'Buscar en la biblioteca',
+      inputAttrs: 'data-ref="text"',
+      chips: [
+        ['es:gratis', 'Gratis', 'Packs con loops GRATIS'], ['es:pro', 'PRO', 'Packs con loops PRO'],
+        ['modo:mayor', 'Mayor'], ['modo:menor', 'Menor'],
+      ],
+    })}</div>
     <div class="stl-project" data-ref="project" hidden></div>
     <div class="stl-packs" data-ref="packs"></div>
     <div class="stl-packcard" data-ref="packcard" hidden></div>
@@ -141,6 +149,7 @@ export function mountLibraryPanel(host, api) {
   host.appendChild(el);
 
   const ref = (n) => el.querySelector(`[data-ref="${n}"]`);
+  let packSearch = null;   // buscador de arriba (ui/searchBox.js); se conecta más abajo
   const state = { packId: '', packs: [], loops: [], loaded: false, busyId: null, admin: false, view: 'all', local: new Set(), downloading: null,
     catalog: [], localAll: new Set(), loadError: false };
   const isLocked = (loop) => loop.tier !== 'free' && !api.canUsePro();
@@ -723,7 +732,7 @@ export function mountLibraryPanel(host, api) {
       const card = e.target.closest('[data-pick]');
       if (!card) return;
       state.packId = card.dataset.pick;
-      ref('text').value = '';
+      ref('text').value = ''; packSearch?.refresh();
       close();
       renderPacks();
       loadLoops();
@@ -810,17 +819,25 @@ export function mountLibraryPanel(host, api) {
   }
 
   // Navegador de packs (en la zona con scroll): cuadrícula o lista, filtrado por el buscador.
+  // Buscador: texto (nombre, artista, género, tracks…) y filtros (artista:, tono:, bpm:, es:gratis…).
+  function searchPacks(list) {
+    const pq = parsePackQuery(ref('text').value);
+    if (!packQueryActive(pq)) return { packs: list, active: false };
+    const scored = [];
+    for (const p of list) {
+      const m = matchPack(p, state.catalog.filter((l) => l.pack_id === p.id), pq);
+      if (m) scored.push([p, m.score]);
+    }
+    if (pq.words.length) scored.sort((a, b) => b[1] - a[1]);   // los que más coinciden, arriba
+    return { packs: scored.map(([p]) => p), active: true };
+  }
+
   function renderPackBrowser() {
-    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const q = norm(ref('text').value).split(/\s+/).filter(Boolean);
-    const packs = sortedPacks().filter((p) => {
-      if (!packPasses(p)) return false;
-      const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
-      return q.every((w) => hay.includes(w));
-    });
+    const { packs, active } = searchPacks(sortedPacks().filter((p) => packPasses(p)));
+    packSearch?.setCount(active ? `${packs.length} ${packs.length === 1 ? 'pack' : 'packs'}` : '');
     const list = ref('list');
     if (!packs.length) {
-      const msg = q.length ? 'Ningún pack coincide con esa canción o artista.'
+      const msg = active ? 'Ningún pack coincide con la búsqueda.'
         : packsFilter === 'fav' ? 'Aún no tienes packs favoritos. Toca el ♥ de un pack para tenerlo siempre a mano aquí.'
         : packsFilter === 'local' ? 'Todavía no hay packs en este equipo. Los que uses o descargues aparecerán aquí y funcionarán sin internet.'
         : 'No hay packs.';
@@ -851,14 +868,9 @@ export function mountLibraryPanel(host, api) {
 
   // Buscar = encontrar el pack de una canción o artista; al elegirlo, se ven sus tracks.
   function renderPackResults() {
-    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const q = norm(ref('text').value).split(/\s+/).filter(Boolean);
-    const packs = sortedPacks().filter((p) => {
-      const hay = norm(`${p.title} ${p.artist || ''} ${p.genre || ''}`);
-      return q.every((w) => hay.includes(w));
-    });
+    const { packs } = searchPacks(sortedPacks());
     const list = ref('list');
-    if (!packs.length) { list.innerHTML = '<div class="stl-empty">Ningún pack coincide con esa canción o artista.</div>'; return; }
+    if (!packs.length) { list.innerHTML = '<div class="stl-empty">Ningún pack coincide con la búsqueda.</div>'; return; }
     list.innerHTML = `<div class="stl-results-k">${packs.length} ${packs.length === 1 ? 'pack' : 'packs'}</div>` + packs.map((p) => {
       const n = state.catalog.filter((l) => l.pack_id === p.id).length;
       return `<button type="button" class="stl-presult${p.id === state.packId ? ' active' : ''}" data-pick-pack="${esc(p.id)}">
@@ -1203,8 +1215,6 @@ export function mountLibraryPanel(host, api) {
     if (e.target.closest('[data-act="admin"]')) {
       stopPreview();
       if (state.admin) openPackUploader({ onChanged: () => reloadCatalog() });
-      else if (!api.canUsePro()) api.requirePro('Compartir packs con la comunidad');
-      else openPackUploader({ community: true, onChanged: () => reloadCatalog() });
       return;
     }
     const actEl = e.target.closest('[data-act]');
@@ -1244,7 +1254,7 @@ export function mountLibraryPanel(host, api) {
     if (pick) {
       sel.clear();
       state.packId = pick.dataset.pickPack;
-      ref('text').value = '';
+      ref('text').value = ''; packSearch?.refresh();
       renderPacks();
       loadLoops();
       return;
@@ -1279,6 +1289,7 @@ export function mountLibraryPanel(host, api) {
     if (f === 'pack') { state.packId = ''; renderPacks(); }
     else if (f === 'all') { state.packId = ''; ['text', 'instrument', 'section', 'feel'].forEach((k) => { ref(k).value = ''; }); renderPacks(); }
     else if (ref(f)) ref(f).value = '';
+    packSearch?.refresh();
     loadLoops();
   }
   // Vacío por filtros: qué filtro quitar, con un botón para cada uno.
@@ -1340,9 +1351,21 @@ export function mountLibraryPanel(host, api) {
       paintBatch();
     }
   });
-  ref('text').addEventListener('input', () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => { state.packId = ''; renderPacks(); }, 150);
+  // Buscador (como el de Pads): píldoras de filtros, ayuda «?» y número de resultados.
+  packSearch = bindSearchBox(ref('searchbox'), {
+    onChange: () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.packId = ''; renderPacks(); }, 150);
+    },
+    help: [
+      { label: 'Palabras sueltas', hint: 'Nombre del pack, artista, género o un track («bajo», «pad»…); sin tildes' },
+      { label: 'artista:elevation', hint: 'Solo packs de ese artista o banda', tok: 'artista:' },
+      { label: 'genero:worship', hint: 'Por género', tok: 'genero:' },
+      { label: 'tono:E', hint: 'Packs con loops en ese tono (tono:Bm, tono:F#…)', tok: 'tono:' },
+      { label: 'bpm:130 · bpm:120-140', hint: 'Por tempo: exacto (±2) o rango', tok: 'bpm:' },
+      { label: 'es:gratis · es:pro', hint: 'Packs con loops GRATIS o PRO', tok: 'es:' },
+      { label: 'modo:menor', hint: 'Packs en tono menor (o modo:mayor)', tok: 'modo:' },
+    ],
   });
   ref('instrument').addEventListener('change', loadLoops);
   ref('section').addEventListener('change', loadLoops);
@@ -1380,7 +1403,9 @@ export function mountLibraryPanel(host, api) {
       state.loaded = true;
       state.admin = await stemLibrary.isLibraryAdmin();
       const adminBtn = ref('admin');
-      adminBtn.hidden = false;
+      // Solo el administrador sube packs: los envíos de la comunidad están cerrados (también en el servidor)
+      // para no llenar el espacio de la nube.
+      adminBtn.hidden = !state.admin;
       if (state.admin) {
         adminBtn.title = 'Administrar biblioteca: subir packs, editar loops, moderar envíos y ver el uso';
         adminBtn.setAttribute('aria-label', 'Administrar biblioteca');

@@ -55,6 +55,10 @@ const PACK_COLUMNS = 'id,slug,title,description,cover_path,genre,mood,tier,publi
 const LOOP_COLUMNS = 'id,pack_id,title,instrument,section,bpm,musical_key,beats_per_bar,bars,tier,audio_path,preview_path,tags,sort';
 
 // Límites de la comunidad (el administrador no los tiene).
+// Envíos de la comunidad cerrados (solo sube el administrador). Siguen abiertas las acciones que no ocupan
+// espacio: ver mis envíos, quitar un loop y retirar un envío.
+const COMMUNITY_CLOSED = true;
+const COMMUNITY_STILL_OPEN = new Set(['my_packs', 'c_delete_loop', 'c_delete']);
 const C_MAX_OPEN_PACKS = 5;     // envíos sin aprobar a la vez
 const C_MAX_LOOPS = 60;         // loops por pack
 const MB = 1024 ** 2;
@@ -118,6 +122,11 @@ Deno.serve(async (req) => {
   if (!user?.id) return json({ error: 'Sesión inválida' }, 401);
 
   if (community) {
+    // Envíos de la comunidad CERRADOS: solo el administrador sube a la Biblioteca (el espacio de la nube es
+    // limitado). Quien ya envió algo puede verlo y retirarlo; nada que suba archivos o cree packs.
+    if (COMMUNITY_CLOSED && !COMMUNITY_STILL_OPEN.has(action)) {
+      return json({ error: 'Por ahora solo el equipo de LivePads publica packs en la Biblioteca de stems.', code: 'community_closed' }, 403);
+    }
     // Comunidad: hace falta Pro (o prueba/cortesía), como para importar audio propio.
     const eRes = await fetch(`${URL_}/rest/v1/rpc/lp_entitlement`, { method: 'POST', headers: asUser, body: '{}' });
     const ent = eRes.ok ? await eRes.json() : null;

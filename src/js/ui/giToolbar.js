@@ -133,7 +133,7 @@ function bindSearchAndAdd(deps) {
   const chips = q('#gi-search-chips');
   const paintChips = () => {
     if (!chips) return;
-    const toks = new Set(String(searchInput.value).toLowerCase().split(/s+/).filter(Boolean));
+    const toks = new Set(String(searchInput.value).toLowerCase().split(/\s+/).filter(Boolean));   // \s (antes /s+/ cortaba por la letra «s»)
     chips.querySelectorAll('[data-tok]').forEach((b) => b.classList.toggle('is-on', toks.has(b.dataset.tok)));
   };
   const applyText = (v) => {

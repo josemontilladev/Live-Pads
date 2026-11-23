@@ -175,6 +175,11 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
           <label><input type="radio" name="spu-mode" value="existing"> ${admin ? 'Agregar o actualizar loops de un pack' : 'Agregar a un envío'}
             <select data-ref="existing" disabled></select></label>
         </div>
+        <!-- Al agregar a un pack que ya existe también se le puede poner (o corregir) el artista:
+             el buscador de la Biblioteca busca por artista. -->
+        <div class="spu-pack spu-pack--artist" data-ref="exArtistRow" hidden>
+          <label>Artista o banda del pack <input data-ref="exArtist" maxlength="80" placeholder="Ej. Elevation Worship · se guarda al subir"></label>
+        </div>
         <div class="spu-pack" data-ref="newpack">
           <label>Nombre <input data-ref="title" placeholder="Ej. Adoración íntima vol. 1" maxlength="120"></label>
           <label>Artista o banda <input data-ref="artist" maxlength="80" placeholder="Opcional · ej. Elevation Worship"></label>
@@ -966,6 +971,15 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
   // subido ACTUALIZA ese loop, así que la fila arranca con sus datos actuales
   // (título, instrumento, tono, sensación, marca…) en vez de lo deducido del
   // nombre: re-subir el audio no deshace lo que se corrigió a mano.
+  // Campo «Artista» del pack existente elegido (solo administrador; se guarda al subir).
+  function paintExistingArtist() {
+    const row = ref('exArtistRow');
+    if (!row) return;
+    const on = admin && mode() === 'existing' && !!ref('existing').value;
+    row.hidden = !on;
+    if (on) ref('exArtist').value = state.packs.find((p) => p.id === ref('existing').value)?.artist || '';
+  }
+
   async function prefillExisting() {
     state.rows.forEach((r) => { r.updates = false; });
     if (mode() !== 'existing' || !state.rows.length) return;
@@ -1027,8 +1041,10 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       // 1) El pack (nuevo o existente) y dónde van sus archivos.
       let pack, put;
       if (admin) {
-        if (mode() === 'existing') pack = state.packs.find((p) => p.id === ref('existing').value);
-        else {
+        if (mode() === 'existing') {
+          const ex = state.packs.find((p) => p.id === ref('existing').value);
+          pack = ex ? { ...ex, artist: ref('exArtist').value.trim() } : ex;
+        } else {
           let slug = slugify(ref('title').value);
           const taken = new Set(state.packs.map((p) => p.slug));
           for (let n = 2; taken.has(slug); n++) slug = `${slugify(ref('title').value)}-${n}`;
@@ -1190,9 +1206,10 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
     if (t.name === 'spu-mode') {
       ref('existing').disabled = mode() !== 'existing';
       ref('newpack').hidden = mode() !== 'new';
+      paintExistingArtist();
       await prefillExisting();
       renderRows();
-    } else if (t === ref('existing')) { await prefillExisting(); renderRows(); }
+    } else if (t === ref('existing')) { paintExistingArtist(); await prefillExisting(); renderRows(); }
     else if (t === ref('tier')) renderRows();
     else if (t === ref('packBpm') || t === ref('packKey') || t === ref('perLoop')) renderRows();
     else if (t.dataset.bulk) {
