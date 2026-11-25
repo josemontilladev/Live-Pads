@@ -9,7 +9,7 @@ export function syncSlider(el) {
   // El tema «Consola» dibuja su propio relleno a partir de este porcentaje.
   el.style.setProperty('--pct', pct + '%');
   if (!el.classList.contains('grey-slider')) {
-    el.style.background = `linear-gradient(to right,var(--blue) ${pct}%,rgba(255,255,255,.12) ${pct}%)`;
+    el.style.background = `linear-gradient(to right,var(--blue) ${pct}%,color-mix(in srgb, var(--text) 12%, transparent) ${pct}%)`;
   }
 }
 
@@ -20,11 +20,11 @@ export function syncPanSlider(el) {
   const pct = ((el.value - el.min) / (el.max - el.min)) * 100;
   const center = 50;
   if (pct === center) {
-    el.style.background = `rgba(255,255,255,0.12)`;
+    el.style.background = `color-mix(in srgb, var(--text) 12%, transparent)`;
   } else if (pct < center) {
-    el.style.background = `linear-gradient(to right, rgba(255,255,255,0.06) ${pct}%, var(--blue) ${pct}%, var(--blue) ${center}%, rgba(255,255,255,0.06) ${center}%)`;
+    el.style.background = `linear-gradient(to right, color-mix(in srgb, var(--text) 6%, transparent) ${pct}%, var(--blue) ${pct}%, var(--blue) ${center}%, color-mix(in srgb, var(--text) 6%, transparent) ${center}%)`;
   } else {
-    el.style.background = `linear-gradient(to right, rgba(255,255,255,0.06) ${center}%, var(--blue) ${center}%, var(--blue) ${pct}%, rgba(255,255,255,0.06) ${pct}%)`;
+    el.style.background = `linear-gradient(to right, color-mix(in srgb, var(--text) 6%, transparent) ${center}%, var(--blue) ${center}%, var(--blue) ${pct}%, color-mix(in srgb, var(--text) 6%, transparent) ${pct}%)`;
   }
 }
 

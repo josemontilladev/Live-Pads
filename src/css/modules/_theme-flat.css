@@ -721,3 +721,12 @@
   background: #FFFFFF; border: 2px solid var(--flat-ink-lo); box-sizing: border-box;
 }
 :root[data-touch="on"][data-theme-style="flat"] input[type="range"]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -3px; border-width: 3px; }
+
+/* El nombre del pad no se mete bajo el LED (arriba a la izquierda) ni bajo la tecla
+   (arriba a la derecha) en pads bajos: el LED va pegado a la esquina, por encima de la
+   línea del nombre, y el nombre deja sitio a la tecla; si aun así no cabe, «…». */
+:root[data-theme-style="flat"] .drum-btn::before { left: 7px; top: 6px; width: 7px; height: 7px; }
+:root[data-theme-style="flat"] .drum-btn .drum-label {
+  box-sizing: border-box; max-width: 100%; padding: 0 16px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}

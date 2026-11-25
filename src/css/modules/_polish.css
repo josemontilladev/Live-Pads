@@ -1787,8 +1787,8 @@ body:not(.live-mode) #panel-drums > #mixer-bar { margin-top: auto; }
 #seq-wave:not(.is-collapsed) #sw-collapse:not(.is-turned) svg, #mixer-bar:not(.is-collapsed) .mx-collapse:not(.is-turned) svg { transform: none; }
 
 /* Companion: modo por internet / misma WiFi. */
-.cp-mode { display: flex; margin: 4px 0 2px; }
-.cp-mode .ui-seg-btn { flex: 1; }
+.cp-mode, :root[data-theme-style="flat"] .cp-mode { display: flex; width: 100%; box-sizing: border-box; margin: 4px 0 2px; }
+.cp-mode .ui-seg-btn { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cp-mode-tip { font-size: 12px; color: var(--text-muted, color-mix(in srgb, var(--text) 60%, transparent)); margin: 2px 0 8px; }
 #companion-overlay[data-mode="cloud"] .cp-wifi-only { display: none !important; }
 #companion-overlay[data-mode="wifi"] .cp-cloud-only { display: none !important; }
@@ -1840,3 +1840,19 @@ body.live-mode .lyp-next:not(:has(.lyp-next-sec:not([hidden]))) { display: none;
 /* Tema claro: los colores de estado se oscurecen lo justo para leerse sobre blanco. */
 :root[data-theme="clean"] { --src-ref: #b45309; --src-click: #1d4ed8; --src-seq: #047857; }
 :root[data-theme="clean"] #companion-overlay .cp-status[data-running="true"] .cp-status-label { color: #15803d; }
+
+/* Servicio en ventanas estrechas: el artista se corta con «…» en vez de meterse bajo el
+   tono, y «Quién dirige» cabe en la columna (el nombre se corta si hace falta). */
+#panel-setlist .gi-song-artist-row { min-width: 0; overflow: hidden; }
+#panel-setlist .gi-song-meta-line { min-width: max-content; }
+.svc-leader { max-width: 100%; min-width: 0; overflow: hidden; }
+.svc-leader > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panel-setlist .svc-leader { margin: 2px 0 8px; align-self: flex-start; }
+
+/* Panel de Ajustes: su fondo sigue al tema (antes era casi negro en todos, y en el tema
+   claro la mitad de abajo quedaba oscura con texto oscuro). */
+:root { --bg-sidebar: var(--bg-main, #050505); }
+:root[data-light-theme], :root[data-theme="clean"] .sidebar-nav { background: color-mix(in srgb, var(--text) 4%, transparent); }
+/* Atajos: una combinación larga («Ctrl+Shift+Z / Ctrl+Y») pasa a dos líneas dentro de su
+   columna en vez de montarse sobre la descripción. */
+#shortcuts-content kbd { white-space: normal; max-width: 100%; box-sizing: border-box; line-height: 1.35; }

@@ -950,7 +950,7 @@ function paintLeaderChip() {
   const b = q('#svc-leader');
   if (!b) return;
   const n = leaderName();
-  b.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>${n ? 'Dirige: ' + esc(n) : 'Quién dirige'}`;
+  b.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>${n ? 'Dirige: ' + esc(n) : 'Quién dirige'}</span>`;
   b.classList.toggle('is-on', !!n);
   b.title = n ? `Las canciones van en los tonos de ${n} (las que tienen uno guardado). Clic para cambiar.` : 'Elige quién dirige hoy: cada canción pasa a su tono guardado.';
 }
@@ -959,7 +959,9 @@ function initLeaderChip() {
   if (!host || q('#svc-leader')) return;
   const b = document.createElement('button');
   b.type = 'button'; b.id = 'svc-leader'; b.className = 'svc-leader';
-  host.appendChild(b);
+  // En su propia línea, bajo la cabecera del servicio: en columnas estrechas no cabe al lado.
+  const row = host.parentElement;
+  if (row && row.parentElement) row.insertAdjacentElement('afterend', b); else host.appendChild(b);
   b.addEventListener('click', (e) => { e.stopPropagation(); openLeaderMenu(b); });
   paintLeaderChip();
 }

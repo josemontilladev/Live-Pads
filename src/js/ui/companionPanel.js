@@ -38,7 +38,7 @@ export function openCompanionPanel({ mount = null } = {}) {
 
       <div class="cp-mode ui-seg" role="group" aria-label="Cómo se conectan los móviles">
         <button type="button" class="ui-seg-btn" data-mode="cloud">Por internet</button>
-        <button type="button" class="ui-seg-btn" data-mode="wifi">Misma WiFi (sin internet)</button>
+        <button type="button" class="ui-seg-btn" data-mode="wifi" title="Los móviles en la misma WiFi que el portátil, sin internet">WiFi local</button>
       </div>
       <p class="cp-mode-tip" data-ref="modeTip"></p>
 
@@ -125,7 +125,7 @@ export function openCompanionPanel({ mount = null } = {}) {
     overlay.querySelectorAll('.cp-mode [data-mode]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === m));
     overlay.querySelector('[data-ref="modeTip"]').textContent = m === 'cloud'
       ? 'Funciona con cualquier conexión del móvil (datos o cualquier WiFi). El portátil necesita internet.'
-      : 'Sin internet: los móviles tienen que estar en la misma WiFi que el portátil.';
+      : 'Sin internet: los móviles se conectan a la misma WiFi que el portátil.';
     lastQrUrl = null;
   };
   overlay.querySelectorAll('.cp-mode [data-mode]').forEach((b) => b.addEventListener('click', async () => {
