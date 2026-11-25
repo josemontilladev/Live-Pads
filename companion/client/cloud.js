@@ -16,6 +16,8 @@
   else { try { code = localStorage.getItem('lpc-code'); } catch (_) { code = null; } }
   if (!CFG || !ok(code)) return;
 
+  // Monitor de escenario (?escenario): el portátil solo manda el escenario si alguien lo mira.
+  var STAGE = new URLSearchParams(location.search).has('escenario');
   function cid() {
     try { var v = localStorage.getItem('lpc-cid'); if (v) return v; v = Math.random().toString(36).slice(2, 12); localStorage.setItem('lpc-cid', v); return v; }
     catch (_) { return Math.random().toString(36).slice(2, 12); }
@@ -37,7 +39,7 @@
       ws.send(JSON.stringify({ topic: topic, event: 'phx_join', ref: r, join_ref: r, payload: { config: { broadcast: { self: false }, presence: { key: '' }, private: false } } }));
       beat = setInterval(function () { try { ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++self._ref) })); } catch (_) {} }, 25000);
       // Aviso de vida al portátil (cuenta los móviles conectados).
-      alive = setInterval(function () { self.send(JSON.stringify({ type: 'ping' })); }, 30000);
+      alive = setInterval(function () { self.send(JSON.stringify({ type: 'ping', st: STAGE ? 1 : 0 })); }, 30000);
     };
     ws.onmessage = function (ev) {
       var m; try { m = JSON.parse(ev.data); } catch (_) { return; }
@@ -45,7 +47,7 @@
         if (m.payload && m.payload.status === 'ok') {
           self.readyState = 1;
           self._emit('open', {});
-          self.send(JSON.stringify({ type: 'hello' }));   // que el portátil mande lo que suena
+          self.send(JSON.stringify({ type: 'hello', st: STAGE ? 1 : 0 }));   // que el portátil mande lo que suena
         } else { try { ws.close(); } catch (_) {} }
         return;
       }

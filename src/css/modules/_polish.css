@@ -1856,3 +1856,14 @@ body.live-mode .lyp-next:not(:has(.lyp-next-sec:not([hidden]))) { display: none;
 /* Atajos: una combinación larga («Ctrl+Shift+Z / Ctrl+Y») pasa a dos líneas dentro de su
    columna en vez de montarse sobre la descripción. */
 #shortcuts-content kbd { white-space: normal; max-width: 100%; box-sizing: border-box; line-height: 1.35; }
+
+/* Companion por internet sin Pro: explicación + planes (WiFi local sigue gratis). */
+.cp-pro { margin: 4px 0 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); font-size: 12.5px; line-height: 1.45; }
+.cp-pro[hidden] { display: none; }
+.cp-pro p { margin: 0 0 10px; color: var(--text); }
+.cp-pro-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-pro-actions button { height: 32px; padding: 0 14px; border-radius: 999px; font: 600 12.5px/1 inherit; cursor: pointer; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); background: transparent; color: var(--text); }
+.cp-pro-actions .cp-pro-plans { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #0a0a14); }
+.cp-mode .ui-seg-btn.is-locked::after { content: ' · Pro'; font-weight: 700; opacity: .75; }
+#companion-overlay[data-locked="1"] :is(.cp-hint, .cp-newcode) { display: none; }
+#companion-overlay[data-locked="1"] .cp-mode-tip { display: none; }

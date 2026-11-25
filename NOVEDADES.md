@@ -1,5 +1,3 @@
-• Companion: el selector «Por internet / WiFi local» ya no se monta en ningún tema (antes, en los temas tipo consola, un texto quedaba encima del otro).
-• Temas tipo consola: el nombre de cada pad ya no queda tapado por su piloto de color ni por la tecla, también en ventanas pequeñas.
-• Tema claro (Clean Worship): el panel de Ajustes es claro de arriba abajo (antes la mitad inferior se veía oscura e ilegible) y los deslizadores de graves y agudos se ven.
-• Atajos de teclado: las combinaciones largas ya no se montan sobre su descripción.
-• Servicio en ventanas estrechas: «Quién dirige» tiene su propia línea y el artista de cada canción se corta con «…» en vez de meterse bajo el tono.
+• Companion por internet ahora es parte de Pro (incluida la prueba de 14 días): los músicos se conectan desde cualquier red con el QR o el código de 6 cifras. Por WiFi local sigue siendo gratis para todos.
+• Con el plan Gratis, el panel del Companion empieza en «WiFi local» y explica cómo pasar a Pro si quieres usarlo por internet.
+• El monitor de escenario solo se envía por internet cuando algún móvil lo está mirando: menos consumo y la misma experiencia.

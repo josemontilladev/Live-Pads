@@ -240,6 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (hasFeature('cloud')) import('./cloud/libraryLive.js').then(m => m.startLibraryLiveSync()).catch(() => {});
       q('#btn-chords-pads')?.classList.toggle('lp-locked', !hasFeature('chords'));
+      syncCompanionCloudPlan();
       // Stems ya no se bloquea entero: con Gratis se entra para usar los loops
       // gratis de la Biblioteca; lo Pro se pide dentro (stems/workspace.js).
     } catch (_) {}
@@ -2817,6 +2818,16 @@ function applyGiSong(song) {
     }).catch(() => {});
   }
 }
+
+// El Companion por internet es de Pro: el proceso principal solo conecta la nube si el plan lo incluye.
+let lastCompanionCloudPlan = null;
+function syncCompanionCloudPlan() {
+  const allowed = hasFeature('companionCloud');
+  if (allowed === lastCompanionCloudPlan) return;
+  lastCompanionCloudPlan = allowed;
+  window.electronAPI?.companionSetCloud?.({ allowed }).catch?.(() => {});
+}
+setTimeout(syncCompanionCloudPlan, 0);
 
 // El Companion se pinta con el tema activo de LivePads (al arrancar y al cambiarlo).
 function companionTheme() {

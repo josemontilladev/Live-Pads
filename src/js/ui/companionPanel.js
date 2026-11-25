@@ -5,6 +5,8 @@
 // (selectable + copy button) so phones can type it manually.
 
 import { pushModal } from './modalStack.js';
+import { hasFeature, openPlans } from '../billing/license.js';
+import { FEATURE_TEXT } from '../billing/plans.js';
 
 let mounted = null;
 let popModal = null;
@@ -13,7 +15,13 @@ let lastQrUrl = null; // cache so we only regenerate the SVG when the URL change
 let serverStartedAt = 0; // ms timestamp — used to show the firewall hint after 8s of zero clients
 // Modo del QR: 'cloud' (por internet, por defecto) o 'wifi' (misma red, sin internet).
 const MODE_KEY = 'livepads.companionMode';
-const getMode = () => { try { return localStorage.getItem(MODE_KEY) === 'wifi' ? 'wifi' : 'cloud'; } catch (_) { return 'cloud'; } };
+// Sin elección guardada: por internet si el plan lo incluye; si no, WiFi local (gratis).
+const cloudAllowed = () => { try { return hasFeature('companionCloud'); } catch (_) { return false; } };
+const getMode = () => {
+  let v = null; try { v = localStorage.getItem(MODE_KEY); } catch (_) {}
+  if (v === 'wifi' || v === 'cloud') return v;
+  return cloudAllowed() ? 'cloud' : 'wifi';
+};
 
 const SVG_CLOSE = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const SVG_COPY  = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -41,6 +49,13 @@ export function openCompanionPanel({ mount = null } = {}) {
         <button type="button" class="ui-seg-btn" data-mode="wifi" title="Los móviles en la misma WiFi que el portátil, sin internet">WiFi local</button>
       </div>
       <p class="cp-mode-tip" data-ref="modeTip"></p>
+      <div class="cp-pro cp-cloud-only" hidden>
+        <p>El Companion <b>por internet</b> es parte de <b>Pro</b>: los músicos se conectan desde cualquier red (datos o cualquier WiFi) con el QR o el código.</p>
+        <div class="cp-pro-actions">
+          <button type="button" class="cp-pro-plans">Ver planes</button>
+          <button type="button" class="cp-pro-wifi">Usar WiFi local (gratis)</button>
+        </div>
+      </div>
 
       <div class="cp-wifi-only cp-hotspot-row">
         <button class="cp-hotspot-btn" id="cp-softap" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" style="vertical-align:-2px;margin-right:4px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>Crear red WiFi local (sin internet)</button>
@@ -122,6 +137,11 @@ export function openCompanionPanel({ mount = null } = {}) {
   const paintMode = () => {
     const m = getMode();
     overlay.dataset.mode = m;
+    const locked = m === 'cloud' && !cloudAllowed();
+    overlay.dataset.locked = locked ? '1' : '';
+    const proBox = overlay.querySelector('.cp-pro');
+    if (proBox) proBox.hidden = !locked;
+    overlay.querySelector('.cp-mode [data-mode="cloud"]')?.classList.toggle('is-locked', !cloudAllowed());
     overlay.querySelectorAll('.cp-mode [data-mode]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === m));
     overlay.querySelector('[data-ref="modeTip"]').textContent = m === 'cloud'
       ? 'Funciona con cualquier conexión del móvil (datos o cualquier WiFi). El portátil necesita internet.'
@@ -133,6 +153,15 @@ export function openCompanionPanel({ mount = null } = {}) {
     paintMode();
     await refresh();
   }));
+  overlay.querySelector('.cp-pro-plans')?.addEventListener('click', () => openPlans(FEATURE_TEXT.companionCloud));
+  overlay.querySelector('.cp-pro-wifi')?.addEventListener('click', async () => {
+    try { localStorage.setItem(MODE_KEY, 'wifi'); } catch (_) {}
+    paintMode(); await refresh();
+  });
+  // El plan cambió (prueba, pago…): el panel abierto se pone al día.
+  const onPlan = () => { if (mounted === overlay) { paintMode(); refresh(); } };
+  window.addEventListener('livepads:plan-changed', onPlan);
+  overlay._offPlan = () => window.removeEventListener('livepads:plan-changed', onPlan);
   overlay.querySelector('#cp-newcode')?.addEventListener('click', async () => {
     await window.electronAPI.companionSetCloud?.({ renew: true });
     lastQrUrl = null; await refresh();
@@ -253,6 +282,7 @@ export function openCompanionPanel({ mount = null } = {}) {
 
 export function closeCompanionPanel() {
   if (!mounted) return;
+  try { mounted._offPlan?.(); } catch (_) {}
   document.getElementById('btn-companion')?.setAttribute('aria-pressed', 'false');
   if (onResize) { window.removeEventListener('resize', onResize); onResize = null; }
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -352,6 +382,16 @@ async function refresh() {
     statusEl.dataset.running = status.running ? 'true' : 'false';
     statusLabel.textContent = status.running ? 'Activo' : 'Apagado';
 
+    // Por internet sin Pro: ni QR ni enlace (solo la explicación y el botón de planes).
+    if (getMode() === 'cloud' && !cloudAllowed()) {
+      qrBox.hidden = true; urlRow.hidden = true; clientsRow.hidden = true;
+      const pinRow0 = mounted.querySelector('.cp-pin'); if (pinRow0) pinRow0.hidden = true;
+      statusLabel.textContent = status.running ? 'Activo · solo WiFi local' : 'Apagado';
+      toggleBtn.textContent = status.running ? 'Apagar Companion' : 'Activar Companion';
+      toggleBtn.classList.toggle('cp-toggle--off', !!status.running);
+      lastQrUrl = null;
+      return;
+    }
     const cloudMode = getMode() === 'cloud' && status.cloud;
     const shownUrl = cloudMode ? status.cloud.url : status.url;
     if (status.running && shownUrl) {

@@ -82,6 +82,7 @@ function render() {
           <li>Hasta 10 canciones</li>
           <li>Pad de Chris Rocha</li>
           <li>Metrónomo, afinador y modo en vivo</li>
+          <li>Companion por WiFi local</li>
           <li>Editor de Stems con los loops gratis de la Biblioteca</li>
         </ul>
         ${info.plan === 'free' ? '<div class="pl-tag">Tu plan</div>' : ''}
@@ -96,6 +97,7 @@ function render() {
           <li>Todos los loops de la Biblioteca de stems</li>
           <li>Detector de acordes y YouTube</li>
           <li>Sincronización en la nube</li>
+          <li>Companion por internet (QR o código)</li>
         </ul>
         ${cur('pro') && info.status !== 'trial' ? '<div class="pl-tag">Tu plan</div>'
           : `<button type="button" class="acc-btn pl-buy" data-plan="pro">${paidOwn ? 'Cambiar a Pro' : 'Elegir Pro'}</button>`}

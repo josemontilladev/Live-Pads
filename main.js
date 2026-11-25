@@ -2218,9 +2218,11 @@ ipcMain.handle('companion-publish-stage', (_e, s) => { companionServer.publishSt
 // Código del Companion por internet: fijo por equipo (el QR no cambia de un domingo a otro).
 // 6 cifras: el músico puede teclearlo en companion.livepads.online si no escanea el QR.
 const newCompanionCode = () => String(require('crypto').randomInt(100000, 1000000));
+// La app dice si el plan incluye el Companion por internet (al arrancar y si cambia el plan).
+let companionCloudAllowed = false;
 function companionCloudCode() {
   const p = readCompanionPrefs();
-  if (p.cloud === false) return null;
+  if (!companionCloudAllowed || p.cloud === false) return null;
   if (!/^\d{6}$/.test(p.cloudCode || '')) { p.cloudCode = newCompanionCode(); writeCompanionPrefs(p); }
   return p.cloudCode;
 }
@@ -2231,7 +2233,8 @@ companionServer.setCodeCollisionHandler(() => {
   writeCompanionPrefs(p);
   companionServer.setCloud(companionCloudCode());
 });
-ipcMain.handle('companion-set-cloud', async (_e, { on, renew } = {}) => {
+ipcMain.handle('companion-set-cloud', async (_e, { on, renew, allowed } = {}) => {
+  if (typeof allowed === 'boolean') companionCloudAllowed = allowed;
   const p = readCompanionPrefs();
   if (typeof on === 'boolean') p.cloud = on;
   if (renew) p.cloudCode = newCompanionCode();

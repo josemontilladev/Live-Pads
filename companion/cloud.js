@@ -34,6 +34,10 @@ function broadcastEvent(event, payload) {
   raw({ topic, event: 'broadcast', ref: String(++ref), payload: { type: 'broadcast', event, payload } });
 }
 const seen = new Map();   // cid → último aviso (ms)
+const seenStage = new Map();   // cid de móviles en modo escenario → último aviso (ms)
+// El monitor de escenario (hasta 1 mensaje por segundo) solo se manda si algún móvil lo
+// está mirando: es lo que más gasta de la cuota de la nube compartida.
+function anyStage() { const now = Date.now(); for (const [k, t] of seenStage) { if (now - t > 70000) seenStage.delete(k); } return seenStage.size > 0; }
 let lastStateJson = null, lastStageJson = null, lastStageAt = 0, stageTimer = null, pendingStage = null;
 
 function raw(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch (_) {} }
@@ -78,6 +82,7 @@ function connect() {
       const cid = String(p.cid || '').slice(0, 20);
       if (!cid) return;
       seen.set(cid, Date.now());
+      if (p.st) seenStage.set(cid, Date.now()); else seenStage.delete(cid);
       if (p.type === 'hello') { resendAll(cid); return; }
       if (p.type === 'ping') return;
       if (onRemote) { try { onRemote(p, (reply) => broadcastRaw(Object.assign({ to: cid }, reply))); } catch (_) {} }
@@ -101,7 +106,7 @@ function cleanup() {
 function resendAll(to) {
   const extra = to ? { to } : {};
   if (lastStateJson) broadcastRaw(Object.assign(JSON.parse(lastStateJson), extra));
-  if (lastStageJson) broadcastRaw(Object.assign(JSON.parse(lastStageJson), extra));
+  if (lastStageJson && anyStage()) broadcastRaw(Object.assign(JSON.parse(lastStageJson), extra));
 }
 
 function start(newCode, handler, collisionHandler) {
@@ -114,7 +119,7 @@ function start(newCode, handler, collisionHandler) {
   retries = 0;
   connect();
 }
-function stop() { wanted = false; clearTimeout(retry); clearTimeout(stageTimer); cleanup(); seen.clear(); }
+function stop() { wanted = false; clearTimeout(retry); clearTimeout(stageTimer); cleanup(); seen.clear(); seenStage.clear(); }
 
 /** Lo mismo que se manda por la WiFi. */
 function send(obj) {
@@ -130,6 +135,7 @@ function send(obj) {
     const j = JSON.stringify(Object.assign({}, obj, { pos: obj.pos != null ? Math.round(obj.pos) : obj.pos }));
     if (j === lastStageJson) return;
     lastStageJson = j;
+    if (!anyStage()) return;   // nadie en modo escenario: no gasta mensajes
     const wait = 1000 - (Date.now() - lastStageAt);
     pendingStage = obj;
     if (wait <= 0) { lastStageAt = Date.now(); broadcastRaw(pendingStage); pendingStage = null; }
