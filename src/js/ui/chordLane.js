@@ -20,6 +20,8 @@ import { showDialog } from './dialog.js';
 import { getSongs } from '../state/store.js';
 import { canEditActiveLibrary } from '../cloud/libraries.js';
 
+import { markersFor } from '../data/markers.js';
+import { getCurrentType as gctLane } from '../audio/trackPlayer.js';
 const LS_PREFS = 'livepads.chords';
 let root, lane, nowEl, nextEl, btn, seek = () => {};
 let on = false;
@@ -66,7 +68,7 @@ export const laneNeededZoom = () => neededZoom;
 function segsNow() {
   if (!result) return [];
   const s = track && track.song;
-  const sig = JSON.stringify([s ? s.lyrics || '' : '', s ? s.markers || [] : [], result.d, grid]);
+  const sig = JSON.stringify([s ? s.lyrics || '' : '', s ? markersFor(s, gctLane()) : [], result.d, grid]);
   if (sig === shownSig && shown) return shown;
   const det = snapToBeats(result.seg, grid);
   shownSig = sig; shown = det; fromSong = false;
@@ -74,9 +76,10 @@ function segsNow() {
     const lyr = s ? parseLyricStructure(s.lyrics) : [];
     if (lyr.some((x) => x.chords.length)) {
       songK = keyOffset(lyr, det, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
-      if (Array.isArray(s.markers) && s.markers.length) {
+      const laneMarks = markersFor(s, gctLane());
+      if (laneMarks.length) {
         // Con secciones marcadas: los acordes de cada sección dentro de su tramo.
-        const segs = songChordSegments(s.markers, lyr, det, songK, result.d || 0);
+        const segs = songChordSegments(laneMarks, lyr, det, songK, result.d || 0);
         if (segs.some((x) => !x.guess)) { shown = segs; fromSong = true; }
       } else {
         // Sin secciones: toda la letra alineada con lo que se oye. Solo si encaja de verdad
@@ -258,6 +261,21 @@ function textW(n) {
 // rejilla, el zoom, el tono… y antes cada aviso la reconstruía entera (con cientos de
 // acordes, y forzando a recalcular la maquetación de la página cada vez).
 let renderRaf = 0;
+
+/**
+ * Una fila sin solapes: marca label=true en los acordes cuyo nombre se escribe.
+ * items: [{ x, tw, s:{s,e} }]. Primero los que más duran; un nombre se escribe si
+ * no pisa a otro ya escrito (6 px de aire: el que suena lleva fondo).
+ */
+export function placeLabels(items) {
+  const placed = [];
+  items.slice().sort((p, q) => ((q.s.e - q.s.s) - (p.s.e - p.s.s)) || (p.x - q.x)).forEach((it) => {
+    const a = it.x, b = it.x + it.tw + 6;
+    if (placed.every(([pa, pb]) => b <= pa || a >= pb)) { placed.push([a, b]); it.label = true; }
+  });
+  return items;
+}
+
 export function render() {
   if (renderRaf) return;
   renderRaf = requestAnimationFrame(() => { renderRaf = 0; renderNow(); });
@@ -271,33 +289,29 @@ function renderNow() {
   const list = segsNow();
   lane.title = fromSong ? 'Acordes de la letra de la canción, colocados donde suenan (los tenues son detectados)' : 'Acordes detectados en la pista (suposición)';
   root.classList.toggle('chords-from-song', fromSong);
-  // Dos filas: un nombre que no cabe tras el anterior baja a la segunda; si
-  // tampoco cabe ahí, queda solo su raya (con zoom se leen todos).
-  const ends = [-1e9, -1e9];
+  // Una sola fila, uno al lado del otro y sin montarse: si dos nombres no caben,
+  // se escribe el del acorde que MÁS dura y el otro queda como raya (su nombre al
+  // pasar el ratón, y al sonar se ve igual). Con zoom («Ver todos») se leen todos.
   const items = [];
-  let usedRow2 = false;
   list.forEach((s, i) => {
     if (s.r < 0) return;
     const n = nameOf(s), x = (s.s / d) * w, tw = textW(n);
-    let row = -1;
-    if (x >= ends[0]) row = 0; else if (x >= ends[1]) row = 1;
-    // 6 px de aire: el acorde que suena se resalta con fondo y no debe tocar al siguiente.
-    if (row >= 0) { ends[row] = x + tw + 6; if (row === 1) usedRow2 = true; }
-    items.push({ s, i, n, x, tw, row });
+    items.push({ s, i, n, x, tw, label: false });
   });
+  placeLabels(items);
   let html = '';
   for (const it of items) {
-    const { s, i, n, row } = it;
-    html += `<span class="sw-ch${row < 0 ? ' no-label' : ''}${row === 1 ? ' row2' : ''}${s.guess ? ' is-guess' : ''}" data-i="${i}" data-t="${s.s}" style="left:${(s.s / d) * 100}%" title="${esc(n)} · ${Math.floor(s.s / 60)}:${String(Math.floor(s.s % 60)).padStart(2, '0')}${s.guess ? ' (detectado)' : s.n ? ' (de la letra)' : ''}">${esc(n)}</span>`;
+    const { s, i, n, label } = it;
+    html += `<span class="sw-ch${label ? '' : ' no-label'}${s.guess ? ' is-guess' : ''}" data-i="${i}" data-t="${s.s}" data-n="${esc(n)}" style="left:${(s.s / d) * 100}%" title="${esc(n)} · ${Math.floor(s.s / 60)}:${String(Math.floor(s.s % 60)).padStart(2, '0')}${s.guess ? ' (detectado)' : s.n ? ' (de la letra)' : ''}">${esc(n)}</span>`;
   }
-  lane.classList.toggle('two-rows', usedRow2);
+  lane.classList.remove('two-rows');
   lane.innerHTML = html || '<span class="sw-ch-msg">No se encontraron acordes claros.</span>';
-  // Zoom con el que cabrían (casi) todos los nombres en dos filas: cada nombre
-  // necesita hueco hasta el que va dos más allá (el de su misma fila). Se ignora
-  // el 5 % más apretado (acordes de paso muy cortos) para no exagerar.
+  // Zoom con el que cabrían (casi) todos los nombres en una fila: cada nombre
+  // necesita hueco hasta el siguiente. Se ignora el 5 % más apretado (acordes de
+  // paso muy cortos) para no exagerar.
   const need = [];
-  for (let k = 0; k + 2 < items.length; k++) {
-    const dt = items[k + 2].s.s - items[k].s.s;
+  for (let k = 0; k + 1 < items.length; k++) {
+    const dt = items[k + 1].s.s - items[k].s.s;
     if (dt > 0) need.push((items[k].tw + 6) / dt);          // px por segundo
   }
   need.sort((a, b) => a - b);

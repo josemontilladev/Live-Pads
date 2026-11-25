@@ -17,6 +17,8 @@ import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { isKeyLinked, setKeyLinked, reconcileLinkedPitch } from '../utils/keyLink.js';
+import { bufferLoudness, gainFor, normalizeOn } from './loudness.js';
+import { mainBusInput } from './mainBus.js';
 
 // Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
 // _pads-clean.css) y el título indica cómo cargar una.
@@ -35,9 +37,12 @@ let audioCtx = null;
 let pannerNode = null;
 let makeupNode = null;       // ganancia de compensación (nivela la Pista con pads/batería)
 let trackLimiter = null;     // limitador de seguridad para que el makeup no sature
-let trackMasterGain = null;  // ganancia MAESTRA de la Pista (la controla el fader/mute "Maestro")
+let normNode = null;         // volumen igualado entre canciones (audio/loudness.js)
+let trackMasterGain = null;
+let leftGain = null;     // volumen del canal izquierdo (guía grabada de la secuencia)  // ganancia MAESTRA de la Pista (la controla el fader/mute "Maestro")
 let trackMasterVol = 1;      // 0..1 — recordada para re-aplicarla al recrear el grafo por carga
 let currentPitch = 0;        // semitonos aplicados al audio cargado
+let liveOffset = 0;          // modulación en vivo («subir tono en el último coro»): NO se guarda en la canción
 
 // El control "Maestro" del mixer afecta también a la Pista (que vive en su propio
 // AudioContext). Lo aplica al nodo de ganancia maestra de la Pista, y recuerda el
@@ -93,7 +98,7 @@ export const isTrackPlaying = () => !!(audio && !audio.paused);
 export const getCurrentSong = () => currentSong;
 export const getTrackAudio  = () => audio;        // PitchAudio (su .buffer es el AudioBuffer ya decodificado)
 export const getCurrentType = () => currentType;
-export const getTrackPitch  = () => currentPitch;
+export const getTrackPitch  = () => currentPitch + liveOffset;   // incluye la modulación en vivo (live/modulation.js)
 
 // Ajusta el tono del audio cargado en semitonos (sin alterar el tempo).
 // Se acota a ±12 semitonos. Persiste por canción vía deps.persistSong (si existe).
@@ -104,6 +109,19 @@ export const getTrackPitch  = () => currentPitch;
 function keyShiftFor(song) {
   try { return Math.round(Number(deps.getKeyShift ? deps.getKeyShift(song) : 0) || 0); } catch (_) { return 0; }
 }
+/**
+ * Modulación en vivo: suma d semitonos al audio (y el pad lo sigue) SIN guardarlo en la canción.
+ * La usa live/modulation.js al llegar al punto marcado; se vuelve a 0 al cargar otra pista.
+ */
+export function setLiveKeyOffset(d) {
+  const v = Math.max(-5, Math.min(5, Math.round(Number(d) || 0)));
+  if (v === liveOffset) return;
+  liveOffset = v;
+  if (audio) { try { audio.pitchSemitones = Math.max(-12, Math.min(12, currentPitch + v)); } catch (_) {} }
+  if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch + v, currentSong); } catch (_) {} }
+}
+export const getLiveKeyOffset = () => liveOffset;
+
 export function setTrackPitch(n) {
   const v = Math.max(-12, Math.min(12, Math.round(Number(n) || 0)));
   currentPitch = v;
@@ -179,6 +197,8 @@ function connectPanGraph() {
   try {
     makeupNode = audioCtx.createGain();
     makeupNode.gain.value = TRACK_MAKEUP;
+    normNode = audioCtx.createGain();
+    normNode.gain.value = 1;
 
     // Limitador de seguridad: solo actúa en los picos que el makeup empuja
     // por encima de ~-1 dB, así sube el cuerpo de la Pista sin clipear.
@@ -202,18 +222,45 @@ function connectPanGraph() {
     trackMasterGain.gain.value = trackMasterVol;
 
     audio.output.connect(makeupNode);
-    makeupNode.connect(trackLimiter);
+    makeupNode.connect(normNode);
+    // Canal izquierdo aparte (en las secuencias lleva el click y la guía hablada): permite
+    // callar una palabra de la guía grabada cuando el arreglo en vivo cambia de sección.
+    const split = audioCtx.createChannelSplitter(2), merge = audioCtx.createChannelMerger(2);
+    leftGain = audioCtx.createGain();
+    normNode.connect(split);
+    split.connect(leftGain, 0); leftGain.connect(merge, 0, 0);
+    split.connect(merge, 1, 1);
+    merge.connect(trackLimiter);
     trackLimiter.connect(pannerNode.input);
     pannerNode.output.connect(trackMasterGain);
-    trackMasterGain.connect(audioCtx.destination);
+    trackMasterGain.connect(mainBusInput(audioCtx));   // bus principal (audio/mainBus.js)
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
     pannerNode = null;
     makeupNode = null;
+    normNode = null;
     trackLimiter = null;
     trackMasterGain = null;
   }
 }
+
+// Volumen igualado: cuando la pista termina de decodificarse se mide (una vez por pista, con caché)
+// y el nodo de nivelado la lleva al nivel común. Desactivado → ganancia 1.
+function applyLoudness() {
+  const a = audio, node = normNode, song = currentSong, type = currentType;
+  if (!a || !node || !audioCtx) return;
+  const set = () => {
+    if (audio !== a || normNode !== node) return;
+    let g = 1;
+    if (normalizeOn() && a.buffer) {
+      const id = `${(song && (song.id || song.title)) || 'pista'}.${type || ''}.${Math.round(a.buffer.duration)}`;
+      try { g = gainFor(bufferLoudness(id, a.buffer), type); } catch (_) { g = 1; }
+    }
+    try { node.gain.setTargetAtTime(g, audioCtx.currentTime, 0.05); } catch (_) { node.gain.value = g; }
+  };
+  if (a.buffer) set(); else a.addEventListener('loadedmetadata', set, { once: true });
+}
+window.addEventListener('livepads:normalize', () => applyLoudness());
 
 const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el corte/click seco)
 
@@ -225,14 +272,14 @@ export function cleanupTrackAudio() {
   try { window.dispatchEvent(new CustomEvent('livepads:track-cleared')); } catch (_) {}
   if (!audio) return;
   const old = audio;
-  const oldMakeup = makeupNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
+  const oldMakeup = makeupNode, oldNorm = normNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
   // Liberamos las referencias del módulo YA, para que la próxima carga cree su
   // propio grafo y los dos puedan sonar a la vez durante el fade.
-  audio = null; makeupNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null;
+  audio = null; makeupNode = null; normNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null;
 
   const dispose = () => {
     try { old.output && old.output.disconnect(); } catch (e) {}
-    [oldMakeup, oldLimiter, oldPanner, oldMaster].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
+    [oldMakeup, oldNorm, oldLimiter, oldPanner, oldMaster].forEach(n => { try { n && n.disconnect(); } catch (e) {} });
     try { old.pause(); old.src = ''; old.onerror = null; old.ontimeupdate = null; old.onended = null; } catch (e) {}
   };
 
@@ -428,10 +475,12 @@ async function startTrackPlayback(url, title, type) {
     currentPitch = Math.max(-12, Math.min(12, shift + manual));
     pitchBase = currentPitch;   // al abrir, el contador marca 0
   }
+  liveOffset = 0;
   audio.pitchSemitones = currentPitch;
   audio.src = safeUrl;
   currentType = type;
   connectPanGraph();
+  applyLoudness();
   paintPitchUI();
   // El pad sigue al tono real del audio (incluido el transporte del servicio).
   if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch, currentSong); } catch (_) {} }
@@ -738,4 +787,18 @@ export function toggleTrackAudio() {
 // btn.click(); ahora togglea el audio directo (el botón delega en app.js).
 export function clickPlayPause() {
   toggleTrackAudio();
+}
+
+
+/** Calla el canal izquierdo de la pista entre dos instantes de la pista (s): la guía grabada. */
+export function muteTrackLeft(fromMedia, toMedia) {
+  if (!leftGain || !audioCtx || !audio) return;
+  const rate = audio.playbackRate || 1, now = audioCtx.currentTime, pos = audio.currentTime || 0;
+  const a = now + Math.max(0, (fromMedia - pos) / rate), b = now + Math.max(0, (toMedia - pos) / rate);
+  if (b <= a) return;
+  const g = leftGain.gain;
+  try {
+    g.setTargetAtTime(0, a, 0.008);
+    g.setTargetAtTime(1, b, 0.015);
+  } catch (_) {}
 }

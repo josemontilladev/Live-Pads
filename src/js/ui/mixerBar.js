@@ -20,7 +20,8 @@
 import { q } from '../utils/dom.js';
 import { panShort } from '../utils/format.js';
 import { syncSlider, syncPanSlider } from '../utils/sliders.js';
-
+
+import { smoothToggle } from '../utils/smoothCollapse.js';
 // [ mixerId, canonicalId, isPan ]
 const BRIDGES = [
   ['mx-pads-vol',   'pad-vol-stage',         false],
@@ -105,7 +106,8 @@ function bindMixerCollapse() {
   apply(c);
   btn.onclick = () => {
     c = !bar.classList.contains('is-collapsed');
-    apply(c);
+    btn.classList.toggle('is-turned', c);      // la flecha gira ya (no al terminar)
+    smoothToggle(bar, apply, c);
     try { localStorage.setItem(MX_COLLAPSE_KEY, c ? '1' : '0'); } catch (_) {}
   };
 }

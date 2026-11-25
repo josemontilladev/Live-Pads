@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><script type="module">
+import { measure } from '../../src/js/audio/loudness.js';
+const { ipcRenderer } = window.require('electron');
+const fs = window.require('fs'), path = window.require('path');
+const ROOT = path.join(process.env.APPDATA, 'livepads');
+const out = {};
+for (const dir of ['Sequences', 'Original Tracks']) {
+  const files = fs.readdirSync(path.join(ROOT, dir)).filter((f) => /\.(mp3|m4a|wav|ogg)$/i.test(f)).slice(0, 60);
+  const vals = [];
+  for (const f of files) {
+    try {
+      const b = fs.readFileSync(path.join(ROOT, dir, f));
+      const buf = await new OfflineAudioContext(1, 1, 22050).decodeAudioData(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+      const ch = []; for (let i = 0; i < Math.min(2, buf.numberOfChannels); i++) ch.push(buf.getChannelData(i));
+      vals.push(measure(ch, buf.sampleRate));
+    } catch (_) {}
+  }
+  vals.sort((a, b) => a - b);
+  const q = (p) => vals[Math.floor(p * (vals.length - 1))].toFixed(1);
+  ipcRenderer.send('log', `${dir}: ${vals.length} pistas · mín ${q(0)} · p10 ${q(0.1)} · mediana ${q(0.5)} · p90 ${q(0.9)} · máx ${q(1)} dB`);
+}
+ipcRenderer.send('done');
+</script>

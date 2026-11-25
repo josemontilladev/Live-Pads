@@ -355,6 +355,8 @@ function createWindow() {
     icon: path.join(__dirname, 'src/assets/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      // Pruebas: plan simulado (solo sin empaquetar, con LIVEPADS_DEV_PLAN=pro). No toca la nube.
+      additionalArguments: (!app.isPackaged && /^(pro|team)$/.test(process.env.LIVEPADS_DEV_PLAN || '')) ? [`--lp-dev-plan=${process.env.LIVEPADS_DEV_PLAN}`] : [],
       contextIsolation: true,
       nodeIntegration: false,
       // userData assets (audio samples, sequences) are served via the
@@ -784,6 +786,26 @@ ipcMain.handle('assign-song-stem', async (_e, { sourcePath, songSlug } = {}) => 
 
 // Guarda un stem renderizado desde el timeline (buffer MP3/WAV) como pista de la
 // canción. Escritura atómica y nombre por contenido, igual que assign-stems-mix.
+// Nota de voz grabada en LivePads (para la banda): va a «Voces/», igual que las voces de
+// referencia de GI App, y se sube y se baja con la sincronización de audios.
+ipcMain.handle('save-voice-note', async (_e, { buffer, title, ext } = {}) => {
+  if (!buffer) throw new Error('Buffer vacío');
+  const buf = Buffer.from(buffer);
+  const hash = crypto.createHash('sha256').update(buf).digest('hex').slice(0, 12);
+  const slug = String(title || 'cancion').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 50) || 'cancion';
+  const safeExt = /^\.?(webm|ogg|m4a|mp3|wav)$/i.test(String(ext || '')) ? String(ext).replace(/^\./, '').toLowerCase() : 'webm';
+  const relPath = path.join('Voces', `${slug}__${hash}.${safeExt}`);
+  const dest = path.join(getAudioLibraryRoot(), relPath);
+  if (!fs.existsSync(dest)) {
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const tmp = dest + '.livepads-tmp';
+    fs.writeFileSync(tmp, buf);
+    fs.renameSync(tmp, dest);
+  }
+  return { url: toLivepadsUrl(relPath), id: hash };
+});
+
 ipcMain.handle('save-song-stem', async (_e, { buffer, songSlug, name, ext } = {}) => {
   if (!buffer) throw new Error('Buffer vacío');
   const buf = Buffer.from(buffer);
@@ -2036,6 +2058,52 @@ ipcMain.handle('backup-save', async (_e, { prefs } = {}) => {
   writeFileAtomic(res.filePath, JSON.stringify(data));
   return { path: res.filePath, songs: songs.length };
 });
+// ── Copias automáticas ───────────────────────────────────────────────────
+// Una copia completa al día (como «Guardar copia…», sin preguntar dónde) en
+// <datos>/Copias automáticas; se conservan las 14 últimas. Se restauran desde
+// Ajustes → Copia de seguridad → «Copias automáticas…».
+const AUTO_BACKUP_KEEP = 14;
+const autoBackupDir = () => path.join(app.getPath('userData'), 'Copias automáticas');
+ipcMain.handle('backup-auto', async (_e, { prefs, force } = {}) => {
+  try {
+    const dir = autoBackupDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const d = new Date(), p2 = (n) => String(n).padStart(2, '0');
+    const file = path.join(dir, `LivePads ${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.lpbackup`);
+    if (fs.existsSync(file) && !force) return { created: false, path: file };
+    const db = readJsonSafe(getLibraryDbPath());
+    const songs = (db && db.data && Array.isArray(db.data.songs)) ? db.data.songs : [];
+    if (!songs.length) return { created: false, empty: true };
+    writeFileAtomic(file, JSON.stringify({
+      kind: BACKUP_KIND, v: 1, app: app.getVersion(), savedAt: d.toISOString(), auto: true, songs,
+      midiMap: readJsonSafe(path.join(app.getPath('userData'), 'midi_map.json')),
+      userDrums: readJsonSafe(path.join(app.getPath('userData'), 'user_drums.json')),
+      prefs: (prefs && typeof prefs === 'object') ? prefs : {},
+    }));
+    const all = fs.readdirSync(dir).filter((f) => /^LivePads \d{4}-\d{2}-\d{2}\.lpbackup$/.test(f)).sort();
+    for (const f of all.slice(0, Math.max(0, all.length - AUTO_BACKUP_KEEP))) { try { fs.unlinkSync(path.join(dir, f)); } catch (_) {} }
+    return { created: true, path: file, songs: songs.length };
+  } catch (err) { appLog('warn', 'copia automática: ' + ((err && err.message) || err)); return { error: String((err && err.message) || err) }; }
+});
+ipcMain.handle('backup-auto-list', async () => {
+  const dir = autoBackupDir();
+  let files = [];
+  try { files = fs.readdirSync(dir).filter((f) => /\.lpbackup$/.test(f)).sort().reverse(); } catch (_) { return []; }
+  return files.map((f) => {
+    let songs = 0, savedAt = null;
+    try { const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')); songs = Array.isArray(j.songs) ? j.songs.length : 0; savedAt = j.savedAt || null; } catch (_) {}
+    return { file: f, songs, savedAt };
+  });
+});
+ipcMain.handle('backup-auto-read', async (_e, file) => {
+  const name = path.basename(String(file || ''));
+  if (!/\.lpbackup$/.test(name)) return { error: 'Copia no válida' };
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(autoBackupDir(), name), 'utf-8'));
+    if (!j || j.kind !== BACKUP_KIND || !Array.isArray(j.songs)) return { error: 'Esa copia está dañada.' };
+    return { data: j };
+  } catch (_) { return { error: 'No se pudo leer esa copia.' }; }
+});
 // Abre una copia y devuelve su contenido para que la app lo resuma y pida confirmación.
 ipcMain.handle('backup-open', async () => {
   const res = await dialog.showOpenDialog(mainWindow, {
@@ -2140,8 +2208,31 @@ ipcMain.handle('fetch-chord-url', async (_e, url) => {
 // renderer toggles it explicitly. The renderer also pushes song state via
 // 'companion-publish-song' whenever the active song changes.
 
+// Órdenes del móvil del líder (con PIN) → a la ventana principal; indicaciones → a los móviles.
+companionServer.setCommandHandler((c) => { try { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('companion-command', c); } catch (_) {} });
+ipcMain.handle('companion-cue', (_e, cue) => { companionServer.broadcastCue(cue); return true; });
+ipcMain.handle('companion-new-pin', () => companionServer.newPin());
+ipcMain.handle('companion-set-theme', (_e, t) => { companionServer.setTheme(t); return true; });
+ipcMain.handle('companion-publish-stage', (_e, s) => { companionServer.publishStage(s); return true; });
+
+// Código del Companion por internet: fijo por equipo (el QR no cambia de un domingo a otro).
+function companionCloudCode() {
+  const p = readCompanionPrefs();
+  if (p.cloud === false) return null;
+  if (!p.cloudCode) { p.cloudCode = require('crypto').randomBytes(8).toString('hex').slice(0, 10); writeCompanionPrefs(p); }
+  return p.cloudCode;
+}
+ipcMain.handle('companion-set-cloud', async (_e, { on, renew } = {}) => {
+  const p = readCompanionPrefs();
+  if (typeof on === 'boolean') p.cloud = on;
+  if (renew) p.cloudCode = require('crypto').randomBytes(8).toString('hex').slice(0, 10);
+  writeCompanionPrefs(p);
+  companionServer.setCloud(companionCloudCode());
+  return companionServer.getStatus();
+});
 ipcMain.handle('companion-start', async () => {
   try {
+    companionServer.setCloud(companionCloudCode());
     return await companionServer.start();
   } catch (e) {
     console.error('Companion start failed:', e);
@@ -2664,6 +2755,8 @@ ipcMain.handle('lyrics-window-follow', (_e, data) => {
   return true;
 });
 ipcMain.handle('lyrics-window-set-follow', (_e, on) => { lyricsFollow = !!on; return lyricsFollow; });
+// La letra avanza sola: la línea que va (la marca el panel de la app) → ventana de la letra.
+ipcMain.on('lyrics-window-line', (_e, i) => { try { if (lyricsWin && !lyricsWin.isDestroyed()) lyricsWin.webContents.send('lyrics-line', i); } catch (_) {} });
 
 // Corre en el hilo de análisis (analysisWorker.js): el espectrograma y la
 // inferencia no bloquean el proceso principal.

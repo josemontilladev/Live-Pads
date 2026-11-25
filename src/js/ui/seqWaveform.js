@@ -28,11 +28,15 @@ import { buildAutoMarkers, detectSectionsInBackground, barGridInBackground } fro
 import { regularizePhrases, unifyRepeats } from './sectionPhrases.js';
 import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
 import { parseLyricStructure, keyOffset, labelSegments, refineSectionStarts } from './songStructure.js';
+import { alignSections } from './sectionAlign.js';
+import { guideStatsFast, guideWordsAsync, rightChannelBuffer, guideEvents, guideBoundaries } from '../live/guideCues.js';
 import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
 import { analyzeBeats, gridFrom, trackKey, nearestIn, stepIn } from '../analysis/beatGrid.js';
 import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as renderLane, laneSetGrid, laneNeededZoom, laneIsOn } from './chordLane.js';
 
+import { markersFor, withMarkersFor } from '../data/markers.js';
+import { smoothToggle } from '../utils/smoothCollapse.js';
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
 const AUTO_KEY = 'livepads-autosections';          // '0' = no marcar solas las canciones nuevas
 const TRIED_KEY = 'livepads-autosections-tried';   // canciones ya analizadas (no se repite)
@@ -99,17 +103,28 @@ function applyRole() {
   }
 }
 
+// Secciones de la pista cargada (data/markers.js): la secuencia y el original tienen las suyas.
+// Si esta pista aún no tiene secciones propias, se parte de una COPIA de las antiguas.
+let view = null, viewSong = null, viewType = null;
 function getMarkers() {
   if (!song) return [];
   if (!Array.isArray(song.markers)) song.markers = [];
-  return song.markers;
+  if (!view || viewSong !== song || viewType !== trackType) {
+    const own = markersFor(song, trackType);
+    view = own.some((m) => m.src) ? own : own.map((m) => ({ ...m }));
+    viewSong = song; viewType = trackType;
+  }
+  return view;
 }
+function setMarkers(list) { view = list; viewSong = song; viewType = trackType; }
 function sortedMarkers() { return [...getMarkers()].sort((a, b) => a.t - b.t); }
 
 function persist() {
   if (!song) return;
-  song.markers = sortedMarkers();
-  const now = JSON.stringify(song.markers);
+  setMarkers(sortedMarkers());
+  song.markers = withMarkersFor(song, trackType, view);
+  setMarkers(markersFor(song, trackType));
+  const now = JSON.stringify(sortedMarkers());
   if (!restoring && now !== baseSnap) {
     undoStack.push(baseSnap); if (undoStack.length > 60) undoStack.shift();
     redoStack = [];
@@ -142,9 +157,11 @@ export function initSeqWaveform() {
 
   try { if (localStorage.getItem(COLLAPSE_KEY) === '1') root.classList.add('is-collapsed'); } catch (_) {}
   collapseBtn.onclick = () => {
-    const c = root.classList.toggle('is-collapsed');
+    const c = !root.classList.contains('is-collapsed');
     try { localStorage.setItem(COLLAPSE_KEY, c ? '1' : '0'); } catch (_) {}
-    if (!c) requestAnimationFrame(() => { drawWave(); renderMarkers(); });
+    collapseBtn.classList.toggle('is-turned', c);   // la flecha gira ya (no al terminar)
+    if (!c) { root.classList.remove('is-collapsed'); drawWave(); renderMarkers(); root.classList.add('is-collapsed'); }
+    smoothToggle(root, (v) => root.classList.toggle('is-collapsed', v), c, { onDone: () => { if (!c) { drawWave(); renderMarkers(); } } });
   };
   addBtn.onclick = () => openAddMenu(addBtn);
   // «Todo bien ✓»: aparece mientras quedan secciones SUPUESTAS (borde punteado).
@@ -193,6 +210,7 @@ function onLibrarySynced() {
     const lib = getSongs().find((x) => x !== song && ((song.cloudId && x.cloudId === song.cloudId) || (x.id != null && x.id === song.id)));
     if (lib && JSON.stringify(lib.markers || []) !== JSON.stringify(song.markers || [])) {
       song.markers = (lib.markers || []).map((m) => ({ ...m }));
+      view = null;
       baseSnap = JSON.stringify(sortedMarkers());
     }
   } catch (_) {}
@@ -200,7 +218,7 @@ function onLibrarySynced() {
 }
 
 function onLoaded({ audio: a, song: s, type }) {
-  audio = a; song = s || null; peaks = null; duration = 0; trackType = type || '';
+  audio = a; song = s || null; peaks = null; duration = 0; trackType = type || ''; view = null;
   autoFitDone = false; setZoom(1, null, { silent: true });
   selectedId = null; grid = null; chordTimes = []; undoStack = []; redoStack = [];
   baseSnap = JSON.stringify(sortedMarkers());
@@ -581,14 +599,27 @@ const autoOn = () => { try { return localStorage.getItem(AUTO_KEY) !== '0'; } ca
 const songKey = (s) => String((s && (s.cloudId || s.id)) || '');
 function triedSet() { try { return JSON.parse(localStorage.getItem(TRIED_KEY) || '[]'); } catch (_) { return []; } }
 function markTried(s) {
-  const k = songKey(s); if (!k) return;
+  const k = songKey(s) && songKey(s) + '|' + trackType; if (!k) return;
   const arr = triedSet().filter((x) => x !== k); arr.push(k);
   try { localStorage.setItem(TRIED_KEY, JSON.stringify(arr.slice(-800))); } catch (_) {}
 }
 function maybeAutoDetect() {
   if (!song || !audio || !autoOn() || getMarkers().length || !canEditActiveLibrary()) return;
-  if (triedSet().includes(songKey(song))) return;
+  if (triedSet().includes(songKey(song) + '|' + trackType)) return;
   autoDetect({ auto: true });
+}
+
+/** Secuencia con guía → { words, music } (music = el canal derecho, solo la música). null si no hay guía.
+ *  Sin bloquear la interfaz: las palabras se buscan en trozos y la música la prepara el motor de audio. */
+async function sequenceGuide(buffer) {
+  try {
+    if (!buffer || buffer.numberOfChannels < 2) return null;
+    const L = buffer.getChannelData(0), R = buffer.getChannelData(1);
+    if (!guideStatsFast(L, R, buffer.sampleRate).guide) return null;
+    const words = await guideWordsAsync(L, buffer.sampleRate);
+    if (words.length < 3) return null;
+    return { words, music: await rightChannelBuffer(buffer) };
+  } catch (_) { return null; }
 }
 
 async function autoDetect({ auto = false } = {}) {
@@ -617,12 +648,35 @@ async function autoDetect({ auto = false } = {}) {
     // Pista de voz (stems en este equipo): el detector distingue lo cantado de lo instrumental.
     let vocalBuffer = null;
     try { vocalBuffer = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).vocals; } catch (_) { vocalBuffer = null; }
-    const [raw, ch] = await Promise.all([detectSectionsInBackground(a.buffer, { bpm, beatsPerBar, vocalBuffer }), chordsP]);
+    // Secuencia con guía (canal izquierdo = click + voz que dice cada sección): la guía da
+    // los cortes y el detector analiza solo la música (canal derecho).
+    const guide = trackType === 'sequence' ? await sequenceGuide(a.buffer) : null;
+    const [raw, ch] = await Promise.all([detectSectionsInBackground(guide ? guide.music : a.buffer, { bpm, beatsPerBar, vocalBuffer }), chordsP]);
     const dur = a.buffer.duration;
     const det = (ch && ch.seg) || [];
     // La rejilla de compases (si llega a tiempo): límites en compás y frases de 4/8.
     const g = grid || await Promise.race([gridPromise || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
-    if (lyr.length >= 2 && raw.length >= 2) {
+    const guideB = guide && g ? guideBoundaries(guideEvents(guide.words, g.barSec || 2), g, dur) : null;
+    const lyrChords = lyr.filter((x) => x.chords.length).length;
+    if (guideB && guideB.length >= 2 && lyr.length >= 2 && lyrChords >= 2 && det.length) {
+      // Guía + letra con acordes: cortes de la guía, nombres por los acordes y el orden de la letra.
+      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+      found = alignSections(lyr, det, g, k, { duration: dur, guide: guideB, novelty: raw.map((x) => x.atSec) })
+        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+    } else if (guideB && guideB.length >= 2) {
+      // Guía sin acordes en la letra: los cortes de la guía con el tipo de tramo que oye el detector.
+      const cueAt = (t) => { let c = raw[0] ? raw[0].cueId : 'verso'; for (const x of raw) if (x.atSec <= t + 1) c = x.cueId; return c; };
+      const segs = [{ atSec: 0, cueId: 'intro' }, ...guideB.map((t) => ({ atSec: t, cueId: cueAt(t + (g.barSec || 2)) }))];
+      found = buildAutoMarkers(segs, s.lyrics, dur);
+    } else if (lyrChords >= 2 && raw.length >= 2 && det.length && g && g.downbeats && g.downbeats.length) {
+      // Sin guía, letra con acordes: los cambios de textura (pegados al compás real) son los
+      // candidatos; los acordes y el orden de la letra eligen cuáles son secciones y su nombre.
+      // (Medido con las guías de 20 secuencias: más cortes en su sitio que el método anterior.)
+      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+      const cand = raw.map((x) => { let b = x.atSec; for (const d of g.downbeats) if (Math.abs(d - x.atSec) < Math.abs(b - x.atSec) || b === x.atSec) b = d; return b; });
+      found = alignSections(lyr, det, g, k, { duration: dur, guide: cand })
+        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+    } else if (lyr.length >= 2 && raw.length >= 2) {
       const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
       const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
       // Cada sección empieza donde entra su primer acorde de la letra (a menos de un compás).
@@ -643,10 +697,10 @@ async function autoDetect({ auto = false } = {}) {
   }
   if (auto && getMarkers().length) return;      // alguien las marcó mientras tanto
   const prev = getMarkers().map((m) => ({ ...m }));
-  s.markers = found.map((m) => ({ id: uid(), label: m.label, t: m.t, auto: true }));
+  setMarkers(found.map((m) => ({ id: uid(), label: m.label, t: m.t, auto: true })));
   persist(); renderMarkers();
   window.showToast?.(`${found.length} secciones marcadas automáticamente. Arrastra o renombra las que no cuadren.`, 'success', {
-    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
+    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; setMarkers(prev); persist(); renderMarkers(); } },
     ttl: 10000,
   });
 }
@@ -735,7 +789,7 @@ function confirmAll() {
 }
 function restoreSnap(str) {
   restoring = true;
-  try { song.markers = JSON.parse(str); persist(); } finally { restoring = false; }
+  try { setMarkers(JSON.parse(str)); persist(); } finally { restoring = false; }
   selectedId = null; renderMarkers();
 }
 function undo() {
@@ -818,10 +872,10 @@ function removeMarker(id) {
   if (!song || !guardEdit()) return;
   const s = song, m = getMarkers().find((v) => v.id === id); if (!m) return;
   const prev = getMarkers().map((v) => ({ ...v }));
-  s.markers = getMarkers().filter((v) => v.id !== id);
+  setMarkers(getMarkers().filter((v) => v.id !== id));
   persist(); renderMarkers();
   window.showToast?.(`Sección «${m.label}» quitada`, 'info', {
-    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; s.markers = prev; persist(); renderMarkers(); } },
+    action: { label: 'Deshacer', onClick: () => { if (song !== s) return; setMarkers(prev); persist(); renderMarkers(); } },
   });
 }
 

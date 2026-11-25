@@ -9,12 +9,24 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { paintThemeVars, savedThemeId, THEME_STORAGE_KEY } from './ui/themeVars.js';
+import { applyChordNumbers, NUMS_KEY } from './utils/chordNumbers.js';
+import { applyLyricsBackground, BG_KEY } from './ui/lyricsBackground.js';
 
 // El mismo tema que la ventana principal (antes salía siempre con los colores
 // base). Si se cambia el tema con la ventana abierta, se repinta sola: las dos
 // ventanas comparten localStorage y el evento 'storage' avisa del cambio.
 paintThemeVars(savedThemeId());
 window.addEventListener('storage', (e) => { if (e.key === THEME_STORAGE_KEY) paintThemeVars(savedThemeId()); });
+// Acordes como grados (1·4·5): misma preferencia que la app; cambia al instante.
+applyChordNumbers();
+window.addEventListener('storage', (e) => { if (e.key === NUMS_KEY) applyChordNumbers(); });
+// Alto contraste (escenario): misma clave que ui/themes.js.
+const paintHC = () => { let on = false; try { on = localStorage.getItem('livepads.contrast') === '1'; } catch (_) {} if (on) document.documentElement.dataset.contrast = 'high'; else delete document.documentElement.dataset.contrast; };
+paintHC();
+window.addEventListener('storage', (e) => { if (e.key === 'livepads.contrast') paintHC(); });
+// Fondo en movimiento (ui/lyricsBackground.js): se elige desde el panel de letra de la app.
+applyLyricsBackground();
+window.addEventListener('storage', (e) => { if (e.key === BG_KEY) applyLyricsBackground(); });
 
 const api = window.electronAPI;
 const $ = (s) => document.querySelector(s);
@@ -57,6 +69,15 @@ if (api && api.onLyricsData) {
     // El HTML ya viene formateado por la app (formatLyrics, con el tono del servicio).
     cols.innerHTML = d.html || '<p class="lw-empty">Esta canción no tiene letra.</p>';
     body.scrollTop = 0;
+  });
+}
+// La letra avanza sola: resalta la línea que va (la manda el panel de la app) y la mantiene a la vista.
+if (api && api.onLyricsLine) {
+  api.onLyricsLine((i) => {
+    const ls = cols.querySelectorAll('.lyric-line');
+    ls.forEach((el, k) => { el.classList.toggle('lw-now', k === i); el.classList.toggle('lw-past', i >= 0 && k < i); });
+    const el = i >= 0 ? ls[i] : null;
+    if (el) body.scrollTo({ top: Math.max(0, el.offsetTop - body.clientHeight * 0.3), behavior: 'smooth' });
   });
 }
 if (api && api.lyricsWindowSetFollow) api.lyricsWindowSetFollow(follow);

@@ -17,7 +17,7 @@
 // Todo puro (sin DOM): se prueba en tests/songStructure.test.mjs.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { detectSectionHeader, isChordToken } from './lyricsFormat.js';
+import { detectSectionHeader, isChordToken, stripInvisible } from './lyricsFormat.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
 const PC = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -112,7 +112,7 @@ export function parseLyricStructure(lyrics) {
     }
     return out;
   };
-  String(lyrics || '').split(/\r?\n/).forEach((raw, li) => {
+  stripInvisible(lyrics).split(/\r?\n/).forEach((raw, li) => {
     const line = raw.trim();
     if (!line) return;
     const h = detectSectionHeader(line);

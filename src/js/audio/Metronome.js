@@ -29,6 +29,9 @@ export class Metronome {
     this._tapTimes = [];
     this.onBeat  = null;
     this.multiplier = 1;
+    // Click por sección (live/clickSections.js): subdivisión y silencio que pide la sección actual.
+    this.sectionMult = null;
+    this.sectionMute = false;
     this.tempoScale = 1;   // modo práctica: el click sigue la velocidad de la pista (0.25–2)
     this.volume  = 0.8;
     this.sound   = 'logic';
@@ -87,6 +90,13 @@ export class Metronome {
     // interval. But if we're not running yet, there's nothing to do.
   }
 
+  // Corre la rejilla del click unos milisegundos (click que sigue al baterista).
+  // Los clicks ya programados no se mueven: el ajuste entra en el siguiente.
+  nudge(sec) {
+    if (!this.running || !isFinite(sec)) return;
+    this._nextNoteTime += Math.max(-0.05, Math.min(0.05, sec));
+  }
+
   setBeats(n) {
     this.beats = n;
     this.accents = this.accents.filter(a => a < n);
@@ -132,7 +142,7 @@ export class Metronome {
   _scheduleBeat(time, beatIndex) {
     const isAccent = this.accents.includes(beatIndex);
     // Schedule the audio sample-accurately
-    const node = this.engine.playClick(isAccent, this.sound, this.volume, this.pan, time);
+    const node = this.sectionMute ? null : this.engine.playClick(isAccent, this.sound, this.volume, this.pan, time);
     if (node && typeof node.stop === 'function') this._pendingClicks.push({ node, time });
 
     // Schedule the visual callback (beat dot animation) at the wall-clock
@@ -150,7 +160,7 @@ export class Metronome {
   }
 
   _advanceBeat() {
-    const interval = 60 / (this.bpm * this.multiplier * (this.tempoScale || 1)); // seconds
+    const interval = 60 / (this.bpm * (this.sectionMult || this.multiplier) * (this.tempoScale || 1)); // seconds
     this._nextNoteTime += interval;
     this.currentBeat = (this.currentBeat + 1) % this.beats;
   }

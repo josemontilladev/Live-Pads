@@ -16,6 +16,20 @@ export const EXTRA_BUTTONS = {
   lyrics_down: { sel: '.lyp-panel [data-do="down"]',        label: 'Letra: bajar' },
   mode_major:  { sel: '.pad-mode-btn[data-mode="major"]',   label: 'Pads en mayor' },
   mode_minor:  { sel: '.pad-mode-btn[data-mode="minor"]',   label: 'Pads en menor' },
+  arr_repeat:  { sel: '#arr-pop [data-arr="repeat"]',        label: 'Arreglo: repetir esta sección' },
+  arr_next:    { sel: '#arr-pop [data-arr="next"]',          label: 'Arreglo: saltar a la siguiente sección' },
+  arr_chorus:  { sel: '#arr-pop [data-arr="chorus"]',        label: 'Arreglo: ir al coro' },
+  arr_bridge:  { sel: '#arr-pop [data-arr="bridge"]',        label: 'Arreglo: ir al puente' },
+  arr_end:     { sel: '#arr-pop [data-arr="end"]',           label: 'Arreglo: ir al final' },
+  arr_cancel:  { sel: '#arr-pop [data-arr="cancel"]',        label: 'Arreglo: cancelar el salto' },
+  soft_end:    { sel: '#tp-softend-btn',                    label: 'Terminar suave (bajar todo y parar)' },
+  groove_play: { sel: '#gt-play',                           label: 'Caja de ritmos: tocar / parar' },
+  groove_intro:{ sel: '#gt-sections [data-part="intro"]',  label: 'Caja de ritmos: intro' },
+  groove_a:    { sel: '#gt-sections [data-part="A"]',      label: 'Caja de ritmos: verso' },
+  groove_b:    { sel: '#gt-sections [data-part="B"]',      label: 'Caja de ritmos: coro' },
+  groove_fill: { sel: '#gt-sections [data-part="fill"]',   label: 'Caja de ritmos: redoble' },
+  groove_c:    { sel: '#gt-sections [data-part="C"]',      label: 'Caja de ritmos: puente' },
+  groove_end:  { sel: '#gt-sections [data-part="end"]',    label: 'Caja de ritmos: final' },
 };
 
 /** ¿El elemento pulsado en modo Learn es uno de estos botones? → su id, o null. */

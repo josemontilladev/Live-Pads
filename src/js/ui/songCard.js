@@ -237,8 +237,8 @@ export function songCardInnerHTML(song, opts) {
         </button>
       </div>
       ${lyricsText != null
-        ? `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">${formatLyrics(lyricsText)}</div>`
-        : `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}" data-lazy="1" data-semis="${semis || 0}" data-flats="${semis && prefersFlats(liveKey) ? 1 : 0}"></div><template class="gi-lyrics-src">${esc(song.lyrics || '')}</template>`}
+        ? `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}">${formatLyrics(lyricsText, liveKey || baseKey)}</div>`
+        : `<div class="lyrics-text-content ${showChords ? '' : 'hide-chords'}" data-lazy="1" data-key="${esc(liveKey || baseKey || '')}" data-semis="${semis || 0}" data-flats="${semis && prefersFlats(liveKey) ? 1 : 0}"></div><template class="gi-lyrics-src">${esc(song.lyrics || '')}</template>`}
     </div>
   `;
 }
@@ -250,6 +250,6 @@ export function ensureCardLyrics(card) {
   const tpl = card.querySelector('template.gi-lyrics-src');
   const raw = tpl ? tpl.content.textContent : '';
   const semis = Number(c.dataset.semis) || 0;
-  c.innerHTML = formatLyrics(semis ? transposeAll(raw, semis, c.dataset.flats === '1') : raw);
+  c.innerHTML = formatLyrics(semis ? transposeAll(raw, semis, c.dataset.flats === '1') : raw, c.dataset.key || null);
   delete c.dataset.lazy;
 }

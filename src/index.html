@@ -75,9 +75,9 @@
           <span class="upd-label"></span>
           <span class="upd-meter" aria-hidden="true"><span class="upd-meter-fill"></span></span>
         </button>
-        <button class="icon-btn has-label" id="btn-live-mode" title="Modo en vivo — solo lo esencial (Ctrl+L)" aria-label="Modo en vivo" aria-pressed="false">
+        <button class="icon-btn" id="btn-cues" title="Indicaciones a la banda: «Repetir», «Coro», «Final»… llegan a los móviles y, con voz, a los auriculares" aria-label="Indicaciones a la banda"><svg aria-hidden="true" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg></button>
+          <button class="icon-btn" id="btn-live-mode" title="Modo en vivo — solo lo esencial (Ctrl+L)" aria-label="Modo en vivo" aria-pressed="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><path d="M7.8 16.2a6 6 0 0 1 0-8.4"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4"/><path d="M4.9 19.1a10 10 0 0 1 0-14.2"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
-          <span class="live-label">En vivo</span>
         </button>
         <button class="icon-btn" id="btn-piano-pads" title="Piano — toca/escuchá notas (también con tu controlador MIDI)" aria-label="Piano" aria-pressed="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v9M15 4v9M7.5 4v6M12 4v6M16.5 4v6"/></svg>
@@ -87,6 +87,12 @@
         </button>
         <button class="icon-btn" id="btn-tuner-pads" title="Afinador — escucha el micrófono y muestra la nota y afinación" aria-label="Afinador">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7a4 4 0 0 0 8 0V3"/><line x1="12" y1="14" x2="12" y2="21"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-vocal" title="Voces — calentamiento vocal y prueba de rango vocal" aria-label="Voces">
+          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.2"/><path d="M3.5 20c.6-3.4 2.8-5.5 5.5-5.5s4.9 2.1 5.5 5.5"/><path d="M16.5 6.5a4 4 0 0 1 0 5M19 4a7.5 7.5 0 0 1 0 10"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-grooves" title="Caja de ritmos — loops de batería por género o hechos por ti, al tempo del metrónomo" aria-label="Caja de ritmos" aria-pressed="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="9" rx="8" ry="3"/><path d="M4 9v6c0 1.7 3.6 3 8 3s8-1.3 8-3V9"/><path d="M7 3.5l3 3.8M17 3.5l-3 3.8"/></svg>
         </button>
         <button class="icon-btn" id="btn-chords-pads" title="Detectar acordes — de la pista cargada, de un archivo o en vivo con el micrófono" aria-label="Detectar acordes">
           <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/></svg>
@@ -126,6 +132,10 @@
             </div>
             <div class="bank-selector">
               <select id="pad-bank-select" class="metro-dropdown"></select>
+            </div>
+            <div class="pad-extras">
+              <button type="button" class="pad-follow-btn" id="pad-follow" aria-pressed="false" title="El pad cambia con los acordes de la pista mientras suena (necesita la pista analizada en «Detectar acordes» o la franja de acordes)">Sigue acordes</button>
+              <button type="button" class="pad-follow-btn" id="pad-ministry" title="Modo ministración: el pad repite una progresión sin fin para la oración o la adoración espontánea">Ministración</button>
             </div>
           </div>
           <div class="sb-div"></div>
@@ -167,6 +177,7 @@
               <div id="metro-beat-dots"></div>
               <div id="metro-bpm-live">— BPM</div>
             </div>
+            <button type="button" class="metro-follow-btn" id="metro-follow"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Seguir batería</button>
           </div>
 
           <div class="hm-section hm-bpm">
@@ -223,6 +234,14 @@
               <label class="mo-row">
                 <span class="mo-txt"><b>Cuenta de entrada</b><small>Un compás de clicks antes de arrancar la secuencia.</small></span>
                 <input type="checkbox" class="mo-switch" id="countin-toggle">
+              </label>
+              <label class="mo-row">
+                <span class="mo-txt"><b>Cuenta hablada</b><small>Con la cuenta de entrada, una voz dice «uno, dos, tres, cuatro» por los in-ears.</small></span>
+                <input type="checkbox" class="mo-switch" id="countin-voice-toggle">
+              </label>
+              <label class="mo-row">
+                <span class="mo-txt"><b>Guía hablada automática</b><small>Dice cada sección del espectro un compás antes («Verso», «Coro»…). Si la secuencia ya trae guía, se calla.</small></span>
+                <input type="checkbox" class="mo-switch" id="voice-guide-toggle">
               </label>
               <div class="mo-sep" role="separator"></div>
               <label class="mo-row mo-row--select">
@@ -529,6 +548,14 @@
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
             Letra
           </button>
+          <button type="button" class="sw-btn" id="sw-arrange" aria-haspopup="dialog" title="Arreglo en vivo: repetir una sección o saltar a otra sin cortar el compás">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span>Arreglo</span>
+          </button>
+          <button type="button" class="sw-btn" id="sw-voice" aria-pressed="false" aria-haspopup="dialog" title="Voz por los in-ears: guía hablada de las secciones y cuenta de entrada">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/></svg>
+            Voz
+          </button>
           <!-- Lo que no se usa a cada momento vive en «Más» (ui/waveMore.js). -->
           <div class="sw-more-wrap">
             <button type="button" class="sw-btn" id="sw-more" aria-haspopup="menu" aria-expanded="false" title="Más herramientas: acordes, práctica, marcar secciones y zoom de la onda">
@@ -641,6 +668,9 @@
          <button class="icon-btn tp-autoadvance" id="tp-autoadvance-btn" title="Auto-avance: encadena la siguiente canción del servicio al terminar">
             <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
          </button>
+         <button class="icon-btn tp-softend" id="tp-softend-btn" type="button" aria-label="Terminar suave">
+            <svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M4 6h16"/><path d="M6 10.5h12"/><path d="M8.5 15h7"/><path d="M11 19.5h2"/></svg>
+         </button>
          <div class="tp-pitch-group" title="Tono del audio: ±1 semitono sin cambiar la velocidad. Doble clic en el número para resetear.">
            <button class="icon-btn tp-pitch-link" id="tp-pitch-link" type="button" aria-pressed="true" title="Tono ligado">
              <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="lk-a" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path class="lk-b" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -748,6 +778,22 @@
                 <input type="checkbox" class="mo-switch" id="audio-out-alt">
               </label>
             </div>
+            <div class="sb-label">Sonido general</div>
+            <div class="sb-card sound-card">
+              <label class="sb-row audio-out-alt" title="Cada pista se mide una vez y se deja al mismo nivel que las demás de su tipo: ninguna secuencia salta por encima de la anterior.">
+                <span class="audio-out-alt-txt"><b>Igualar el volumen de las canciones</b><small>Secuencias y originales suenan al mismo nivel entre sí.</small></span>
+                <input type="checkbox" class="mo-switch" id="norm-switch">
+              </label>
+              <div class="sb-div"></div>
+              <div class="sb-row"><span class="sr-label sr-label--wide">Graves</span><input type="range" id="eq-bass" min="-9" max="9" step="1" value="0" class="blue-slider" aria-label="Graves"><span class="sr-val" id="eq-bass-val">0 dB</span></div>
+              <div class="sb-row"><span class="sr-label sr-label--wide">Agudos</span><input type="range" id="eq-treble" min="-9" max="9" step="1" value="0" class="blue-slider" aria-label="Agudos"><span class="sr-val" id="eq-treble-val">0 dB</span></div>
+              <div class="sb-div"></div>
+              <div class="sb-row" title="Nivel máximo de la mezcla (pads, batería y pista). Más bajo = más protección para los oídos en los in-ears.">
+                <span class="sr-label sr-label--wide">Techo de seguridad</span>
+                <select id="eq-ceiling" class="metro-dropdown" aria-label="Techo de seguridad"><option value="-1">Normal (−1 dB)</option><option value="-3">Más protección (−3 dB)</option><option value="-6">In-ears (−6 dB)</option></select>
+              </div>
+            </div>
+            <p class="set-hint">Graves y agudos ajustan la mezcla a la sala o a los auriculares. El techo evita picos fuertes; el click va aparte y no se toca.</p>
             <p class="set-hint">Volumen, pan y maestro viven en el Mezclador de la pantalla principal; el volumen de cada pad de batería, en su propia baldosa.</p>
 
             <!-- Sliders canónicos que siguen manejando el motor (los mueve el
@@ -791,10 +837,11 @@
 
             <div class="sb-label">Copia de seguridad</div>
             <div class="sb-card audio-lib-card">
-              <div class="audio-lib-desc">Guarda en un archivo todas tus canciones (letras, acordes, tonos), los mapeos MIDI, tus kits de batería y tus preferencias. Úsalo para cambiar de equipo o para volver atrás. Los audios no van dentro: están en la carpeta de arriba.</div>
+              <div class="audio-lib-desc">Guarda en un archivo todas tus canciones (letras, acordes, tonos), los mapeos MIDI, tus kits de batería y tus preferencias. Úsalo para cambiar de equipo o para volver atrás. Los audios no van dentro: están en la carpeta de arriba.<br>Además, LivePads guarda sola una copia cada día (se conservan las de los últimos 14 días).</div>
               <div class="audio-lib-actions">
                 <button class="acc-btn ghost sm" id="btn-backup-save">Guardar copia…</button>
                 <button class="acc-btn ghost sm" id="btn-backup-restore">Restaurar copia…</button>
+                <button class="acc-btn ghost sm" id="btn-backup-auto">Copias automáticas…</button>
               </div>
             </div>
           </div>
@@ -864,6 +911,11 @@
               <label class="sb-row audio-out-alt" title="Agranda botones y deslizadores para tocarlos con el dedo. Funciona con cualquier tema.">
                 <span class="audio-out-alt-txt"><b>Controles grandes</b><small>Para pantallas táctiles: botones y deslizadores más grandes, con cualquier tema.</small></span>
                 <input type="checkbox" class="mo-switch" id="touch-mode-switch">
+              </label>
+              <div class="sb-div"></div>
+              <label class="sb-row audio-out-alt" title="Letra y acordes en blanco y amarillo puros sobre fondo oscuro, con trazo más grueso: se leen desde lejos y con mucha luz en el escenario.">
+                <span class="audio-out-alt-txt"><b>Alto contraste (escenario)</b><small>Letra y acordes más gruesos y con máximo contraste. Para escenarios con mucha luz o vista cansada.</small></span>
+                <input type="checkbox" class="mo-switch" id="contrast-switch">
               </label>
             </div>
           </div>

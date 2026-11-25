@@ -16,6 +16,16 @@
   --warn: #febc2e;
   --err: #ff5f57;
   --lyric-scale: 1;
+  /* Derivados (el tema de LivePads los sobrescribe desde companion.js). */
+  --on-accent: #0a0a14;
+  --top-bg: rgba(10,10,20,0.92);
+  --bar-bg: rgba(10,10,20,0.96);
+  --bg-sheet: #12141c;
+  --soft: rgba(255,255,255,0.06);
+  --soft-2: rgba(255,255,255,0.12);
+  --line: rgba(255,255,255,0.16);
+  --fg-soft: rgba(255,255,255,0.65);
+  --scrim: rgba(0,0,0,0.6);
 }
 
 * { box-sizing: border-box; }
@@ -37,7 +47,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: rgba(10,10,20,0.92);
+  background: var(--top-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
@@ -72,7 +82,7 @@ html, body {
 .chord-toggle:hover { border-color: var(--accent); color: var(--accent); }
 .chord-toggle[aria-pressed="true"] {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 
@@ -114,7 +124,7 @@ html, body {
   gap: 6px;
   padding: 8px 2px;
   margin-bottom: 12px;
-  background: rgba(10, 10, 20, 0.92);
+  background: var(--top-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -127,7 +137,7 @@ html, body {
   flex: 0 0 auto;
   padding: 5px 11px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--soft);
   border: 1px solid var(--border);
   color: var(--fg-dim);
   font-size: 10.5px;
@@ -141,7 +151,7 @@ html, body {
 .toc-pill:active { transform: scale(0.96); }
 .toc-pill.is-current {
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 
@@ -295,7 +305,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
 }
 .sheet-backdrop {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
   opacity: 0;
   transition: opacity 0.2s;
@@ -309,7 +319,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
   padding: 8px 18px 22px;
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: 0 -20px 60px rgba(0,0,0,0.55);
+  box-shadow: 0 -20px 60px var(--scrim);
   max-height: 80vh;
   overflow-y: auto;
 }
@@ -319,7 +329,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
 .sheet-grip {
   width: 38px; height: 4px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.18);
+  background: var(--line);
   margin: 4px auto 12px;
 }
 .sheet-title {
@@ -380,7 +390,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch .slider {
   position: absolute; inset: 0;
-  background: rgba(255,255,255,0.12);
+  background: var(--soft-2);
   border-radius: 999px;
   cursor: pointer;
   transition: background 0.2s;
@@ -390,7 +400,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
   position: absolute;
   width: 20px; height: 20px;
   left: 3px; top: 3px;
-  background: #fff;
+  background: var(--fg);
   border-radius: 50%;
   transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -403,7 +413,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  background: rgba(255,255,255,0.12);
+  background: var(--soft-2);
   border-radius: 2px;
   outline: none;
 }
@@ -414,7 +424,7 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
   background: var(--accent);
   cursor: pointer;
   border: 3px solid var(--bg-elev);
-  box-shadow: 0 0 12px rgba(251, 174, 0, 0.5);
+  box-shadow: 0 0 12px var(--accent);
 }
 .range::-moz-range-thumb {
   width: 22px; height: 22px;
@@ -432,9 +442,59 @@ body.hide-chords .lyric-line.has-inline-chords { margin-top: 0; }
   border-radius: 10px;
   border: none;
   background: var(--accent);
-  color: #0a0a14;
+  color: var(--on-accent);
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
 }
 .sheet-done:active { filter: brightness(0.95); }
+
+/* ── Instrumento, modo líder e indicaciones ── */
+.sheet-select { height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); padding: 0 10px; font: inherit; font-size: 14px; max-width: 60%; }
+.sheet-select--narrow { width: 80px; }
+.sheet-label small { display: block; font-size: 12px; opacity: .6; font-weight: 400; margin-top: 2px; }
+.pin-input { width: 84px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); text-align: center; font: 800 18px/1 ui-monospace, monospace; letter-spacing: .2em; }
+.leader-on { margin: 6px 0 12px; font-size: 14px; color: #7dffb0; display: flex; align-items: center; gap: 10px; }
+.link-btn { background: none; border: 0; color: var(--fg); text-decoration: underline; font: inherit; cursor: pointer; }
+body.lyrics-only .inline-chord, body.lyrics-only .chord-line { display: none !important; }
+
+.leader-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: var(--bar-bg); border-top: 1px solid var(--soft-2); }
+.leader-bar button { flex: 1; height: 52px; border-radius: 14px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); font: 800 18px/1 inherit; }
+.leader-bar .leader-play { flex: 1.4; background: var(--fg); color: var(--on-accent); }
+.leader-bar .leader-stop { color: #ff6b6b; }
+.leader-bar .leader-cues { flex: 2; font-size: 15px; }
+body.has-leader-bar .stage { padding-bottom: 96px; }
+body.has-leader-bar .fab { bottom: 96px; }
+.cues-sheet { position: fixed; inset: auto 0 0 0; z-index: 60; padding: 14px 12px calc(14px + env(safe-area-inset-bottom)); background: var(--bg-sheet); border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; }
+.cues-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.cues-grid button { height: 56px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); font: 800 15px/1.1 inherit; }
+.cue-overlay { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--scrim); opacity: 0; transition: opacity .2s; }
+.cue-overlay.show { opacity: 1; }
+.cue-text { font-size: clamp(44px, 14vw, 96px); font-weight: 900; color: var(--fg); text-align: center; padding: 0 16px; line-height: 1; }
+.cue-from { margin-top: 12px; font-size: 16px; color: var(--fg-soft); }
+/* display:flex anulaba [hidden]: la barra salía sin PIN y el aviso invisible tapaba la letra */
+.leader-bar[hidden], .cues-sheet[hidden], .cue-overlay[hidden], .leader-on[hidden], .sheet-row[hidden] { display: none !important; }
+
+/* ── Monitor de escenario (?escenario) ── */
+body.stage-mode .stage, body.stage-mode #btn-toggle-chords { display: none !important; }
+.stage-view { position: fixed; inset: 56px 0 0 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.stage-view[hidden] { display: none !important; }
+.sv-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sv-song b { display: block; font-size: clamp(22px, 4.5vw, 44px); font-weight: 900; color: var(--fg); }
+.sv-song span { font-size: clamp(14px, 2.2vw, 22px); color: var(--fg-soft); }
+.sv-time { font: 800 clamp(22px, 4vw, 44px)/1 ui-monospace, monospace; color: var(--fg); }
+.sv-k { display: block; font-size: clamp(11px, 1.6vw, 16px); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-soft); }
+.sv-section b { display: block; font-size: clamp(48px, 12vw, 140px); line-height: 1; font-weight: 900; color: var(--fg); }
+.sv-next { display: block; margin-top: 6px; font-size: clamp(16px, 3vw, 30px); color: var(--fg-soft); }
+.sv-chords { display: flex; gap: 28px; align-items: flex-end; }
+.sv-chords b { display: block; font-size: clamp(56px, 14vw, 170px); line-height: 1; font-weight: 900; color: var(--chord); }
+.sv-chord-next b { font-size: clamp(32px, 7vw, 90px); color: var(--chord); }
+.sv-bar { height: 10px; border-radius: 99px; background: var(--soft-2); overflow: hidden; }
+.sv-bar i { display: block; height: 100%; width: 0; background: var(--fg); transition: width .35s linear; }
+.sv-after { font-size: clamp(16px, 2.8vw, 28px); color: var(--fg-soft); }
+.stage-link { display: block; margin: 8px 0 12px; color: var(--section); font-size: 14px; }
+
+/* Tema claro (p. ej. «Clean Worship»): verde legible sobre blanco. */
+:root[data-light="1"] .leader-on { color: #15803d; }
+.sv-chord-next b { opacity: .55; }
+:root[data-light="1"] .fab { box-shadow: 0 4px 14px rgba(15,23,42,.14), 0 0 0 3px var(--top-bg); }

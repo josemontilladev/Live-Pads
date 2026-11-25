@@ -48,3 +48,9 @@
 .sw-zlvl { min-width: 32px; font-variant-numeric: tabular-nums; }
 #seq-wave.is-zoomed .sw-zlvl { color: var(--accent); }
 .sw-chordfit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
+
+/* Una sola fila: el acorde que suena sin sitio para su nombre lo muestra igual,
+   en su píldora por encima de los vecinos (data-n = su nombre). */
+#seq-wave .sw-ch.no-label.is-current { width: auto; padding: 0 5px; z-index: 3; }
+#seq-wave .sw-ch.no-label.is-current::after { content: attr(data-n); color: var(--flat-ink-lo, #0a0a14); background: var(--flat-paper, #fff); border-radius: 5px; padding: 0 5px; font-weight: 800; box-shadow: 0 0 10px rgba(255,255,255,.35); position: absolute; left: -1px; top: 0; height: 16px; line-height: 16px; }
+.sw-chords.two-rows { height: 20px; }

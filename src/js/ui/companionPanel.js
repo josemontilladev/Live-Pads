@@ -11,6 +11,9 @@ let popModal = null;
 let pollTimer = null;
 let lastQrUrl = null; // cache so we only regenerate the SVG when the URL changes
 let serverStartedAt = 0; // ms timestamp — used to show the firewall hint after 8s of zero clients
+// Modo del QR: 'cloud' (por internet, por defecto) o 'wifi' (misma red, sin internet).
+const MODE_KEY = 'livepads.companionMode';
+const getMode = () => { try { return localStorage.getItem(MODE_KEY) === 'wifi' ? 'wifi' : 'cloud'; } catch (_) { return 'cloud'; } };
 
 const SVG_CLOSE = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const SVG_COPY  = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -31,13 +34,19 @@ export function openCompanionPanel({ mount = null } = {}) {
         <h3 id="cp-title">Companion (móvil)</h3>
         <button class="cp-close ui-close" type="button" aria-label="Cerrar">${SVG_CLOSE}</button>
       </div>
-      <p class="cp-subtitle">Visor pasivo de letras+acordes para los músicos en la misma WiFi.</p>
+      <p class="cp-subtitle">La letra y los acordes de lo que suena, en el móvil de cada músico.</p>
 
-      <div class="cp-hotspot-row">
+      <div class="cp-mode ui-seg" role="group" aria-label="Cómo se conectan los móviles">
+        <button type="button" class="ui-seg-btn" data-mode="cloud">Por internet</button>
+        <button type="button" class="ui-seg-btn" data-mode="wifi">Misma WiFi (sin internet)</button>
+      </div>
+      <p class="cp-mode-tip" data-ref="modeTip"></p>
+
+      <div class="cp-wifi-only cp-hotspot-row">
         <button class="cp-hotspot-btn" id="cp-softap" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" style="vertical-align:-2px;margin-right:4px"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1"/></svg>Crear red WiFi local (sin internet)</button>
         <span class="cp-hotspot-tip">La laptop emite la red <b>LivePads</b> (clave <b>livepads2026</b>). Conecta los teléfonos a esa red y escanea el QR. No requiere internet.</span>
       </div>
-      <div class="cp-hotspot-row">
+      <div class="cp-wifi-only cp-hotspot-row">
         <button class="cp-hotspot-btn" id="cp-hotspot" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" style="vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Hotspot de Windows (si hay internet)</button>
         <span class="cp-hotspot-tip">Alternativa: abre los ajustes de Windows (solo funciona si la laptop tiene internet que compartir).</span>
       </div>
@@ -56,18 +65,19 @@ export function openCompanionPanel({ mount = null } = {}) {
         <code class="cp-url" id="cp-url"></code>
         <button class="cp-copy" type="button" aria-label="Copiar URL" title="Copiar URL">${SVG_COPY}</button>
       </div>
-      <div class="cp-iface-row" hidden>
+      <div class="cp-iface-row cp-wifi-only" hidden>
         <label class="cp-iface-label" for="cp-iface-select">¿No conecta? Prueba otra interfaz:</label>
         <select id="cp-iface-select" class="cp-iface-select"></select>
       </div>
       <p class="cp-clients" hidden><span id="cp-clients-count">0</span> conectado(s)</p>
+      <p class="cp-pin" hidden title="El líder lo escribe en su móvil (Ajustes → Modo líder) para controlar LivePads y enviar indicaciones a la banda. Sin él, el móvil solo ve la letra.">PIN del líder: <b id="cp-pin">----</b> <button type="button" class="cp-copy" id="cp-newpin" title="Cambiar el PIN (los móviles tendrán que escribir el nuevo)">Cambiar</button></p>
 
       <p class="cp-hint">
-        Cuando esté activo, los músicos abren la URL en el navegador del teléfono
-        y verán la canción que dispares en la cabina.
+        Cuando esté activo, los músicos escanean el QR (o abren el enlace) y ven la canción que suena.
+        <span class="cp-cloud-only"><button type="button" class="cp-copy cp-newcode" id="cp-newcode" title="Otro enlace: los móviles que tenían el anterior dejan de recibir">Cambiar el enlace</button></span>
       </p>
 
-      <div class="cp-firewall" hidden>
+      <div class="cp-firewall cp-wifi-only" hidden>
         <strong>¿No conecta nadie?</strong>
         Windows suele bloquear el puerto en redes nuevas. Pulsa para permitirlo
         (pedirá confirmación de administrador una sola vez y queda permanente):
@@ -96,6 +106,27 @@ export function openCompanionPanel({ mount = null } = {}) {
   }
   mounted = overlay;
   overlay.querySelector('.cp-close').onclick = closeCompanionPanel;
+
+  const paintMode = () => {
+    const m = getMode();
+    overlay.dataset.mode = m;
+    overlay.querySelectorAll('.cp-mode [data-mode]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === m));
+    overlay.querySelector('[data-ref="modeTip"]').textContent = m === 'cloud'
+      ? 'Funciona con cualquier conexión del móvil (datos o cualquier WiFi). El portátil necesita internet.'
+      : 'Sin internet: los móviles tienen que estar en la misma WiFi que el portátil.';
+    lastQrUrl = null;
+  };
+  overlay.querySelectorAll('.cp-mode [data-mode]').forEach((b) => b.addEventListener('click', async () => {
+    try { localStorage.setItem(MODE_KEY, b.dataset.mode); } catch (_) {}
+    paintMode();
+    await refresh();
+  }));
+  overlay.querySelector('#cp-newcode')?.addEventListener('click', async () => {
+    await window.electronAPI.companionSetCloud?.({ renew: true });
+    lastQrUrl = null; await refresh();
+    window.showToast?.('Enlace nuevo: vuelve a compartir el QR con la banda.', 'info');
+  });
+  paintMode();
 
   const toggleBtn = overlay.querySelector('#cp-toggle');
   toggleBtn.onclick = async () => {
@@ -239,12 +270,19 @@ async function refresh() {
     statusEl.dataset.running = status.running ? 'true' : 'false';
     statusLabel.textContent = status.running ? 'Activo' : 'Apagado';
 
-    if (status.running && status.url) {
+    const cloudMode = getMode() === 'cloud' && status.cloud;
+    const shownUrl = cloudMode ? status.cloud.url : status.url;
+    if (status.running && shownUrl) {
       qrBox.hidden = false;
       urlRow.hidden = false;
-      mounted.querySelector('#cp-url').textContent = status.url;
+      mounted.querySelector('#cp-url').textContent = shownUrl;
       clientsRow.hidden = false;
-      mounted.querySelector('#cp-clients-count').textContent = status.clients;
+      mounted.querySelector('#cp-clients-count').textContent = cloudMode ? status.cloud.clients : status.clients;
+      statusLabel.textContent = cloudMode ? (status.cloud.connected ? 'Activo · por internet' : 'Conectando con internet…') : 'Activo · misma WiFi';
+      const pinRow = mounted.querySelector('.cp-pin');
+      if (pinRow && status.pin) { pinRow.hidden = false; mounted.querySelector('#cp-pin').textContent = status.pin; }
+      const np = mounted.querySelector('#cp-newpin');
+      if (np && !np.dataset.bound) { np.dataset.bound = '1'; np.addEventListener('click', async () => { const v = await window.electronAPI?.companionNewPin?.(); if (v) mounted.querySelector('#cp-pin').textContent = v; }); }
       toggleBtn.textContent = 'Apagar Companion';
       toggleBtn.classList.add('cp-toggle--off');
 
@@ -253,7 +291,7 @@ async function refresh() {
       // any client connects, the hint hides itself.
       const fw = mounted.querySelector('.cp-firewall');
       if (fw) {
-        const showHint = serverStartedAt > 0 && status.clients === 0
+        const showHint = !cloudMode && serverStartedAt > 0 && status.clients === 0
                          && (Date.now() - serverStartedAt) > 8000;
         fw.hidden = !showHint;
       }
@@ -278,12 +316,12 @@ async function refresh() {
       }
 
       // Only regenerate when the URL changes (avoid SVG flicker every 2s).
-      if (status.url !== lastQrUrl) {
-        lastQrUrl = status.url;
+      if (shownUrl !== lastQrUrl) {
+        lastQrUrl = shownUrl;
         try {
-          const svg = await window.electronAPI.companionQR(status.url);
+          const svg = await window.electronAPI.companionQR(shownUrl);
           // Server might have stopped while we awaited — guard before mutating.
-          if (mounted && status.url === lastQrUrl) {
+          if (mounted && shownUrl === lastQrUrl) {
             mounted.querySelector('#cp-qr-frame').innerHTML = svg;
           }
         } catch (e) {

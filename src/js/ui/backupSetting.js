@@ -4,6 +4,7 @@
 // la ventana (localStorage) y las confirmaciones.
 import { q } from '../utils/dom.js';
 import { confirmDialogAsync } from './dialog.js';
+import { openCardMoreMenu } from './cardMoreMenu.js';
 
 // Preferencias que viajan en la copia. Fuera: sesión, licencia y marcas de
 // sincronización (son de la cuenta y del equipo, no del contenido).
@@ -46,6 +47,45 @@ export function initBackupSetting({ getSongCount, flushSongs } = {}) {
       const r = await api.backupSave({ prefs: collectPrefs() });
       if (r) window.showToast?.(`✓ Copia guardada: ${r.songs} ${r.songs === 1 ? 'canción' : 'canciones'}, mapeos MIDI, kits y preferencias.`, 'success');
     } catch (err) { window.showToast?.('No se pudo guardar la copia: ' + ((err && err.message) || err), 'error'); }
+  });
+
+  // Restaurar una copia (de archivo o automática) tras confirmar.
+  async function restoreFrom(r) {
+    if (!r) return;
+    if (r.error) { window.showToast?.(r.error, 'error'); return; }
+    const d = r.data, now = getSongCount ? getSongCount() : 0;
+    const ok = await confirmDialogAsync({
+      title: 'Restaurar copia de seguridad',
+      message: `Esta copia es del ${fmtDate(d.savedAt)} y trae ${d.songs.length} ${d.songs.length === 1 ? 'canción' : 'canciones'}`
+        + `${d.midiMap ? ', mapeos MIDI' : ''}${d.userDrums ? ', kits de batería' : ''} y preferencias. `
+        + `Reemplazará lo que hay ahora en este equipo (${now} ${now === 1 ? 'canción' : 'canciones'}); antes se guarda una copia automática de lo actual en Datos/backups. `
+        + 'Si usas la nube, después se sincronizará con tu repertorio compartido. La app se recargará.',
+      confirmLabel: 'Restaurar', cancelLabel: 'Cancelar', danger: true,
+    });
+    if (!ok) return;
+    await api.backupApply(d);
+    applyPrefs(d.prefs);
+    location.reload();
+  }
+
+  // Copia automática: una al día (al minuto de abrir y cada 6 h mientras está abierta).
+  const autoSave = async () => {
+    if (!api.backupAuto) return;
+    try { if (flushSongs) await flushSongs(); await api.backupAuto({ prefs: collectPrefs() }); } catch (_) {}
+  };
+  setTimeout(autoSave, 60 * 1000);
+  setInterval(autoSave, 6 * 60 * 60 * 1000);
+  const autoBtn = q('#btn-backup-auto');
+  if (autoBtn && api.backupAutoList) autoBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await autoSave();
+    const list = await api.backupAutoList();
+    if (!list || !list.length) { window.showToast?.('Aún no hay copias automáticas: la primera se guarda al minuto de abrir LivePads.', 'info'); return; }
+    openCardMoreMenu(autoBtn, list.map((x) => ({
+      label: fmtDate(x.savedAt),
+      hint: `${x.songs} ${x.songs === 1 ? 'canción' : 'canciones'} · clic para restaurar`,
+      onSelect: async () => { try { await restoreFrom(await api.backupAutoRead(x.file)); } catch (err) { window.showToast?.('No se pudo restaurar: ' + ((err && err.message) || err), 'error'); } },
+    })));
   });
 
   restoreBtn.addEventListener('click', async () => {

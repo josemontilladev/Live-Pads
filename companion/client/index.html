@@ -36,6 +36,28 @@
       <h3 class="sheet-title">Ajustes</h3>
 
       <div class="sheet-row">
+        <label class="sheet-label" for="instrument">Mi instrumento</label>
+        <select id="instrument" class="sheet-select">
+          <option value="chords">Acordes (teclado, guitarra)</option>
+          <option value="capo">Guitarra con cejilla</option>
+          <option value="bass">Bajo (solo la nota base)</option>
+          <option value="bb">Vientos en Si♭ (trompeta, clarinete, tenor)</option>
+          <option value="eb">Vientos en Mi♭ (saxo alto)</option>
+          <option value="lyrics">Solo letra (voces)</option>
+        </select>
+      </div>
+      <div class="sheet-row" id="capo-row" hidden>
+        <label class="sheet-label" for="capo">Cejilla en el traste</label>
+        <select id="capo" class="sheet-select sheet-select--narrow">
+          <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+        </select>
+      </div>
+      <div class="sheet-row">
+        <label class="sheet-label" for="nums">Acordes como grados (1·4·5)</label>
+        <label class="switch"><input type="checkbox" id="nums"><span class="slider"></span></label>
+      </div>
+
+      <div class="sheet-row">
         <span class="sheet-label">Tamaño de letra</span>
         <div class="sheet-controls">
           <button class="size-btn" data-size="-" aria-label="Reducir">A−</button>
@@ -65,9 +87,41 @@
         </label>
       </div>
 
+      <div class="sheet-row sheet-row--leader">
+        <span class="sheet-label">Modo líder<small>Controla LivePads y envía indicaciones a la banda. Pide el PIN en el panel del Companion.</small></span>
+        <div class="sheet-controls">
+          <input id="leader-pin" class="pin-input" inputmode="numeric" maxlength="4" placeholder="PIN" autocomplete="off">
+          <button id="leader-go" class="size-btn" type="button">Entrar</button>
+        </div>
+      </div>
+      <div class="leader-on" id="leader-on" hidden>Modo líder activo <button id="leader-off" type="button" class="link-btn">Salir</button></div>
+
+      <a class="stage-link" href="?escenario">Abrir la vista de escenario (para una TV o tablet de la banda)</a>
       <button class="sheet-done" data-close="1">Listo</button>
     </div>
   </div>
+
+  <!-- Indicación del director (Repetir, Coro, Final…): en grande unos segundos -->
+  <div class="cue-overlay" id="cue-overlay" hidden><div class="cue-text" id="cue-text"></div><div class="cue-from" id="cue-from"></div></div>
+
+  <!-- Barra del líder (con PIN): mover el servicio y enviar indicaciones -->
+  <nav class="leader-bar" id="leader-bar" hidden>
+    <button type="button" data-cmd="prev" aria-label="Canción anterior">⏮</button>
+    <button type="button" data-cmd="play" class="leader-play" aria-label="Play o pausa">▶ / ❚❚</button>
+    <button type="button" data-cmd="next" aria-label="Canción siguiente">⏭</button>
+    <button type="button" data-cmd="panic" class="leader-stop" aria-label="Parar todo">■</button>
+    <button type="button" id="cues-btn" class="leader-cues">Indicaciones</button>
+  </nav>
+  <div class="cues-sheet" id="cues-sheet" hidden><div class="cues-grid" id="cues-grid"></div><button type="button" class="sheet-done" id="cues-close">Cerrar</button></div>
+
+  <!-- Monitor de escenario (?escenario): para la banda, en grande -->
+  <section class="stage-view" id="stage-view" hidden>
+    <div class="sv-top"><div class="sv-song"><b id="sv-title">Esperando canción…</b><span id="sv-meta"></span></div><div class="sv-time" id="sv-time"></div></div>
+    <div class="sv-section"><span class="sv-k">Ahora</span><b id="sv-section">—</b><span class="sv-next" id="sv-next-section"></span></div>
+    <div class="sv-chords"><div><span class="sv-k">Acorde</span><b id="sv-chord">—</b></div><div class="sv-chord-next"><span class="sv-k">Sigue</span><b id="sv-next-chord">—</b></div></div>
+    <div class="sv-bar"><i id="sv-progress"></i></div>
+    <div class="sv-after" id="sv-after"></div>
+  </section>
 
   <main class="stage" id="stage">
     <div class="empty" id="empty-view">
@@ -90,6 +144,9 @@
     </article>
   </main>
 
+  <script src="cloud-config.js"></script>
+  <script src="cloud.js"></script>
+  <script src="instrument.js"></script>
   <script src="companion.js"></script>
 </body>
 </html>

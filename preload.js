@@ -1,4 +1,8 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+// Plan simulado para pruebas locales (ver main.js · additionalArguments). Nunca en el instalador.
+const devPlanArg = (process.argv || []).find((a) => a.startsWith('--lp-dev-plan='));
+contextBridge.exposeInMainWorld('__lpDevPlan', devPlanArg ? devPlanArg.split('=')[1] : null);
 
 contextBridge.exposeInMainWorld('electronAPI', {
   openAudioFile: () => ipcRenderer.invoke('open-audio-file'),
@@ -53,6 +57,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   backupSave: (data) => ipcRenderer.invoke('backup-save', data),
   backupOpen: () => ipcRenderer.invoke('backup-open'),
   backupApply: (data) => ipcRenderer.invoke('backup-apply', data),
+  backupAuto: (data) => ipcRenderer.invoke('backup-auto', data),
+  backupAutoList: () => ipcRenderer.invoke('backup-auto-list'),
+  backupAutoRead: (file) => ipcRenderer.invoke('backup-auto-read', file),
   exportMidiMap: (maps) => ipcRenderer.invoke('export-midi-map', maps),
   importMidiMap: () => ipcRenderer.invoke('import-midi-map'),
   fetchChordUrl: (url) => ipcRenderer.invoke('fetch-chord-url', url),
@@ -66,6 +73,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   companionStatus: () => ipcRenderer.invoke('companion-status'),
   companionPublishSong: (song) => ipcRenderer.invoke('companion-publish-song', song),
   companionPublishPlaying: (playing) => ipcRenderer.invoke('companion-publish-playing', playing),
+  companionCue: (cue) => ipcRenderer.invoke('companion-cue', cue),
+  companionSetTheme: (t) => ipcRenderer.invoke('companion-set-theme', t),
+  companionSetCloud: (o) => ipcRenderer.invoke('companion-set-cloud', o),
+  companionNewPin: () => ipcRenderer.invoke('companion-new-pin'),
+  companionPublishStage: (s) => ipcRenderer.invoke('companion-publish-stage', s),
+  onCompanionCommand: (cb) => { const h = (_e, c) => cb(c); ipcRenderer.on('companion-command', h); return () => ipcRenderer.removeListener('companion-command', h); },
   companionQR: (url) => ipcRenderer.invoke('companion-qr', url),
   companionSetIp: (ip) => ipcRenderer.invoke('companion-set-ip', ip),
   companionGetPrefs: () => ipcRenderer.invoke('companion-get-prefs'),
@@ -81,6 +94,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Stems por canción (pistas separadas para practicar).
   assignSongStem: (data) => ipcRenderer.invoke('assign-song-stem', data),
   saveSongStem: (data) => ipcRenderer.invoke('save-song-stem', data),
+  saveVoiceNote: (data) => ipcRenderer.invoke('save-voice-note', data),
+  // Ruta real de un archivo elegido con <input type=file> (Electron ya no la pone en File.path).
+  lyricsWindowLine: (i) => ipcRenderer.send('lyrics-window-line', i),
+  onLyricsLine: (cb) => ipcRenderer.on('lyrics-line', (_e, i) => cb(i)),
+  pathForFile: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (_) { return ''; } },
   saveZipFile: (data) => ipcRenderer.invoke('save-zip-file', data),
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
   stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),

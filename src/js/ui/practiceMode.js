@@ -10,7 +10,9 @@
 
 import { showToast } from './toast.js';
 import { parseLyricStructure, mapMarkersToLyrics } from './songStructure.js';
-
+
+import { markersFor } from '../data/markers.js';
+import { getCurrentType as gctPrac } from '../audio/trackPlayer.js';
 const OPEN_KEY = 'livepads-practice-open';
 const MIN_RATE = 0.25, MAX_RATE = 1.25, MIN_SPAN = 0.5;
 
@@ -118,7 +120,7 @@ function renderSections() {
   if (!secsEl) return;
   const list = secsEl.querySelector('.sp-secs-list');
   const d = dur();
-  const ms = song && Array.isArray(song.markers) ? song.markers.slice().sort((a, b) => a.t - b.t) : [];
+  const ms = song ? markersFor(song, gctPrac()).slice().sort((a, b) => a.t - b.t) : [];
   secsEl.hidden = !(ms.length && d);
   if (secsEl.hidden) { list.innerHTML = ''; return; }
   list.innerHTML = ms.map((m, i) => {
@@ -136,7 +138,7 @@ function renderSections() {
 
 // ── Práctica guiada ────────────────────────────────────────────────────────
 function sectionAtPlayhead() {
-  const ms = song && Array.isArray(song.markers) ? song.markers.slice().sort((x, y) => x.t - y.t) : [];
+  const ms = song ? markersFor(song, gctPrac()).slice().sort((x, y) => x.t - y.t) : [];
   const t = audio ? audio.currentTime || 0 : 0;
   let i = -1;
   ms.forEach((m, k) => { if (m.t <= t + 0.05) i = k; });

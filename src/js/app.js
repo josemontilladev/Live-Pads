@@ -1,6 +1,7 @@
 import { SynthEngine } from './audio/SynthEngine.js';
 import { Metronome }   from './audio/Metronome.js';
 import { PAD_BANKS, KIT_BANKS, THEMES } from './data/banks.js';
+import { savedThemeId } from './ui/themeVars.js';
 import { FREE_PAD_BANK } from './billing/plans.js';
 import { hasFeature, requireFeature, initLicense } from './billing/license.js';
 import { q, qa, esc } from './utils/dom.js';
@@ -70,6 +71,7 @@ import { initLiveMode, toggleLiveMode, isLiveMode } from './ui/liveMode.js';
 import { registerPlayingProbe } from './state/performing.js';
 import { applySavedOutput } from './audio/audioOutput.js';
 import { initAudioOutputSetting } from './ui/audioOutputSetting.js';
+import { initSoundSetting } from './ui/soundSetting.js';
 import { showToast } from './ui/toast.js';
 import { bindKitControls } from './ui/kitControls.js';
 import { bindMixerControls } from './ui/mixerControls.js';
@@ -99,6 +101,27 @@ import { htmlToPlainLyrics } from './utils/text.js';
 import { initSeqWaveform } from './ui/seqWaveform.js';
 import { initPracticeMode } from './ui/practiceMode.js';
 import { initLiveLyrics } from './ui/liveLyrics.js';
+import { applyChordNumbers } from './utils/chordNumbers.js';
+import { initChordDiagrams } from './ui/chordDiagram.js';
+import { initMidiOut } from './midi/midiOut.js';
+import { initDirectorCues } from './live/directorCues.js';
+import { initStagePublish } from './live/stagePublish.js';
+import { initModulation } from './live/modulation.js';
+import { initMedley } from './live/medley.js';
+import { initKeyTransition } from './live/keyTransition.js';
+import { initTempoFollow } from './live/tempoFollow.js';
+import { initGrooves, groovePlaying, stopGrooves } from './live/grooveUI.js';
+import { initSongMix } from './live/songMix.js';
+import { initClickSections } from './live/clickSections.js';
+import { initVoiceGuide, speakCount, leadInWanted } from './live/voiceGuide.js';
+import { initArrange } from './live/arrange.js';
+import { fadeMainBuses, restoreMainBuses } from './audio/mainBus.js';
+import { initBandFollow } from './live/bandFollow.js';
+import { initPadFollow } from './live/padFollow.js';
+import { initMinistry } from './live/ministry.js';
+import { KEYS_FLAT as TR_FLAT, KEYS_SHARP as TR_SHARP } from './data/musicConstants.js';
+import { transposeAll } from './ui/chordTransposer.js';
+import { prefersFlats } from './utils/musicKeys.js';
 import { initUpdateIndicator, _testState as updTestState } from './ui/updateIndicator.js';
 import { initLyricsOverlay } from './ui/lyricsOverlay.js';
 // mongoSync (legacy GI.Setlist/MongoDB) retirado — la sincronización vive en
@@ -385,6 +408,71 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSeqWaveform(); // onda + secciones sobre el reproductor
   initPracticeMode(); // modo práctica: velocidad sin cambiar el tono + tramo A–B
   initLiveLyrics();   // letra con acordes en vivo (karaoke) en su propia columna
+  applyChordNumbers(); // acordes como grados (1·4·5) si la persona lo eligió
+  initChordDiagrams(); // tocar un acorde de la letra = cómo se toca en guitarra y piano
+  initMidiOut();       // sonidos del teclado automáticos (salida MIDI) por canción y sección
+  q('#tp-softend-btn')?.addEventListener('click', softEnd); paintSoftEnd(false);
+  initSongMix();      // cada canción recuerda su mezcla (Pads, Batería, Click, Pista)
+  initClickSections({ getMetro: () => metro });   // click distinto por sección
+  initVoiceGuide({ getEngine: () => engine });     // cuenta hablada + guía hablada automática
+  initArrange();      // arreglo en vivo: repetir / saltar de sección sin cortar el compás
+  // Botón «Voces» de la cabecera: calentamiento vocal en el tono de la 1.ª del servicio (o de la preparada).
+  q('#btn-vocal')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const first = getServiceSongs()[0] || (getCurrentSong ? getCurrentSong() : null);
+    let leader = ''; try { leader = localStorage.getItem('livepads.leader') || ''; } catch (_) {}
+    import('./ui/cardMoreMenu.js').then(({ openCardMoreMenu }) => openCardMoreMenu(btn, [
+      { label: 'Calentamiento vocal…', hint: 'Ejercicios con piano en el tono de la primera canción', onSelect: () => import('./live/warmup.js').then((m) => m.openWarmup(first ? (getEffectiveKey(first) || first.key || '') : '')) },
+      { label: 'Prueba de rango vocal…', hint: 'Tu nota más grave y más aguda: tonos sugeridos para tu voz', onSelect: () => import('./live/vocalRange.js').then((m) => m.openVocalRange(leader)) },
+    ]));
+  });
+  initDirectorCues({ getEngine: () => engine, panic: () => panicStopAll() });   // indicaciones a la banda + control desde el móvil
+  initStagePublish();  // monitor de escenario (Companion con ?escenario)
+  initModulation();    // subir el tono en el último coro (punto marcado por canción)
+  initMedley({ playCurrent: () => triggerSourcePlayPause() });   // medleys: unir con la siguiente sin silencio
+  // Transición entre tonos: el pad recorre el puente hasta el tono de la siguiente canción.
+  // Pad que sigue los acordes de la pista: cambio con fundido corto (0,6 s) en vez del de 2 s.
+  initPadFollow({
+    padActive: () => !!getActiveKey(),
+    playPadChord: (pc, minor) => playPadChordClean(pc, minor, 0.6),
+    // Los acordes de la canción, ya en memoria antes de que suenen.
+    prefetchChord: (pc, minor) => {
+      const bank = PAD_BANKS[getPadBankIdx()];
+      engine.prefetchPad((getUseFlats() ? TR_FLAT : TR_SHARP)[pc], !!(minor && bank && bank.minor));
+    },
+  });
+  // Modo ministración: progresión sin fin con el pad (fundido normal, más suave).
+  // Click que sigue al baterista (micrófono → tempo y pulso).
+  initTempoFollow({ getEngine: () => engine, getMetro: () => metro, applyBpm });
+  // Caja de ritmos: herramienta aparte (botón en la cabecera).
+  initGrooves({ getEngine: () => engine, getMetro: () => metro, applyBpm, getPadKey: () => getActiveKey() });
+  initBandFollow();
+  initMinistry({
+    playPadChord: (pc, minor) => playPadChordClean(pc, minor, null),
+    prefetchChord: (pc, minor) => {
+      const bank = PAD_BANKS[getPadBankIdx()];
+      engine.prefetchPad((getUseFlats() ? TR_FLAT : TR_SHARP)[pc], !!(minor && bank && bank.minor));
+    },
+    bpm: () => parseInt(q('#bpm-display')?.textContent || '0', 10) || 0,
+    currentKey: () => { const s = getServiceSongs()[getActiveServiceIndex()] || (getCurrentSong ? getCurrentSong() : null); return s ? (getEffectiveKey(s) || s.key || '') : (getActiveKey() || ''); },
+  });
+  initKeyTransition({
+    playPadKey: (pc, minor) => {
+      const names = (getUseFlats() ? TR_FLAT : TR_SHARP);
+      const bank = PAD_BANKS[getPadBankIdx()];
+      if (bank && bank.minor && padMinorWanted() !== !!minor) setPadMinor(!!minor);
+      if (getActiveKey() !== names[pc]) onKeyClick(names[pc]);
+    },
+    bpm: () => parseInt(q('#bpm-display')?.textContent || '0', 10) || 0,
+    keys: () => {
+      const cur = getCurrentSong ? getCurrentSong() : null;
+      const songs = getServiceSongs(), idx = getActiveServiceIndex();
+      const now = songs[idx] || cur;
+      const next = idx >= 0 ? songs[idx + 1] : null;
+      return { from: now ? (getEffectiveKey(now) || now.key || '') : '', to: next ? (getEffectiveKey(next) || next.key || '') : '' };
+    },
+  });
   // El click sigue la velocidad elegida en el modo práctica.
   window.addEventListener('livepads:practice-rate', (ev) => {
     const r = Number(ev && ev.detail && ev.detail.rate) || 1;
@@ -637,6 +725,34 @@ function syncPadMode() {
     });
   }
   document.body.classList.toggle('pads-minor', minor);
+}
+// Acorde del pad para «Sigue acordes» y «Ministración»: primero se asegura el pad REAL de ese
+// acorde en memoria (el anterior sigue sonando mientras tanto, como mucho 2,5 s) y luego entra
+// con un solo fundido. Sin esto, un acorde aún no cargado sonaba un instante con el pad
+// sintetizado de relleno (el «corte» al pasar de mayor a menor). fade = s de fundido (null = el normal).
+let _padChordSeq = 0;
+async function playPadChordClean(pc, minor, fade) {
+  const names = (getUseFlats() ? TR_FLAT : TR_SHARP);
+  const bank = PAD_BANKS[getPadBankIdx()];
+  const wantMinor = !!(minor && bank && bank.minor);
+  const my = ++_padChordSeq;
+  await Promise.race([engine.prefetchPad(names[pc], wantMinor), new Promise((r) => setTimeout(r, 2500))]);
+  if (my !== _padChordSeq) return;            // ya se pidió otro acorde
+  const prev = engine._crossfadeDur;
+  if (fade != null) engine.setCrossfade(fade);
+  try {
+    const modeChanged = bank && bank.minor && padMinorWanted() !== wantMinor;
+    if (modeChanged) setPadModeQuiet(wantMinor);
+    if (getActiveKey() !== names[pc]) onKeyClick(names[pc]);
+    else if (modeChanged) engine.playPad(names[pc], bank.synth);   // misma nota, otro modo
+  } finally { if (fade != null) setTimeout(() => engine.setCrossfade(prev), 80); }
+}
+// Cambio de modo sin volver a lanzar el acorde que suena (Sigue acordes / Ministración):
+// el acorde nuevo entra con un solo fundido, sin pasar por el anterior en el otro modo.
+function setPadModeQuiet(on) {
+  try { localStorage.setItem(PAD_MINOR_KEY, on ? '1' : '0'); } catch {}
+  engine.setPadMinor(!!on, { preload: false });
+  syncPadMode();
 }
 function setPadMinor(on) {
   try { localStorage.setItem(PAD_MINOR_KEY, on ? '1' : '0'); } catch {}
@@ -948,6 +1064,7 @@ function bindAll() {
   initMetroOptions();
   // Salida de audio elegida (y click por 3-4): se aplica ya, y la lista de Ajustes se rellena sola.
   applySavedOutput(engine).catch(() => {}).then(() => initAudioOutputSetting(() => engine));
+  initSoundSetting();
   bindPadsPianoToggle();
   q('#btn-metro-pads')?.addEventListener('click', () => openMetronomeModal());
   q('#btn-tuner-pads')?.addEventListener('click', () => openTunerModal());
@@ -1852,6 +1969,8 @@ function triggerMasterPlayPause() {
   if (masterSource === 'reference') {
     if (isTrackLoaded() && getCurrentType() === 'original') {
       if (getMetroRunning()) toggleMetro();
+      // Guía hablada activa y el original al principio: «Intro… tres, cuatro» antes de arrancar.
+      if (!isTrackPlaying() && leadInWanted()) { doCountIn(() => { if (!isTrackPlaying()) clickPlayPause(); refreshNowPlayingLiveState(); }); return; }
       if (!isTrackPlaying()) clickPlayPause();   // reanuda donde quedó
     } else {
       selectSource('reference');                  // carga + reproduce la original
@@ -1871,7 +1990,7 @@ function triggerMasterPlayPause() {
   if (isSequenceLoaded()) {
     // Cuenta de entrada (si está activa): un compás de clicks y luego arranca
     // la secuencia justo en el "1".
-    if (!isTrackPlaying() && countInEnabled()) {
+    if (!isTrackPlaying() && (countInEnabled() || leadInWanted())) {
       doCountIn(() => {
         if (!isTrackPlaying()) clickPlayPause();
         if (clickWithSequenceEnabled() && !getMetroRunning()) toggleMetro();
@@ -1919,6 +2038,13 @@ function triggerSourcePlayPause() {
 // la pista cargada ya es de ese tipo, togglea; si no, la carga y arranca.
 function togglePlayPauseTrack(type) {
   if (isTrackLoaded() && getCurrentType() === type) {
+    // Arrancar (no pausar): cuenta de entrada si está activa, o el compás de entrada
+    // hablado («Intro… tres, cuatro») si la guía hablada lo pide.
+    if (!isTrackPlaying() && (countInEnabled() || leadInWanted())) {
+      doCountIn(() => { if (!isTrackPlaying()) clickPlayPause(); refreshNowPlayingLiveState(); });
+      refreshNowPlayingLiveState();
+      return;
+    }
     clickPlayPause();                              // pausa/reanuda la pista
   } else {
     const song = getActiveSongForSource();
@@ -2011,6 +2137,7 @@ function doCountIn(onDone) {
     const accent = i === 0 || (Array.isArray(metro.accents) && metro.accents.includes(i));
     engine.playClick(accent, metro.sound, metro.volume, metro.pan, t0 + i * interval);
   }
+  try { speakCount(beats, t0, interval); } catch (_) {}   // «uno, dos, tres, cuatro» (si está activada)
   countingIn = true;
   const btn = q('#tp-play-btn');
   if (btn) btn.classList.add('counting-in');
@@ -2116,12 +2243,50 @@ function bindSourceControl() {
 // PÁNICO: corta absolutamente todo y cierra cualquier overlay/ayuda, pase lo que
 // pase. Es la tecla de seguridad en vivo (Esc) — el director nunca debe dudar de
 // que esto silencia el escenario.
+// ── Terminar suave ───────────────────────────────────────────────────────
+// Baja todo (secuencia, pad, batería, caja de ritmos) en unos segundos y luego lo para:
+// para cerrar una canción sin corte. Volver a pulsar durante el fundido = parar ya.
+// Duración: «livepads.softEnd» (segundos, 5 por defecto).
+let softEndTimer = null;
+const softEndSecs = () => { try { const v = parseFloat(localStorage.getItem('livepads.softEnd')); return v >= 1 && v <= 20 ? v : 5; } catch (_) { return 5; } };
+function paintSoftEnd(on) {
+  const b = q('#tp-softend-btn');
+  if (b) { b.classList.toggle('is-on', !!on); b.title = on ? 'Terminando… (pulsa otra vez para parar ya)' : `Terminar suave: baja todo en ${softEndSecs()} s y para (pad, pista, batería)`; }
+}
+function cancelSoftEnd() {
+  if (!softEndTimer) return;
+  clearTimeout(softEndTimer); softEndTimer = null;
+  restoreMainBuses(); paintSoftEnd(false);
+}
+function softEnd() {
+  if (softEndTimer) { clearTimeout(softEndTimer); softEndTimer = null; stopAllSound(); setTimeout(restoreMainBuses, 120); paintSoftEnd(false); return; }
+  const sounding = (isTrackLoaded() && isTrackPlaying()) || !!getActiveKey() || getMetroRunning() || groovePlaying();
+  if (!sounding) return;
+  const sec = softEndSecs();
+  fadeMainBuses(sec);
+  paintSoftEnd(true);
+  window.showToast?.(`Terminando suave (${sec} s)…`, 'info');
+  softEndTimer = setTimeout(() => {
+    softEndTimer = null;
+    stopAllSound();
+    setTimeout(restoreMainBuses, 150);   // el volumen vuelve cuando ya está todo parado
+    paintSoftEnd(false);
+  }, sec * 1000 + 60);
+}
+
 function panicStopAll() {
   // Cerrar overlays/ayuda/sidebar primero (no bloquean el corte de audio).
   if (isCheatSheetOpen()) closeCheatSheet();
   closeAllOverlays();
   q('#sidebar').classList.remove('open');
-  // Cortar TODA fuente de sonido: pad, metrónomo y la pista (secuencia U original).
+  cancelSoftEnd();
+  stopAllSound();
+}
+
+// Para TODO lo que suena (sin tocar ventanas ni paneles): lo usan el pánico y «Terminar suave».
+function stopAllSound() {
+  // Cortar TODA fuente de sonido: pad, metrónomo, caja de ritmos y la pista (secuencia U original).
+  try { stopGrooves(); } catch (_) {}
   engine.stopPad();
   setActiveKey(null);
   setPreparedPadKey(null);
@@ -2652,11 +2817,33 @@ function applyGiSong(song) {
       id: song.id,
       title: song.title,
       artist: song.artist,
-      key: song.key,
+      key: companionKey(song),
       bpm: song.bpm,
-      lyrics: song.lyrics
+      lyrics: companionLyrics(song)
     }).catch(() => {});
   }
+}
+
+// El Companion se pinta con el tema activo de LivePads (al arrancar y al cambiarlo).
+function companionTheme() {
+  const id = savedThemeId(), t = THEMES[id];
+  if (!t || !window.electronAPI?.companionSetTheme) return;
+  window.electronAPI.companionSetTheme({
+    id, bg: t.bg1, bg2: t.bg2, bg3: t.bg3, accent: t.blue, accent2: t.accent2 || t.blue,
+    text: t.text || '#ffffff', muted: t.textMuted || '#a3a3a3', border: t.border || '',
+    onAccent: t.onAccent || '', gradient: t.gradient || '',
+  }).catch(() => {});
+}
+document.addEventListener('livepads:theme-change', companionTheme);
+setTimeout(companionTheme, 0);
+
+// El Companion recibe la canción en el tono de HOY (el del servicio si lo cambió), con los acordes ya
+// transpuestos: así cada músico parte del tono real (antes veía el tono original de la canción).
+function companionKey(song) { return getEffectiveKey(song) || song.key || ''; }
+function companionLyrics(song) {
+  const base = song.key || '', live = companionKey(song);
+  const d = base && live && base !== live ? (keyDelta(base, live) || 0) : 0;
+  return d && song.lyrics ? transposeAll(song.lyrics, d, prefersFlats(live)) : (song.lyrics || '');
 }
 
 // Mirrors the cabin's playing state to the Companion. Track player +

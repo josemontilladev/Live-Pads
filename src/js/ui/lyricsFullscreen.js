@@ -18,6 +18,8 @@
 import { esc } from '../utils/dom.js';
 import { formatLyrics } from './lyricsFormat.js';
 import { transposeAll } from './chordTransposer.js';
+import { transposeKey } from '../utils/musicKeys.js';
+import { chordNumbersOn, setChordNumbers } from '../utils/chordNumbers.js';
 import { pushModal } from './modalStack.js';
 
 // Transpone la ETIQUETA de tonalidad ("F", "C#m", "Bb") N semitonos para que
@@ -168,6 +170,7 @@ export function openLyricsFullscreen(song, opts = {}) {
           <span data-ref="colsLabel">2 columnas</span>
         </button>
         <button type="button" class="lyr-toggle" data-act="chords" title="Mostrar u ocultar acordes (C)">Acordes</button>
+        <button type="button" class="lyr-toggle" data-act="nums" title="Ver los acordes como grados (1 · 4 · 5 · 6m): iguales en cualquier tono">1·4·5</button>
         <button type="button" class="lyr-close ui-close" data-act="close" title="Cerrar (Esc)" aria-label="Cerrar">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" fill="none" width="18" height="18" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -187,7 +190,7 @@ export function openLyricsFullscreen(song, opts = {}) {
   function renderText() {
     const shown = semitones - capo;   // con cejilla, se escriben las posiciones (tono − cejilla)
     const text = shown === 0 ? song.lyrics : transposeAll(song.lyrics || '', shown);
-    content.innerHTML = groupSections(formatLyrics(text));
+    content.innerHTML = groupSections(formatLyrics(text, song.key ? transposeKey(song.key, shown) : null));
   }
   function paintState() {
     content.classList.toggle('hide-chords', !showChords);
@@ -198,6 +201,7 @@ export function openLyricsFullscreen(song, opts = {}) {
     overlay.querySelector('[data-act="fit"]').classList.toggle('is-on', fit);
     overlay.querySelector('[data-act="cols"]').classList.toggle('is-on', cols === 2);
     overlay.querySelector('[data-act="chords"]').classList.toggle('is-on', showChords);
+    overlay.querySelector('[data-act="nums"]')?.classList.toggle('is-on', chordNumbersOn());
     const trans = ref('trans');
     if (trans) {
       const rel = semitones - baseSemis;   // 0 = el tono acordado para hoy
@@ -259,6 +263,7 @@ export function openLyricsFullscreen(song, opts = {}) {
       case 'fit': fit = !fit; break;
       case 'cols': cols = cols === 2 ? 1 : 2; break;
       case 'chords': showChords = !showChords; break;
+      case 'nums': setChordNumbers(!chordNumbersOn()); break;
       case 'trans-up': semitones = Math.min(11, semitones + 1); refresh({ rerender: true }); return;
       case 'trans-down': semitones = Math.max(-11, semitones - 1); refresh({ rerender: true }); return;
       case 'capo-up': capo = Math.min(CAPO_MAX, capo + 1); saveCapo(song, capo); refresh({ rerender: true }); return;

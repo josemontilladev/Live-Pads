@@ -13,7 +13,7 @@ import { openCardMoreMenu } from './cardMoreMenu.js';
 import { openVoicesMenu } from './voiceRefs.js';
 import { keyChoices, isKnownKey } from '../utils/musicKeys.js';
 import { confirmDialog, showDialog } from './dialog.js';
-import { parseSingerKeys, upsertSingerKey, cleanSingerKeys, shiftLabel } from '../utils/singerKeys.js';
+import { parseSingerKeys, upsertSingerKey, cleanSingerKeys, shiftLabel, keyForSinger, singersIn } from '../utils/singerKeys.js';
 import { showLoadAudioMenu } from './audioLoadMenu.js';
 import { audioMenuItems } from './songMenu.js';
 import { openLyricsFullscreen } from './lyricsFullscreen.js';
@@ -44,6 +44,7 @@ export function initServiceList(_deps) {
   if (addBtn) addBtn.addEventListener('click', () => showServiceCreate({ edit: true }));
   const moreBtn = q('#btn-svc-more');
   if (moreBtn) moreBtn.addEventListener('click', (e) => { e.stopPropagation(); openServiceMenu(moreBtn); });
+  initLeaderChip();
   chooserPending = listSavedSetlists().length > 0;
   // Listener de búsqueda dentro del Servicio (input #svc-search en setlistTabs).
   window.addEventListener('livepads:service-search', (ev) => {
@@ -342,6 +343,14 @@ function openServiceMenu(anchor) {
   if (id) items.push({ label: 'Renombrar o cambiar la fecha', onSelect: () => { chooserEditId = id; showServiceChooser(); } });
   else if (n) items.push({ label: 'Guardar como servicio', onSelect: () => click('#btn-service-save') });
   items.push({ label: 'Compartir con el equipo (nube)', onSelect: () => click('#btn-service-share') });
+  if (n) {
+    const meta = () => { const s = id && listSavedSetlists().find((x) => x.id === id); return { name: (s && s.name) || getCurrentSetlistName() || 'Servicio', date: s ? fmtChooserDate(s) : '' }; };
+    items.push({ label: 'Imprimir o PDF: setlist con hojas de acordes', onSelect: () => import('./printSheet.js').then((m) => m.printService(getServiceSongs(), { ...meta(), withSheets: true })) });
+    items.push({ label: 'Imprimir o PDF: solo la lista', onSelect: () => import('./printSheet.js').then((m) => m.printService(getServiceSongs(), { ...meta(), withSheets: false })) });
+    items.push({ label: 'Enviar por WhatsApp', onSelect: () => import('./shareService.js').then((m) => m.sendServiceToWhatsApp(getServiceSongs().map((x) => ({ title: x.title, artist: x.artist, key: getEffectiveKey(x) || x.key, bpm: x.bpm, youtubeUrl: x.youtubeUrl })), meta())) });
+    items.push({ label: 'Calentamiento vocal…', onSelect: () => { const first = getServiceSongs()[0]; import('../live/warmup.js').then((m) => m.openWarmup(first ? (getEffectiveKey(first) || first.key || '') : '')); } });
+    items.push({ label: 'Copiar el mensaje del servicio', onSelect: () => import('./shareService.js').then((m) => m.copyServiceMessage(getServiceSongs().map((x) => ({ title: x.title, artist: x.artist, key: getEffectiveKey(x) || x.key, bpm: x.bpm, youtubeUrl: x.youtubeUrl })), meta())) });
+  }
   if (id) items.push({ label: 'Duplicar', onSelect: () => {
     const c = duplicateSetlist(id);
     if (c) window.showToast?.(`✓ Duplicado como «${c.name}».`, 'success');
@@ -648,6 +657,7 @@ function openKeyMenu(anchorEl, song, card) {
       icon: x.key === current ? ICON_CHECK : '',
       onSelect: () => {
         setKeyOverride(song, x.key);
+        learnLeaderKey(song, x.key);
         repaintServiceCard(card, song);
         deps.onKeyChanged?.(song);
       },
@@ -660,6 +670,7 @@ function openKeyMenu(anchorEl, song, card) {
       icon: key === current ? ICON_CHECK : '',
       onSelect: () => {
         setKeyOverride(song, key);
+        learnLeaderKey(song, key);
         repaintServiceCard(card, song);
         deps.onKeyChanged?.(song);
       },
@@ -698,6 +709,36 @@ function openServiceCardMenu(anchorEl, song, card) {
         deps.persistServiceSongs();
         repaintServiceCard(card, song);
       }
+    },
+    {
+      label: 'Imprimir o guardar en PDF',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+      onSelect: () => import('./printSheet.js').then((m) => m.printSong(song)),
+    },
+    {
+      label: 'Notas para improvisar',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v8M12 5v8M17 5v8"/></svg>',
+      onSelect: () => Promise.all([import('./scaleHelper.js'), import('../data/service.js')]).then(([m, sv]) => m.showScaleHelper(card.querySelector('[data-action="more"]') || card, sv.getEffectiveKey(song) || song.key, song.title || '')),
+    },
+    {
+      label: 'Click por sección…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.4 3.2A1.6 1.6 0 0 1 12 2a1.6 1.6 0 0 1 1.6 1.2l4.5 16.4A1.9 1.9 0 0 1 16.3 22H7.7a1.9 1.9 0 0 1-1.8-2.4z"/><path d="M12 17 18 5.5"/></svg>',
+      onSelect: () => import('../live/clickSections.js').then((m) => m.openClickSectionsDialog(song)),
+    },
+    {
+      label: 'Sonido del teclado (MIDI)…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 6v7M10 6v7M14 6v7M18 6v7"/><circle cx="12" cy="3" r="1"/></svg>',
+      onSelect: () => import('./midiOutDialog.js').then((m) => m.openMidiOutDialog(song)),
+    },
+    {
+      label: 'Subir el tono en el último coro…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
+      onSelect: () => import('../live/modulation.js').then((m) => m.openModulationDialog(song)),
+    },
+    {
+      label: 'Medley: unir con la siguiente…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10a4 4 0 0 1 0 8H8"/><polyline points="11 12 8 15 11 18"/><line x1="18" y1="19" x2="21" y2="19"/></svg>',
+      onSelect: () => import('../live/medley.js').then((m) => m.openMedleyDialog(song)),
     },
     {
       label: 'Editar',
@@ -895,4 +936,72 @@ if (typeof window !== 'undefined') {
   window.addEventListener('livepads:songs-changed', refreshSingerKeysFromLibrary);
   window.addEventListener('livepads:library-reload', refreshSingerKeysFromLibrary);
   window.addEventListener('livepads:songs-updated', refreshSingerKeysFromLibrary);
+}
+
+
+// ── Quién dirige ─────────────────────────────────────────────────────────
+// «🎤 Dirige: María» en la cabecera del servicio. Al elegir a alguien, cada canción
+// del servicio que tenga un tono guardado para esa persona (singerKeys de la
+// librería: «G · María») pasa a ese tono hoy. Y mientras dirige, si cambias el
+// tono de una canción, queda guardado como el suyo. Guardado: «livepads.leader».
+const LEADER_KEY = 'livepads.leader';
+const leaderName = () => { try { return localStorage.getItem(LEADER_KEY) || ''; } catch (_) { return ''; } };
+function paintLeaderChip() {
+  const b = q('#svc-leader');
+  if (!b) return;
+  const n = leaderName();
+  b.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>${n ? 'Dirige: ' + esc(n) : 'Quién dirige'}`;
+  b.classList.toggle('is-on', !!n);
+  b.title = n ? `Las canciones van en los tonos de ${n} (las que tienen uno guardado). Clic para cambiar.` : 'Elige quién dirige hoy: cada canción pasa a su tono guardado.';
+}
+function initLeaderChip() {
+  const host = q('.service-actions-text');
+  if (!host || q('#svc-leader')) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.id = 'svc-leader'; b.className = 'svc-leader';
+  host.appendChild(b);
+  b.addEventListener('click', (e) => { e.stopPropagation(); openLeaderMenu(b); });
+  paintLeaderChip();
+}
+function openLeaderMenu(anchor) {
+  const lib = getLibrarySongs() || [];
+  const names = singersIn(lib.map((s) => s.singerKeys));
+  const cur = leaderName();
+  if (cur && !names.some((n) => n.toLowerCase() === cur.toLowerCase())) names.unshift(cur);
+  const items = names.map((n) => ({ label: n, icon: n === cur ? ICON_CHECK : '', onSelect: () => setLeader(n) }));
+  items.push({ label: 'Otro cantante…', icon: '', onSelect: () => showDialog('¿Quién dirige hoy?', 'Nombre (p. ej. María)', (name) => { const v = String(name || '').trim(); if (v) setLeader(v); }) });
+  if (cur) items.push({ label: 'Nadie (tonos de la librería)', icon: '', onSelect: () => setLeader('') });
+  openCardMoreMenu(anchor, items);
+}
+function setLeader(name) {
+  try { if (name) localStorage.setItem(LEADER_KEY, name); else localStorage.removeItem(LEADER_KEY); } catch (_) {}
+  paintLeaderChip();
+  if (!name) { window.showToast?.('Sin cantante elegido: cada canción queda en el tono que tenga hoy.', 'info'); return; }
+  import('../live/vocalRange.js').then(({ suggestFor }) => {
+    let changed = 0, missing = 0, suggested = 0;
+    for (const song of getServiceSongs()) {
+      let k = keyForSinger(singerKeysOf(song), name);
+      if (!k) {
+        const sg = suggestFor(name, song.key);
+        if (sg) { k = sg.key; suggested++; } else { missing++; continue; }
+      }
+      if (getEffectiveKey(song) !== k) { setKeyOverride(song, k); changed++; deps.onKeyChanged?.(song); }
+    }
+    renderServiceList();
+    window.showToast?.(`Dirige ${name}: ${changed} canción${changed === 1 ? '' : 'es'} en sus tonos`
+      + (suggested ? ` · ${suggested} sugerido${suggested === 1 ? '' : 's'} por su rango vocal` : '')
+      + (missing ? ` · ${missing} sin tono guardado (haz la «Prueba de rango vocal» o cámbialo y quedará guardado)` : '') + '.', 'success');
+  });
+}
+/** Con alguien dirigiendo, el tono que elijas para una canción queda como el suyo. */
+function learnLeaderKey(song, key) {
+  const name = leaderName();
+  const live = librarySongOf(song);
+  if (!name || !live || !key) return;
+  if (keyForSinger(live.singerKeys, name) === key) return;
+  live.singerKeys = upsertSingerKey(live.singerKeys, key, name);
+  song.singerKeys = live.singerKeys;
+  deps.persistLibrary?.();
+  try { window.dispatchEvent(new Event('livepads:cloud-dirty')); } catch (_) {}
+  window.showToast?.(`Guardado: «${live.title}» en ${key} para ${name}.`, 'success');
 }

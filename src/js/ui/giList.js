@@ -490,6 +490,31 @@ function openGiCardMenu(anchorEl, song, card) {
       }
     },
     {
+      label: 'Imprimir o guardar en PDF',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+      onSelect: () => import('./printSheet.js').then((m) => m.printSong(song)),
+    },
+    {
+      label: 'Notas para improvisar',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v8M12 5v8M17 5v8"/></svg>',
+      onSelect: () => Promise.all([import('./scaleHelper.js'), import('../data/service.js')]).then(([m, sv]) => m.showScaleHelper(card.querySelector('[data-action="more"]') || card, sv.getEffectiveKey(song) || song.key, song.title || '')),
+    },
+    {
+      label: 'Click por sección…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.4 3.2A1.6 1.6 0 0 1 12 2a1.6 1.6 0 0 1 1.6 1.2l4.5 16.4A1.9 1.9 0 0 1 16.3 22H7.7a1.9 1.9 0 0 1-1.8-2.4z"/><path d="M12 17 18 5.5"/></svg>',
+      onSelect: () => import('../live/clickSections.js').then((m) => m.openClickSectionsDialog(song)),
+    },
+    {
+      label: 'Sonido del teclado (MIDI)…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 6v7M10 6v7M14 6v7M18 6v7"/><circle cx="12" cy="3" r="1"/></svg>',
+      onSelect: () => import('./midiOutDialog.js').then((m) => m.openMidiOutDialog(song)),
+    },
+    {
+      label: 'Subir el tono en el último coro…',
+      icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
+      onSelect: () => import('../live/modulation.js').then((m) => m.openModulationDialog(song)),
+    },
+    {
       label: 'Editar',
       icon: ICON_EDIT_SM,
       onSelect: () => {

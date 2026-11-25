@@ -12,16 +12,21 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { closeAllLyrics } from './songState.js';
+import { isBandFollowing, toggleBandFollow } from '../live/bandFollow.js';
 import { pushModal } from './modalStack.js';
 import { closeButton } from './components.js';
+import { chordNumbersOn, setChordNumbers } from '../utils/chordNumbers.js';
 import { openCardMoreMenu } from './cardMoreMenu.js';
 import { ensureCardLyrics } from './songCard.js';
+import { lineTimes, lineAt } from './lyricTiming.js';
+import { markersFor } from '../data/markers.js';
+import { getTrackAudio, getCurrentSong, getCurrentType } from '../audio/trackPlayer.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
 const LS_PREFS = 'livepads-lyricspanel-prefs';
 let overlay = null, panel = null, popModal = null;
 let current = null;   // { title, artist, key, html }
-let prefs = { size: 20, chords: true, follow: true };
+let prefs = { size: 20, chords: true, follow: true, autoLines: true };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem(LS_PREFS) || '{}')); } catch (_) {}
 // Acoplada: la letra ocupa exactamente el hueco de la batería y el mezclador
 // (columna central) y lo sigue al cambiar el tamaño de la ventana, así nunca
@@ -217,6 +222,7 @@ function paint() {
   panel.querySelector('.lyp-sub').textContent = [current.artist, current.key ? `Tono ${current.key}` : ''].filter(Boolean).join(' · ');
   const body = panel.querySelector('.lyp-body');
   body.querySelector('.lyp-cols').innerHTML = current.html || '<p class="lyp-empty">Esta canción no tiene letra.</p>';
+  lt.key = null; lt.active = -1;
   paintPrefs();
 }
 function paintPrefs() {
@@ -244,12 +250,17 @@ function openToolsMenu(anchorBtn) {
     { icon: I('<path d="M4 20l6-16 6 16M6.5 14h7"/><path d="M17 8h4"/>'), label: 'Letra más pequeña', onSelect: () => go('smaller') },
     { sep: true },
     { icon: I('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'), label: 'Mostrar acordes', checked: !!prefs.chords, onSelect: () => go('chords') },
+    { icon: I('<path d="M4 7h3v10"/><path d="M11 7h5l-4 5a3 3 0 1 1-2 4"/><path d="M19 7v10"/>'), label: 'Acordes como grados (1·4·5)', hint: 'Iguales en cualquier tono: C G Am F en C = 1 5 6m 4', checked: chordNumbersOn(), onSelect: () => setChordNumbers(!chordNumbersOn()) },
+    { icon: I('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v8M12 5v8M17 5v8"/>'), label: 'Notas para improvisar', hint: 'Escala y pentatónica del tono de la canción', onSelect: () => import('./scaleHelper.js').then((m) => m.showScaleHelper(anchorBtn, (current && current.key) || '', (current && current.title) || '')) },
+    { icon: I('<path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 14l3 3-3 3"/>'), label: 'La letra avanza sola', hint: 'Resalta la línea que va y la mantiene a la vista mientras suena la pista (también en la TV)', checked: prefs.autoLines !== false, onSelect: () => { prefs.autoLines = prefs.autoLines === false; savePrefs(); lt.key = null; if (!prefs.autoLines) clearLineMarks(); } },
     { icon: I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'), label: 'Seguir la canción que suena', hint: 'Cambia sola al cambiar de canción', checked: !!prefs.follow, onSelect: () => go('follow') },
+    { icon: I('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'), label: 'La letra sigue a la banda', hint: 'Sin pista: avanza con los acordes que oye el micrófono', checked: isBandFollowing(), onSelect: () => toggleBandFollow() },
     { icon: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/>'), label: 'Acoplar al centro', hint: 'Ocupa el hueco de la batería y el mezclador', checked: !!prefs.docked, onSelect: () => go('dock') },
     { sep: true },
     { icon: I('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'), label: 'Editar letra y acordes', onSelect: () => go('edit') },
     { icon: I('<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'), label: 'Pantalla completa', hint: 'Para leer en vivo, desde lejos', onSelect: () => go('fs') },
     { icon: I('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'), label: 'Llevar a otra pantalla', hint: 'TV o segundo monitor', onSelect: () => go('screen') },
+    { icon: I('<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/>'), label: 'Fondo de la pantalla (TV)…', hint: 'Fondos animados, imagen o video detrás de la letra', onSelect: () => import('./lyricsBgDialog.js').then((m) => m.openLyricsBgDialog()) },
   ]);
 }
 
@@ -380,4 +391,46 @@ export function initLyricsOverlay() {
     });
   });
   window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow);
+  setInterval(lineTick, 150);
+}
+
+
+// ── La letra avanza sola ─────────────────────────────────────────────────
+// Si el panel muestra la canción que suena, la línea actual se resalta (las cantadas,
+// atenuadas) y se mantiene a la vista; la TV recibe la misma línea. Tiempos: ver
+// lyricTiming.js (a mano si se sincronizó; si no, por las secciones del espectro).
+const lt = { key: null, lines: [], active: -1, userUntil: 0 };
+function clearLineMarks() {
+  panel?.querySelectorAll('.lyp-now, .lyp-past').forEach((e) => e.classList.remove('lyp-now', 'lyp-past'));
+  lt.active = -1;
+  window.electronAPI?.lyricsWindowLine?.(-1);
+}
+function lineTick() {
+  if (!overlay || !panel || prefs.autoLines === false || !current) return;
+  const audio = getTrackAudio(), song = getCurrentSong();
+  if (!audio || !song || audio.paused) return;
+  if (String(song.title || '').trim() !== String(current.title || '').trim()) return;   // el panel muestra otra canción
+  const body = panel.querySelector('.lyp-body'), cols = panel.querySelector('.lyp-cols');
+  if (!body.dataset.ltBound) {
+    body.dataset.ltBound = '1';
+    const pause = () => { lt.userUntil = Date.now() + 6000; };
+    body.addEventListener('wheel', pause, { passive: true });
+    body.addEventListener('pointerdown', pause);
+  }
+  const type = getCurrentType();
+  const ms = markersFor(song, type);
+  const key = [song.id, type, (current.html || '').length, ms.length && ms[ms.length - 1].t, Math.round(audio.duration || 0)].join('|');
+  if (lt.key !== key) { lt.key = key; lt.lines = lineTimes(cols, { song, markers: ms, dur: audio.duration || 0 }).lines; lt.active = -1; }
+  if (!lt.lines.length) return;
+  const idx = lineAt(lt.lines, audio.currentTime || 0);
+  if (idx === lt.active) return;
+  lt.active = idx;
+  const now = idx >= 0 ? lt.lines[idx].el : null;
+  lt.lines.forEach((l, i) => { l.el.classList.toggle('lyp-now', l.el === now); l.el.classList.toggle('lyp-past', i < idx && l.el !== now); });
+  if (now && Date.now() > lt.userUntil) {
+    const top = now.offsetTop - body.clientHeight * 0.3;
+    body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+  // La TV: el número de línea dentro de la letra (misma letra que el panel).
+  if (now) window.electronAPI?.lyricsWindowLine?.([...cols.querySelectorAll('.lyric-line')].indexOf(now));
 }

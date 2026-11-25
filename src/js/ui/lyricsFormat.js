@@ -1,4 +1,5 @@
 import { esc } from '../utils/dom.js';
+import { chordNumber, keyTonic } from '../utils/chordNumbers.js';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Letra + acordes: detección, limpieza y render.
@@ -70,8 +71,13 @@ const SECTION_SYNONYMS = {
 // ¿Esta línea es un encabezado de sección "suelto" (p. ej. "CORO:", "Verso 2",
 // "[Pre-Coro]")? Devuelve { canon, num } o null. No toca líneas largas ni de
 // acordes (para no confundir una letra que empiece con una palabra clave).
+// Caracteres invisibles que trae la letra copiada de webs (marcas de dirección, espacios de
+// ancho cero…): pegados al principio de «[Coro]» hacían que no se reconociera como sección.
+const INVISIBLE = /[​-‏⁠﻿‪-‮]/g;
+export const stripInvisible = (t) => String(t == null ? '' : t).replace(INVISIBLE, '');
+
 export function detectSectionHeader(line) {
-  let s = (line || '').trim();
+  let s = stripInvisible(line).trim();
   if (!s || s.length > 26) return null;
   if (isChordLine(s)) return null;
   // Quita corchetes/paréntesis externos y puntuación de borde (":", "-", "—"…).
@@ -365,10 +371,19 @@ export function isRepeatedProgression(line) {
   return isChordLine(rest) && chordPositions(rest).length >= 2;
 }
 
-export function formatLyrics(lyrics) {
-  if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
+// Acorde → su nombre y, si se conoce el tono, también su grado (utils/chordNumbers.js). Los dos van
+// en el HTML y la clase «chord-nums» de <html> decide cuál se ve. `chord` ya viene escapado.
+function chordHtml(chord, key) {
+  const num = key ? chordNumber(chord.replace(/&amp;/g, '&'), key) : null;
+  return num ? `<span class="cn-name">${chord}</span><span class="cn-num">${esc(num)}</span>` : chord;
+}
 
-  const cleanLyrics = lyrics.replace(/\r/g, '');
+/** [key]: tono en el que está escrita la letra (ya transpuesta); con él se pueden mostrar grados. */
+export function formatLyrics(lyrics, key = null) {
+  if (!lyrics) return '<div style="color:var(--text-muted);font-style:italic;font-size:11px;">No hay letra disponible.</div>';
+  const tonic = key ? keyTonic(key) : null;
+
+  const cleanLyrics = stripInvisible(lyrics).replace(/\r/g, '');
   const lines = mergeChordLinesForDisplay(cleanLyrics.split('\n'));
   let html = '';
 
@@ -398,7 +413,8 @@ export function formatLyrics(lyrics) {
 
     if (isChordLine(rawLine) || isRepeatedProgression(rawLine)) {
       const formattedChords = rawLine.replace(/\[|\]/g, '');
-      html += `<div class="chord-line">${esc(formattedChords)}</div>`;
+      const chordsHtml = tonic ? esc(formattedChords).replace(/\S+/g, (t) => (isChordToken(t) ? chordHtml(t, tonic) : t)) : esc(formattedChords);
+      html += `<div class="chord-line">${chordsHtml}</div>`;
     } else {
       const hasChords = /\[([^\]<>]+)\]/.test(rawLine);
       // Escape the raw line first, then re-inject [chord] markers as spans.
@@ -408,7 +424,7 @@ export function formatLyrics(lyrics) {
       // quedaba arriba, sobre otra). Los espacios de relleno (U+2007, ver
       // mergeChordLinesForDisplay) admiten corte para no desbordar la columna.
       const formattedLyrics = escapedLine
-        .replace(/\[([^\]]+)\]([^\s\[ ]*)/g, (match, chord, word) => `<span class="chw${word ? '' : ' chw--bare'}"><span class="inline-chord">${chord}</span>${word || '​'}</span>`)
+        .replace(/\[([^\]]+)\]([^\s\[ ]*)/g, (match, chord, word) => `<span class="chw${word ? '' : ' chw--bare'}"><span class="inline-chord">${chordHtml(chord, tonic)}</span>${word || '​'}</span>`)
         .replace(/ /g, ' <wbr>');
       html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${formattedLyrics}</div>`;
     }

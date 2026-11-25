@@ -32,7 +32,11 @@
     fontSize: 100,      // % of base
     autoScroll: false,
     scrollSpeed: 3,     // 1..10
-    keepAwake: true
+    keepAwake: true,
+    instrument: 'chords',  // chords | capo | bass | bb | eb | lyrics
+    capo: 2,
+    nums: false,
+    pin: ''
   };
   const prefs = Object.assign({}, defaults, readPrefs());
 
@@ -43,6 +47,115 @@
   function savePrefs() {
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) {}
   }
+
+  // ── Acordes para cada músico (instrument.js) ───────────────────────
+  let lastMsg = null;
+  let songKey = '';
+  function chordText(ch) {
+    if (!window.LPInstrument) return ch;
+    const out = window.LPInstrument.chordFor(ch, { mode: prefs.instrument, capo: prefs.capo, nums: prefs.nums, key: songKey });
+    return out == null ? ch : out;
+  }
+  function keyLabel(key) {
+    if (!key) return '—';
+    if (!window.LPInstrument) return key;
+    if (prefs.instrument === 'capo') return key + ' · cejilla ' + prefs.capo + ' (' + window.LPInstrument.viewKey(key, 'capo', prefs.capo) + ')';
+    if (prefs.instrument === 'bb') return key + ' · en Si♭: ' + window.LPInstrument.viewKey(key, 'bb', 0);
+    if (prefs.instrument === 'eb') return key + ' · en Mi♭: ' + window.LPInstrument.viewKey(key, 'eb', 0);
+    return key;
+  }
+  function applyInstrument() {
+    const sel = document.getElementById('instrument'), capo = document.getElementById('capo'), nums = document.getElementById('nums');
+    if (sel) sel.value = prefs.instrument;
+    if (capo) capo.value = String(prefs.capo);
+    if (nums) nums.checked = !!prefs.nums;
+    const row = document.getElementById('capo-row'); if (row) row.hidden = prefs.instrument !== 'capo';
+    document.body.classList.toggle('lyrics-only', prefs.instrument === 'lyrics');
+    if (lastMsg) render(lastMsg, true);
+  }
+  ['instrument', 'capo', 'nums'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (id === 'instrument') prefs.instrument = el.value;
+      else if (id === 'capo') prefs.capo = parseInt(el.value, 10) || 0;
+      else prefs.nums = el.checked;
+      savePrefs(); applyInstrument();
+    });
+  });
+
+  // ── Indicaciones del director ──────────────────────────────────────
+  const CUES = [['repeat', 'Repetir'], ['last', 'Última vez'], ['chorus', 'Coro'], ['verse', 'Verso'], ['bridge', 'Puente'], ['pre', 'Pre coro'],
+    ['instrumental', 'Instrumental'], ['ending', 'Final'], ['big-ending', 'Final grande'], ['soft', 'Suave'], ['build', 'Sube intensidad'],
+    ['down', 'Baja intensidad'], ['all', 'Toda la banda'], ['acapella', 'A capella'], ['break', 'Pausa'], ['hold', 'Sostener'], ['key-up', 'Sube tono'], ['key-down', 'Baja tono']];
+  let cueTimer = null;
+  function showCue(text, from) {
+    const ov = document.getElementById('cue-overlay');
+    if (!ov) return;
+    document.getElementById('cue-text').textContent = text;
+    document.getElementById('cue-from').textContent = from || '';
+    ov.hidden = false;
+    requestAnimationFrame(() => ov.classList.add('show'));
+    try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) {}
+    clearTimeout(cueTimer);
+    cueTimer = setTimeout(() => { ov.classList.remove('show'); setTimeout(() => { ov.hidden = true; }, 250); }, 4000);
+  }
+  document.getElementById('cue-overlay')?.addEventListener('click', (e) => { e.currentTarget.classList.remove('show'); e.currentTarget.hidden = true; });
+
+  // ── Monitor de escenario (?escenario) ──────────────────────────────
+  const STAGE = new URLSearchParams(location.search).has('escenario');
+  if (STAGE) {
+    document.body.classList.add('stage-mode');
+    document.getElementById('stage-view').hidden = false;
+  }
+  const fmtT = (s) => (s > 0 ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '');
+  function renderStage(m) {
+    if (!STAGE) return;
+    const $ = (id) => document.getElementById(id);
+    if (!m.song) { $('sv-title').textContent = 'Esperando canción…'; $('sv-meta').textContent = ''; $('sv-section').textContent = '—'; return; }
+    songKey = m.song.key || songKey;
+    $('sv-title').textContent = m.song.title;
+    $('sv-meta').textContent = [m.song.artist, m.song.key && 'Tono ' + m.song.key, m.song.bpm && m.song.bpm + ' BPM'].filter(Boolean).join(' · ');
+    $('sv-section').textContent = m.section || (m.playing ? '…' : 'Preparada');
+    $('sv-next-section').textContent = m.nextSection ? 'Luego: ' + m.nextSection + (m.sectionLeft != null ? ' en ' + m.sectionLeft + ' s' : '') : '';
+    $('sv-chord').textContent = m.chord ? chordText(m.chord) : '—';
+    $('sv-next-chord').textContent = m.nextChord ? chordText(m.nextChord) : '—';
+    $('sv-time').textContent = m.dur ? '−' + fmtT(m.dur - m.pos) : '';
+    $('sv-progress').style.width = m.dur ? Math.min(100, 100 * m.pos / m.dur) + '%' : '0';
+    $('sv-after').textContent = m.next ? 'Siguiente canción: ' + m.next.title + (m.next.key ? ' (' + m.next.key + ')' : '') : '';
+    songKey = m.song.key || songKey;
+  }
+
+  // ── Modo líder (con PIN) ───────────────────────────────────────────
+  let leader = false;
+  function send(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch (e) {} }
+  function setLeader(on) {
+    leader = on;
+    document.getElementById('leader-bar').hidden = !on;
+    document.getElementById('leader-on').hidden = !on;
+    document.querySelector('.sheet-row--leader').hidden = on;
+    document.body.classList.toggle('has-leader-bar', on);
+  }
+  document.getElementById('leader-go')?.addEventListener('click', () => {
+    const v = (document.getElementById('leader-pin').value || '').trim();
+    if (!/^\d{4}$/.test(v)) { showCue('PIN de 4 cifras', ''); return; }
+    prefs.pin = v; savePrefs(); send({ type: 'auth', pin: v });
+  });
+  document.getElementById('leader-off')?.addEventListener('click', () => { prefs.pin = ''; savePrefs(); setLeader(false); });
+  document.getElementById('leader-bar')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cmd]');
+    if (b) { send({ type: 'cmd', cmd: b.dataset.cmd, pin: prefs.pin }); try { navigator.vibrate && navigator.vibrate(30); } catch (_) {} }
+  });
+  const cuesSheet = document.getElementById('cues-sheet');
+  document.getElementById('cues-grid').innerHTML = CUES.map(([id, t]) => '<button type="button" data-cue="' + id + '">' + t + '</button>').join('');
+  document.getElementById('cues-btn')?.addEventListener('click', () => { cuesSheet.hidden = false; });
+  document.getElementById('cues-close')?.addEventListener('click', () => { cuesSheet.hidden = true; });
+  cuesSheet?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cue]');
+    if (!b) return;
+    send({ type: 'cmd', cmd: 'cue', arg: b.dataset.cue, pin: prefs.pin, name: 'Líder' });
+    cuesSheet.hidden = true;
+  });
 
   // ── Toggle chords ──────────────────────────────────────────────────
   function applyChordsState() {
@@ -172,6 +285,7 @@
   sheet.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeSheet));
 
   // Initial UI sync
+  applyInstrument();
   applyChordsState();
   applyFontSize();
   syncAutoScrollUI();
@@ -190,8 +304,55 @@
     elLiveDot.classList.toggle('is-pulsing', !!playing);
   }
 
-  function render(msg) {
+  // Tema de LivePads: mismos colores que la cabina. Se guarda para que, al
+  // abrir la página otra vez, salga ya con su tema antes de conectar.
+  function hexRgb(h) {
+    const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(h || '').trim());
+    if (!m) return null;
+    let x = m[1]; if (x.length === 3) x = x.replace(/./g, (c) => c + c);
+    return [0, 2, 4].map((i) => parseInt(x.slice(i, i + 2), 16));
+  }
+  const rgba = (h, a) => { const c = hexRgb(h); return c ? 'rgba(' + c.join(',') + ',' + a + ')' : ''; };
+  let themeJson = '';
+  function applyTheme(t) {
+    if (!t || !t.bg) return;
+    const j = JSON.stringify(t);
+    if (j === themeJson) return;
+    themeJson = j;
+    try { localStorage.setItem('lpc.theme', j); } catch (_) {}
+    const bgRgb = hexRgb(t.bg) || [10, 10, 20];
+    const light = (bgRgb[0] * 299 + bgRgb[1] * 587 + bgRgb[2] * 114) / 1000 > 150;
+    const fg = t.text || (light ? '#0f172a' : '#ffffff');
+    const v = {
+      '--bg': t.bg, '--bg-elev': t.bg2 || t.bg, '--bg-sheet': t.bg2 || t.bg,
+      '--fg': fg, '--fg-dim': t.muted || rgba(fg, 0.6),
+      '--accent': t.accent, '--chord': t.accent, '--section': t.accent2 || t.accent,
+      '--lyric': rgba(fg, 0.92), '--border': t.border || rgba(fg, 0.08),
+      '--on-accent': t.onAccent || (light ? '#ffffff' : '#0a0a14'),
+      '--top-bg': rgba(t.bg, 0.92), '--bar-bg': rgba(t.bg, 0.96),
+      '--soft': rgba(fg, 0.06), '--soft-2': rgba(fg, 0.12), '--line': rgba(fg, 0.16),
+      '--fg-soft': rgba(fg, 0.65), '--scrim': light ? 'rgba(15,23,42,.45)' : 'rgba(0,0,0,.6)',
+    };
+    const s = document.documentElement.style;
+    for (const k in v) if (v[k]) s.setProperty(k, v[k]);
+    document.documentElement.dataset.light = light ? '1' : '';
+    document.body.style.background = t.gradient || t.bg;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', t.bg);
+  }
+  try { const saved = localStorage.getItem('lpc.theme'); if (saved) applyTheme(JSON.parse(saved)); } catch (_) {}
+
+  function render(msg, repaint) {
     if (!msg) return;
+    if (msg.theme) applyTheme(msg.theme);
+
+    if (msg.type === 'cue') { showCue(msg.text, msg.from); return; }
+    if (msg.type === 'stage') { renderStage(msg); return; }
+    if (msg.type === 'auth') {
+      if (msg.ok) { setLeader(true); }
+      else { setLeader(false); if (prefs.pin) { prefs.pin = ''; savePrefs(); showCue('PIN incorrecto', 'Pídelo en el panel del Companion'); } }
+      return;
+    }
 
     if (msg.type === 'playing') {
       applyPlaying(msg.value);
@@ -211,10 +372,12 @@
     if (msg.type !== 'state' || !msg.song) return;
 
     const s = msg.song;
-    const songChanged = s.id !== currentSongId;
+    lastMsg = msg;
+    songKey = s.key || '';
+    const songChanged = !repaint && s.id !== currentSongId;
     currentSongId = s.id;
 
-    elKey.textContent = s.key || '—';
+    elKey.textContent = keyLabel(s.key);
     elTitle.textContent = s.title || '';
     elArtist.textContent = s.artist || '';
     elBpm.textContent = s.bpm ? `BPM ${s.bpm}` : '';
@@ -239,13 +402,21 @@
 
   function connect() {
     setConn('connecting', 'Conectando…');
+    // Por internet (?s=CÓDIGO, cloud.js) o por la WiFi (el portátil sirve esta página).
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${proto}//${location.host}`;
 
-    try { ws = new WebSocket(url); }
+    if (!window.LP_CLOUD_SOCKET && location.protocol === 'https:') {
+      setConn('closed', 'Sin enlace');
+      const t = document.querySelector('.empty-title'), s = document.querySelector('.empty-sub');
+      if (t) t.textContent = 'Escanea el QR de LivePads';
+      if (s) s.textContent = 'En LivePads abre Companion y escanea su código QR con este móvil (o abre el enlace que aparece debajo).';
+      return;
+    }
+    try { ws = window.LP_CLOUD_SOCKET ? window.LP_CLOUD_SOCKET() : new WebSocket(url); }
     catch (e) { setConn('closed', 'Sin conexión'); scheduleReconnect(); return; }
 
-    ws.addEventListener('open', () => { setConn('open', 'Conectado'); retryDelay = 600; });
+    ws.addEventListener('open', () => { setConn('open', 'Conectado'); retryDelay = 600; if (prefs.pin) send({ type: 'auth', pin: prefs.pin }); });
     ws.addEventListener('message', (ev) => {
       try { render(JSON.parse(ev.data)); }
       catch (e) { console.warn('Bad payload', e); }
@@ -301,11 +472,11 @@
       }
 
       if (isChordLine(rawLine)) {
-        html += `<div class="chord-line">${esc(rawLine.replace(/\[|\]/g, ''))}</div>`;
+        html += `<div class="chord-line">${esc(rawLine.replace(/\[|\]/g, '').replace(/\S+/g, (t) => chordText(t)))}</div>`;
       } else {
         const hasChords = /\[([^\]<>]+)\]/.test(rawLine);
         const escaped = esc(rawLine);
-        const withInline = escaped.replace(/\[([^\]]+)\]/g, (m, chord) => `<span class="inline-chord">${chord}</span>`);
+        const withInline = escaped.replace(/\[([^\]]+)\]/g, (m, chord) => `<span class="inline-chord">${esc(chordText(chord))}</span>`);
         html += `<div class="lyric-line ${hasChords ? 'has-inline-chords' : ''}">${withInline}</div>`;
       }
     }
@@ -368,5 +539,13 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });
+    // Versión nueva de la página (SW nuevo): recargar una vez para estrenarla ya,
+    // no en la visita siguiente. Solo si ya había uno (la primera instalación no recarga).
+    if (navigator.serviceWorker.controller) {
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return; reloaded = true; location.reload();
+      });
+    }
   }
 })();

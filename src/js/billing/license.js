@@ -78,6 +78,9 @@ async function adopt(token, extra) {
 /** Plan efectivo y datos para mostrar. */
 export function getPlanInfo() {
   if (!BILLING_ENABLED) return { plan: 'pro', status: 'disabled', enabled: false };
+  // Pruebas locales: plan simulado (solo app sin empaquetar con LIVEPADS_DEV_PLAN; ver main.js).
+  const dev = typeof window !== 'undefined' && window.__lpDevPlan;
+  if (dev && LIMITS[dev]) return { enabled: true, plan: dev, status: 'dev', until: null, founder: false, source: 'dev', libraryId: null, interval: null, trialDaysLeft: null };
   const plan = effectivePlan(current);
   return {
     enabled: true,

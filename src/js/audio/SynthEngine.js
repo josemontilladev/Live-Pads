@@ -36,6 +36,7 @@ function softClipper(ctx) {
 }
 
 import { forceStereoOutput } from './stereoOut.js';
+import { mainBusInput } from './mainBus.js';
 
 export class SynthEngine {
   constructor() {
@@ -121,10 +122,10 @@ export class SynthEngine {
     this.drumPanNode.connect(this.drumMaster);
     this.drumMaster.connect(this.drumMakeup);
     this.drumMakeup.connect(this.drumClip.input);
-    this.drumClip.output.connect(this.ctx.destination);
+    this.drumClip.output.connect(mainBusInput(this.ctx));   // bus principal: ecualizador + limitador de la suma
     this.masterGain.connect(this.makeupNode);
     this.makeupNode.connect(this.limiterNode);
-    this.limiterNode.connect(this.ctx.destination);
+    this.limiterNode.connect(mainBusInput(this.ctx));
 
     // Bus DEDICADO del click/metrónomo: boost fuerte + su propio limitador →
     // destino. Separado del máster a propósito: (1) el click debe CORTAR en banda
@@ -202,17 +203,27 @@ export class SynthEngine {
   hasMinor(bank = this.currentPadBank) { return !!(bank && bank.minor); }
   // Mayor ↔ menor: libera los buffers del otro modo (RAM baja en equipos modestos;
   // el pad que suena conserva el suyo) y precarga el modo nuevo.
-  setPadMinor(on) {
+  // Los pads del otro modo NO se borran: al seguir acordes se pasa de mayor a menor
+  // a cada rato y, si no están en memoria, sonaba el pad sintetizado mientras cargaba.
+  // El límite de memoria (_trimPadCache) ya descarta los menos usados.
+  // preload: false = no precargar las 12 notas del modo nuevo (Sigue acordes / Ministración).
+  setPadMinor(on, { preload = true } = {}) {
     on = !!on;
     if (on === this.padMinor) return;
     this.padMinor = on;
     const bank = this.currentPadBank;
     if (!bank) return;
-    const minorPrefix = `${bank.id}_m_`;
-    for (const k of Object.keys(this._padAmbBuffers)) {
-      if (k.startsWith(minorPrefix) !== on) delete this._padAmbBuffers[k];
-    }
-    this._preloadBank(bank);
+    if (preload) this._preloadBank(bank);
+  }
+
+  /** Deja listo en memoria el pad de una nota en un modo concreto (para que el cambio suene ya con el pad real). */
+  prefetchPad(key, minor) {
+    if (!this.currentPadBank) return Promise.resolve();
+    const prev = this.padMinor;
+    this.padMinor = !!minor;
+    const p = this._ensurePadAmb(key);   // lee el modo al empezar (antes de esperar nada)
+    this.padMinor = prev;
+    return p.catch(() => {});
   }
 
   setPadBank(bank) {

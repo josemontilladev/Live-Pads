@@ -32,7 +32,9 @@ export function computePeaks(audioBuffer, targetWidth) {
 // Igual que computePeaks, pero en trozos de ~`slice` ms que ceden el hilo entre sí:
 // con canciones largas el cálculo de un tirón bloqueaba la interfaz (y retrasaba los
 // golpes MIDI) cientos de milisegundos al cambiar de canción.
-const yieldNow = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+const yieldNow = () => (globalThis.scheduler && typeof globalThis.scheduler.yield === 'function')
+  ? globalThis.scheduler.yield()
+  : new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 export async function computePeaksAsync(audioBuffer, targetWidth, { slice = 6, isCancelled } = {}) {
   const channels = audioBuffer.numberOfChannels;
   const samples = audioBuffer.getChannelData(0);

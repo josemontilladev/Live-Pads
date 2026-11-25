@@ -32,6 +32,21 @@ export function setTouchMode(on) {
 }
 paintTouchMode(isTouchMode());
 
+// «Alto contraste (escenario)»: independiente del tema. data-contrast="high" en la raíz; los estilos
+// viven en _polish.css. La ventana de la letra (TV) lo lee de la misma clave.
+export const CONTRAST_KEY = 'livepads.contrast';
+export function isHighContrast() {
+  try { return localStorage.getItem(CONTRAST_KEY) === '1'; } catch { return false; }
+}
+export function paintContrast(on = isHighContrast(), doc = document) {
+  if (on) doc.documentElement.dataset.contrast = 'high'; else delete doc.documentElement.dataset.contrast;
+}
+export function setHighContrast(on) {
+  try { localStorage.setItem(CONTRAST_KEY, on ? '1' : '0'); } catch { /* ignore */ }
+  paintContrast(on);
+}
+paintContrast();
+
 // La primera vez que alguien TOCA la pantalla con el dedo se le ofrece activar
 // los controles grandes. Quien usa ratón no ve nunca la pregunta, y se hace una
 // sola vez (aceptar o rechazar guarda la respuesta).
@@ -86,6 +101,8 @@ export function buildThemesList() {
   if (!container) return;
   const touch = q('#touch-mode-switch');
   if (touch) { touch.checked = isTouchMode(); touch.onchange = () => setTouchMode(touch.checked); }
+  const contrast = q('#contrast-switch');
+  if (contrast) { contrast.checked = isHighContrast(); contrast.onchange = () => setHighContrast(contrast.checked); }
   // Con controles grandes el volumen de cada pad se guarda tras este botón, para
   // no moverlo sin querer al golpear el pad con el dedo.
   const levels = q('#mx-pad-levels');

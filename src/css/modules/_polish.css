@@ -1297,7 +1297,7 @@ body.lyrics-window .lw-cols .chord-line { font-size: .84em !important; }
 /* Menús: separadores, explicación bajo cada opción y ✓ de las activas. */
 .card-more-menu .cmm-sep { height: 1px; margin: 4px 8px; background: var(--menu-line, rgba(255,255,255,.1)); }
 .card-more-menu .cmm-sep--label { height: auto; background: none; padding: 6px 10px 2px; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--menu-dim); }
-.card-more-menu .card-more-item.has-hint { min-height: 46px; align-items: center; padding-top: 6px !important; padding-bottom: 6px !important; }
+:root .card-more-menu button.card-more-item.has-hint { min-height: 46px; align-items: center; padding-top: 6px !important; padding-bottom: 6px !important; }
 .card-more-menu .cmm-label { display: flex; flex-direction: column; gap: 1px; text-align: left; min-width: 0; }
 .card-more-menu .cmm-hint { font-size: 11.5px; font-weight: 400; color: var(--menu-dim, rgba(255,255,255,.55)); line-height: 1.3; }
 .card-more-menu .cmm-check { margin-left: auto; padding-left: 14px; font-weight: 700; color: #fff; }
@@ -1516,3 +1516,278 @@ body:not(.live-mode) #panel-drums > #mixer-bar .mx-title { padding-bottom: 4px !
 }
 :root #tp-close-btn::before { width: 10px !important; height: 10px !important; }
 :root #tp-close-btn:hover { background: rgba(255, 255, 255, .12) !important; border-color: var(--menu-line) !important; color: #fff !important; }
+/* ── Acordes como grados (1·4·5) ────────────────────────────────────────────
+   formatLyrics pinta cada acorde con su nombre (.cn-name) y su grado (.cn-num);
+   la clase «chord-nums» en <html> (utils/chordNumbers.js) decide cuál se ve, en
+   todas las vistas de letra y en la ventana de la TV. */
+.cn-num { display: none; }
+:root.chord-nums .cn-num { display: inline; }
+:root.chord-nums .cn-name { display: none; }
+/* ── Diagramas de acordes (ui/chordDiagram.js) ──────────────────────────────
+   Tocar un acorde de la letra abre un globo con la guitarra y el piano. */
+.inline-chord, .chord-line .cn-name, .chord-line .cn-num { cursor: pointer; }
+.cd-pop {
+  position: fixed; z-index: 10050; padding: 12px 14px; border-radius: 14px;
+  background: var(--menu-bg, #14161c); border: 1px solid var(--menu-line, rgba(255,255,255,.14));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55); color: #fff; --cd-dot: var(--accent, #ffd34d);
+  animation: cd-in .12s ease-out;
+}
+@keyframes cd-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.cd-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.cd-head b { font-size: 18px; font-weight: 800; }
+.cd-head span { font-size: 12px; color: rgba(255, 255, 255, .6); }
+.cd-body { display: flex; gap: 18px; align-items: flex-start; }
+.cd-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cd-k { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255, 255, 255, .5); }
+.cd-guitar { color: #fff; }
+.cd-piano { border-radius: 4px; margin-top: 18px; }
+.cd-bass { font-size: 11.5px; color: rgba(255, 255, 255, .7); margin-top: 4px; }
+/* ── Notas para improvisar (ui/scaleHelper.js) ── */
+.sh-pop { max-width: 360px; }
+.sh-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.sh-row { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; line-height: 1.35; color: rgba(255,255,255,.85); }
+.sh-row span { color: #fff; font-weight: 700; letter-spacing: .02em; }
+.sh-sw { flex: none; width: 12px; height: 12px; border-radius: 3px; margin-top: 3px; }
+.sh-sw--penta { background: #f5a524; } .sh-sw--scale { background: #f6d9a0; } .sh-sw--safe { background: #fff; border: 3px solid #1a1206; box-sizing: border-box; }
+.sh-tip { margin-top: 10px; font-size: 11.5px; color: rgba(255,255,255,.6); }
+/* ═══ Alto contraste (escenario) — ui/themes.js, data-contrast="high" ═══════
+   Letra blanca y más gruesa, acordes en amarillo puro, títulos de sección
+   sólidos y textos secundarios casi blancos. Con cualquier tema. */
+:root[data-contrast="high"] {
+  --text: #ffffff; --text-muted: #e2e2e2;
+}
+:root[data-contrast="high"] :is(.lyrics-text-content, .lyp-cols, .lyr-content, .lw-cols) {
+  color: #fff !important; font-weight: 600 !important; text-shadow: 0 0 1px rgba(0, 0, 0, .9);
+}
+:root[data-contrast="high"] :is(.lyrics-text-content, .lyp-cols, .lyr-content, .lw-cols) :is(.lyric-line, .lyric-line *:not(.inline-chord):not(.inline-chord *)) {
+  color: #fff !important;
+}
+:root[data-contrast="high"] :is(.inline-chord, .chord-line, .chord-line *) {
+  color: #ffe600 !important; font-weight: 900 !important; -webkit-text-fill-color: #ffe600;
+}
+:root[data-contrast="high"] .section-header-line {
+  background: #fff !important; color: #000 !important; -webkit-text-fill-color: #000; font-weight: 900 !important; border-radius: 4px; padding: 1px 8px;
+}
+:root[data-contrast="high"] :is(.gi-song-title, .ll-title, .lyp-title) { color: #fff !important; font-weight: 800 !important; }
+:root[data-contrast="high"] :is(.gi-song-artist, .gi-song-meta-line, .sr-label, .set-hint, small) { color: #e8e8e8 !important; }
+:root[data-contrast="high"] :is(.gi-song-item, .sb-card, .mx-channel) { border-color: rgba(255, 255, 255, .55) !important; }
+:root[data-contrast="high"] :is(button, .ui-btn):focus-visible { outline: 3px solid #ffe600 !important; outline-offset: 2px; }
+/* ── Nota de voz del líder (ui/voiceNote.js) ── */
+.vn-overlay { position: fixed; inset: 0; z-index: 10040; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; }
+.vn-box { width: min(440px, 92vw); padding: 18px 20px; border-radius: 16px; background: var(--menu-bg, #14161c); border: 1px solid var(--menu-line, rgba(255,255,255,.14)); color: #fff; box-shadow: 0 24px 60px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 12px; }
+.vn-head { display: flex; flex-direction: column; gap: 2px; } .vn-head b { font-size: 16px; } .vn-head span { font-size: 12.5px; color: rgba(255,255,255,.6); }
+.vn-why { margin: 0; font-size: 12.5px; color: rgba(255,255,255,.72); line-height: 1.4; }
+.vn-rec { display: flex; align-items: center; gap: 14px; }
+.vn-time { font: 700 15px/1 ui-monospace, Consolas, monospace; color: rgba(255,255,255,.85); }
+.vn-btn { height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; font: 600 13px/1 inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.vn-btn:hover { background: rgba(255,255,255,.14); } .vn-btn:disabled { opacity: .45; cursor: default; }
+.vn-btn--primary { background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); border-color: transparent; }
+.vn-btn--rec i { width: 12px; height: 12px; border-radius: 50%; background: #ff4d4d; }
+.vn-btn--rec.is-on i { border-radius: 2px; animation: vn-blink 1s infinite; } @keyframes vn-blink { 50% { opacity: .35; } }
+.vn-audio { width: 100%; height: 36px; }
+.vn-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: rgba(255,255,255,.65); }
+.vn-field input { height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.25); color: #fff; font: inherit; font-size: 13px; }
+.vn-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.sh-pop .cd-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+.sh-pop .cd-head b { font-size: 16px; }
+
+/* ── Sonido del teclado (ui/midiOutDialog.js) ── */
+.mo-box { width: min(520px, 94vw); }
+.mo-grid { display: flex; gap: 10px; } .mo-grid > .vn-field { flex: 1; } .mo-grid > .mo-narrow { flex: 0 0 92px; }
+.mo-box select, .mo-box .vn-field input { height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.25); color: #fff; font: inherit; font-size: 13px; }
+.mo-secs { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow: auto; }
+.mo-k { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); }
+.mo-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.mo-sec input { width: 90px; height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.25); color: #fff; font: inherit; }
+.mo-auto { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(255,255,255,.8); }
+/* ── Indicaciones a la banda (live/directorCues.js) ── */
+.dc-pal { position: fixed; z-index: 10030; width: 380px; padding: 12px; border-radius: 14px; background: var(--menu-bg, #14161c); border: 1px solid var(--menu-line, rgba(255,255,255,.14)); box-shadow: 0 18px 50px rgba(0,0,0,.55); color: #fff; }
+.dc-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; } .dc-head b { font-size: 14px; } .dc-head span { font-size: 11.5px; color: rgba(255,255,255,.6); }
+.dc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.dc-grid button { height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; font: 700 13px/1.1 inherit; cursor: pointer; }
+.dc-grid button:hover { background: rgba(255,255,255,.16); } .dc-grid button:active { transform: scale(.97); }
+.dc-voice { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: rgba(255,255,255,.75); }
+.dc-banner { position: fixed; left: 50%; top: 70px; z-index: 10060; transform: translate(-50%, -12px); opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+  padding: 12px 26px; border-radius: 16px; background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); box-shadow: 0 16px 40px rgba(0,0,0,.45); display: flex; flex-direction: column; align-items: center; }
+.dc-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.dc-banner b { font-size: 30px; font-weight: 900; letter-spacing: -.01em; } .dc-banner span { font-size: 12px; opacity: .7; }
+.cp-pin { font-size: 13px; color: rgba(255,255,255,.8); display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.cp-pin b { font: 800 18px/1 ui-monospace, Consolas, monospace; letter-spacing: .18em; color: #fff; }
+.cp-pin .cp-copy { width: auto; padding: 0 10px; font-size: 12px; }
+
+.dc-trans { width: 100%; margin-bottom: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.22); background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); font: 800 13px/1.2 inherit; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.dc-trans small { font-weight: 600; font-size: 12px; opacity: .7; }
+
+/* ── Pad que sigue los acordes (live/padFollow.js) ── */
+.pad-follow-btn { margin-left: 6px; height: 24px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: transparent; color: rgba(255,255,255,.75); font: 700 11px/1 inherit; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.pad-follow-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+.pad-follow-btn.is-on { background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); border-color: transparent; }
+
+/* ── Modo ministración (live/ministry.js) ── */
+.mi-pal { width: 400px; }
+.mi-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.mi-row label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: rgba(255,255,255,.65); flex: 1; }
+.mi-row input, .mi-row select { height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.25); color: #fff; font: inherit; font-size: 13px; }
+.mi-progs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mi-progs button { height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; font: 700 12.5px/1 inherit; cursor: pointer; }
+.mi-progs button.is-on { background: var(--flat-paper, #fff); color: var(--flat-ink-lo, #0a0a14); }
+.mi-now { display: flex; align-items: baseline; gap: 14px; margin: 12px 2px 4px; }
+.mi-now b { font-size: 44px; font-weight: 900; color: #ffcc33; line-height: 1; } .mi-now span { font-size: 15px; color: rgba(255,255,255,.7); }
+.mi-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.mi-actions .is-on { background: #ff5a5a; color: #fff; }
+
+/* ── Fondos en movimiento de la letra (ui/lyricsBackground.js) ── */
+#lw-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+body.has-lw-bg { background: #000 !important; }
+body.has-lw-bg > .lw-head, body.has-lw-bg > .lw-body { position: relative; z-index: 1; }
+.lw-bg-anim { position: absolute; inset: -20%; background-size: 300% 300%; animation: lw-bg-move 28s ease-in-out infinite alternate; filter: saturate(1.1); }
+@keyframes lw-bg-move { 0% { background-position: 0% 50%; transform: scale(1); } 50% { background-position: 100% 50%; transform: scale(1.06) rotate(1deg); } 100% { background-position: 50% 100%; transform: scale(1); } }
+.lw-bg-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background-size: cover; background-position: center; }
+.lw-bg-dim { position: absolute; inset: 0; background: rgba(0,0,0,var(--lw-dim, .45)); }
+.bg-box { width: min(560px, 94vw); }
+.bg-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.bg-tile { height: 70px; border-radius: 12px; border: 2px solid transparent; background-size: 200% 200%; color: #fff; font: 700 12px/1.2 inherit; cursor: pointer; display: flex; align-items: flex-end; justify-content: flex-start; padding: 6px 8px; text-shadow: 0 1px 3px rgba(0,0,0,.8); overflow: hidden; overflow-wrap: anywhere; }
+.bg-tile--none, .bg-tile--file { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16); align-items: center; justify-content: center; text-align: center; }
+.bg-box input[type=range] { -webkit-appearance: auto; appearance: auto; height: auto; padding: 0; border: 0; background: none; accent-color: #fff; width: 100%; }
+.bg-tile.is-on { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.35); }
+/* ── Click que sigue al baterista (live/tempoFollow.js) ── */
+.metro-follow-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 24px; padding: 0 10px; margin-top: 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: transparent; color: rgba(255,255,255,.75); font: 700 10.5px/1 inherit; white-space: nowrap; cursor: pointer; }
+.metro-follow-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+.metro-follow-btn.is-on { background: #ff5a5a; color: #fff; border-color: #ff5a5a; animation: mf-pulse 1.6s ease-in-out infinite; }
+@keyframes mf-pulse { 50% { box-shadow: 0 0 0 4px rgba(255,90,90,.25); } }
+/* ── La letra sigue a la banda (live/bandFollow.js) ── */
+.ll-btn#ll-band.is-on { background: #ff5a5a; color: #fff; }
+.lyric-line.ll-band-now { background: rgba(255,204,51,.12); border-radius: 8px; box-shadow: inset 3px 0 0 #ffcc33; }
+
+/* Pad: «Sigue acordes» y «Ministración» en su propia fila bajo el selector. */
+.pad-extras { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.pad-extras .pad-follow-btn { margin: 0; height: 30px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Paneles nuevos: opacos en todos los temas (--menu-bg es translúcido en algunos). */
+.vn-box, .dc-pal, .cd-pop { background: linear-gradient(var(--menu-bg, #14161c), var(--menu-bg, #14161c)), var(--bg, #0b0d12); }
+.mo-grid > * { min-width: 0; }
+.mo-box .vn-field input, .mo-box .vn-field select { width: 100%; min-width: 0; box-sizing: border-box; }
+.mi-now b:empty { display: none; }
+
+/* Menús ⋯ largos: las opciones no se encogen para caber (hacen scroll). */
+.card-more-menu .card-more-item { flex-shrink: 0; }
+
+/* Terminar suave: el botón late mientras baja el volumen. */
+#tp-softend-btn.is-on { color: #fbbf24; animation: se-pulse .8s ease-in-out infinite alternate; }
+@keyframes se-pulse { to { opacity: .45; } }
+
+/* Mezcla por canción: indicador en la cabecera del Mezclador. */
+.mx-songmix { margin-left: 10px; height: 22px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: rgba(255,255,255,.6); font: 600 11px/1 inherit; cursor: default; white-space: nowrap; }
+.mx-songmix.is-on { color: #fff; border-color: var(--accent, #ffcc33); cursor: pointer; }
+.mx-songmix.is-on:hover { background: rgba(255,255,255,.08); }
+
+/* Quién dirige (servicio). */
+.svc-leader { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; margin-top: 4px; height: 22px; padding: 0 9px; border-radius: 999px; border: 1px dashed rgba(255,255,255,.22); background: transparent; color: rgba(255,255,255,.65); font: 600 11px/1 inherit; cursor: pointer; white-space: nowrap; }
+.svc-leader.is-on { border-style: solid; border-color: var(--accent, #ffcc33); color: #fff; }
+.svc-leader:hover { background: rgba(255,255,255,.07); }
+
+/* Calentamiento vocal (live/warmup.js). */
+.wu-box { width: min(620px, 94vw); }
+.wu-box .mi-row { flex-wrap: wrap; }
+.wu-box .mi-row label { min-width: 120px; }
+.wu-box .mi-row input, .wu-box .mi-row select { height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: rgba(0,0,0,.25); color: #fff; font: inherit; font-size: 13px; }
+.wu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wu-list button { text-align: left; padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: #fff; cursor: pointer; display: flex; flex-direction: column; gap: 3px; font: inherit; }
+.wu-list button b { font-size: 13px; } .wu-list button small { font-size: 11.5px; color: rgba(255,255,255,.6); line-height: 1.3; }
+.wu-list button.is-on { background: #fff; color: #0a0a14; } .wu-list button.is-on small { color: rgba(10,10,20,.65); }
+.wu-now { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,.25); }
+.wu-now b { font-size: 20px; font-weight: 800; } .wu-now span { font-size: 12.5px; color: rgba(255,255,255,.7); }
+@media (max-width: 560px) { .wu-list { grid-template-columns: 1fr; } }
+
+/* Botón «Voz» del espectro y su panel (live/voiceGuide.js). */
+#sw-voice.is-on { color: #34d399; border-color: rgba(52,211,153,.6); }
+.vg-pop { position: fixed; z-index: 10040; width: min(340px, 92vw); padding: 12px 14px; border-radius: 14px; background: linear-gradient(var(--menu-bg, #14161c), var(--menu-bg, #14161c)), var(--bg, #0b0d12); border: 1px solid var(--menu-line, rgba(255,255,255,.14)); box-shadow: 0 18px 50px rgba(0,0,0,.55); color: #fff; display: flex; flex-direction: column; gap: 10px; }
+.vg-title { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); }
+.vg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.vg-row span { display: flex; flex-direction: column; gap: 2px; } .vg-row b { font-size: 13px; } .vg-row small { font-size: 11.5px; color: rgba(255,255,255,.6); line-height: 1.3; }
+.vg-vol { display: flex; align-items: center; gap: 10px; font-size: 12px; color: rgba(255,255,255,.7); }
+.vg-vol input { flex: 1; -webkit-appearance: auto; appearance: auto; accent-color: #fff; }
+.vg-test { align-self: flex-start; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: transparent; color: #fff; font: 600 12px/1 inherit; cursor: pointer; }
+.vg-test:hover { background: rgba(255,255,255,.08); }
+
+/* Cabecera en pantallas estrechas: que nunca se salgan los botones de ventana.
+   La hora y el texto de la cuenta se compactan antes que las herramientas. */
+@media (max-width: 1240px) {
+  #topbar-clock { display: none; }
+  .acc-chip-text i { display: none; }
+}
+@media (max-width: 1120px) {
+  .acc-chip-text { display: none; }
+  .topbar-actions .icon-btn { margin-left: 0; margin-right: 0; }
+}
+
+/* Mezclador en pantallas estrechas: el «Vol» y el porcentaje no se montan sobre el nombre del canal. */
+@media (max-width: 1150px) {
+  #mixer-bar .mx-channel .mx-ctrl:not(:has(.pan-slider)) .mx-lbl { display: none; }
+  #mixer-bar .mx-channel .mx-ctrl:not(:has(.pan-slider)) .mx-ctrl-head { justify-content: flex-end; }
+  #mixer-bar .mx-channel .mx-val { font-size: 11px; }
+  #mixer-bar .mx-channel { padding-left: 8px; padding-right: 8px; column-gap: 6px; }
+  #mixer-bar .mx-channel > .mx-name { font-size: 12px; white-space: nowrap; }
+}
+@media (max-width: 1150px) {
+  #mixer-bar .mx-master .mx-val { display: none; }
+  #mixer-bar .mx-master .mx-ctrl-head .mx-lbl { display: none; }
+  .mx-songmix { margin-left: 6px; padding: 0 8px; font-size: 10.5px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.mx-songmix .mx-sm-s { display: none; }
+@media (max-width: 1150px) {
+  .mx-songmix { max-width: none; }
+  .mx-songmix .mx-sm-l { display: none; }
+  .mx-songmix .mx-sm-s { display: inline; }
+  .mx-songmix:not(.is-on) { display: none; }
+}
+
+/* Prueba de rango vocal (live/vocalRange.js). */
+.vr-box { width: min(520px, 94vw); }
+.vr-stage { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 12px; background: rgba(0,0,0,.25); }
+.vr-step { font-size: 14px; line-height: 1.4; }
+.vr-note { display: flex; align-items: baseline; gap: 14px; }
+.vr-note b { font-size: 46px; font-weight: 900; line-height: 1; min-width: 110px; }
+.vr-note span { font-size: 13px; color: rgba(255,255,255,.7); }
+.vr-meter { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+.vr-meter i { display: block; height: 100%; width: 0; background: #34d399; transition: width .08s linear; }
+.vr-k { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 6px; }
+.vr-res ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow: auto; }
+.vr-res li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; font-size: 13px; }
+.vr-res li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vr-res li small { color: rgba(255,255,255,.55); font-size: 11.5px; }
+
+/* Arreglo en vivo (live/arrange.js). */
+#sw-arrange.is-on { color: #fbbf24; border-color: rgba(251,191,36,.6); animation: se-pulse .8s ease-in-out infinite alternate; }
+.arr-pop[hidden] { display: none; }
+.arr-status { font-size: 12.5px; color: rgba(255,255,255,.75); }
+.arr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.arr-grid button { min-height: 38px; padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); color: #fff; font: 600 12.5px/1.2 inherit; cursor: pointer; text-align: left; }
+.arr-grid button:hover { background: rgba(255,255,255,.12); }
+.arr-grid button:first-child { grid-column: 1 / -1; }
+.arr-tip { font-size: 11px; color: rgba(255,255,255,.5); }
+
+/* La letra avanza sola: línea actual y cantadas (panel de Letra y TV). */
+.lyp-cols .lyric-line, .lw-cols .lyric-line { transition: opacity .25s, color .25s; }
+.lyp-cols .lyric-line.lyp-now, .lw-cols .lyric-line.lw-now { color: var(--accent, #ffcc33); }
+.lyp-cols .lyric-line.lyp-past, .lw-cols .lyric-line.lw-past { opacity: .5; }
+
+/* Pads de batería: llenan el hueco hasta 640 px (antes 472, y sobraba espacio bajo el
+   mezclador en pantallas altas); el mezclador queda siempre abajo, alineado con los
+   paneles de los lados. */
+body:not(.live-mode) .drum-grid { max-height: 640px; }
+body:not(.live-mode) #panel-drums > #mixer-bar { margin-top: auto; }
+
+/* Plegar/desplegar el espectro y el mezclador: la flecha gira suave (utils/smoothCollapse.js anima el alto). */
+#seq-wave .sw-btn--icon svg, #mixer-bar .mx-collapse svg { transition: transform .32s cubic-bezier(0.22, 1, 0.36, 1); }
+#seq-wave #sw-collapse.is-turned svg, #mixer-bar .mx-collapse.is-turned svg { transform: rotate(180deg); }
+#seq-wave:not(.is-collapsed) #sw-collapse:not(.is-turned) svg, #mixer-bar:not(.is-collapsed) .mx-collapse:not(.is-turned) svg { transform: none; }
+
+/* Companion: modo por internet / misma WiFi. */
+.cp-mode { display: flex; margin: 4px 0 2px; }
+.cp-mode .ui-seg-btn { flex: 1; }
+.cp-mode-tip { font-size: 12px; color: var(--text-muted, rgba(255,255,255,.6)); margin: 2px 0 8px; }
+#companion-overlay[data-mode="cloud"] .cp-wifi-only { display: none !important; }
+#companion-overlay[data-mode="wifi"] .cp-cloud-only { display: none !important; }
+.cp-newcode { margin-left: 6px; width: auto !important; padding: 0 10px; font-size: 11.5px; }

@@ -17,6 +17,8 @@ import { formatLyrics, detectSectionHeader } from './lyricsFormat.js';
 import { transposeAll } from './chordTransposer.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 
+import { markersFor } from '../data/markers.js';
+import { getCurrentType as gctLyr } from '../audio/trackPlayer.js';
 const OPEN_KEY = 'livepads-livelyrics-open';
 const SIZE_KEY = 'livepads-livelyrics-size';
 const CHORDS_KEY = 'livepads-livelyrics-chords';
@@ -106,7 +108,7 @@ export function initLiveLyrics() {
     const semis = s && baseKey && liveKey && baseKey !== liveKey ? keyDelta(baseKey, liveKey) : 0;
     const text = s && s.lyrics ? (semis ? transposeAll(s.lyrics, semis, prefersFlats(liveKey)) : s.lyrics) : '';
     window.dispatchEvent(new CustomEvent('livepads:open-lyrics', { detail: s ? {
-      title: s.title || '', artist: s.artist || '', key: liveKey || baseKey, html: text.trim() ? formatLyrics(text) : '',
+      title: s.title || '', artist: s.artist || '', key: liveKey || baseKey, html: text.trim() ? formatLyrics(text, liveKey || baseKey) : '',
     } : { title: 'Letra', artist: '', key: '', html: '<p class="lyp-empty">Elige una canción de la lista para ver su letra.</p>' } }));
   };
   panel.querySelector('#ll-close').onclick = () => setOpen(false);
@@ -193,7 +195,7 @@ function refresh() {
   if (!panel || panel.classList.contains('hidden')) return;
   const s = currentSong();
   const liveKey = s ? getEffectiveKey(s) : '';
-  const sig = s ? JSON.stringify([s.id, s.lyrics, s.key, liveKey, s.markers]) : 'none';
+  const sig = s ? JSON.stringify([s.id, s.lyrics, s.key, liveKey, markersFor(s, gctLyr())]) : 'none';
   if (sig === lastSig) return;
   lastSig = sig;
   song = s;
@@ -216,7 +218,7 @@ function refresh() {
   }
   const semis = baseKey && liveKey && baseKey !== liveKey ? keyDelta(baseKey, liveKey) : 0;
   const text = semis ? transposeAll(s.lyrics, semis, prefersFlats(liveKey)) : s.lyrics;
-  bodyEl.innerHTML = formatLyrics(text);
+  bodyEl.innerHTML = formatLyrics(text, liveKey || baseKey);
   rebuildTiming();
 }
 
@@ -297,7 +299,7 @@ function rebuildTiming() {
   }
 
   // 2) Marcadores (secciones de la onda) → tiempo de inicio de cada sección de la letra.
-  const ms = (Array.isArray(song.markers) ? song.markers : []).slice().sort((a, b) => a.t - b.t);
+  const ms = markersFor(song, gctLyr()).slice().sort((a, b) => a.t - b.t);
   const used = new Set();
   const cMs = ms.map((m) => ({ ...m, canon: canonOf(m.label) }));
   const startOf = new Map(); // sec → t

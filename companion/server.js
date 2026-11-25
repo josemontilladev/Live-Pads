@@ -16,6 +16,7 @@ const path = require('path');
 const os = require('os');
 const { WebSocketServer } = require('ws');
 
+const cloud = require('./cloud');
 const CLIENT_DIR = path.join(__dirname, 'client');
 const PORT_RANGE = [3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010];
 
@@ -34,6 +35,48 @@ let wss = null;
 let activePort = null;
 let lastState = { type: 'no-song' };
 let preferredIp = null; // overrides auto-detected IP when user picks one manually
+
+// ── Control remoto e indicaciones (de ida y vuelta) ──
+// Cualquiera en la red puede VER la letra; para CONTROLAR (play, siguiente…) o enviar
+// indicaciones a la banda hace falta el PIN de 4 cifras que muestra LivePads (así nadie
+// de la congregación conectado al mismo wifi puede tocar el sonido). Nuevo en cada arranque.
+let pin = String(Math.floor(1000 + Math.random() * 9000));
+let onCommand = null;                  // (cmd) => void — lo pone main.js (manda al renderer)
+const REMOTE_CMDS = new Set(['play', 'stop', 'next', 'prev', 'cue', 'panic']);
+function setCommandHandler(fn) { onCommand = typeof fn === 'function' ? fn : null; }
+function newPin() { pin = String(Math.floor(1000 + Math.random() * 9000)); return pin; }
+function handleMessage(ws, raw) {
+  let m;
+  try { m = JSON.parse(String(raw)); } catch (_) { return; }
+  handleRemote(m, (reply) => { try { ws.send(JSON.stringify(reply)); } catch (_) {} }, 'wifi');
+}
+// Mensajes de los móviles (por la WiFi o por internet). Por internet, tras 5 PIN
+// incorrectos seguidos ese móvil queda un minuto sin poder probar (contra adivinarlo).
+const pinFails = new Map();   // id → { n, until }
+function handleRemote(m, reply, who) {
+  if (!m || typeof m !== 'object') return;
+  const key = String(m.cid || who || '');
+  const f = pinFails.get(key);
+  if (f && f.until > Date.now()) { reply({ type: 'auth', ok: false, wait: true }); return; }
+  const ok = String(m.pin || '') === pin;
+  if ((m.type === 'auth' || m.type === 'cmd') && m.pin != null) {
+    if (ok) pinFails.delete(key);
+    else { const n = (f ? f.n : 0) + 1; pinFails.set(key, { n, until: n >= 5 ? Date.now() + 60000 : 0 }); }
+  }
+  if (m.type === 'auth') { reply({ type: 'auth', ok }); return; }
+  if (m.type !== 'cmd') return;
+  if (!ok) { reply({ type: 'auth', ok: false }); return; }
+  const cmd = String(m.cmd || '');
+  if (!REMOTE_CMDS.has(cmd)) return;
+  const arg = typeof m.arg === 'string' ? m.arg.slice(0, 40) : null;
+  if (onCommand) { try { onCommand({ cmd, arg, from: String(m.name || '').slice(0, 30) }); } catch (_) {} }
+}
+
+/** Indicación del director a todos los móviles: { id, text }. */
+function broadcastCue(cue) {
+  if (!cue || !cue.text) return;
+  broadcast({ type: 'cue', id: String(cue.id || ''), text: String(cue.text).slice(0, 40), from: String(cue.from || '').slice(0, 30), at: Date.now() });
+}
 
 // Heuristics to surface the real WiFi/Ethernet IP and downrank VPN tunnels
 // (Cloudflare WARP, Tailscale, WireGuard, OpenVPN, etc.). The user can still
@@ -154,12 +197,16 @@ async function start() {
   wss.on('connection', (ws) => {
     // Send the cached state immediately so late joiners see the active song.
     try { ws.send(JSON.stringify(lastState)); } catch (e) {}
+    if (lastStage) { try { ws.send(JSON.stringify(lastStage)); } catch (e) {} }
+    ws.on('message', (raw) => handleMessage(ws, raw));
   });
+  if (cloudCode) setCloud(cloudCode);
 
   return getStatus();
 }
 
 async function stop() {
+  cloud.stop();
   if (wss) {
     for (const client of wss.clients) {
       try { client.close(); } catch (e) {}
@@ -176,6 +223,7 @@ async function stop() {
 }
 
 function broadcast(payload) {
+  try { cloud.send(payload); } catch (_) {}
   if (!wss) return;
   const data = JSON.stringify(payload);
   for (const client of wss.clients) {
@@ -186,10 +234,28 @@ function broadcast(payload) {
 }
 
 let lastPlaying = false;
+let lastStage = null;   // monitor de escenario (?escenario): sección, acordes, tiempo, siguiente
+
+function publishStage(stage) {
+  lastStage = Object.assign({ type: 'stage' }, stage || {});
+  broadcast(lastStage);
+}
+
+let lastTheme = null;
+/** Colores del tema activo de LivePads (los móviles se pintan igual). */
+function setTheme(t) {
+  if (!t || typeof t !== 'object') return;
+  const pick = {};
+  for (const k of ['id', 'bg', 'bg2', 'bg3', 'accent', 'accent2', 'text', 'muted', 'border', 'onAccent', 'gradient'])
+    if (t[k] != null) pick[k] = String(t[k]).slice(0, 400);
+  lastTheme = pick;
+  lastState = Object.assign({}, lastState, { theme: lastTheme });
+  broadcast(lastState);
+}
 
 function publishSong(song) {
   if (!song) {
-    lastState = { type: 'no-song' };
+    lastState = { type: 'no-song', theme: lastTheme };
   } else {
     lastState = {
       type: 'state',
@@ -201,7 +267,8 @@ function publishSong(song) {
         bpm: song.bpm || '',
         lyrics: song.lyrics || ''
       },
-      playing: lastPlaying
+      playing: lastPlaying,
+      theme: lastTheme
     };
   }
   broadcast(lastState);
@@ -217,17 +284,32 @@ function publishPlaying(playing) {
   broadcast({ type: 'playing', value: lastPlaying });
 }
 
+// ── Por internet ─────────────────────────────────────────────────────────
+// Página publicada del Companion (GitHub Pages). El QR «Por internet» la abre con ?s=<código>.
+const COMPANION_WEB = 'https://companion.livepads.online/';
+let cloudCode = null;
+/** Activa (con su código) o apaga el modo por internet. */
+function setCloud(code) {
+  cloudCode = code || null;
+  if (cloudCode && httpServer) cloud.start(cloudCode, (m, reply) => handleRemote(m, reply, 'cloud'));
+  else cloud.stop();
+  if (cloudCode) { cloud.send(lastState); if (lastStage) cloud.send(lastStage); }
+}
+
 function getStatus() {
   const ip = getLanIp();
   const candidates = getLanCandidates();
+  const cs = cloud.status();
   return {
+    cloud: cloudCode ? { url: COMPANION_WEB + '?s=' + cloudCode, connected: cs.connected, clients: cloud.clients() } : null,
     running: !!httpServer,
     port: activePort,
     url: httpServer ? `http://${ip}:${activePort}` : null,
     ip,
     candidates, // [{ip, iface, score}, ...] — surfaced in the panel for manual override
-    clients: wss ? wss.clients.size : 0
+    clients: wss ? wss.clients.size : 0,
+    pin
   };
 }
 
-module.exports = { start, stop, publishSong, publishPlaying, getStatus, setPreferredIp };
+module.exports = { start, stop, publishSong, publishPlaying, publishStage, getStatus, setPreferredIp, setCommandHandler, broadcastCue, newPin, setCloud, setTheme };

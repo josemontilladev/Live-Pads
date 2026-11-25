@@ -82,3 +82,22 @@ export function noteForKey(text, key) {
   const hit = parseSingerKeys(text).find((x) => x.key === key && x.note);
   return hit ? hit.note : '';
 }
+
+// ── Quién dirige (servicio) ─────────────────────────────────────────────
+const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+/** Tono guardado para ese cantante en esta canción («G · María» → G para «maria»). null si no tiene. */
+export function keyForSinger(text, name) {
+  const n = fold(name);
+  if (!n) return null;
+  const hit = parseSingerKeys(text).find((x) => fold(x.note) === n);
+  return hit ? hit.key : null;
+}
+/** Cantantes con algún tono guardado en estas canciones (sin repetir, por orden alfabético). */
+export function singersIn(texts) {
+  const seen = new Map();
+  for (const t of texts || []) for (const x of parseSingerKeys(t)) {
+    const k = fold(x.note);
+    if (k && !seen.has(k)) seen.set(k, x.note);
+  }
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'es'));
+}

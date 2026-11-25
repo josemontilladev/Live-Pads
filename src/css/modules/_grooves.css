@@ -1,0 +1,159 @@
+/* ════════ Caja de ritmos (live/grooveUI.js) — panel flotante, como el metrónomo ════════ */
+#groove-overlay { position: fixed; inset: 0; z-index: 8650; pointer-events: none; opacity: 0; transition: opacity .18s ease; }
+#groove-overlay.open { opacity: 1; }
+#groove-overlay[hidden] { display: none; }
+.gt-panel {
+  --gt-bg: #0e1014; --gt-card: #15181e; --gt-cell: #262a32; --gt-cell-beat: #30353f; --gt-line: rgba(255,255,255,.08); --gt-dim: rgba(255,255,255,.55);
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  pointer-events: auto; -webkit-app-region: no-drag;
+  width: min(1040px, 96vw); min-width: 560px; max-width: 98vw; max-height: calc(100vh - 16px);
+  overflow: auto; resize: horizontal;
+  background: var(--gt-bg); color: #f3f4f6; border: 1px solid rgba(255,255,255,.12); border-radius: 18px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7); padding: 0 18px 14px; display: flex; flex-direction: column; gap: 12px;
+  font-family: inherit;
+}
+.gt-head { display: flex; align-items: center; gap: 10px; cursor: move; margin: 0 -18px; padding: 11px 16px 10px; border-bottom: 1px solid var(--gt-line); user-select: none; }
+.gt-dots { opacity: .45; letter-spacing: -2px; }
+.gt-head h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.gt-sub { flex: 1; font-size: 11.5px; color: var(--gt-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Barra superior */
+.gt-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 12px; background: var(--gt-card); border: 1px solid var(--gt-line); border-radius: 14px; }
+.gt-play { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; transition: transform .1s, background .15s; }
+.gt-play:hover { background: rgba(255,255,255,.08); }
+.gt-play:active { transform: scale(.95); }
+.gt-play.is-on { background: #ff3b5c; border-color: #ff3b5c; box-shadow: 0 0 22px rgba(255,59,92,.55); }
+.gt-bpm { display: flex; align-items: center; gap: 6px; }
+.gt-bpm > div { display: flex; flex-direction: column; align-items: center; min-width: 50px; line-height: 1; }
+.gt-bpm b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.gt-bpm small { font-size: 10px; color: var(--gt-dim); margin-top: 3px; }
+.gt-bpm button { width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: #fff; font: 700 16px/1 inherit; cursor: pointer; }
+.gt-bpm .gt-tap { width: auto; padding: 0 12px; font-size: 11px; letter-spacing: .1em; border-color: rgba(255,255,255,.5); }
+.gt-bpm button:hover { background: rgba(255,255,255,.08); }
+.gt-field { display: flex; flex-direction: column; gap: 4px; color: var(--gt-dim); position: relative; }
+.gt-field > span { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; }
+.gt-field select, .gt-rename { height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: #0b0d10; color: #fff; font: 600 13px/1 inherit; letter-spacing: 0; text-transform: none; min-width: 0; }
+.gt-field--groove select { width: 190px; }
+.gt-field select:disabled { opacity: .5; }
+.gt-rename { position: absolute; left: 0; bottom: 0; width: 210px; z-index: 2; }
+.gt-knobs { display: flex; gap: 10px; }
+.gt-menu { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.gt-menu button, .gt-foot button { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: rgba(255,255,255,.85); font: 700 11.5px/1 inherit; cursor: pointer; }
+.gt-menu button:hover, .gt-foot button:hover { background: rgba(255,255,255,.08); color: #fff; }
+.gt-menu .is-danger:hover { background: rgba(255,59,92,.15); color: #ff8aa0; }
+.gt-menu [hidden] { display: none; }
+
+/* Ruedas */
+.gt-knob { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: ns-resize; user-select: none; touch-action: none; outline: none; }
+.gt-knob svg { width: 40px; height: 40px; }
+.gt-knob--sm svg { width: 28px; height: 28px; }
+.gt-knob span { font-size: 10.5px; font-weight: 700; color: var(--gt-dim); }
+.gt-knob .k-bg { fill: #0b0d10; stroke: rgba(255,255,255,.14); stroke-width: 3; }
+.gt-knob .k-arc { fill: none; stroke: var(--c, #fff); stroke-width: 3; stroke-linecap: round; }
+.gt-knob .k-tick { stroke: #fff; stroke-width: 2.4; stroke-linecap: round; }
+.gt-knob:focus-visible .k-bg { stroke: #fff; }
+.gt-knob.is-off { opacity: .35; pointer-events: none; }
+
+/* Secciones */
+.gt-sections { display: flex; gap: 8px; flex-wrap: wrap; }
+.gt-sections button { position: relative; overflow: hidden; height: 36px; min-width: 92px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: var(--gt-card); color: rgba(255,255,255,.7); font: 700 13px/1 inherit; cursor: pointer; }
+.gt-sections button:hover { color: #fff; border-color: rgba(255,255,255,.3); }
+.gt-sections button.is-auto span { opacity: .55; }
+.gt-sections button.is-edit { background: #f3f4f6; color: #0b0d10; border-color: transparent; }
+.gt-sections button.is-edit.is-auto span { opacity: .7; }
+.gt-sections button.is-playing::before { content: ''; position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px #34d399; }
+.gt-sections button.is-queued { border-color: #fbbf24; animation: gt-q .45s ease-in-out infinite alternate; }
+@keyframes gt-q { to { background: rgba(251,191,36,.22); } }
+.gt-prog { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: #34d399; transition: width .06s linear; }
+
+/* Cuadrícula */
+.gt-grid { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 10px; background: var(--gt-card); border: 1px solid var(--gt-line); border-radius: 14px; overflow-x: auto; }
+.gt-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 96px; align-items: center; gap: 12px; }
+.gt-row--head .gt-cells span { font-size: 11px; font-weight: 800; color: var(--gt-dim); text-align: left; padding-left: 2px; }
+.gt-tname { display: grid; grid-template-columns: 10px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left; padding: 4px 6px; border: 0; border-radius: 8px; background: transparent; color: #fff; cursor: pointer; min-width: 0; }
+.gt-tname:hover { background: rgba(255,255,255,.06); }
+.gt-tname i { grid-row: 1 / 3; width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.gt-tname b { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-tname small { font-size: 10.5px; color: var(--gt-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-cells { display: grid; grid-template-columns: repeat(var(--n), minmax(16px, 1fr)); gap: 5px; }
+.gt-cell { aspect-ratio: 1; max-height: 34px; min-height: 18px; border: 0; border-radius: 6px; padding: 0; background: var(--gt-cell); cursor: pointer; transition: background .08s, box-shadow .08s, transform .08s; }
+.gt-cell.is-beat { background: var(--gt-cell-beat); }
+.gt-cell:hover { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.45); }
+.gt-cell.v-x { background: color-mix(in srgb, var(--c) 82%, #000); box-shadow: 0 0 10px color-mix(in srgb, var(--c) 45%, transparent); }
+.gt-cell.v-X { background: var(--c); box-shadow: 0 0 16px var(--c), inset 0 0 0 2px rgba(255,255,255,.55); }
+.gt-cell.v-o { background: color-mix(in srgb, var(--c) 38%, var(--gt-cell)); }
+.gt-cell.is-now { box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
+.gt-cell.is-now.v-x, .gt-cell.is-now.v-X, .gt-cell.is-now.v-o { transform: scale(1.12); filter: brightness(1.35); }
+.gt-grid.is-auto .gt-cell.v-x, .gt-grid.is-auto .gt-cell.v-X, .gt-grid.is-auto .gt-cell.v-o { opacity: .45; }
+.gt-row.is-muted .gt-cells, .gt-row.is-muted .gt-tname { opacity: .35; }
+.gt-tctl { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.gt-mute, .gt-del { width: 26px; height: 26px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); background: transparent; color: rgba(255,255,255,.7); font: 800 11px/1 inherit; cursor: pointer; padding: 0; }
+.gt-mute.is-on { background: #fbbf24; color: #0b0d10; border-color: transparent; }
+.gt-del { font-size: 15px; border-color: transparent; color: rgba(255,255,255,.4); }
+.gt-del:hover { color: #ff8aa0; background: rgba(255,59,92,.12); }
+
+/* Pie */
+.gt-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gt-foot .gt-add { border-style: dashed; }
+.gt-copy { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--gt-dim); }
+.gt-copy select { height: 30px; padding: 0 8px; border-radius: 9px; border: 1px solid rgba(255,255,255,.16); background: #0b0d10; color: #fff; font: inherit; font-size: 12px; }
+.gt-note { flex: 1; text-align: right; font-size: 11.5px; color: var(--gt-dim); min-width: 200px; }
+
+/* Selector de sonidos */
+.gt-picker { position: fixed; z-index: 8700; pointer-events: auto; width: 380px; max-height: 60vh; display: flex; flex-direction: column; background: #12151a; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.7); color: #fff; overflow: hidden; }
+.gt-pk-head { padding: 10px 14px; font-size: 13px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,.08); }
+.gt-pk-head small { display: block; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.55); margin-top: 2px; }
+.gt-pk-body { overflow: auto; padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+.gt-pk-kit b { display: block; font-size: 11.5px; color: rgba(255,255,255,.6); margin-bottom: 6px; }
+.gt-pk-kit div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.gt-pk-kit button { height: 30px; padding: 0 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); background: #1b1f26; color: #fff; font: 600 11.5px/1 inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-pk-kit button:hover { background: #262b34; }
+.gt-pk-kit button.is-on { background: #f3f4f6; color: #0b0d10; }
+
+/* Botón de la cabecera mientras suena un ritmo */
+#btn-grooves.is-active { color: #34d399; }
+
+@media (max-width: 760px) {
+  .gt-panel { min-width: 0; padding: 0 10px 10px; }
+  .gt-row { grid-template-columns: 96px minmax(0, 1fr) 64px; gap: 6px; }
+  .gt-cells { gap: 3px; }
+  .gt-tname small { display: none; }
+  .gt-del { display: none; }
+}
+@media (max-height: 780px) { .gt-cell { max-height: 26px; } .gt-grid { gap: 4px; } .gt-sections button { height: 32px; } }
+
+/* Secciones + ayuda en una fila; acciones del ritmo en el pie. */
+.gt-secrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.gt-secrow .gt-note { flex: 1; text-align: right; min-width: 180px; }
+.gt-menu--foot { margin-left: auto; }
+
+/* Ningún texto en mayúsculas sostenidas dentro de la caja (tampoco en los desplegables). */
+.gt-panel select, .gt-panel option, .gt-panel optgroup { text-transform: none; letter-spacing: 0; }
+
+/* Barra superior: cada grupo = etiqueta arriba + control de 34 px; todo centrado a la misma altura. */
+.gt-top { align-items: center; gap: 12px 16px; }
+.gt-top .gt-field { justify-content: flex-start; }
+.gt-top .gt-field > span { height: 13px; line-height: 13px; }
+.gt-top .gt-field select { height: 34px; }
+.gt-top .gt-bpm { height: 34px; gap: 6px; }
+.gt-top .gt-bpm > div { flex-direction: row; align-items: baseline; gap: 4px; min-width: 0; }
+.gt-top .gt-bpm b { font-size: 22px; line-height: 34px; }
+.gt-top .gt-bpm small { margin: 0; }
+.gt-top .gt-bpm button { height: 30px; }
+.gt-field--knob { align-items: center; }
+.gt-field--knob .gt-knob { height: 34px; justify-content: center; }
+.gt-field--knob .gt-knob svg { width: 34px; height: 34px; }
+.gt-top .gt-play { width: 50px; height: 50px; }
+.gt-top .gt-bpm b, .gt-top .gt-bpm button { color: #fff; }
+.gt-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gt-dim); cursor: pointer; }
+.gt-check input { accent-color: #34d399; }
+
+/* Seguir la canción. */
+.gt-follow { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 8px 12px; border-radius: 12px; border: 1px dashed rgba(255,255,255,.16); font-size: 12.5px; }
+.gt-follow.is-on { border-style: solid; border-color: rgba(52,211,153,.5); background: rgba(52,211,153,.06); }
+.gt-switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
+.gt-switch input { width: 32px; height: 18px; accent-color: #34d399; cursor: pointer; }
+.gt-follow-txt { flex: 1; min-width: 180px; color: var(--gt-dim); }
+
+.gt-bass { display: inline-flex; align-items: center; gap: 8px; }
+.gt-bass input[type=range] { width: 80px; -webkit-appearance: auto; appearance: auto; accent-color: #34d399; }
