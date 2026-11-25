@@ -279,7 +279,7 @@ export function showServiceCreate(opts = {}) {
       if (entry) {
         const n = songs.length;
         window.showToast?.(n
-          ? `✓ «${entry.name}» creado con ${n} canción${n === 1 ? '' : 'es'}.`
+          ? `✓ «${entry.name}» creado con ${n} ${n === 1 ? 'canción' : 'canciones'}.`
           : `✓ «${entry.name}» creado. Añade canciones con «+ Canciones».`, 'success');
         hideServiceCreate();
         renderServiceList({ keepScroll: false });
@@ -348,6 +348,7 @@ function openServiceMenu(anchor) {
     items.push({ label: 'Imprimir o PDF: setlist con hojas de acordes', onSelect: () => import('./printSheet.js').then((m) => m.printService(getServiceSongs(), { ...meta(), withSheets: true })) });
     items.push({ label: 'Imprimir o PDF: solo la lista', onSelect: () => import('./printSheet.js').then((m) => m.printService(getServiceSongs(), { ...meta(), withSheets: false })) });
     items.push({ label: 'Enviar por WhatsApp', onSelect: () => import('./shareService.js').then((m) => m.sendServiceToWhatsApp(getServiceSongs().map((x) => ({ title: x.title, artist: x.artist, key: getEffectiveKey(x) || x.key, bpm: x.bpm, youtubeUrl: x.youtubeUrl })), meta())) });
+    items.push({ label: 'Guardar paquete para otro portátil (USB, sin internet)…', hint: 'Canciones, tonos del día y audios en un solo archivo', onSelect: () => import('./servicePack.js').then((m) => m.exportServicePack(meta())) });
     items.push({ label: 'Calentamiento vocal…', onSelect: () => { const first = getServiceSongs()[0]; import('../live/warmup.js').then((m) => m.openWarmup(first ? (getEffectiveKey(first) || first.key || '') : '')); } });
     items.push({ label: 'Copiar el mensaje del servicio', onSelect: () => import('./shareService.js').then((m) => m.copyServiceMessage(getServiceSongs().map((x) => ({ title: x.title, artist: x.artist, key: getEffectiveKey(x) || x.key, bpm: x.bpm, youtubeUrl: x.youtubeUrl })), meta())) });
   }
@@ -355,6 +356,7 @@ function openServiceMenu(anchor) {
     const c = duplicateSetlist(id);
     if (c) window.showToast?.(`✓ Duplicado como «${c.name}».`, 'success');
   } });
+  items.push({ label: 'Abrir paquete de servicio (.lpservicio)…', hint: 'El que se guardó en otro portátil', onSelect: () => import('./servicePack.js').then((m) => m.importServicePack()) });
   if (n) items.push({ label: 'Quitar todas las canciones', onSelect: () => click('#btn-clear-service') });
   if (id) items.push({ label: 'Eliminar servicio', danger: true, onSelect: () => {
     const s = listSavedSetlists().find((x) => x.id === id);
@@ -990,7 +992,7 @@ function setLeader(name) {
       if (getEffectiveKey(song) !== k) { setKeyOverride(song, k); changed++; deps.onKeyChanged?.(song); }
     }
     renderServiceList();
-    window.showToast?.(`Dirige ${name}: ${changed} canción${changed === 1 ? '' : 'es'} en sus tonos`
+    window.showToast?.(`Dirige ${name}: ${changed} ${changed === 1 ? 'canción' : 'canciones'} en sus tonos`
       + (suggested ? ` · ${suggested} sugerido${suggested === 1 ? '' : 's'} por su rango vocal` : '')
       + (missing ? ` · ${missing} sin tono guardado (haz la «Prueba de rango vocal» o cámbialo y quedará guardado)` : '') + '.', 'success');
   });

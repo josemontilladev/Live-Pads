@@ -1935,3 +1935,34 @@ body.live-mode .lyp-next:not(:has(.lyp-next-sec:not([hidden]))) { display: none;
 .vn-btn[hidden] { display: none; }
 /* Con la paleta de indicaciones abierta, su botón ya está en rojo: el aviso flotante no hace falta (y la taparía). */
 body:has(.dc-pal) .tb-pill { display: none; }
+
+/* Contador de repeticiones en la onda («Coro 2/3», live/sectionCountCore.js). */
+.sw-count { margin-left: 4px; padding: 1px 6px; border-radius: 999px; font-size: .9em; font-weight: 800; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+
+/* Batería del portátil sin cargador (live/powerWatch.js). */
+.power-chip { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; margin-right: 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, #f59e0b 60%, transparent); background: color-mix(in srgb, #f59e0b 16%, transparent); color: var(--text); font: 700 12px/1 inherit; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; flex: none; -webkit-app-region: no-drag; }
+.power-chip[hidden] { display: none; }
+.power-chip.is-low { border-color: #dc2626; background: #dc2626; color: #fff; }
+/* Cabecera estrecha: los chips de batería y de cuenta atrás se compactan (nunca empujan fuera los botones de ventana). */
+.tv-cd-chip .cd-k { font-weight: 700; }
+@media (max-width: 1240px) {
+  .power-chip span { display: none; }
+  .power-chip { padding: 0 8px; margin-right: 4px; }
+  .tv-cd-chip .cd-k, .tv-cd-chip svg { display: none; }
+  .tv-cd-chip { padding: 0 8px; margin-right: 4px; }
+}
+/* La cabecera va justa (sobre todo en los temas de botones grandes): por debajo de 1366 px
+   los iconos se juntan un poco; con un chip de estado a la vista (batería, cuenta atrás) la
+   hora deja su sitio; y hasta 1320 px los chips van compactos. Así los botones de ventana
+   nunca se salen (antes, en «Consola» a 1280 px, el de cerrar ya quedaba fuera). */
+@media (max-width: 1366px) {
+  .topbar-actions { gap: 6px; }
+}
+.topbar-actions:has(.power-chip:not([hidden]), .tv-cd-chip:not([hidden])) #topbar-clock { display: none; }
+@media (max-width: 1320px) {
+  .power-chip span { display: none; }
+  .power-chip { padding: 0 8px; margin-right: 0; }
+  .tv-cd-chip .cd-k, .tv-cd-chip svg { display: none; }
+  .tv-cd-chip { padding: 0 8px; margin-right: 0; }
+}
+@media (max-width: 1060px) { .topbar-actions { gap: 2px; } }

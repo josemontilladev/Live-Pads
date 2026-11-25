@@ -100,6 +100,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLyricsLine: (cb) => ipcRenderer.on('lyrics-line', (_e, i) => cb(i)),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (_) { return ''; } },
   saveZipFile: (data) => ipcRenderer.invoke('save-zip-file', data),
+  servicePackExport: (data) => ipcRenderer.invoke('service-pack-export', data),
+  servicePackImport: () => ipcRenderer.invoke('service-pack-import'),
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),
   stemsSaveAs: (data) => ipcRenderer.invoke('stems-save-as', data),
   stemsLoadProject: (slug) => ipcRenderer.invoke('stems-load-project', slug),

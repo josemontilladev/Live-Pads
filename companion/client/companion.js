@@ -126,7 +126,7 @@
     songKey = m.song.key || songKey;
     $('sv-title').textContent = m.song.title;
     $('sv-meta').textContent = [m.song.artist, m.song.key && 'Tono ' + m.song.key, m.song.bpm && m.song.bpm + ' BPM'].filter(Boolean).join(' · ');
-    $('sv-section').textContent = m.section || (m.playing ? '…' : 'Preparada');
+    $('sv-section').textContent = (m.section || (m.playing ? '…' : 'Preparada')) + (m.section && m.count ? ' ' + m.count : '');
     $('sv-next-section').textContent = m.nextSection ? 'Luego: ' + m.nextSection + (m.sectionLeft != null ? ' en ' + m.sectionLeft + ' s' : '') : '';
     const nb = $('sv-notes');
     if (nb) { const list = Array.isArray(m.notes) ? m.notes : []; nb.hidden = !list.length; nb.innerHTML = list.map((t) => '<div>' + esc(t) + '</div>').join(''); }

@@ -14,6 +14,7 @@ let popModal = null;
 import { getPadBankIdx, getKitBankIdx } from '../state/store.js';
 import { getMidiMap } from '../midi/midiMap.js';
 import { dropoutStats, stableAudioOn } from '../audio/dropoutMonitor.js';
+import { powerState } from '../live/powerWatch.js';
 
 let mounted = null;
 
@@ -129,6 +130,16 @@ function runChecks(ctx) {
         ? (stableAudioOn() ? 'Cierra otras apps, conecta el cargador y usa el modo de energía de máximo rendimiento.' : 'Cierra otras apps y conecta el cargador; si siguen, activa «Audio estable» en Ajustes → Audio.')
         : 'El equipo entrega el audio a tiempo en esta sesión.',
       ok: d.total === 0,
+    });
+  }
+
+  // 1d. Corriente del portátil (live/powerWatch.js). Un sobremesa no informa (siempre «cargando»).
+  {
+    const p = powerState();
+    if (p && !(p.charging && p.level >= 100)) out.push({
+      label: p.charging ? 'Cargador conectado' : `Con batería (${p.level} %)`,
+      detail: p.charging ? `Batería al ${p.level} % y cargando.` : 'Conecta el cargador: con batería Windows puede bajar el rendimiento y cortar el audio.',
+      ok: !!p.charging,
     });
   }
 

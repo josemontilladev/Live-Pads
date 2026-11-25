@@ -42,7 +42,7 @@ function bindImportExport(deps) {
         return;
       }
       const n = exportGiSetlistToFile(songs);
-      showToast(`Exportadas ${n} canción${n === 1 ? '' : 'es'} a JSON.`, 'success');
+      showToast(`Exportadas ${n} ${n === 1 ? 'canción' : 'canciones'} a JSON.`, 'success');
     };
   }
 
@@ -84,7 +84,7 @@ function bindImportExport(deps) {
           deps.updateFilterCounts();
           renderGiList();
           q('.s-toggle[data-target="gi-setlist-list"]').click();
-          showToast(`Importadas ${imported.length} canción${imported.length === 1 ? '' : 'es'}.`, 'success');
+          showToast(`Importadas ${imported.length} ${imported.length === 1 ? 'canción' : 'canciones'}.`, 'success');
           finish();
         };
 

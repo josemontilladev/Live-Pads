@@ -109,6 +109,7 @@ import { initDirectorCues } from './live/directorCues.js';
 import { initTalkback } from './live/talkback.js';
 import { initDropoutMonitor } from './audio/dropoutMonitor.js';
 import { initTvCountdown, openTvCountdown } from './ui/tvCountdown.js';
+import { initPowerWatch } from './live/powerWatch.js';
 import { isSounding } from './state/performing.js';
 import { initStagePublish } from './live/stagePublish.js';
 import { initModulation } from './live/modulation.js';
@@ -437,6 +438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTalkback({ getEngine: () => engine });   // hablar a los in-ears (live/talkback.js)
   initDropoutMonitor({ isBusy: () => isSounding() });   // cortes de audio (audio/dropoutMonitor.js)
   initTvCountdown();   // chip «TV 04:59» mientras hay cuenta atrás en la TV
+  initPowerWatch();    // batería y cargador del portátil (live/powerWatch.js)
   initStagePublish();  // monitor de escenario (Companion con ?escenario)
   initModulation();    // subir el tono en el último coro (punto marcado por canción)
   initMedley({ playCurrent: () => triggerSourcePlayPause() });   // medleys: unir con la siguiente sin silencio

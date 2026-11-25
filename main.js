@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const dns = require('dns');
 const companionServer = require('./companion/server');
+const servicePack = require('./servicePack');
 const QRCode = require('qrcode');
 
 // Register the livepads:// scheme as privileged BEFORE app is ready.
@@ -2535,6 +2536,65 @@ ipcMain.handle('stems-save-file', async (_e, { id, name, buffer } = {}) => {
   const absPath = path.join(app.getPath('userData'), relPath);
   fs.writeFileSync(absPath, Buffer.from(buffer));
   return toLivepadsUrl(relPath);
+});
+
+// ── Paquete del servicio sin conexión (.lpservicio, ver servicePack.js) ──
+// Pruebas automáticas (solo sin empaquetar): una ruta fija en lugar del diálogo de Guardar/Abrir.
+const testPackPath = () => (!app.isPackaged && process.env.LIVEPADS_TEST_PACK) || null;
+ipcMain.handle('service-pack-export', async (_e, { name, date, songs, keys } = {}) => {
+  const list = Array.isArray(songs) ? songs : [];
+  if (!list.length) throw new Error('El servicio no tiene canciones.');
+  const clean = String(name || 'Servicio').replace(/[^\p{L}\p{N}._ -]/gu, '_').trim() || 'Servicio';
+  const result = testPackPath() ? { filePath: testPackPath() } : await dialog.showSaveDialog(mainWindow, {
+    title: 'Guardar el paquete del servicio',
+    defaultPath: `${clean}${date ? ' ' + String(date).replace(/[^0-9-]/g, '') : ''}.lpservicio`,
+    filters: [{ name: 'Paquete de servicio de LivePads', extensions: ['lpservicio'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  const files = [], missing = [], seen = new Set();
+  for (const s of list) {
+    for (const url of servicePack.songUrls(s)) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      const rel = servicePack.relOf(url);
+      let abs = null;
+      try { abs = resolveLivepadsUrl(url); } catch (_) { abs = null; }
+      if (abs && fs.existsSync(abs)) files.push({ name: 'files/' + rel, file: abs });
+      else missing.push(rel);
+    }
+  }
+  const manifest = { app: 'LivePads', kind: 'servicio', version: 1, name: String(name || 'Servicio'), date: date || null, exportedAt: new Date().toISOString(), songs: list, keys: Array.isArray(keys) ? keys : [] };
+  const bytes = servicePack.writePack(result.filePath, [{ name: 'servicio.json', data: Buffer.from(JSON.stringify(manifest), 'utf8') }, ...files]);
+  return { path: result.filePath, files: files.length, missing, bytes };
+});
+ipcMain.handle('service-pack-import', async () => {
+  const result = testPackPath() ? { filePaths: [testPackPath()] } : await dialog.showOpenDialog(mainWindow, {
+    title: 'Abrir un paquete de servicio',
+    properties: ['openFile'],
+    filters: [{ name: 'Paquete de servicio de LivePads', extensions: ['lpservicio'] }],
+  });
+  if (result.canceled || !result.filePaths || !result.filePaths[0]) return null;
+  const file = result.filePaths[0];
+  const index = servicePack.readIndex(file);
+  const man = index.find((e) => e.name === 'servicio.json');
+  if (!man) throw new Error('No es un paquete de servicio de LivePads.');
+  const manifest = JSON.parse(servicePack.readEntry(file, man).toString('utf8'));
+  if (!manifest || manifest.kind !== 'servicio' || !Array.isArray(manifest.songs)) throw new Error('No es un paquete de servicio de LivePads.');
+  let written = 0, skipped = 0, rejected = 0;
+  for (const e of index) {
+    if (!e.name.startsWith('files/')) continue;
+    const rel = e.name.slice('files/'.length);
+    // Solo dentro de las carpetas de audio de la librería (y sin «..»: resolveLivepadsUrl lo comprueba).
+    if (!isAudioLibraryRelPath(rel) || rel.includes('..')) { rejected++; continue; }
+    let dest = null;
+    try { dest = resolveLivepadsUrl(toLivepadsUrl(rel)); } catch (_) { dest = null; }
+    if (!dest) { rejected++; continue; }
+    try { if (fs.statSync(dest).size === e.size) { skipped++; continue; } } catch (_) {}
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, servicePack.readEntry(file, e));
+    written++;
+  }
+  return { manifest, written, skipped, rejected };
 });
 
 // Guarda un ZIP (descarga completa de las pistas de una canción).

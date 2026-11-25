@@ -1,5 +1,5 @@
-• Hablar a la banda (talkback): en «Indicaciones a la banda», mantén pulsado el botón y tu voz llega solo a los in-ears (salidas 3-4), nunca a la sala. Un toque lo deja abierto; también se puede asignar a un pedal o botón MIDI.
-• Notas para la banda por sección («Bajo: aquí para», «Todos: último coro suave»): se escriben desde el menú de la canción o las herramientas de la letra, las ve todo el equipo y aparecen en la letra, en la hoja impresa y en el Companion de cada músico justo en esa sección.
-• Cuenta atrás en la TV: «El servicio empieza en 05:00» con un anuncio, sobre el fondo de la pantalla. Se ve también en la barra superior mientras corre.
-• Cejilla automática para guitarra: con el tono del día, LivePads propone la cejilla y muestra los acordes en formas abiertas (en la letra, en la hoja impresa y en el Companion con «Automática»).
-• Aviso de cortes de audio: si el equipo no llega a tiempo y el audio se corta mientras suena, LivePads te avisa y te dice qué hacer. Nuevo interruptor «Audio estable» en Ajustes → Audio para equipos justos.
+• Paquete del servicio para otro portátil: en el menú «⋯» del servicio, «Guardar paquete para otro portátil» crea un solo archivo con las canciones, los tonos del día, las notas y los audios. En el otro portátil, «Abrir paquete de servicio» lo deja listo para tocar, sin internet.
+• Contador de repeticiones en vivo: la onda muestra «Coro 2/3» (y el monitor de escenario también). Si repites una sección con «Arreglo», la cuenta lo suma.
+• Aviso de batería: si el portátil se desenchufa, LivePads te avisa al momento; con batería verás el porcentaje en la barra superior y otro aviso por debajo del 20 % y del 10 %. El Pre-vuelo también lo revisa.
+• La barra superior ya no empuja fuera los botones de la ventana en pantallas estrechas (temas Consola).
+• Correcciones de texto («canciones»).

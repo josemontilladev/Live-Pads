@@ -14,6 +14,9 @@
 // canción (Supabase, meta.markers). Stems los guarda al «Asignar a canción».
 
 import './waveMore.js';
+import { createSectionCounter } from '../live/sectionCountCore.js';
+const secCounter = createSectionCounter();
+let lastCntSig = '';
 import { computePeaksAsync } from '../stems/waveform.js';
 
 // Onda de cada pista, calculada una vez a máxima resolución (sirve para cualquier zoom)
@@ -389,18 +392,21 @@ function tick(force) {
   playheadEl.style.transform = `translateX(${(t / duration) * (stageW || stage.clientWidth)}px)`;
   playedClip.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
   laneTick(t);
+  // Contador de repeticiones («Coro 2/3»): se sigue en cada frame para no perder un salto.
+  const ms = sortedMarkers();
+  const cnt = secCounter.update(ms, t, song ? `${song.id || song.title}|${trackType}` : '');
+  const cntSig = cnt && cnt.show ? `${cnt.n}/${cnt.total}` : '';
   // Sección actual / siguiente (solo si cambió el segundo, para no tocar el DOM en cada frame).
   const sec = Math.floor(t);
   const jump = getPendingJump();
   const jumpSig = jump ? `${jump.label}|${jump.at}` : '';
-  if (!force && sec === lastCur && jumpSig === lastJumpSig) return;
-  lastCur = sec; lastJumpSig = jumpSig;
-  const ms = sortedMarkers();
+  if (!force && sec === lastCur && jumpSig === lastJumpSig && cntSig === lastCntSig) return;
+  lastCur = sec; lastJumpSig = jumpSig; lastCntSig = cntSig;
   let cur = null, next = null;
   for (let i = 0; i < ms.length; i++) { if (ms[i].t <= t + 0.05) cur = ms[i]; else { next = ms[i]; break; } }
   regionsEl.querySelectorAll('.sw-region').forEach(r => r.classList.toggle('is-current', !!cur && r.dataset.id === cur.id));
   markersEl.querySelectorAll('.sw-pill').forEach(p => p.classList.toggle('is-current', !!cur && p.dataset.id === cur.id));
-  nowEl.innerHTML = cur ? `<i style="--h:${sectionHue(cur.label)}"></i>${escapeHtml(cur.label)}`
+  nowEl.innerHTML = cur ? `<i style="--h:${sectionHue(cur.label)}"></i>${escapeHtml(cur.label)}${cntSig ? ` <b class="sw-count" title="Vez que suena esta sección / veces en total (con las repeticiones del arreglo)">${cntSig}</b>` : ''}`
     : ms.length ? 'Antes de la 1.ª sección'
     : detecting === song ? '<span class="sw-detecting">Analizando la canción: secciones y acordes…</span>'
     : calmPending === song ? '<span class="sw-detecting">Preparando la canción… (se analiza en unos segundos)</span>'

@@ -15,6 +15,8 @@ import { chordName } from '../chords/chordEngine.js';
 
 import { markersFor } from '../data/markers.js';
 import { notesOf } from './bandNotes.js';
+import { createSectionCounter } from './sectionCountCore.js';
+const stageCounter = createSectionCounter();
 import { notesForSection, noteLine } from './bandNotesCore.js';
 import { getCurrentType as gctStage } from '../audio/trackPlayer.js';
 let last = '';
@@ -35,6 +37,7 @@ export function stageState() {
   // Secciones (marcas de la onda)
   const ms = markersFor(song, gctStage()).filter((m) => m && Number.isFinite(m.t)).slice().sort((a, b) => a.t - b.t).map((m) => ({ s: m.t, label: m.label }));
   const si = at(ms, t);
+  const cnt = stageCounter.update(ms.map((m) => ({ t: m.s, label: m.label })), t, `${song.id || song.title}|${gctStage()}`);
   // Acordes (si la pista ya se analizó)
   let chord = '', nextChord = '';
   if (audio && audio.buffer) {
@@ -52,6 +55,7 @@ export function stageState() {
   return {
     song: { title: song.title || '', artist: song.artist || '', key: getEffectiveKey(song) || song.key || '', bpm: song.bpm || '' },
     section: si >= 0 ? ms[si].label : '',
+    count: cnt && cnt.show ? `${cnt.n}/${cnt.total}` : '',
     notes: si >= 0 ? notesForSection(notesOf(song), ms[si].label).map(noteLine).slice(0, 3) : [],
     nextSection: ms[si + 1] ? ms[si + 1].label : '',
     sectionLeft: ms[si + 1] ? Math.max(0, Math.round(ms[si + 1].s - t)) : null,
