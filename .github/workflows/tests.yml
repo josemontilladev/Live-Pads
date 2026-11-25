@@ -24,6 +24,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Las pruebas unitarias solo usan módulos propios: no hace falta instalar Electron ni los modelos.
+      # Las pruebas unitarias usan módulos propios y «ws» (servidor del Companion): solo se instala ese,
+      # no Electron ni los modelos.
+      - name: Install ws
+        run: npm install --no-save --ignore-scripts --no-package-lock ws@8
       - name: Unit tests
         run: npm test
