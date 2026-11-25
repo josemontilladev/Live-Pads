@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { esc } from '../utils/dom.js';
+import { bindTalkbackButton, talkbackPrefs, setTalkbackPrefs, talkbackRoute, onTalkbackChange } from './talkback.js';
 
 const G = 'assets/Spanish%20Guides/';
 const sec = (f) => `${G}Song%20Sections/${encodeURIComponent(f)}.wav`;
@@ -87,7 +88,8 @@ export function sendCue(id, from = '') {
 
 // ── Paleta en LivePads ──
 let pal = null;
-function closePalette() { if (pal) { pal.remove(); pal = null; document.removeEventListener('pointerdown', onOut, true); document.removeEventListener('keydown', onKey, true); } }
+let offTalk = null;
+function closePalette() { if (offTalk) { offTalk(); offTalk = null; } if (pal) { pal.remove(); pal = null; document.removeEventListener('pointerdown', onOut, true); document.removeEventListener('keydown', onKey, true); } }
 function onOut(e) { if (pal && !pal.contains(e.target) && !e.target.closest('#btn-cues')) closePalette(); }
 function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closePalette(); } }
 export function toggleCuePalette(anchor) {
@@ -95,6 +97,12 @@ export function toggleCuePalette(anchor) {
   pal = document.createElement('div');
   pal.className = 'dc-pal';
   pal.innerHTML = `<div class="dc-head"><b>Indicaciones a la banda</b><span>Llegan a los móviles (Companion) y, con voz, a los auriculares</span></div>
+    <div class="dc-tb">
+      <button type="button" class="tb-btn" aria-pressed="false" title="Talkback: tu voz llega solo a los in-ears de la banda. Asignable a un pedal MIDI con «Aprender»."><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span><b>Hablar a la banda</b><small>Mantén pulsado para hablar · un toque lo deja abierto</small></span></button>
+      <div class="dc-tb-opts"><select class="tb-mic" aria-label="Micrófono del talkback"><option value="">Micrófono predeterminado</option></select><label class="dc-tb-vol" title="Volumen de tu voz en los in-ears">Voz <input type="range" class="tb-vol" min="0.2" max="2" step="0.1" aria-label="Volumen de tu voz"></label></div>
+      <p class="dc-tb-route"></p>
+      <label class="dc-tb-main" hidden><input type="checkbox"> Mis salidas 1-2 solo van a los in-ears (no a la sala)</label>
+    </div>
     <button type="button" class="dc-trans" data-trans="1">Transición al tono de la siguiente<small data-ref="tplan"></small></button>
     <div class="dc-grid">${CUES.map((c) => `<button type="button" data-cue="${c.id}">${esc(c.text)}</button>`).join('')}</div>
     <label class="dc-voice"><input type="checkbox" ${voiceOn() ? 'checked' : ''}> Decirlas en voz por los auriculares (por la salida del click)</label>`;
@@ -108,7 +116,35 @@ export function toggleCuePalette(anchor) {
   });
   import('./keyTransition.js').then((m) => { const p = m.transitionPlan(); const el = pal && pal.querySelector('[data-ref="tplan"]'); if (el) el.textContent = p.steps.length > 1 ? p.steps.map((s) => s.name).join(' → ') : 'La siguiente está en el mismo tono'; });
   pal.querySelector('.dc-voice input').addEventListener('change', (e) => setVoice(e.target.checked));
+  wireTalkback(pal);
   setTimeout(() => { document.addEventListener('pointerdown', onOut, true); document.addEventListener('keydown', onKey, true); }, 0);
+}
+
+// ── Talkback (live/talkback.js) dentro de la paleta ──
+function wireTalkback(root) {
+  const btn = root.querySelector('.tb-btn'), mic = root.querySelector('.tb-mic'), vol = root.querySelector('.tb-vol');
+  const route = root.querySelector('.dc-tb-route'), main = root.querySelector('.dc-tb-main'), mainBox = main.querySelector('input');
+  const p = talkbackPrefs();
+  vol.value = String(p.volume);
+  mainBox.checked = !!p.mainOk;
+  const paintRoute = () => {
+    const r = talkbackRoute();
+    btn.classList.toggle('is-blocked', !r);
+    route.textContent = r === 'alt' ? 'Tu voz sale por las salidas 3-4 (in-ears): la sala no la oye.'
+      : r === 'main' ? 'Tu voz sale por las salidas 1-2: marcaste que solo van a los in-ears.'
+      : 'Para usarlo, activa «Click y guía por las salidas 3-4» en Ajustes → Audio (con una interfaz de 4 salidas).';
+    main.hidden = r === 'alt';
+  };
+  paintRoute();
+  offTalk = bindTalkbackButton(btn);
+  mainBox.addEventListener('change', () => { setTalkbackPrefs({ mainOk: mainBox.checked }); paintRoute(); });
+  vol.addEventListener('input', () => setTalkbackPrefs({ volume: Number(vol.value) }));
+  mic.addEventListener('change', () => setTalkbackPrefs({ mic: mic.value }));
+  navigator.mediaDevices?.enumerateDevices?.().then((devs) => {
+    const ins = devs.filter((d) => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    mic.insertAdjacentHTML('beforeend', ins.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Micrófono ' + (i + 1))}</option>`).join(''));
+    mic.value = ins.some((d) => d.deviceId === p.mic) ? p.mic : '';
+  }).catch(() => {});
 }
 
 // ── Órdenes del móvil del líder ──

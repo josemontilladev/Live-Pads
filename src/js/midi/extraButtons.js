@@ -30,6 +30,7 @@ export const EXTRA_BUTTONS = {
   groove_fill: { sel: '#gt-sections [data-part="fill"]',   label: 'Caja de ritmos: redoble' },
   groove_c:    { sel: '#gt-sections [data-part="C"]',      label: 'Caja de ritmos: puente' },
   groove_end:  { sel: '#gt-sections [data-part="end"]',    label: 'Caja de ritmos: final' },
+  talkback:    { sel: '.tb-btn, .tb-pill',                   label: 'Talkback: hablar a la banda (in-ears)' },
 };
 
 /** ¿El elemento pulsado en modo Learn es uno de estos botones? → su id, o null. */
@@ -42,6 +43,11 @@ export function extraButtonFor(el) {
 export function clickExtraButton(id) {
   const b = EXTRA_BUTTONS[id];
   if (!b) return false;
+  if (id === 'talkback') {
+    // Funciona con la paleta cerrada: abre o cierra el micrófono hacia los in-ears.
+    import('../live/talkback.js').then((m) => m.toggleTalkback()).catch(() => {});
+    return true;
+  }
   if (id === 'lyrics') {
     // Con la letra abierta, la cierra; si no, abre la de la canción cargada.
     const close = document.querySelector('.lyp-panel [data-do="close"]');

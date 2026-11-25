@@ -34,7 +34,7 @@
     scrollSpeed: 3,     // 1..10
     keepAwake: true,
     instrument: 'chords',  // chords | capo | bass | bb | eb | lyrics
-    capo: 2,
+    capo: 'auto',     // número de traste o 'auto' (la sugerida para el tono de hoy)
     nums: false,
     pin: ''
   };
@@ -51,15 +51,25 @@
   // ── Acordes para cada músico (instrument.js) ───────────────────────
   let lastMsg = null;
   let songKey = '';
+  // Cejilla que se usa: la elegida o, en «Automática», la sugerida para el tono de hoy.
+  function capoNow() {
+    if (prefs.capo !== 'auto') return parseInt(prefs.capo, 10) || 0;
+    const c = window.LPInstrument && window.LPInstrument.bestCapo(songKey);
+    return c ? c.capo : 0;
+  }
   function chordText(ch) {
     if (!window.LPInstrument) return ch;
-    const out = window.LPInstrument.chordFor(ch, { mode: prefs.instrument, capo: prefs.capo, nums: prefs.nums, key: songKey });
+    const out = window.LPInstrument.chordFor(ch, { mode: prefs.instrument, capo: capoNow(), nums: prefs.nums, key: songKey });
     return out == null ? ch : out;
   }
   function keyLabel(key) {
     if (!key) return '—';
     if (!window.LPInstrument) return key;
-    if (prefs.instrument === 'capo') return key + ' · cejilla ' + prefs.capo + ' (' + window.LPInstrument.viewKey(key, 'capo', prefs.capo) + ')';
+    if (prefs.instrument === 'capo') {
+      const c = capoNow();
+      if (!c) return key + ' · sin cejilla';
+      return key + ' · cejilla ' + c + (prefs.capo === 'auto' ? ' (sugerida)' : '') + ' · formas de ' + window.LPInstrument.viewKey(key, 'capo', c);
+    }
     if (prefs.instrument === 'bb') return key + ' · en Si♭: ' + window.LPInstrument.viewKey(key, 'bb', 0);
     if (prefs.instrument === 'eb') return key + ' · en Mi♭: ' + window.LPInstrument.viewKey(key, 'eb', 0);
     return key;
@@ -78,7 +88,7 @@
     if (!el) return;
     el.addEventListener('change', () => {
       if (id === 'instrument') prefs.instrument = el.value;
-      else if (id === 'capo') prefs.capo = parseInt(el.value, 10) || 0;
+      else if (id === 'capo') prefs.capo = el.value === 'auto' ? 'auto' : (parseInt(el.value, 10) || 0);
       else prefs.nums = el.checked;
       savePrefs(); applyInstrument();
     });
@@ -118,6 +128,8 @@
     $('sv-meta').textContent = [m.song.artist, m.song.key && 'Tono ' + m.song.key, m.song.bpm && m.song.bpm + ' BPM'].filter(Boolean).join(' · ');
     $('sv-section').textContent = m.section || (m.playing ? '…' : 'Preparada');
     $('sv-next-section').textContent = m.nextSection ? 'Luego: ' + m.nextSection + (m.sectionLeft != null ? ' en ' + m.sectionLeft + ' s' : '') : '';
+    const nb = $('sv-notes');
+    if (nb) { const list = Array.isArray(m.notes) ? m.notes : []; nb.hidden = !list.length; nb.innerHTML = list.map((t) => '<div>' + esc(t) + '</div>').join(''); }
     $('sv-chord').textContent = m.chord ? chordText(m.chord) : '—';
     $('sv-next-chord').textContent = m.nextChord ? chordText(m.nextChord) : '—';
     $('sv-time').textContent = m.dur ? '−' + fmtT(m.dur - m.pos) : '';
@@ -382,6 +394,7 @@
     elArtist.textContent = s.artist || '';
     elBpm.textContent = s.bpm ? `BPM ${s.bpm}` : '';
     elLyrics.innerHTML = formatLyrics(s.lyrics || '');
+    decorateNotes(Array.isArray(s.notes) ? s.notes : []);
     buildToc();
 
     emptyView.hidden = true;
@@ -498,6 +511,44 @@
       }
     }
     return html;
+  }
+
+  // ── Notas para la banda (las escribe el equipo en LivePads, por sección) ──
+  // «Coro» vale para todos los coros; «Coro 2», solo para ese. Las de toda la canción, arriba.
+  // Mismos sinónimos que la app (src/js/ui/lyricsFormat.js): «Estribillo» = «Coro», «Bridge» = «Puente»…
+  const SEC_SYN = {
+    INTRO: 'INTRO', INTRODUCCION: 'INTRO', INTRODUCAO: 'INTRO',
+    VERSO: 'VERSO', VERSE: 'VERSO', ESTROFA: 'VERSO', PRIMEIRAPARTE: 'VERSO', SEGUNDAPARTE: 'VERSO', TERCEIRAPARTE: 'VERSO',
+    PRIMERAPARTE: 'VERSO', TERCERAPARTE: 'VERSO', PREESTRIBILLO: 'PRE-CORO', PRECORUS: 'PRE-CORO',
+    PRECORO: 'PRE-CORO', PRECHORUS: 'PRE-CORO', PREREFRAO: 'PRE-CORO',
+    CORO: 'CORO', CHORUS: 'CORO', ESTRIBILLO: 'CORO', REFRAO: 'CORO', REFRAIN: 'CORO',
+    PUENTE: 'PUENTE', BRIDGE: 'PUENTE', PONTE: 'PUENTE',
+    INSTRUMENTAL: 'INSTRUMENTAL', INTERLUDIO: 'INTERLUDIO', INTERLUDE: 'INTERLUDIO', SOLO: 'SOLO',
+    FINAL: 'FINAL', OUTRO: 'FINAL', ENDING: 'FINAL', CODA: 'FINAL', TAG: 'TAG', PRE: 'PRE-CORO',
+  };
+  function secKey(label) {
+    let s = String(label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\[\]{}]/g, ' ').replace(/\s*[(].*$/, '').replace(/[\s:.\-–—_]+$/, '').toUpperCase().trim();
+    const m = s.match(/(\d+)\s*$/);
+    const num = m ? m[1] : '';
+    const letters = s.replace(/\d+\s*$/, '').replace(/[^A-Z]/g, '');
+    return { base: SEC_SYN[letters] || letters, num };
+  }
+  function secMatch(noteSec, header) {
+    if (!noteSec) return false;
+    const a = secKey(noteSec), b = secKey(header);
+    return !!a.base && a.base === b.base && (!a.num || a.num === b.num);
+  }
+  function noteHtml(n) {
+    return '<div class="bn-note">' + (n.who ? '<b>' + esc(n.who) + '</b>' : '') + '<span>' + esc(n.text) + '</span>' + (n.by ? '<i>' + esc(n.by) + '</i>' : '') + '</div>';
+  }
+  function decorateNotes(notes) {
+    if (!notes.length) return;
+    const gen = notes.filter((n) => !n.sec);
+    if (gen.length) elLyrics.insertAdjacentHTML('afterbegin', '<div class="bn-general">' + gen.map(noteHtml).join('') + '</div>');
+    elLyrics.querySelectorAll('.section-header-line').forEach((h) => {
+      const mine = notes.filter((n) => secMatch(n.sec, h.textContent));
+      if (mine.length) h.insertAdjacentHTML('afterend', '<div class="bn-inline">' + mine.map(noteHtml).join('') + '</div>');
+    });
   }
 
   // Build the sticky TOC from the rendered .section-header-line nodes.

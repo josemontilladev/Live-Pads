@@ -14,6 +14,7 @@ import { logActivity } from './activity.js';
 import { recordDeletion, fetchDeletions, deletedIds } from './tombstones.js';
 import { hasFeature } from '../billing/license.js';
 import { snapshot, mergeSong, keepLocalAudio, adoptCloudKeyPitch } from './songMerge.js';
+import { cleanNotes, notesSig } from '../live/bandNotesCore.js';
 
 // Tope para no inundar el historial en la PRIMERA subida masiva (importas 100
 // canciones → no queremos 100 filas de actividad). En uso normal editas 1-2.
@@ -69,7 +70,9 @@ function hashOf(s) {
   // canción, al resto le llega bajada. Solo cuenta si no es 0 (firmas intactas).
   const kp = Number(a.keyPitch) || 0;
   const tp = kp ? '|t' + kp : '';
-  const str = syncContent(s) + mk + au + st + cv + sk + tp;
+  // Notas para la banda por sección: solo cuentan si existen (firmas intactas).
+  const bn = Array.isArray(s.bandNotes) && s.bandNotes.length ? '|n' + notesSig(s.bandNotes) : '';
+  const str = syncContent(s) + mk + au + st + cv + sk + tp + bn;
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   return String(h);
@@ -110,6 +113,9 @@ function toRow(song, libraryId) {
       // La CARÁTULA viaja como ruta ("livepads://app/Covers/x.jpg"). Los bytes
       // van a R2 (fileSync.js): sin esta ruta, otra PC no sabría qué bajar.
       cover:      song.cover || null,
+      // Notas para la banda por sección (live/bandNotesCore.js). Solo viajan si la
+      // canción las tiene o las tuvo (lista vacía = se borraron todas, y eso también llega).
+      bandNotes:  Array.isArray(song.bandNotes) ? cleanNotes(song.bandNotes) : undefined,
     },
   };
   // El enlace de YouTube y la LETRA solo viajan cuando LOS HAY: el upsert es
@@ -160,6 +166,8 @@ function fromRow(row) {
     timeSig:    m.timeSig || '4/4',
     markers:    Array.isArray(m.markers) ? m.markers : [],
     cover:      m.cover || null,
+    // undefined = la fila no sabe de notas (GI App, versión anterior): no borra las locales.
+    bandNotes:  Array.isArray(m.bandNotes) ? cleanNotes(m.bandNotes) : undefined,
     cloudUpdatedAt: row.updated_at || null,
     updatedBy:      row.updated_by || null,
     // Nombre legible del último editor (perfil embebido por PostgREST). Solo se
@@ -470,8 +478,11 @@ export async function pullLibrarySongs(opts = {}) {
     const localLyrics = target.lyrics;
     const localCover = target.cover;
     const localMarkers = target.markers;
+    const localNotes = target.bandNotes;
     const incomingAudio = incoming.audio;
     Object.assign(target, incoming, { id: target.id });
+    // Una fila que no sabe de notas para la banda no borra las de este equipo.
+    if (incoming.bandNotes === undefined) { if (localNotes !== undefined) target.bandNotes = localNotes; else delete target.bandNotes; }
     // Las secciones (markers) locales no se borran por una fila de la nube que aún no las trae.
     // Solo si MI copia tiene cambios sin subir (keepLocalText); si estoy al día, que un
     // compañero quite todas las secciones también se aplica.
@@ -514,6 +525,7 @@ export async function pullLibrarySongs(opts = {}) {
         if (!m.conflicts.length) {
           const localAudio = existing.audio, localCover = existing.cover;
           Object.assign(existing, incoming, m.fields, { id: existing.id });
+          if (existing.bandNotes === undefined) delete existing.bandNotes;
           existing.audio = keepLocalAudio(localAudio, incoming.audio, true);
           if (!incoming.cover && localCover) existing.cover = localCover;
           seal(existing, incoming);   // base = lo que hay en la nube → queda "por subir"

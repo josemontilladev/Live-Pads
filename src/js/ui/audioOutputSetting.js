@@ -2,6 +2,7 @@
 // la guía por las salidas 3-4. La lógica vive en audio/audioOutput.js.
 import { q } from '../utils/dom.js';
 import { listOutputs, getSavedOutput, getClickAlt, setOutput, setClickAlt, outputChannels } from '../audio/audioOutput.js';
+import { stableAudioOn, setStableAudio, dropoutStats, onDropout } from '../audio/dropoutMonitor.js';
 
 export function initAudioOutputSetting(getEngine) {
   const sel = q('#audio-out-select'), alt = q('#audio-out-alt'), hint = q('#audio-out-hint');
@@ -48,6 +49,32 @@ export function initAudioOutputSetting(getEngine) {
     if (alt.checked && !on) window.showToast?.('Esta salida no admite 4 canales.', 'error');
     paintAlt();
   });
+  // Audio estable + cortes de esta sesión (audio/dropoutMonitor.js).
+  const stable = q('#audio-stable'), dHint = q('#audio-dropout-hint');
+  if (stable) {
+    const startedStable = stableAudioOn();
+    stable.checked = startedStable;
+    const paintDrops = () => {
+      if (!dHint) return;
+      const s = dropoutStats(), engine = getEngine();
+      const ms = engine && engine.ctx ? Math.round(((engine.ctx.baseLatency || 0) + (engine.ctx.outputLatency || 0)) * 1000) : 0;
+      const lat = ms ? ` · latencia ${ms} ms` : '';
+      if (stable.checked !== startedStable) { dHint.textContent = 'Se aplica al reiniciar LivePads.'; return; }
+      if (!s.supported) { dHint.textContent = 'Menos cortes en equipos justos, a cambio de algo más de retraso.' + lat; return; }
+      dHint.textContent = s.total
+        ? `${s.total === 1 ? '1 corte' : s.total + ' cortes'} de audio en esta sesión${lat}. Si se repiten, actívalo.`
+        : `Sin cortes de audio en esta sesión${lat}.`;
+      dHint.classList.toggle('is-warn', !!s.total);
+    };
+    stable.addEventListener('change', () => {
+      setStableAudio(stable.checked);
+      window.showToast?.(stable.checked ? 'Audio estable activado: se aplica al reiniciar LivePads.' : 'Audio estable desactivado: se aplica al reiniciar LivePads.', 'info');
+      paintDrops();
+    });
+    onDropout(paintDrops);
+    q('#sidebar')?.addEventListener('transitionend', (e) => { if (e.target.id === 'sidebar' && e.target.classList.contains('open')) paintDrops(); });
+    paintDrops();
+  }
   // Enchufar o desenchufar una interfaz actualiza la lista sola.
   try { navigator.mediaDevices.addEventListener('devicechange', fill); } catch (_) {}
   // La lista se rellena al abrir Ajustes (no en el arranque).

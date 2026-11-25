@@ -10,6 +10,7 @@
 // Phases 2 & 3 will layer in pan, mute/solo, seek/pause, MP3 export.
 
 import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
+import { audioLatencyHint, registerAudioContext } from '../audio/dropoutMonitor.js';
 import { forceStereoOutput } from '../audio/stereoOut.js';
 
 let ctx = null;
@@ -99,7 +100,7 @@ function ensureCtx() {
     return ctx;
   }
   const AC = window.AudioContext || window.webkitAudioContext;
-  ctx = new AC({ latencyHint: 'interactive' });
+  ctx = new AC({ latencyHint: audioLatencyHint() });
   // Tope de 48 kHz. Con interfaces a 96 kHz, cada buffer decodificado ocupa el
   // DOBLE de RAM; proyectos con muchas pistas largas se quedaban sin memoria al
   // transponer/exportar ("startRendering failed to create AudioBuffer"). 48 kHz
@@ -108,9 +109,10 @@ function ensureCtx() {
   // ningún nodo ni playback; solo se usó para sondear el sampleRate del hardware.
   if (ctx.sampleRate > 48000) {
     try { ctx.close(); } catch (_) {}
-    try { ctx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); } catch (_) { ctx = new AC({ latencyHint: 'interactive' }); }
+    try { ctx = new AC({ sampleRate: 48000, latencyHint: audioLatencyHint() }); } catch (_) { ctx = new AC({ latencyHint: audioLatencyHint() }); }
   }
   forceStereoOutput(ctx);
+  registerAudioContext(ctx);
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.85;
   masterAnalyser = ctx.createAnalyser();

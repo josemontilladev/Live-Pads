@@ -36,3 +36,14 @@ body.lyrics-window { display: flex; flex-direction: column; }
   .lw-titles { flex: 1 1 100%; }
   .lw-tools { flex-wrap: wrap; }
 }
+
+/* Cuenta atrás antes del servicio: a pantalla completa sobre el fondo (ui/tvCountdownCore.js). */
+.lw-countdown { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding: 4vh 6vw; text-align: center;
+  background: color-mix(in srgb, var(--bg, #07070d) 55%, transparent); }
+body:not(.has-lw-bg) .lw-countdown { background: var(--bg, #07070d); }
+.lw-cd-title { font-size: clamp(20px, 4.2vw, 64px); font-weight: 700; color: var(--text, #f2f2f5); opacity: .9; }
+.lw-cd-time { font: 800 clamp(64px, 17vw, 300px)/1 ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: -.02em; color: var(--text, #fff); font-variant-numeric: tabular-nums; }
+.lw-cd-msg { max-width: 80vw; font-size: clamp(18px, 3.2vw, 48px); font-weight: 600; line-height: 1.25; color: var(--text, #f2f2f5); opacity: .85; }
+.lw-cd-msg[hidden] { display: none; }
+body.has-countdown .lw-head { visibility: hidden; }
+body.has-countdown .lw-body { visibility: hidden; }

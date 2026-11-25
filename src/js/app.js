@@ -17,6 +17,7 @@ import { initBackupSetting } from './ui/backupSetting.js';
 import { openPreflight, closePreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
 import { openCompanionPanel, closeCompanionPanel, isCompanionPanelOpen, watchCompanionBadge } from './ui/companionPanel.js';
+import { companionNotes } from './live/bandNotes.js';
 import { togglePadsPiano, closePadsPiano, isPadsPianoOpen, padsPianoPanic } from './ui/padsPiano.js';
 // The Stems workspace pulls in heavy deps (audio engine, exporter, waveform
 // renderer, lamejs, ONNX-backed separation IPC glue…) yet the app boots into
@@ -105,6 +106,10 @@ import { applyChordNumbers } from './utils/chordNumbers.js';
 import { initChordDiagrams } from './ui/chordDiagram.js';
 import { initMidiOut } from './midi/midiOut.js';
 import { initDirectorCues } from './live/directorCues.js';
+import { initTalkback } from './live/talkback.js';
+import { initDropoutMonitor } from './audio/dropoutMonitor.js';
+import { initTvCountdown, openTvCountdown } from './ui/tvCountdown.js';
+import { isSounding } from './state/performing.js';
 import { initStagePublish } from './live/stagePublish.js';
 import { initModulation } from './live/modulation.js';
 import { initMedley } from './live/medley.js';
@@ -429,6 +434,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]));
   });
   initDirectorCues({ getEngine: () => engine, panic: () => panicStopAll() });   // indicaciones a la banda + control desde el móvil
+  initTalkback({ getEngine: () => engine });   // hablar a los in-ears (live/talkback.js)
+  initDropoutMonitor({ isBusy: () => isSounding() });   // cortes de audio (audio/dropoutMonitor.js)
+  initTvCountdown();   // chip «TV 04:59» mientras hay cuenta atrás en la TV
   initStagePublish();  // monitor de escenario (Companion con ?escenario)
   initModulation();    // subir el tono en el último coro (punto marcado por canción)
   initMedley({ playCurrent: () => triggerSourcePlayPause() });   // medleys: unir con la siguiente sin silencio
@@ -1379,6 +1387,8 @@ function spotlightProviderItems() {
     items.push({ id: `tab:${tab}`, kind: 'panel', label, sub: 'Panel', search: `${label} ajustes panel abrir`, run: () => openSidebarTab(tab) });
   }
   items.push({ id: 'tool:companion', kind: 'panel', label: 'Companion (móvil)', sub: 'Herramienta', search: 'companion móvil movil qr letra acordes músicos código', run: () => openCompanionPanel() });
+  items.push({ id: 'tool:tv-countdown', kind: 'panel', label: 'Cuenta atrás en la TV', sub: 'Herramienta', search: 'cuenta atras atrás tv pantalla servicio empieza anuncio temporizador reloj', run: () => openTvCountdown() });
+  items.push({ id: 'tool:talkback', kind: 'panel', label: 'Hablar a la banda (talkback)', sub: 'Herramienta', search: 'talkback hablar banda in ears inears auriculares micrófono microfono director', run: () => document.getElementById('btn-cues')?.click() });
   for (const [id, t] of Object.entries(THEMES)) {
     items.push({ id: `theme:${id}`, kind: 'theme', label: `Tema: ${t.name}`, sub: getCurrentTheme() === id ? 'Tema actual' : (t.desc || 'Tema'), search: `tema theme ${t.name} ${t.desc || ''}`, run: () => applyTheme(id) });
   }
@@ -2807,17 +2817,26 @@ function applyGiSong(song) {
   if (savedPitch !== 0 && song.audio && song.audio.sequence) applyNotepadPitchShift(savedPitch);
 
   // Mirror to the LAN Companion (no-op if server is off).
-  if (window.electronAPI && window.electronAPI.companionPublishSong) {
-    window.electronAPI.companionPublishSong({
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      key: companionKey(song),
-      bpm: song.bpm,
-      lyrics: companionLyrics(song)
-    }).catch(() => {});
-  }
+  publishCompanionSong(song);
 }
+
+let lastCompanionSong = null;
+function publishCompanionSong(song) {
+  lastCompanionSong = song;
+  if (!song || !window.electronAPI || !window.electronAPI.companionPublishSong) return;
+  window.electronAPI.companionPublishSong({
+    id: song.id,
+    title: song.title,
+    artist: song.artist,
+    key: companionKey(song),
+    bpm: song.bpm,
+    lyrics: companionLyrics(song),
+    notes: companionNotes(song),
+  }).catch(() => {});
+}
+// Notas para la banda cambiadas (aquí o por la nube): los móviles las ven al momento.
+window.addEventListener('livepads:band-notes', () => publishCompanionSong(lastCompanionSong));
+window.addEventListener('livepads:songs-changed', () => { if (lastCompanionSong) publishCompanionSong(lastCompanionSong); });
 
 // El Companion por internet es de Pro: el proceso principal solo conecta la nube si el plan lo incluye.
 let lastCompanionCloudPlan = null;

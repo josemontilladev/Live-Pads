@@ -10,6 +10,7 @@
 // once at boot by initTrackPlayer().
 
 import { q } from '../utils/dom.js';
+import { audioLatencyHint, registerAudioContext } from './dropoutMonitor.js';
 import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
 import { PitchAudio } from './pitchAudio.js';
@@ -183,8 +184,8 @@ function ensureAudioCtx() {
   if (shared) { audioCtx = shared; return audioCtx; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
-  try { audioCtx = new AC({ latencyHint: 'interactive' }); } catch (_) { audioCtx = null; }
-  if (audioCtx) forceStereoOutput(audioCtx);
+  try { audioCtx = new AC({ latencyHint: audioLatencyHint() }); } catch (_) { audioCtx = null; }
+  if (audioCtx) { forceStereoOutput(audioCtx); registerAudioContext(audioCtx); }
   return audioCtx;
 }
 

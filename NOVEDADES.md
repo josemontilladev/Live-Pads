@@ -1,3 +1,5 @@
-• Companion por internet ahora es parte de Pro (incluida la prueba de 14 días): los músicos se conectan desde cualquier red con el QR o el código de 6 cifras. Por WiFi local sigue siendo gratis para todos.
-• Con el plan Gratis, el panel del Companion empieza en «WiFi local» y explica cómo pasar a Pro si quieres usarlo por internet.
-• El monitor de escenario solo se envía por internet cuando algún móvil lo está mirando: menos consumo y la misma experiencia.
+• Hablar a la banda (talkback): en «Indicaciones a la banda», mantén pulsado el botón y tu voz llega solo a los in-ears (salidas 3-4), nunca a la sala. Un toque lo deja abierto; también se puede asignar a un pedal o botón MIDI.
+• Notas para la banda por sección («Bajo: aquí para», «Todos: último coro suave»): se escriben desde el menú de la canción o las herramientas de la letra, las ve todo el equipo y aparecen en la letra, en la hoja impresa y en el Companion de cada músico justo en esa sección.
+• Cuenta atrás en la TV: «El servicio empieza en 05:00» con un anuncio, sobre el fondo de la pantalla. Se ve también en la barra superior mientras corre.
+• Cejilla automática para guitarra: con el tono del día, LivePads propone la cejilla y muestra los acordes en formas abiertas (en la letra, en la hoja impresa y en el Companion con «Automática»).
+• Aviso de cortes de audio: si el equipo no llega a tiempo y el audio se corta mientras suena, LivePads te avisa y te dice qué hacer. Nuevo interruptor «Audio estable» en Ajustes → Audio para equipos justos.

@@ -2751,7 +2751,8 @@ function lyricsWindow() {
   return lyricsWin;
 }
 ipcMain.handle('lyrics-window-show', (_e, data) => {
-  lastLyrics = data || null;
+  // { keepCurrent: true }: solo abrir o traer al frente (p. ej. la cuenta atrás), sin cambiar la letra.
+  if (!(data && data.keepCurrent)) lastLyrics = data || null;
   const w = lyricsWindow();
   if (!w.webContents.isLoading()) w.webContents.send('lyrics-data', lastLyrics);
   if (w.isMinimized()) w.restore();

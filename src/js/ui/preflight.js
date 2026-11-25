@@ -13,6 +13,7 @@ import { pushModal } from './modalStack.js';
 let popModal = null;
 import { getPadBankIdx, getKitBankIdx } from '../state/store.js';
 import { getMidiMap } from '../midi/midiMap.js';
+import { dropoutStats, stableAudioOn } from '../audio/dropoutMonitor.js';
 
 let mounted = null;
 
@@ -117,6 +118,18 @@ function runChecks(ctx) {
         ok: ms <= 60
       });
     }
+  }
+
+  // 1c. Cortes de audio en esta sesión (audio/dropoutMonitor.js).
+  {
+    const d = dropoutStats();
+    if (d.supported) out.push({
+      label: d.total ? `Cortes de audio: ${d.total}` : 'Sin cortes de audio',
+      detail: d.total
+        ? (stableAudioOn() ? 'Cierra otras apps, conecta el cargador y usa el modo de energía de máximo rendimiento.' : 'Cierra otras apps y conecta el cargador; si siguen, activa «Audio estable» en Ajustes → Audio.')
+        : 'El equipo entrega el audio a tiempo en esta sesión.',
+      ok: d.total === 0,
+    });
   }
 
   // 2. Pad bank loaded

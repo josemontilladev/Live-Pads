@@ -19,5 +19,13 @@ export function isPerforming() {
   return false;
 }
 
+/** ¿Suena algo ahora mismo? (sin contar el Modo en vivo). */
+export function isSounding() {
+  for (const fn of probes) {
+    try { if (fn()) return true; } catch (_) {}
+  }
+  return false;
+}
+
 // El proceso principal lo consulta antes de bajar una actualización en segundo plano.
 try { window.__lpPerforming = isPerforming; } catch (_) {}

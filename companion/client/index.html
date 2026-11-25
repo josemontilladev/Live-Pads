@@ -47,9 +47,10 @@
         </select>
       </div>
       <div class="sheet-row" id="capo-row" hidden>
-        <label class="sheet-label" for="capo">Cejilla en el traste</label>
-        <select id="capo" class="sheet-select sheet-select--narrow">
-          <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+        <label class="sheet-label" for="capo">Cejilla</label>
+        <select id="capo" class="sheet-select">
+          <option value="auto" selected>Automática (según el tono)</option>
+          <option value="1">Traste 1</option><option value="2">Traste 2</option><option value="3">Traste 3</option><option value="4">Traste 4</option><option value="5">Traste 5</option><option value="6">Traste 6</option><option value="7">Traste 7</option>
         </select>
       </div>
       <div class="sheet-row">
@@ -118,6 +119,7 @@
   <section class="stage-view" id="stage-view" hidden>
     <div class="sv-top"><div class="sv-song"><b id="sv-title">Esperando canción…</b><span id="sv-meta"></span></div><div class="sv-time" id="sv-time"></div></div>
     <div class="sv-section"><span class="sv-k">Ahora</span><b id="sv-section">—</b><span class="sv-next" id="sv-next-section"></span></div>
+    <div class="sv-notes" id="sv-notes" hidden></div>
     <div class="sv-chords"><div><span class="sv-k">Acorde</span><b id="sv-chord">—</b></div><div class="sv-chord-next"><span class="sv-k">Sigue</span><b id="sv-next-chord">—</b></div></div>
     <div class="sv-bar"><i id="sv-progress"></i></div>
     <div class="sv-after" id="sv-after"></div>

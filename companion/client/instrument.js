@@ -56,6 +56,24 @@
     return N[mod(root + sh)] + m[3] + (bass != null ? '/' + N[mod(bass + sh)] : '');
   }
 
-  const api = { chordFor, viewKey, keyInfo };
+  // Cejilla sugerida para el tono (formas abiertas G C D A E · Em Am Dm). Misma regla
+  // que src/js/utils/capo.js en la app (tests/capo.test.mjs las compara).
+  const SHAPES_MAJOR = { 7: ['G', 0], 0: ['C', 0], 2: ['D', 0], 9: ['A', 1], 4: ['E', 1] };
+  const SHAPES_MINOR = { 4: ['Em', 0], 9: ['Am', 0], 2: ['Dm', 1] };
+  function bestCapo(key) {
+    const k = keyInfo(key);
+    if (!k) return null;
+    const table = k.minor ? SHAPES_MINOR : SHAPES_MAJOR;
+    let best = null;
+    for (let capo = 0; capo <= 7; capo++) {
+      const s = table[mod(k.pc - capo)];
+      if (!s) continue;
+      const cost = s[1] + capo * 0.5;
+      if (!best || cost < best.cost) best = { capo, shape: s[0], cost };
+    }
+    return best ? { capo: best.capo, shape: best.shape } : null;
+  }
+
+  const api = { chordFor, viewKey, keyInfo, bestCapo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.LPInstrument = api;
 })(typeof window !== 'undefined' ? window : globalThis);

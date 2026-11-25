@@ -24,6 +24,8 @@ import { getTrackAudio, getCurrentSong, getCurrentType } from '../audio/trackPla
 import { getServiceSongs, getActiveServiceIndex, getEffectiveKey } from '../data/service.js';
 import { getPendingJump } from '../live/arrange.js';
 import { detectSectionHeader } from './lyricsFormat.js';
+import { songFromRef, notesOf, decorateSections, openBandNotes } from '../live/bandNotes.js';
+import { bestCapo, capoLabel, applyCapoView } from '../utils/capo.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
 const LS_PREFS = 'livepads-lyricspanel-prefs';
@@ -222,12 +224,24 @@ function makeResizable() {
 function paint() {
   if (!panel || !current) return;
   panel.querySelector('.lyp-title').textContent = current.title || 'Letra';
-  panel.querySelector('.lyp-sub').textContent = [current.artist, current.key ? `Tono ${current.key}` : ''].filter(Boolean).join(' · ');
   const body = panel.querySelector('.lyp-body');
   body.querySelector('.lyp-cols').innerHTML = current.html || '<p class="lyp-empty">Esta canción no tiene letra.</p>';
+  decorateLyrics();
   lt.key = null; lt.active = -1;
   paintPrefs();
 }
+// Notas para la banda bajo cada sección y, si se pidió, los acordes en formas de
+// guitarra con la cejilla sugerida (solo en este panel: la TV no los muestra).
+function decorateLyrics() {
+  if (!panel || !current) return;
+  const cols = panel.querySelector('.lyp-cols');
+  const song = songFromRef(current.ref);
+  try { decorateSections(cols, song ? notesOf(song) : []); } catch (_) {}
+  const c = prefs.capoView ? bestCapo(current.key) : null;
+  if (c && c.capo) applyCapoView(cols, c.capo, c.shape);
+  panel.querySelector('.lyp-sub').textContent = [current.artist, current.key ? `Tono ${current.key}` : '', c ? capoLabel(c) : ''].filter(Boolean).join(' · ');
+}
+
 function paintPrefs() {
   if (!panel) return;
   const body = panel.querySelector('.lyp-body');
@@ -242,6 +256,11 @@ function paintPrefs() {
 // ⋯ Herramientas: las acciones del panel con su nombre (antes eran 10 iconos
 // sueltos). Los botones originales siguen en la cabecera, ocultos: los pedales y
 // botones MIDI asignados a «subir / bajar la letra» los siguen pulsando.
+function capoHint() {
+  const c = current ? bestCapo(current.key) : null;
+  if (!c) return 'Acordes en formas abiertas para el tono de hoy';
+  return c.capo ? `${capoLabel(c)} · acordes en formas abiertas` : 'Este tono ya va en formas abiertas: sin cejilla';
+}
 function openToolsMenu(anchorBtn) {
   const go = (w) => panel?.querySelector(`.lyp-tools [data-do="${w}"]`)?.click();
   const I = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -255,6 +274,8 @@ function openToolsMenu(anchorBtn) {
     { icon: I('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'), label: 'Mostrar acordes', checked: !!prefs.chords, onSelect: () => go('chords') },
     { icon: I('<path d="M4 7h3v10"/><path d="M11 7h5l-4 5a3 3 0 1 1-2 4"/><path d="M19 7v10"/>'), label: 'Acordes como grados (1·4·5)', hint: 'Iguales en cualquier tono: C G Am F en C = 1 5 6m 4', checked: chordNumbersOn(), onSelect: () => setChordNumbers(!chordNumbersOn()) },
     { icon: I('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v8M12 5v8M17 5v8"/>'), label: 'Notas para improvisar', hint: 'Escala y pentatónica del tono de la canción', onSelect: () => import('./scaleHelper.js').then((m) => m.showScaleHelper(anchorBtn, (current && current.key) || '', (current && current.title) || '')) },
+    { icon: I('<path d="M6 3v18M18 3v18"/><path d="M6 8h12"/><circle cx="12" cy="14" r="2"/>'), label: 'Guitarra con cejilla', hint: capoHint(), checked: !!prefs.capoView, onSelect: () => { prefs.capoView = !prefs.capoView; savePrefs(); paint(); } },
+    { icon: I('<path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>'), label: 'Notas para la banda…', hint: 'Por sección («Bajo: aquí para»). Las ve el equipo y el Companion', onSelect: () => { const s = current && songFromRef(current.ref); if (s) openBandNotes(s); else window.showToast?.('Abre la letra desde la tarjeta de la canción para escribir notas.', 'info'); } },
     { icon: I('<path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 14l3 3-3 3"/>'), label: 'La letra avanza sola', hint: 'Resalta la línea que va y la mantiene a la vista mientras suena la pista (también en la TV)', checked: prefs.autoLines !== false, onSelect: () => { prefs.autoLines = prefs.autoLines === false; savePrefs(); lt.key = null; if (!prefs.autoLines) clearLineMarks(); } },
     { icon: I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'), label: 'Seguir la canción que suena', hint: 'Cambia sola al cambiar de canción', checked: !!prefs.follow, onSelect: () => go('follow') },
     { icon: I('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'), label: 'La letra sigue a la banda', hint: 'Sin pista: avanza con los acordes que oye el micrófono', checked: isBandFollowing(), onSelect: () => toggleBandFollow() },
@@ -264,6 +285,7 @@ function openToolsMenu(anchorBtn) {
     { icon: I('<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'), label: 'Pantalla completa', hint: 'Para leer en vivo, desde lejos', onSelect: () => go('fs') },
     { icon: I('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'), label: 'Llevar a otra pantalla', hint: 'TV o segundo monitor', onSelect: () => go('screen') },
     { icon: I('<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/>'), label: 'Fondo de la pantalla (TV)…', hint: 'Fondos animados, imagen o video detrás de la letra', onSelect: () => import('./lyricsBgDialog.js').then((m) => m.openLyricsBgDialog()) },
+    { icon: I('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>'), label: 'Cuenta atrás en la TV…', hint: '«El servicio empieza en 05:00» y anuncios, sobre el fondo', onSelect: () => import('./tvCountdown.js').then((m) => m.openTvCountdown()) },
   ]);
 }
 
@@ -382,6 +404,8 @@ export function initLyricsOverlay() {
     }
   });
   window.addEventListener('livepads:songs-changed', refreshFromCard);
+  // Notas para la banda nuevas o borradas (aquí o por la nube): se ven al momento.
+  window.addEventListener('livepads:band-notes', () => { if (overlay && current) paint(); });
   window.addEventListener('livepads:service-changed', refreshFromCard);
   // Cambia la canción que suena → el panel (y la ventana de otra pantalla) la siguen.
   let lastId = null;

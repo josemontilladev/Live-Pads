@@ -505,3 +505,12 @@ body.stage-mode .stage, body.stage-mode #btn-toggle-chords { display: none !impo
 .join-code:focus { outline: none; border-color: var(--accent); }
 .join-code.is-bad { border-color: var(--err); }
 .join-go { height: 48px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--accent); color: var(--on-accent); font: 800 16px/1 inherit; }
+
+/* Notas para la banda (por sección, escritas por el equipo en LivePads). */
+.bn-general, .bn-inline { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 10px; }
+.bn-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: 10px; border-left: 3px solid var(--section); background: var(--soft); font-size: calc(13px * var(--lyric-scale)); line-height: 1.35; color: var(--fg); }
+.bn-note b { font-weight: 800; color: var(--section); }
+.bn-note i { margin-left: auto; font-style: normal; font-size: .8em; color: var(--fg-soft); }
+body.lyrics-only .bn-note { display: flex; }
+.sv-notes { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 14px; border-left: 5px solid var(--section); background: var(--soft); font-size: clamp(18px, 3.4vw, 36px); font-weight: 700; line-height: 1.25; color: var(--fg); }
+.sv-notes[hidden] { display: none !important; }

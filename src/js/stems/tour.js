@@ -55,8 +55,17 @@ const STEPS = [
 
 export function maybeStartTour(storageKey = STORAGE_KEY, steps = STEPS) {
   if (localStorage.getItem(storageKey) === '1') return;
+  // Si hay un aviso a la vista (planes, novedades), el recorrido espera a que se cierre:
+  // antes salían los dos a la vez, uno encima del otro.
+  const busy = () => document.getElementById('plans-announce') || document.getElementById('whats-new');
+  let tries = 0;
+  const go = () => {
+    if (busy() && tries++ < 600) { setTimeout(go, 500); return; }
+    if (localStorage.getItem(storageKey) === '1') return;
+    startTour(steps, storageKey);
+  };
   // Defer one frame to ensure layout is settled.
-  requestAnimationFrame(() => startTour(steps, storageKey));
+  requestAnimationFrame(go);
 }
 
 // El control de un paso cuenta solo si se ve: la pantalla oculta (Pads o Stems)

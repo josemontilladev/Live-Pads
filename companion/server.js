@@ -253,6 +253,17 @@ function setTheme(t) {
   broadcast(lastState);
 }
 
+// Notas para la banda (por sección): solo texto, recortado.
+function cleanNotes(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 60).map((n) => ({
+    sec: String((n && n.sec) || '').slice(0, 26),
+    who: String((n && n.who) || '').slice(0, 20),
+    text: String((n && n.text) || '').slice(0, 140),
+    by: String((n && n.by) || '').slice(0, 30),
+  })).filter((n) => n.text);
+}
+
 function publishSong(song) {
   if (!song) {
     lastState = { type: 'no-song', theme: lastTheme };
@@ -265,7 +276,8 @@ function publishSong(song) {
         artist: song.artist || '',
         key: song.key || '',
         bpm: song.bpm || '',
-        lyrics: song.lyrics || ''
+        lyrics: song.lyrics || '',
+        notes: cleanNotes(song.notes)
       },
       playing: lastPlaying,
       theme: lastTheme

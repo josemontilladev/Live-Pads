@@ -72,6 +72,7 @@ export function audioMenuItems(song, onAssigned, { withStems = true } = {}) {
       icon: ICO_TRACKS, onSelect: () => openSongTracks(song),
     }] : []),
     { label: 'Grabar nota de voz para la banda', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>', onSelect: () => import('./voiceNote.js').then((m) => m.recordVoiceNote(song, onAssigned)) },
+    { label: 'Notas para la banda por sección…', icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>', onSelect: () => import('../live/bandNotes.js').then((m) => m.openBandNotes(song)) },
     { label: (hasSeq ? 'Reemplazar' : 'Subir') + ' secuencia (archivo)', icon: ICO_UP, onSelect: () => loadSlotFromFile(song, 'sequence', onAssigned) },
     { label: (hasOrig ? 'Reemplazar' : 'Subir') + ' original (archivo)', icon: ICO_UP, onSelect: () => loadSlotFromFile(song, 'original', onAssigned) },
     { label: 'Original desde YouTube', icon: ICO_YT, onSelect: () => assignFromYoutube(song, onAssigned) },

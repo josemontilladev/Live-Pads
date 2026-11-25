@@ -62,6 +62,11 @@ export async function maybeAnnouncePlans() {
   try { if (localStorage.getItem(SEEN_KEY)) return; } catch (_) { return; }
   // Con sesión, espera a saber el plan real antes de decir nada.
   if (isLoggedIn()) { try { await refreshLicense(); } catch (_) {} }
+  // Ya está a la vista (se pidió dos veces al arrancar): no se apila otro igual encima.
+  if (document.getElementById('plans-announce')) return;
+  // El recorrido de bienvenida está abierto: el aviso espera a que termine (no van uno encima del otro).
+  for (let i = 0; i < 600 && document.querySelector('.stems-tour'); i++) await new Promise((r) => setTimeout(r, 500));
+  if (document.getElementById('plans-announce')) return;
   const info = getPlanInfo();
   const m = message(info);
 

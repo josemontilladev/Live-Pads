@@ -9,11 +9,13 @@
 //   mergeSong(base, mine, theirs) → { fields, conflicts: ['lyrics', …] }
 //     fields = valores fusionados de los campos compartidos
 
-export const SYNC_FIELDS = ['title', 'artist', 'lyrics', 'bpm', 'key', 'genre', 'tags', 'favorite', 'showChords', 'timeSig', 'youtubeUrl', 'markers', 'singerKeys'];
+import { mergeNotes, notesSig } from '../live/bandNotesCore.js';
+
+export const SYNC_FIELDS = ['title', 'artist', 'lyrics', 'bpm', 'key', 'genre', 'tags', 'favorite', 'showChords', 'timeSig', 'youtubeUrl', 'markers', 'singerKeys', 'bandNotes'];
 
 export const FIELD_LABELS = {
   title: 'título', artist: 'artista', lyrics: 'letra', bpm: 'BPM', key: 'tono', genre: 'género',
-  tags: 'etiquetas', favorite: 'favorita', showChords: 'acordes', timeSig: 'compás', youtubeUrl: 'video', markers: 'secciones', singerKeys: 'tonos por cantante',
+  tags: 'etiquetas', favorite: 'favorita', showChords: 'acordes', timeSig: 'compás', youtubeUrl: 'video', markers: 'secciones', singerKeys: 'tonos por cantante', bandNotes: 'notas para la banda',
 };
 
 function toTags(tags) {
@@ -31,6 +33,7 @@ function canon(field, v) {
     case 'favorite': case 'showChords': return !!v;
     case 'timeSig': return String(v || '4/4');
     case 'markers': return JSON.stringify(Array.isArray(v) ? v : []);
+    case 'bandNotes': return notesSig(v);
     default: return String(v == null ? '' : v);
   }
 }
@@ -52,6 +55,8 @@ export function mergeSong(base, mine, theirs) {
   const conflicts = [];
   for (const f of SYNC_FIELDS) {
     const b = base ? base[f] : undefined, m = mine[f], t = theirs[f];
+    // Notas para la banda: se suman las de los dos lados (nunca es conflicto).
+    if (f === 'bandNotes') { fields[f] = t === undefined ? m : same(f, m, t) ? t : mergeNotes(b, m, t); continue; }
     if (same(f, m, t)) fields[f] = t;            // ya coinciden
     else if (same(f, b, m)) fields[f] = t;       // solo cambió la nube
     else if (same(f, b, t)) fields[f] = m;       // solo cambié yo

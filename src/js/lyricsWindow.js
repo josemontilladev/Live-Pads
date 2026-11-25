@@ -11,6 +11,7 @@
 import { paintThemeVars, savedThemeId, THEME_STORAGE_KEY } from './ui/themeVars.js';
 import { applyChordNumbers, NUMS_KEY } from './utils/chordNumbers.js';
 import { applyLyricsBackground, BG_KEY } from './ui/lyricsBackground.js';
+import { mountTvCountdown } from './ui/tvCountdownCore.js';
 
 // El mismo tema que la ventana principal (antes salía siempre con los colores
 // base). Si se cambia el tema con la ventana abierta, se repinta sola: las dos
@@ -82,3 +83,5 @@ if (api && api.onLyricsLine) {
 }
 if (api && api.lyricsWindowSetFollow) api.lyricsWindowSetFollow(follow);
 paint();
+// Cuenta atrás antes del servicio (la empieza la app: ui/tvCountdown.js).
+mountTvCountdown();

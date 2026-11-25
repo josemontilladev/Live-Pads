@@ -36,6 +36,7 @@ function softClipper(ctx) {
 }
 
 import { forceStereoOutput } from './stereoOut.js';
+import { audioLatencyHint, registerAudioContext } from './dropoutMonitor.js';
 import { mainBusInput } from './mainBus.js';
 
 export class SynthEngine {
@@ -67,16 +68,17 @@ export class SynthEngine {
   async init() {
     // latencyHint: 'interactive' minimizes audio buffer size for live triggering.
     const AC = window.AudioContext || window.webkitAudioContext;
-    this.ctx = new AC({ latencyHint: 'interactive' });
+    this.ctx = new AC({ latencyHint: audioLatencyHint() });   // «Audio estable» → más búfer (audio/dropoutMonitor.js)
     // Tope de 48 kHz. Con interfaces a 88/96/192 kHz cada pad, pista y stem
     // decodificado ocupa el doble (o el cuádruple) de memoria sin que se oiga
     // diferencia. Este contexto lo comparte Stems, cuyo tope propio dejó de
     // aplicarse al compartirlo. El close() es seguro: el contexto recién nació.
     if (this.ctx.sampleRate > 48000) {
       const hw = this.ctx;
-      try { this.ctx = new AC({ sampleRate: 48000, latencyHint: 'interactive' }); try { hw.close(); } catch (_) {} }
+      try { this.ctx = new AC({ sampleRate: 48000, latencyHint: audioLatencyHint() }); try { hw.close(); } catch (_) {} }
       catch (_) { this.ctx = hw; }
     }
+    registerAudioContext(this.ctx);   // monitor de cortes de audio
     // Salida en estereo explicito: si el equipo se presenta como mono, todo se
     // pliega a un canal y el paneo deja de existir (el click sale por los dos
     // lados). Guardamos el diagnostico para poder avisarlo en la UI.

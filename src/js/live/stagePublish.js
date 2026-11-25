@@ -14,6 +14,8 @@ import { cacheGet, trackChordId } from '../chords/trackChords.js';
 import { chordName } from '../chords/chordEngine.js';
 
 import { markersFor } from '../data/markers.js';
+import { notesOf } from './bandNotes.js';
+import { notesForSection, noteLine } from './bandNotesCore.js';
 import { getCurrentType as gctStage } from '../audio/trackPlayer.js';
 let last = '';
 let timer = null;
@@ -50,6 +52,7 @@ export function stageState() {
   return {
     song: { title: song.title || '', artist: song.artist || '', key: getEffectiveKey(song) || song.key || '', bpm: song.bpm || '' },
     section: si >= 0 ? ms[si].label : '',
+    notes: si >= 0 ? notesForSection(notesOf(song), ms[si].label).map(noteLine).slice(0, 3) : [],
     nextSection: ms[si + 1] ? ms[si + 1].label : '',
     sectionLeft: ms[si + 1] ? Math.max(0, Math.round(ms[si + 1].s - t)) : null,
     chord, nextChord,

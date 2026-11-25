@@ -14,6 +14,8 @@ import { transposeAll } from './chordTransposer.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 import { getEffectiveKey } from '../data/service.js';
 import { chordNumbersOn } from '../utils/chordNumbers.js';
+import { notesOf, decorateSections } from '../live/bandNotes.js';
+import { bestCapo, capoLabel } from '../utils/capo.js';
 
 const CSS = `
   @page { size: A4; margin: 16mm 15mm; }
@@ -47,6 +49,11 @@ const CSS = `
   td { padding: 8px 4px; border-bottom: 1px solid #eee; }
   td.key { color: #8a5d00; font-weight: 800; }
   .foot { margin-top: 18px; color: #999; font-size: 10px; }
+  .capo { color: #555; font-size: 12px; margin: -4px 0 10px; }
+  .bn-general, .bn-inline { margin: 2px 0 8px; break-inside: avoid; }
+  .bn-note { font-size: 12px; line-height: 1.35; padding: 3px 8px; border-left: 3px solid #8a5d00; background: #faf6ec; margin-bottom: 3px; }
+  .bn-note b { margin-right: 6px; color: #8a5d00; }
+  .bn-note i { margin-left: 8px; color: #888; font-style: normal; font-size: 10.5px; }
 `;
 
 /** Letra de la canción en el tono de hoy (el del servicio si lo tiene). */
@@ -57,12 +64,18 @@ function songSheetHtml(song, { note = '' } = {}) {
   const text = song.lyrics ? (semis ? transposeAll(song.lyrics, semis, prefersFlats(live)) : song.lyrics) : '';
   const info = [live && `Tono ${live}`, song.bpm && `${song.bpm} BPM`, song.timeSig, note].filter(Boolean).join('  ·  ');
   const long = text.split('\n').length > 46;
+  // Notas para la banda bajo cada sección (las mismas que en la app y el Companion).
+  let lyricsHtml = text.trim() ? formatLyrics(text, live || null) : '';
+  const notes = notesOf(song);
+  if (lyricsHtml && notes.length) { const d = document.createElement('div'); d.innerHTML = lyricsHtml; decorateSections(d, notes); lyricsHtml = d.innerHTML; }
+  const capo = bestCapo(live);
   return `<section class="sheet">
     <h1>${esc(song.title || 'Sin título')}</h1>
     ${song.artist ? `<div class="artist">${esc(song.artist)}</div>` : ''}
     ${info ? `<div class="info">${esc(info)}</div>` : ''}
+    ${capo && capo.capo ? `<div class="capo">Guitarra: ${esc(capoLabel(capo))}</div>` : ''}
     <hr>
-    <div class="lyrics" style="--cols:${long ? 2 : 1}">${text.trim() ? formatLyrics(text, live || null) : '<p style="color:#888">Esta canción aún no tiene letra.</p>'}</div>
+    <div class="lyrics" style="--cols:${long ? 2 : 1}">${lyricsHtml || '<p style="color:#888">Esta canción aún no tiene letra.</p>'}</div>
   </section>`;
 }
 
