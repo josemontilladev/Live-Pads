@@ -8,6 +8,7 @@
 
 import { markersFor } from '../data/markers.js';
 import { ACTIONS, planJump } from './arrangeCore.js';
+import { placePop, claimPop } from '../utils/placePop.js';
 
 let audio = null, song = null, type = '', downs = null, pending = null, fast = 0, gridFor = null;
 function ensureGrid() { if (audio && audio.buffer && gridFor !== audio) { gridFor = audio; loadGrid(audio, song, type); } }
@@ -91,14 +92,15 @@ export function initArrange() {
     <small class="arr-tip">Cada acción se puede asignar a un pedal o botón MIDI (Ajustes → MIDI → Aprender).</small>`;
   document.body.appendChild(p);
   p.addEventListener('click', (e) => { const a = e.target.closest('[data-arr]'); if (a) arrange(a.dataset.arr); });
+  let release = null;
+  const hide = () => { p.hidden = true; if (release) { release(); release = null; } };
   b.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!p.hidden) { p.hidden = true; return; }
+    if (!p.hidden) { hide(); return; }
     p.hidden = false; ensureGrid(); paint();
-    const r = b.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
-    p.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-    p.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : Math.min(innerHeight - h - 8, r.bottom + 8)) + 'px';
+    release = claimPop('arrange', hide);   // «Voz» u otro panel abierto: se cierra
+    placePop(p, b);
   });
-  document.addEventListener('pointerdown', (e) => { if (!p.hidden && !p.contains(e.target) && !e.target.closest('#sw-arrange')) p.hidden = true; }, true);
+  document.addEventListener('pointerdown', (e) => { if (!p.hidden && !p.contains(e.target) && !e.target.closest('#sw-arrange')) hide(); }, true);
   paint();
 }

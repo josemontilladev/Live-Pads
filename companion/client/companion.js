@@ -409,8 +409,25 @@
     if (!window.LP_CLOUD_SOCKET && location.protocol === 'https:') {
       setConn('closed', 'Sin enlace');
       const t = document.querySelector('.empty-title'), s = document.querySelector('.empty-sub');
-      if (t) t.textContent = 'Escanea el QR de LivePads';
-      if (s) s.textContent = 'En LivePads abre Companion y escanea su código QR con este móvil (o abre el enlace que aparece debajo).';
+      if (t) t.textContent = 'Únete a la sesión';
+      if (s) {
+        s.innerHTML = '';
+        const p = document.createElement('p');
+        p.textContent = 'Escanea el QR del Companion en LivePads, o escribe aquí su código de 6 cifras.';
+        const f = document.createElement('form');
+        f.className = 'join-form';
+        f.innerHTML = '<input class="join-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="000 000" aria-label="Código de la sesión"><button type="submit" class="join-go">Entrar</button>';
+        const inp = f.querySelector('input');
+        inp.addEventListener('input', () => { const d = inp.value.replace(/\D/g, '').slice(0, 6); inp.value = d.length > 3 ? d.slice(0, 3) + ' ' + d.slice(3) : d; });
+        f.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const d = inp.value.replace(/\D/g, '');
+          if (d.length !== 6) { inp.focus(); inp.classList.add('is-bad'); setTimeout(() => inp.classList.remove('is-bad'), 600); return; }
+          location.href = location.pathname + '?s=' + d;
+        });
+        s.append(p, f);
+        setTimeout(() => inp.focus(), 50);
+      }
       return;
     }
     try { ws = window.LP_CLOUD_SOCKET ? window.LP_CLOUD_SOCKET() : new WebSocket(url); }

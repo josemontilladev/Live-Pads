@@ -285,11 +285,11 @@ function build() {
         <div class="gt-field gt-field--knob"><span>Volumen</span>${knobHtml('vol', 0.8, { max: 1.2, label: '' })}</div>
       </div>
       <div class="gt-follow" data-ref="follow">
-        <label class="gt-switch"><input type="checkbox" data-ref="followOn"><span>Seguir la canción</span></label>
+        <label class="gt-switch"><input type="checkbox" class="mo-switch" data-ref="followOn"><span>Seguir la canción</span></label>
         <span class="gt-follow-txt" data-ref="followTxt"></span>
         <label class="gt-check"><input type="checkbox" data-ref="followFills"> Redoble antes de cada sección</label>
         <span class="gt-bass">
-          <label class="gt-switch" title="El bajo toca la fundamental de cada acorde con el bombo: siguiendo la pista, sus acordes; a mano, la nota del pad"><input type="checkbox" data-ref="bassOn"><span>Bajo automático</span></label>
+          <label class="gt-switch" title="El bajo toca la fundamental de cada acorde con el bombo: siguiendo la pista, sus acordes; a mano, la nota del pad"><input type="checkbox" class="mo-switch" data-ref="bassOn"><span>Bajo automático</span></label>
           <input type="range" min="0" max="1.2" step="0.05" data-ref="bassVol" aria-label="Volumen del bajo" title="Volumen del bajo">
         </span>
       </div>

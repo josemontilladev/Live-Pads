@@ -37,6 +37,7 @@ import { initChordLane, laneTrackLoaded, laneCleared, laneTick, render as render
 
 import { markersFor, withMarkersFor } from '../data/markers.js';
 import { smoothToggle } from '../utils/smoothCollapse.js';
+import { getPendingJump } from '../live/arrange.js';
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
 const AUTO_KEY = 'livepads-autosections';          // '0' = no marcar solas las canciones nuevas
 const TRIED_KEY = 'livepads-autosections-tried';   // canciones ya analizadas (no se repite)
@@ -375,7 +376,7 @@ function startLoop() {
   raf = requestAnimationFrame(frame);
 }
 
-let lastCur = -1;
+let lastCur = -1; let lastJumpSig = '';
 function tick(force) {
   if (!audio || !duration) return;
   const t = Math.min(duration, audio.currentTime || 0);
@@ -390,8 +391,10 @@ function tick(force) {
   laneTick(t);
   // Sección actual / siguiente (solo si cambió el segundo, para no tocar el DOM en cada frame).
   const sec = Math.floor(t);
-  if (!force && sec === lastCur) return;
-  lastCur = sec;
+  const jump = getPendingJump();
+  const jumpSig = jump ? `${jump.label}|${jump.at}` : '';
+  if (!force && sec === lastCur && jumpSig === lastJumpSig) return;
+  lastCur = sec; lastJumpSig = jumpSig;
   const ms = sortedMarkers();
   let cur = null, next = null;
   for (let i = 0; i < ms.length; i++) { if (ms[i].t <= t + 0.05) cur = ms[i]; else { next = ms[i]; break; } }
@@ -403,7 +406,9 @@ function tick(force) {
     : calmPending === song ? '<span class="sw-detecting">Preparando la canción… (se analiza en unos segundos)</span>'
     : canEditActiveLibrary() ? `Sin secciones · <button type="button" class="sw-auto-link">${ICO_AUTO}Detectar automáticamente</button>`
     : 'Sin secciones';
-  nextEl.textContent = next ? `Siguiente: ${next.label} en ${fmt(next.t - t)}` : (ms.length ? 'Última sección' : '');
+  // Con un salto preparado («Repetir coro»…), lo que viene es ese destino.
+  nextEl.textContent = jump && jump.label && jump.at > t ? `Siguiente: ${jump.label} en ${fmt(jump.at - t)} · arreglo`
+    : next ? `Siguiente: ${next.label} en ${fmt(next.t - t)}` : (ms.length ? 'Última sección' : '');
 }
 
 // ── Interacción ────────────────────────────────────────────────────────────

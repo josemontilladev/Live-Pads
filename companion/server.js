@@ -289,9 +289,11 @@ function publishPlaying(playing) {
 const COMPANION_WEB = 'https://companion.livepads.online/';
 let cloudCode = null;
 /** Activa (con su código) o apaga el modo por internet. */
+let onCodeCollision = null;
+function setCodeCollisionHandler(fn) { onCodeCollision = fn; }
 function setCloud(code) {
   cloudCode = code || null;
-  if (cloudCode && httpServer) cloud.start(cloudCode, (m, reply) => handleRemote(m, reply, 'cloud'));
+  if (cloudCode && httpServer) cloud.start(cloudCode, (m, reply) => handleRemote(m, reply, 'cloud'), () => { if (onCodeCollision) onCodeCollision(); });
   else cloud.stop();
   if (cloudCode) { cloud.send(lastState); if (lastStage) cloud.send(lastStage); }
 }
@@ -301,7 +303,7 @@ function getStatus() {
   const candidates = getLanCandidates();
   const cs = cloud.status();
   return {
-    cloud: cloudCode ? { url: COMPANION_WEB + '?s=' + cloudCode, connected: cs.connected, clients: cloud.clients() } : null,
+    cloud: cloudCode ? { url: COMPANION_WEB + '?s=' + cloudCode, code: cloudCode, web: COMPANION_WEB.replace(/^https:\/\//, '').replace(/\/$/, ''), connected: cs.connected, clients: cloud.clients() } : null,
     running: !!httpServer,
     port: activePort,
     url: httpServer ? `http://${ip}:${activePort}` : null,
@@ -312,4 +314,4 @@ function getStatus() {
   };
 }
 
-module.exports = { start, stop, publishSong, publishPlaying, publishStage, getStatus, setPreferredIp, setCommandHandler, broadcastCue, newPin, setCloud, setTheme };
+module.exports = { start, stop, publishSong, publishPlaying, publishStage, getStatus, setPreferredIp, setCommandHandler, broadcastCue, newPin, setCloud, setTheme, setCodeCollisionHandler };

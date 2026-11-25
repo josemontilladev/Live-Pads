@@ -21,6 +21,9 @@ import { ensureCardLyrics } from './songCard.js';
 import { lineTimes, lineAt } from './lyricTiming.js';
 import { markersFor } from '../data/markers.js';
 import { getTrackAudio, getCurrentSong, getCurrentType } from '../audio/trackPlayer.js';
+import { getServiceSongs, getActiveServiceIndex, getEffectiveKey } from '../data/service.js';
+import { getPendingJump } from '../live/arrange.js';
+import { detectSectionHeader } from './lyricsFormat.js';
 
 const LS_GEOM = 'livepads-lyricspanel-geom';
 const LS_PREFS = 'livepads-lyricspanel-prefs';
@@ -293,6 +296,10 @@ function open(data) {
           ${closeButton({ cls: 'tun-close', attrs: { 'data-do': 'close' } })}
         </div>
         <div class="lyp-body lyrics-text-content"><div class="lyp-cols"></div></div>
+        <div class="lyp-next" hidden>
+          <div class="lyp-next-sec" hidden><span class="lyp-next-k">Después se canta</span><b data-ref="sec"></b><span class="lyp-next-line" data-ref="line"></span></div>
+          <div class="lyp-next-song" hidden><span class="lyp-next-k">Siguiente canción</span><b data-ref="song"></b><span class="lyp-next-key" data-ref="key"></span></div>
+        </div>
       </div>`;
     document.body.appendChild(overlay);
     panel = overlay.querySelector('.lyp-panel');
@@ -392,8 +399,67 @@ export function initLyricsOverlay() {
   });
   window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow);
   setInterval(lineTick, 150);
+  setInterval(nextTick, 400);
 }
 
+
+// ── Lo que viene: la sección siguiente (con su primera línea) y la canción siguiente ──
+// Si hay un salto preparado con «Arreglo» (repetir coro…), dice ese destino.
+// (La firma de lo pintado vive en el propio pie: el panel se vuelve a crear al reabrirlo.)
+function firstLineOf(label) {
+  const cols = panel?.querySelector('.lyp-cols');
+  const want = detectSectionHeader(label || '');
+  if (!cols || !want) return '';
+  let pick = null, loose = null;
+  for (const h of cols.querySelectorAll('.section-header-line')) {
+    const got = detectSectionHeader(h.textContent || '');
+    if (!got || got.canon !== want.canon) continue;
+    if (!loose) loose = h;
+    if (String(got.num || '') === String(want.num || '')) { pick = h; break; }
+  }
+  let el = (pick || loose)?.nextElementSibling;
+  while (el && !el.classList.contains('lyric-line')) { if (el.classList.contains('section-header-line')) return ''; el = el.nextElementSibling; }
+  if (!el) return '';
+  const c = el.cloneNode(true);
+  c.querySelectorAll('.inline-chord, .chord-line').forEach((n) => n.remove());
+  return (c.textContent || '').replace(/\s+/g, ' ').trim();
+}
+function nextTick() {
+  if (!overlay || overlay.hidden || !panel || !current) return;
+  const box = panel.querySelector('.lyp-next');
+  if (!box) return;
+  // Sección siguiente: solo si el panel muestra la canción que suena.
+  let sec = null;
+  const audio = getTrackAudio(), song = getCurrentSong();
+  if (audio && song && String(song.title || '').trim() === String(current.title || '').trim()) {
+    const t = audio.currentTime || 0;
+    const j = getPendingJump();
+    if (j && j.label && j.at > t) sec = j.label;
+    else {
+      const m = markersFor(song, getCurrentType()).slice().sort((a, b) => a.t - b.t).find((x) => x.t > t + 0.4 && x.label);
+      if (m) sec = m.label;
+    }
+  }
+  // Canción siguiente del servicio (la última no tiene siguiente).
+  let nextSong = null;
+  try { const list = getServiceSongs(), i = getActiveServiceIndex(); if (i >= 0 && i + 1 < list.length) nextSong = list[i + 1]; } catch (_) {}
+  const sig = JSON.stringify([sec, nextSong && nextSong.id, nextSong && getEffectiveKey(nextSong), (current.html || '').length]);
+  if (sig === box.dataset.sig) return;
+  box.dataset.sig = sig;
+  const secRow = box.querySelector('.lyp-next-sec'), songRow = box.querySelector('.lyp-next-song');
+  secRow.hidden = !sec;
+  if (sec) {
+    box.querySelector('[data-ref="sec"]').textContent = sec;
+    box.querySelector('[data-ref="line"]').textContent = firstLineOf(sec);
+  }
+  songRow.hidden = !nextSong;
+  if (nextSong) {
+    box.querySelector('[data-ref="song"]').textContent = nextSong.title || 'Sin título';
+    const k = getEffectiveKey(nextSong) || nextSong.key || '';
+    box.querySelector('[data-ref="key"]').textContent = k ? `Tono ${k}` : '';
+  }
+  box.hidden = !sec && !nextSong;
+}
 
 // ── La letra avanza sola ─────────────────────────────────────────────────
 // Si el panel muestra la canción que suena, la línea actual se resalta (las cantadas,

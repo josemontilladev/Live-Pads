@@ -12,6 +12,7 @@ import { numberFile, sectionFile, nextCue } from './voiceCuesCore.js';
 import { guideStatsFast, guideWordsAsync } from './guideCues.js';
 import { getPendingJump } from './arrange.js';
 import { muteTrackLeft } from '../audio/trackPlayer.js';
+import { placePop, claimPop } from '../utils/placePop.js';
 
 const voiceGain = () => { try { const v = parseFloat(localStorage.getItem('livepads.voiceGain')); return v >= 0 && v <= 1.5 ? v : 0.9; } catch (_) { return 0.9; } };
 export const countVoiceOn = () => { try { return localStorage.getItem('livepads-countin-voice') !== '0'; } catch (_) { return true; } };
@@ -152,7 +153,15 @@ function paintVoiceBtn() {
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 let panel = null;
-function closeVoicePanel() { if (panel) { panel.remove(); panel = null; document.removeEventListener('pointerdown', outside, true); } }
+let releasePop = null;
+
+function closeVoicePanel() {
+  if (!panel) return;
+  panel.remove(); panel = null;
+  document.removeEventListener('pointerdown', outside, true);
+
+  if (releasePop) { releasePop(); releasePop = null; }
+}
 function outside(e) { if (panel && !panel.contains(e.target) && !e.target.closest('#sw-voice')) closeVoicePanel(); }
 export function toggleVoicePanel(anchor) {
   if (panel) { closeVoicePanel(); return; }
@@ -163,9 +172,9 @@ export function toggleVoicePanel(anchor) {
     <label class="vg-vol"><span>Volumen de la voz</span><input type="range" min="0" max="1.5" step="0.05" value="${voiceGain()}" data-ref="vol"></label>
     <button type="button" class="vg-test" data-ref="test">Probar la voz</button>`;
   document.body.appendChild(panel);
-  const r = anchor.getBoundingClientRect(), w = panel.offsetWidth, h = panel.offsetHeight;
-  panel.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-  panel.style.top = (r.top - h - 8 > 8 ? r.top - h - 8 : Math.min(innerHeight - h - 8, r.bottom + 8)) + 'px';
+  releasePop = claimPop('voice', closeVoicePanel);   // «Arreglo» u otro panel abierto: se cierra
+  placePop(panel, anchor);
+
   panel.addEventListener('change', (e) => {
     const k = e.target.dataset.key;
     if (!k) return;

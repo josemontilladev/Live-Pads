@@ -498,3 +498,10 @@ body.stage-mode .stage, body.stage-mode #btn-toggle-chords { display: none !impo
 :root[data-light="1"] .leader-on { color: #15803d; }
 .sv-chord-next b { opacity: .55; }
 :root[data-light="1"] .fab { box-shadow: 0 4px 14px rgba(15,23,42,.14), 0 0 0 3px var(--top-bg); }
+
+/* Entrar con el código de 6 cifras. */
+.join-form { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+.join-code { width: 150px; height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--fg); text-align: center; font: 800 22px/1 ui-monospace, monospace; letter-spacing: .12em; }
+.join-code:focus { outline: none; border-color: var(--accent); }
+.join-code.is-bad { border-color: var(--err); }
+.join-go { height: 48px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--accent); color: var(--on-accent); font: 800 16px/1 inherit; }

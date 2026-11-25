@@ -25,7 +25,14 @@ function readCloudConfig() {
 }
 
 let ws = null, topic = null, ref = 0, joined = false, beat = null, retry = null, retries = 0;
-let code = null, onRemote = null, wanted = false;
+let code = null, onRemote = null, wanted = false, onCollision = null;
+const hostId = Math.random().toString(36).slice(2, 12);
+let joinedAt = 0, announceTimer = null, collided = false;
+function announce() { broadcastEvent('h', { hid: hostId, since: joinedAt }); }
+function broadcastEvent(event, payload) {
+  if (!joined) return;
+  raw({ topic, event: 'broadcast', ref: String(++ref), payload: { type: 'broadcast', event, payload } });
+}
 const seen = new Map();   // cid → último aviso (ms)
 let lastStateJson = null, lastStageJson = null, lastStageAt = 0, stageTimer = null, pendingStage = null;
 
@@ -51,7 +58,19 @@ function connect() {
   ws.on('message', (d) => {
     let m; try { m = JSON.parse(String(d)); } catch (_) { return; }
     if (m.topic === topic && m.event === 'phx_reply' && !joined) {
-      if (m.payload && m.payload.status === 'ok') { joined = true; retries = 0; resendAll(); }
+      if (m.payload && m.payload.status === 'ok') {
+        joined = true; retries = 0; joinedAt = joinedAt || Date.now(); collided = false;
+        announce(); clearInterval(announceTimer); announceTimer = setInterval(announce, 60000);
+        resendAll();
+      }
+      return;
+    }
+    if (m.topic === topic && m.event === 'broadcast' && m.payload && m.payload.event === 'h') {
+      const p = m.payload.payload || {};
+      if (!p.hid || p.hid === hostId) return;
+      const theyFirst = (p.since || 0) < joinedAt || ((p.since || 0) === joinedAt && String(p.hid) < hostId);
+      if (theyFirst) { if (!collided && onCollision) { collided = true; try { onCollision(); } catch (_) {} } }
+      else announce();   // que el recién llegado sepa que este código ya está en uso
       return;
     }
     if (m.topic === topic && m.event === 'broadcast' && m.payload && m.payload.event === 'c') {
@@ -74,7 +93,7 @@ function schedule() {
   retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** Math.min(retries++, 5)));
 }
 function cleanup() {
-  clearInterval(beat); beat = null; joined = false;
+  clearInterval(beat); beat = null; joined = false; clearInterval(announceTimer); announceTimer = null;
   // Sin oyente de «error», cerrar un socket que aún conecta tumbaría el proceso.
   if (ws) { try { ws.removeAllListeners(); ws.on('error', () => {}); ws.close(); } catch (_) {} ws = null; }
 }
@@ -85,8 +104,11 @@ function resendAll(to) {
   if (lastStageJson) broadcastRaw(Object.assign(JSON.parse(lastStageJson), extra));
 }
 
-function start(newCode, handler) {
-  code = String(newCode || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 32);
+function start(newCode, handler, collisionHandler) {
+  const next = String(newCode || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 32);
+  if (next !== code) joinedAt = 0;   // código nuevo: este equipo es el recién llegado
+  code = next;
+  onCollision = collisionHandler || null;
   onRemote = handler || null;
   wanted = !!code;
   retries = 0;

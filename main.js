@@ -2216,16 +2216,25 @@ ipcMain.handle('companion-set-theme', (_e, t) => { companionServer.setTheme(t); 
 ipcMain.handle('companion-publish-stage', (_e, s) => { companionServer.publishStage(s); return true; });
 
 // Código del Companion por internet: fijo por equipo (el QR no cambia de un domingo a otro).
+// 6 cifras: el músico puede teclearlo en companion.livepads.online si no escanea el QR.
+const newCompanionCode = () => String(require('crypto').randomInt(100000, 1000000));
 function companionCloudCode() {
   const p = readCompanionPrefs();
   if (p.cloud === false) return null;
-  if (!p.cloudCode) { p.cloudCode = require('crypto').randomBytes(8).toString('hex').slice(0, 10); writeCompanionPrefs(p); }
+  if (!/^\d{6}$/.test(p.cloudCode || '')) { p.cloudCode = newCompanionCode(); writeCompanionPrefs(p); }
   return p.cloudCode;
 }
+// Otro equipo ya usaba este código (muy raro): se elige otro sin que el usuario haga nada.
+companionServer.setCodeCollisionHandler(() => {
+  const p = readCompanionPrefs();
+  p.cloudCode = newCompanionCode();
+  writeCompanionPrefs(p);
+  companionServer.setCloud(companionCloudCode());
+});
 ipcMain.handle('companion-set-cloud', async (_e, { on, renew } = {}) => {
   const p = readCompanionPrefs();
   if (typeof on === 'boolean') p.cloud = on;
-  if (renew) p.cloudCode = require('crypto').randomBytes(8).toString('hex').slice(0, 10);
+  if (renew) p.cloudCode = newCompanionCode();
   writeCompanionPrefs(p);
   companionServer.setCloud(companionCloudCode());
   return companionServer.getStatus();

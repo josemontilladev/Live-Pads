@@ -16,7 +16,7 @@ import { initAudioLibrarySetting } from './ui/audioLibrarySetting.js';
 import { initBackupSetting } from './ui/backupSetting.js';
 import { openPreflight, closePreflight } from './ui/preflight.js';
 import { openMappingsList } from './ui/mappingsList.js';
-import { openCompanionPanel, closeCompanionPanel } from './ui/companionPanel.js';
+import { openCompanionPanel, closeCompanionPanel, isCompanionPanelOpen, watchCompanionBadge } from './ui/companionPanel.js';
 import { togglePadsPiano, closePadsPiano, isPadsPianoOpen, padsPianoPanic } from './ui/padsPiano.js';
 // The Stems workspace pulls in heavy deps (audio engine, exporter, waveform
 // renderer, lamejs, ONNX-backed separation IPC glue…) yet the app boots into
@@ -1194,13 +1194,11 @@ function bindHamburgerMenu() {
     };
   }
 
-  const btnCompanion = q('#menu-companion');
-  if (btnCompanion) {
-    btnCompanion.onclick = () => {
-      closeMenu();
-      openCompanionPanel();
-    };
-  }
+  // Companion: herramienta de la cabecera (como el metrónomo o la caja de ritmos).
+  q('#btn-companion')?.addEventListener('click', () => {
+    if (isCompanionPanelOpen()) closeCompanionPanel(); else openCompanionPanel();
+  });
+  watchCompanionBadge();
 
   const btnAccount = q('#menu-account');
   if (btnAccount) {
@@ -1294,15 +1292,10 @@ function bindHamburgerMenu() {
     closePreflight();
     openPreflight({ getEngine: () => engine, mount: q('#embed-preflight') });
   });
-  wire('#set-companion', () => {
-    closePreflight();
-    openCompanionPanel({ mount: q('#embed-companion') });
-  });
   // Las secciones que embeben un panel se abren SOLAS al entrar en su pestaña:
   // el usuario no tiene que pulsar un botón intermedio para ver el contenido.
   const AUTO_EMBED = {
     preflight: ['#embed-preflight', '#set-preflight'],
-    companion: ['#embed-companion', '#set-companion'],
     account:   ['#embed-account',   '#set-account'],
     midi:      ['#embed-midi',      '#set-mappings'],
   };
@@ -1355,7 +1348,7 @@ function bindHamburgerMenu() {
 const SIDEBAR_PANELS = [
   ['audio', 'Ajustes: Audio'], ['midi', 'Ajustes: MIDI / Teclado'], ['themes', 'Ajustes: Temas'],
   ['library', 'Ajustes: Biblioteca de audios'], ['account', 'Cuenta y librerías'],
-  ['preflight', 'Pre-vuelo del servicio'], ['companion', 'Companion (móvil)'],
+  ['preflight', 'Pre-vuelo del servicio'],
   ['shortcuts', 'Atajos de teclado'], ['about', 'Acerca de LivePads'],
 ];
 function spotlightProviderItems() {
@@ -1384,6 +1377,7 @@ function spotlightProviderItems() {
   for (const [tab, label] of SIDEBAR_PANELS) {
     items.push({ id: `tab:${tab}`, kind: 'panel', label, sub: 'Panel', search: `${label} ajustes panel abrir`, run: () => openSidebarTab(tab) });
   }
+  items.push({ id: 'tool:companion', kind: 'panel', label: 'Companion (móvil)', sub: 'Herramienta', search: 'companion móvil movil qr letra acordes músicos código', run: () => openCompanionPanel() });
   for (const [id, t] of Object.entries(THEMES)) {
     items.push({ id: `theme:${id}`, kind: 'theme', label: `Tema: ${t.name}`, sub: getCurrentTheme() === id ? 'Tema actual' : (t.desc || 'Tema'), search: `tema theme ${t.name} ${t.desc || ''}`, run: () => applyTheme(id) });
   }

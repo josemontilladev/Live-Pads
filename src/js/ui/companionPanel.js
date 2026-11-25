@@ -59,6 +59,10 @@ export function openCompanionPanel({ mount = null } = {}) {
       <div class="cp-qr" id="cp-qr" hidden>
         <div class="cp-qr-frame" id="cp-qr-frame"></div>
         <p class="cp-qr-caption">Escanea con la cámara del teléfono</p>
+        <div class="cp-code cp-cloud-only" hidden>
+          <span class="cp-code-label">o entra en <b data-ref="web">companion.livepads.online</b> y escribe:</span>
+          <span class="cp-code-num" data-ref="code"></span>
+        </div>
       </div>
 
       <div class="cp-url-row" hidden>
@@ -73,8 +77,8 @@ export function openCompanionPanel({ mount = null } = {}) {
       <p class="cp-pin" hidden title="El líder lo escribe en su móvil (Ajustes → Modo líder) para controlar LivePads y enviar indicaciones a la banda. Sin él, el móvil solo ve la letra.">PIN del líder: <b id="cp-pin">----</b> <button type="button" class="cp-copy" id="cp-newpin" title="Cambiar el PIN (los móviles tendrán que escribir el nuevo)">Cambiar</button></p>
 
       <p class="cp-hint">
-        Cuando esté activo, los músicos escanean el QR (o abren el enlace) y ven la canción que suena.
-        <span class="cp-cloud-only"><button type="button" class="cp-copy cp-newcode" id="cp-newcode" title="Otro enlace: los móviles que tenían el anterior dejan de recibir">Cambiar el enlace</button></span>
+        Cuando esté activo, los músicos escanean el QR (o escriben el código) y ven la canción que suena.
+        <span class="cp-cloud-only"><button type="button" class="cp-copy cp-newcode" id="cp-newcode" title="Otro código y otro QR: los móviles que tenían el anterior dejan de recibir">Cambiar el código</button></span>
       </p>
 
       <div class="cp-firewall cp-wifi-only" hidden>
@@ -100,9 +104,17 @@ export function openCompanionPanel({ mount = null } = {}) {
     mount.innerHTML = '';
     mount.appendChild(overlay);
   } else {
+    // Herramienta flotante: la app sigue usable detrás (no hay velo).
+    overlay.classList.add('is-floating');
     document.body.appendChild(overlay);
     popModal = pushModal(() => closeCompanionPanel());
-    overlay.onclick = (e) => { if (e.target === overlay) closeCompanionPanel(); };
+    const panel = overlay.querySelector('.cp-panel');
+    placePanel(panel);
+    dragBy(panel, overlay.querySelector('.cp-header'));
+    // Ventana más pequeña con el panel abierto: que no se quede fuera de la pantalla.
+    onResize = () => fitPanel(panel);
+    window.addEventListener('resize', onResize);
+    document.getElementById('btn-companion')?.setAttribute('aria-pressed', 'true');
   }
   mounted = overlay;
   overlay.querySelector('.cp-close').onclick = closeCompanionPanel;
@@ -124,7 +136,7 @@ export function openCompanionPanel({ mount = null } = {}) {
   overlay.querySelector('#cp-newcode')?.addEventListener('click', async () => {
     await window.electronAPI.companionSetCloud?.({ renew: true });
     lastQrUrl = null; await refresh();
-    window.showToast?.('Enlace nuevo: vuelve a compartir el QR con la banda.', 'info');
+    window.showToast?.('Código nuevo: vuelve a compartir el QR o el código con la banda.', 'info');
   });
   paintMode();
 
@@ -241,6 +253,8 @@ export function openCompanionPanel({ mount = null } = {}) {
 
 export function closeCompanionPanel() {
   if (!mounted) return;
+  document.getElementById('btn-companion')?.setAttribute('aria-pressed', 'false');
+  if (onResize) { window.removeEventListener('resize', onResize); onResize = null; }
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   if (popModal) { popModal(); popModal = null; }
   lastQrUrl = null;
@@ -252,6 +266,74 @@ export function closeCompanionPanel() {
 }
 
 export function isCompanionPanelOpen() { return mounted !== null; }
+
+// ── Panel flotante ───────────────────────────────────────────────────────
+const POS_KEY = 'livepads.companionPos';
+let onResize = null;
+/** Dentro de la ventana y con el alto que quepa (la ventana pudo encogerse). */
+function fitPanel(panel) {
+  const w = panel.offsetWidth || 460;
+  const x = Math.max(8, Math.min(innerWidth - w - 8, parseFloat(panel.style.left) || 0));
+  const y = Math.max(8, Math.min(innerHeight - 160, parseFloat(panel.style.top) || 0));
+  panel.style.left = x + 'px'; panel.style.top = y + 'px';
+  // (con prioridad: _linear.css limita todos los paneles con !important)
+  panel.style.setProperty('max-height', Math.max(160, innerHeight - y - 12) + 'px', 'important');
+}
+function placePanel(panel) {
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); } catch (_) {}
+  const w = Math.min(460, innerWidth - 24);
+  const x = p && p.x != null ? p.x : innerWidth - w - 16;
+  const y = p && p.y != null ? p.y : 64;
+  panel.style.left = Math.max(8, Math.min(innerWidth - w - 8, x)) + 'px';
+  panel.style.top = Math.max(8, Math.min(innerHeight - 120, y)) + 'px';
+  fitPanel(panel);
+}
+function dragBy(panel, handle) {
+  let on = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, input, select, a')) return;
+    on = true; const r = panel.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (!on) return;
+    panel.style.left = Math.max(8 - panel.offsetWidth + 120, Math.min(innerWidth - 120, ox + e.clientX - sx)) + 'px';
+    panel.style.top = Math.max(8, Math.min(innerHeight - 60, oy + e.clientY - sy)) + 'px';
+  });
+  const end = () => {
+    if (!on) return; on = false; fitPanel(panel);
+    const r = panel.getBoundingClientRect();
+    try { localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })); } catch (_) {}
+  };
+  handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+}
+
+// ── Botón de la cabecera: encendido (verde) y nº de móviles conectados ───
+let badgeTimer = null;
+export function watchCompanionBadge() {
+  if (badgeTimer || !window.electronAPI?.companionStatus) return;
+  const paint = async () => {
+    if (document.hidden) return;
+    const btn = document.getElementById('btn-companion');
+    if (!btn) return;
+    try {
+      const st = await window.electronAPI.companionStatus();
+      const cloud = getMode() === 'cloud' && st.cloud;
+      const n = st.running ? (cloud ? st.cloud.clients : st.clients) || 0 : 0;
+      btn.classList.toggle('is-active', !!st.running);
+      const b = btn.querySelector('.cp-badge');
+      if (b) { b.hidden = !st.running || !n; b.textContent = n > 9 ? '9+' : String(n); }
+      btn.title = st.running
+        ? `Companion activo · ${n} móvil${n === 1 ? '' : 'es'} conectado${n === 1 ? '' : 's'}`
+        : 'Companion — letra y acordes en el móvil de cada músico (QR o código)';
+    } catch (_) {}
+  };
+  paint();
+  badgeTimer = setInterval(paint, 4000);
+}
 
 async function refresh() {
   if (!mounted) return;
@@ -276,6 +358,15 @@ async function refresh() {
       qrBox.hidden = false;
       urlRow.hidden = false;
       mounted.querySelector('#cp-url').textContent = shownUrl;
+      const codeBox = mounted.querySelector('.cp-code');
+      if (codeBox) {
+        const c = cloudMode && status.cloud.code;
+        codeBox.hidden = !c;
+        if (c) {
+          mounted.querySelector('[data-ref="code"]').textContent = /^\d{6}$/.test(c) ? c.slice(0, 3) + ' ' + c.slice(3) : c;
+          if (status.cloud.web) mounted.querySelector('[data-ref="web"]').textContent = status.cloud.web;
+        }
+      }
       clientsRow.hidden = false;
       mounted.querySelector('#cp-clients-count').textContent = cloudMode ? status.cloud.clients : status.clients;
       statusLabel.textContent = cloudMode ? (status.cloud.connected ? 'Activo · por internet' : 'Conectando con internet…') : 'Activo · misma WiFi';

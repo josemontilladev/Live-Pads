@@ -72,7 +72,7 @@ async function decodeSample(ctx, path) {
 // which beats of the bar get the ACCENT sample. When omitted, only beat 1 is
 // accented (classic behaviour). Indexed by beat-in-bar after applying
 // accentBeatOffset, so it stays phase-locked to the detected downbeat.
-export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell', accentBeatOffset = 0, accentPattern = null, subdivision = 1 } = {}) {
+export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, sound = 'cowbell', accentBeatOffset = 0, accentPattern = null, subdivision = 1, tempoMap = null } = {}) {
   const map = CLICK_FILE_MAP[sound] || CLICK_FILE_MAP.cowbell;
   const audioCtx = ctx || new OfflineAudioContext(2, Math.ceil(durationSec * SAMPLE_RATE), SAMPLE_RATE);
   const sampleRate = audioCtx.sampleRate;
@@ -97,18 +97,24 @@ export async function generateClickTrack({ bpm, beatsPerBar, durationSec, ctx, s
   const length = Math.ceil(durationSec * sampleRate);
   const out = audioCtx.createBuffer(channels, length, sampleRate);
 
-  const beatIntervalSec = 60 / bpm;
-  const beats = Math.floor(durationSec / beatIntervalSec) + 1;
   const subdiv = Math.max(1, Math.round(subdivision || 1));
+  // Tempo variable: los pulsos reales de la canción (tempoMapCore.clickTimes).
+  // Si no, una rejilla fija de BPM.
+  const tm = tempoMap && tempoMap.times && tempoMap.times.length > 1 ? tempoMap : null;
+  const beatIntervalSec = 60 / bpm;
+  const beats = tm ? tm.times.length : Math.floor(durationSec / beatIntervalSec) + 1;
+  const beatAt = (b) => (tm ? tm.times[b] : b * beatIntervalSec);
+  const spanAt = (b) => (tm ? (b + 1 < tm.times.length ? tm.times[b + 1] - tm.times[b] : tm.times[b] - tm.times[b - 1]) : beatIntervalSec);
+  const accentAt = (b) => (tm ? !!tm.accents[b] : isAccentBeat(b));
 
   for (let b = 0; b < beats; b++) {
-    const beatStartSec = b * beatIntervalSec;
+    const beatStartSec = beatAt(b), span = spanAt(b);
     // k=0 es el pulso (accent/normal); k>0 son las subdivisiones (más suaves).
     for (let k = 0; k < subdiv; k++) {
-      const startIdx = Math.floor((beatStartSec + (k / subdiv) * beatIntervalSec) * sampleRate);
-      if (startIdx >= length) continue;
+      const startIdx = Math.floor((beatStartSec + (k / subdiv) * span) * sampleRate);
+      if (startIdx < 0 || startIdx >= length) continue;
       const isMain = k === 0;
-      const src = (isMain && isAccentBeat(b)) ? accentBuf : normalBuf;
+      const src = (isMain && accentAt(b)) ? accentBuf : normalBuf;
       const gain = isMain ? 1 : 0.45;
       for (let ch = 0; ch < channels; ch++) {
         const dst = out.getChannelData(ch);

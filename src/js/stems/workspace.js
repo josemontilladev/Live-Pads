@@ -15,6 +15,7 @@ import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
+import { isVariableTempo, clickTimes } from './tempoMapCore.js';
 import { audioBufferToMp3 } from '../audio/mp3Buffer.js';
 import { createZip } from '../utils/zip.js';
 import { buildGuideTrack } from './guideBuilder.js';
@@ -6606,6 +6607,10 @@ async function computeClickAlignment() {
   // primer compás que de verdad suena (no de una suposición por energía).
   try {
     const r = await analyzeBeats(buf, stemBeatKey(stem.id, buf));
+    // Tempo que cambia (en vivo, sin click): el click sigue los pulsos reales.
+    if (r && clickMultiplier === 1 && isVariableTempo(r.beats)) {
+      return { offsetSec: 0, accentBeatOffset: 0, tempoMap: clickTimes(r.beats, r.downbeats, projectDurationSec() || buf.duration) };
+    }
     if (r && r.beats.length > 8 && bpmFloat > 0) {
       const P = 60 / bpmFloat;
       let offsetSec;
@@ -6637,11 +6642,12 @@ async function computeClickAlignment() {
 
 async function createClickTrack(durationSec) {
   const ctx = engine.getAudioContext();
-  const { offsetSec, accentBeatOffset } = await computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
+  const { offsetSec, accentBeatOffset, tempoMap } = await computeClickAlignment();
+  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision, tempoMap });
   const wav = audioBufferToWav(buffer);
   const id = `click-${nextTrackId++}`;
-  await engine.addTrack({ id, name: `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
+  if (tempoMap) window.showToast?.('La canción cambia de tempo: el click sigue el tempo real de la pista.', 'info');
+  await engine.addTrack({ id, name: tempoMap ? 'Click (tempo variable)' : `Click ${bpm} BPM`, audioBuffer: buffer, kind: 'click', offsetSec });
   const savedPath = await projectStore.saveStem(id, `click_${bpm}bpm.wav`, wav);
   appendTrackRow(id, savedPath);
   refreshTransport();
@@ -6651,9 +6657,10 @@ async function createClickTrack(durationSec) {
 async function regenerateClickTrack(existingId) {
   const durationSec = projectDurationSec();
   const ctx = engine.getAudioContext();
-  const { offsetSec, accentBeatOffset } = await computeClickAlignment();
-  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision });
+  const { offsetSec, accentBeatOffset, tempoMap } = await computeClickAlignment();
+  const buffer = await generateClickTrack({ bpm: bpmFloat * clickMultiplier, beatsPerBar, durationSec, ctx, sound: clickSoundId, accentBeatOffset, accentPattern, subdivision: clickSubdivision, tempoMap });
   const wav = audioBufferToWav(buffer);
+  if (tempoMap) window.showToast?.('La canción cambia de tempo: el click sigue el tempo real de la pista.', 'info');
   engine.replaceTrackBuffer(existingId, buffer);
   engine.setTrackOffset(existingId, offsetSec);
   // Refresh persisted file too.
