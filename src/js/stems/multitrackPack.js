@@ -70,6 +70,7 @@ function openDialog(pk, opts = {}) {
     return { ...f, base: base(f.name), kind: learned && KINDS.includes(learned) ? learned : det, learned: !!learned, label: r.name || base(f.name).replace(/\.[^.]+$/, '') };
   });
   const hasClick = rows.some((r) => r.kind === 'click');
+  const hasGuide = rows.some((r) => r.kind === 'guide');
   const ov = document.createElement('div');
   ov.className = 'vn-overlay';
   ov.innerHTML = `
@@ -88,6 +89,7 @@ function openDialog(pk, opts = {}) {
           <select aria-label="Qué es ${esc(base(r.name))}">${KINDS.map((k) => `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${esc(KIND_LABEL[k] || k)}</option>`).join('')}</select>
         </div>`).join('')}</div>
       <label class="sm-use"><input type="checkbox" class="mo-switch" data-ref="seq" ${hasClick ? 'checked' : ''}> <span><b>Crear la secuencia para tocar en Pads</b><small>Click y guía a la izquierda (in-ears) y la banda a la derecha (sala).${hasClick ? '' : ' Este paquete no trae click: la izquierda quedaría en silencio.'}</small></span></label>
+      ${hasGuide && window.electronAPI?.guideSections ? `<label class="sm-use"><input type="checkbox" class="mo-switch" data-ref="sections" checked> <span><b>Marcar las secciones con la pista guía</b><small>LivePads escucha la guía («Verse one», «Chorus», «Puente»…) y coloca las secciones solas. La primera vez baja el reconocimiento de voz (~75 MB).</small></span></label>` : ''}
       <div class="mt-progress" data-ref="prog" hidden><div class="vs-bar"><i data-ref="bar"></i></div><small data-ref="step"></small></div>
       <div class="vn-actions">
         <button type="button" class="vn-btn" data-act="cancel">Cancelar</button>
@@ -118,10 +120,11 @@ function openDialog(pk, opts = {}) {
         bpm: $('[data-ref="bpm"]').value.trim(),
         key: $('[data-ref="key"]').value.trim(),
         makeSeq: $('[data-ref="seq"]').checked,
+        sections: !!$('[data-ref="sections"]')?.checked,
       }, step);
       busy = false; close();
       try { opts.onDone && opts.onDone(song); } catch (_) {}
-      window.showToast?.(`✓ «${song.title}» importada: ${song.audio.stems.length} pistas${song.audio.sequence ? ' y su secuencia para Pads' : ''}.`, 'success', {
+      window.showToast?.(`✓ «${song.title}» importada: ${song.audio.stems.length} pistas${song.audio.sequence ? ' y su secuencia para Pads' : ''}${song.markers.length ? ` · ${song.markers.length} secciones desde la guía` : ''}.`, 'success', {
         ttl: 9000, action: { label: 'Abrir en Stems', onClick: () => window.dispatchEvent(new CustomEvent('livepads:practice-song-stems', { detail: { song, stems: song.audio.stems } })) },
       });
     } catch (err) {
@@ -141,13 +144,14 @@ async function runImport(pk, rows, meta, step) {
   if (!use.length) throw new Error('No hay pistas para importar.');
   const song = { id: `song_mt_${Date.now()}`, title: meta.title, artist: meta.artist, bpm: meta.bpm, key: meta.key, lyrics: '', genre: 'adoracion', tags: ['multitrack'], addedAt: Date.now(), markers: [], audio: { sequence: null, original: null, stems: [] } };
   // Secuencia: dos sumas en mono (izquierda: click + guía; derecha: la banda).
-  let L = null, R = null, sr = 0;
+  let L = null, R = null, sr = 0, guideBuf = null;
   for (let i = 0; i < use.length; i++) {
     const r = use[i];
     const name = r.label;
     step(i / (use.length + 1), `${i + 1} de ${use.length}: ${name}`);
     const bytes = await api.multitrackRead({ token: pk.token, id: r.id });
     const buf = await decodeAudio(bytes);
+    if (meta.sections && r.kind === 'guide' && !guideBuf) guideBuf = buf;
     if (meta.makeSeq) {
       if (!L) { sr = buf.sampleRate; L = new Float32Array(buf.length); R = new Float32Array(buf.length); }
       if (buf.length > L.length) { const nl = new Float32Array(buf.length); nl.set(L); L = nl; const nr = new Float32Array(buf.length); nr.set(R); R = nr; }
@@ -164,6 +168,17 @@ async function runImport(pk, rows, meta, step) {
     const mp3 = await encodeMp3Async(l, rr, buf.sampleRate, 192);
     const url = await api.saveSongStem({ buffer: mp3, songSlug: songSlug(song), name, ext: 'mp3' });
     attachStem(song, { url, name, kind: r.kind === 'skip' ? 'other' : r.kind });
+  }
+  // Secciones: lo que dice la guía, un compás antes de cada sección → marcadores de la canción
+  // (de la secuencia si se crea; las pistas y la secuencia empiezan a la vez).
+  if (guideBuf) {
+    try {
+      const { sectionsFromGuide } = await import('./guideSections.js');
+      const cues = await sectionsFromGuide(guideBuf, { bpm: Number(String(meta.bpm).replace(',', '.')) || 0, beatsPerBar: 4, durationSec: guideBuf.duration,
+        onProgress: (f, label) => step((use.length - 0.5 + 0.5 * f) / (use.length + 1), label || 'Escuchando la guía…') });
+      if (cues.length >= 2) song.markers = cues.map((c, i) => ({ id: `m${Date.now().toString(36)}${i}`, label: c.label, t: c.atSec, auto: true, ...(meta.makeSeq ? { src: 'sequence' } : {}) }));
+    } catch (err) { console.warn('Secciones desde la guía:', err); }
+    guideBuf = null;
   }
   if (meta.makeSeq && L) {
     step(use.length / (use.length + 1), 'Creando la secuencia (click a la izquierda, banda a la derecha)…');

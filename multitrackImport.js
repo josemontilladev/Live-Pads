@@ -12,6 +12,7 @@ const zlib = require('zlib');
 
 const AUDIO = /\.(wav|wave|mp3|aif|aiff|flac|m4a|ogg)$/i;
 const MAX_FILES = 64;
+const IMAGE = /\.(jpe?g|png|webp)$/i;
 
 /** Índice de un ZIP: [{ name, method, csize, size, dataOffset }] (método 0 = guardado, 8 = deflate). */
 function zipIndex(file) {
@@ -56,15 +57,15 @@ function zipRead(file, e) {
   } finally { fs.closeSync(fd); }
 }
 
-/** Audios de una carpeta (y sus subcarpetas, hasta 2 niveles). */
-function walk(dir, depth = 0, out = []) {
+/** Audios (o imágenes, con re = IMAGE) de una carpeta y sus subcarpetas, hasta 2 niveles. */
+function walk(dir, depth = 0, out = [], re = AUDIO) {
   let ents = [];
   try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return out; }
   for (const d of ents) {
     if (d.name.startsWith('.')) continue;
     const p = path.join(dir, d.name);
-    if (d.isDirectory() && depth < 2) walk(p, depth + 1, out);
-    else if (d.isFile() && AUDIO.test(d.name)) { try { out.push({ name: path.relative(dir, p) === d.name ? d.name : path.relative(dir, p), abs: p, size: fs.statSync(p).size }); } catch (_) {} }
+    if (d.isDirectory() && depth < 2) walk(p, depth + 1, out, re);
+    else if (d.isFile() && re.test(d.name)) { try { out.push({ name: path.relative(dir, p) === d.name ? d.name : path.relative(dir, p), abs: p, size: fs.statSync(p).size }); } catch (_) {} }
   }
   return out;
 }
@@ -78,11 +79,16 @@ function listPack(target) {
   else throw new Error('Elige una carpeta o un archivo ZIP.');
   if (!files.length) throw new Error('No hay audios (WAV, MP3, AIFF, FLAC) en lo que elegiste.');
   if (files.length > MAX_FILES) files = files.slice(0, MAX_FILES);
-  return { source: { kind: st.isDirectory() ? 'folder' : 'zip', path: target, name: path.basename(target).replace(/\.zip$/i, '') }, files };
+  // Imágenes que trae el paquete (carátula del multitrack): ids «i0», «i1»…; las diminutas no.
+  let images = st.isDirectory()
+    ? walk(target, 0, [], IMAGE).map((f) => ({ name: f.name, size: f.size, abs: f.abs }))
+    : zipIndex(target).filter((e) => IMAGE.test(e.name)).map((e) => ({ name: e.name, size: e.size, entry: e }));
+  images = images.filter((x) => x.size > 8000).slice(0, 12).map((x, i) => ({ ...x, id: `i${i}` }));
+  return { source: { kind: st.isDirectory() ? 'folder' : 'zip', path: target, name: path.basename(target).replace(/\.zip$/i, '') }, files, images };
 }
 
 function readPackFile(pack, id) {
-  const f = pack.files.find((x) => x.id === id);
+  const f = typeof id === 'string' && id[0] === 'i' ? (pack.images || []).find((x) => x.id === id) : pack.files.find((x) => x.id === id);
   if (!f) throw new Error('Archivo no encontrado en el paquete.');
   return f.abs ? fs.readFileSync(f.abs) : zipRead(pack.source.path, f.entry);
 }

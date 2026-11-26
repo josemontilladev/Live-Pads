@@ -62,3 +62,11 @@ test('avisos: falta BPM bloquea; desacuerdos y dudas avisan', () => {
 test('peso estimado en la nube', () => {
   assert.equal(Math.round(estimateCloudBytes([{ name: 'a.wav', size: 100 }, { name: 'b.mp3', size: 10 }])), 24);
 });
+
+import { pickCover } from '../src/js/stems/batchCore.js';
+test('portada del ZIP: por nombre o la más grande; nada si no hay', () => {
+  assert.equal(pickCover([{ name: 'photo.jpg', size: 900000 }, { name: 'Artwork/Cover.png', size: 300000 }]).name, 'Artwork/Cover.png');
+  assert.equal(pickCover([{ name: 'a.jpg', size: 20000 }, { name: 'b.jpg', size: 90000 }]).name, 'b.jpg');
+  assert.equal(pickCover([{ name: 'back cover.jpg', size: 900000 }, { name: 'x.jpg', size: 50000 }]).name, 'x.jpg');
+  assert.equal(pickCover([{ name: 'icon.png', size: 2000 }]), null);
+});

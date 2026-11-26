@@ -791,7 +791,7 @@ const SHELL_HTML = `
         <span class="sb-group-k">${SVG_FLAG} Secciones</span>
         <select id="stems-section-select" class="stems-mini-select" aria-label="Sección a añadir" title="Sección que se añade"></select>
         <button class="stems-btn stems-btn--accent sb-icon-txt" id="stems-add-marker" title="Añadir esa sección en la posición actual">${SVG_PLUS} Añadir</button>
-        <button class="sb-icon sb-adv" id="stems-detect-sections" title="Detectar secciones: analiza la canción y coloca los marcadores (puedes editarlos a mano)" aria-label="Detectar secciones">
+        <button class="sb-icon sb-adv" id="stems-detect-sections" title="Detectar secciones: si hay pista guía, la escucha («Verse», «Coro»…); si no, analiza la canción" aria-label="Detectar secciones">
           <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
         </button>
         <button class="sb-icon sb-icon--danger sb-adv" id="stems-clear-markers" title="Borrar todos los marcadores (Ctrl+Z deshace)" aria-label="Borrar todos los marcadores">${SVG_TRASH}</button>
@@ -6719,7 +6719,54 @@ function openChangeCueMenu(x, y, markerId) {
 // markers the user can rename / re-cue / move / delete, and one undo step
 // reverts the whole batch. If detection finds nothing, the user just adds
 // markers by hand as before.
+// Con una pista GUÍA de verdad (la del multitrack: «Verse one», «Chorus»…), las secciones se
+// sacan de lo que dice (reconocimiento de voz local, guideSections.js): mucho más preciso que
+// adivinar por la energía. Devuelve true si se pusieron marcadores.
+async function detectSectionsFromGuide(guide) {
+  const btn = document.getElementById('stems-detect-sections');
+  const prevHtml = btn ? btn.innerHTML : '';
+  let cues = [];
+  try {
+    if (btn) btn.disabled = true;
+    const { sectionsFromGuide } = await import('./guideSections.js');
+    cues = await sectionsFromGuide(engine.getTrackBuffer(guide.id), {
+      bpm: bpmFloat, beatsPerBar, timeOffset: engine.getTrackOffset(guide.id) || 0, durationSec: projectDurationSec(),
+      onProgress: (f, label) => { if (btn) { btn.textContent = `${Math.round(f * 100)}%`; btn.title = label || 'Escuchando la guía…'; } },
+    });
+  } catch (e) {
+    console.warn('Secciones desde la guía:', e);
+    toast('No se pudo escuchar la guía: ' + ((e && e.message) || e) + '. Se usa el análisis del audio.', 'info');
+    return false;
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = prevHtml; btn.title = 'Detectar secciones: si hay pista guía, la escucha («Verse», «Coro»…); si no, analiza la canción'; }
+  }
+  if (cues.length < 2) {
+    toast(`La guía «${guide.name}» no anuncia las secciones con claridad: se usa el análisis del audio.`, 'info');
+    return false;
+  }
+  if (markers.length) {
+    const ok = await confirmDialogAsync({
+      title: 'Reemplazar marcadores',
+      message: `La guía anuncia ${cues.length} secciones (${cues.slice(0, 5).map((c) => c.label).join(', ')}${cues.length > 5 ? '…' : ''}). Esto reemplazará los marcadores actuales. ¿Continuar?`,
+      confirmLabel: 'Reemplazar', danger: true,
+    });
+    if (!ok) return true;
+  }
+  const prevMarkers = markers.slice();
+  const newMarkers = cues.map((c) => { const cue = findCueById(c.key) || SECTION_CUES[0]; return { id: `m${nextMarkerId++}`, cueId: cue.id, label: c.label, url: cue.url, atSec: c.atSec }; });
+  markers = newMarkers;
+  redrawMarkers();
+  pushHistory('Secciones desde la guía',
+    () => { markers = prevMarkers; redrawMarkers(); scheduleSave(); scheduleGuideSync(); },
+    () => { markers = newMarkers; redrawMarkers(); scheduleSave(); scheduleGuideSync(); });
+  scheduleSave();
+  showToast(`Secciones desde la guía «${guide.name}»: ${cues.map((c) => c.label).join(' · ')}.`, 'success', { ttl: 9000 });
+  return true;
+}
+
 async function onDetectSections() {
+  const guide = realGuideTrack();
+  if (guide && window.electronAPI?.guideSections && await detectSectionsFromGuide(guide)) return;
   // Mejor pista para analizar la ESTRUCTURA: la mezcla completa si está; si la
   // canción fue separada (y quizá se borró el original), caemos al instrumental
   // u otra pista de audio. Antes exigía kind==='stem' y fallaba al quedar solo
@@ -6895,11 +6942,16 @@ async function regenerateClickTrack(existingId) {
 // trigger a debounced rebuild so the guide tracks the markers without the
 // user pressing "Generar Guía" again. Debounced because moveMarkerTo fires
 // on every pointermove during a drag — we only rebuild once the drag settles.
+// La guía que GENERA Stems (id «guide-…»). Antes se buscaba «la pista de tipo guía» y, con un
+// multitrack importado, la guía REAL (Guide.wav) se reemplazaba por la sintética al mover un marcador.
+const generatedGuideId = () => { const t = engine.getTracks().find((x) => x.kind === 'guide' && String(x.id).startsWith('guide-')); return t ? t.id : null; };
+/** La guía de verdad del multitrack (la que dice «Verse», «Chorus»…), si la hay. */
+const realGuideTrack = () => engine.getTracks().find((x) => !String(x.id).startsWith('guide-') && (x.kind === 'guide' || /(^|[^a-z])(gu[ií]a|guide|cues?)([^a-z]|$)/i.test(x.name || '')) && engine.getTrackBuffer(x.id));
 let guideSyncTimer = null;
 let guideSyncRunning = false;
 let guideSyncDirty = false;
 function scheduleGuideSync() {
-  if (!engine.findTrackByKind('guide')) return; // nothing to keep in sync yet
+  if (!generatedGuideId()) return; // nothing to keep in sync yet
   if (guideSyncTimer) clearTimeout(guideSyncTimer);
   guideSyncTimer = setTimeout(runGuideSync, 350);
 }
@@ -6928,7 +6980,7 @@ async function onRebuildGuide({ silent = false } = {}) {
     const buffer = await buildGuideTrack({ markers, durationSec, sampleRate: ctx.sampleRate });
     if (!buffer) return;
     const wav = audioBufferToWav(buffer);
-    const existingId = engine.findTrackByKind('guide');
+    const existingId = generatedGuideId();
     if (existingId) {
       engine.replaceTrackBuffer(existingId, buffer);
       const entry = trackRows.get(existingId);

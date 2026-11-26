@@ -14,7 +14,8 @@
 import { pushModal } from '../ui/modalStack.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { detectStemRole } from './stemRole.js';
-import { LIB_KEYS, packMeta, pickProbeTracks, resolveItem, reviewIssues, estimateCloudBytes, normKey } from './batchCore.js';
+import { LIB_KEYS, packMeta, pickProbeTracks, resolveItem, reviewIssues, estimateCloudBytes, normKey, pickCover } from './batchCore.js';
+import { squareCover } from './packCover.js';
 
 const AUDIO = /\.(wav|wave|mp3|flac)$/i;
 const FREE_BYTES = 10 * 1024 ** 3;
@@ -85,7 +86,7 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
         <label class="bu-pub"><input type="checkbox" class="mo-switch" data-ref="publish"> Publicar al terminar</label>
       </div>
       <div class="bu-table-wrap"><table class="bu-table">
-        <thead><tr><th></th><th>Nombre</th><th>Artista</th><th>BPM</th><th>Tono</th><th>Marca</th><th>Pistas</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Portada</th><th>Nombre</th><th>Artista</th><th>BPM</th><th>Tono</th><th>Marca</th><th>Pistas</th><th></th></tr></thead>
         <tbody data-ref="rows"></tbody></table></div>
       <div class="mt-progress" data-ref="prog"><div class="vs-bar"><i data-ref="bar"></i></div><small data-ref="step"></small></div>
       <div class="vn-actions">
@@ -109,6 +110,7 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
     const v = resolveItem(it);
     return `<tr data-i="${it.i}" class="bu-row is-${it.state}">
       <td class="bu-st" data-ref="st"></td>
+      <td class="bu-cov"><button type="button" class="bu-cover" data-act="cover" data-ref="cover" title="Portada del pack (la carátula que trae el multitrack). Clic: usarla o no." aria-label="Portada"><span>—</span></button></td>
       <td><input class="bu-in bu-title" data-f="title" value="${esc(v.title)}" maxlength="120" aria-label="Nombre del pack"><div class="bu-issues" data-ref="issues"></div></td>
       <td><input class="bu-in" data-f="artist" value="${esc(v.artist)}" maxlength="80" placeholder="Artista" aria-label="Artista"></td>
       <td><input class="bu-in bu-num" data-f="bpm" value="${esc(v.bpm || '')}" inputmode="decimal" maxlength="6" aria-label="BPM"></td>
@@ -131,6 +133,9 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
     it.blocked = issues.some((x) => x.level === 'bad');
     tr.querySelector('[data-ref="issues"]').innerHTML = (it.state === 'error' ? `<span class="is-bad">${esc(it.msg)}</span>` : '')
       + (it.state === 'done' ? `<span class="is-ok">${esc(it.msg)}</span>` : issues.map((x) => `<span class="is-${x.level}">${esc(x.text)}</span>`).join(''));
+    const cov = tr.querySelector('[data-ref="cover"]');
+    if (it.coverUrl) { cov.innerHTML = `<img src="${it.coverUrl}" alt="">`; cov.classList.toggle('is-off', !it.useCover); cov.title = it.useCover ? 'Se usará como portada del pack. Clic: subir sin portada.' : 'Sin portada. Clic: usar la carátula del multitrack.'; }
+    else { cov.innerHTML = '<span>—</span>'; cov.title = it.state === 'ready' ? 'El multitrack no trae carátula: ponla luego en «Mis packs».' : 'Portada'; }
     tr.querySelector('[data-ref="files"]').textContent = it.files.length ? `${it.files.length} · ${fmt(it.size)}` : fmt(it.size);
     // Lo detectado rellena lo que el nombre no traía (sin pisar lo escrito a mano).
     const v = resolveItem(it);
@@ -181,6 +186,11 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
     }
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'cancel') { close(); return; }
+    if (act === 'cover') {
+      const it = items[Number(e.target.closest('tr').dataset.i)];
+      if (it.coverUrl && it.state !== 'done' && !S.uploading) { it.useCover = !it.useCover; paintRow(it); }
+      return;
+    }
     if (act === 'rm') {
       const tr = e.target.closest('tr');
       const it = items[Number(tr.dataset.i)];
@@ -211,6 +221,12 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
         const names = it.files.map((f) => f.name);
         it.meta = packMeta(it.name, names);
         it.roles = names.map((nm) => detectStemRole(nm).kind || 'other');
+        // Carátula que trae el multitrack (si la hay) → portada del pack.
+        const cov = pickCover(pk.images);
+        if (cov) {
+          const file = await squareCover(await api.multitrackRead({ token: pk.token, id: cov.id }), cov.name);
+          if (file) { it.cover = file; it.coverUrl = URL.createObjectURL(file); it.useCover = true; }
+        }
         const probe = pickProbeTracks(it.roles);
         it.detected = {};
         if (probe.bpm >= 0) {
@@ -270,7 +286,13 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
         let slug = slugify(v.title) || `pack-${Date.now()}`;
         for (let n = 2; slugs.has(slug); n++) slug = `${slugify(v.title)}-${n}`;
         slugs.add(slug);
-        const pack = await lib.adminSavePack({ slug, title: v.title, ...(v.artist ? { artist: v.artist } : {}), description: '', genre: '', mood: '', tier: v.tier, published: false });
+        let coverPath = null;
+        if (it.cover && it.useCover) {
+          say(0, 1, 'subiendo la portada…');
+          coverPath = `${slug}/cover.jpg`;
+          await lib.adminUpload(coverPath, await it.cover.arrayBuffer(), 'image/jpeg');
+        }
+        const pack = await lib.adminSavePack({ slug, title: v.title, ...(v.artist ? { artist: v.artist } : {}), description: '', genre: '', mood: '', tier: v.tier, published: false, ...(coverPath ? { cover_path: coverPath } : {}) });
         const pk = await api.mtlibOpen({ target: it.path });
         const files = pk.files.filter((f) => AUDIO.test(f.name));
         const loops = [];
@@ -320,7 +342,7 @@ export async function openBatchUpload(targets, { onDone, lib: libOverride = null
         await lib.adminAddLoops(pack.id, loops);
         if (S.publish) await lib.adminSetPublished(pack.id, true);
         it.state = 'done';
-        it.msg = `${loops.length} pistas · ${fmt(after)} en la nube (los originales pesaban ${fmt(before)})${S.publish ? ' · publicado' : ' · borrador'}`;
+        it.msg = `${loops.length} pistas${coverPath ? ' y portada' : ''} · ${fmt(after)} en la nube (los originales pesaban ${fmt(before)})${S.publish ? ' · publicado' : ' · borrador'}`;
         existing.add(v.title.toLowerCase());
         ok++;
       } catch (err) {

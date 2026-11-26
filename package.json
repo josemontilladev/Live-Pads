@@ -63,6 +63,7 @@
       "preload.js",
       "servicePack.js",
       "multitrackImport.js",
+      "whisperGuide.js",
       "stemSeparator.js",
       "beatTracker.js",
       "chordModel.js",

@@ -98,3 +98,15 @@ export function reviewIssues(it, existingTitles = new Set()) {
 export function estimateCloudBytes(files) {
   return files.reduce((t, f) => t + (/\.mp3$/i.test(f.name) ? f.size : /\.flac$/i.test(f.name) ? f.size * 0.25 : f.size * 0.14), 0);
 }
+
+/**
+ * Portada del multitrack entre las imágenes del ZIP o la carpeta: la que se llama como una
+ * portada (cover, artwork, portada, front, album…) o, si no, la más grande. null si no hay.
+ */
+export function pickCover(images) {
+  const list = (images || []).filter((x) => x && x.size > 8000);
+  if (!list.length) return null;
+  const score = (x) => (/(^|[^a-z])(cover|artwork|art|portada|car[aá]tula|front|album|folder)([^a-z]|$)/i.test(x.name) ? 1e12 : 0)
+    - (/(back|contra|logo|qr|thumb)/i.test(x.name) ? 3e12 : 0) + x.size;
+  return list.slice().sort((a, b) => score(b) - score(a))[0];
+}

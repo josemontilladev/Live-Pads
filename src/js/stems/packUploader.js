@@ -1299,6 +1299,11 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload',
       if (prefill.key && KEYS.includes(prefill.key)) set('packKey', prefill.key);
     };
     set('title', prefill.title); set('artist', prefill.artist);
+    if (prefill.cover && IMAGE_TYPES[prefill.cover.type]) {
+      state.cover = prefill.cover;
+      ref('coverPreview').textContent = '';
+      ref('coverPreview').style.backgroundImage = `url("${URL.createObjectURL(prefill.cover)}")`;
+    }
     packTempo();
     if (Array.isArray(prefill.files) && prefill.files.length) addFiles(prefill.files).then(() => { packTempo(); refreshButton(); });
   }

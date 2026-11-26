@@ -122,9 +122,13 @@ export async function openMultitrackLibrary({ onUploaded, lib: libOverride = nul
     const d = describe(it || { name: pk.source.name });
     // Las pistas se leen del disco (o de dentro del ZIP) una a una al analizarlas.
     const files = pk.files.map((f) => ({ name: base(f.name), size: f.size, arrayBuffer: () => api.multitrackRead({ token: pk.token, id: f.id }) }));
+    const { pickCover } = await import('./batchCore.js');
+    const cov = pickCover(pk.images);
+    let cover = null;
+    if (cov) { const { squareCover } = await import('./packCover.js'); cover = await squareCover(await api.multitrackRead({ token: pk.token, id: cov.id }), cov.name); }
     const { openPackUploader } = await import('./packUploader.js');
     openPackUploader({
-      prefill: { title: d.title, artist: d.artist, bpm: d.bpm, key: d.key, files },
+      prefill: { title: d.title, artist: d.artist, bpm: d.bpm, key: d.key, files, cover },
       onChanged: async () => { await loadLibrary(true); if (open) paint(); try { onUploaded && onUploaded(); } catch (_) {} },
     });
   }

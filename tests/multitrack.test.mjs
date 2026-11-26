@@ -19,6 +19,27 @@ test('nombre del paquete → título, artista, BPM y tono', () => {
   assert.equal(parsePackName('Song', ['Click 120 BPM.wav']).bpm, '120');
 });
 
+test('nombres reales de una carpeta de multitracks (guiones pegados, BPM con decimales, etiquetas)', () => {
+  assert.deepEqual(parsePackName('ADIOS AL AYER-Algo Nuevo Viene-Ab-150.00bpm'), { title: 'ADIOS AL AYER', artist: 'Algo Nuevo Viene', bpm: '150', key: 'Ab' });
+  assert.deepEqual(parsePackName('Agradecido Estoy-ASI SERA-E-72.00bpm'), { title: 'Agradecido Estoy', artist: 'ASI SERA', bpm: '72', key: 'E' });
+  assert.deepEqual(parsePackName('Alaba-Alaba-G-127.00bpm'), { title: 'Alaba', artist: 'Alaba', bpm: '127', key: 'G' });
+  assert.deepEqual(parsePackName('Agnus dei + Santo por siempre - Secuencia multitrack - [TPMCristiana]'), { title: 'Agnus dei + Santo por siempre', artist: '', bpm: '', key: '' });
+  assert.deepEqual(parsePackName('Algo Nuevo Viene-Algo Nuevo Viene-Bb-91.00bpm'), { title: 'Algo Nuevo Viene', artist: 'Algo Nuevo Viene', bpm: '91', key: 'Bb' });
+  assert.equal(parsePackName('Oceans-Hillsong United-F#m-66bpm').key, 'F#m');
+});
+
+test('más formatos reales: extensión, «pm», BPM suelto, tono entre paréntesis, Google Drive, [with …]', () => {
+  assert.deepEqual(parsePackName('Él Que Resucitó - Elevation Worship.7z'), { title: 'Él Que Resucitó', artist: 'Elevation Worship', bpm: '', key: '' });
+  assert.deepEqual(parsePackName('Que Ruja El Leon-ALIENTO-Ebm-69.50pm'), { title: 'Que Ruja El Leon', artist: 'ALIENTO', bpm: '70', key: 'Ebm' });
+  assert.deepEqual(parsePackName('Phenomena (Da Da)-RecursosA&A (Da Da)-F#-132'), { title: 'Phenomena (Da Da)', artist: 'RecursosA&A (Da Da)', bpm: '132', key: 'F#' });
+  assert.deepEqual(parsePackName('Gracias, Dios ( C) - Essential worship 130.00BPM'), { title: 'Gracias, Dios', artist: 'Essential worship', bpm: '130', key: 'C' });
+  assert.deepEqual(parsePackName('Glorioso Día - Passion, Kristian Stanfill (Español)-20260604T145702Z-3-001'), { title: 'Glorioso Día', artist: 'Passion, Kristian Stanfill (Español)', bpm: '', key: '' });
+  assert.deepEqual(parsePackName('Holy Forever (Español)[with Miel San Marcos]'), { title: 'Holy Forever (Español)', artist: 'Miel San Marcos', bpm: '', key: '' });
+  assert.deepEqual(parsePackName('Hermoso Dios - Secuencia Multitrack (TPMCristiana)'), { title: 'Hermoso Dios', artist: '', bpm: '', key: '' });
+  assert.deepEqual(parsePackName('Sana Nuestra Tierra- Multitrack -121bpm-4_4-G.rar'), { title: 'Sana Nuestra Tierra', artist: '', bpm: '121', key: 'G' });
+  assert.deepEqual(parsePackName('Tumbas A Jardines - Elevation Worship - MT'), { title: 'Tumbas A Jardines', artist: 'Elevation Worship', bpm: '', key: '' });
+});
+
 test('roles de las pistas típicas de MultiTracks / Loop Community', () => {
   const r = (n) => detectStemRole(n).kind;
   assert.equal(r('Click.wav'), 'click'); assert.equal(r('Guide.wav'), 'guide'); assert.equal(r('Cues.wav'), 'guide');

@@ -2232,3 +2232,14 @@ body.live-mode .sys-stats { display: none; }
   #workspace-stems .stems-console-strip { gap: 4px; padding: 8px 8px 6px; height: auto; min-height: max(100%, 240px); }
   #workspace-stems .stems-console-strips { align-items: flex-start; }
 }
+.bu-cov { width: 46px; }
+.bu-cover { width: 40px; height: 40px; padding: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.bu-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bu-cover.is-off img { opacity: .25; filter: grayscale(1); }
+.bu-cover:disabled { cursor: default; }
+
+/* ── Stems: los dos paneles laterales (Canciones y Biblioteca) del mismo ancho ── */
+#workspace-stems { --stems-side-w: 320px; }
+#workspace-stems .stems-setlist:not(.collapsed) { width: var(--stems-side-w); }
+#workspace-stems .stems-setlist:not(.collapsed) > :not(.ssl-rail):not(#stems-setlist-collapse) { min-width: calc(var(--stems-side-w) - 26px); }
+#workspace-stems .stems-library { --stl-w: var(--stems-side-w); }

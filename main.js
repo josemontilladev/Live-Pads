@@ -2614,7 +2614,7 @@ ipcMain.handle('multitrack-pick', async (_e, { kind } = {}) => {
   const token = crypto.randomBytes(8).toString('hex');
   multitrackPacks.clear();   // uno a la vez
   multitrackPacks.set(token, pack);
-  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })) };
+  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })), images: (pack.images || []).map((f) => ({ id: f.id, name: f.name, size: f.size })) };
 });
 ipcMain.handle('multitrack-read', async (_e, { token, id } = {}) => {
   const pack = multitrackPacks.get(token);
@@ -2659,7 +2659,7 @@ ipcMain.handle('mtlib-open', (_e, { target } = {}) => {
   const token = crypto.randomBytes(8).toString('hex');
   multitrackPacks.clear();
   multitrackPacks.set(token, pack);
-  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })) };
+  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })), images: (pack.images || []).map((f) => ({ id: f.id, name: f.name, size: f.size })) };
 });
 ipcMain.handle('mtlib-reveal', (_e, { target } = {}) => {
   if (target && multitrackImport.isInside(target, mtLibRoots())) shell.showItemInFolder(target);
@@ -2707,6 +2707,25 @@ ipcMain.handle('rpp-read', (_e, { token, ref } = {}) => {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 });
 ipcMain.handle('rpp-close', () => { rppSessions.clear(); return true; });
+
+// ── Secciones desde la pista guía (whisperGuide.js) ──
+// Recibe la guía en mono a 16 kHz; la primera vez baja Whisper (~75 MB). Progreso por 'guide-progress'.
+let guideJob = null;
+ipcMain.handle('guide-sections', async (e, { pcm } = {}) => {
+  if (guideJob) throw new Error('Ya se está escuchando una guía.');
+  const samples = pcm instanceof Float32Array ? pcm : new Float32Array(pcm || []);
+  if (samples.length < 16000) return [];
+  const send = (frac, label) => { try { e.sender.send('guide-progress', { frac, label }); } catch (_) {} };
+  const W = require('./whisperGuide');
+  guideJob = { cancel: false };
+  const job = guideJob;
+  try {
+    const dir = await ensureModels(W.WHISPER_FILES, (f, label) => send(0.3 * f, label || 'Descargando el reconocimiento de voz…'));
+    send(0.3, 'Escuchando la guía…');
+    return await W.transcribeRegions(samples, dir, { onProgress: (f) => send(0.3 + 0.7 * f, 'Escuchando la guía…'), shouldCancel: () => job.cancel });
+  } finally { guideJob = null; }
+});
+ipcMain.handle('guide-sections-cancel', () => { if (guideJob) guideJob.cancel = true; return true; });
 
 // ── Consumo (barra superior): CPU de todo el equipo, memoria de LivePads ──
 let sysCpuPrev = null;
@@ -2794,6 +2813,10 @@ const MODEL_FILES = {
   'kuielab_a_bass.onnx':        { url: `${MODEL_REL}/kuielab_a_bass.onnx`,        size: 29703204, sha256: '0c3e77b9963185b1ea6bb46a4b8924137d9370fc1ccdefec7b1b416ef550dcaa' },
   'kuielab_a_other.onnx':       { url: `${MODEL_REL}/kuielab_a_other.onnx`,       size: 29703204, sha256: '7b67a1dcb5f232153528c59960b4c7bf8dc736b8114de360af0e719633f53358' },
   'beat_this_final0.onnx':      { url: `${MODEL_OWN}/beat_this_final0.onnx`,      size: 82952770, sha256: '41c9d33718e005db4241ab856cf55f2b9a0a7918d54957cf2d0276ad4bc80f28' },
+  // Whisper base (OpenAI, MIT; ONNX de onnx-community, cuantizado): secciones desde la pista guía.
+  'whisper_base_encoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/encoder_model_quantized.onnx', size: 23201314, sha256: '5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46' },
+  'whisper_base_decoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/decoder_model_quantized.onnx', size: 53310178, sha256: 'c859636f4463dd5a9ea752546c6c7badeb48ab3e22b340cafef08a15552fcb2e' },
+  'whisper_vocab.json':           { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/vocab.json', size: 1036584, sha256: '50d6a919f0a0601d56a04eb583c780d18553aa388254ba3158eb6a00f13e2c1a' },
   'btc_chords_voca.onnx':       { url: `${MODEL_OWN}/btc_chords_voca.onnx`,       size: 13038363, sha256: 'd0738965a2cbd5c9ab88735fa74dd62a0ec534d6172a34e5447357e6e144bb7d' },
 };
 function userModelsDir() { return path.join(app.getPath('userData'), 'models'); }
