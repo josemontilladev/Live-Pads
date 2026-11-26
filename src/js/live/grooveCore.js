@@ -9,9 +9,12 @@
 
 import { GROOVES } from '../data/grooves.js';
 
-export const PARTS = ['intro', 'A', 'B', 'C', 'fill', 'end'];
-export const PART_LABEL = { intro: 'Intro', A: 'Verso', B: 'Coro', C: 'Puente', fill: 'Redoble', end: 'Final' };
-export const LOOP_PARTS = ['intro', 'A', 'B', 'C']; // se repiten hasta que pidas otra
+// D (Pre-coro) y E (Interludio): solo en ritmos que las usan (p. ej. sacados de una grabación).
+// «rest» (Silencio): la batería calla ese compás (solo en el arreglo de una grabación).
+export const PARTS = ['intro', 'A', 'D', 'B', 'C', 'E', 'fill', 'end'];
+export const EXTRA_PARTS = ['D', 'E'];
+export const PART_LABEL = { intro: 'Intro', A: 'Verso', D: 'Pre-coro', B: 'Coro', C: 'Puente', E: 'Interludio', fill: 'Redoble', end: 'Final', rest: 'Silencio' };
+export const LOOP_PARTS = ['intro', 'A', 'D', 'B', 'C', 'E']; // se repiten hasta que pidas otra
 
 // Instrumentos (todos reales). El orden es el de las pistas en pantalla.
 export const VOICES = [
@@ -95,6 +98,7 @@ export function applyKit(g, kitId) {
 
 /** Sección de un ritmo; si no está escrita, una razonable. */
 export function partOf(g, part) {
+  if (part === 'rest') return {};
   const p = g.parts && g.parts[part];
   if (p && Object.keys(p).length) return p;
   const n = steps(g), A = (g.parts && g.parts.A) || {};

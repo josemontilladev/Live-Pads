@@ -32,6 +32,8 @@ import { regularizePhrases, unifyRepeats } from './sectionPhrases.js';
 import { maybeStartWaveTour, startWaveTour } from './waveTour.js';
 import { parseLyricStructure, keyOffset, labelSegments, refineSectionStarts } from './songStructure.js';
 import { alignSections } from './sectionAlign.js';
+import { sectionsFromSync, syncCoversSections } from './syncSections.js';
+import { getLyricSync, lyricLines } from '../live/lyricSyncStore.js';
 import { guideStatsFast, guideWordsAsync, rightChannelBuffer, guideEvents, guideBoundaries } from '../live/guideCues.js';
 import { loopSection } from './practiceMode.js';
 import { canEditActiveLibrary, refreshMyRole, getCachedRole } from '../cloud/libraries.js';
@@ -199,6 +201,7 @@ export function initSeqWaveform() {
   applyRole();
   window.addEventListener('livepads:track-cleared', onCleared);
   window.addEventListener('livepads:songs-changed', (e) => { if (e.detail && e.detail.markers) return; if (song) renderMarkers(); });
+  window.addEventListener('livepads:lyricsync-saved', (e) => onSyncSaved(e.detail || {}));
   // Cambio de ancho (zoom, ventana): el tamaño viene en el propio aviso (leer clientWidth
   // aquí forzaba a recalcular la maquetación de toda la página) y se redibuja una vez por cuadro.
   new ResizeObserver((entries) => {
@@ -633,7 +636,19 @@ async function sequenceGuide(buffer) {
   } catch (_) { return null; }
 }
 
-async function autoDetect({ auto = false } = {}) {
+// La letra se acaba de sincronizar para la pista que suena: las secciones se recolocan con
+// ella (si eran todas automáticas; si alguna la puso el usuario, se ofrece hacerlo).
+function onSyncSaved({ songId, type }) {
+  if (!song || !audio || String(song.id) !== String(songId) || (type || 'original') !== trackType) return;
+  if (!canEditActiveLibrary()) return;
+  const ms = getMarkers();
+  if (ms.every((m) => m.auto)) { autoDetect({ auto: true, replaceAuto: true }); return; }
+  window.showToast?.('Letra sincronizada. ¿Recolocar las secciones del espectro según la letra?', 'info', {
+    action: { label: 'Recolocar', onClick: () => autoDetect({}) }, ttl: 10000,
+  });
+}
+
+async function autoDetect({ auto = false, replaceAuto = false } = {}) {
   const s = song, a = audio;
   if (!s || !a || !a.buffer || detecting) return;
   if (!auto && !guardEdit()) return;
@@ -646,11 +661,13 @@ async function autoDetect({ auto = false } = {}) {
     if (!ok || song !== s) return;
   }
   detecting = s; root.classList.add('is-detecting'); tick(true);
-  let found = [];
+  let found = [], how = '';
   try {
     const bpm = parseFloat(s.bpm) || 0;
     const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
     const lyr = parseLyricStructure(s.lyrics);
+    const sync = getLyricSync(s, trackType);
+    const syncLines = sync ? lyricLines(s.lyrics) : null;
     // La letra trae sus secciones: se analizan también los acordes de la pista para
     // saber qué tramo es cada sección (verso, coro…) comparando acordes.
     // Acordes de la pista: con letra, para saber qué tramo es cada sección; sin
@@ -679,6 +696,11 @@ async function autoDetect({ auto = false } = {}) {
       const cueAt = (t) => { let c = raw[0] ? raw[0].cueId : 'verso'; for (const x of raw) if (x.atSec <= t + 1) c = x.cueId; return c; };
       const segs = [{ atSec: 0, cueId: 'intro' }, ...guideB.map((t) => ({ atSec: t, cueId: cueAt(t + (g.barSec || 2)) }))];
       found = buildAutoMarkers(segs, s.lyrics, dur);
+    } else if (sync && syncCoversSections(syncLines, sync.ev)) {
+      // Letra sincronizada de ESTA pista: cada sección cantada empieza en el compás donde entra
+      // su primera línea; intro, interludios y final salen de los huecos sin canto.
+      found = sectionsFromSync(syncLines, sync.ev, { grid: g, dur, novelty: raw.map((x) => x.atSec) });
+      how = 'sync';
     } else if (lyrChords >= 2 && raw.length >= 2 && det.length && g && g.downbeats && g.downbeats.length) {
       // Sin guía, letra con acordes: los cambios de textura (pegados al compás real) son los
       // candidatos; los acordes y el orden de la letra eligen cuáles son secciones y su nombre.
@@ -706,11 +728,13 @@ async function autoDetect({ auto = false } = {}) {
     if (!auto) window.showToast?.('No se encontraron cambios de sección claros en esta pista. Márcalas con «+ Sección».', 'info');
     return;
   }
-  if (auto && getMarkers().length) return;      // alguien las marcó mientras tanto
+  if (auto && !replaceAuto && getMarkers().length) return;      // alguien las marcó mientras tanto
+  if (replaceAuto && getMarkers().some((m) => !m.auto)) return;
   const prev = getMarkers().map((m) => ({ ...m }));
   setMarkers(found.map((m) => ({ id: uid(), label: m.label, t: m.t, auto: true })));
   persist(); renderMarkers();
-  window.showToast?.(`${found.length} secciones marcadas automáticamente. Arrastra o renombra las que no cuadren.`, 'success', {
+  const hint = how === 'sync' ? ' con la letra sincronizada' : (lyricLines(s.lyrics).length && !getLyricSync(s, trackType) ? '. Para clavarlas al compás, sincroniza la letra (Letra → Sincronizar)' : '');
+  window.showToast?.(`${found.length} secciones marcadas automáticamente${hint}. Arrastra o renombra las que no cuadren.`, 'success', {
     action: { label: 'Deshacer', onClick: () => { if (song !== s) return; setMarkers(prev); persist(); renderMarkers(); } },
     ttl: 10000,
   });

@@ -10,6 +10,7 @@
 
 import { hitsAt, steps, stepDur, swingOffset, startState, queuePart, barEnd } from './grooveCore.js';
 import { bassMidi, bassSample, bassHit } from './bassCore.js';
+import { arrangementPart, arrangementEntry } from './drumTranscribeCore.js';
 
 const LOOKAHEAD = 0.15, TICK = 25;
 const cache = new Map(); // archivo → Promise<AudioBuffer>
@@ -27,7 +28,11 @@ export class GroovePlayer {
     this.bass = { on: false, vol: 0.8, chordAt: null }; this._bassPc = null; this._bassVoice = null;
     this.out = null; this.timer = null; this.st = null; this.step = 0; this.nextTime = 0; this.openHat = null;
     this.pending = []; this.timeline = []; this.buffers = new Map();
+    // Arreglo (ritmo sacado de una grabación): el orden de secciones de la grabación, compás a
+    // compás. Con followArrangement, la caja lo sigue sola de principio a fin.
+    this.followArrangement = false; this.arrBar = 0;
   }
+  get arrangement() { return this.followArrangement && this.groove && Array.isArray(this.groove.arrangement) && this.groove.arrangement.length ? this.groove.arrangement : null; }
 
   get playing() { return !!this.timer; }
   get part() { return this.st ? this.st.part : null; }
@@ -109,6 +114,8 @@ export class GroovePlayer {
     if (!ctx || !this.groove) return;
     if (ctx.state === 'suspended') ctx.resume();
     if (this.playing) { this.queue(part); return; }
+    this.arrBar = 0; this._forceCrash = false;
+    if (this.arrangement) { const e0 = arrangementEntry(this.arrangement, 0); if (e0) { part = e0.part; this._forceCrash = e0.crash; this._crash = e0.crash; } }
     this.st = startState(part);
     if (part === 'fill') this.st.afterFill = 'A';
     this.step = 0; this.timeline = [];
@@ -175,11 +182,12 @@ export class GroovePlayer {
       } else if (this.step === 0) this.nextTime = this._snap(this.nextTime);
       const dur = this.clock && this._beatDur ? this._beatDur / g.spb : stepDur(this._bpm(), g);
       const at = Math.max(ctx.currentTime, this.nextTime + swingOffset(this.step, g, g.swing || 0, dur));
-      if (this.step === 0 && this._crash) {
-        const crash = this.crashOnChange && !hitsAt(g, this.st.part, 0).some((h) => h.track.voice === 'crash')
+      if (this.step === 0 && (this._crash || this._forceCrash)) {
+        // _forceCrash: el arreglo de la grabación tenía crash al empezar este tramo.
+        const crash = (this.crashOnChange || this._forceCrash) && !hitsAt(g, this.st.part, 0).some((h) => h.track.voice === 'crash')
           ? (g.tracks || []).find((t) => t.voice === 'crash' && !t.mute) : null;
-        if (crash) this._hit(crash, 0.7, at);
-        this._crash = false;
+        if (crash) this._hit(crash, 0.8, at);
+        this._crash = false; this._forceCrash = false;
       }
       // Tiempo humano: el bombo muy preciso (±1 ms), lo demás algo más suelto (±3 ms).
       for (const h of hitsAt(g, this.st.part, this.step)) {
@@ -198,7 +206,16 @@ export class GroovePlayer {
       this.step++;
       if (this.step >= n) {
         this.step = 0;
-        const r = barEnd(this.st);
+        let r = barEnd(this.st);
+        // Siguiendo el arreglo de la grabación: el compás siguiente es el que toca ahí
+        // (redobles incluidos); al terminar, el final (si lo hay) y se para.
+        if (this.arrangement && !this.st.ending) {
+          this.arrBar++;
+          const e = arrangementEntry(this.arrangement, this.arrBar);
+          const ns = { ...this.st, queued: null, afterFill: null };
+          if (!e) r = { st: ns, stop: true, crash: false };
+          else { ns.part = e.part; ns.ending = e.part === 'end'; r = { st: ns, stop: false, crash: false }; this._forceCrash = e.first && e.crash; }
+        }
         if (r.stop) { const endAt = this.nextTime; setTimeout(() => this.stop(false), Math.max(0, (endAt - ctx.currentTime) * 1000)); clearInterval(this.timer); this.timer = -1; return; }
         const changed = r.st.part !== this.st.part;
         this.st = r.st; this._crash = r.crash;

@@ -273,6 +273,7 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
     api.saveGiSetlist?.(getSongs());
     window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id } }));
     S.dirty = false; paintState();
+    window.dispatchEvent(new CustomEvent('livepads:lyricsync-saved', { detail: { songId: song.id, type } }));
     window.showToast?.(`Letra de «${song.title}» sincronizada (${type === 'sequence' ? 'secuencia' : 'original'}).`, 'success');
   }
 

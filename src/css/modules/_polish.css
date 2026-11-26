@@ -2366,3 +2366,27 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
   .lsy-row [data-row="here"], .lsy-row [data-row="del"] { display: none; }
   .lsy-keys { display: none; }
 }
+
+/* Caja de ritmos desde una grabación (live/drumFromRecording.js) */
+.dgr-box { width: min(860px, 96vw); max-height: calc(100vh - 24px); overflow-y: auto; }
+.dgr-src { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dgr-src[hidden], .dgr-recbar[hidden], .dgr-result[hidden] { display: none; }
+.dgr-tip { flex: 1 1 220px; min-width: 0; font-size: 12px; color: var(--text-muted); }
+.dgr-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ef4444; margin-right: 4px; vertical-align: 1px; }
+.dgr-recbar { display: flex; align-items: center; gap: 12px; }
+.dgr-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; min-width: 54px; }
+.dgr-meter { flex: 1 1 auto; height: 10px; border-radius: 6px; background: color-mix(in srgb, var(--text) 10%, transparent); overflow: hidden; }
+.dgr-meter i { display: block; height: 100%; width: 0; background: #34d399; transition: width .06s linear; }
+.dgr-meter i.is-clip { background: #ef4444; }
+.dgr-result { display: flex; flex-direction: column; gap: 10px; }
+.dgr-sum { font-size: 13px; color: var(--text-muted); }
+.dgr-sum b { color: var(--text); }
+.dgr-wave { height: 110px; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, var(--menu-bg, #14161c)); cursor: pointer; overflow: hidden; }
+.dgr-wave canvas { display: block; }
+.dgr-secrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dgr-seclbl { flex: 1 1 200px; min-width: 0; font-size: 12.5px; font-weight: 600; }
+.dgr-parts .ui-seg-btn { padding-inline: 10px; }
+.dgr-grid { margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, var(--menu-bg, #14161c)); color: var(--text); font: 12.5px/1.55 ui-monospace, Consolas, monospace; overflow-x: auto; white-space: pre; }
+.dgr-name { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.dgr-name input { flex: 1 1 auto; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; }
+.gt-arr[hidden] { display: none; }

@@ -18,7 +18,7 @@ import { pushModal } from '../ui/modalStack.js';
 import { closeButton } from '../ui/components.js';
 import { KIT_BANKS } from '../data/banks.js';
 import {
-  GROOVES, GROOVE_KITS, PARTS, PART_LABEL, SIGS, TRACK_COLORS, steps, partOf, isWritten, nextCell, withTracks, applyKit,
+  GROOVES, GROOVE_KITS, PARTS, EXTRA_PARTS, PART_LABEL, SIGS, TRACK_COLORS, steps, partOf, isWritten, nextCell, withTracks, applyKit,
   emptyGroove, addTrack, removeTrack, resizeGroove, validGroove, sigOf, kitFromPads,
 } from './grooveCore.js';
 import { GroovePlayer } from './groovePlayer.js';
@@ -167,7 +167,7 @@ function renderTop() {
 }
 
 function renderSections() {
-  R('sections').innerHTML = PARTS.map((p) => `<button type="button" data-part="${p}" class="${p === edit ? 'is-edit' : ''} ${isWritten(g, p) ? '' : 'is-auto'}" title="${p === 'fill' ? 'Redoble de un compás; luego vuelve a la sección que sonaba' : p === 'end' ? 'Final: un compás y se para' : 'Editar esta sección; si está sonando, pasa a ella al terminar el compás'}"><span>${PART_LABEL[p]}</span><i class="gt-prog"></i></button>`).join('');
+  R('sections').innerHTML = PARTS.filter((p) => !EXTRA_PARTS.includes(p) || isWritten(g, p) || p === edit).map((p) => `<button type="button" data-part="${p}" class="${p === edit ? 'is-edit' : ''} ${isWritten(g, p) ? '' : 'is-auto'}" title="${p === 'fill' ? 'Redoble de un compás; luego vuelve a la sección que sonaba' : p === 'end' ? 'Final: un compás y se para' : 'Editar esta sección; si está sonando, pasa a ella al terminar el compás'}"><span>${PART_LABEL[p]}</span><i class="gt-prog"></i></button>`).join('');
   paintState();
 }
 
@@ -194,7 +194,24 @@ function renderGrid() {
   R('note').textContent = auto ? `«${PART_LABEL[edit]}» no está escrita: suena la versión automática (atenuada). Marca una casilla para escribirla.` : 'Clic: golpe · otra vez: acento · otra: suave · otra: borrar';
 }
 
-function renderAll() { renderTop(); renderSections(); renderGrid(); }
+function renderAll() { renderTop(); renderSections(); renderGrid(); paintArr(); }
+// Seguir el arreglo de la grabación (solo ritmos sacados de una grabación). Excluye «Seguir la canción».
+const ARR_KEY = 'livepads.groove.arrangement';
+function setArr(on) {
+  try { localStorage.setItem(ARR_KEY, on ? '1' : '0'); } catch (_) {}
+  if (player) player.followArrangement = !!on;
+  if (on && R('followOn') && R('followOn').checked) { R('followOn').checked = false; R('followOn').dispatchEvent(new Event('change')); }
+  paintArr();
+}
+function paintArr() {
+  const has = !!(g && Array.isArray(g.arrangement) && g.arrangement.length);
+  let on = false; try { on = localStorage.getItem(ARR_KEY) !== '0'; } catch (_) {}
+  if (player) player.followArrangement = has && on;
+  const row = R('arrRow'); if (!row) return;
+  row.hidden = !has;
+  R('arrOn').checked = has && on;
+  if (has) row.title = `La caja toca las secciones en el orden de la grabación (${g.arrangement.map((a) => (PART_LABEL[a.part] || a.part) + ' ×' + a.bars).join(' → ')}) y cambia sola.`;
+}
 
 function paintState() {
   if (!overlay) return;
@@ -288,6 +305,7 @@ function build() {
         <label class="gt-switch"><input type="checkbox" class="mo-switch" data-ref="followOn"><span>Seguir la canción</span></label>
         <span class="gt-follow-txt" data-ref="followTxt"></span>
         <label class="gt-check"><input type="checkbox" data-ref="followFills"> Redoble antes de cada sección</label>
+        <label class="gt-switch gt-arr" data-ref="arrRow" hidden title="La caja toca las secciones en el orden y con los compases de la grabación, y cambia sola (para ensayar sin baterista)"><input type="checkbox" class="mo-switch" data-ref="arrOn"><span>Seguir el orden de la grabación</span></label>
         <span class="gt-bass">
           <label class="gt-switch" title="El bajo toca la fundamental de cada acorde con el bombo: siguiendo la pista, sus acordes; a mano, la nota del pad"><input type="checkbox" class="mo-switch" data-ref="bassOn"><span>Bajo automático</span></label>
           <input type="range" min="0" max="1.2" step="0.05" data-ref="bassVol" aria-label="Volumen del bajo" title="Volumen del bajo">
@@ -301,6 +319,7 @@ function build() {
         <button type="button" data-act="clear">Vaciar sección</button>
         <label class="gt-check" title="Un golpe de platillo al entrar en cada sección nueva"><input type="checkbox" data-ref="crash"> Crash al cambiar de sección</label>
         <div class="gt-menu gt-menu--foot">
+          <button type="button" data-act="fromrec" title="Graba la batería (o sube un audio) y LivePads saca el ritmo y el orden de sus secciones">Desde una grabación…</button>
           <button type="button" data-act="new" title="Ritmo nuevo vacío">Nuevo</button>
           <button type="button" data-act="dup" title="Hacer una copia en Mis ritmos">Duplicar</button>
           <button type="button" data-act="rename">Renombrar</button>
@@ -371,6 +390,24 @@ function build() {
         document.querySelector('.gt-picker')?.remove();
       });
     } else if (act === 'clear') { write(() => { g.parts[edit] = {}; if (edit === 'A') g.parts.A = {}; }); renderSections(); renderGrid(); }
+    else if (act === 'fromrec') {
+      const { openDrumFromRecording } = await import('./drumFromRecording.js');
+      openDrumFromRecording({
+        onCreate: async (r) => {
+          const kit = findKit(g.kit) || allKits()[0];
+          let ng = withTracks({ id: 'u' + Date.now().toString(36), name: r.name, genre: 'Míos', user: true, beats: r.beats, spb: r.spb, swing: 0, parts: r.parts }, kit);
+          if (!ng.tracks.some((t) => t.voice === 'crash') && kit.files && kit.files.crash) ng.tracks.push({ id: 'crash', voice: 'crash', label: 'Crash', file: kit.files.crash, vol: 0.5, mute: false });
+          ng = { ...ng, arrangement: r.arrangement, bpm: r.bpm, source: r.source };
+          g = ng; edit = 'A';
+          persist(); setPrefs({ id: g.id });
+          await player.setGroove(g);
+          if (r.bpm) deps.applyBpm(r.bpm);
+          setArr(true);
+          renderAll();
+          window.showToast?.(`Ritmo «${g.name}» creado: ${r.arrangement.length} tramos en el orden de la grabación. Pulsa ▶ para ensayar con él.`, 'success');
+        },
+      });
+    }
     else if (act === 'new') { g = emptyGroove(findKit(g.kit) || allKits()[0]); edit = 'A'; persist(); setPrefs({ id: g.id }); await player.setGroove(g); renderAll(); }
     else if (act === 'dup') { g = { ...JSON.parse(JSON.stringify(g)), id: 'u' + Date.now().toString(36), name: g.name.replace(/ \((mío|copia)\)$/, '') + ' (copia)', genre: 'Míos', user: true }; persist(); setPrefs({ id: g.id }); renderAll(); }
     else if (act === 'rename') {
@@ -406,6 +443,7 @@ function build() {
     if (!isWritten(g, edit)) edit = 'A';
     await player.setGroove(g); renderAll();
   });
+  R('arrOn').addEventListener('change', () => { setArr(R('arrOn').checked); });
   R('followOn').checked = followOn();
   R('followFills').checked = followFills();
   R('followOn').addEventListener('change', () => {
@@ -498,6 +536,7 @@ export function stopGrooves() { if (player && player.playing) player.stop(); }
 export function initGrooves(d) {
   deps = { ...deps, ...d };
   player = new GroovePlayer({ getEngine: deps.getEngine, getMetro: deps.getMetro, onState: paintState });
+  window.__lpGroovePos = () => (player && player.playing ? player.position() : null);   // lectura (pruebas)
   player.setVolume(prefs().vol);
   player.crashOnChange = !!prefs().crash;
   g = effective(prefs().id);
