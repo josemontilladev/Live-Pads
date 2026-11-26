@@ -141,6 +141,35 @@ async function renderWithScriptProcessor(buffer, semitones, opts) {
 // Lista de claves soportadas (mayores y menores) para el selector y la
 // detección de modo. Los aliases enarmónicos comparten semitonos para
 // que el usuario pueda usar la nota que más cómoda le sea.
+/**
+ * Igual que pitchShiftBuffer pero con Signalsmith Stretch (más natural en voces:
+ * conserva los formantes). Descuenta su retraso fijo para que quede alineado.
+ * Devuelve null si el motor no está disponible (quien llama usa pitchShiftBuffer).
+ */
+export async function pitchShiftBufferHQ(buffer, semitones, opts = {}) {
+  const { createHQNode } = await import('../audio/pitchAudio.js');
+  const sr = buffer.sampleRate, ch = Math.min(2, buffer.numberOfChannels);
+  const probe = new OfflineAudioContext(ch, 128, sr);
+  const test = await createHQNode(probe);
+  if (!test) return null;
+  const lat = Math.round(((await test.latency()) || 0.12) * sr);
+  const off = new OfflineAudioContext(ch, buffer.length + lat, sr);
+  const node = await createHQNode(off);
+  if (!node) return null;
+  const src = off.createBufferSource(); src.buffer = buffer;
+  src.connect(node); node.connect(off.destination);
+  node.schedule({ active: true, semitones, formantCompensation: true, formantBaseHz: 0 });
+  src.start(0);
+  if (opts.onProgress) {
+    const step = Math.max(1, Math.round(buffer.duration / 10));
+    for (let t = step; t < buffer.duration; t += step) off.suspend(t).then(() => { opts.onProgress(t / buffer.duration); off.resume(); }).catch(() => {});
+  }
+  const out = await off.startRendering();
+  const res = new AudioBuffer({ length: buffer.length, numberOfChannels: ch, sampleRate: sr });
+  for (let c = 0; c < ch; c++) res.copyToChannel(out.getChannelData(c).subarray(lat, lat + buffer.length), c);
+  return res;
+}
+
 export const KEYS = [
   // Mayores
   'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B',

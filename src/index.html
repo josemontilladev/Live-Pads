@@ -6,7 +6,7 @@
   <!-- Sin 'unsafe-eval' ni scripts remotos: solo módulos locales. Los estilos
        inline siguen permitidos (la UI se pinta con atributos style). Red:
        Supabase (REST/Realtime/Storage) y descargas de audio/carátulas por https. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: livepads: https:; media-src 'self' data: blob: livepads: https:; font-src 'self' data:; connect-src 'self' data: blob: livepads: https: wss:; worker-src 'self' blob:; frame-src https://gi-setlist.vercel.app https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' livepads:; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: livepads: https:; media-src 'self' data: blob: livepads: https:; font-src 'self' data:; connect-src 'self' data: blob: livepads: https: wss:; worker-src 'self' blob:; frame-src https://gi-setlist.vercel.app https://www.youtube.com https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'">
   <title>LivePads</title>
   <!-- Inter is bundled locally via @font-face in css/modules/_base.css -->
   <link rel="stylesheet" href="css/index.css">
@@ -562,7 +562,7 @@
           </button>
           <!-- Lo que no se usa a cada momento vive en «Más» (ui/waveMore.js). -->
           <div class="sw-more-wrap">
-            <button type="button" class="sw-btn" id="sw-more" aria-haspopup="menu" aria-expanded="false" title="Más herramientas: acordes, práctica, marcar secciones y zoom de la onda">
+            <button type="button" class="sw-btn" id="sw-more" aria-haspopup="menu" aria-expanded="false" title="Más herramientas: acordes, práctica, estudio de voces, marcar secciones y zoom de la onda">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
               Más
             </button>
@@ -574,6 +574,10 @@
               <button type="button" class="sw-btn" id="sw-practice" aria-pressed="false" title="Modo práctica: reproduce más lento (sin cambiar el tono) y repite un tramo A–B">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-4"/><path d="M3.3 17a9 9 0 1 1 17.4 0"/></svg>
                 Práctica <span class="sw-practice-state"></span>
+              </button>
+              <button type="button" class="sw-btn" id="sw-voices" title="Estudio de voces: la melodía, la 2.ª y la 3.ª voz de esta canción, para ver y escuchar (sale del original)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-6 5-6 8-2s5 4 10-4"/><path d="M3 11c3-5 6-5 9-1s5 3 9-3" opacity=".55"/></svg>
+                Voces 2.ª y 3.ª
               </button>
               <button type="button" class="sw-btn sw-btn--accent" id="sw-add" title="Marcar una sección en la posición actual (Intro, Verso, Coro…)">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -779,6 +783,11 @@
               <label class="sb-row audio-out-alt" title="Con una interfaz de 4 o más salidas: el click (metrónomo y pistas de click) y la guía salen por 3-4, y todo lo demás por 1-2.">
                 <span class="audio-out-alt-txt"><b>Click y guía por las salidas 3-4</b><small id="audio-out-hint">Para in-ears: la sala no oye el click.</small></span>
                 <input type="checkbox" class="mo-switch" id="audio-out-alt">
+              </label>
+              <div class="sb-div"></div>
+              <label class="sb-row audio-out-alt" title="Signalsmith Stretch: cambio de tono más natural (conserva el timbre de las voces). Desactívalo solo si el equipo va justo.">
+                <span class="audio-out-alt-txt"><b>Cambio de tono de alta calidad</b><small>Al subir o bajar el tono de una pista, las voces suenan más naturales (algo más de proceso).</small></span>
+                <input type="checkbox" class="mo-switch" id="pitch-hq">
               </label>
               <div class="sb-div"></div>
               <label class="sb-row audio-out-alt" title="Usa un búfer de audio más grande: un poco más de retraso al tocar los pads, pero muchos menos cortes en equipos justos. Se aplica al reiniciar LivePads.">

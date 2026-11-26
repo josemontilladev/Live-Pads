@@ -21,6 +21,26 @@
 
 import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.js';
 
+// ── Cambio de tono de alta calidad (Signalsmith Stretch, WASM) ──────────────
+// Suena mucho más natural que SoundTouch al subir o bajar 3-4 semitonos y conserva
+// el timbre de las voces (formantes). Se usa en modo «entrada en vivo»: ocupa el
+// mismo sitio que el procesador de siempre (source → procesador → volumen), así la
+// posición, los bucles y el final no cambian. Si no carga, se usa SoundTouch.
+// Ajustes → Audio → «Cambio de tono de alta calidad» (activado por defecto).
+export const PITCH_HQ_KEY = 'livepads.pitchHQ';
+export const pitchHQOn = () => { try { return localStorage.getItem(PITCH_HQ_KEY) !== '0'; } catch (_) { return true; } };
+let _hqFactory = null;
+function hqFactory() {
+  if (!_hqFactory) _hqFactory = import('../../vendor/signalsmith-stretch/SignalsmithStretch.mjs').then((m) => m.default).catch(() => null);
+  return _hqFactory;
+}
+/** Nodo Signalsmith listo para un contexto, o null (se crea en segundo plano). */
+export async function createHQNode(ctx) {
+  const f = await hqFactory();
+  if (!f) return null;
+  try { return await f(ctx, { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }); } catch (_) { return null; }
+}
+
 // Registro del processor del worklet, una vez por AudioContext. Carga el código
 // del processor (leído por IPC) como Blob URL — robusto en dev y en asar.
 const _workletReg = new WeakMap(); // ctx -> { ready:boolean, promise:Promise }
@@ -100,6 +120,17 @@ export class PitchAudio extends EventTarget {
     this._loadPromise = this._load(url);
   }
   load() { /* compat: el setter de src ya dispara la carga */ }
+
+  /** Usa un AudioBuffer ya en memoria (p. ej. una voz generada) en lugar de una URL. */
+  setBuffer(buf, id = 'memoria') {
+    this._stop();
+    this._playing = false;
+    this._currentTime = 0;
+    this._src = `buffer:${id}`;
+    this._buffer = buf || null;
+    this._loadError = null;
+    this._loadPromise = Promise.resolve();
+  }
 
   async _load(url) {
     try {
@@ -209,6 +240,12 @@ export class PitchAudio extends EventTarget {
   _pushStParams() {
     const st = this._stNode;
     if (!st) return;
+    if (st._hq) {
+      // La velocidad la lleva el source (y sube/baja el tono): aquí se compensa y se suma el tono pedido.
+      const semis = this._pitchSemitones - 12 * Math.log2(this._rate || 1);
+      try { st.schedule({ active: true, semitones: semis, formantCompensation: Math.abs(semis) >= 0.5, formantBaseHz: 0 }); } catch (_) {}
+      return;
+    }
     try { st.pitchSemitones.value = this._pitchSemitones; } catch (_) {}
     try { const p = st.parameters.get('playbackRate'); if (p) p.value = this._rate; } catch (_) {}
   }
@@ -339,6 +376,21 @@ export class PitchAudio extends EventTarget {
 
   _ensureStNode() {
     if (this._stNode) return this._stNode;
+    // Alta calidad: si el nodo Signalsmith ya está creado, se usa; si no, se pide (y mientras, SoundTouch).
+    if (pitchHQOn()) {
+      if (this._hqNode) { this._stNode = this._hqNode; return this._stNode; }
+      if (!this._hqPending && !this._hqFailed) {
+        this._hqPending = true;
+        createHQNode(this._ctx).then((n) => {
+          this._hqPending = false;
+          if (!n) { this._hqFailed = true; return; }
+          n._hq = true;
+          this._hqNode = n;
+          // Si ya sonaba con SoundTouch, se pasa al de alta calidad sin corte.
+          if (this._playing && this._needsST() && this._stNode && !this._stNode._hq) { this._dropStNode(); this._rerouteSmooth(); }
+        });
+      }
+    }
     const reg = _workletReg.get(this._ctx);
     if (reg && reg.ready) {
       try { this._stNode = new SoundTouchNode({ context: this._ctx }); } catch (_) { this._stNode = null; }
@@ -349,6 +401,8 @@ export class PitchAudio extends EventTarget {
   _dropStNode() {
     if (this._stNode) {
       try { this._stNode.disconnect(); } catch (_) {}
+      // El de alta calidad se guarda (crearlo cuesta): solo se pausa.
+      if (this._stNode._hq) { try { this._stNode.schedule({ active: false }); } catch (_) {} }
       this._stNode = null;
     }
   }

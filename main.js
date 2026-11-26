@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const dns = require('dns');
 const companionServer = require('./companion/server');
 const servicePack = require('./servicePack');
+const multitrackImport = require('./multitrackImport');
 const QRCode = require('qrcode');
 
 // Register the livepads:// scheme as privileged BEFORE app is ready.
@@ -400,8 +401,9 @@ function createWindow() {
   // vía, y la cabecera también cubre a los mundos aislados (preload).
   const CSP = [
     "default-src 'self' livepads:",
-    // blob: → AudioWorklets (SoundTouch) y workers que se crean desde código propio.
-    "script-src 'self' blob:",
+    // blob: → AudioWorklets (SoundTouch, Signalsmith) y workers que se crean desde código propio.
+    // 'wasm-unsafe-eval' solo permite compilar WebAssembly (el cambio de tono de alta calidad), no eval de JS.
+    "script-src 'self' blob: 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: livepads: https:",
     "media-src 'self' data: blob: livepads: https:",
@@ -2597,6 +2599,31 @@ ipcMain.handle('service-pack-import', async () => {
   return { manifest, written, skipped, rejected };
 });
 
+// ── Importar un multitrack (carpeta o ZIP de MultiTracks / Loop Community) ──
+const multitrackPacks = new Map();   // token → paquete abierto (rutas, entradas del ZIP)
+ipcMain.handle('multitrack-pick', async (_e, { kind } = {}) => {
+  let target = (!app.isPackaged && process.env.LIVEPADS_TEST_MULTITRACK) || null;
+  if (!target) {
+    const r = kind === 'zip'
+      ? await dialog.showOpenDialog(mainWindow, { title: 'Elige el ZIP del multitrack', properties: ['openFile'], filters: [{ name: 'ZIP', extensions: ['zip'] }] })
+      : await dialog.showOpenDialog(mainWindow, { title: 'Elige la carpeta del multitrack', properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
+    target = r.filePaths[0];
+  }
+  const pack = multitrackImport.listPack(target);
+  const token = crypto.randomBytes(8).toString('hex');
+  multitrackPacks.clear();   // uno a la vez
+  multitrackPacks.set(token, pack);
+  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })) };
+});
+ipcMain.handle('multitrack-read', async (_e, { token, id } = {}) => {
+  const pack = multitrackPacks.get(token);
+  if (!pack) throw new Error('El paquete ya no está abierto.');
+  const buf = multitrackImport.readPackFile(pack, id);
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+});
+ipcMain.handle('multitrack-close', () => { multitrackPacks.clear(); return true; });
+
 // Guarda un ZIP (descarga completa de las pistas de una canción).
 ipcMain.handle('save-zip-file', async (_e, { suggestedName, buffer } = {}) => {
   if (!buffer) throw new Error('Buffer vacío');
@@ -2659,6 +2686,8 @@ const MODEL_REL = 'https://github.com/TRvlvr/model_repo/releases/download/all_pu
 const MODEL_OWN = 'https://github.com/josemontilladev/Live-Pads/releases/download/models-v1';
 const MODEL_FILES = {
   'UVR-MDX-NET-Inst_HQ_3.onnx': { url: `${MODEL_REL}/UVR-MDX-NET-Inst_HQ_3.onnx`, size: 66759214, sha256: '317554b07fe1ea5279a77f2b1520a41ea4b93432560c4ffd08792c30fddf9adc' },
+  // HT-Demucs 6 pistas (guitarra y piano aparte). Exportación ONNX MIT de StemSplit (HF).
+  'htdemucs_6s_fp16weights.onnx': { url: 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx?download=true', size: 136428532, sha256: '7ce55792e2231c93fbf92de95f5fd5b3a5e6c89f7db690dfd693e8f1dce56869' },
   'kuielab_a_vocals.onnx':      { url: `${MODEL_REL}/kuielab_a_vocals.onnx`,      size: 29703204, sha256: 'daba83c2ee1afee9139766ad64c9b6808d6b6f092fff04bed3338be50baac721' },
   'kuielab_a_drums.onnx':       { url: `${MODEL_REL}/kuielab_a_drums.onnx`,       size: 29703204, sha256: '40f586b7091934dd6f5563f0cba8f14bad57ce88440da1098bf388ea716c2901' },
   'kuielab_a_bass.onnx':        { url: `${MODEL_REL}/kuielab_a_bass.onnx`,        size: 29703204, sha256: '0c3e77b9963185b1ea6bb46a4b8924137d9370fc1ccdefec7b1b416ef550dcaa' },
@@ -2897,7 +2926,11 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
   if (!channels || !channels[0]) throw new Error('Audio vacío');
   await cancelChordJob();   // la separación que pide la persona tiene prioridad
   const { MODELS } = require('./stemSeparator');
-  const needed = (mode === '4stem')
+  const needed = (mode === '6stem')
+    ? ['d6']
+    : (mode === 'voz')
+    ? ['k_vocals']
+    : (mode === '4stem')
     ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
     : (mode === 'otros')
       ? ['k_other']
@@ -2914,7 +2947,7 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
     workerData: {
       channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
       sampleRate: sampleRate || 44100,
-      mode: (mode === '4stem' || mode === 'otros') ? mode : '2stem',
+      mode: (mode === '4stem' || mode === 'otros' || mode === '6stem' || mode === 'voz') ? mode : '2stem',
       modelsDir,
       ep: ep || undefined,  // undefined → auto (DML then CPU)
     },

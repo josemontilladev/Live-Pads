@@ -5,9 +5,9 @@
 
 const STEM_ROLE_PATTERNS = [
   ['vocals', /\b(vocals?|voces|voz|voice|lead\s*vox|vox|bgvs?|oohs?|aahs?|coros?|choir)\b/i],
-  ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion)\b/i],
+  ['drums',  /\b(drums?|bater[ií]a|percusi[oó]n|percussion|perc|loops?|shaker|tamb(ourine)?|kick|snare|toms?|cymbals?|overheads?|oh)\b/i],
   ['bass',   /\b(bass|bajo)\b/i],
-  ['keys',   /\b(keys?|teclas?|teclado|keyboards?|piano|synths?|sintetizador|rhodes|organ|[oó]rgano)\b/i],
+  ['keys',   /\b(keys?|teclas?|teclado|keyboards?|piano|synths?|sintetizador|rhodes|organ|[oó]rgano|pads?|strings?|cuerdas|hammond|wurli)\b/i],
   ['guitar', /\b(guitars?|guitarra|ac[uú]stica|acoustic|el[eé]ctrica|electric|eg|ag)\b/i],
   ['other',  /\b(other|otros|instrumental|music|m[uú]sica|accompaniment)\b/i],
   ['click',  /\b(click|metr[oó]nomo|metronome)\b/i],

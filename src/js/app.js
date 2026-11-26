@@ -110,6 +110,7 @@ import { initTalkback } from './live/talkback.js';
 import { initDropoutMonitor } from './audio/dropoutMonitor.js';
 import { initTvCountdown, openTvCountdown } from './ui/tvCountdown.js';
 import { initPowerWatch } from './live/powerWatch.js';
+import { initSongMap } from './live/songMap.js';
 import { isSounding } from './state/performing.js';
 import { initStagePublish } from './live/stagePublish.js';
 import { initModulation } from './live/modulation.js';
@@ -439,6 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initDropoutMonitor({ isBusy: () => isSounding() });   // cortes de audio (audio/dropoutMonitor.js)
   initTvCountdown();   // chip «TV 04:59» mientras hay cuenta atrás en la TV
   initPowerWatch();    // batería y cargador del portátil (live/powerWatch.js)
+  initSongMap();       // arreglo guardado: la pista sigue el mapa de la canción
   initStagePublish();  // monitor de escenario (Companion con ?escenario)
   initModulation();    // subir el tono en el último coro (punto marcado por canción)
   initMedley({ playCurrent: () => triggerSourcePlayPause() });   // medleys: unir con la siguiente sin silencio
@@ -1389,6 +1391,8 @@ function spotlightProviderItems() {
     items.push({ id: `tab:${tab}`, kind: 'panel', label, sub: 'Panel', search: `${label} ajustes panel abrir`, run: () => openSidebarTab(tab) });
   }
   items.push({ id: 'tool:companion', kind: 'panel', label: 'Companion (móvil)', sub: 'Herramienta', search: 'companion móvil movil qr letra acordes músicos código', run: () => openCompanionPanel() });
+  items.push({ id: 'tool:voice-studio', kind: 'panel', label: 'Estudio de voces (2.ª y 3.ª voz)', sub: 'Herramienta', search: 'estudio de voces segunda tercera voz armonia armonía coros melodia melodía cantantes', run: () => import('./audio/trackPlayer.js').then(async (tp) => { const s = tp.getCurrentSong(); if (!s) { window.showToast?.('Carga una canción para abrir su Estudio de voces.', 'info'); return; } (await import('./voices/voiceStudio.js')).openVoiceStudio(s); }) });
+  items.push({ id: 'tool:multitrack', kind: 'panel', label: 'Importar multitrack (MultiTracks, Loop Community)', sub: 'Herramienta', search: 'importar multitrack multitracks loop community prime stems pistas zip carpeta secuencia', run: () => import('./stems/multitrackPack.js').then((m) => m.importMultitrack('folder')) });
   items.push({ id: 'tool:tv-countdown', kind: 'panel', label: 'Cuenta atrás en la TV', sub: 'Herramienta', search: 'cuenta atras atrás tv pantalla servicio empieza anuncio temporizador reloj', run: () => openTvCountdown() });
   items.push({ id: 'tool:talkback', kind: 'panel', label: 'Hablar a la banda (talkback)', sub: 'Herramienta', search: 'talkback hablar banda in ears inears auriculares micrófono microfono director', run: () => document.getElementById('btn-cues')?.click() });
   for (const [id, t] of Object.entries(THEMES)) {

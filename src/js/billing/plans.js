@@ -5,9 +5,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 export const LIMITS = {
-  free:   { songs: 10,       padBanks: false, stems: false, chords: false, cloud: false, companionCloud: false },
-  pro:    { songs: Infinity, padBanks: true,  stems: true,  chords: true,  cloud: true,  companionCloud: true },
-  church: { songs: Infinity, padBanks: true,  stems: true,  chords: true,  cloud: true,  companionCloud: true },
+  free:   { songs: 10,       padBanks: false, stems: false, chords: false, cloud: false, companionCloud: false, voiceStudio: false },
+  pro:    { songs: Infinity, padBanks: true,  stems: true,  chords: true,  cloud: true,  companionCloud: true,  voiceStudio: true },
+  church: { songs: Infinity, padBanks: true,  stems: true,  chords: true,  cloud: true,  companionCloud: true,  voiceStudio: true },
 };
 
 // Precios en USD. Fundadores: 50 % para siempre.
@@ -28,5 +28,6 @@ export const FEATURE_TEXT = {
   stems: 'Stems completo (tus audios, separación con IA y exportar) y los loops PRO son parte de Pro.',
   chords: 'El detector de acordes es parte de Pro.',
   cloud: 'Sincronizar con tu equipo en la nube es parte de Pro.',
+  voiceStudio: 'El Estudio de voces (melodía, 2.ª y 3.ª voz a partir del original, para ver y escuchar) es parte de Pro.',
   companionCloud: 'El Companion por internet (los móviles desde cualquier red, con QR o código) es parte de Pro. Por WiFi local es gratis.',
 };

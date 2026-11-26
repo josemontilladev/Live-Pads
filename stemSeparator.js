@@ -21,6 +21,7 @@ const MODELS = {
   k_drums:  { file: 'kuielab_a_drums.onnx',       nfft: 4096,  dimF: 2048, dimT: 512 },
   k_bass:   { file: 'kuielab_a_bass.onnx',        nfft: 16384, dimF: 2048, dimT: 512 },
   k_other:  { file: 'kuielab_a_other.onnx',       nfft: 8192,  dimF: 2048, dimT: 512 },
+  d6:       { file: 'htdemucs_6s_fp16weights.onnx' },   // HT-Demucs 6 pistas (STFT dentro del modelo)
 };
 
 const winCache = new Map();
@@ -150,9 +151,72 @@ async function runModel(L, R, modelPath, cfg, ep, onLocal, shouldCancel, onEp) {
   return { channels: [istft(oReL, oImL, nF, NB, nfft, L.length), istft(oReR, oImR, nF, NB, nfft, R.length)], ep: usedEp };
 }
 
+// ── HT-Demucs 6 pistas (voz, batería, bajo, guitarra, piano, otros) ──────────
+// Modelo ONNX con la STFT dentro: entra la onda estéreo a 44,1 kHz en trozos de
+// 7,8 s ('mix' [1, 2, 343980]) y salen las 6 fuentes ('stems' [1, 6, 2, 343980]) en
+// el orden drums, bass, other, vocals, guitar, piano. Trozos solapados un 25 % con
+// fundido lineal (como el infer.py de referencia), sin fundir el principio de la
+// canción ni el final (si no, esas muestras quedarían en cero).
+const D6_N = 343980;
+const D6_SOURCES = [
+  { name: 'Batería', kind: 'drums' }, { name: 'Bajo', kind: 'bass' }, { name: 'Otros', kind: 'other' },
+  { name: 'Voces', kind: 'vocals' }, { name: 'Guitarra', kind: 'guitar' }, { name: 'Piano', kind: 'keys' },
+];
+async function runDemucs6(L, R, modelPath, ep, onLocal, shouldCancel, onEp) {
+  const total = L.length;
+  const overlap = Math.floor(D6_N / 4), stride = D6_N - overlap;
+  const nChunks = Math.max(1, Math.ceil(total / stride));
+  let { session, ep: usedEp } = await createSession(modelPath, ep);
+  if (onEp) { try { onEp(usedEp); } catch (_) {} }
+  // La GPU puede quedarse sin memoria con este modelo (≈1 GB): se sigue por CPU sin perder lo hecho.
+  const run = async (feeds) => {
+    try { return await session.run(feeds); }
+    catch (e) {
+      if (usedEp === 'cpu') throw e;
+      try { await session.release?.(); } catch (_) {}
+      ({ session, ep: usedEp } = await createSession(modelPath, 'cpu'));
+      if (onEp) { try { onEp(usedEp); } catch (_) {} }
+      return session.run(feeds);
+    }
+  };
+  const out = D6_SOURCES.map(() => [new Float32Array(total), new Float32Array(total)]);
+  const weight = new Float32Array(total);
+  const input = new Float32Array(2 * D6_N);
+  for (let c = 0; c < nChunks; c++) {
+    if (shouldCancel && shouldCancel()) { await session.release?.(); throw cancelledError(); }
+    const start = c * stride;
+    if (start >= total) break;
+    const len = Math.min(D6_N, total - start);
+    input.fill(0);
+    input.set(L.subarray(start, start + len), 0);
+    input.set(R.subarray(start, start + len), D6_N);
+    const res = await run({ mix: new ort.Tensor('float32', input, [1, 2, D6_N]) });
+    const st = res.stems.data;   // [6][2][N]
+    const first = c === 0, last = start + len >= total;
+    for (let i = 0; i < len; i++) {
+      let w = 1;
+      if (!first && i < overlap) w = i / overlap;
+      if (!last && i >= len - overlap && len === D6_N) w = Math.min(w, (len - 1 - i) / overlap);
+      if (w <= 0) w = 1e-4;
+      weight[start + i] += w;
+      for (let s = 0; s < 6; s++) {
+        out[s][0][start + i] += st[(s * 2 + 0) * D6_N + i] * w;
+        out[s][1][start + i] += st[(s * 2 + 1) * D6_N + i] * w;
+      }
+    }
+    if (onLocal) onLocal((c + 1) / nChunks);
+  }
+  await session.release?.();
+  for (let i = 0; i < total; i++) {
+    const w = weight[i] || 1;
+    for (let s = 0; s < 6; s++) { out[s][0][i] /= w; out[s][1][i] /= w; }
+  }
+  return { stems: D6_SOURCES.map((x, s) => ({ name: x.name, kind: x.kind, channels: out[s] })), ep: usedEp };
+}
+
 const path = require('path');
 
-// mode: '2stem' | '4stem'. modelsDir: absolute path to the models folder.
+// mode: '2stem' | '4stem' | '6stem' | 'otros'. modelsDir: absolute path to the models folder.
 async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, ep, onProgress, shouldCancel } = {}) {
   let curEp = ep || null;   // execution provider real (se completa al crear la 1ª sesión)
   const report = (frac, stage) => { try { onProgress && onProgress(Math.max(0, Math.min(1, frac)), stage, curEp); } catch (_) {} };
@@ -164,6 +228,29 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
 
   const mp = (key) => path.join(modelsDir, MODELS[key].file);
   let chosenEp = ep;
+
+  if (mode === '6stem') {
+    report(0.02, 'Cargando modelo');
+    const { stems, ep: used } = await runDemucs6(L, R, path.join(modelsDir, MODELS.d6.file), chosenEp,
+      (lf) => report(0.02 + 0.96 * lf, 'Separando 6 pistas…'), shouldCancel, onEp);
+    chosenEp = used;
+    report(1, 'Listo');
+    // Voz primero (lo que más se busca), después la base rítmica y los instrumentos.
+    const order = ['vocals', 'drums', 'bass', 'guitar', 'keys', 'other'];
+    stems.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+    return { sampleRate: SR, ep: chosenEp, stems };
+  }
+
+  // Solo la voz (modelo kuielab de voces): 2-3 veces más rápido que «Voz / Instrumental»;
+  // lo usa el Estudio de voces, que solo necesita oír bien la voz principal.
+  if (mode === 'voz') {
+    report(0.02, 'Cargando modelo');
+    const { channels: ch, ep: used } = await runModel(L, R, mp('k_vocals'), MODELS.k_vocals, chosenEp,
+      (lf) => report(0.02 + 0.96 * lf, 'Separando la voz…'), shouldCancel, onEp);
+    chosenEp = used;
+    report(1, 'Listo');
+    return { sampleRate: SR, ep: chosenEp, stems: [{ name: 'Voces', kind: 'vocals', channels: ch }] };
+  }
 
   if (mode === '4stem') {
     const plan = [
@@ -216,4 +303,4 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
   };
 }
 
-module.exports = { separate, SR, MODELS };
+module.exports = { separate, SR, MODELS, runModel };

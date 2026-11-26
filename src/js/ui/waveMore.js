@@ -56,3 +56,13 @@ if (btn && pop) {
   // Acordes y práctica también cambian por atajo o MIDI: se repinta al cambiar de canción.
   window.addEventListener('livepads:song-state', () => requestAnimationFrame(paintActive));
 }
+
+// «Voces 2.ª y 3.ª»: el Estudio de voces de la canción cargada (voices/voiceStudio.js).
+document.getElementById('sw-voices')?.addEventListener('click', async () => {
+  close();
+  const { getCurrentSong } = await import('../audio/trackPlayer.js');
+  const song = getCurrentSong();
+  if (!song) { window.showToast?.('Carga una canción para abrir su Estudio de voces.', 'info'); return; }
+  const m = await import('../voices/voiceStudio.js');
+  m.openVoiceStudio(song);
+});

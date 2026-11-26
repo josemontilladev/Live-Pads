@@ -429,7 +429,7 @@ export function updateSetlistMeta(id, name, date) {
 // BPM, carátula, letra, etc. Necesario porque al agregar una canción se copia su
 // estado del momento; si luego en Stems se le crea la secuencia (u otra edición),
 // la copia del setlist quedaba vieja y no reflejaba el cambio.
-const SYNC_FIELDS = ['title', 'artist', 'key', 'bpm', 'cover', 'coverUrl', 'durationSec', 'lyrics', 'tags', 'genre', 'showChords', 'audio', 'singerKeys', 'bandNotes'];
+const SYNC_FIELDS = ['title', 'artist', 'key', 'bpm', 'cover', 'coverUrl', 'durationSec', 'lyrics', 'tags', 'genre', 'showChords', 'audio', 'singerKeys', 'bandNotes', 'arrangements'];
 export function syncServiceWithLibrary() {
   const lib = getLibrarySongs() || [];
   if (!lib.length) return false;

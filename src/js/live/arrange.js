@@ -44,8 +44,14 @@ function cancel(silent) {
   if (!silent) window.showToast?.('Salto cancelado: la canción sigue normal.', 'info');
 }
 
-/** Salto preparado { at, to, label, action } o null (lo usa la guía hablada). */
-export const getPendingJump = () => pending;
+/** Salto preparado a mano { at, to, label, action } o null. */
+export const getLivePendingJump = () => pending;
+// El mapa de la canción (live/songMap.js) aporta su próximo salto: así la onda, la letra
+// y la guía hablada anuncian también los saltos del arreglo guardado.
+let mapProvider = null;
+export function registerMapJumpProvider(fn) { mapProvider = typeof fn === 'function' ? fn : null; }
+/** Salto que viene: el preparado a mano o, si no hay, el del mapa de la canción (o null). */
+export const getPendingJump = () => pending || (mapProvider ? (() => { try { const j = mapProvider(); return j && !j.end ? j : null; } catch (_) { return null; } })() : null);
 
 export function arrange(action) {
   if (action === 'cancel') { cancel(); return; }
@@ -89,15 +95,20 @@ export function initArrange() {
   p.innerHTML = `<div class="vg-title">Arreglo en vivo</div><div class="arr-status"></div>
     <div class="arr-grid">${ACTIONS.map((a) => `<button type="button" data-arr="${a.id}">${a.label}</button>`).join('')}</div>
     <button type="button" class="vg-test" data-arr="cancel">Cancelar el salto</button>
+    <button type="button" class="arr-map" data-arr-map="1">Mapa de la canción (arreglo guardado)…<small data-ref="mapname"></small></button>
     <small class="arr-tip">Cada acción se puede asignar a un pedal o botón MIDI (Ajustes → MIDI → Aprender).</small>`;
   document.body.appendChild(p);
-  p.addEventListener('click', (e) => { const a = e.target.closest('[data-arr]'); if (a) arrange(a.dataset.arr); });
+  p.addEventListener('click', (e) => {
+    if (e.target.closest('[data-arr-map]')) { hide(); if (song) import('../ui/songMapEditor.js').then((m) => m.openSongMap(song, { type, duration: audio && audio.duration })); else window.showToast?.('Carga una canción con su pista para armar su mapa.', 'info'); return; }
+    const a = e.target.closest('[data-arr]'); if (a) arrange(a.dataset.arr);
+  });
   let release = null;
   const hide = () => { p.hidden = true; if (release) { release(); release = null; } };
   b.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!p.hidden) { hide(); return; }
     p.hidden = false; ensureGrid(); paint();
+    import('./songMap.js').then((m) => { const a = m.activeMap(song); const el = p.querySelector('[data-ref="mapname"]'); if (el) el.textContent = a ? `En uso: ${a.name}` : 'Versión corta, coros de más… sin cortes'; });
     release = claimPop('arrange', hide);   // «Voz» u otro panel abierto: se cierra
     placePop(p, b);
   });

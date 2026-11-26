@@ -2683,6 +2683,11 @@ function buildTrackMenuItems(id) {
   if (btn('piano-roll')) items.push({ icon: ICON_MENU_PR,   label: 'Editar notas (piano roll)', onSelect: () => btn('piano-roll').click() });
   if (btn('separate'))   items.push({ icon: ICON_MENU_SEP,  label: 'Separar voz e instrumental', onSelect: () => btn('separate')?.click() });
   if (btn('harmony'))    items.push({ icon: ICON_MENU_HARM, label: 'Referencia armónica',        onSelect: () => btn('harmony')?.click() });
+  if (isEditableAudio(track)) items.push({ icon: ICON_MENU_HARM, label: 'Estudio de voces: melodía, 2.ª y 3.ª voz…', onSelect: () => {
+    const buf = engine.getTrackBuffer(id);
+    if (!buf) return;
+    import('../voices/voiceStudio.js').then((m) => m.openVoiceStudio(null, { buffer: buf, isVocal: track.kind === 'vocals' || /voz|vocal/i.test(track.name || ''), label: track.name || 'Pista' }));
+  } });
   if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export')?.click() });
   items.push({ icon: ICON_MENU_RENAME, label: 'Renombrar pista', onSelect: () => { const inp = row.querySelector('.stems-row-name'); if (inp) { inp.focus(); inp.select(); } } });
   items.push({ icon: ICON_MENU_COLOR,  label: 'Cambiar color…',  onSelect: () => btn('color')?.click() });
@@ -3206,6 +3211,7 @@ function openSeparateMenu(anchor, id) {
   menu.innerHTML = `
     <button data-mode="2stem">Voz / Instrumental <span class="stems-ctx-hint">rápido</span></button>
     <button data-mode="4stem">Voz · Batería · Bajo · Otros <span class="stems-ctx-hint">lento</span></button>
+    <button data-mode="6stem">6 pistas: + Guitarra y Piano aparte <span class="stems-ctx-hint">lento · nuevo</span></button>
     <button data-mode="otros">Solo "Otros" (teclados, guitarras…) <span class="stems-ctx-hint">medio</span></button>
     <div class="stems-ctx-sep"></div>
     <button data-toggle="cpu" class="stems-ctx-toggle">${forceCpu ? '☑' : '☐'} Forzar CPU (sin GPU)</button>
@@ -3603,6 +3609,7 @@ async function onSeparateTrack(id, mode = '2stem') {
   // usuario preguntándose qué pasa.
   const modeLabel = mode === '2stem' ? 'Voz / Instrumental'
                   : mode === '4stem' ? 'Voz · Batería · Bajo · Otros'
+                  : mode === '6stem' ? 'Voz · Batería · Bajo · Guitarra · Piano · Otros'
                   : 'Solo "Otros"';
   const reuseCached = lastSeparation && lastSeparation.key === cacheKey;
   if (!reuseCached) {

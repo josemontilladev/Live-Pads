@@ -49,6 +49,17 @@ export function initAudioOutputSetting(getEngine) {
     if (alt.checked && !on) window.showToast?.('Esta salida no admite 4 canales.', 'error');
     paintAlt();
   });
+  // Cambio de tono de alta calidad (audio/pitchAudio.js).
+  const hq = q('#pitch-hq');
+  if (hq) {
+    import('../audio/pitchAudio.js').then(({ pitchHQOn, PITCH_HQ_KEY }) => {
+      hq.checked = pitchHQOn();
+      hq.addEventListener('change', () => {
+        try { localStorage.setItem(PITCH_HQ_KEY, hq.checked ? '1' : '0'); } catch (_) {}
+        window.showToast?.(hq.checked ? 'Cambio de tono de alta calidad activado (se nota en la próxima canción que transpongas).' : 'Cambio de tono clásico (menos proceso).', 'info');
+      });
+    });
+  }
   // Audio estable + cortes de esta sesión (audio/dropoutMonitor.js).
   const stable = q('#audio-stable'), dHint = q('#audio-dropout-hint');
   if (stable) {

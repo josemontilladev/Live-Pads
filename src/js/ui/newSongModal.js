@@ -65,6 +65,11 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
         <span class="newsong-import-hint">ChordPro (.cho, .crd, .pro), OpenSong o texto con acordes. Elige varios para traer tu repertorio de golpe.</span>
         <input type="file" id="ns-file" multiple hidden accept=".cho,.crd,.chopro,.chordpro,.pro,.txt,.xml,text/plain,*/*">
       </div>
+      <div class="newsong-import-row newsong-import-row--file">
+        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-folder">Multitrack: carpeta…</button>
+        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-zip">Multitrack: ZIP…</button>
+        <span class="newsong-import-hint">MultiTracks, Loop Community u otro: crea la canción con sus pistas y la secuencia para Pads (click a la izquierda).</span>
+      </div>
     </div>`;
 
   const overlay = document.createElement('div');
@@ -230,6 +235,7 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (action === 'import-url') { importar(); return; }
     if (action === 'import-file') { fileEl && fileEl.click(); return; }
+    if (action === 'import-mt-folder' || action === 'import-mt-zip') { close(); import('../stems/multitrackPack.js').then((m) => m.importMultitrack(action === 'import-mt-zip' ? 'zip' : 'folder')); return; }
     if (action === 'edit-cancel') { close(); return; }
     if (action !== 'edit-save') return;
     const titleEl = modal.querySelector('.edit-title');

@@ -98,6 +98,7 @@ function render() {
           <li>Detector de acordes y YouTube</li>
           <li>Sincronización en la nube</li>
           <li>Companion por internet (QR o código)</li>
+          <li>Estudio de voces: 2.ª y 3.ª voz desde el original</li>
         </ul>
         ${cur('pro') && info.status !== 'trial' ? '<div class="pl-tag">Tu plan</div>'
           : `<button type="button" class="acc-btn pl-buy" data-plan="pro">${paidOwn ? 'Cambiar a Pro' : 'Elegir Pro'}</button>`}

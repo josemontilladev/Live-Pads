@@ -1,5 +1,5 @@
-• Paquete del servicio para otro portátil: en el menú «⋯» del servicio, «Guardar paquete para otro portátil» crea un solo archivo con las canciones, los tonos del día, las notas y los audios. En el otro portátil, «Abrir paquete de servicio» lo deja listo para tocar, sin internet.
-• Contador de repeticiones en vivo: la onda muestra «Coro 2/3» (y el monitor de escenario también). Si repites una sección con «Arreglo», la cuenta lo suma.
-• Aviso de batería: si el portátil se desenchufa, LivePads te avisa al momento; con batería verás el porcentaje en la barra superior y otro aviso por debajo del 20 % y del 10 %. El Pre-vuelo también lo revisa.
-• La barra superior ya no empuja fuera los botones de la ventana en pantallas estrechas (temas Consola).
-• Correcciones de texto («canciones»).
+• Estudio de voces (Pro): a partir del original de una canción, LivePads separa la voz, saca la melodía nota a nota y crea la 2.ª y la 3.ª voz según el tono y los acordes. Se ven como líneas de luz que avanzan con la canción (nota y acorde en cada momento) y se escuchan por separado: con un coro sintético o con la voz real del cantante (con letra). Se pueden corregir notas, elegir el estilo de armonía y el tono, y guardarlas como voces de referencia (también llegan a GI App). Menú de la canción → «Estudio de voces», o en Stems sobre cualquier pista.
+• Mapa de la canción: arreglos guardados (versión corta, coros de más, sin puente…). Arrastras las secciones y, al tocar, la pista salta sola en el límite de cada sección, sin cortes. Desde «Arreglo» en la onda o el menú de la canción; se comparte con el equipo.
+• Separación en 6 pistas en Stems: voz, batería, bajo, guitarra, piano y otros.
+• Cambio de tono de alta calidad: al subir o bajar el tono, las voces suenan mucho más naturales (Ajustes → Audio).
+• Importar multitracks (MultiTracks, Loop Community…): eliges la carpeta o el ZIP y LivePads crea la canción con todas sus pistas y la secuencia para Pads (click a la izquierda, banda a la derecha). Desde «Nueva canción» o Ctrl+K.

@@ -1966,3 +1966,105 @@ body:has(.dc-pal) .tb-pill { display: none; }
   .tv-cd-chip { padding: 0 8px; margin-right: 0; }
 }
 @media (max-width: 1060px) { .topbar-actions { gap: 2px; } }
+
+/* ── Estudio de voces (voices/voiceStudio.js) ── */
+#vs-overlay { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,.6); display: flex; padding: 14px; }
+.vs-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--menu-bg, #14161c); border: 1px solid color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+.vs-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent); flex-wrap: wrap; }
+.vs-titles { display: flex; flex-direction: column; min-width: 0; flex: 1 1 220px; }
+.vs-titles b { font-size: 16px; }
+.vs-titles span { font-size: 12.5px; color: color-mix(in srgb, var(--text) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vs-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.vs-field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: color-mix(in srgb, var(--text) 70%, transparent); }
+.vs-field select { height: 32px; max-width: 230px; padding: 0 8px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); background: color-mix(in srgb, var(--text) 7%, var(--menu-bg, #14161c)); color: var(--text); font: inherit; font-size: 12.5px; }
+.vs-btn { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); font: 600 12.5px/1 inherit; cursor: pointer; white-space: nowrap; }
+.vs-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 14%, transparent); }
+.vs-btn:disabled { opacity: .5; cursor: default; }
+.vs-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #0a0a14); }
+.vs-close { width: 32px; height: 32px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); cursor: pointer; font-size: 14px; }
+.vs-stage { position: relative; flex: 1; min-height: 220px; background: #07070d; }
+.vs-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.vs-progress { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, 86%); padding: 16px 18px; border-radius: 14px; background: rgba(10,10,18,.82); border: 1px solid rgba(255,255,255,.12); color: #fff; display: flex; flex-direction: column; gap: 8px; text-align: center; }
+.vs-progress[hidden] { display: none; }
+.vs-progress b { font-size: 14px; }
+.vs-progress small { font-size: 12px; color: rgba(255,255,255,.7); min-height: 1em; line-height: 1.4; }
+.vs-progress.is-error b { color: #fca5a5; }
+.vs-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.vs-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffd23f, #ff4f9a, #35d6ff); transition: width .25s; }
+.vs-edit { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: rgba(10,10,18,.9); border: 1px solid rgba(255,255,255,.16); color: #fff; font-size: 13px; white-space: nowrap; }
+.vs-edit[hidden] { display: none; }
+.vs-edit span { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; }
+.vs-edit span i { width: 10px; height: 10px; border-radius: 50%; }
+.vs-edit button { height: 30px; min-width: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #fff; font: 700 12.5px/1 inherit; cursor: pointer; }
+.vs-edit button:hover { background: rgba(255,255,255,.18); }
+.vs-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; font-size: 11.5px; color: rgba(255,255,255,.55); white-space: nowrap; pointer-events: none; }
+.vs-hint[hidden] { display: none; }
+.vs-foot { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent); }
+.vs-transport { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.vs-play { width: 42px; height: 42px; flex: none; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent, #0a0a14); cursor: pointer; display: grid; place-items: center; }
+.vs-play:disabled { opacity: .4; cursor: default; }
+.vs-time { font: 700 13px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; flex: none; }
+.vs-secs { display: flex; gap: 6px; overflow-x: auto; min-width: 0; scrollbar-width: thin; }
+.vs-secs button { flex: none; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); background: transparent; color: var(--text); font: 600 12px/1 inherit; cursor: pointer; white-space: nowrap; }
+.vs-secs button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+.vs-mixer { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.vs-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 6px 6px; align-items: center; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.vs-ch.is-muted { opacity: .55; }
+.vs-ch-on { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; padding: 0 4px; border: 0; background: transparent; color: var(--text); font: 700 13px/1 inherit; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vs-ch-on i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.vs-ch-on[aria-pressed="false"] i { background: transparent; box-shadow: none; border: 2px solid var(--c); }
+.vs-ch-solo { width: 28px; height: 28px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); background: transparent; color: var(--text); font: 800 11px/1 inherit; cursor: pointer; }
+.vs-ch-solo.is-on { background: #facc15; border-color: #facc15; color: #111; }
+.vs-ch input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--c); }
+.vs-ch-src { grid-column: 1 / -1; display: flex; border-radius: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); }
+.vs-ch-src button { flex: 1; height: 26px; border: 0; background: transparent; color: var(--text); font: 600 11.5px/1 inherit; cursor: pointer; }
+.vs-ch-src button.is-on { background: color-mix(in srgb, var(--c) 30%, transparent); }
+.vs-ch-src button:disabled { opacity: .4; cursor: default; }
+@media (max-width: 1180px) { .vs-mixer { grid-template-columns: repeat(5, minmax(0, 1fr)); } .vs-ch { padding: 6px 8px; } }
+@media (max-height: 760px) { .vs-head { padding: 8px 12px; } .vs-foot { padding: 8px 12px; gap: 8px; } .vs-ch input[type=range] { height: 14px; } }
+
+/* ── Mapa de la canción (ui/songMapEditor.js) ── */
+.sm-box { width: min(760px, 95vw); max-height: calc(100vh - 32px); overflow-y: auto; }
+.sm-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sm-row select, .sm-row input { height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); background: color-mix(in srgb, var(--text) 7%, var(--menu-bg, #14161c)); color: var(--text); font: inherit; font-size: 13px; min-width: 0; }
+.sm-row select { flex: 1 1 160px; } .sm-row input { flex: 1 1 180px; }
+.sm-label { font-size: 12px; font-weight: 700; color: color-mix(in srgb, var(--text) 75%, transparent); } .sm-label small { font-weight: 500; opacity: .75; margin-left: 6px; }
+.sm-src { display: flex; flex-wrap: wrap; gap: 6px; }
+.sm-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid hsl(var(--h) 70% 55% / .6); background: hsl(var(--h) 70% 55% / .16); color: var(--text); font: 700 12.5px/1 inherit; cursor: pointer; white-space: nowrap; }
+.sm-chip small { font-size: 10.5px; opacity: .75; } .sm-chip i { font-style: normal; font-weight: 600; font-size: 11px; opacity: .65; }
+.sm-chip:hover { background: hsl(var(--h) 70% 55% / .3); }
+.sm-order { display: flex; gap: 3px; min-height: 52px; padding: 6px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); overflow-x: auto; }
+.sm-block { position: relative; min-width: 46px; height: 40px; border-radius: 8px; background: hsl(var(--h) 70% 55% / .85); color: #0b0b12; display: flex; align-items: center; padding: 0 22px 0 8px; font: 800 12px/1.1 inherit; cursor: grab; overflow: hidden; }
+.sm-block span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sm-block small { font-weight: 700; opacity: .7; }
+.sm-block button { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; border-radius: 50%; border: 0; background: rgba(0,0,0,.25); color: #fff; font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.sm-block.is-missing { background: repeating-linear-gradient(45deg, #666, #666 6px, #555 6px, #555 12px); color: #fff; }
+.sm-block.is-drag { opacity: .4; } .sm-block.is-over { outline: 2px solid var(--text); outline-offset: 1px; }
+.sm-empty { margin: auto; font-size: 12.5px; color: color-mix(in srgb, var(--text) 60%, transparent); }
+.sm-sum { font-size: 13px; color: color-mix(in srgb, var(--text) 80%, transparent); }
+.sm-sum .is-less { color: #22c55e; font-weight: 700; } .sm-sum .is-more { color: #f59e0b; font-weight: 700; }
+:root[data-theme="clean"] .sm-sum .is-less { color: #15803d; } :root[data-theme="clean"] .sm-sum .is-more { color: #b45309; }
+.sm-use { display: flex; align-items: center; gap: 10px; font-size: 13px; } .sm-use span { display: flex; flex-direction: column; gap: 2px; } .sm-use small { font-size: 11.5px; color: color-mix(in srgb, var(--text) 62%, transparent); }
+.sm-del { margin-left: auto; }
+.arr-map { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 10px; border: 1px dashed color-mix(in srgb, var(--text) 28%, transparent); background: transparent; color: var(--text); font: 700 12.5px/1.2 inherit; cursor: pointer; text-align: left; }
+.arr-map small { font-weight: 500; font-size: 11.5px; opacity: .7; }
+.arr-map:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+
+/* Estudio de voces: las secciones pasan a otra línea (sin scroll escondido). */
+.vs-transport { align-items: flex-start; }
+.vs-play, .vs-time { margin-top: 0; }
+.vs-time { align-self: center; }
+.vs-secs { flex-wrap: wrap; overflow: visible; row-gap: 6px; }
+
+/* ── Importar multitrack (stems/multitrackPack.js) ── */
+.mt-box { width: min(640px, 95vw); max-height: calc(100vh - 32px); overflow-y: auto; }
+.mt-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) 80px 70px; gap: 8px; }
+.mt-grid .vn-field input { width: 100%; min-width: 0; box-sizing: border-box; }
+@media (max-width: 720px) { .mt-grid { grid-template-columns: 1fr 1fr; } }
+.mt-list { display: flex; flex-direction: column; gap: 4px; max-height: min(320px, 38vh); overflow-y: auto; padding-right: 2px; }
+.mt-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 130px; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 9px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.mt-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-size { font-size: 11.5px; color: color-mix(in srgb, var(--text) 55%, transparent); font-variant-numeric: tabular-nums; }
+.mt-row select { height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); background: color-mix(in srgb, var(--text) 7%, var(--menu-bg, #14161c)); color: var(--text); font: inherit; font-size: 12px; min-width: 0; }
+.mt-progress { display: flex; flex-direction: column; gap: 6px; }
+.mt-progress[hidden] { display: none; }
+.mt-progress small { font-size: 12px; color: color-mix(in srgb, var(--text) 72%, transparent); }
