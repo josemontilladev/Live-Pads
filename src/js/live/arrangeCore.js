@@ -29,20 +29,29 @@ export function nextBar(downs, t, margin = 0.12) {
  * @param markers secciones de la pista
  * @param t       tiempo actual de la pista
  * @param downs   primeros tiempos de compás (para saltar sin cortar el compás)
+ * @param mode    cuándo entra el salto: 'bar' (al terminar el compás, por defecto),
+ *                'section' (al terminar la sección en curso) o 'now' (ya mismo)
  * @returns { at, to, label } o null si no hay adónde ir.
  */
-export function planJump(action, markers, t, downs) {
+export const JUMP_MODES = { now: 'Ya', bar: 'Al compás', section: 'Fin de sección' };
+export function planJump(action, markers, t, downs, mode = 'bar') {
   const ms = sorted(markers);
   if (!ms.length) return null;
   let i = -1;
   ms.forEach((m, k) => { if (m.t <= t + 0.05) i = k; });
   const cur = i >= 0 ? ms[i] : null, next = ms[i + 1] || null;
   if (action === 'repeat') {
+    if (mode === 'now') return cur ? { at: t + 0.05, to: cur.t, label: cur.label } : null;   // volver ya al inicio de la sección
     if (!cur || !next) return null;                       // repetir = al terminar esta sección, volver a su inicio
     return { at: next.t, to: cur.t, label: cur.label };
   }
-  const bar = nextBar(downs, t);
-  const at = bar != null && (!next || bar <= next.t + 0.05) ? bar : (next ? next.t : null);
+  let at;
+  if (mode === 'now') at = t + 0.05;
+  else if (mode === 'section') at = next ? next.t : null;
+  else {
+    const bar = nextBar(downs, t);
+    at = bar != null && (!next || bar <= next.t + 0.05) ? bar : (next ? next.t : null);
+  }
   if (at == null) return null;
   if (action === 'next') {
     if (!next) return null;

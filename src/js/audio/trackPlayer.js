@@ -20,6 +20,7 @@ import { confirmDialogAsync } from '../ui/dialog.js';
 import { isKeyLinked, setKeyLinked, reconcileLinkedPitch } from '../utils/keyLink.js';
 import { bufferLoudness, gainFor, normalizeOn } from './loudness.js';
 import { mainBusInput } from './mainBus.js';
+import { registerInEarSource } from './inEarMix.js';
 
 // Sin pista cargada la barra se compacta (sin progreso ni tiempos, ver
 // _pads-clean.css) y el título indica cómo cargar una.
@@ -235,6 +236,7 @@ function connectPanGraph() {
     trackLimiter.connect(pannerNode.input);
     pannerNode.output.connect(trackMasterGain);
     trackMasterGain.connect(mainBusInput(audioCtx));   // bus principal (audio/mainBus.js)
+    registerInEarSource(audioCtx, 'track', trackMasterGain);   // también a los in-ears (3-4), a su volumen
   } catch (e) {
     console.warn('Track pan graph unavailable:', e);
     pannerNode = null;

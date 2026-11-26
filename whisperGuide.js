@@ -265,16 +265,16 @@ function decodeTokens(ids, vocabInv) {
 
 // ── Modelo ──
 let cache = null;   // { dir, ort, enc, dec, vocabInv }
-async function load(dir) {
-  if (cache && cache.dir === dir) return cache;
+async function load(dir, size = 'base') {
+  if (cache && cache.dir === dir && cache.size === size) return cache;
   const ort = require('onnxruntime-node');
   const opts = { executionProviders: ['cpu'], graphOptimizationLevel: 'all' };
-  const enc = await ort.InferenceSession.create(path.join(dir, 'whisper_base_encoder_q8.onnx'), opts);
-  const dec = await ort.InferenceSession.create(path.join(dir, 'whisper_base_decoder_q8.onnx'), opts);
+  const enc = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_encoder_q8.onnx`), opts);
+  const dec = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_decoder_q8.onnx`), opts);
   const vocab = JSON.parse(fs.readFileSync(path.join(dir, 'whisper_vocab.json'), 'utf8'));
   const vocabInv = [];
   for (const [k, v] of Object.entries(vocab)) vocabInv[v] = k;
-  cache = { dir, ort, enc, dec, vocabInv };
+  cache = { dir, size, ort, enc, dec, vocabInv };
   return cache;
 }
 
@@ -372,4 +372,102 @@ async function transcribeRegions(pcm, dir, { onProgress = null, shouldCancel = n
 
 const WHISPER_FILES = ['whisper_base_encoder_q8.onnx', 'whisper_base_decoder_q8.onnx', 'whisper_vocab.json'];
 
-module.exports = { SR, logMel, melFilters, speechRegions, decodeTokens, byteDecoder, transcribeRegions, WHISPER_FILES, PHRASES };
+// ── Transcribir una voz cantada (letra automática) ─────────────────────────
+// Ventanas de 30 s con marcas de tiempo (las reglas de Whisper: las marcas van en pares y
+// no retroceden; si la probabilidad de «marca» supera a la del mejor texto, va marca).
+// Sin caché del decodificador: cada paso vuelve a pasar la frase (las frases son cortas).
+const TS_BEGIN = 50364, TS_STEP = 0.02;
+async function transcribeWindow(m, clip, langTok, { maxTokens = 110 } = {}) {
+  const feats = new m.ort.Tensor('float32', logMel(clip), [1, N_MELS, N_FRAMES]);
+  const hidden = (await m.enc.run({ input_features: feats })).last_hidden_state;
+  const ids = [T.SOT, langTok, T.TRANSCRIBE];
+  const out = [];
+  let lastTs = -1;
+  for (let i = 0; i < maxTokens; i++) {
+    const logits = await runDecoder(m, ids, hidden);
+    const V = logits.dims[2], row = logits.data.subarray((ids.length - 1) * V, ids.length * V);
+    const prev = out[out.length - 1], prev2 = out[out.length - 2];
+    const lastWasTs = prev != null && prev >= TS_BEGIN, penultWasTs = prev2 == null || prev2 >= TS_BEGIN;
+    // Reglas de marcas de Whisper: empieza con marca; tras «marca marca» (par cerrado) va texto;
+    // tras «texto marca» va otra marca (cierra) o el fin; las marcas no retroceden.
+    const mustTs = out.length === 0;
+    const allowText = !mustTs && !(lastWasTs && !penultWasTs);
+    const allowTs = mustTs || !(lastWasTs && penultWasTs);
+    const allowEot = !mustTs;
+    const minTs = lastTs < 0 ? TS_BEGIN : TS_BEGIN + lastTs;
+    let bestText = -1, btv = -Infinity, bestTs = -1, bts = -Infinity, lseTs = -Infinity;
+    for (let k = 0; k < V; k++) {
+      const v = row[k];
+      if (k < T.EOT) { if (allowText && v > btv) { btv = v; bestText = k; } }
+      else if (k === T.EOT) { if (allowEot && v > btv) { btv = v; bestText = k; } }
+      else if (k >= TS_BEGIN && allowTs && k >= minTs) {
+        if (v > bts) { bts = v; bestTs = k; }
+        lseTs = lseTs === -Infinity ? v : Math.max(lseTs, v) + Math.log1p(Math.exp(-Math.abs(lseTs - v)));
+      }
+    }
+    let tok;
+    if (mustTs) tok = bestTs;
+    else if (bestTs >= 0 && (bestText < 0 || lseTs > btv)) tok = bestTs;
+    else tok = bestText;
+    if (tok < 0 || tok === T.EOT) break;
+    if (tok >= TS_BEGIN) lastTs = tok - TS_BEGIN;
+    ids.push(tok); out.push(tok);
+    if (out.length >= 12) {   // bucles («aleluya aleluya aleluya…» sin fin)
+      const a = out.slice(-6).join(), b = out.slice(-12, -6).join();
+      if (a === b) break;
+    }
+  }
+  // Pares [marca, texto…, marca] → segmentos
+  const segs = [];
+  let start = null, text = [];
+  for (const t of out) {
+    if (t >= TS_BEGIN) {
+      const sec = (t - TS_BEGIN) * TS_STEP;
+      if (start == null) { start = sec; text = []; }
+      else { if (text.length) segs.push({ t0: start, t1: sec, ids: text }); start = null; text = []; }
+    } else if (start != null) text.push(t);
+  }
+  const complete = out.length > 0 && out[out.length - 1] >= TS_BEGIN && start == null;
+  return { segs, lastEnd: segs.length ? segs[segs.length - 1].t1 : 0, complete };
+}
+
+/**
+ * Transcribe una voz (16 kHz mono): → [{ t0, t1, text }] por frase. lang: 'es' | 'en' | null (detecta).
+ * Avanza de ventana en ventana empezando donde terminó la última frase completa.
+ */
+async function transcribeLong(pcm, dir, { lang = null, size = 'base', onProgress = null, shouldCancel = null } = {}) {
+  const m = await load(dir, size);
+  const total = pcm.length / SR;
+  let langTok = lang ? LANGS[lang] : null;
+  if (!langTok) {
+    // El idioma, con el primer tramo con voz.
+    const r = speechRegions(pcm)[0];
+    const a = r ? Math.floor(r.start * SR) : 0;
+    const feats = new m.ort.Tensor('float32', logMel(pcm.subarray(a, a + N_SAMPLES)), [1, N_MELS, N_FRAMES]);
+    const h = (await m.enc.run({ input_features: feats })).last_hidden_state;
+    const lp = logProbsAt(await runDecoder(m, [T.SOT], h), 0);
+    langTok = lp(T.ES) > lp(T.EN) ? T.ES : T.EN;
+  }
+  const out = [];
+  let seek = 0;
+  const regions = speechRegions(pcm, { gap: 1.2, maxDur: 28 });
+  while (seek < total - 0.5) {
+    if (shouldCancel && shouldCancel()) break;
+    // Saltar silencios largos: empezar en el siguiente tramo con voz.
+    const nextVoice = regions.find((r) => r.end > seek + 0.2);
+    if (!nextVoice) break;
+    if (nextVoice.start > seek + 1) seek = Math.max(seek, nextVoice.start - 0.3);
+    const a = Math.floor(seek * SR);
+    const w = await transcribeWindow(m, pcm.subarray(a, a + N_SAMPLES), langTok);
+    for (const s of w.segs) {
+      const text = decodeTokens(s.ids, m.vocabInv);
+      if (text && !/^[\s.,¡!¿?♪-]*$/.test(text)) out.push({ t0: Math.round((seek + s.t0) * 100) / 100, t1: Math.round((seek + s.t1) * 100) / 100, text });
+    }
+    const adv = w.complete && w.lastEnd > 1 ? w.lastEnd : 30;
+    seek += Math.min(30, Math.max(1, adv));
+    if (onProgress) onProgress(Math.min(1, seek / total));
+  }
+  return { lang: langTok === T.ES ? 'es' : 'en', segments: out };
+}
+
+module.exports = { SR, logMel, melFilters, speechRegions, decodeTokens, byteDecoder, transcribeRegions, transcribeLong, WHISPER_FILES, PHRASES };

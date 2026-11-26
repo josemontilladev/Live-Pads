@@ -155,3 +155,47 @@ export function rppStemTracks(parsed) {
   }
   return out;
 }
+
+// ── Exportar: proyecto de Stems → sesión de REAPER (.rpp) ──────────────────
+const q = (v) => `"${String(v ?? '').replace(/"/g, "'")}"`;
+const num6 = (v) => String(Math.round((Number(v) || 0) * 1e6) / 1e6);
+let guidN = 0;
+const guid = () => `{${(++guidN).toString(16).padStart(8, '0').toUpperCase()}-0000-4000-8000-000000000000}`;
+
+/**
+ * proj: { name, bpm, beatsPerBar, beatValue, markers: [{ label, atSec }],
+ *         tracks: [{ name, volume (0..1 del fader de Stems), pan (-1..1), muted, file ('Audio/x.wav'),
+ *                    clips: [{ startSec, endSec, trimStartSec, fadeInSec, fadeOutSec }] }] }
+ * → texto .rpp. El volumen se convierte al revés que al importar (fader 0,85 = 0 dB).
+ */
+export function writeRpp(proj) {
+  guidN = 0;
+  const L = [];
+  L.push('<REAPER_PROJECT 0.1 "7.0/LivePads" 0');
+  L.push(`  TEMPO ${num6(proj.bpm || 120)} ${proj.beatsPerBar || 4} ${proj.beatValue || 4}`);
+  (proj.markers || []).forEach((m, i) => L.push(`  MARKER ${i + 1} ${num6(m.atSec)} ${q(m.label)} 0`));
+  for (const t of proj.tracks || []) {
+    L.push(`  <TRACK ${guid()}`);
+    L.push(`    NAME ${q(t.name)}`);
+    L.push(`    VOLPAN ${num6(Math.max(0, (Number(t.volume) || 0) / 0.85))} ${num6(t.pan)} -1 -1 1`);
+    L.push(`    MUTESOLO ${t.muted ? 1 : 0} 0 0`);
+    const kind = /\.mp3$/i.test(t.file) ? 'MP3' : /\.flac$/i.test(t.file) ? 'FLAC' : 'WAVE';
+    for (const c of t.clips || []) {
+      const len = Math.max(0, c.endSec - c.startSec);
+      L.push('    <ITEM');
+      L.push(`      POSITION ${num6(c.startSec)}`);
+      L.push(`      LENGTH ${num6(len)}`);
+      L.push(`      SOFFS ${num6(c.trimStartSec)}`);
+      L.push(`      FADEIN 1 ${num6(c.fadeInSec)} 0 1 0 0 0`);
+      L.push(`      FADEOUT 1 ${num6(c.fadeOutSec)} 0 1 0 0 0`);
+      L.push(`      NAME ${q(t.name)}`);
+      L.push(`      <SOURCE ${kind}`);
+      L.push(`        FILE ${q(t.file)}`);
+      L.push('      >');
+      L.push('    >');
+    }
+    L.push('  >');
+  }
+  L.push('>');
+  return L.join('\n') + '\n';
+}

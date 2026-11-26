@@ -2708,6 +2708,67 @@ ipcMain.handle('rpp-read', (_e, { token, ref } = {}) => {
 });
 ipcMain.handle('rpp-close', () => { rppSessions.clear(); return true; });
 
+// ── Letras en el programa de proyección (FreeShow · OpenLP · ProPresenter) ──
+// Peticiones HTTP a la API de esos programas (en este equipo o en la red local). Solo http,
+// solo las rutas de sus API, con tiempo límite. Lo arma src/js/live/projectionLink.js.
+ipcMain.handle('proj-request', async (_e, { method = 'GET', url, body, headers } = {}) => {
+  let u;
+  try { u = new URL(String(url)); } catch (_) { throw new Error('Dirección no válida'); }
+  const pth = u.pathname;
+  const allowed = pth === '/' || pth.startsWith('/api/v2/') || pth.startsWith('/v1/');
+  if (u.protocol !== 'http:' || !allowed || u.username || u.password) throw new Error('Ruta no permitida');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  try {
+    const res = await net.fetch(u.toString(), {
+      method: method === 'POST' ? 'POST' : 'GET',
+      headers: { ...(body != null ? { 'Content-Type': 'application/json' } : {}), ...(headers || {}) },
+      body: body != null ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (_) {}
+    return { ok: res.ok, status: res.status, json, text: json ? '' : text.slice(0, 300) };
+  } catch (err) {
+    return { ok: false, status: 0, error: ctrl.signal.aborted ? 'Sin respuesta (¿programa cerrado o dirección equivocada?)' : String((err && err.message) || err) };
+  } finally { clearTimeout(timer); }
+});
+
+// ── Exportar la sesión de Stems a REAPER: una carpeta con Audio/ y el .rpp ──
+const rppExports = new Map();   // token → carpeta de la sesión
+const safeName = (n) => String(n || 'Sesion').replace(/[<>:"/\\|?*\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Sesion';
+ipcMain.handle('rpp-export-begin', async (_e, { name } = {}) => {
+  let parent = (!app.isPackaged && process.env.LIVEPADS_TEST_RPP_OUT) || null;
+  if (!parent) {
+    const r = await dialog.showOpenDialog(mainWindow, { title: 'Elige dónde guardar la sesión de REAPER', properties: ['openDirectory', 'createDirectory'] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
+    parent = r.filePaths[0];
+  }
+  let dir = path.join(parent, safeName(name));
+  for (let n = 2; fs.existsSync(dir); n++) dir = path.join(parent, `${safeName(name)} (${n})`);
+  fs.mkdirSync(path.join(dir, 'Audio'), { recursive: true });
+  const token = crypto.randomBytes(8).toString('hex');
+  rppExports.set(token, dir);
+  return { token, dir };
+});
+ipcMain.handle('rpp-export-file', (_e, { token, name, bytes } = {}) => {
+  const dir = rppExports.get(token);
+  if (!dir) throw new Error('La exportación ya no está abierta.');
+  const file = safeName(String(name || 'pista').replace(/\.wav$/i, '')) + '.wav';
+  fs.writeFileSync(path.join(dir, 'Audio', file), Buffer.from(bytes));
+  return `Audio/${file}`;
+});
+ipcMain.handle('rpp-export-finish', (_e, { token, text, name } = {}) => {
+  const dir = rppExports.get(token);
+  if (!dir) throw new Error('La exportación ya no está abierta.');
+  rppExports.delete(token);
+  const file = path.join(dir, safeName(name) + '.rpp');
+  fs.writeFileSync(file, String(text || ''), 'utf8');
+  if (!process.env.LIVEPADS_TEST_RPP_OUT) shell.showItemInFolder(file);
+  return file;
+});
+
 // ── Secciones desde la pista guía (whisperGuide.js) ──
 // Recibe la guía en mono a 16 kHz; la primera vez baja Whisper (~75 MB). Progreso por 'guide-progress'.
 let guideJob = null;
@@ -2726,6 +2787,26 @@ ipcMain.handle('guide-sections', async (e, { pcm } = {}) => {
   } finally { guideJob = null; }
 });
 ipcMain.handle('guide-sections-cancel', () => { if (guideJob) guideJob.cancel = true; return true; });
+
+// ── Letra automática: transcribir la voz cantada (whisperGuide.transcribeLong) ──
+let lyricsJob = null;
+ipcMain.handle('lyrics-transcribe', async (e, { pcm, size = 'base', lang = null } = {}) => {
+  if (lyricsJob) throw new Error('Ya se está sacando una letra.');
+  const samples = pcm instanceof Float32Array ? pcm : new Float32Array(pcm || []);
+  if (samples.length < 16000) return { segments: [] };
+  const sz = size === 'small' ? 'small' : 'base';
+  const send = (frac, label) => { try { e.sender.send('lyrics-progress', { frac, label }); } catch (_) {} };
+  const W = require('./whisperGuide');
+  lyricsJob = { cancel: false };
+  const job = lyricsJob;
+  try {
+    const files = [`whisper_${sz}_encoder_q8.onnx`, `whisper_${sz}_decoder_q8.onnx`, 'whisper_vocab.json'];
+    const dir = await ensureModels(files, (f, label) => send(0.2 * f, label || 'Descargando el reconocimiento de voz…'));
+    send(0.2, 'Escuchando la letra…');
+    return await W.transcribeLong(samples, dir, { size: sz, lang, onProgress: (f) => send(0.2 + 0.8 * f, 'Escuchando la letra…'), shouldCancel: () => job.cancel });
+  } finally { lyricsJob = null; }
+});
+ipcMain.handle('lyrics-transcribe-cancel', () => { if (lyricsJob) lyricsJob.cancel = true; return true; });
 
 // ── Consumo (barra superior): CPU de todo el equipo, memoria de LivePads ──
 let sysCpuPrev = null;
@@ -2817,6 +2898,9 @@ const MODEL_FILES = {
   'whisper_base_encoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/encoder_model_quantized.onnx', size: 23201314, sha256: '5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46' },
   'whisper_base_decoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/decoder_model_quantized.onnx', size: 53310178, sha256: 'c859636f4463dd5a9ea752546c6c7badeb48ab3e22b340cafef08a15552fcb2e' },
   'whisper_vocab.json':           { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/vocab.json', size: 1036584, sha256: '50d6a919f0a0601d56a04eb583c780d18553aa388254ba3158eb6a00f13e2c1a' },
+  // Whisper small (más preciso, para sacar la letra cantada; opcional).
+  'whisper_small_encoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/onnx/encoder_model_quantized.onnx', size: 92326160, sha256: 'a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92' },
+  'whisper_small_decoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/onnx/decoder_model_quantized.onnx', size: 155989346, sha256: '0486afa8eb464bf2210d07aca0cb3f5d91d3f2f01cbe47f9f1e6ff9122abaaf6' },
   'btc_chords_voca.onnx':       { url: `${MODEL_OWN}/btc_chords_voca.onnx`,       size: 13038363, sha256: 'd0738965a2cbd5c9ab88735fa74dd62a0ec534d6172a34e5447357e6e144bb7d' },
 };
 function userModelsDir() { return path.join(app.getPath('userData'), 'models'); }

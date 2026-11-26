@@ -92,3 +92,26 @@ test('clips para Stems: empiezan en POSITION y suenan desde SOFFS', () => {
 test('un archivo que no es de REAPER da un error claro', () => {
   assert.throws(() => parseRpp('hola'), /REAPER/);
 });
+
+import { writeRpp } from '../src/js/stems/rppCore.js';
+test('exportar a REAPER y volver a importar: lo mismo (ida y vuelta)', () => {
+  const proj = {
+    name: 'Domingo', bpm: 72, beatsPerBar: 6, beatValue: 8,
+    markers: [{ label: 'Intro', atSec: 0 }, { label: 'Coro "1"', atSec: 15.5 }],
+    tracks: [
+      { name: 'Click', volume: 0.85, pan: -1, muted: false, file: 'Audio/Click.wav', clips: [{ startSec: 0, endSec: 120, trimStartSec: 0, fadeInSec: 0, fadeOutSec: 0 }] },
+      { name: 'Bajo', volume: 0.425, pan: 0.3, muted: true, file: 'Audio/Bajo.mp3', clips: [
+        { startSec: 4, endSec: 14, trimStartSec: 2, fadeInSec: 0.5, fadeOutSec: 0 },
+        { startSec: 30, endSec: 35, trimStartSec: 30, fadeInSec: 0, fadeOutSec: 1 }] },
+    ],
+  };
+  const back = parseRpp(writeRpp(proj));
+  assert.equal(back.bpm, 72); assert.equal(back.beatsPerBar, 6); assert.equal(back.beatValue, 8);
+  assert.deepEqual(back.markers.map((m) => [m.label, m.atSec]), [['Intro', 0], ["Coro '1'", 15.5]]);
+  const b = back.tracks.find((t) => t.name === 'Bajo');
+  assert.equal(b.muted, true); assert.equal(b.pan, 0.3); assert.ok(Math.abs(b.volume - 0.425) < 1e-6);
+  assert.deepEqual(b.clips.map((c) => [c.file, c.position, c.length, c.offset, c.fadeIn, c.fadeOut]),
+    [['Audio/Bajo.mp3', 4, 10, 2, 0.5, 0], ['Audio/Bajo.mp3', 30, 5, 30, 0, 1]]);
+  const st = rppStemTracks(back).find((t) => t.name === 'Bajo');
+  assert.equal(st.clips[0].shift + st.clips[0].trimStartSec, 4);
+});

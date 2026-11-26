@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { pushModal } from '../ui/modalStack.js';
+import { confirmDialogAsync } from '../ui/dialog.js';
 import { PitchAudio } from '../audio/pitchAudio.js';
 import { getSavedOutput } from '../audio/audioOutput.js';
 import { getTrackAudio } from '../audio/trackPlayer.js';
@@ -45,6 +46,7 @@ export async function openVoiceStudio(song, { buffer = null, isVocal = false, la
   song = song ? libSongFor(song) : null;
   try { const a = getTrackAudio(); if (a && !a.paused) a.pause(); } catch (_) {}
   build(song, label);
+  S.openArgs = { song, opts: { buffer, isVocal, label } };
   try { await prepare(song, buffer, isVocal); }
   catch (e) { showError((e && e.message) || String(e)); }
 }
@@ -62,6 +64,7 @@ function build(song, label) {
             <select data-ref="style">${Object.entries(STYLES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join('')}</select></label>
           <label class="vs-field" title="Escuchar y guardar las voces en otro tono">Tono
             <select data-ref="semis">${Array.from({ length: 13 }, (_, i) => i - 6).map((n) => `<option value="${n}" ${n === 0 ? 'selected' : ''}>${n > 0 ? '+' + n : n === 0 ? 'Original' : n}</option>`).join('')}</select></label>
+          <button type="button" class="vs-btn" data-act="reanalyze" hidden title="Esta canción se analizó antes: vuelve a escuchar la melodía con la versión actual del estudio (se pierden las notas corregidas a mano)">Volver a analizar</button>
           <button type="button" class="vs-btn" data-act="real" title="La 2.ª y la 3.ª voz cantadas con la voz del cantante (con letra). Tarda alrededor de un minuto.">Voz real (con letra)</button>
           <button type="button" class="vs-btn vs-btn--primary" data-act="save" title="Guarda la melodía, la 2.ª y la 3.ª voz (con la canción de fondo) como voces de referencia: se escuchan en «Voces» y en GI App">Guardar como voces</button>
           <button type="button" class="vs-close" data-act="close" aria-label="Cerrar" title="Cerrar (Esc)">✕</button>
@@ -184,6 +187,7 @@ async function prepare(song, givenBuffer, givenIsVocal) {
     // Ya se escuchó antes: las notas están guardadas. La curva fina (cómo cantó de verdad)
     // se calcula en segundo plano y aparece cuando esté.
     S.lead = saved.lead;
+    S.$('[data-act="reanalyze"]').hidden = false;
     pitchInWorker(vocal, true).then((tr) => { if (S) { S.f0 = tr.f0; S.conf = tr.conf; S.hop = tr.hop; S.dirty = true; } }).catch(() => {});
   } else {
     progress('Escuchando la melodía…', 0.55);
@@ -531,6 +535,7 @@ function onClick(e) {
   if (act === 'play') { if (S.playing) pauseAll(); else playAll(); return; }
   if (act === 'save') { if (S.ready) saveAsVoices(); return; }
   if (act === 'real') { if (S.ready) makeRealVoices(); return; }
+  if (act === 'reanalyze') { reanalyze(); return; }
   if (act === 'toggle' && chEl) { const c = S.ch[chEl.dataset.ch]; c.on = !c.on; applyGains(); return; }
   if (act === 'solo' && chEl) { const c = S.ch[chEl.dataset.ch]; c.solo = !c.solo; applyGains(); return; }
   if (act === 'up') { nudge(1); return; }
@@ -757,6 +762,27 @@ function draw() {
     c.fillText(l.name, hx + 14, ly);
     c.restore();
   }
+}
+
+// «Volver a analizar»: olvida el análisis guardado de la canción (melodía, estilo, tono y
+// correcciones) y abre el estudio otra vez, que vuelve a escuchar la melodía con la versión actual.
+async function reanalyze() {
+  if (!S || !S.openArgs) return;
+  const { song, opts } = S.openArgs;
+  const edited = S.edits && Object.keys(S.edits).length;
+  const ok = await confirmDialogAsync({
+    title: 'Volver a analizar',
+    message: `Se vuelve a escuchar la melodía de «${(song && song.title) || 'la canción'}» con la versión actual del estudio.${edited ? ' Se perderán las notas que corregiste a mano.' : ''} ¿Continuar?`,
+    confirmLabel: 'Volver a analizar', danger: !!edited,
+  });
+  if (!ok || !S) return;
+  if (song) {
+    delete song.harmony;
+    try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id } }));
+  }
+  close();
+  openVoiceStudio(song, opts);
 }
 
 function close() {

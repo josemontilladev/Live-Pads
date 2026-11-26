@@ -2283,3 +2283,50 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 /* «?» del buscador: círculo oscuro bajo el texto blanco (en el tema claro se perdía sobre el gris). */
 .lp-search .lp-search-help { background: rgba(0, 0, 0, .32); color: #fff; border-color: rgba(255, 255, 255, .25); }
 .lp-search .lp-search-help:hover, .lp-search .lp-search-help[aria-expanded="true"] { background: rgba(0, 0, 0, .5); }
+
+/* Arreglo en vivo: cuándo entra el salto (Ya · Al compás · Al final de la sección). */
+.arr-pop .arr-mode { display: flex; width: 100%; margin: 6px 0 8px; }
+.arr-pop .arr-mode .ui-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 6px; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Letras en el programa de proyección (live/projectionLink.js) */
+.proj-box { width: min(560px, 94vw); }
+.proj-apps { display: flex; width: 100%; }
+.proj-apps .ui-seg-btn { flex: 1 1 0; min-width: 0; }
+.proj-hint { margin: 0; font-size: 12.5px; line-height: 1.45; color: color-mix(in srgb, var(--text) 70%, transparent); }
+.proj-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; }
+.proj-grid[hidden] { display: none; }
+.proj-grid .vn-field input { width: 100%; min-width: 0; box-sizing: border-box; }
+.proj-test { display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+.proj-test[hidden] { display: none; }
+.proj-test .is-ok { color: color-mix(in srgb, #22c55e 75%, var(--text)); }
+.proj-test .is-bad { color: color-mix(in srgb, #ef4444 75%, var(--text)); }
+.proj-box .sm-use[hidden], .proj-grid .vn-field[hidden] { display: none; }
+.mclk-box { width: min(540px, 94vw); }
+.mclk-modes { display: flex; width: 100%; }
+.mclk-modes .ui-seg-btn { flex: 1 1 0; min-width: 0; }
+.mclk-box .vn-field select { width: 100%; }
+.mclk-box .vn-field[hidden], .mclk-box .sm-use[hidden] { display: none; }
+
+/* Mezcla de los in-ears (Ajustes → Audio, con «Click y guía por 3-4»). */
+.inear-mix { display: flex; flex-direction: column; gap: 8px; padding: 10px 8px 4px; }
+.inear-mix[hidden] { display: none; }
+.inear-mix-t { display: flex; flex-direction: column; gap: 2px; }
+.inear-mix-t b { font-size: 13px; font-weight: 650; color: var(--text); }
+.inear-mix-t small { font-size: 11.5px; line-height: 1.3; color: var(--text-muted); }
+.inear-mix-rows { display: flex; flex-direction: column; gap: 6px; }
+.inear-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 40px; align-items: center; gap: 10px; font-size: 12.5px; }
+.inear-row input[type=range] { width: 100%; accent-color: var(--accent); }
+.inear-row b { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Stems: cambio de tempo/compás en un marcador */
+.stems-marker-tempo { display: inline-flex; align-items: center; margin-left: 4px; padding: 1px 5px; border-radius: 4px; font-size: 9.5px; font-weight: 700; color: var(--on-accent); background: color-mix(in srgb, #06b6d4 85%, var(--accent)); pointer-events: auto; cursor: help; white-space: nowrap; }
+.smc-tempo-row { display: flex; gap: 6px; padding: 0 10px 6px; }
+.smc-tempo-bpm { width: 90px; height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text); font: inherit; font-size: 12px; }
+.smc-tempo-meter { flex: 1; min-width: 0; }
+
+/* Letra automática (live/autoLyrics.js) */
+.alyr-box { width: min(640px, 94vw); max-height: calc(100vh - 32px); }
+.alyr-size { display: flex; width: 100%; }
+.alyr-size .ui-seg-btn { flex: 1 1 0; }
+.alyr-text { width: 100%; box-sizing: border-box; min-height: 260px; max-height: calc(100vh - 300px); resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 5%, var(--menu-bg, #14161c)); color: var(--text); font: 13.5px/1.55 inherit; }
+.alyr-text[hidden] { display: none; }

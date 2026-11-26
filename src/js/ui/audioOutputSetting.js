@@ -2,6 +2,7 @@
 // la guía por las salidas 3-4. La lógica vive en audio/audioOutput.js.
 import { q } from '../utils/dom.js';
 import { listOutputs, getSavedOutput, getClickAlt, setOutput, setClickAlt, outputChannels } from '../audio/audioOutput.js';
+import { IN_EAR_KINDS, inEarLevels, setInEarLevel } from '../audio/inEarMix.js';
 import { stableAudioOn, setStableAudio, dropoutStats, onDropout } from '../audio/dropoutMonitor.js';
 
 export function initAudioOutputSetting(getEngine) {
@@ -48,7 +49,30 @@ export function initAudioOutputSetting(getEngine) {
     const on = setClickAlt(getEngine(), alt.checked);
     if (alt.checked && !on) window.showToast?.('Esta salida no admite 4 canales.', 'error');
     paintAlt();
+    paintInEar();
   });
+  // Mezcla de los in-ears (audio/inEarMix.js): solo con 3-4 activo.
+  const ie = q('#inear-mix'), ieRows = q('#inear-mix-rows');
+  const paintInEar = () => {
+    if (!ie || !ieRows) return;
+    ie.hidden = !alt.checked;
+    const lv = inEarLevels();
+    if (!ieRows.childElementCount) {
+      ieRows.innerHTML = Object.entries(IN_EAR_KINDS).map(([k, l]) => `<label class="inear-row"><span>${l}</span><input type="range" min="0" max="150" step="1" data-ie="${k}" aria-label="${l} en los in-ears"><b data-iev="${k}"></b></label>`).join('');
+      ieRows.addEventListener('input', (e) => {
+        const k = e.target.dataset.ie;
+        if (!k) return;
+        setInEarLevel(k, Number(e.target.value) / 100);
+        const out = ieRows.querySelector(`[data-iev="${k}"]`); if (out) out.textContent = `${e.target.value}%`;
+      });
+    }
+    for (const k of Object.keys(IN_EAR_KINDS)) {
+      const r = ieRows.querySelector(`[data-ie="${k}"]`), o = ieRows.querySelector(`[data-iev="${k}"]`);
+      if (r) r.value = String(Math.round(lv[k] * 100));
+      if (o) o.textContent = `${Math.round(lv[k] * 100)}%`;
+    }
+  };
+  paintInEar();
   // Cambio de tono de alta calidad (audio/pitchAudio.js).
   const hq = q('#pitch-hq');
   if (hq) {

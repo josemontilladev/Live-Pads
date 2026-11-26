@@ -629,6 +629,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   import('./ui/segKnob.js').then((m) => m.initSegKnobs()).catch(() => {});   // selectores con perilla
   import('./ui/sysStats.js').then((m) => m.initSysStats()).catch(() => {});   // consumo (CPU · RAM · audio)
   import('./ui/topbarOverflow.js').then((m) => m.initTopbarOverflow()).catch(() => {});   // herramientas que no caben → «Más ⋯»
+  import('./live/projectionLink.js').then((m) => m.initProjectionLink()).catch(() => {});   // letras en FreeShow / OpenLP / ProPresenter
+  // Puente del metrónomo para el reloj MIDI (midi/midiClock.js): leer/poner el BPM y saber si algo suena.
+  window.__lpTempo = { get: () => (metro ? metro.bpm : 120), set: (v) => applyBpm(v), running: () => (isTrackLoaded() && isTrackPlaying()) || getMetroRunning(), toggle: () => toggleMetro() };
+  import('./midi/midiClock.js').then((m) => m.initMidiClock()).catch(() => {});   // reloj MIDI (tempo con otros equipos)
 
   // Defensive: Chromium suspends AudioContexts created before the first user
   // gesture. Resume on the first pointer/key event so the first pad/drum hit
@@ -1395,6 +1399,8 @@ function spotlightProviderItems() {
   }
   items.push({ id: 'tool:companion', kind: 'panel', label: 'Companion (móvil)', sub: 'Herramienta', search: 'companion móvil movil qr letra acordes músicos código', run: () => openCompanionPanel() });
   items.push({ id: 'tool:voice-studio', kind: 'panel', label: 'Estudio de voces (2.ª y 3.ª voz)', sub: 'Herramienta', search: 'estudio de voces segunda tercera voz armonia armonía coros melodia melodía cantantes', run: () => import('./audio/trackPlayer.js').then(async (tp) => { const s = tp.getCurrentSong(); if (!s) { window.showToast?.('Carga una canción para abrir su Estudio de voces.', 'info'); return; } (await import('./voices/voiceStudio.js')).openVoiceStudio(s); }) });
+  items.push({ id: 'tool:midiclock', kind: 'panel', label: 'Reloj MIDI: tempo con Ableton, Logic, cajas de ritmos…', sub: 'Herramienta', search: 'reloj midi clock tempo sincronizar ableton logic link caja de ritmos looper sync', run: () => import('./midi/midiClock.js').then((m) => m.openMidiClockSettings()) });
+  items.push({ id: 'tool:projection', kind: 'panel', label: 'Letras en el programa de proyección (FreeShow, OpenLP, ProPresenter)', sub: 'Herramienta', search: 'proyeccion proyector letras freeshow openlp propresenter pantalla congregacion diapositivas', run: () => import('./live/projectionLink.js').then((m) => m.openProjectionSettings()) });
   items.push({ id: 'tool:sysstats', kind: 'command', label: 'Consumo en la barra: mostrar u ocultar (CPU · RAM · audio)', sub: 'Vista', search: 'consumo cpu ram memoria rendimiento estadisticas audio cortes', run: () => import('./ui/sysStats.js').then((m) => { const on = !m.sysStatsOn(); m.setSysStats(on); window.showToast?.(on ? 'Consumo visible en la barra superior.' : 'Consumo oculto.', 'info'); }) });
   items.push({ id: 'tool:mtlib', kind: 'panel', label: 'Mis carpetas de multitracks (subir a la Biblioteca o crear canciones)', sub: 'Herramienta', search: 'biblioteca multitracks carpetas carpeta descargas importar canciones stems', run: () => import('./stems/multitrackLibrary.js').then((m) => m.openMultitrackLibrary()) });
   items.push({ id: 'tool:rpp', kind: 'panel', label: 'Importar sesión de REAPER (.rpp) a Stems', sub: 'Herramienta', search: 'reaper rpp sesion importar daw stems pistas', run: () => window.dispatchEvent(new CustomEvent('livepads:stems-import-rpp')) });

@@ -15,7 +15,8 @@ import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
 import { captureScene, sceneMarkerAt, sceneChanges, sceneSummary, buildTemplate, applyTemplate } from './mixScenesCore.js';
 import { openSaveTemplate, openTemplatePicker, storeTemplate, defaultTemplate } from './mixTemplates.js';
-import { parseRpp, rppStemTracks } from './rppCore.js';
+import { parseRpp, rppStemTracks, writeRpp } from './rppCore.js';
+import { tempoSegments, beatGrid, nearestBeat, hasTempoChanges } from './tempoChangesCore.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
 import { isVariableTempo, clickTimes } from './tempoMapCore.js';
@@ -658,6 +659,7 @@ const SHELL_HTML = `
               <div class="stems-proj-sep" role="separator"></div>
               <button data-proj-cmd="mtlib" class="stems-proj-item">Mis carpetas de multitracks…</button>
               <button data-proj-cmd="rpp" class="stems-proj-item">Importar sesión de REAPER (.rpp)…</button>
+              <button data-proj-cmd="rpp-export" class="stems-proj-item">Exportar a REAPER (.rpp)…</button>
               <div class="stems-proj-sep" role="separator"></div>
               <button data-proj-cmd="tpl-save" class="stems-proj-item">Guardar mezcla como plantilla…</button>
               <button data-proj-cmd="tpl-apply" class="stems-proj-item">Aplicar plantilla de mezcla…</button>
@@ -1790,6 +1792,8 @@ function wireArrangeEvents(root) {
       import('./multitrackLibrary.js').then((m) => m.openMultitrackLibrary());
     } else if (cmd === 'rpp') {
       importReaperSession();
+    } else if (cmd === 'rpp-export') {
+      exportReaperSession();
     } else if (cmd === 'tpl-save') {
       const n = engine.getTracks().length;
       if (!n) { showToast('Importa pistas y deja la mezcla como te gusta; después guárdala como plantilla.', 'info'); return; }
@@ -5703,6 +5707,8 @@ function refreshTimelineWidth({ coalesceWaveforms = false } = {}) {
 function drawRuler() {
   const ruler = document.getElementById('stems-ruler');
   if (!ruler) return;
+  const tg = tempoGrid();
+  if (tg) { drawRulerMap(ruler, tg); drawGrid(); return; }
   const w = projectWidthPx();
   const dur = projectDurationSec();
   const barSec = (60 / bpmFloat) * beatsPerBar;
@@ -5739,11 +5745,40 @@ function drawRuler() {
   drawGrid();
 }
 
+// Regla con cambios de tempo/compás: cada compás con su número y su tempo/compás al cambiar.
+function drawRulerMap(ruler, g) {
+  const w = projectWidthPx();
+  let html = '', lastLabelX = -1e9, prev = null;
+  const barSet = new Set(g.bars.map((b) => b.t));
+  for (let i = 0; i < g.times.length; i++) {
+    const t = g.times[i], x = t * PX_PER_SEC;
+    if (x > w) break;
+    const isBar = barSet.has(t);
+    const nextT = g.times[i + 1];
+    const beatPx = nextT != null ? (nextT - t) * PX_PER_SEC : 99;
+    if (!isBar && beatPx < 6) continue;
+    html += `<div class="stems-tick ${isBar ? 'stems-tick--bar' : ''}" style="left:${x}px"></div>`;
+    if (isBar && x - lastLabelX >= 64) {
+      const b = g.bars.find((z) => z.t === t);
+      const change = !prev || prev.bpm !== b.bpm || prev.beats !== b.beats;
+      html += `<div class="stems-tick-label" style="left:${x + 4}px">
+        <span class="stems-tick-bar">${b.n}.1.00${change && prev ? ` · ${Math.round(b.bpm)} · ${b.beats}/${beatValue}` : ''}</span>
+        <span class="stems-tick-time">${formatBarTime(t)}</span>
+      </div>`;
+      lastLabelX = x;
+    }
+    if (isBar) prev = g.bars.find((z) => z.t === t) || prev;
+  }
+  ruler.innerHTML = html;
+}
+
 // Beat/bar guide lines on the lanes, aligned to the ruler, so dragged
 // tracks can be lined up. Implemented as CSS custom properties consumed by
 // .stems-row-lane backgrounds (lanes scroll with content and sit to the
 // right of the sticky strip, so the lines never overlap the controls).
 function drawGrid() {
+  // Con cambios de tempo/compás la rejilla uniforme no cuadraría: se oculta (la regla manda).
+  if (tempoGrid()) { document.documentElement.style.setProperty('--stems-beatpx', '100000px'); document.documentElement.style.setProperty('--stems-barpx', '100000px'); return; }
   const beatPx = (60 / bpmFloat) * PX_PER_SEC;
   const barPx = beatPx * beatsPerBar;
   const root = document.documentElement.style;
@@ -6096,6 +6131,17 @@ let freeLoopB = null;
 // bajarla sirve para sacar solos sin que la canción cambie de tonalidad.
 let playSpeed = 1;
 
+// Cambios de tempo y de compás en marcadores (tempoChangesCore.js). null = sin cambios.
+let _tgCache = { key: '', grid: null };
+function tempoGrid() {
+  const segs = tempoSegments(markers, bpmFloat, beatsPerBar);
+  if (!hasTempoChanges(segs)) return null;
+  const dur = Math.max(projectDurationSec() || 0, 30);
+  const key = JSON.stringify(segs) + '|' + Math.round(dur);
+  if (_tgCache.key !== key) _tgCache = { key, grid: beatGrid(segs, dur) };
+  return _tgCache.grid;
+}
+
 // Tamaño del paso de snap en segundos (0 = sin snap), según snapDivision + BPM.
 function snapUnitSec() {
   const beatSec = 60 / bpmFloat;
@@ -6106,6 +6152,12 @@ function snapUnitSec() {
 }
 
 function snapTimeIfEnabled(sec) {
+  // Con cambios de tempo/compás: al pulso (o al compás) real de la rejilla.
+  const g = snapEnabled && snapDivision !== 'off' ? tempoGrid() : null;
+  if (g) {
+    if (snapDivision === 'bar') { let best = g.bars[0] ? g.bars[0].t : 0; for (const b of g.bars) if (Math.abs(b.t - sec) < Math.abs(best - sec)) best = b.t; return best; }
+    return nearestBeat(g, sec);
+  }
   const u = snapUnitSec();
   return u > 0 ? Math.round(sec / u) * u : sec;
 }
@@ -6234,6 +6286,27 @@ function commitMarkerMove(markerId, oldSec) {
   );
 }
 
+// Tempo y/o compás desde este marcador (vacío = sin cambio). Con deshacer; la regla, la rejilla
+// y el click (si ya hay pista de click, se vuelve a generar) siguen el cambio.
+let _clickRegenTimer = 0;
+function setMarkerTempo(markerId, patch) {
+  const m = markers.find((x) => x.id === markerId);
+  if (!m) return;
+  const before = { bpm: m.bpm, meter: m.meter };
+  const bpmV = patch.bpm !== undefined ? (Number(patch.bpm) >= 20 && Number(patch.bpm) <= 300 ? Number(patch.bpm) : undefined) : m.bpm;
+  const meterV = patch.meter !== undefined ? (patch.meter || undefined) : m.meter;
+  const set = (v) => {
+    if (v.bpm) m.bpm = v.bpm; else delete m.bpm;
+    if (v.meter) m.meter = v.meter; else delete m.meter;
+    redrawMarkers(); drawRuler(); scheduleSave();
+    const clickId = engine.findTrackByKind('click');
+    if (clickId) { clearTimeout(_clickRegenTimer); _clickRegenTimer = setTimeout(() => regenerateClickTrack(clickId), 600); }
+  };
+  const after = { bpm: bpmV, meter: meterV };
+  set(after);
+  pushHistory('Cambio de tempo/compás', () => set(before), () => set(after));
+}
+
 function setMarkerKey(markerId, key) {
   const m = markers.find(x => x.id === markerId);
   if (!m) return;
@@ -6310,6 +6383,7 @@ function redrawMarkers() {
       <span class="stems-marker-flag" title="Arrastra para mover · click derecho para opciones">${SVG_FLAG}</span>
       <span class="stems-marker-label">${escapeHtml(m.label)}</span>
       ${effSectionKey ? `<span class="stems-marker-key" title="Tonalidad de esta sección">${escapeHtml(effSectionKey)}</span>` : ''}
+      ${m.bpm || m.meter ? `<span class="stems-marker-tempo" title="Desde aquí: ${m.bpm ? m.bpm + ' BPM' : ''}${m.bpm && m.meter ? ' · ' : ''}${m.meter ? 'compás ' + m.meter : ''}">${m.bpm ? '♩' + Math.round(m.bpm) : ''}${m.bpm && m.meter ? ' · ' : ''}${m.meter || ''}</span>` : ''}
       ${m.mix ? `<span class="stems-marker-scene" title="Escena de mezcla: ${escapeHtml(sceneSummary(m.mix, trackNameOf))}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><circle cx="6" cy="14" r="2.2" fill="currentColor"/><circle cx="12" cy="8" r="2.2" fill="currentColor"/><circle cx="18" cy="16" r="2.2" fill="currentColor"/></svg></span>` : ''}
       <button class="stems-marker-remove ui-remove" title="Quitar">×</button>
     `;
@@ -6333,7 +6407,12 @@ function redrawMarkers() {
   // Las banderas A/B viven en esta misma capa, y arriba la vaciamos entera:
   // hay que repintarlas o desaparecerían con cualquier cambio de marcadores.
   redrawLoopHandles();
+  // Con cambios de tempo/compás (o si se acaban de quitar), la regla depende de los marcadores.
+  const tempoNow = markers.some((mm) => mm.bpm || mm.meter);
+  if (tempoNow || _rulerHadTempo) drawRuler();
+  _rulerHadTempo = tempoNow;
 }
+let _rulerHadTempo = false;
 
 // ── Marker drag-to-reposition ────────────────────────────────────
 function enableMarkerDrag(el, markerId) {
@@ -6409,6 +6488,16 @@ function openMarkerMenu(x, y, markerId) {
       </select>
     </div>
     <div class="smc-sep"></div>
+    <div class="smc-section-label">TEMPO Y COMPÁS DESDE AQUÍ</div>
+    <div class="smc-tempo-row">
+      <input type="number" class="smc-tempo-bpm" data-cmd="set-bpm" min="20" max="300" step="0.5" placeholder="${Math.round(bpmFloat)} BPM" value="${m.bpm || ''}" aria-label="BPM desde aquí">
+      <select class="smc-key-select smc-tempo-meter" data-cmd="set-meter" aria-label="Compás desde aquí">
+        <option value="">Compás —</option>
+        ${['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8'].map((x) => `<option value="${x}" ${m.meter === x ? 'selected' : ''}>${x}</option>`).join('')}
+      </select>
+    </div>
+    ${m.bpm || m.meter ? '<button data-cmd="tempo-clear">Quitar el cambio de tempo/compás</button>' : ''}
+    <div class="smc-sep"></div>
     <div class="smc-section-label">ESCENA DE MEZCLA</div>
     ${m.mix ? `<div class="smc-note">${escapeHtml(sceneSummary(m.mix, trackNameOf))}</div>
     <button data-cmd="scene-hear">Escuchar esta mezcla ahora</button>
@@ -6464,6 +6553,12 @@ function openMarkerMenu(x, y, markerId) {
       if (e.key === 'Escape') { el.textContent = m.label; el.blur(); }
     });
   };
+  const tBpm = menu.querySelector('[data-cmd="set-bpm"]'), tMeter = menu.querySelector('[data-cmd="set-meter"]');
+  [tBpm, tMeter].forEach((el) => el && el.addEventListener('mousedown', (e) => e.stopPropagation()));
+  if (tBpm) tBpm.onchange = () => setMarkerTempo(markerId, { bpm: tBpm.value });
+  if (tMeter) tMeter.onchange = () => setMarkerTempo(markerId, { meter: tMeter.value });
+  const tClear = menu.querySelector('[data-cmd="tempo-clear"]');
+  if (tClear) tClear.onclick = () => { closeMarkerMenu(); setMarkerTempo(markerId, { bpm: '', meter: '' }); };
   menu.querySelector('[data-cmd="scene-save"]').onclick = () => { closeMarkerMenu(); setMarkerScene(markerId, true); };
   const sClear = menu.querySelector('[data-cmd="scene-clear"]');
   if (sClear) sClear.onclick = () => { closeMarkerMenu(); setMarkerScene(markerId, false); };
@@ -6861,6 +6956,8 @@ async function onAddClickTrack() {
 // { offsetSec, accentBeatOffset }; falls back to no shift if no song/onsets.
 const stemBeatKey = (id, buf) => `stems.${id}.${Math.round(buf.duration * 10)}.${buf.length}`;
 async function computeClickAlignment() {
+  const tg = tempoGrid();
+  if (tg) return { offsetSec: 0, accentBeatOffset: 0, tempoMap: { times: tg.times, accents: tg.accents } };
   const stem = engine.getTracks().find(t => t.kind === 'stem');
   if (!stem) return { offsetSec: 0, accentBeatOffset: 0 };
   const buf = engine.getTrackBuffer(stem.id);
@@ -7536,6 +7633,48 @@ function openSongAudioMenu(anchorEl, song) {
 // planes (es para ensayar; exportar sigue siendo Pro).
 export function practiceSongStems(song, stems) { return loadSongStemsIntoTimeline(song, stems); }
 export function importReaper() { return importReaperSession(); }
+
+// ── Exportar a REAPER: cada pista en WAV (entera: los recortes y fundidos van en la sesión),
+// marcadores, tempo y compás, mezcla (volumen, paneo, silencio). Abre la carpeta al terminar.
+async function exportReaperSession() {
+  const api = window.electronAPI;
+  if (!api?.rppExportBegin) { showToast('Esta versión no puede exportar a REAPER.', 'error'); return; }
+  const tracks = engine.getTracks().filter((t) => engine.getTrackBuffer(t.id));
+  if (!tracks.length) { showToast('No hay pistas que exportar.', 'info'); return; }
+  if (engine.isCurrentlyPlaying()) engine.stop();
+  let ses;
+  try { ses = await api.rppExportBegin({ name: projectName }); } catch (e) { showToast('No se pudo crear la carpeta: ' + ((e && e.message) || e), 'error'); return; }
+  if (!ses) return;
+  const overlay = document.getElementById('stems-export-overlay');
+  const fill = document.getElementById('stems-export-fill');
+  const stageEl = document.getElementById('stems-export-stage');
+  document.getElementById('stems-export-title').textContent = 'Exportando a REAPER…';
+  overlay.hidden = false; fill.style.width = '0%';
+  try {
+    const out = [];
+    const used = new Set();
+    for (let i = 0; i < tracks.length; i++) {
+      const t = tracks[i];
+      stageEl.textContent = `${i + 1} de ${tracks.length}: ${t.name || 'Pista'}`;
+      await new Promise((r) => setTimeout(r, 0));
+      let base = String(t.name || 'Pista').trim() || 'Pista';
+      for (let n = 2; used.has(base.toLowerCase()); n++) base = `${t.name || 'Pista'} ${n}`;
+      used.add(base.toLowerCase());
+      const wav = audioBufferToWav(engine.getTrackBuffer(t.id));
+      const rel = await api.rppExportFile({ token: ses.token, name: base, bytes: wav });
+      const clips = engine.getClips(t.id).map((c) => ({ startSec: c.startSec, endSec: c.endSec, trimStartSec: c.trimStartSec, fadeInSec: c.fadeInSec || 0, fadeOutSec: c.fadeOutSec || 0 }));
+      out.push({ name: t.name || base, volume: t.volume, pan: t.pan, muted: t.muted, file: rel, clips });
+      fill.style.width = `${Math.round(((i + 1) / (tracks.length + 1)) * 100)}%`;
+    }
+    const text = writeRpp({ name: projectName, bpm: bpmFloat || bpm, beatsPerBar, beatValue, markers: markers.slice().sort((a, b) => a.atSec - b.atSec).map((m) => ({ label: m.label, atSec: m.atSec })), tracks: out });
+    const file = await api.rppExportFinish({ token: ses.token, text, name: projectName });
+    fill.style.width = '100%';
+    showToast(`Sesión de REAPER lista: ${out.length} pistas, ${markers.length} marcadores (${file.split(/[\\/]/).slice(-2).join('/')}).`, 'success', { ttl: 9000 });
+  } catch (e) {
+    showToast('No se pudo exportar: ' + ((e && e.message) || e), 'error');
+  } finally { overlay.hidden = true; }
+}
+export function exportReaper() { return exportReaperSession(); }
 
 // Pantallas estrechas (< 1240 px): un solo panel lateral abierto a la vez. Con Canciones y
 // Biblioteca abiertos a 1024 px al editor le quedaban ~330 px (el Play se cortaba, el timeline

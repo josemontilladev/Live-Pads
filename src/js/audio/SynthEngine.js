@@ -38,6 +38,7 @@ function softClipper(ctx) {
 import { forceStereoOutput } from './stereoOut.js';
 import { audioLatencyHint, registerAudioContext } from './dropoutMonitor.js';
 import { mainBusInput } from './mainBus.js';
+import { registerInEarSource } from './inEarMix.js';
 
 export class SynthEngine {
   constructor() {
@@ -125,9 +126,11 @@ export class SynthEngine {
     this.drumMaster.connect(this.drumMakeup);
     this.drumMakeup.connect(this.drumClip.input);
     this.drumClip.output.connect(mainBusInput(this.ctx));   // bus principal: ecualizador + limitador de la suma
+    registerInEarSource(this.ctx, 'drums', this.drumClip.output);   // también a los in-ears (3-4), a su volumen
     this.masterGain.connect(this.makeupNode);
     this.makeupNode.connect(this.limiterNode);
     this.limiterNode.connect(mainBusInput(this.ctx));
+    registerInEarSource(this.ctx, 'pads', this.limiterNode);
 
     // Bus DEDICADO del click/metrónomo: boost fuerte + su propio limitador →
     // destino. Separado del máster a propósito: (1) el click debe CORTAR en banda

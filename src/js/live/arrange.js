@@ -7,7 +7,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { markersFor } from '../data/markers.js';
-import { ACTIONS, planJump } from './arrangeCore.js';
+import { ACTIONS, planJump, JUMP_MODES } from './arrangeCore.js';
+
+// Cuándo entra el salto: «Ya», «Al compás» (por defecto) o «Al final de la sección». Se recuerda.
+const MODE_KEY = 'livepads.jumpMode';
+export const jumpMode = () => { try { const m = localStorage.getItem(MODE_KEY); return m in JUMP_MODES ? m : 'bar'; } catch (_) { return 'bar'; } };
+export function setJumpMode(m) { if (!(m in JUMP_MODES)) return; try { localStorage.setItem(MODE_KEY, m); } catch (_) {} paint(); }
+const WHEN = { now: 'ya', bar: 'al terminar el compás', section: 'al terminar la sección' };
 import { placePop, claimPop } from '../utils/placePop.js';
 
 let audio = null, song = null, type = '', downs = null, pending = null, fast = 0, gridFor = null;
@@ -21,10 +27,11 @@ function paint() {
   if (b) {
     b.classList.toggle('is-on', !!pending);
     b.querySelector('span').textContent = pending ? `${pending.action === 'repeat' ? '↺' : '→'} ${pending.label}` : 'Arreglo';
-    b.title = pending ? `Al terminar el ${pending.action === 'repeat' ? 'tramo' : 'compás'}: ${pending.action === 'repeat' ? 'repite' : 'va a'} «${pending.label}». Pulsa para cambiar o cancelar.` : 'Arreglo en vivo: repetir una sección o saltar a otra sin cortar el compás';
+    b.title = pending ? `${pending.action === 'repeat' && jumpMode() !== 'now' ? 'Al terminar la sección' : WHEN[jumpMode()][0].toUpperCase() + WHEN[jumpMode()].slice(1)}: ${pending.action === 'repeat' ? 'repite' : 'va a'} «${pending.label}». Pulsa para cambiar o cancelar.` : 'Arreglo en vivo: repetir una sección o saltar a otra sin cortar el compás';
   }
   const st = document.querySelector('#arr-pop .arr-status');
-  if (st) st.textContent = pending ? `Preparado: ${pending.action === 'repeat' ? 'repetir' : 'ir a'} «${pending.label}»` : (downs ? 'Elige qué hacer: entra al terminar el compás.' : 'Analizando los compases de la pista…');
+  if (st) st.textContent = pending ? `Preparado: ${pending.action === 'repeat' ? 'repetir' : 'ir a'} «${pending.label}»` : (downs || jumpMode() !== 'bar' ? `Elige qué hacer: entra ${WHEN[jumpMode()]}.` : 'Analizando los compases de la pista…');
+  document.querySelectorAll('#arr-pop [data-jm]').forEach((x) => { const on = x.dataset.jm === jumpMode(); x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', String(on)); });
 }
 
 async function loadGrid(a, s, t) {
@@ -59,7 +66,7 @@ export function arrange(action) {
   ensureGrid();
   const ms = markersFor(song, type);
   if (!ms.length) { window.showToast?.('Esta pista no tiene secciones: márcalas o usa «Detectar automáticamente» en el espectro.', 'info'); return; }
-  const j = planJump(action, ms, audio.currentTime || 0, downs);
+  const j = planJump(action, ms, audio.currentTime || 0, downs, jumpMode());
   if (!j) { window.showToast?.('No hay adónde saltar desde aquí.', 'info'); return; }
   pending = { ...j, action };
   paint();
@@ -93,6 +100,7 @@ export function initArrange() {
   const p = document.createElement('div');
   p.id = 'arr-pop'; p.className = 'vg-pop arr-pop'; p.hidden = true; p.setAttribute('role', 'dialog');
   p.innerHTML = `<div class="vg-title">Arreglo en vivo</div><div class="arr-status"></div>
+    <div class="ui-seg arr-mode" role="group" aria-label="Cuándo entra el salto">${Object.entries(JUMP_MODES).map(([k, l]) => `<button type="button" class="ui-seg-btn" data-jm="${k}" title="El salto entra ${WHEN[k]}">${l}</button>`).join('')}</div>
     <div class="arr-grid">${ACTIONS.map((a) => `<button type="button" data-arr="${a.id}">${a.label}</button>`).join('')}</div>
     <button type="button" class="vg-test" data-arr="cancel">Cancelar el salto</button>
     <button type="button" class="arr-map" data-arr-map="1">Mapa de la canción (arreglo guardado)…<small data-ref="mapname"></small></button>
@@ -100,6 +108,7 @@ export function initArrange() {
   document.body.appendChild(p);
   p.addEventListener('click', (e) => {
     if (e.target.closest('[data-arr-map]')) { hide(); if (song) import('../ui/songMapEditor.js').then((m) => m.openSongMap(song, { type, duration: audio && audio.duration })); else window.showToast?.('Carga una canción con su pista para armar su mapa.', 'info'); return; }
+    const jm = e.target.closest('[data-jm]'); if (jm) { setJumpMode(jm.dataset.jm); return; }
     const a = e.target.closest('[data-arr]'); if (a) arrange(a.dataset.arr);
   });
   let release = null;

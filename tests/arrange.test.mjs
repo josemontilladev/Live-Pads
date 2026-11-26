@@ -19,3 +19,15 @@ test('ir al coro, al puente o al final', () => {
   assert.deepEqual(A.planJump('chorus', ms, 75, downs), { at: 76, to: 24, label: 'Coro' });   // no queda otro: el primero
   assert.equal(A.planJump('chorus', [], 3, downs), null);
 });
+
+test('modos de salto: ya, al compás (por defecto) y al final de la sección', () => {
+  // «Ya»: sin esperar al compás.
+  assert.deepEqual(A.planJump('chorus', ms, 41, downs, 'now'), { at: 41.05, to: 56, label: 'Coro' });
+  assert.deepEqual(A.planJump('repeat', ms, 30, downs, 'now'), { at: 30.05, to: 24, label: 'Coro' });
+  // «Al final de la sección»: entra cuando termina la que suena.
+  assert.deepEqual(A.planJump('end', ms, 30.5, downs, 'section'), { at: 40, to: 88, label: 'Final' });
+  assert.deepEqual(A.planJump('next', ms, 13.1, downs, 'section'), { at: 24, to: 40, label: 'Verso 2' });   // salta la siguiente
+  assert.equal(A.planJump('chorus', ms, 90, downs, 'section'), null);   // última sección: no hay final de sección
+  // Por defecto, como siempre (al compás).
+  assert.deepEqual(A.planJump('chorus', ms, 41, downs), { at: 42, to: 56, label: 'Coro' });
+});
