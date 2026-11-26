@@ -628,6 +628,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindWorkspaceSwitcher(); // mounts the Stems workspace lazily on first entry
   import('./ui/segKnob.js').then((m) => m.initSegKnobs()).catch(() => {});   // selectores con perilla
   import('./ui/sysStats.js').then((m) => m.initSysStats()).catch(() => {});   // consumo (CPU · RAM · audio)
+  import('./ui/topbarOverflow.js').then((m) => m.initTopbarOverflow()).catch(() => {});   // herramientas que no caben → «Más ⋯»
 
   // Defensive: Chromium suspends AudioContexts created before the first user
   // gesture. Resume on the first pointer/key event so the first pad/drum hit

@@ -27,6 +27,11 @@ export function showToast(message, type = 'info', opts = {}) {
     document.body.appendChild(container);
   }
 
+  // El mismo aviso que ya se ve no se apila: se reinicia su tiempo.
+  for (const t of container.querySelectorAll('.toast:not(.toast--out)')) {
+    if (t._key === `${type}|${message}` && t._restart) { t._restart(); return; }
+  }
+
   const icon = ICONS[type] || ICONS.info;
 
   const toast = document.createElement('div');
@@ -47,11 +52,21 @@ export function showToast(message, type = 'info', opts = {}) {
   // Los errores duran más (se pierden si el director miraba el escenario) y
   // todos se pueden cerrar a mano con la ×.
   const ttl = opts.ttl || (type === 'error' || action ? 9000 : 4000);
-  const timer = setTimeout(dismiss, ttl);
+  let timer = setTimeout(dismiss, ttl);
+  toast._key = `${type}|${message}`;
+  toast._dismiss = () => { clearTimeout(timer); dismiss(); };
+  toast._restart = () => { clearTimeout(timer); timer = setTimeout(dismiss, ttl); };
+  // Como mucho 2 a la vez (antes se apilaban encima de la consola o del mezclador): se va el
+  // más antiguo, salvo que sea un error o un aviso importante (esos se quedan su tiempo).
+  const live = [...container.querySelectorAll('.toast:not(.toast--out)')];
+  if (live.length > 2) {
+    const old = live.slice(0, -1).find((t) => !/toast--(error|warning)/.test(t.className)) || live[0];
+    if (old && old !== toast && old._dismiss) old._dismiss();
+  }
   const actBtn = toast.querySelector('.toast-action');
-  if (actBtn) actBtn.onclick = () => { clearTimeout(timer); dismiss(); try { opts.action.onClick(); } catch (_) {} };
+  if (actBtn) actBtn.onclick = () => { toast._dismiss(); try { opts.action.onClick(); } catch (_) {} };
   const closeBtn = toast.querySelector('.toast-close');
-  if (closeBtn) closeBtn.onclick = () => { clearTimeout(timer); dismiss(); };
+  if (closeBtn) closeBtn.onclick = () => toast._dismiss();
 }
 
 // Backwards-compatible global so legacy inline handlers still work.
