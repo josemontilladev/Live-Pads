@@ -13,6 +13,9 @@ window.addEventListener('livepads:audio-routing', (e) => { try { engine.setGuide
 try { if (localStorage.getItem('livepads-click-alt') === '1') engine.setGuideToAltOutput(true); } catch (_) {}
 import * as projectStore from './projectStore.js';
 import { exportMix } from './exporter.js';
+import { captureScene, sceneMarkerAt, sceneChanges, sceneSummary, buildTemplate, applyTemplate } from './mixScenesCore.js';
+import { openSaveTemplate, openTemplatePicker, storeTemplate, defaultTemplate } from './mixTemplates.js';
+import { parseRpp, rppStemTracks } from './rppCore.js';
 import { computePeaks, drawWaveform } from './waveform.js';
 import { generateClickTrack, audioBufferToWav, getClickSounds } from './clickGenerator.js';
 import { isVariableTempo, clickTimes } from './tempoMapCore.js';
@@ -605,8 +608,8 @@ const SHELL_HTML = `
        <button class="ssl-add" id="stems-setlist-add" title="Agregar una canción nueva a la librería" aria-label="Agregar canción"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3.1" fill="none" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
        <div class="ssl-slot" role="group" aria-label="Filtro de canciones">
          <button class="ssl-slot-btn active" data-slot="all" title="Ver todas las canciones">Todas</button>
-         <button class="ssl-slot-btn" data-slot="sequence" title="Ver las de Secuencia">Secuencia</button>
-         <button class="ssl-slot-btn" data-slot="original" title="Ver las de Original">Original</button>
+         <button class="ssl-slot-btn" data-slot="sequence" title="Ver solo las canciones que tienen Secuencia">Secuencia</button>
+         <button class="ssl-slot-btn" data-slot="original" title="Ver solo las canciones que tienen Original">Original</button>
        </div>
      </div>
      <div class="ssl-searchbox">${searchBoxHtml({
@@ -652,6 +655,12 @@ const SHELL_HTML = `
               <button data-proj-cmd="save-as" class="stems-proj-item">Guardar como…</button>
               <button data-proj-cmd="open"    class="stems-proj-item">Abrir proyecto…</button>
               <button data-proj-cmd="export-tracks" class="stems-proj-item">Exportar cada pista (.zip)</button>
+              <div class="stems-proj-sep" role="separator"></div>
+              <button data-proj-cmd="mtlib" class="stems-proj-item">Mis carpetas de multitracks…</button>
+              <button data-proj-cmd="rpp" class="stems-proj-item">Importar sesión de REAPER (.rpp)…</button>
+              <div class="stems-proj-sep" role="separator"></div>
+              <button data-proj-cmd="tpl-save" class="stems-proj-item">Guardar mezcla como plantilla…</button>
+              <button data-proj-cmd="tpl-apply" class="stems-proj-item">Aplicar plantilla de mezcla…</button>
             </div>
           </div>
         </div>
@@ -1777,6 +1786,20 @@ function wireArrangeEvents(root) {
       openProjectsModal();
     } else if (cmd === 'export-tracks') {
       exportTracksZip();
+    } else if (cmd === 'mtlib') {
+      import('./multitrackLibrary.js').then((m) => m.openMultitrackLibrary());
+    } else if (cmd === 'rpp') {
+      importReaperSession();
+    } else if (cmd === 'tpl-save') {
+      const n = engine.getTracks().length;
+      if (!n) { showToast('Importa pistas y deja la mezcla como te gusta; después guárdala como plantilla.', 'info'); return; }
+      openSaveTemplate(n, (name, asDefault) => {
+        storeTemplate(buildTemplate(name, engine.getTracks()), asDefault);
+        showToast(`Plantilla «${name}» guardada${asDefault ? ': se aplicará sola al cargar las pistas de una canción' : ''}.`, 'success');
+      });
+    } else if (cmd === 'tpl-apply') {
+      if (!engine.getTracks().length) { showToast('No hay pistas a las que aplicar una plantilla.', 'info'); return; }
+      openTemplatePicker((tpl) => applyMixTemplate(tpl));
     }
   });
 
@@ -2989,6 +3012,170 @@ function applyTrackPan(id, v) {
   engine.setTrackPan(id, v / 100);
   syncConsoleStripPan(id, v);
   scheduleSave();
+}
+
+// ── Escenas de mezcla por sección (mixScenesCore.js) ─────────────────────
+// Un marcador puede guardar la mezcla (marker.mix). Tocando, al pasar por él la
+// mezcla cambia sola y se queda así hasta el siguiente marcador con escena.
+const SCENES_PREF = 'livepads.stems.scenesAuto';
+function scenesAuto() { try { return localStorage.getItem(SCENES_PREF) !== '0'; } catch (_) { return true; } }
+let lastSceneId;   // undefined = mirar otra vez en el próximo avance
+const trackNameOf = (id) => { const t = engine.getTracks().find((x) => String(x.id) === String(id)); return t ? t.name : null; };
+function applyMixChanges(changes) {
+  for (const c of changes) {
+    if (c.v != null) { engine.setTrackVolume(c.id, c.v); syncConsoleStripVol(c.id, Math.round(c.v * 100)); }
+    if (c.p != null) { engine.setTrackPan(c.id, c.p); syncConsoleStripPan(c.id, Math.round(c.p * 100)); }
+    if (c.m != null) { engine.setTrackMuted(c.id, c.m); syncConsoleStripMute(c.id, c.m); syncRowStripMute(c.id, c.m); }
+  }
+  if (changes.length) { reflectSoloHighlights(); refreshQuickMix(); scheduleSave(); }
+}
+function followScenes(sec) {
+  if (!engine.isCurrentlyPlaying() || !scenesAuto()) return;
+  const m = sceneMarkerAt(markers, sec);
+  const id = m ? m.id : null;
+  if (id === lastSceneId) return;
+  lastSceneId = id;
+  if (m) applyMixChanges(sceneChanges(engine.getTracks(), m.mix));
+}
+function setMarkerScene(markerId, on) {
+  const m = markers.find((x) => x.id === markerId);
+  if (!m) return;
+  const before = m.mix || null;
+  const after = on ? captureScene(engine.getTracks()) : null;
+  const set = (v) => { if (v) m.mix = v; else delete m.mix; lastSceneId = undefined; redrawMarkers(); scheduleSave(); };
+  set(after);
+  pushHistory(on ? 'Guardar escena de mezcla' : 'Quitar escena de mezcla', () => set(before), () => set(after));
+  if (on) showToast(`«${m.label}»: ${sceneSummary(after, trackNameOf)}. Al tocar, la mezcla cambia sola al llegar aquí.`, 'success');
+}
+
+// ── Plantillas de mezcla (mixTemplates.js) ───────────────────────────────
+function setTrackColorUi(id, c) {
+  if (!c) return;
+  engine.setTrackColor(id, c);
+  const inp = trackRows.get(id)?.row?.querySelector('[data-action="color"]');
+  if (inp) inp.value = c;
+  trackRows.get(id)?.console?.style.setProperty('--track-color', c);
+  drawTrackWaveform(id);
+}
+function setTrackOrderUi(order) {
+  const rows = order.map((id) => trackRows.get(id)).filter(Boolean);
+  if (!rows.length) return;
+  const parent = rows[0].row.parentNode;
+  const strips = document.getElementById('stems-console-strips');
+  for (const r of rows) { parent.appendChild(r.row); if (strips && r.console) strips.appendChild(r.console); }
+  engine.reorderTracks(order);
+}
+function mixState() {
+  const t = engine.getTracks();
+  return { scene: captureScene(t), colors: t.map((x) => [x.id, x.color]), order: t.map((x) => x.id) };
+}
+function setMixState(st) {
+  applyMixChanges(sceneChanges(engine.getTracks(), st.scene));
+  for (const [id, c] of st.colors) setTrackColorUi(id, c);
+  setTrackOrderUi(st.order);
+  scheduleSave();
+}
+function applyMixTemplate(tpl, { quiet = false } = {}) {
+  const plan = applyTemplate(tpl, engine.getTracks());
+  if (!plan.matched) { if (!quiet) showToast(`Ninguna pista de este proyecto coincide con «${tpl.name}».`, 'info'); return false; }
+  const before = mixState();
+  const after = { scene: { ...before.scene }, colors: before.colors.slice(), order: plan.order };
+  for (const c of plan.changes) {
+    after.scene[c.id] = { v: c.v, p: c.p, m: c.m };
+    if (c.color) after.colors = after.colors.map(([id, col]) => [id, id === c.id ? c.color : col]);
+  }
+  setMixState(after);
+  pushHistory('Aplicar plantilla de mezcla', () => setMixState(before), () => setMixState(after));
+  showToast(`Plantilla «${tpl.name}»: ${plan.matched} de ${plan.total} pistas ajustadas${plan.matched < plan.total ? ' (las demás quedan como estaban)' : ''}.`, 'success');
+  return true;
+}
+
+// ── Importar una sesión de REAPER (.rpp) ──────────────────────────────────
+// Pistas con su posición, recorte, fades, volumen, paneo y silencio; marcadores y
+// regiones; tempo y compás. Los audios los lee el proceso principal (rpp-*).
+const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+function cueForLabel(label) {
+  const l = norm(label);
+  let best = null;
+  for (const c of SECTION_CUES) { const k = norm(c.label); if ((l === k || l.startsWith(k + ' ')) && (!best || k.length > norm(best.label).length)) best = c; }
+  return best;
+}
+async function importReaperSession() {
+  const api = window.electronAPI;
+  if (!api?.rppPick) { showToast('Esta versión no puede importar sesiones de REAPER.', 'error'); return; }
+  let ses;
+  try { ses = await api.rppPick(); } catch (e) { showToast('No se pudo abrir la sesión: ' + ((e && e.message) || e), 'error'); return; }
+  if (!ses) return;
+  let parsed, list;
+  try { parsed = parseRpp(ses.text); list = rppStemTracks(parsed); } catch (e) { api.rppClose?.(); showToast(String((e && e.message) || e), 'error'); return; }
+  const ok = new Set(ses.files.filter((f) => f.ok).map((f) => f.ref));
+  const usable = list.filter((t) => ok.has(t.file));
+  if (!usable.length) { api.rppClose?.(); showToast(`«${ses.name}»: no se encontró ningún audio de la sesión (ni junto al .rpp ni en Audio/ o Media/).`, 'error'); return; }
+  if (engine.getTracks().length > 0 || markers.length) {
+    const yes = await confirmDialogAsync({
+      title: 'Importar sesión de REAPER',
+      message: `Esto vaciará el proyecto actual y cargará ${usable.length} ${usable.length === 1 ? 'pista' : 'pistas'} de «${ses.name}». ¿Continuar?`,
+      confirmLabel: 'Importar', danger: true,
+    });
+    if (!yes) { api.rppClose?.(); return; }
+    await resetProject();
+  }
+  showImportOverlay(usable.length);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  let done = 0, loaded = 0;
+  for (const st of usable) {
+    try {
+      updateImportOverlay(done, usable.length, st.name);
+      await new Promise((r) => requestAnimationFrame(r));
+      const ab = await api.rppRead({ token: ses.token, ref: st.file });
+      const id = `t${nextTrackId++}`;
+      const role = detectStemRole(st.name);
+      const kind = role && role.kind && role.kind !== 'stem' ? role.kind : undefined;
+      await engine.addTrack({ id, name: st.name, arrayBuffer: ab.slice(0), kind });
+      engine.setTrackColor(id, STEM_ROLE_COLORS[kind] || nextStemColor());
+      engine.setClips(id, st.clips);
+      engine.setTrackVolume(id, st.volume);
+      engine.setTrackPan(id, st.pan);
+      if (st.muted) engine.setTrackMuted(id, true);
+      const ext = (st.file.match(/\.([a-z0-9]{2,4})$/i) || [, 'wav'])[1];
+      const savedPath = await projectStore.saveStem(id, `${String(st.name).replace(/[^\w.-]+/g, '_')}.${ext}`, ab);
+      appendTrackRow(id, savedPath);
+      syncConsoleStripVol(id, Math.round(st.volume * 100));
+      syncConsoleStripPan(id, Math.round(st.pan * 100));
+      if (st.muted) { syncConsoleStripMute(id, true); syncRowStripMute(id, true); }
+      loaded++;
+    } catch (err) {
+      console.error('No se pudo cargar la pista de la sesión', st, err);
+      toast(`No se pudo cargar «${st.name}»: ${(err && err.message) || err}`);
+    }
+    done++;
+    updateImportOverlay(done, usable.length, '');
+  }
+  api.rppClose?.();
+  await new Promise((r) => setTimeout(r, 250));
+  hideImportOverlay();
+  if (!loaded) return;
+  // Tempo, compás y marcadores de la sesión.
+  bpm = Math.round(parsed.bpm); bpmFloat = parsed.bpm;
+  beatsPerBar = parsed.beatsPerBar; beatValue = parsed.beatValue;
+  accentPattern = makeDefaultAccent(beatsPerBar);
+  renderAccentChips();
+  const bIn = document.getElementById('stems-bpm');
+  if (bIn) bIn.value = bpm;
+  const sigSel = document.getElementById('stems-sig');
+  if (sigSel) sigSel.value = `${beatsPerBar}/${beatValue}`;
+  markers = parsed.markers.map((m) => { const c = cueForLabel(m.label); return { id: `m${nextMarkerId++}`, cueId: c ? c.id : null, label: m.label, url: c ? c.url : null, atSec: m.atSec }; });
+  redrawMarkers();
+  drawRuler();
+  projectName = ses.name;
+  const nameInput = document.getElementById('stems-project-name');
+  if (nameInput) nameInput.value = projectName;
+  for (const id of trackRows.keys()) drawTrackWaveform(id);
+  refreshTransport();
+  requestAnimationFrame(repaintAllFaders);
+  scheduleSave();
+  const missing = list.length - usable.length;
+  showToast(`«${ses.name}»: ${loaded} ${loaded === 1 ? 'pista' : 'pistas'}, ${markers.length} marcadores, ${parsed.bpm} BPM ${beatsPerBar}/${beatValue}.${missing ? ` ${missing === 1 ? 'Falta 1 audio que no está' : `Faltan ${missing} audios que no están`} junto a la sesión.` : ''}`, missing ? 'info' : 'success', { ttl: 9000 });
 }
 function syncConsoleStripName(id, name) {
   const c = trackRows.get(id)?.console; if (!c) return;
@@ -6123,6 +6310,7 @@ function redrawMarkers() {
       <span class="stems-marker-flag" title="Arrastra para mover · click derecho para opciones">${SVG_FLAG}</span>
       <span class="stems-marker-label">${escapeHtml(m.label)}</span>
       ${effSectionKey ? `<span class="stems-marker-key" title="Tonalidad de esta sección">${escapeHtml(effSectionKey)}</span>` : ''}
+      ${m.mix ? `<span class="stems-marker-scene" title="Escena de mezcla: ${escapeHtml(sceneSummary(m.mix, trackNameOf))}"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/><circle cx="6" cy="14" r="2.2" fill="currentColor"/><circle cx="12" cy="8" r="2.2" fill="currentColor"/><circle cx="18" cy="16" r="2.2" fill="currentColor"/></svg></span>` : ''}
       <button class="stems-marker-remove ui-remove" title="Quitar">×</button>
     `;
     el.querySelector('.stems-marker-remove').onclick = (e) => {
@@ -6221,6 +6409,14 @@ function openMarkerMenu(x, y, markerId) {
       </select>
     </div>
     <div class="smc-sep"></div>
+    <div class="smc-section-label">ESCENA DE MEZCLA</div>
+    ${m.mix ? `<div class="smc-note">${escapeHtml(sceneSummary(m.mix, trackNameOf))}</div>
+    <button data-cmd="scene-hear">Escuchar esta mezcla ahora</button>
+    <button data-cmd="scene-save">Actualizar con la mezcla actual</button>
+    <button data-cmd="scene-clear">Quitar escena</button>`
+    : '<button data-cmd="scene-save" title="Silencia o ajusta pistas como las quieres en esta sección y guárdalo: al tocar, la mezcla cambia sola aquí">Guardar la mezcla actual en esta sección</button>'}
+    <button data-cmd="scene-auto" class="${scenesAuto() ? 'is-active' : ''}">${scenesAuto() ? '✓ ' : ''}Cambiar la mezcla sola al tocar</button>
+    <div class="smc-sep"></div>
     <button data-cmd="loop-start" class="${isLoopA ? 'is-active' : ''}">▎ Marcar como inicio de loop (A)</button>
     <button data-cmd="loop-end"   class="${isLoopB ? 'is-active' : ''}">▎ Marcar como fin de loop (B)</button>
     ${inLoop ? '<button data-cmd="loop-clear">Quitar de loop</button>' : ''}
@@ -6267,6 +6463,18 @@ function openMarkerMenu(x, y, markerId) {
       if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
       if (e.key === 'Escape') { el.textContent = m.label; el.blur(); }
     });
+  };
+  menu.querySelector('[data-cmd="scene-save"]').onclick = () => { closeMarkerMenu(); setMarkerScene(markerId, true); };
+  const sClear = menu.querySelector('[data-cmd="scene-clear"]');
+  if (sClear) sClear.onclick = () => { closeMarkerMenu(); setMarkerScene(markerId, false); };
+  const sHear = menu.querySelector('[data-cmd="scene-hear"]');
+  if (sHear) sHear.onclick = () => { closeMarkerMenu(); applyMixChanges(sceneChanges(engine.getTracks(), m.mix)); lastSceneId = m.id; };
+  menu.querySelector('[data-cmd="scene-auto"]').onclick = () => {
+    closeMarkerMenu();
+    const on = !scenesAuto();
+    try { localStorage.setItem(SCENES_PREF, on ? '1' : '0'); } catch (_) {}
+    lastSceneId = undefined;
+    showToast(on ? 'La mezcla cambia sola al pasar por los marcadores con escena.' : 'Escenas en pausa: la mezcla ya no cambia sola.', 'info');
   };
   menu.querySelector('[data-cmd="change"]').onclick = () => {
     closeMarkerMenu();
@@ -6811,6 +7019,7 @@ function applyTimeUpdate(sec) {
   const head = document.getElementById('stems-playhead');
   if (head) head.style.transform = `translateX(${STRIP_WIDTH + sec * PX_PER_SEC}px)`;
   autoFollowPlayhead(sec);
+  followScenes(sec);
 }
 
 // Refresh the total-duration readout in the transport (call when tracks
@@ -7065,30 +7274,33 @@ function renderSetlistPanel(filter = '') {
   const songs = all
     .filter(s => { if (!f) return true; const h = matchSong(s, q); if (h) hits.set(s, h); return !!h; })
     .filter(s => !setlistOnlyLib || libraryPackFor(s))
+    // «Secuencia» / «Original»: solo las canciones que tienen ese audio (antes era el destino
+    // de «asignar la mezcla» y escondía justo esa etiqueta: parecía mostrar lo contrario).
+    .filter(s => !isSlot || !!(s.audio && s.audio[slotKey]))
     .sort((a, b) => (q.words.length ? (hits.get(b)?.score || 0) - (hits.get(a)?.score || 0) : 0)
       || (a.title || '').localeCompare(b.title || '', 'es', { sensitivity: 'base' }));
-  setlistSearch?.setCount(f || setlistOnlyLib ? `${songs.length} ${songs.length === 1 ? 'canción' : 'canciones'}` : '');
+  setlistSearch?.setCount(f || setlistOnlyLib || isSlot ? `${songs.length} ${songs.length === 1 ? 'canción' : 'canciones'}` : '');
 
   const hintEl = document.querySelector('#stems-setlist .ssl-hint');
   if (hintEl) {
     hintEl.textContent = isSlot
-      ? `Clic en una canción → asigna la mezcla como ${slotLabel}. Las atenuadas ya la tienen.`
+      ? `Solo las canciones con ${slotLabel}. Clic para cargarla en el timeline · ⋯ para asignar audio.`
       : 'Toca una canción para cargarla en el timeline · botón ⋯ para asignarle audio.';
   }
 
   if (!songs.length) {
-    listEl.innerHTML = `<div class="ssl-empty">${!all.length ? 'Tu librería está vacía' : setlistOnlyLib ? 'Ninguna canción con estos filtros tiene pistas en la Biblioteca' : 'Sin resultados'}</div>`;
+    listEl.innerHTML = `<div class="ssl-empty">${!all.length ? 'Tu librería está vacía' : isSlot && !f && !setlistOnlyLib ? `Ninguna canción tiene ${slotLabel} todavía` : setlistOnlyLib ? 'Ninguna canción con estos filtros tiene pistas en la Biblioteca' : 'Sin resultados'}</div>`;
     return;
   }
   listEl.innerHTML = songs.map(s => {
     const hasSeq = !!(s.audio && s.audio.sequence);
     const hasOrig = !!(s.audio && s.audio.original);
-    const isDone = isSlot && !!(s.audio && s.audio[slotKey]);   // ya tiene el slot activo
+    const isDone = false;
     // Badges de estado (verde = Secuencia, ámbar = Original). En modo de slot, el
     // del slot activo no se muestra como badge: lo reemplaza el check ✓ a la
     // derecha, que lee en positivo ("ya la tiene") sin parecer deshabilitada.
-    const showSeqBadge  = hasSeq  && slotKey !== 'sequence';
-    const showOrigBadge = hasOrig && slotKey !== 'original';
+    const showSeqBadge  = hasSeq;
+    const showOrigBadge = hasOrig;
     const nStems = getSongStems(s).length;
     const libPack = libraryPackFor(s);
     const badges =
@@ -7102,7 +7314,7 @@ function renderSetlistPanel(filter = '') {
     // Misma estructura que el setlist de Pads: título / artista / tono·BPM·género.
     const music = [s.key || '', s.bpm ? `${s.bpm} BPM` : '', s.genre || ''].filter(Boolean).join(' · ');
     const rowTitle = isSlot
-      ? `Asignar la mezcla a «${esc(s.title || '')}» como ${slotLabel} · clic derecho para cargar un archivo`
+      ? `Clic para reproducir la ${slotLabel.toLowerCase()} de «${esc(s.title || '')}» en el timeline · clic derecho para asignar audio`
       : (hasSeq || hasOrig || nStems)
         ? `Clic para reproducir «${esc(s.title || '')}» en el timeline${nStems ? ' o practicar por pistas' : ''} · clic derecho para asignar audio`
         : `Clic derecho en «${esc(s.title || '')}» para cargarle secuencia, original o pistas separadas`;
@@ -7162,6 +7374,7 @@ function bindSetlistPanel() {
     try { localStorage.setItem('stems-setlist-collapsed', collapsed ? '1' : '0'); } catch {}
   };
   if (collapseBtn) collapseBtn.onclick = toggleCollapsed;
+  watchSidePanels(panel, toggleCollapsed);
   // El riel "Canciones" (solo visible colapsado) también expande al hacer clic.
   const rail = panel.querySelector('.ssl-rail');
   if (rail) rail.onclick = toggleCollapsed;
@@ -7224,8 +7437,7 @@ function bindSetlistPanel() {
       else openSongAudioMenu(row, song);
       return;
     }
-    if (engine.getTracks().length === 0) { showToast('Cargá stems antes de asignar la mezcla.', 'info'); return; }
-    await runExport({ assign: true, target: { song, slot: setlistPanelSlot } });
+    loadSongAudioIntoTimeline(song, setlistPanelSlot);
   };
 
   // Clic derecho (en cualquier modo): menú para cargar secuencia/original.
@@ -7271,6 +7483,37 @@ function openSongAudioMenu(anchorEl, song) {
 // Practicar con las pistas que alguien subió a la canción: abierto a todos los
 // planes (es para ensayar; exportar sigue siendo Pro).
 export function practiceSongStems(song, stems) { return loadSongStemsIntoTimeline(song, stems); }
+export function importReaper() { return importReaperSession(); }
+
+// Pantallas estrechas (< 1240 px): un solo panel lateral abierto a la vez. Con Canciones y
+// Biblioteca abiertos a 1024 px al editor le quedaban ~330 px (el Play se cortaba, el timeline
+// y la consola casi no se veían). Abrir uno cierra el otro; al arrancar o al achicar la
+// ventana con los dos abiertos, se cierra la Biblioteca.
+const SIDE_NARROW = 1240;
+function watchSidePanels(setlist, toggleSetlist) {
+  const lib = () => document.querySelector('#workspace-stems .stems-library');
+  const closeLib = () => { const l = lib(); if (l && !l.classList.contains('collapsed')) l.querySelector('.ssl-collapse-btn[data-act="close"]')?.click(); };
+  const bothOpen = () => { const l = lib(); return l && !l.classList.contains('collapsed') && !setlist.classList.contains('collapsed'); };
+  const mo = new MutationObserver((muts) => {
+    if (window.innerWidth >= SIDE_NARROW) return;
+    for (const m of muts) {
+      const opened = (m.oldValue || '').split(/\s+/).includes('collapsed') && !m.target.classList.contains('collapsed');
+      if (!opened) continue;
+      if (m.target === setlist) closeLib();
+      else if (!setlist.classList.contains('collapsed')) toggleSetlist();
+    }
+  });
+  const opts = { attributes: true, attributeFilter: ['class'], attributeOldValue: true };
+  mo.observe(setlist, opts);
+  let tries = 0;
+  const attach = () => {
+    const l = lib();
+    if (l) { mo.observe(l, opts); if (window.innerWidth < SIDE_NARROW && bothOpen()) closeLib(); return; }
+    if (++tries < 40) setTimeout(attach, 250);
+  };
+  attach();
+  window.addEventListener('resize', () => { if (window.innerWidth < SIDE_NARROW && bothOpen()) closeLib(); });
+}
 
 async function loadSongStemsIntoTimeline(song, stems) {
   if (!stems || !stems.length) return;
@@ -7315,6 +7558,8 @@ async function loadSongStemsIntoTimeline(song, stems) {
   projectName = song.title || 'Mi proyecto';
   const nameInput = document.getElementById('stems-project-name');
   if (nameInput) nameInput.value = projectName;
+  const tpl = defaultTemplate();
+  if (tpl) applyMixTemplate(tpl, { quiet: true });
   refreshTransport();
   requestAnimationFrame(repaintAllFaders);
   scheduleSave();

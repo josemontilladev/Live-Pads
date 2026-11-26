@@ -92,7 +92,11 @@ async function analyzeFile(file) {
   const detected = guess.bpmHint ? null : (detectTempoMeter(buffer)?.bpmFloat || null);
   const { bpm, bars } = pickTempo(buffer.duration, detected, { hintBpm: guess.bpmHint });
   const key = UNPITCHED.has(guess.instrument) ? null : await detectKey(buffer);
-  return { file, bytes, buffer, mp3, mp3Fixed, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null, feel: '',
+  // Pistas largas en WAV: el archivo original ya no hace falta (se comprime a MP3 desde el audio
+  // decodificado); se suelta para no llenar la memoria con multitracks de cientos de MB.
+  const long = bars > 16 || buffer.duration > 45;
+  const keep = mp3 || /\.flac$/i.test(file.name) || !long ? bytes : { byteLength: bytes.byteLength };
+  return { file, bytes: keep, buffer, mp3, mp3Fixed, title: guess.title, instrument: guess.instrument, section: guess.section, bpm, bars, key, tier: null, feel: '',
     hintBpm: guess.bpmHint, detectedBpm: detected };
 }
 
@@ -135,10 +139,13 @@ async function coverFromYoutube(url) {
 }
 
 // Duración esperada vs real: si no cuadra, el loop se desfasaría en el editor.
-const durationOk = (r) => Math.abs(r.buffer.duration - r.bars * 4 * 60 / r.bpm) < 0.05;
+// (Las canciones completas no tienen que cerrar en compases enteros: se comprueba que quepan.)
+const durationOk = (r) => (r.bars > 16 || r.buffer.duration > 45)
+  ? r.bars * 240 / r.bpm >= r.buffer.duration - 0.05
+  : Math.abs(r.buffer.duration - r.bars * 4 * 60 / r.bpm) < 0.05;
 
 // ── Ventana ────────────────────────────────────────────────────────────────
-export function openPackUploader({ onChanged, community = false, tab = 'upload' } = {}) {
+export function openPackUploader({ onChanged, community = false, tab = 'upload', prefill = null } = {}) {
   document.getElementById('spu-overlay')?.remove();
   const admin = !community;
   const state = {
@@ -867,7 +874,10 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
       if (r.updates) continue;
       if (bpm >= 20 && bpm <= 300) {
         const t = exactTempo(r.buffer.duration, bpm);
-        r.bpm = t.bpm; r.bars = t.bars; r.offTempo = t.error > 0.03;
+        // Canción completa (pista larga): el BPM del pack tal cual y los compases hacia arriba;
+        // redondear a compases enteros movía el BPM (68 → 67,2) y la pista se desfasaba con el click.
+        if (t.bars > 16 || r.buffer.duration > 45) { r.bpm = bpm; r.bars = Math.max(1, Math.ceil(r.buffer.duration * bpm / 240 - 0.01)); r.offTempo = false; }
+        else { r.bpm = t.bpm; r.bars = t.bars; r.offTempo = t.error > 0.03; }
       }
       r.key = UNPITCHED.has(r.instrument) ? null : key;
     }
@@ -1280,4 +1290,16 @@ export function openPackUploader({ onChanged, community = false, tab = 'upload' 
   loadPacks();
   if (admin) paintStorage();
   if (tab !== 'upload') overlay.querySelector(`[data-tab="${tab}"]`)?.click();
+  // Desde tus carpetas de multitracks (carpeta o ZIP): el pack llega con nombre, artista,
+  // BPM y tono deducidos del nombre, y sus pistas se leen del disco una a una.
+  if (prefill) {
+    const set = (k, v) => { const el = ref(k); if (el && v != null && v !== '') { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); } };
+    const packTempo = () => {
+      if (Number(prefill.bpm) > 0) set('packBpm', prefill.bpm);
+      if (prefill.key && KEYS.includes(prefill.key)) set('packKey', prefill.key);
+    };
+    set('title', prefill.title); set('artist', prefill.artist);
+    packTempo();
+    if (Array.isArray(prefill.files) && prefill.files.length) addFiles(prefill.files).then(() => { packTempo(); refreshButton(); });
+  }
 }

@@ -2624,6 +2624,107 @@ ipcMain.handle('multitrack-read', async (_e, { token, id } = {}) => {
 });
 ipcMain.handle('multitrack-close', () => { multitrackPacks.clear(); return true; });
 
+// ── Biblioteca de multitracks: carpetas del disco con un multitrack por subcarpeta (o ZIP) ──
+// Las carpetas elegidas se guardan aquí (userData/mtlibrary.json); solo se abren rutas dentro de ellas.
+const mtLibFile = () => path.join(app.getPath('userData'), 'mtlibrary.json');
+function mtLibRoots() {
+  try { const j = JSON.parse(fs.readFileSync(mtLibFile(), 'utf8')); return Array.isArray(j.roots) ? j.roots.filter((r) => typeof r === 'string') : []; } catch (_) { return []; }
+}
+function mtLibSave(roots) { try { fs.writeFileSync(mtLibFile(), JSON.stringify({ roots })); } catch (_) {} }
+function mtLibList() {
+  return mtLibRoots().map((root) => {
+    const exists = fs.existsSync(root);
+    return { root, name: path.basename(root) || root, exists, items: exists ? multitrackImport.scanLibrary(root) : [] };
+  });
+}
+ipcMain.handle('mtlib-list', () => mtLibList());
+ipcMain.handle('mtlib-add', async () => {
+  let target = (!app.isPackaged && process.env.LIVEPADS_TEST_MTLIB) || null;
+  if (!target) {
+    const r = await dialog.showOpenDialog(mainWindow, { title: 'Elige la carpeta donde guardas tus multitracks', properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
+    target = r.filePaths[0];
+  }
+  const roots = mtLibRoots();
+  if (!roots.some((x) => path.resolve(x) === path.resolve(target))) { roots.push(target); mtLibSave(roots); }
+  return mtLibList();
+});
+ipcMain.handle('mtlib-remove', (_e, { root } = {}) => {
+  mtLibSave(mtLibRoots().filter((x) => path.resolve(x) !== path.resolve(String(root || ''))));
+  return mtLibList();
+});
+ipcMain.handle('mtlib-open', (_e, { target } = {}) => {
+  if (!target || !multitrackImport.isInside(target, mtLibRoots())) throw new Error('Esa carpeta no está en tu biblioteca.');
+  const pack = multitrackImport.listPack(target);
+  const token = crypto.randomBytes(8).toString('hex');
+  multitrackPacks.clear();
+  multitrackPacks.set(token, pack);
+  return { token, source: { kind: pack.source.kind, name: pack.source.name }, files: pack.files.map((f) => ({ id: f.id, name: f.name, size: f.size })) };
+});
+ipcMain.handle('mtlib-reveal', (_e, { target } = {}) => {
+  if (target && multitrackImport.isInside(target, mtLibRoots())) shell.showItemInFolder(target);
+  return true;
+});
+
+// ── Importar una sesión de REAPER (.rpp) a Stems ──
+// El texto lo interpreta la app (src/js/stems/rppCore.js); aquí se elige el archivo y se
+// leen SOLO los audios que la sesión nombra (rutas absolutas o relativas a la sesión; si
+// no están, se buscan por nombre junto a la sesión o en Audio/ o Media/).
+const rppSessions = new Map();
+const RPP_AUDIO = /\.(wav|wave|mp3|aif|aiff|flac|m4a|ogg)$/i;
+ipcMain.handle('rpp-pick', async () => {
+  let file = (!app.isPackaged && process.env.LIVEPADS_TEST_RPP) || null;
+  if (!file) {
+    const r = await dialog.showOpenDialog(mainWindow, { title: 'Elige la sesión de REAPER', properties: ['openFile'], filters: [{ name: 'REAPER', extensions: ['rpp'] }] });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
+    file = r.filePaths[0];
+  }
+  if (fs.statSync(file).size > 30 * 1024 * 1024) throw new Error('La sesión es demasiado grande.');
+  const text = fs.readFileSync(file, 'utf8');
+  const dir = path.dirname(file);
+  const refs = [];
+  for (const m of text.matchAll(/^\s*FILE\s+(?:"([^"]*)"|'([^']*)'|(\S+))/gm)) {
+    const ref = m[1] || m[2] || m[3];
+    if (ref && RPP_AUDIO.test(ref) && !refs.includes(ref)) refs.push(ref);
+  }
+  const resolved = new Map();
+  for (const ref of refs) {
+    const base = ref.split(/[\\/]/).pop();
+    const tries = [path.isAbsolute(ref) ? ref : path.join(dir, ref), path.join(dir, base), path.join(dir, 'Audio', base), path.join(dir, 'Media', base)];
+    const hit = tries.find((p) => { try { return fs.statSync(p).isFile(); } catch (_) { return false; } });
+    if (hit) resolved.set(ref, hit);
+  }
+  const token = crypto.randomBytes(8).toString('hex');
+  rppSessions.clear();
+  rppSessions.set(token, resolved);
+  return { token, name: path.basename(file).replace(/\.rpp$/i, ''), text, files: refs.map((ref) => ({ ref, ok: resolved.has(ref) })) };
+});
+ipcMain.handle('rpp-read', (_e, { token, ref } = {}) => {
+  const s = rppSessions.get(token);
+  const p = s && s.get(ref);
+  if (!p) throw new Error('No se encontró el audio de la sesión.');
+  const buf = fs.readFileSync(p);
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+});
+ipcMain.handle('rpp-close', () => { rppSessions.clear(); return true; });
+
+// ── Consumo (barra superior): CPU de todo el equipo, memoria de LivePads ──
+let sysCpuPrev = null;
+ipcMain.handle('sys-stats', () => {
+  const osm = require('os');
+  const cpus = osm.cpus();
+  let idle = 0, total = 0;
+  for (const c of cpus) { for (const k in c.times) total += c.times[k]; idle += c.times.idle; }
+  const prev = sysCpuPrev;
+  sysCpuPrev = { idle, total };
+  const dt = prev ? total - prev.total : 0;
+  const cpu = dt > 0 ? Math.max(0, Math.min(100, 100 * (1 - (idle - prev.idle) / dt))) : 0;
+  const metrics = app.getAppMetrics();
+  const mem = metrics.reduce((a, p) => a + ((p.memory && p.memory.workingSetSize) || 0), 0) * 1024;
+  const appCpu = metrics.reduce((a, p) => a + ((p.cpu && p.cpu.percentCPUUsage) || 0), 0) / Math.max(1, cpus.length);
+  return { cpu, appCpu, mem, totalMem: osm.totalmem(), freeMem: osm.freemem(), cores: cpus.length };
+});
+
 // Guarda un ZIP (descarga completa de las pistas de una canción).
 ipcMain.handle('save-zip-file', async (_e, { suggestedName, buffer } = {}) => {
   if (!buffer) throw new Error('Buffer vacío');

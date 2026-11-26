@@ -87,4 +87,45 @@ function readPackFile(pack, id) {
   return f.abs ? fs.readFileSync(f.abs) : zipRead(pack.source.path, f.entry);
 }
 
-module.exports = { listPack, readPackFile, zipIndex, zipRead };
+/**
+ * Biblioteca de multitracks: lo que hay dentro de una carpeta raíz. Cada subcarpeta con
+ * audios (o cada ZIP) es una canción por importar. → [{ name, path, kind, files, size, mtime }]
+ */
+function scanLibrary(root) {
+  const out = [];
+  let ents = [];
+  try { ents = fs.readdirSync(root, { withFileTypes: true }); } catch (_) { return out; }
+  const own = [];
+  for (const d of ents) {
+    if (d.name.startsWith('.') || d.name === '__MACOSX') continue;
+    const p = path.join(root, d.name);
+    try {
+      if (d.isDirectory()) {
+        const files = walk(p);
+        if (!files.length) continue;
+        const st = fs.statSync(p);
+        out.push({ name: d.name, path: p, kind: 'folder', files: Math.min(files.length, MAX_FILES), size: files.reduce((a, f) => a + f.size, 0), mtime: st.mtimeMs });
+      } else if (d.isFile() && /\.zip$/i.test(d.name)) {
+        const st = fs.statSync(p);
+        out.push({ name: d.name.replace(/\.zip$/i, ''), path: p, kind: 'zip', files: 0, size: st.size, mtime: st.mtimeMs });
+      } else if (d.isFile() && AUDIO.test(d.name)) own.push(d.name);
+    } catch (_) {}
+  }
+  // La carpeta elegida ES un multitrack (audios sueltos dentro): se ofrece ella misma.
+  if (own.length >= 2) {
+    const files = walk(root);
+    out.unshift({ name: path.basename(root), path: root, kind: 'folder', files: Math.min(files.length, MAX_FILES), size: files.reduce((a, f) => a + f.size, 0), mtime: fs.statSync(root).mtimeMs });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
+/** ¿«p» está dentro de alguna de las carpetas raíz? */
+function isInside(p, roots) {
+  const r = path.resolve(p);
+  return (roots || []).some((root) => {
+    const base = path.resolve(root);
+    return r === base || r.startsWith(base.endsWith(path.sep) ? base : base + path.sep);
+  });
+}
+
+module.exports = { listPack, readPackFile, zipIndex, zipRead, scanLibrary, isInside };

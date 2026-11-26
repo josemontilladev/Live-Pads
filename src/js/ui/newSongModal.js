@@ -68,6 +68,7 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
       <div class="newsong-import-row newsong-import-row--file">
         <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-folder">Multitrack: carpeta…</button>
         <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-zip">Multitrack: ZIP…</button>
+        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-lib">Mis carpetas de multitracks…</button>
         <span class="newsong-import-hint">MultiTracks, Loop Community u otro: crea la canción con sus pistas y la secuencia para Pads (click a la izquierda).</span>
       </div>
     </div>`;
@@ -235,6 +236,7 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (action === 'import-url') { importar(); return; }
     if (action === 'import-file') { fileEl && fileEl.click(); return; }
+    if (action === 'import-mt-lib') { close(); import('../stems/multitrackLibrary.js').then((m) => m.openMultitrackLibrary()); return; }
     if (action === 'import-mt-folder' || action === 'import-mt-zip') { close(); import('../stems/multitrackPack.js').then((m) => m.importMultitrack(action === 'import-mt-zip' ? 'zip' : 'folder')); return; }
     if (action === 'edit-cancel') { close(); return; }
     if (action !== 'edit-save') return;

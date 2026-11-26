@@ -626,6 +626,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindAll();
   loadGiSetlistFromFile();
   bindWorkspaceSwitcher(); // mounts the Stems workspace lazily on first entry
+  import('./ui/segKnob.js').then((m) => m.initSegKnobs()).catch(() => {});   // selectores con perilla
+  import('./ui/sysStats.js').then((m) => m.initSysStats()).catch(() => {});   // consumo (CPU · RAM · audio)
 
   // Defensive: Chromium suspends AudioContexts created before the first user
   // gesture. Resume on the first pointer/key event so the first pad/drum hit
@@ -1392,6 +1394,9 @@ function spotlightProviderItems() {
   }
   items.push({ id: 'tool:companion', kind: 'panel', label: 'Companion (móvil)', sub: 'Herramienta', search: 'companion móvil movil qr letra acordes músicos código', run: () => openCompanionPanel() });
   items.push({ id: 'tool:voice-studio', kind: 'panel', label: 'Estudio de voces (2.ª y 3.ª voz)', sub: 'Herramienta', search: 'estudio de voces segunda tercera voz armonia armonía coros melodia melodía cantantes', run: () => import('./audio/trackPlayer.js').then(async (tp) => { const s = tp.getCurrentSong(); if (!s) { window.showToast?.('Carga una canción para abrir su Estudio de voces.', 'info'); return; } (await import('./voices/voiceStudio.js')).openVoiceStudio(s); }) });
+  items.push({ id: 'tool:sysstats', kind: 'command', label: 'Consumo en la barra: mostrar u ocultar (CPU · RAM · audio)', sub: 'Vista', search: 'consumo cpu ram memoria rendimiento estadisticas audio cortes', run: () => import('./ui/sysStats.js').then((m) => { const on = !m.sysStatsOn(); m.setSysStats(on); window.showToast?.(on ? 'Consumo visible en la barra superior.' : 'Consumo oculto.', 'info'); }) });
+  items.push({ id: 'tool:mtlib', kind: 'panel', label: 'Mis carpetas de multitracks (subir a la Biblioteca o crear canciones)', sub: 'Herramienta', search: 'biblioteca multitracks carpetas carpeta descargas importar canciones stems', run: () => import('./stems/multitrackLibrary.js').then((m) => m.openMultitrackLibrary()) });
+  items.push({ id: 'tool:rpp', kind: 'panel', label: 'Importar sesión de REAPER (.rpp) a Stems', sub: 'Herramienta', search: 'reaper rpp sesion importar daw stems pistas', run: () => window.dispatchEvent(new CustomEvent('livepads:stems-import-rpp')) });
   items.push({ id: 'tool:multitrack', kind: 'panel', label: 'Importar multitrack (MultiTracks, Loop Community)', sub: 'Herramienta', search: 'importar multitrack multitracks loop community prime stems pistas zip carpeta secuencia', run: () => import('./stems/multitrackPack.js').then((m) => m.importMultitrack('folder')) });
   items.push({ id: 'tool:tv-countdown', kind: 'panel', label: 'Cuenta atrás en la TV', sub: 'Herramienta', search: 'cuenta atras atrás tv pantalla servicio empieza anuncio temporizador reloj', run: () => openTvCountdown() });
   items.push({ id: 'tool:talkback', kind: 'panel', label: 'Hablar a la banda (talkback)', sub: 'Herramienta', search: 'talkback hablar banda in ears inears auriculares micrófono microfono director', run: () => document.getElementById('btn-cues')?.click() });
@@ -1524,6 +1529,12 @@ function bindRestOfApp() {
       await stemsMountPromise;   // la primera vez, esperar a que el editor termine de montarse
       await ws.practiceSongStems(song, stems);
     } catch (e) { console.warn('[LivePads] no se pudieron cargar las pistas:', e); }
+  });
+
+  // Búsqueda rápida → «Importar sesión de REAPER»: abre Stems y el selector.
+  window.addEventListener('livepads:stems-import-rpp', async () => {
+    applyWorkspace('stems');
+    try { const ws = await ensureStemsMounted(); await stemsMountPromise; await ws.importReaper(); } catch (e) { console.warn('[LivePads] REAPER:', e); }
   });
 
   // Auto-sync a la nube (Supabase) tras crear/editar: empuja la librería activa
@@ -1726,11 +1737,41 @@ function bindWorkspaceSwitcher() {
   const stored = localStorage.getItem(WS_KEY) || 'pads';
   applyWorkspace(stored);
   tabs.forEach(tab => {
-    tab.onclick = () => applyWorkspace(tab.dataset.workspace);
+    // Como un interruptor: pulsar la opción que ya está activa cambia a la otra (solo con un clic
+    // real; los .click() de la búsqueda rápida «Ir a Pads/Stems» siguen yendo a esa opción).
+    tab.onclick = (e) => {
+      const other = tab.dataset.workspace === 'stems' ? 'pads' : 'stems';
+      applyWorkspace(e && e.isTrusted && tab.classList.contains('is-active') ? other : tab.dataset.workspace, { smooth: true });
+    };
   });
 }
-function applyWorkspace(name) {
+// Cambio suave (clic en el interruptor o Tab): primero se desliza la perilla y, un cuadro
+// después (cuando el navegador ya la está animando por su cuenta), se cambia el contenido
+// con un fundido corto. Antes todo pasaba en el mismo instante y, al ocultar/mostrar la
+// página entera, la perilla a veces daba un salto en vez de deslizarse.
+let wsSwapToken = 0;
+function applyWorkspace(name, { smooth = false } = {}) {
   const valid = name === 'stems' ? 'stems' : 'pads';
+  if (smooth && activeWorkspace() !== valid) {
+    qa('.ws-tab').forEach(t => {
+      const isActive = t.dataset.workspace === valid;
+      t.classList.toggle('is-active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    moveWorkspaceIndicator();
+    const token = ++wsSwapToken;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (token !== wsSwapToken) return;
+      applyWorkspace(valid);
+      const shown = valid === 'stems' ? q('#workspace-stems') : body;
+      if (shown && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        shown.classList.remove('ws-fade'); shown.classList.add('ws-fade');
+        shown.addEventListener('animationend', () => shown.classList.remove('ws-fade'), { once: true });
+      }
+    }));
+    return;
+  }
+  wsSwapToken++;
   // Hiding logic lives in CSS now: `body[data-workspace="stems"]` hides
   // all Pads-only chrome (#stage, #track-player-bar, #now-playing-banner)
   // while keeping the fixed #sidebar reachable so the gear / ? buttons

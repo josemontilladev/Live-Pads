@@ -82,6 +82,10 @@ export function mountLibraryPanel(host, api) {
       <span class="ssl-title-icon" aria-hidden="true">${SVG_BOOK}</span>
       <span class="ssl-title-label">Biblioteca de stems</span>
       <!-- Administrar (admin) o Compartir un pack (comunidad): botón redondo gemelo del de contraer. -->
+      <!-- Mis carpetas de multitracks (disco o disco externo): subirlos a la biblioteca o crear canciones. -->
+      <button class="ssl-collapse-btn stl-folders-btn" type="button" data-act="folders" title="Mis carpetas de multitracks: sube tus ZIP o carpetas a la biblioteca" aria-label="Mis carpetas de multitracks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </button>
       <button class="ssl-collapse-btn stl-admin-btn" type="button" data-act="admin" data-ref="admin" hidden title="Compartir un pack de loops con la comunidad" aria-label="Compartir un pack con la comunidad">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       </button>
@@ -1212,6 +1216,11 @@ export function mountLibraryPanel(host, api) {
     if (e.target.closest('[data-act="close"]')) { close(); return; }
     if (e.target.closest('[data-act="open"]')) { open(); return; }
     if (e.target.closest('[data-act="build"]')) { openBuilder(); return; }
+    if (e.target.closest('[data-act="folders"]')) {
+      stopPreview();
+      import('./multitrackLibrary.js').then((m) => m.openMultitrackLibrary({ onUploaded: () => reloadCatalog() }));
+      return;
+    }
     if (e.target.closest('[data-act="admin"]')) {
       stopPreview();
       if (state.admin) openPackUploader({ onChanged: () => reloadCatalog() });

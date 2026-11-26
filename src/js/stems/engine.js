@@ -599,7 +599,15 @@ function applyEffectiveGain(t, anySoloedPrecomputed) {
   let effective = t.volume;
   if (t.muted) effective = 0;
   else if (anySoloed && !t.soloed) effective = 0;
-  t.gainNode.gain.value = effective;
+  // Rampa de ~10 ms mientras suena (silenciar, escenas de mezcla, faders): sin «clic» en el audio.
+  const g = t.gainNode.gain;
+  if (isPlaying && ctx && ctx.state === 'running') {
+    g.cancelScheduledValues(ctx.currentTime);
+    g.setTargetAtTime(effective, ctx.currentTime, 0.01);
+  } else {
+    if (ctx) g.cancelScheduledValues(0);
+    g.value = effective;
+  }
 }
 
 export function getTracks() {

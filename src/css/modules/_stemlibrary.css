@@ -920,7 +920,7 @@
 .stl-pick input:disabled { opacity: .35; cursor: default; }
 .stl-loop.is-picked { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .stl-loading { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stl-packs > .stl-pbar { flex: 1 1 auto; }
+.stl-packs > .stl-pbar { flex: 1 1 auto; padding: 2px 4px 2px 0; }
 
 /* ═══ Escucha previa: barritas animadas, progreso y «desde el compás N» ═══ */
 .stl-loop { position: relative; }

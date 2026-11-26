@@ -31,12 +31,43 @@ export async function importMultitrack(kind = 'folder') {
   openDialog(pk);
 }
 
-function openDialog(pk) {
+/** Abre el diálogo de importación para un paquete ya abierto (la Biblioteca de multitracks). */
+export function openPackDialog(pk, opts = {}) {
+  if (!pk) return;
+  if (!requireRoom('songs', getSongs().length, 1)) return;
+  openDialog(pk, opts);
+}
+
+// Lo que corriges a mano («Pad Ambient.wav» no es «Otros» sino «Teclas») se recuerda en este
+// equipo: el próximo multitrack con una pista que se llame igual ya viene bien.
+const MEM = 'livepads.mtKinds';
+const memKey = (name) => String(name || '').toLowerCase().replace(/\.[a-z0-9]{2,4}$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function memLoad() { try { return JSON.parse(localStorage.getItem(MEM) || '{}') || {}; } catch (_) { return {}; } }
+function memSave(rows, auto) {
+  try {
+    const m = memLoad();
+    for (const r of rows) {
+      const k = memKey(r.base);
+      if (!k) continue;
+      if (r.kind !== auto.get(r.id)) m[k] = r.kind; else if (m[k] && m[k] !== r.kind) delete m[k];
+    }
+    const keys = Object.keys(m);
+    if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete m[k];
+    localStorage.setItem(MEM, JSON.stringify(m));
+  } catch (_) {}
+}
+
+function openDialog(pk, opts = {}) {
   const base = (n) => n.split(/[\\/]/).pop();
   const guess = parsePackName(pk.source.name, pk.files.map((f) => base(f.name)));
+  const mem = memLoad();
+  const auto = new Map();
   const rows = pk.files.map((f) => {
     const r = detectStemRole(base(f.name));
-    return { ...f, kind: r.kind || 'other', label: r.name || base(f.name).replace(/\.[^.]+$/, '') };
+    const det = KINDS.includes(r.kind) ? r.kind : 'other';
+    auto.set(f.id, det);
+    const learned = mem[memKey(base(f.name))];
+    return { ...f, base: base(f.name), kind: learned && KINDS.includes(learned) ? learned : det, learned: !!learned, label: r.name || base(f.name).replace(/\.[^.]+$/, '') };
   });
   const hasClick = rows.some((r) => r.kind === 'click');
   const ov = document.createElement('div');
@@ -53,7 +84,7 @@ function openDialog(pk) {
       <div class="mt-list" data-ref="list">${rows.map((r) => `
         <div class="mt-row" data-id="${r.id}">
           <span class="mt-name" title="${esc(r.name)}">${esc(base(r.name))}</span>
-          <span class="mt-size">${mb(r.size)}</span>
+          <span class="mt-size">${r.learned ? '<i class="mt-learned" title="Corregido por ti antes: se recuerda">recordado</i> ' : ''}${mb(r.size)}</span>
           <select aria-label="Qué es ${esc(base(r.name))}">${KINDS.map((k) => `<option value="${k}" ${k === r.kind ? 'selected' : ''}>${esc(KIND_LABEL[k] || k)}</option>`).join('')}</select>
         </div>`).join('')}</div>
       <label class="sm-use"><input type="checkbox" class="mo-switch" data-ref="seq" ${hasClick ? 'checked' : ''}> <span><b>Crear la secuencia para tocar en Pads</b><small>Click y guía a la izquierda (in-ears) y la banda a la derecha (sala).${hasClick ? '' : ' Este paquete no trae click: la izquierda quedaría en silencio.'}</small></span></label>
@@ -76,6 +107,7 @@ function openDialog(pk) {
     if ((e.target === ov || e.target.closest('[data-act="cancel"]')) && !busy) { close(); return; }
     if (!e.target.closest('[data-act="go"]') || busy) return;
     busy = true;
+    memSave(rows, auto);
     ov.querySelectorAll('input, select, button').forEach((x) => { x.disabled = true; });
     $('[data-ref="prog"]').hidden = false;
     const step = (frac, txt) => { $('[data-ref="bar"]').style.width = `${Math.round(frac * 100)}%`; $('[data-ref="step"]').textContent = txt; };
@@ -88,6 +120,7 @@ function openDialog(pk) {
         makeSeq: $('[data-ref="seq"]').checked,
       }, step);
       busy = false; close();
+      try { opts.onDone && opts.onDone(song); } catch (_) {}
       window.showToast?.(`✓ «${song.title}» importada: ${song.audio.stems.length} pistas${song.audio.sequence ? ' y su secuencia para Pads' : ''}.`, 'success', {
         ttl: 9000, action: { label: 'Abrir en Stems', onClick: () => window.dispatchEvent(new CustomEvent('livepads:practice-song-stems', { detail: { song, stems: song.audio.stems } })) },
       });
