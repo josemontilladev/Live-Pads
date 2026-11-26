@@ -205,6 +205,48 @@ function logMel(pcm) {
 }
 
 /**
+ * Log-mel (sin normalizar) de TODA la pista, una vez: { data: [80 × n], n }. Para probar
+ * muchas ventanas que empiezan en sitios distintos sin recalcularlo (melWindow).
+ */
+function melFull(pcm) {
+  const n = Math.ceil(pcm.length / HOP) + 1;
+  const { cos, sin, win } = trig();
+  const F = melFilters();
+  const nBins = N_FFT / 2 + 1;
+  const data = new Float32Array(N_MELS * n);
+  const frame = new Float32Array(N_FFT), power = new Float32Array(nBins);
+  const pad = N_FFT / 2, L = pcm.length;
+  const at = (i) => { let j = i - pad; if (j < 0) j = -j; if (j >= L) j = Math.max(0, 2 * (L - 1) - j); return pcm[j] || 0; };
+  for (let f = 0; f < n; f++) {
+    const o = f * HOP;
+    for (let k = 0; k < N_FFT; k++) frame[k] = at(o + k) * win[k];
+    for (let k = 0; k < nBins; k++) {
+      let re = 0, im = 0;
+      const b = k * N_FFT;
+      for (let q = 0; q < N_FFT; q++) { re += frame[q] * cos[b + q]; im -= frame[q] * sin[b + q]; }
+      power[k] = re * re + im * im;
+    }
+    for (let m = 0; m < N_MELS; m++) {
+      let s = 0;
+      const b = m * nBins;
+      for (let k = 0; k < nBins; k++) s += F[b + k] * power[k];
+      data[m * n + f] = Math.log10(Math.max(s, 1e-10));
+    }
+  }
+  return { data, n };
+}
+/** Ventana de 30 s de melFull que empieza en el bloque f0 (10 ms), normalizada como logMel. */
+function melWindow(full, f0) {
+  const mel = new Float32Array(N_MELS * N_FRAMES).fill(-10);
+  const cnt = Math.max(0, Math.min(N_FRAMES, full.n - f0));
+  for (let m = 0; m < N_MELS; m++) mel.set(full.data.subarray(m * full.n + f0, m * full.n + f0 + cnt), m * N_FRAMES);
+  let max = -Infinity;
+  for (let i = 0; i < mel.length; i++) if (mel[i] > max) max = mel[i];
+  for (let i = 0; i < mel.length; i++) mel[i] = (Math.max(mel[i], max - 8) + 4) / 4;
+  return mel;
+}
+
+/**
  * Tramos con voz: energía cada 20 ms por encima de un umbral relativo. Se ignoran
  * los golpes cortos (un click que se cuele) y se juntan los tramos cercanos.
  */
@@ -264,18 +306,59 @@ function decodeTokens(ids, vocabInv) {
 }
 
 // ── Modelo ──
-let cache = null;   // { dir, ort, enc, dec, vocabInv }
+// Un juego de sesiones por tamaño (base y small pueden usarse en el mismo trabajo).
+// Hilos: se dejan núcleos libres para que la app y el audio no lo noten (LP_WHISPER_THREADS
+// lo fija; el hilo de trabajo lo pone según el equipo).
+const cacheBy = new Map();
+function threadCount() {
+  const env = Number(process.env.LP_WHISPER_THREADS);
+  if (env > 0) return env;
+  const n = require('os').cpus().length || 4;
+  return Math.max(2, Math.min(8, n - 2));
+}
 async function load(dir, size = 'base') {
-  if (cache && cache.dir === dir && cache.size === size) return cache;
+  const key = dir + '|' + size;
+  if (cacheBy.has(key)) return cacheBy.get(key);
   const ort = require('onnxruntime-node');
-  const opts = { executionProviders: ['cpu'], graphOptimizationLevel: 'all' };
+  const opts = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', intraOpNumThreads: threadCount(), interOpNumThreads: 1 };
   const enc = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_encoder_q8.onnx`), opts);
   const dec = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_decoder_q8.onnx`), opts);
+  // Decodificador con caché (opcional): para transcribir, cada ficha nueva cuesta ~17 ms en
+  // vez de volver a pasar toda la frase.
+  const pastFile = path.join(dir, `whisper_${size}_decoder_past_q8.onnx`);
+  const decPast = fs.existsSync(pastFile) ? await ort.InferenceSession.create(pastFile, opts) : null;
   const vocab = JSON.parse(fs.readFileSync(path.join(dir, 'whisper_vocab.json'), 'utf8'));
   const vocabInv = [];
   for (const [k, v] of Object.entries(vocab)) vocabInv[v] = k;
-  cache = { dir, size, ort, enc, dec, vocabInv };
-  return cache;
+  const m = { dir, size, ort, enc, dec, decPast, vocabInv };
+  cacheBy.set(key, m);
+  return m;
+}
+
+/**
+ * Decodificación paso a paso con caché: start(ids) pasa el comienzo; step(tok) añade una
+ * ficha. Ambos devuelven la fila de logits de la última posición. Sin decPast, vuelve a
+ * pasar la secuencia entera (como antes).
+ */
+function stepper(m, hidden) {
+  let ids = [], encKV = null, decKV = null;
+  const row = (logits, pos) => { const V = logits.dims[2]; return logits.data.subarray(pos * V, (pos + 1) * V); };
+  const keep = (out, which) => { const o = {}; for (const k of Object.keys(out)) if (k.startsWith('present.') && k.includes(which)) o['past_key_values.' + k.slice(8)] = out[k]; return o; };
+  return {
+    async start(first) {
+      ids = first.slice();
+      const out = await m.dec.run({ input_ids: new m.ort.Tensor('int64', BigInt64Array.from(ids.map(BigInt)), [1, ids.length]), encoder_hidden_states: hidden });
+      if (m.decPast) { encKV = keep(out, '.encoder.'); decKV = keep(out, '.decoder.'); }
+      return row(out.logits, ids.length - 1);
+    },
+    async step(tok) {
+      ids.push(tok);
+      if (!m.decPast) { const lg = await runDecoder(m, ids, hidden); return row(lg, ids.length - 1); }
+      const out = await m.decPast.run({ input_ids: new m.ort.Tensor('int64', BigInt64Array.from([BigInt(tok)]), [1, 1]), ...encKV, ...decKV });
+      decKV = keep(out, '.decoder.');
+      return row(out.logits, 0);
+    },
+  };
 }
 
 async function runDecoder(m, ids, hidden) {
@@ -375,17 +458,17 @@ const WHISPER_FILES = ['whisper_base_encoder_q8.onnx', 'whisper_base_decoder_q8.
 // ── Transcribir una voz cantada (letra automática) ─────────────────────────
 // Ventanas de 30 s con marcas de tiempo (las reglas de Whisper: las marcas van en pares y
 // no retroceden; si la probabilidad de «marca» supera a la del mejor texto, va marca).
-// Sin caché del decodificador: cada paso vuelve a pasar la frase (las frases son cortas).
+// Con el decodificador con caché (si está) cada ficha nueva es barata.
 const TS_BEGIN = 50364, TS_STEP = 0.02;
-async function transcribeWindow(m, clip, langTok, { maxTokens = 110 } = {}) {
-  const feats = new m.ort.Tensor('float32', logMel(clip), [1, N_MELS, N_FRAMES]);
+async function transcribeWindow(m, clip, langTok, { maxTokens = 110, mel = null } = {}) {
+  const feats = new m.ort.Tensor('float32', mel || logMel(clip), [1, N_MELS, N_FRAMES]);
   const hidden = (await m.enc.run({ input_features: feats })).last_hidden_state;
-  const ids = [T.SOT, langTok, T.TRANSCRIBE];
+  const dec = stepper(m, hidden);
   const out = [];
   let lastTs = -1;
+  let row = await dec.start([T.SOT, langTok, T.TRANSCRIBE]);
   for (let i = 0; i < maxTokens; i++) {
-    const logits = await runDecoder(m, ids, hidden);
-    const V = logits.dims[2], row = logits.data.subarray((ids.length - 1) * V, ids.length * V);
+    const V = row.length;
     const prev = out[out.length - 1], prev2 = out[out.length - 2];
     const lastWasTs = prev != null && prev >= TS_BEGIN, penultWasTs = prev2 == null || prev2 >= TS_BEGIN;
     // Reglas de marcas de Whisper: empieza con marca; tras «marca marca» (par cerrado) va texto;
@@ -411,11 +494,12 @@ async function transcribeWindow(m, clip, langTok, { maxTokens = 110 } = {}) {
     else tok = bestText;
     if (tok < 0 || tok === T.EOT) break;
     if (tok >= TS_BEGIN) lastTs = tok - TS_BEGIN;
-    ids.push(tok); out.push(tok);
+    out.push(tok);
     if (out.length >= 12) {   // bucles («aleluya aleluya aleluya…» sin fin)
       const a = out.slice(-6).join(), b = out.slice(-12, -6).join();
       if (a === b) break;
     }
+    row = await dec.step(tok);
   }
   // Pares [marca, texto…, marca] → segmentos
   const segs = [];
@@ -470,4 +554,4 @@ async function transcribeLong(pcm, dir, { lang = null, size = 'base', onProgress
   return { lang: langTok === T.ES ? 'es' : 'en', segments: out };
 }
 
-module.exports = { SR, logMel, melFilters, speechRegions, decodeTokens, byteDecoder, transcribeRegions, transcribeLong, WHISPER_FILES, PHRASES };
+module.exports = { SR, N_SAMPLES, N_MELS, N_FRAMES, T, LANGS, TS_BEGIN, TS_STEP, logMel, melFull, melWindow, melFilters, speechRegions, decodeTokens, byteDecoder, load, runDecoder, logProbsAt, transcribeRegions, transcribeLong, WHISPER_FILES, PHRASES };

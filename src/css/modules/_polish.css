@@ -2330,3 +2330,39 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 .alyr-size .ui-seg-btn { flex: 1 1 0; }
 .alyr-text { width: 100%; box-sizing: border-box; min-height: 260px; max-height: calc(100vh - 300px); resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 5%, var(--menu-bg, #14161c)); color: var(--text); font: 13.5px/1.55 inherit; }
 .alyr-text[hidden] { display: none; }
+
+/* Letra sincronizada (live/lyricSyncEditor.js) */
+.lsy-box { width: min(980px, 96vw); max-height: calc(100vh - 24px); display: flex; flex-direction: column; }
+.lsy-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lsy-top .lsy-type[hidden] { display: none; }
+.lsy-state { flex: 1 1 200px; min-width: 0; font-size: 12px; color: var(--text-muted); }
+.lsy-tl { position: relative; height: 128px; flex: 0 0 auto; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, var(--menu-bg, #14161c)); cursor: pointer; touch-action: none; overflow: hidden; }
+.lsy-tl:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lsy-tl canvas { display: block; }
+.lsy-transport { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lsy-play { min-width: 48px; }
+.lsy-time { font-variant-numeric: tabular-nums; font-weight: 650; min-width: 72px; }
+.lsy-keys { flex: 1 1 220px; min-width: 0; font-size: 11.5px; color: var(--text-muted); }
+.lsy-list { flex: 1 1 auto; min-height: 120px; max-height: 36vh; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border); }
+.lsy-row { display: grid; grid-template-columns: 30px 64px minmax(0, 1fr) repeat(4, auto); align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); font-size: 13px; cursor: pointer; }
+.lsy-row:last-child { border-bottom: 0; }
+.lsy-row.is-sel { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.lsy-row.is-check { box-shadow: inset 3px 0 0 #f59e0b; }
+.lsy-row.is-check .lsy-t { color: #d97706; }
+.lsy-t { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.lsy-x { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lsy-x small { margin-right: 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.lsy-b { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 7px; min-width: 28px; height: 26px; padding: 0 7px; font: inherit; font-size: 12px; cursor: pointer; }
+.lsy-b:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+.lsy-empty { padding: 18px; margin: 0; color: var(--text-muted); font-size: 13px; }
+.lsy-pick { position: absolute; inset: 60px 24px auto; max-height: 60vh; overflow-y: auto; z-index: 3; display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 12px; background: linear-gradient(var(--menu-bg, #14161c), var(--menu-bg, #14161c)), var(--bg, #0b0d12); border: 1px solid var(--border); box-shadow: 0 18px 50px rgba(0,0,0,.5); }
+.lsy-pick b { margin-bottom: 6px; }
+.lsy-pick button { text-align: left; border: 0; background: transparent; color: var(--text); padding: 6px 8px; border-radius: 7px; font: inherit; font-size: 13px; cursor: pointer; }
+.lsy-pick button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.lsy-pick small { font-size: 10.5px; text-transform: uppercase; color: var(--text-muted); }
+.lsy-box { position: relative; }
+@media (max-width: 720px) {
+  .lsy-row { grid-template-columns: 26px 58px minmax(0, 1fr) auto auto; }
+  .lsy-row [data-row="here"], .lsy-row [data-row="del"] { display: none; }
+  .lsy-keys { display: none; }
+}

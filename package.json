@@ -64,6 +64,8 @@
       "servicePack.js",
       "multitrackImport.js",
       "whisperGuide.js",
+      "lyricsAlign.js",
+      "whisperWorker.js",
       "stemSeparator.js",
       "beatTracker.js",
       "chordModel.js",

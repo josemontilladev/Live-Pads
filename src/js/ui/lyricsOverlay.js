@@ -509,8 +509,9 @@ function lineTick() {
   }
   const type = getCurrentType();
   const ms = markersFor(song, type);
-  const key = [song.id, type, (current.html || '').length, ms.length && ms[ms.length - 1].t, Math.round(audio.duration || 0)].join('|');
-  if (lt.key !== key) { lt.key = key; lt.lines = lineTimes(cols, { song, markers: ms, dur: audio.duration || 0 }).lines; lt.active = -1; }
+  const sy = song.lyricSync && song.lyricSync[type === 'sequence' ? 'sequence' : 'original'];
+  const key = [song.id, type, (current.html || '').length, ms.length && ms[ms.length - 1].t, Math.round(audio.duration || 0), sy ? sy.at : 0].join('|');
+  if (lt.key !== key) { lt.key = key; lt.lines = lineTimes(cols, { song, markers: ms, dur: audio.duration || 0, type }).lines; lt.active = -1; }
   if (!lt.lines.length) return;
   const idx = lineAt(lt.lines, audio.currentTime || 0);
   if (idx === lt.active) return;

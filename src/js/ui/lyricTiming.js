@@ -1,15 +1,18 @@
 // ─────────────────────────────────────────────────────────────────────────
 // En qué segundo de la pista empieza cada línea de la letra (para que avance sola).
-//  · Tiempos tomados a mano («Sincronizar»), si los hay: exactos.
+//  · Letra sincronizada (live/lyricSyncStore.js: IA + ajuste a mano), si la hay: exacta,
+//    con cada repetición del coro en su sitio.
+//  · Tiempos tomados a mano con el antiguo «Sincronizar», si los hay.
 //  · Si no: cada sección de la letra se coloca en su sección del espectro (por nombre:
 //    «Coro», «Verso 2»…, y las repeticiones del coro con marcador propio también), y
 //    sus líneas se reparten por longitud dentro de la sección.
 //  · Sin secciones: se reparten por toda la canción (aproximado).
-// lineTimes(container, { song, markers, dur }) → { kind, lines: [{ el, start }] }
+// lineTimes(container, { song, markers, dur, type }) → { kind, lines: [{ el, start }] }
 // (Extraído del antiguo panel de letra en vivo; lo usan el panel «Letra» y la TV.)
 // ─────────────────────────────────────────────────────────────────────────
 
 import { detectSectionHeader } from './lyricsFormat.js';
+import { syncedLines } from '../live/lyricSyncStore.js';
 
 const SEC_PER_CHAR = 0.22;   // tope: una línea no «dura» más que cantarla despacio
 const TT_PREFIX = 'livepads-linetimes-';
@@ -33,8 +36,10 @@ function loadManual(song, count) {
   return null;
 }
 
-export function lineTimes(container, { song, markers, dur }) {
+export function lineTimes(container, { song, markers, dur, type }) {
   const lines = [];
+  const synced = syncedLines(container, song, type);
+  if (synced && synced.length) return { kind: 'synced', lines: synced };
   const distribute = (els, t0, t1) => {
     const w = els.map(lineWeight);
     const sum = w.reduce((a, b) => a + b, 0) || 1;

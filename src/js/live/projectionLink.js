@@ -3,6 +3,9 @@
 //   · Al cargar una canción, la abre en FreeShow, OpenLP o ProPresenter (por título).
 //   · Al cambiar de sección mientras suena (también con los saltos del mapa o del
 //     arreglo en vivo), pone esa sección en pantalla.
+//   · Con la LETRA SINCRONIZADA (live/lyricSyncStore.js) y OpenLP o ProPresenter: cambia
+//     DIAPOSITIVA A DIAPOSITIVA justo cuando empieza a cantarse (lee el texto de cada
+//     diapositiva del programa y lo casa con las líneas: projectionCore.planSlides).
 // APIs (verificadas en el código de cada programa):
 //   FreeShow  REST :5506  POST / { action: name_select_show | name_select_slide | next_slide | clear_slide, value }
 //   OpenLP 3  HTTP :4316  /api/v2/plugins/songs/search?text=  ·  POST /api/v2/plugins/songs/live {id}
@@ -13,7 +16,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { markersFor } from '../data/markers.js';
-import { groupName, openlpSlideIndex, bestTitle } from './projectionCore.js';
+import { groupName, openlpSlideIndex, bestTitle, planSlides } from './projectionCore.js';
+import { lyricLines, getLyricSync } from './lyricSyncStore.js';
 import { pushModal } from '../ui/modalStack.js';
 
 const KEY = 'livepads.projection';
@@ -73,6 +77,12 @@ function openlp(c) {
       if (i < 0) return { ok: false, notFound: true };
       return call('POST', '/api/v2/controller/show', { id: i });
     },
+    async slides() {
+      const r = await call('GET', '/api/v2/controller/live-items');
+      const sl = r.json && Array.isArray(r.json.slides) ? r.json.slides : [];
+      return sl.map((x) => ({ text: String(x.text || x.html || '') }));
+    },
+    goSlide: (i) => call('POST', '/api/v2/controller/show', { id: i }),
     next: () => call('POST', '/api/v2/controller/progress', { action: 'next' }),
     clear: () => call('POST', '/api/v2/core/display', { display: 'blank' }),
   };
@@ -102,6 +112,15 @@ function propresenter(c) {
       if (r.ok) return r;
       return get(`${target}/group/${encodeURIComponent(label)}/trigger`);   // grupo con el nombre en español
     },
+    async slides() {
+      if (!uuid) return [];
+      const r = await get(`/v1/presentation/${encodeURIComponent(uuid)}`);
+      const p = (r.json && (r.json.presentation || r.json)) || {};
+      const out = [];
+      for (const g of Array.isArray(p.groups) ? p.groups : []) for (const sl of Array.isArray(g.slides) ? g.slides : []) out.push({ text: String((sl && (sl.text || sl.label)) || '') });
+      return out;
+    },
+    goSlide: (i) => get(`/v1/presentation/${encodeURIComponent(uuid || 'active')}/${i}/trigger`),
     next: () => get('/v1/presentation/active/next/trigger'),
     clear: () => get('/v1/clear/layer/slide'),
   };
@@ -110,7 +129,8 @@ const CLIENTS = { freeshow, openlp, propresenter };
 const clientFor = (c) => (c.app && CLIENTS[c.app] ? CLIENTS[c.app](c) : null);
 
 // ── Seguir la canción en vivo ──────────────────────────────────────────────
-let cur = { song: null, type: '', audio: null, section: null }, client = null, timer = 0, lastErr = 0;
+let cur = { song: null, type: '', audio: null, section: null, plan: null, slide: -1 }, client = null, timer = 0, lastErr = 0;
+const SLIDE_LEAD = 0.4;    // la diapositiva entra un poco antes de que se cante (con su transición, ya se lee al empezar)
 export const projectionLog = [];   // últimas acciones (para la ventana y las pruebas)
 
 function note(what, r) {
@@ -133,11 +153,31 @@ function sectionAt(t) {
 function tick() {
   const c = getProjection();
   if (!client || !c.follow || !cur.audio || cur.audio.paused || !cur.song) return;
+  if (cur.plan && cur.plan.length) {
+    const t = (cur.audio.currentTime || 0) + SLIDE_LEAD;
+    let k = -1;
+    for (let i = 0; i < cur.plan.length && cur.plan[i].t <= t; i++) k = i;
+    const slide = k >= 0 ? cur.plan[k].slide : -1;
+    if (slide >= 0 && slide !== cur.slide) { cur.slide = slide; safe(`diapositiva ${slide + 1}`, () => client.goSlide(slide)); }
+    return;
+  }
   const s = sectionAt(cur.audio.currentTime || 0);
   const key = s ? `${s.t}|${s.label}` : null;
   if (key === cur.section) return;
   cur.section = key;
   if (s) safe(`sección ${s.label}`, () => client.goSection(s.label));
+}
+async function preparePlan(state) {
+  if (!client || !client.slides || !state.song) return;
+  const sync = getLyricSync(state.song, state.type);
+  if (!sync) { state.plan = null; return; }
+  const texts = lyricLines(state.song.lyrics).map((l) => l.text);
+  const slides = await client.slides();
+  if (state !== cur) return;
+  const plan = planSlides(slides, sync.ev.map((e) => ({ t: e[0], text: texts[e[1]] || '' })));
+  state.plan = plan.length >= 2 ? plan : null;
+  state.slide = -1;
+  projectionLog.push({ at: Date.now(), what: state.plan ? `plan: ${plan.length} cambios de diapositiva (${slides.length} diapositivas)` : 'sin plan por diapositiva (por secciones)', ok: true });
 }
 function restart() {
   const c = getProjection();
@@ -149,11 +189,16 @@ function restart() {
 export function initProjectionLink() {
   window.addEventListener('livepads:track-loaded', (e) => {
     const d = e.detail || {};
-    cur = { song: d.song || null, type: d.type || '', audio: d.audio || null, section: null };
+    cur = { song: d.song || null, type: d.type || '', audio: d.audio || null, section: null, plan: null, slide: -1 };
     const c = getProjection();
-    if (client && c.openSong && cur.song && cur.song.title) safe(`abrir ${cur.song.title}`, () => client.openSong(cur.song.title));
+    const mine = cur;
+    const opened = client && c.openSong && cur.song && cur.song.title ? client.openSong(cur.song.title) : Promise.resolve(null);
+    if (client && c.openSong && cur.song && cur.song.title) safe(`abrir ${cur.song.title}`, () => opened);
+    // Letra sincronizada + programa que deja leer sus diapositivas → diapositiva a diapositiva.
+    Promise.resolve(opened).catch(() => null).then(() => new Promise((r) => setTimeout(r, 450))).then(() => preparePlan(mine)).catch(() => {});
   });
-  window.addEventListener('livepads:track-cleared', () => { cur = { song: null, type: '', audio: null, section: null }; });
+  window.addEventListener('livepads:track-cleared', () => { cur = { song: null, type: '', audio: null, section: null, plan: null, slide: -1 }; });
+  window.addEventListener('livepads:songs-changed', (e) => { if (cur.song && (!e.detail || e.detail.songId === cur.song.id)) preparePlan(cur).catch(() => {}); });
   restart();
 }
 

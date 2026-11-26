@@ -21,26 +21,35 @@ async function readBuffer(ctx, url) {
   const arr = /^(livepads:|file:)/i.test(url) && window.electronAPI?.readAudioFile ? await window.electronAPI.readAudioFile(url) : await (await fetch(url)).arrayBuffer();
   return ctx.decodeAudioData(arr.slice ? arr.slice(0) : arr);
 }
-async function to16kMono(buf) {
+export async function to16kMono(buf) {
   const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * 16000)), 16000);
   const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
   return (await off.startRendering()).getChannelData(0);
 }
 
-async function vocalOf(song, step) {
+/**
+ * La voz de la canción en la pista `type` ('original' | 'sequence'), como AudioBuffer.
+ *  · original: la voz ya separada del original (stem «Voz (separada)») o se separa ahora.
+ *  · sequence: la voz del multitrack (stem de voz) o se separa de la secuencia.
+ * Lo que se separa se guarda como stem para la próxima vez.
+ */
+export async function vocalOf(song, step, type = 'original') {
   const api = window.electronAPI;
   const audio = song.audio || {};
   const ctx = new OfflineAudioContext(2, 1, 44100);
-  const stem = Array.isArray(audio.stems) ? audio.stems.find((x) => x && x.kind === 'vocals' && x.url) : null;
+  const stems = Array.isArray(audio.stems) ? audio.stems.filter((x) => x && x.kind === 'vocals' && x.url) : [];
+  const fromOriginal = (x) => x.from === 'original' || (!x.from && /(separada)/i.test(x.name || ''));
+  const stem = type === 'sequence' ? stems.find((x) => !fromOriginal(x)) : stems.find(fromOriginal);
   if (stem) {
     step(0.05, 'Cargando la voz de la canción…');
     try { return await readBuffer(ctx, stem.url); } catch (_) { /* si falla, se separa */ }
   }
-  if (!audio.original) throw new Error('Esta canción necesita el ORIGINAL (la grabación con la voz). Añádelo desde el menú de la canción: «Subir original» u «Original desde YouTube».');
+  const srcUrl = type === 'sequence' ? audio.sequence : audio.original;
+  if (!srcUrl) throw new Error(type === 'sequence' ? 'Esta canción no tiene secuencia cargada.' : 'Esta canción necesita el ORIGINAL (la grabación con la voz). Añádelo desde el menú de la canción: «Subir original» u «Original desde YouTube».');
   if (!api?.stemsSeparate) throw new Error('Esta versión no puede separar la voz.');
-  step(0.05, 'Cargando el original…');
-  const mix = await readBuffer(ctx, audio.original);
-  const off = api.onStemsSeparateProgress?.(({ fraction }) => step(0.05 + 0.4 * (fraction || 0), 'Separando la voz del original (solo la primera vez)…'));
+  step(0.05, type === 'sequence' ? 'Cargando la secuencia…' : 'Cargando el original…');
+  const mix = await readBuffer(ctx, srcUrl);
+  const off = api.onStemsSeparateProgress?.(({ fraction }) => step(0.05 + 0.4 * (fraction || 0), `Separando la voz ${type === 'sequence' ? 'de la secuencia' : 'del original'} (solo la primera vez)…`));
   let res;
   try {
     const ch0 = mix.getChannelData(0).slice(), ch1 = mix.numberOfChannels > 1 ? mix.getChannelData(1).slice() : ch0;
@@ -58,8 +67,10 @@ async function vocalOf(song, step) {
         const { encodeMp3Async } = await import('../audio/mp3Pool.js');
         const mp3 = await encodeMp3Async(buf.getChannelData(0), buf.numberOfChannels > 1 ? buf.getChannelData(1) : null, buf.sampleRate, 160);
         const { songSlug, attachStem } = await import('../stems/songStems.js');
-        const url = await api.saveSongStem({ buffer: mp3, songSlug: songSlug(song), name: 'Voz (separada)', ext: 'mp3' });
-        attachStem(song, { url, name: 'Voz (separada)', kind: 'vocals' });
+        const nm = type === 'sequence' ? 'Voz (separada de la secuencia)' : 'Voz (separada)';
+        const url = await api.saveSongStem({ buffer: mp3, songSlug: songSlug(song), name: nm, ext: 'mp3' });
+        const st = attachStem(song, { url, name: nm, kind: 'vocals' });
+        if (st) st.from = type === 'sequence' ? 'sequence' : 'original';
         api.saveGiSetlist?.(getSongs());
         window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id, stems: true } }));
       } catch (_) {}
@@ -81,7 +92,7 @@ export function openAutoLyrics(song) {
       <div class="vn-head"><b>Sacar la letra con IA</b><span>«${esc(song.title)}»: LivePads escucha la voz y escribe un borrador de la letra (en este equipo, sin internet). Revísalo antes de usarlo.</span></div>
       <div class="ui-seg alyr-size" role="group" aria-label="Precisión">
         <button type="button" class="ui-seg-btn" data-size="base" title="Rápido. Usa el reconocimiento de voz de 75 MB">Normal</button>
-        <button type="button" class="ui-seg-btn" data-size="small" title="Entiende mejor la voz cantada. La primera vez baja unos 240 MB y tarda más">Alta precisión</button>
+        <button type="button" class="ui-seg-btn" data-size="small" title="Entiende mejor la voz cantada. La primera vez baja unos 390 MB">Alta precisión</button>
       </div>
       <div class="mt-progress" data-ref="prog" hidden><div class="vs-bar"><i data-ref="bar"></i></div><small data-ref="step"></small></div>
       <textarea class="alyr-text" data-ref="text" spellcheck="true" hidden aria-label="Borrador de la letra"></textarea>

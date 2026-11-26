@@ -85,3 +85,32 @@ export function bestTitle(title, items, getName = (x) => x.name) {
   }
   return bestScore >= 30 ? best : null;
 }
+
+// ── Diapositiva a diapositiva con la letra sincronizada ─────────────────────
+// slides: [{ text }] de la presentación (en el orden del programa; un coro repetido puede
+// aparecer varias veces). events: [{ t, text }] de la letra sincronizada (en orden).
+// → [{ t, slide }]: en qué momento poner cada diapositiva (solo cuando cambia).
+const words = (s) => norm(String(s || '').replace(/<[^>]+>/g, ' ')).split(' ').filter((w) => w.length > 1);
+function lineInSlide(line, slideWords) {
+  const lw = words(line);
+  if (!lw.length || !slideWords.size) return 0;
+  return lw.filter((w) => slideWords.has(w)).length / lw.length;
+}
+export function planSlides(slides, events, { min = 0.6 } = {}) {
+  const sw = (Array.isArray(slides) ? slides : []).map((s) => new Set(words(s && s.text)));
+  const out = [];
+  let cur = -1;
+  for (const e of events || []) {
+    // Diapositivas que contienen la línea (las que más se parecen).
+    let best = 0;
+    const scores = sw.map((set) => { const v = lineInSlide(e.text, set); if (v > best) best = v; return v; });
+    if (best < min) continue;
+    const cands = scores.map((v, i) => (v >= best - 0.05 ? i : -1)).filter((i) => i >= 0);
+    // La actual si la línea está en ella; si no, la siguiente en el orden del programa (el
+    // coro que vuelve); si no hay más adelante, la primera (el programa no repite el coro).
+    let pick = cands.includes(cur) ? cur : cands.find((i) => i > cur);
+    if (pick == null) pick = cands[0];
+    if (pick !== cur) { out.push({ t: e.t, slide: pick }); cur = pick; }
+  }
+  return out;
+}

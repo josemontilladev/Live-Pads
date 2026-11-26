@@ -18,6 +18,7 @@ import { transposeAll } from './chordTransposer.js';
 import { keyDelta, prefersFlats } from '../utils/musicKeys.js';
 
 import { markersFor } from '../data/markers.js';
+import { syncedLines } from '../live/lyricSyncStore.js';
 import { getCurrentType as gctLyr } from '../audio/trackPlayer.js';
 const OPEN_KEY = 'livepads-livelyrics-open';
 const SIZE_KEY = 'livepads-livelyrics-size';
@@ -65,7 +66,7 @@ export function initLiveLyrics() {
         Canciones
       </button>
       <div class="ll-titles"><b class="ll-title">Letra</b><span class="ll-sub"></span><span class="ll-meta"></span></div>
-      <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="Enseña a la app cuándo empieza a cantarse cada línea: el karaoke queda exacto">
+      <button type="button" class="ll-btn ll-btn--sync" id="ll-sync" title="La IA pone cada línea de la letra en su momento exacto (y la retocas si hace falta)">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
         Sincronizar
       </button>
@@ -121,7 +122,11 @@ export function initLiveLyrics() {
   bodyEl.addEventListener('wheel', () => { userScrollUntil = Date.now() + 6000; }, { passive: true });
   bodyEl.addEventListener('pointerdown', () => { userScrollUntil = Date.now() + 6000; });
   bodyEl.addEventListener('click', onLineClick);
-  panel.querySelector('#ll-sync').onclick = () => (syncing ? stopSync(false) : startSync());
+  panel.querySelector('#ll-sync').onclick = () => {
+    if (syncing) { stopSync(false); return; }
+    const s = song || currentSong();
+    if (s) import('../live/lyricSyncEditor.js').then((m) => m.openLyricSync(s, { type: gctLyr() }));
+  };
   panel.querySelector('#ll-mark').onclick = markLine;
   panel.querySelector('#ll-undo').onclick = undoMark;
   panel.querySelector('#ll-sync-cancel').onclick = () => stopSync(false);
@@ -286,7 +291,16 @@ function rebuildTiming() {
   const total = lyricSecs.reduce((n, s) => n + s.els.length, 0);
   if (!total) { timingKind = 'none'; paintHint(); return; }
 
-  // 0) Tiempos tomados a mano: exactos.
+  // 0) Letra sincronizada (IA + ajuste a mano): exacta, con las repeticiones del coro.
+  const synced = syncedLines(bodyEl, song, gctLyr());
+  if (synced && synced.length) {
+    timingKind = 'synced';
+    lines = synced;
+    paintHint();
+    tickNow(true);
+    return;
+  }
+  // 0b) Tiempos tomados a mano con el «Sincronizar» antiguo.
   const allEls = lyricSecs.flatMap((s) => s.els);
   const manual = loadManual(allEls.length);
   if (manual) {
@@ -370,8 +384,9 @@ function distribute(els, t0, t1) {
 
 function paintHint() {
   const msg = {
+    synced: 'Letra sincronizada · cada línea entra en su momento. Toca una línea para saltar a ella.',
     manual: 'Letra sincronizada a mano · exacta. Toca una línea para saltar a ella.',
-    sections: 'Karaoke por secciones · el tiempo de cada línea es una estimación. Usa «Sincronizar» para dejarla exacta.',
+    sections: 'Karaoke por secciones · el tiempo de cada línea es una estimación. Pulsa «Sincronizar»: la IA la deja exacta.',
     whole: 'Karaoke aproximado: marca las secciones en la onda (Intro, Verso, Coro…) para afinarlo.',
     none: audio ? '' : 'Reproduce la Secuencia o el Original de la canción para seguir la letra mientras suena.',
   }[timingKind];

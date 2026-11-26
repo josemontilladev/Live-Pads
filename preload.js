@@ -122,6 +122,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   guideSectionsCancel: () => ipcRenderer.invoke('guide-sections-cancel'),
   lyricsTranscribe: (data) => ipcRenderer.invoke('lyrics-transcribe', data),
   lyricsTranscribeCancel: () => ipcRenderer.invoke('lyrics-transcribe-cancel'),
+  lyricsAlign: (data) => ipcRenderer.invoke('lyrics-align', data),
   onLyricsProgress: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('lyrics-progress', h); return () => ipcRenderer.removeListener('lyrics-progress', h); },
   onGuideProgress: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('guide-progress', h); return () => ipcRenderer.removeListener('guide-progress', h); },
   stemsListProjects: () => ipcRenderer.invoke('stems-list-projects'),

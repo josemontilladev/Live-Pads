@@ -2769,6 +2769,29 @@ ipcMain.handle('rpp-export-finish', (_e, { token, text, name } = {}) => {
   return file;
 });
 
+// ── Whisper en un hilo aparte (whisperWorker.js) ──
+// Los tres trabajos con Whisper (secciones de la guía, letra con IA, letra sincronizada)
+// corren fuera del proceso principal: la app sigue fluida y el audio no se resiente.
+function runWhisperWorker(kind, pcm, dir, opts, send, job) {
+  const { Worker } = require('worker_threads');
+  const worker = new Worker(path.join(__dirname, 'whisperWorker.js'), { workerData: { kind, pcm, dir, opts } });
+  job.worker = worker;
+  if (job.cancel) worker.postMessage({ type: 'cancel' });
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn, v) => { if (settled) return; settled = true; try { worker.terminate(); } catch (_) {} fn(v); };
+    worker.on('message', (m) => {
+      if (!m) return;
+      if (m.type === 'progress') send(m.frac, m.label);
+      else if (m.type === 'done') finish(resolve, m.result);
+      else if (m.type === 'error') finish(m.cancelled ? resolve : reject, m.cancelled ? null : new Error(m.error));
+    });
+    worker.on('error', (err) => finish(reject, err));
+    worker.on('exit', (code) => finish(code === 0 || job.cancel ? resolve : reject, code === 0 || job.cancel ? null : new Error(`Whisper se detuvo inesperadamente (código ${code}).`)));
+  });
+}
+const cancelWhisper = (job) => { if (!job) return; job.cancel = true; try { job.worker && job.worker.postMessage({ type: 'cancel' }); } catch (_) {} };
+
 // ── Secciones desde la pista guía (whisperGuide.js) ──
 // Recibe la guía en mono a 16 kHz; la primera vez baja Whisper (~75 MB). Progreso por 'guide-progress'.
 let guideJob = null;
@@ -2783,10 +2806,11 @@ ipcMain.handle('guide-sections', async (e, { pcm } = {}) => {
   try {
     const dir = await ensureModels(W.WHISPER_FILES, (f, label) => send(0.3 * f, label || 'Descargando el reconocimiento de voz…'));
     send(0.3, 'Escuchando la guía…');
-    return await W.transcribeRegions(samples, dir, { onProgress: (f) => send(0.3 + 0.7 * f, 'Escuchando la guía…'), shouldCancel: () => job.cancel });
+    const r = await runWhisperWorker('sections', samples, dir, {}, (f) => send(0.3 + 0.7 * (f || 0), 'Escuchando la guía…'), job);
+    return Array.isArray(r) ? r : [];
   } finally { guideJob = null; }
 });
-ipcMain.handle('guide-sections-cancel', () => { if (guideJob) guideJob.cancel = true; return true; });
+ipcMain.handle('guide-sections-cancel', () => { cancelWhisper(guideJob); return true; });
 
 // ── Letra automática: transcribir la voz cantada (whisperGuide.transcribeLong) ──
 let lyricsJob = null;
@@ -2796,17 +2820,36 @@ ipcMain.handle('lyrics-transcribe', async (e, { pcm, size = 'base', lang = null 
   if (samples.length < 16000) return { segments: [] };
   const sz = size === 'small' ? 'small' : 'base';
   const send = (frac, label) => { try { e.sender.send('lyrics-progress', { frac, label }); } catch (_) {} };
-  const W = require('./whisperGuide');
   lyricsJob = { cancel: false };
   const job = lyricsJob;
   try {
-    const files = [`whisper_${sz}_encoder_q8.onnx`, `whisper_${sz}_decoder_q8.onnx`, 'whisper_vocab.json'];
+    const files = [`whisper_${sz}_encoder_q8.onnx`, `whisper_${sz}_decoder_q8.onnx`, `whisper_${sz}_decoder_past_q8.onnx`, 'whisper_vocab.json'];
     const dir = await ensureModels(files, (f, label) => send(0.2 * f, label || 'Descargando el reconocimiento de voz…'));
     send(0.2, 'Escuchando la letra…');
-    return await W.transcribeLong(samples, dir, { size: sz, lang, onProgress: (f) => send(0.2 + 0.8 * f, 'Escuchando la letra…'), shouldCancel: () => job.cancel });
+    const r = await runWhisperWorker('transcribe', samples, dir, { size: sz, lang }, (f) => send(0.2 + 0.8 * (f || 0), 'Escuchando la letra…'), job);
+    return r || { segments: [] };
   } finally { lyricsJob = null; }
 });
-ipcMain.handle('lyrics-transcribe-cancel', () => { if (lyricsJob) lyricsJob.cancel = true; return true; });
+ipcMain.handle('lyrics-transcribe-cancel', () => { cancelWhisper(lyricsJob); return true; });
+
+// ── Letra sincronizada: cuándo suena cada línea de la letra (lyricsAlign.js) ──
+ipcMain.handle('lyrics-align', async (e, { pcm, lines, size = 'small', lang = null } = {}) => {
+  if (lyricsJob) throw new Error('Ya se está trabajando con otra letra.');
+  const samples = pcm instanceof Float32Array ? pcm : new Float32Array(pcm || []);
+  const list = Array.isArray(lines) ? lines.filter((l) => l && typeof l.text === 'string').map((l) => ({ text: l.text, sec: l.sec | 0, secStart: !!l.secStart })) : [];
+  if (samples.length < 16000 || !list.length) return { events: [] };
+  const send = (frac, label) => { try { e.sender.send('lyrics-progress', { frac, label }); } catch (_) {} };
+  const sz = size === 'base' ? 'base' : 'small';
+  lyricsJob = { cancel: false };
+  const job = lyricsJob;
+  try {
+    // Transcribe con `sz` (small: entiende mejor la voz cantada) y ajusta con base.
+    const files = [...new Set([`whisper_${sz}_encoder_q8.onnx`, `whisper_${sz}_decoder_q8.onnx`, `whisper_${sz}_decoder_past_q8.onnx`, 'whisper_base_encoder_q8.onnx', 'whisper_base_decoder_q8.onnx', 'whisper_vocab.json'])];
+    const dir = await ensureModels(files, (f, label) => send(0.1 * f, label || 'Descargando el reconocimiento de voz…'));
+    const r = await runWhisperWorker('align', samples, dir, { lines: list, size: sz, lang }, (f, label) => send(0.1 + 0.9 * (f || 0), label || 'Escuchando la letra…'), job);
+    return { lang: r && r.lang, events: (r && r.events) || [], cancelled: job.cancel };
+  } finally { lyricsJob = null; }
+});
 
 // ── Consumo (barra superior): CPU de todo el equipo, memoria de LivePads ──
 let sysCpuPrev = null;
@@ -2897,9 +2940,12 @@ const MODEL_FILES = {
   // Whisper base (OpenAI, MIT; ONNX de onnx-community, cuantizado): secciones desde la pista guía.
   'whisper_base_encoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/encoder_model_quantized.onnx', size: 23201314, sha256: '5862993336bf33acd23736071aae2b32261d3b1b2f37780194460d4ef974dd46' },
   'whisper_base_decoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/decoder_model_quantized.onnx', size: 53310178, sha256: 'c859636f4463dd5a9ea752546c6c7badeb48ab3e22b340cafef08a15552fcb2e' },
+  // Decodificador con caché: transcribir es ~4 veces más rápido (cada ficha nueva no repite la frase).
+  'whisper_base_decoder_past_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/onnx/decoder_with_past_model_quantized.onnx', size: 50075136, sha256: 'dd0d9ff1c066992aa8db6ff1944b5fd5660e95ecbbc86e0da158300c23e52232' },
   'whisper_vocab.json':           { url: 'https://huggingface.co/onnx-community/whisper-base/resolve/27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c/vocab.json', size: 1036584, sha256: '50d6a919f0a0601d56a04eb583c780d18553aa388254ba3158eb6a00f13e2c1a' },
   // Whisper small (más preciso, para sacar la letra cantada; opcional).
   'whisper_small_encoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/onnx/encoder_model_quantized.onnx', size: 92326160, sha256: 'a43a83f3c5361cd591cfa7c36f14b43cf7cb22f47a415cc14a8d557be800fa92' },
+  'whisper_small_decoder_past_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/onnx/decoder_with_past_model_quantized.onnx', size: 141652708, sha256: 'f1eb4ac7fe2b3aeed93a8de8f478af45b8fcef7302491ffcf9c84f33f71b3e7b' },
   'whisper_small_decoder_q8.onnx': { url: 'https://huggingface.co/onnx-community/whisper-small/resolve/36050c46d777d46dc4b5f43f6d90574fc38f8732/onnx/decoder_model_quantized.onnx', size: 155989346, sha256: '0486afa8eb464bf2210d07aca0cb3f5d91d3f2f01cbe47f9f1e6ff9122abaaf6' },
   'btc_chords_voca.onnx':       { url: `${MODEL_OWN}/btc_chords_voca.onnx`,       size: 13038363, sha256: 'd0738965a2cbd5c9ab88735fa74dd62a0ec534d6172a34e5447357e6e144bb7d' },
 };
