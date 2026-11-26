@@ -7,6 +7,7 @@
 // equipo, por canción del servicio (serviceId).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { esc } from '../utils/dom.js';
 import { getTrackAudio, getCurrentSong } from '../audio/trackPlayer.js';
 import { getServiceSongs, getActiveServiceIndex } from '../data/service.js';
@@ -71,8 +72,8 @@ async function jump(link, vol) {
 
 export function initMedley(d) {
   deps = { ...deps, ...d };
-  clearInterval(timer);
-  timer = setInterval(tick, 100);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 100);
 }
 
 /** Ventana: unir esta canción del servicio con la siguiente. */

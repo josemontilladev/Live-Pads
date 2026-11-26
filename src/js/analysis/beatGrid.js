@@ -13,6 +13,7 @@
 // rejilla lo sigue.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isPlaying } from '../audio/playClock.js';
 import { uploadForAnalysis, forgetUpload } from './analysisAudio.js';
 
 const LS = 'livepads.beats.v2.';
@@ -53,8 +54,8 @@ export async function analyzeBeats(buffer, key) {
   if (key && inflight.has(key)) return inflight.get(key);
   const job = (async () => {
     try {
-      let r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer) });
-      if (r && r.missing) { forgetUpload(buffer); r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer) }); }
+      let r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer), quiet: isPlaying() });
+      if (r && r.missing) { forgetUpload(buffer); r = await window.electronAPI.analyzeBeats({ token: await uploadForAnalysis(buffer), quiet: isPlaying() }); }
       if (!r || r.unavailable || !Array.isArray(r.beats) || r.beats.length < 8) return null;
       return key ? save(key, r) : r;
     } catch (e) {

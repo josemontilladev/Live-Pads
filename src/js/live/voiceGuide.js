@@ -7,6 +7,7 @@
 // Preferencias: «livepads-countin-voice» (sí por defecto) y «livepads.voiceGuide» (no por defecto).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { markersFor } from '../data/markers.js';
 import { numberFile, sectionFile, nextCue } from './voiceCuesCore.js';
 import { guideStatsFast, guideWordsAsync } from './guideCues.js';
@@ -196,8 +197,8 @@ export function initVoiceGuide(d) {
     ownGuide = null; ownWords = null; ownWordsP = null; said = new Set(); lastT = 0;
   });
   window.addEventListener('livepads:track-cleared', () => { audio = null; song = null; });
-  clearInterval(timer);
-  timer = setInterval(tick, 100);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 100);
   // Interruptores en Opciones del metrónomo.
   const bind = (id, key, def) => {
     const cb = document.getElementById(id);

@@ -170,13 +170,66 @@ function trig() {
   return TRIG;
 }
 
+// ── Potencia por bin de una ventana: FFT de base mixta (400 = 2⁴·5²) ──
+// Antes era una DFT directa (201 × 400 multiplicaciones por cuadro): ~10 s por canción de
+// 5 min. La FFT da lo mismo (salvo redondeo en el último decimal) con ~11 veces menos cuentas.
+let FFT = null;
+function fftPlan() {
+  if (FFT) return FFT;
+  const n = N_FFT, fac = [];
+  for (let m = n, p = 2; m > 1;) { if (m % p === 0) { fac.push(p); m /= p; } else p++; }
+  const wr = new Float64Array(n), wi = new Float64Array(n);
+  for (let e = 0; e < n; e++) { wr[e] = Math.cos((2 * Math.PI * e) / n); wi[e] = -Math.sin((2 * Math.PI * e) / n); }
+  // Un búfer por nivel de la recursión (sin crear arrays en cada cuadro).
+  const lv = fac.map(() => ({ re: new Float64Array(n), im: new Float64Array(n) }));
+  FFT = { n, fac, wr, wi, lv, outRe: new Float64Array(n), outIm: new Float64Array(n), tr: new Float64Array(8), ti: new Float64Array(8) };
+  return FFT;
+}
+// Decimación en el tiempo recursiva: x (real, con paso) → out[o .. o+len).
+function fftRec(x, off, stride, len, d, outRe, outIm, o) {
+  const P = FFT;
+  if (len === 1) { outRe[o] = x[off]; outIm[o] = 0; return; }
+  const r = P.fac[d], m = len / r, tw = P.n / len;
+  for (let q = 0; q < r; q++) fftRec(x, off + q * stride, stride * r, m, d + 1, outRe, outIm, o + q * m);
+  const L = P.lv[d], tr = P.tr, ti = P.ti;
+  for (let k = 0; k < m; k++) {
+    for (let q = 0; q < r; q++) { tr[q] = outRe[o + q * m + k]; ti[q] = outIm[o + q * m + k]; }
+    for (let sI = 0; sI < r; sI++) {
+      const kk = k + sI * m;
+      let ar = 0, ai = 0;
+      for (let q = 0; q < r; q++) {
+        const e = ((q * kk) % len) * tw, c = P.wr[e], sn = P.wi[e];
+        ar += tr[q] * c - ti[q] * sn; ai += tr[q] * sn + ti[q] * c;
+      }
+      L.re[kk] = ar; L.im[kk] = ai;
+    }
+  }
+  for (let k = 0; k < len; k++) { outRe[o + k] = L.re[k]; outIm[o + k] = L.im[k]; }
+}
+function framePower(frame, power) {
+  const P = fftPlan();
+  fftRec(frame, 0, 1, P.n, 0, P.outRe, P.outIm, 0);
+  for (let k = 0; k < power.length; k++) power[k] = P.outRe[k] * P.outRe[k] + P.outIm[k] * P.outIm[k];
+}
+// Banco mel disperso: por banda, solo los bins con peso.
+let SPF = null;
+function melSparse() {
+  if (SPF) return SPF;
+  const F = melFilters(), nBins = N_FFT / 2 + 1;
+  const off = new Int32Array(N_MELS + 1), k = [], w = [];
+  for (let m = 0; m < N_MELS; m++) { off[m] = k.length; for (let b = 0; b < nBins; b++) { const v = F[m * nBins + b]; if (v) { k.push(b); w.push(v); } } }
+  off[N_MELS] = k.length;
+  SPF = { off, k: Int32Array.from(k), w: Float32Array.from(w) };
+  return SPF;
+}
+
 /** Espectrograma log-mel de Whisper para (hasta) 30 s de audio a 16 kHz → Float32Array [80 × 3000]. */
 function logMel(pcm) {
   const x = new Float32Array(N_SAMPLES);
   x.set(pcm.subarray(0, Math.min(pcm.length, N_SAMPLES)));
   const used = Math.min(N_FRAMES, Math.ceil(Math.min(pcm.length, N_SAMPLES) / HOP) + 3);
   const { cos, sin, win } = trig();
-  const F = melFilters();
+  const F = melFilters(), SP = melSparse();
   const nBins = N_FFT / 2 + 1;
   const mel = new Float32Array(N_MELS * N_FRAMES).fill(-10);   // log10(1e-10): lo que es silencio de relleno
   const frame = new Float32Array(N_FFT), power = new Float32Array(nBins);
@@ -185,16 +238,10 @@ function logMel(pcm) {
   for (let f = 0; f < used; f++) {
     const o = f * HOP;
     for (let n = 0; n < N_FFT; n++) frame[n] = at(o + n) * win[n];
-    for (let k = 0; k < nBins; k++) {
-      let re = 0, im = 0;
-      const b = k * N_FFT;
-      for (let n = 0; n < N_FFT; n++) { re += frame[n] * cos[b + n]; im -= frame[n] * sin[b + n]; }
-      power[k] = re * re + im * im;
-    }
+    framePower(frame, power);
     for (let m = 0; m < N_MELS; m++) {
       let s = 0;
-      const b = m * nBins;
-      for (let k = 0; k < nBins; k++) s += F[b + k] * power[k];
+      for (let j = SP.off[m], e = SP.off[m + 1]; j < e; j++) s += SP.w[j] * power[SP.k[j]];
       mel[m * N_FRAMES + f] = Math.log10(Math.max(s, 1e-10));
     }
   }
@@ -211,7 +258,7 @@ function logMel(pcm) {
 function melFull(pcm) {
   const n = Math.ceil(pcm.length / HOP) + 1;
   const { cos, sin, win } = trig();
-  const F = melFilters();
+  const F = melFilters(), SP = melSparse();
   const nBins = N_FFT / 2 + 1;
   const data = new Float32Array(N_MELS * n);
   const frame = new Float32Array(N_FFT), power = new Float32Array(nBins);
@@ -220,16 +267,10 @@ function melFull(pcm) {
   for (let f = 0; f < n; f++) {
     const o = f * HOP;
     for (let k = 0; k < N_FFT; k++) frame[k] = at(o + k) * win[k];
-    for (let k = 0; k < nBins; k++) {
-      let re = 0, im = 0;
-      const b = k * N_FFT;
-      for (let q = 0; q < N_FFT; q++) { re += frame[q] * cos[b + q]; im -= frame[q] * sin[b + q]; }
-      power[k] = re * re + im * im;
-    }
+    framePower(frame, power);
     for (let m = 0; m < N_MELS; m++) {
       let s = 0;
-      const b = m * nBins;
-      for (let k = 0; k < nBins; k++) s += F[b + k] * power[k];
+      for (let j = SP.off[m], e = SP.off[m + 1]; j < e; j++) s += SP.w[j] * power[SP.k[j]];
       data[m * n + f] = Math.log10(Math.max(s, 1e-10));
     }
   }
@@ -320,7 +361,7 @@ async function load(dir, size = 'base') {
   const key = dir + '|' + size;
   if (cacheBy.has(key)) return cacheBy.get(key);
   const ort = require('onnxruntime-node');
-  const opts = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', intraOpNumThreads: threadCount(), interOpNumThreads: 1 };
+  const opts = { executionProviders: ['cpu'], graphOptimizationLevel: 'all', intraOpNumThreads: threadCount(), interOpNumThreads: 1, enableCpuMemArena: false };   // sin la reserva de ONNX: ~280 MB menos, mismo tiempo
   const enc = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_encoder_q8.onnx`), opts);
   const dec = await ort.InferenceSession.create(path.join(dir, `whisper_${size}_decoder_q8.onnx`), opts);
   // Decodificador con caché (opcional): para transcribir, cada ficha nueva cuesta ~17 ms en

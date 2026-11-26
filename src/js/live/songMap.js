@@ -8,6 +8,7 @@
 // manda ese; después el mapa se vuelve a situar.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { markersFor } from '../data/markers.js';
 import { sectionsOf, locate, nextStep, cleanArrangements } from './songMapCore.js';
 import { registerMapJumpProvider, getLivePendingJump } from './arrange.js';
@@ -71,11 +72,12 @@ export function initSongMap() {
   });
   window.addEventListener('livepads:track-cleared', () => { audio = null; song = null; ai = -1; });
   window.addEventListener('livepads:song-map', () => { ai = -1; ended = false; });
-  clearInterval(timer);
-  timer = setInterval(() => {
+  // Cada 5 ms (los saltos del mapa caen a tiempo), pero solo sonando y con un mapa activo.
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(() => {
     if (audio && !audio.paused && (audio.currentTime || 0) < 1) ended = false;   // vuelta a empezar
     tick();
-  }, 5);
+  }, 5, { when: () => !!(song && song.arrangements && song.arrangements.active) });
 }
 
 export const currentMapSong = () => song;

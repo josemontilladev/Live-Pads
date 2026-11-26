@@ -5,6 +5,7 @@
 // Una regla para «Coro» vale para «Coro 2»… Guardado en este equipo: «livepads.clickSections».
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { esc } from '../utils/dom.js';
 import { markersFor } from '../data/markers.js';
 import { CLICK_MODES, sectionAt, ruleFor, modeToClick, baseLabel } from './clickSectionsCore.js';
@@ -45,8 +46,8 @@ export function initClickSections(d) {
   deps = { ...deps, ...d };
   window.addEventListener('livepads:track-loaded', (e) => { audio = e.detail && e.detail.audio; song = e.detail && e.detail.song; type = (e.detail && e.detail.type) || ''; clear(); });
   window.addEventListener('livepads:track-cleared', () => { audio = null; song = null; clear(); });
-  clearInterval(timer);
-  timer = setInterval(tick, 120);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 120);
 }
 
 // ── Ventana ──────────────────────────────────────────────────────────────

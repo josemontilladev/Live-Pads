@@ -11,6 +11,7 @@
 // Programas 1-128 (como los muestran los teclados); se envían 0-127.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { getSongs, getActiveSongId } from '../state/store.js';
 
 import { markersFor } from '../data/markers.js';
@@ -107,7 +108,7 @@ export function initMidiOut() {
   window.addEventListener('livepads:song-state', onSongState);
   window.addEventListener('livepads:track-loaded', (e) => { audio = e.detail && e.detail.audio; trackType = (e.detail && e.detail.type) || ''; lastSection = null; });
   window.addEventListener('livepads:track-cleared', () => { audio = null; lastSection = null; });
-  clearInterval(timer);
-  timer = setInterval(tick, 150);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 150);
   onSongState();
 }

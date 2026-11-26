@@ -14,7 +14,7 @@
 'use strict';
 
 const SR = 22050, N_FFT = 1024, HOP = 441, N_MELS = 128, F_MIN = 30, F_MAX = 11000, FPS = 50;
-const CHUNK = 1500, BORDER = 6;
+const CHUNK = 1500, BORDER = 6;   // medido: con 750 va un 25 % más rápido pero cambian 8–18 % de los compases
 
 // ── Banco de filtros mel (torchaudio.functional.melscale_fbanks, slaney, norm=None) ──
 function hzToMel(f) {
@@ -73,10 +73,17 @@ function fft(re, im) {
 }
 
 /** Log-mel de Beat This! → Float32Array [frames * 128] (fila = fotograma). */
+let SP = null;   // banco de filtros en forma dispersa (por bin: bandas y pesos)
 function logMel(x) {
   fftSetup();
   const fb = melBank();
   const nF = N_FFT / 2 + 1, pad = N_FFT / 2;
+  if (!SP) {
+    const off = new Int32Array(nF + 1), m = [], w = [];
+    for (let k = 0; k < nF; k++) { off[k] = m.length; for (let b = 0; b < N_MELS; b++) { const v = fb[k * N_MELS + b]; if (v) { m.push(b); w.push(v); } } }
+    off[nF] = m.length;
+    SP = { off, m: Int32Array.from(m), w: Float64Array.from(w) };
+  }
   const win = new Float64Array(N_FFT);
   for (let i = 0; i < N_FFT; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N_FFT);
   // normalized="frame_length" de torchaudio: divide por √(longitud de ventana).
@@ -93,11 +100,12 @@ function logMel(x) {
     fft(re, im);
     for (let k = 0; k < nF; k++) mag[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]) * norm;
     const o = f * N_MELS;
+    // Solo los pesos distintos de cero del banco (cada bin cae en 1-2 bandas): el
+    // resultado es el mismo y no se recorren ~130 000 ceros por cuadro.
     for (let k = 0; k < nF; k++) {
       const v = mag[k];
       if (!v) continue;
-      const row = k * N_MELS;
-      for (let m = 0; m < N_MELS; m++) { const w = fb[row + m]; if (w) out[o + m] += v * w; }
+      for (let j = SP.off[k], e = SP.off[k + 1]; j < e; j++) out[o + SP.m[j]] += v * SP.w[j];
     }
     for (let m = 0; m < N_MELS; m++) out[o + m] = Math.log1p(1000 * out[o + m]);
   }
@@ -169,17 +177,23 @@ let cached = null;   // { path, ep, session }
 // Hilos del motor: por defecto ONNX usa TODOS los núcleos y, con acordes y pulso
 // a la vez, la app entera iba lenta mientras analizaba. La mitad basta y deja
 // el resto para la interfaz y el audio.
-const ORT_THREADS = Math.max(1, Math.floor((require('os').cpus().length || 2) / 2));
-const ortOptions = (p) => ({ executionProviders: [p], intraOpNumThreads: ORT_THREADS, interOpNumThreads: 1 });
-async function getSession(modelPath, preferred) {
+// Pulsos y acordes se analizan a la vez: entre los dos dejan siempre 2 núcleos libres para el
+// audio y la interfaz (antes cada uno cogía la mitad y juntos llenaban el procesador).
+// Y como mucho 4 hilos: medido, de 4 a 14 hilos solo gana ~10 % (33 s → 29 s en 5 min de audio).
+const ORT_THREADS = Math.max(1, Math.min(4, Math.floor(((require('os').cpus().length || 4) - 2) / 2)));
+// Sin la reserva de memoria de ONNX (arena): el pico baja de ~1,5 GB a ~200 MB y tarda lo mismo.
+const ortOptions = (p, threads) => ({ executionProviders: [p], intraOpNumThreads: threads || ORT_THREADS, interOpNumThreads: 1, enableCpuMemArena: false });
+async function getSession(modelPath, preferred, threads) {
   const ort = require('onnxruntime-node');
-  if (cached && cached.path === modelPath) return { ort, session: cached.session, ep: cached.ep };
-  const order = preferred === 'cpu' ? ['cpu'] : ['dml', 'cpu'];
+  if (cached && cached.path === modelPath && cached.threads === (threads || 0)) return { ort, session: cached.session, ep: cached.ep };
+  // CPU primero: medido con una canción de 5 min, DirectML en una gráfica integrada tardaba más
+  // (35 s frente a 30 s) y ocupaba 1,9 GB. La gráfica queda libre para la interfaz.
+  const order = preferred === 'dml' ? ['dml', 'cpu'] : ['cpu'];
   let lastErr;
   for (const ep of order) {
     try {
-      const session = await ort.InferenceSession.create(modelPath, ortOptions(ep));
-      cached = { path: modelPath, ep, session };
+      const session = await ort.InferenceSession.create(modelPath, ortOptions(ep, threads));
+      cached = { path: modelPath, ep, session, threads: threads || 0 };
       return { ort, session, ep };
     } catch (e) { lastErr = e; }
   }
@@ -190,8 +204,8 @@ async function getSession(modelPath, preferred) {
  * @param {Float32Array} mono  audio mono a 22 050 Hz
  * @returns {Promise<{beats:number[], downbeats:number[], bpm:number, beatsPerBar:number, ep:string}>}
  */
-async function trackBeats(mono, modelPath, { ep: preferred, onProgress } = {}) {
-  const { ort, session, ep } = await getSession(modelPath, preferred);
+async function trackBeats(mono, modelPath, { ep: preferred, onProgress, threads } = {}) {
+  const { ort, session, ep } = await getSession(modelPath, preferred, threads);
   const { data, frames } = logMel(mono);
   const { beat, down } = await predictLogits(session, ort, data, frames, onProgress);
   const { beats, downbeats } = postprocess(beat, down);

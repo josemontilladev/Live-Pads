@@ -169,6 +169,7 @@ export class PitchAudio extends EventTarget {
       this._stop();
       this._start();
     }
+    this.dispatchEvent(new Event('seeked'));   // como un <audio>: lo que sigue a la pista se pone al día
   }
 
   get volume() { return this._volume; }

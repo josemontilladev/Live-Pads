@@ -86,7 +86,8 @@ async function createSession(modelPath, preferred) {
   let lastErr;
   for (const ep of order) {
     try {
-      const session = await ort.InferenceSession.create(modelPath, { executionProviders: [ep] });
+      // En CPU deja 2 núcleos libres: separando, la app sigue sonando y respondiendo.
+      const session = await ort.InferenceSession.create(modelPath, { executionProviders: [ep], enableCpuMemArena: false, ...(ep === 'cpu' ? { intraOpNumThreads: Math.max(1, (require('os').cpus().length || 4) - 2), interOpNumThreads: 1 } : {}) });
       return { session, ep };
     } catch (e) { lastErr = e; }
   }

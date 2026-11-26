@@ -383,6 +383,7 @@ function startLoop() {
 }
 
 let lastCur = -1; let lastJumpSig = '';
+let lastPx = -1;
 function tick(force) {
   if (!audio || !duration) return;
   const t = Math.min(duration, audio.currentTime || 0);
@@ -392,8 +393,17 @@ function tick(force) {
   // clip-path (los mueve la tarjeta gráfica): con left/width la página se volvía a
   // maquetar 60 veces por segundo, en pleno directo.
   followPlayhead(t);
-  playheadEl.style.transform = `translateX(${(t / duration) * (stageW || stage.clientWidth)}px)`;
-  playedClip.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  // Solo se escribe cuando el cabezal cambia de píxel: con la canción entera a la vista
+  // avanza unos pocos píxeles por segundo, y repintar 60 veces por segundo lo mismo
+  // gastaba tarjeta gráfica para nada.
+  const w = stageW || stage.clientWidth;
+  const dpr = window.devicePixelRatio || 1;
+  const px = Math.round((t / duration) * w * dpr) / dpr;
+  if (force || px !== lastPx) {
+    lastPx = px;
+    playheadEl.style.transform = `translateX(${px}px)`;
+    playedClip.style.clipPath = `inset(0 ${w ? 100 - (px / w) * 100 : 100 - pct}% 0 0)`;
+  }
   laneTick(t);
   // Contador de repeticiones («Coro 2/3»): se sigue en cada frame para no perder un salto.
   const ms = sortedMarkers();

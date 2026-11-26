@@ -8,6 +8,7 @@
 // Companion con «?escenario» (TV, tablet, portátil o móvil).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 import { getEffectiveKey, peekNextServiceSong, getServiceSongs } from '../data/service.js';
 import { cacheGet, trackChordId } from '../chords/trackChords.js';
@@ -77,6 +78,7 @@ function tick() {
 }
 
 export function initStagePublish() {
-  clearInterval(timer);
-  timer = setInterval(() => { if (!document.hidden) tick(); }, 400);
+  if (typeof timer === 'function') timer();
+  // Sonando: 400 ms (sección, compás…). Parado: lo que cambie (canción, tono) en ≤ 1 s.
+  timer = whilePlaying(() => { if (!document.hidden) tick(); }, 400, { idleMs: 1000 });
 }

@@ -3131,13 +3131,18 @@ function runAnalysisWorker(workerData) {
   });
   return { worker, promise };
 }
+let beatQueue = Promise.resolve();
 ipcMain.handle('analysis-beats', async (_e, args = {}) => {
   const modelPath = modelOrFetchLater('beat_this_final0.onnx');
   if (!modelPath) return { unavailable: true };
   const { mono, missing } = analysisMono(args);
   if (missing) return { missing: true };
   if (!mono || !mono.length) throw new Error('Audio vacío');
-  const r = await runAnalysisWorker({ task: 'beats', mono, modelPath }).promise;
+  // Con la pista sonando (quiet), 2 hilos: tarda algo más pero no le quita procesador al audio.
+  // De uno en uno: cambiando de canción deprisa se juntaban varios análisis (y varios GB).
+  const run = beatQueue.then(() => runAnalysisWorker({ task: 'beats', mono, modelPath, threads: args.quiet ? 2 : 0 }).promise);
+  beatQueue = run.catch(() => {});
+  const r = await run;
   if (r && r.error) throw new Error(r.error);
   return r;
 });
@@ -3167,7 +3172,7 @@ ipcMain.handle('analysis-chords', async (_e, args = {}) => {
   // Tonalidad y acordes de la letra (si los hay): el modelo los prefiere.
   const key = args.key && Number.isFinite(args.key.k) ? { k: args.key.k | 0, m: !!args.key.m } : null;
   const vocab = Array.isArray(args.vocab) ? args.vocab.slice(0, 48).map((v) => ({ r: v.r | 0, m: !!v.m })) : null;
-  const job = runAnalysisWorker({ task: 'chords', mono, modelPath, key, vocab });
+  const job = runAnalysisWorker({ task: 'chords', mono, modelPath, key, vocab, threads: args.quiet ? 2 : 0 });
   job.promise = job.promise.then((r) => {
     if (chordJob === job) chordJob = null;
     return r && Array.isArray(r.seg) ? { seg: r.seg, ep: r.ep, prior: r.prior } : r;

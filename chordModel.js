@@ -112,18 +112,21 @@ let ort = null;
 // Hilos del motor: por defecto ONNX usa TODOS los núcleos y, con acordes y pulso
 // a la vez, la app entera iba lenta mientras analizaba. La mitad basta y deja
 // el resto para la interfaz y el audio.
-const ORT_THREADS = Math.max(1, Math.floor((require('os').cpus().length || 2) / 2));
-const ortOptions = (p) => ({ executionProviders: [p], intraOpNumThreads: ORT_THREADS, interOpNumThreads: 1 });
+// Pulsos y acordes se analizan a la vez: entre los dos dejan siempre 2 núcleos libres para el
+// audio y la interfaz (antes cada uno cogía la mitad y juntos llenaban el procesador).
+// Y como mucho 4 hilos: medido, de 4 a 14 hilos solo gana ~10 % (33 s → 29 s en 5 min de audio).
+const ORT_THREADS = Math.max(1, Math.min(4, Math.floor(((require('os').cpus().length || 4) - 2) / 2)));
+const ortOptions = (p, threads) => ({ executionProviders: [p], intraOpNumThreads: threads || ORT_THREADS, interOpNumThreads: 1, enableCpuMemArena: false });
 const sessions = new Map();
-async function session(modelPath, ep) {
-  const key = modelPath + '|' + (ep || '');
+async function session(modelPath, ep, threads) {
+  const key = modelPath + '|' + (ep || '') + '|' + (threads || 0);
   if (sessions.has(key)) return sessions.get(key);
   if (!ort) ort = require('onnxruntime-node');
-  const order = ep === 'cpu' ? ['cpu'] : ['dml', 'cpu'];
+  const order = ep === 'dml' ? ['dml', 'cpu'] : ['cpu'];   // CPU primero: más rápido y ligero que DirectML en gráficas integradas (medido)
   let last;
   for (const p of order) {
     try {
-      const s = { s: await ort.InferenceSession.create(modelPath, ortOptions(p)), ep: p };
+      const s = { s: await ort.InferenceSession.create(modelPath, ortOptions(p, threads)), ep: p };
       sessions.set(key, s);
       return s;
     } catch (e) { last = e; }
@@ -132,8 +135,8 @@ async function session(modelPath, ep) {
 }
 
 /** Logits del modelo por cuadro: [frames × clases]. Normaliza con mean/std del entrenamiento. */
-async function chordLogits(feat, frames, modelPath, { mean, std, ep } = {}) {
-  const { s, ep: used } = await session(modelPath, ep);
+async function chordLogits(feat, frames, modelPath, { mean, std, ep, threads } = {}) {
+  const { s, ep: used } = await session(modelPath, ep, threads);
   const nWin = Math.ceil(frames / STEPS);
   let classes = 0, out = null;
   const buf = new Float32Array(STEPS * BINS);
@@ -247,7 +250,7 @@ function pathToSegments(path, duration) {
 /** Todo junto: mono 22 050 Hz → tramos de acordes. */
 async function detectChords(mono, modelPath, opts = {}) {
   const { feat, frames } = logCqt(mono);
-  const { logits, classes, ep } = await chordLogits(feat, frames, modelPath, { mean: VOCA.mean, std: VOCA.std, ep: opts.ep });
+  const { logits, classes, ep } = await chordLogits(feat, frames, modelPath, { mean: VOCA.mean, std: VOCA.std, ep: opts.ep, threads: opts.threads });
   const prior = buildPrior(classes, opts);
   const path = smoothPath(logits, frames, classes, opts.pen != null ? opts.pen : PEN, prior);
   return { seg: pathToSegments(path, mono.length / SR), ep, prior: prior ? (opts.vocab && opts.vocab.length ? 'letra' : 'tono') : '' };

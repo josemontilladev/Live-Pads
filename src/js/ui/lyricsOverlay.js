@@ -11,6 +11,7 @@
 // Con «Seguir canción» cambia sola a la canción que suena.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { closeAllLyrics } from './songState.js';
 import { isBandFollowing, toggleBandFollow } from '../live/bandFollow.js';
 import { pushModal } from './modalStack.js';
@@ -422,8 +423,8 @@ export function initLyricsOverlay() {
     });
   });
   window.electronAPI?.lyricsWindowSetFollow?.(prefs.follow);
-  setInterval(lineTick, 150);
-  setInterval(nextTick, 400);
+  whilePlaying(lineTick, 150);
+  whilePlaying(nextTick, 400, { idleMs: 1500 });
 }
 
 

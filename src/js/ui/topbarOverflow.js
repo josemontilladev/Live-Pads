@@ -47,7 +47,20 @@ function doLayout() {
   const inner = top.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
   const half = (inner - visW(logo)) / 2 - (parseFloat(cs.columnGap) || 0);
   const fits = () => Math.max(sideWidth(left), sideWidth(right)) <= half;
+  // Se mide UNA vez y se calcula cuántas herramientas sobran (antes se volvía a medir
+  // toda la cabecera tras esconder cada una: hasta 9 recálculos de página seguidos).
+  const L = sideWidth(left);
+  let R = sideWidth(right);
+  if (Math.max(L, R) <= half) return;
+  const gap = parseFloat(getComputedStyle(actions).columnGap) || 0;
+  const ws = btns.map((b) => (b.offsetParent ? b.getBoundingClientRect().width + gap : 0));
+  const moreW = (ws.find((w) => w > 0) || 36);
   let n = 0;
+  R += moreW;
+  while (n < btns.length && Math.max(L, R) > half) { R -= ws[n]; n++; }
+  for (let i = 0; i < n; i++) btns[i].classList.add('tb-over');
+  more.hidden = n === 0;
+  // Comprobación final con la medida real (por si el cálculo se quedó corto).
   while (!fits() && n < btns.length) {
     btns[n].classList.add('tb-over');
     more.hidden = false;

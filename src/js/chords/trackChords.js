@@ -5,6 +5,7 @@
 // localStorage, así abrir el panel o encender la franja después es instantáneo.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isPlaying } from '../audio/playClock.js';
 import { CHORD_SR } from './chordEngine.js';
 import { analyzeInWorker } from './chordWorker.js';
 import { uploadForAnalysis, forgetUpload } from '../analysis/analysisAudio.js';
@@ -244,7 +245,7 @@ export function refineChords(id, buffer, song = null, type = '', analysisBuffer 
     if (ctx) ctx.sig += src;
     if (!base || isRefined(base, ctx ? ctx.sig : null)) return null;
     const input = analysisBuffer || buffer;
-    const args = () => ({ key: ctx && ctx.key, vocab: ctx && ctx.vocab });
+    const args = () => ({ key: ctx && ctx.key, vocab: ctx && ctx.vocab, quiet: isPlaying() });   // sonando la pista: 2 hilos
     let r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(input), ...args() });
     if (r && r.missing) { forgetUpload(input); r = await window.electronAPI.analyzeChordsModel({ token: await uploadForAnalysis(input), ...args() }); }
     if (!r || !Array.isArray(r.seg) || !r.seg.length) {

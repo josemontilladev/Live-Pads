@@ -13,6 +13,7 @@
 // volumen y mezcla de cada ritmo: kit, volumen y silencio de sus pistas).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { esc } from '../utils/dom.js';
 import { pushModal } from '../ui/modalStack.js';
 import { closeButton } from '../ui/components.js';
@@ -660,7 +661,7 @@ function initFollow() {
     paintFollow();
   });
   window.addEventListener('livepads:track-cleared', () => { stopFollow(); fol.audio = null; fol.song = null; paintFollow(); });
-  setInterval(followTick, 80);
+  whilePlaying(followTick, 80);
   paintFollow();
 }
 

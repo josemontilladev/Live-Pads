@@ -6,6 +6,7 @@
 // Interruptor «Sigue acordes» junto a Mayor/Menor.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 import { cacheGet, trackChordId } from '../chords/trackChords.js';
 import { chordAtTime } from './padFollowCore.js';
@@ -62,6 +63,6 @@ export function initPadFollow(d) {
   window.addEventListener('livepads:track-loaded', () => { segsFor = null; lastSig = ''; });
   window.addEventListener('livepads:chords-ready', () => { segsFor = null; });
   paintBtn();
-  clearInterval(timer);
-  timer = setInterval(tick, 100);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 100);
 }

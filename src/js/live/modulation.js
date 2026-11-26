@@ -6,6 +6,7 @@
 // atrás (o empezar de nuevo) vuelve al tono normal. Se guarda en este equipo.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { whilePlaying } from '../audio/playClock.js';
 import { esc } from '../utils/dom.js';
 import { setLiveKeyOffset, getLiveKeyOffset, getCurrentSong, getTrackAudio } from '../audio/trackPlayer.js';
 import { sendCue } from './directorCues.js';
@@ -42,8 +43,8 @@ function tick() {
   if (t < mod.at - 3) announced = false;
 }
 export function initModulation() {
-  clearInterval(timer);
-  timer = setInterval(tick, 120);
+  if (typeof timer === 'function') timer();
+  timer = whilePlaying(tick, 120);
 }
 
 /** Ventana para marcar la modulación de una canción. */

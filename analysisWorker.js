@@ -11,11 +11,11 @@ const { parentPort, workerData } = require('worker_threads');
 
 (async () => {
   try {
-    const { task, mono, modelPath, key, vocab } = workerData;
+    const { task, mono, modelPath, key, vocab, threads } = workerData;
     let result;
     // key / vocab: preferencia por la tonalidad o por los acordes de la letra.
-    if (task === 'chords') result = await require('./chordModel').detectChords(mono, modelPath, { key, vocab });
-    else if (task === 'beats') result = await require('./beatTracker').trackBeats(mono, modelPath, {});
+    if (task === 'chords') result = await require('./chordModel').detectChords(mono, modelPath, { key, vocab, threads });
+    else if (task === 'beats') result = await require('./beatTracker').trackBeats(mono, modelPath, { threads });
     else throw new Error('Tarea desconocida: ' + task);
     parentPort.postMessage({ type: 'done', result });
   } catch (e) {
