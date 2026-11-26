@@ -2169,9 +2169,12 @@ body:has(.dc-pal) .tb-pill { display: none; }
    conserva su fondo claro (antes tomaba el gris de los botones normales con el texto oscuro: ilegible). */
 .vn-btn--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--flat-paper, var(--text)) 86%, var(--accent)); color: var(--flat-ink-lo, var(--bg-card, #0a0a14)); }
 
-/* ── Consumo en la barra superior (ui/sysStats.js): discreto, en una línea ── */
-.sys-stats { display: inline-flex; align-items: center; gap: 12px; height: 26px; padding: 0 10px; margin-right: 10px; border-radius: 999px;
-  border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, transparent); -webkit-app-region: no-drag; cursor: default; }
+/* ── Consumo en la barra superior (ui/sysStats.js) ──
+   Ancha (≥ 1700 px): las tres lecturas en línea. Más estrecha: un botón con un punto del color
+   de la peor lectura; al pulsarlo, el detalle se despliega debajo (no ocupa sitio en la cabecera). */
+.sys-stats { position: relative; display: inline-flex; align-items: center; -webkit-app-region: no-drag; }
+.sys-meters { display: inline-flex; align-items: center; gap: 12px; height: 26px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, transparent); cursor: default; }
 .sys-m { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
 .sys-l { font-weight: 700; letter-spacing: .04em; font-size: 9.5px; }
 .sys-bar { width: 34px; height: 4px; border-radius: 99px; background: color-mix(in srgb, var(--text) 12%, transparent); overflow: hidden; }
@@ -2182,8 +2185,21 @@ body:has(.dc-pal) .tb-pill { display: none; }
 .sys-m.is-bad .sys-bar i { background: #ef4444; }
 .sys-m.is-bad .sys-v { color: color-mix(in srgb, #ef4444 75%, var(--text)); }
 .sys-m.is-warn .sys-v { color: color-mix(in srgb, #f59e0b 75%, var(--text)); }
-@media (max-width: 1500px) { .sys-bar { display: none; } .sys-stats { gap: 9px; } }
-@media (max-width: 1380px) { .sys-stats { display: none; } }
+.sys-sum { display: none; position: relative; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text-muted); align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.sys-sum:hover { color: var(--text); }
+.sys-dot { position: absolute; right: 5px; bottom: 5px; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 2px var(--bg-card); }
+.sys-sum.is-warn .sys-dot { background: #f59e0b; }
+.sys-sum.is-bad .sys-dot { background: #ef4444; }
+@media (max-width: 1699px) {
+  .sys-sum { display: inline-flex; }
+  .sys-meters { display: none; position: absolute; top: calc(100% + 8px); left: 0; z-index: 3000; height: auto; padding: 10px 12px; border-radius: 12px;
+    flex-direction: column; align-items: stretch; gap: 8px; background: linear-gradient(var(--menu-bg, var(--bg-card)), var(--menu-bg, var(--bg-card))), var(--bg, #0b0d12); backdrop-filter: blur(14px); box-shadow: 0 12px 32px rgba(0,0,0,.4); }
+  .sys-stats.is-open .sys-meters { display: flex; }
+  .sys-meters .sys-m { justify-content: space-between; gap: 8px; font-size: 11.5px; }
+  .sys-meters .sys-l { min-width: 38px; }
+  .sys-meters .sys-bar { width: 70px; }
+}
 body.live-mode .sys-stats { display: none; }
 
 /* ── Subida por lotes (stems/batchUpload.js) y marcas en «Mis carpetas» ── */
@@ -2243,3 +2259,11 @@ body.live-mode .sys-stats { display: none; }
 #workspace-stems .stems-setlist:not(.collapsed) { width: var(--stems-side-w); }
 #workspace-stems .stems-setlist:not(.collapsed) > :not(.ssl-rail):not(#stems-setlist-collapse) { min-width: calc(var(--stems-side-w) - 26px); }
 #workspace-stems .stems-library { --stl-w: var(--stems-side-w); }
+
+/* Cabecera en tres columnas (izquierda · logo · derecha): el logo queda en el centro exacto
+   mientras haya sitio y, si no, se desplaza — nunca se monta sobre la cuenta ni los botones
+   (las columnas no bajan de lo que mide su contenido). */
+#topbar { display: grid; grid-template-columns: 1fr auto 1fr; column-gap: 12px; }
+#topbar .topbar-left, #topbar .topbar-right { min-width: max-content; }
+#topbar .topbar-center { flex: none; }
+#topbar .topbar-logo { margin: 0 8px; }
