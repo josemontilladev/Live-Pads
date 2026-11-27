@@ -2432,3 +2432,32 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 :root[data-theme="clean"] .lyrics-modal-panel .format-tool-btn.chord-btn { color: var(--text) !important; border-color: color-mix(in srgb, var(--text) 25%, transparent) !important; background: transparent !important; }
 :root[data-theme="clean"] .lyrics-modal-panel :is(.cancel-btn, .lyrics-cancel-btn, .close-text-btn) { color: var(--text) !important; }
 :root[data-theme="clean"] :is(.stems-newsong-modal, #lp-boost) .gi-edit-btn.cancel { color: var(--text) !important; border-color: color-mix(in srgb, var(--text) 25%, transparent) !important; }
+
+/* Letra vacía: el texto de ayuda se ajusta (con letra, sin ajuste para que los acordes
+   queden en su columna). Antes el cuadro vacío se desplazaba en horizontal. */
+.gi-edit-lyrics:placeholder-shown { white-space: pre-wrap; overflow-x: hidden; }
+
+/* Paneles flotantes (señales al equipo, ministración): nunca más altos que la ventana. */
+.dc-pal { max-height: calc(100vh - 16px); overflow-y: auto; }
+
+/* Tema claro: textos con blanco fijo dentro de las ventanas (sobre su fondo claro). */
+:root[data-theme="clean"] :is(.mtm-panel, .tun-panel, .lyp-panel, .chd-panel, .sp-panel, .cfl-panel, .dialog-box,
+    .spm-box, .pf-panel, .mp-panel, .cp-panel, .acc-panel, .stems-modal-card, .stems-assign-modal, .stems-cloud-panel,
+    .stb-modal, .stt-modal, .pr-modal, .modal-content, .lrp-box, .pk-panel, #lp-boost) :is(h1, h2, h3, h4) { color: var(--text) !important; }
+:root[data-theme="clean"] :is(.spm-title, .spm-row-title, .lrp-label, .pk-title) { color: var(--text) !important; }
+:root[data-theme="clean"] :is(.spm-section-label, .spm-row-kit) { color: var(--text-muted, #5b6472) !important; }
+:root[data-theme="clean"] .spm-row { border-color: color-mix(in srgb, var(--text) 12%, transparent) !important; }
+:root[data-theme="clean"] .spm-close { background: color-mix(in srgb, var(--text) 8%, transparent) !important; color: var(--text) !important; }
+:root[data-theme="clean"] #mappings-overlay .mp-clear-all:not(:hover) { color: #b91c1c !important; }
+:root[data-theme="clean"] #preflight-overlay .pf-summary.is-warn { color: #92400e !important; }
+
+/* Biblioteca de stems (subir packs, armar canción…): por encima de la cabecera, como las
+   demás ventanas (antes la cabecera tapaba su borde de arriba). */
+.stb-overlay { z-index: 8000 !important; }
+/* Selector de sonido: etiqueta de sección legible en el tema oscuro. */
+.spm-section-label { color: var(--text-muted, rgba(255,255,255,.62)) !important; }
+:root[data-theme="clean"] .spm-badge { color: #075985 !important; background: rgba(14, 165, 233, .14) !important; }
+:root[data-theme="clean"] :is(.setlists-modal h3, .setlists-head h3) { color: var(--text) !important; }
+/* Letra a pantalla completa: la ayuda del pie en una píldora (no se mezcla con la última línea). */
+.lyr-hint { background: color-mix(in srgb, var(--bg, #000) 82%, transparent); padding: 4px 12px; border-radius: 999px; width: max-content; max-width: calc(100% - 32px); margin-inline: auto; }
+:root[data-theme="clean"] .lyp-next b { color: #92400e !important; }   /* «Después se canta»: ámbar oscuro legible sobre claro */

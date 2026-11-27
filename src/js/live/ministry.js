@@ -72,8 +72,11 @@ export function toggleMinistryPanel(anchor) {
     <div class="mi-actions"><button type="button" class="vn-btn" data-act="close">Cerrar</button><button type="button" class="vn-btn vn-btn--primary" data-act="go">Empezar</button></div>`;
   document.body.appendChild(panel);
   const r = anchor.getBoundingClientRect();
-  panel.style.top = Math.min(window.innerHeight - panel.offsetHeight - 8, r.bottom + 8) + 'px';
-  panel.style.left = Math.max(8, Math.min(window.innerWidth - panel.offsetWidth - 8, r.right - panel.offsetWidth)) + 'px';
+  const place = () => {
+    panel.style.top = Math.max(8, Math.min(window.innerHeight - panel.offsetHeight - 8, r.bottom + 8)) + 'px';
+    panel.style.left = Math.max(8, Math.min(window.innerWidth - panel.offsetWidth - 8, r.right - panel.offsetWidth)) + 'px';
+  };
+  place(); requestAnimationFrame(place);   // otra vez ya pintado (la altura final cambia al cargar las fuentes)
   panel.addEventListener('click', (e) => {
     const pr = e.target.closest('[data-prog]');
     if (pr) {

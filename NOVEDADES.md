@@ -1,4 +1,7 @@
-• Editor de letra: «✦ Formatear» a la vista, junto a «[ ] Acorde». Marca las secciones (Verso, Coro…) y pone los acordes entre [ ] sin tocar la letra. Atajos: Ctrl+[ acorde · Ctrl+Shift+F formatear · Ctrl+Shift+R reparar · Alt+1…8 insertar sección · Alt+↑/↓ transponer (la lista, en Herramientas → Atajos de teclado).
-• Espectro: «Más → Ocultar secciones» deja la onda limpia (las secciones siguen funcionando). Clic derecho en una sección → «Cambiar a» con los nombres a un clic (Intro, Verso 1, Coro, Puente…).
-• Menús más compactos en toda la app: filas más bajas y la explicación en una línea (entera al pasar el ratón).
-• Nueva canción: los botones de multitrack ya no se salen del cuadro. Tema claro: corregidos textos blancos sobre fondo claro en «Nueva canción» y en el editor de letra.
+• Secciones automáticas más limpias: si la letra sincronizada oye el principio de un verso dos o tres veces antes del verso entero, queda una sola sección (antes salían «Verso 1» repetidos). Las repeticiones de verdad (un puente cantado dos veces) se mantienen.
+• Repaso de todas las ventanas, menús y paneles a 1920, 1366 y 1024 px en los dos temas:
+  – La Biblioteca de stems (subir packs, armar canción…) ya no queda tapada por la cabecera.
+  – Ministración y Señales al equipo no se salen por abajo en pantallas bajas.
+  – Tema claro: títulos y textos legibles en «Sonidos del pad», «Cambiar la letra», «Mapeos MIDI», «Pre-vuelo», «Setlists» y el piano.
+  – Letra a pantalla completa: la ayuda del pie ya no se mezcla con la última línea.
+  – «Nueva canción»: el cuadro de letra vacío ya no se desplaza de lado.

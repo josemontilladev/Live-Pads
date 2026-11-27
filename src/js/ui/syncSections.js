@@ -111,10 +111,15 @@ export function sectionsFromSync(lines, ev, { grid = null, dur = Infinity, novel
     for (const o of occ) if (o.sec === sec && o.firstI === secFirst.get(sec) && o.lastI === secLast.get(sec)) d = Math.max(d, o.last - o.first + lineDur);
     return d;
   };
+  for (const o of occ) o.runFirst = o.first;
   for (let k = 0; k + 1 < occ.length; k++) {
     const p = occ[k], o = occ[k + 1];
-    if (p.sec === o.sec && !o.split && p.lastI < secLast.get(p.sec) && o.first - p.first < 0.6 * fullDur(p.sec)) {
-      p.last = o.last; p.lastI = o.lastI; p.n += o.n; p.sure += o.sure; occ.splice(k + 1, 1); k--;
+    // También si el último tramo oído fue corto (menos de media sección) y el canto vuelve a
+    // empezar enseguida: «Adiós al ayer… / Adiós al ayer…» antes del verso entero. Un puente que
+    // se repite tras cantar buena parte NO se junta (es una repetición de verdad).
+    const shortRestart = p.last - p.runFirst < 0.5 * fullDur(p.sec) && o.first - p.last < 2 * lineDur;
+    if (p.sec === o.sec && !o.split && p.lastI < secLast.get(p.sec) && (o.first - p.first < 0.6 * fullDur(p.sec) || shortRestart)) {
+      p.last = o.last; p.lastI = o.lastI; p.n += o.n; p.sure += o.sure; p.runFirst = o.first; occ.splice(k + 1, 1); k--;
     }
   }
   if (occ.length < 2) return [];

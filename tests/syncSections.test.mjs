@@ -43,3 +43,11 @@ test('sin rejilla usa los tiempos de la letra; con poco no inventa', () => {
   assert.equal(r[1].label, 'Verso 1'); assert.ok(Math.abs(r[1].t - 9.9) < 0.01);
   assert.deepEqual(sectionsFromSync(lines, [[3, 0]], { grid, dur: 50 }), []);
 });
+
+test('arranques a medias del mismo verso (la IA oyó el principio dos veces) = una sola sección', () => {
+  // Verso 1: «0,1,2» a 13,6 s, vuelve a «0,1» a 20,9 s y entero a 26,4 s; luego el coro.
+  const ev = [[13.6, 0], [15.8, 1], [18.8, 2], [20.9, 0], [22.5, 1], [26.4, 0], [28.6, 1], [31.5, 2], [35.3, 3], ...run(41.7, 4), ...run(64.8, 8)];
+  const r = sectionsFromSync(lines, ev, { grid, dur: 90 });
+  assert.deepEqual(r.filter((m) => m.label === 'Verso 1').length, 1);
+  assert.equal(r.find((m) => m.label === 'Verso 1').t, 14);
+});

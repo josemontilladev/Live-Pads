@@ -108,7 +108,8 @@ export function toggleCuePalette(anchor) {
     <label class="dc-voice"><input type="checkbox" ${voiceOn() ? 'checked' : ''}> Decirlas en voz por los auriculares (por la salida del click)</label>`;
   document.body.appendChild(pal);
   const r = anchor.getBoundingClientRect();
-  pal.style.top = (r.bottom + 8) + 'px';
+  // Si no cabe debajo del botón, sube lo justo (en pantallas bajas no se sale por abajo).
+  pal.style.top = Math.max(8, Math.min(window.innerHeight - pal.offsetHeight - 8, r.bottom + 8)) + 'px';
   pal.style.left = Math.max(8, Math.min(window.innerWidth - pal.offsetWidth - 8, r.right - pal.offsetWidth)) + 'px';
   pal.addEventListener('click', (e) => {
     if (e.target.closest('[data-trans]')) { import('./keyTransition.js').then((m) => { m.playTransition(); closePalette(); }); return; }
