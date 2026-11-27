@@ -68,6 +68,14 @@ function phraseNodes(ctx, input, ph, { offset = 0, from = -Infinity, semis = 0 }
   }
   env.gain.setValueAtTime(0, T(start));
   env.gain.linearRampToValueAtTime(1, T(start + 0.045));
+  // Cada sílaba nueva dentro de la frase: una pequeña bajada (sin cortar) para que se note el
+  // ritmo de la melodía aunque la nota se repita.
+  for (const n of ph) {
+    if (n === ph[0] || n.s - 0.03 <= start + 0.05 || n.s + 0.07 >= end - 0.08) continue;
+    env.gain.setValueAtTime(1, T(n.s - 0.03));
+    env.gain.linearRampToValueAtTime(0.7, T(n.s));
+    env.gain.linearRampToValueAtTime(1, T(n.s + 0.07));
+  }
   env.gain.setValueAtTime(1, T(Math.max(start + 0.05, end - 0.08)));
   env.gain.linearRampToValueAtTime(0, T(end + 0.02));
   for (const o of oscs) { o.start(T(start)); o.stop(T(end + 0.05)); }
@@ -84,7 +92,8 @@ export async function renderSynthVoices(voices, dur, { semis = 0 } = {}) {
   voices.forEach((notes, vi) => {
     const g = ctx.createGain(); g.connect(merger, 0, vi);
     const input = voiceBus(ctx, g);
-    for (const ph of phrases(notes)) phraseNodes(ctx, input, ph, { semis });
+    const sv = Array.isArray(semis) ? semis[vi] || 0 : semis;
+    for (const ph of phrases(notes)) phraseNodes(ctx, input, ph, { semis: sv });
   });
   const out = await ctx.startRendering();
   return voices.map((_, vi) => {
@@ -99,7 +108,7 @@ export async function renderSynthVoices(voices, dur, { semis = 0 } = {}) {
  * cada frase poco antes de que llegue). Una salida (GainNode) por voz para el volumen.
  *   const ch = createLiveChoir(ctx, ['lead', 'v2', 'v3']);
  *   ch.outputs.v2.connect(ctx.destination);
- *   ch.play(songTime, getNotes(id), semis) · ch.stop()
+ *   ch.play(songTime, getNotes(id), semis) · ch.stop()   (semis: número o { id: semitonos })
  */
 export function createLiveChoir(ctx, ids) {
   const outputs = {}, inputs = {};
@@ -114,7 +123,8 @@ export function createLiveChoir(ctx, ids) {
       let i = state.next[id];
       while (i < list.length && list[i][0].s < songNow + LOOK) {
         const ph = list[i];
-        if (ph[ph.length - 1].e > state.from) live.push(...phraseNodes(ctx, inputs[id], ph, { offset: state.offset, from: state.from, semis: state.semis }));
+        const semis = typeof state.semis === 'object' ? state.semis[id] || 0 : state.semis;
+        if (ph[ph.length - 1].e > state.from) live.push(...phraseNodes(ctx, inputs[id], ph, { offset: state.offset, from: state.from, semis }));
         i++;
       }
       state.next[id] = i;
@@ -180,26 +190,22 @@ export function buildRealVoice(vocal, lead, harm, shifted) {
 export async function realVoicesFast(vocal, lead, voices, shiftFn, onProgress) {
   const sr = vocal.sampleRate, ch = Math.min(2, vocal.numberOfChannels), PAD = Math.round(0.25 * sr), fade = Math.round(0.015 * sr);
   const outs = voices.map(() => new AudioBuffer({ length: vocal.length, numberOfChannels: ch, sampleRate: sr }));
-  // Trozos por intervalo: [{ a, b }] de la voz (nota ± margen), con qué voz y nota.
   const byShift = new Map();
-  voices.forEach((list, vi) => list.forEach((h, i) => {
-    if (!h || h.off || !lead[i]) return;
-    const s = h.m - lead[i].m;
-    if (Math.abs(s) > 12) return;
-    const a = Math.max(0, Math.round((lead[i].s - 0.04) * sr)), b = Math.min(vocal.length, Math.round((lead[i].e + 0.05) * sr));
-    if (b <= a) return;
-    if (!byShift.has(s)) byShift.set(s, []);
-    byShift.get(s).push({ a, b, vi });
-  }));
+  for (const [vi, list] of voices.entries()) for (const g of realSegments(lead, list, sr, vocal.length, fade)) {
+    if (!byShift.has(g.s)) byShift.set(g.s, []);
+    byShift.get(g.s).push({ ...g, vi });
+  }
   const shifts = [...byShift.keys()];
-  // Mezcla un trozo (con fundidos) en la voz de salida.
-  const put = (vi, src, srcOff, a, b) => {
+  // Mezcla un trozo en la voz de salida. Los fundidos de entrada y salida coinciden con el
+  // solape del trozo vecino (fundido cruzado que suma 1): sin huecos ni subidas de volumen.
+  const put = (vi, src, srcOff, g) => {
+    const { a, b, fi, fo } = g;
     for (let c = 0; c < ch; c++) {
       const s = src.getChannelData(Math.min(c, src.numberOfChannels - 1)), d = outs[vi].getChannelData(c);
       for (let k = a; k < b; k++) {
         const j = srcOff + (k - a);
         if (j < 0 || j >= s.length) continue;
-        const w = Math.min(1, (k - a) / fade, (b - k) / fade);
+        const w = Math.min(1, (k - a + 0.5) / fi, (b - k - 0.5) / fo);
         d[k] += s[j] * w;
       }
     }
@@ -207,7 +213,7 @@ export async function realVoicesFast(vocal, lead, voices, shiftFn, onProgress) {
   for (let si = 0; si < shifts.length; si++) {
     const s = shifts[si];
     const segs = byShift.get(s).slice().sort((x, y) => x.a - y.a);
-    if (s === 0) { for (const g of segs) put(g.vi, vocal, g.a, g.a, g.b); continue; }
+    if (s === 0) { for (const g of segs) put(g.vi, vocal, g.a, g); continue; }
     // Regiones (trozos que se tocan o están cerca se unen) → búfer compacto con márgenes.
     const regions = [];
     for (const g of segs) {
@@ -224,11 +230,38 @@ export async function realVoicesFast(vocal, lead, voices, shiftFn, onProgress) {
     const shifted = await shiftFn(compact, s, { onProgress: (p) => onProgress && onProgress((si + p) / shifts.length, si + 1, shifts.length) });
     for (const g of segs) {
       const r = regions.find((x) => x.ca <= g.a && g.b <= x.cb);
-      if (r) put(g.vi, shifted, r.off + (g.a - r.ca), g.a, g.b);
+      if (r) put(g.vi, shifted, r.off + (g.a - r.ca), g);
     }
     if (onProgress) onProgress((si + 1) / shifts.length, si + 1, shifts.length);
   }
   return { v2: outs[0], v3: outs[1] };
+}
+
+/**
+ * Trozos de la voz real para una voz armonizada, en orden: cada nota (± margen para las
+ * consonantes) con su intervalo. Las notas seguidas con el mismo intervalo forman un solo
+ * trozo; entre trozos que se tocan, fi/fo = muestras del fundido cruzado (el solape).
+ * → [{ a, b, s, fi, fo }] (muestras)
+ */
+export function realSegments(lead, list, sr, len, fade = Math.round(0.015 * sr)) {
+  const segs = [];
+  list.forEach((h, i) => {
+    if (!h || h.off || !lead[i]) return;
+    const s = h.m - lead[i].m;
+    if (Math.abs(s) > 12) return;
+    const a = Math.max(0, Math.round((lead[i].s - 0.04) * sr)), b = Math.min(len, Math.round((lead[i].e + 0.05) * sr));
+    if (b <= a) return;
+    const p = segs[segs.length - 1];
+    if (p && p.s === s && a <= p.b) p.b = Math.max(p.b, b);
+    else segs.push({ a, b, s });
+  });
+  for (let i = 0; i < segs.length; i++) {
+    const p = segs[i - 1], g = segs[i], n = segs[i + 1];
+    g.fi = p && p.b > g.a ? Math.min(p.b - g.a, g.b - g.a) : fade;
+    g.fo = n && g.b > n.a ? Math.min(g.b - n.a, g.b - g.a) : fade;
+    g.fi = Math.max(1, g.fi); g.fo = Math.max(1, g.fo);
+  }
+  return segs;
 }
 
 /** Semitonos distintos que hacen falta (armonía − melodía) para la voz real. */

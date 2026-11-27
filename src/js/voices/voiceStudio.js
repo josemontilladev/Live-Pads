@@ -21,7 +21,7 @@ import { markersFor } from '../data/markers.js';
 import { keyTonic } from '../utils/chordNumbers.js';
 import { CHORD_QUALITIES, chordName } from '../chords/chordEngine.js';
 import { analyzeBufferCached, trackChordId } from '../chords/trackChords.js';
-import { harmonize, noteName, STYLES, chordsWithPcs } from './harmonyCore.js';
+import { harmonize, fitToKey, noteName, STYLES, chordsWithPcs } from './harmonyCore.js';
 import { partsToMidi, partsToMusicXML } from './melodyExportCore.js';
 import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { renderSynthVoices, realVoicesFast, createLiveChoir } from './voiceSynth.js';
@@ -38,8 +38,9 @@ const CH = [
 ];
 const VOICE_IDS = ['lead', 'v2', 'v3'];
 const LISTEN = ['lead', 'v2', 'v3', 'mix', 'vocal'];   // orden de la barra «Escuchar» (teclas 1-5)
-// Versión del detector de melodía: 2 = ya no corta las notas largas (finales con reverberación).
-const MELODY_ALG = 2;
+// Versión del detector de melodía: 2 = ya no corta las notas largas (finales con reverberación);
+// 3 = fraseo ligado como el original (sin microcortes entre sílabas).
+const MELODY_ALG = 3;
 const hasEdits = (ed) => !!ed && Object.values(ed).some((st) => st && Object.values(st).some((v) => v && Object.keys(v).length));
 const WINDOW_SEC = 8, HEAD = 0.3;
 
@@ -100,6 +101,7 @@ function build(song, label) {
         <div class="vs-mixer">${CH.map((c) => `
           <div class="vs-ch" data-ch="${c.id}" style="--c:${c.color}">
             <button type="button" class="vs-ch-on" data-act="toggle" aria-pressed="${c.on}" title="Activar o callar"><i></i>${esc(c.label)}</button>
+            <div class="vs-ch-semi" role="group" aria-label="Semitonos de ${esc(c.label)}"><button type="button" data-act="semi-down" title="Bajar ${esc(c.label)} un semitono">−</button><b data-act="semi-reset" title="Semitonos de ${esc(c.label)} respecto al tono general (clic: volver a 0)">0</b><button type="button" data-act="semi-up" title="Subir ${esc(c.label)} un semitono">+</button></div>
             <button type="button" class="vs-ch-solo" data-act="solo" title="Escuchar solo esta">S</button>
             <input type="range" min="0" max="1.2" step="0.05" value="${c.vol}" aria-label="Volumen de ${esc(c.label)}">
             ${c.id === 'v2' || c.id === 'v3' ? `<div class="vs-ch-src" role="group" aria-label="Sonido"><button type="button" data-src="synth" class="is-on">Coro</button><button type="button" data-src="real" disabled title="Pulsa «Voz real (con letra)» arriba">Voz real</button></div>` : ''}
@@ -110,7 +112,7 @@ function build(song, label) {
   document.body.appendChild(ov);
   const $ = (s) => ov.querySelector(s);
   S = {
-    ov, $, song, ctx: null, players: {}, gains: {}, ch: Object.fromEntries(CH.map((c) => [c.id, { ...c, solo: false, src: 'synth' }])),
+    ov, $, song, ctx: null, players: {}, gains: {}, ch: Object.fromEntries(CH.map((c) => [c.id, { ...c, solo: false, src: 'synth', semis: 0 }])),
     dur: 0, t: 0, playing: false, startCtx: 0, startT: 0, raf: 0, dirty: true,
     lead: [], voices: { v2: [], v3: [] }, f0: null, hop: 0.01, chords: [], key: null, flats: false,
     style: 'arriba-abajo', semis: 0, sel: null, edits: {}, synth: {}, real: {}, realStale: false, ready: false,
@@ -211,6 +213,9 @@ async function prepare(song, givenBuffer, givenIsVocal) {
     S.lead = tr.notes;
   }
   if (saved) { S.style = saved.style || S.style; S.semis = Number(saved.semis) || 0; S.edits = saved.edits || {}; }
+  const vsem = song && song.harmony && song.harmony.src === S.src && song.harmony.vsemis;
+  if (vsem) for (const id of Object.keys(S.ch)) S.ch[id].semis = Math.max(-12, Math.min(12, Number(vsem[id]) || 0));
+  paintSemis();
   S.$('[data-ref="style"]').value = S.style;
   S.$('[data-ref="semis"]').value = String(S.semis);
 
@@ -317,11 +322,13 @@ function applyEdits(list, ed) { return list.map((n, i) => (ed && ed[i] ? { ...n,
 
 async function rebuildVoices(rerender) {
   const chords = chordsWithPcs(S.chords, CHORD_QUALITIES);
-  const h = harmonize(S.lead, { key: S.key, chords, style: S.style });
+  // La melodía en su tonalidad (notas oídas medio desafinadas → la de la escala).
+  S.leadFit = fitToKey(S.lead, S.key, chords);
+  const h = harmonize(S.leadFit, { key: S.key, chords, style: S.style });
   const ed = editsFor(S.style);
   S.base = h;
   S.voices = { v2: applyEdits(h.v2, ed.v2), v3: applyEdits(h.v3, ed.v3) };
-  S.leadShown = applyEdits(S.lead, ed.lead);
+  S.leadShown = applyEdits(S.leadFit, ed.lead);
   S.dirty = true;
   if (S.ready) bumpVoices(); else { S.real = {}; markRealAvailable(); }
   if (rerender) { restartChoir(); persist(); }
@@ -331,7 +338,23 @@ let renderTimer = null;
 // Lo que canta el coro en vivo: la melodía siempre; la 2.ª y la 3.ª si no suenan con la voz real.
 const useReal = (v) => S.ch[v].src === 'real' && !!S.real[v];
 function choirNotes() { return { lead: S.leadShown, v2: useReal('v2') ? [] : S.voices.v2, v3: useReal('v3') ? [] : S.voices.v3 }; }
-function restartChoir() { if (S && S.playing && S.choir) S.choir.play(curTime(), choirNotes(), S.semis); }
+function restartChoir() { if (S && S.playing && S.choir) S.choir.play(curTime(), choirNotes(), choirSemis()); }
+// Semitonos: el «Tono» general (todo) + los de cada voz (−/+ en su canal).
+const vSemi = (id) => (S.ch[id] && S.ch[id].semis) || 0;
+const tSemi = (id) => S.semis + vSemi(id);
+const choirSemis = () => ({ lead: tSemi('lead'), v2: tSemi('v2'), v3: tSemi('v3') });
+function paintSemis() {
+  for (const c of Object.values(S.ch)) {
+    const el = S.ov.querySelector(`.vs-ch[data-ch="${c.id}"] [data-act="semi-reset"]`);
+    if (!el) continue;
+    el.textContent = c.semis > 0 ? `+${c.semis}` : String(c.semis);
+    el.closest('.vs-ch-semi').classList.toggle('is-moved', !!c.semis);
+  }
+}
+function setVoiceSemi(id, v) {
+  S.ch[id].semis = Math.max(-12, Math.min(12, v));
+  paintSemis(); applyPitch(); persist();
+}
 
 function setVoiceBuffers() {
   if (!S || !S.players.v2) return;
@@ -415,7 +438,7 @@ function playAll() {
   if (S.t >= S.dur - 0.05) S.t = 0;
   for (const p of Object.values(S.players)) { if (!p.buffer) continue; try { p.currentTime = S.t; p.play().catch(() => {}); } catch (_) {} }
   S.startCtx = S.ctx.currentTime; S.startT = S.t; S.playing = true;
-  if (S.choir) S.choir.play(S.t, choirNotes(), S.semis);
+  if (S.choir) S.choir.play(S.t, choirNotes(), choirSemis());
   paintPlay();
 }
 function pauseAll() {
@@ -466,7 +489,7 @@ function applyGains() {
   S.dirty = true;
 }
 function applyPitch() {
-  for (const p of Object.values(S.players)) { try { p.pitchSemitones = S.semis; } catch (_) {} }
+  for (const [id, p] of Object.entries(S.players)) { try { p.pitchSemitones = tSemi(id); } catch (_) {} }
   restartChoir();
   S.dirty = true;
 }
@@ -475,7 +498,7 @@ function applyPitch() {
 function persist() {
   const song = S && S.song;
   if (!song) return;
-  song.harmony = { v: 1, alg: MELODY_ALG, src: S.src, style: S.style, semis: S.semis, lead: S.lead, edits: S.edits, at: Date.now() };
+  song.harmony = { v: 1, alg: MELODY_ALG, src: S.src, style: S.style, semis: S.semis, vsemis: Object.fromEntries(Object.values(S.ch).map((c) => [c.id, c.semis || 0])), lead: S.lead, edits: S.edits, at: Date.now() };
   try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {}
 }
 
@@ -506,19 +529,21 @@ async function saveAsVoices() {
     // Rápido: se mezcla a mano, solo se prepara el coro de las voces que lo usan y los tres MP3
     // se codifican a la vez en hilos aparte.
     const SR = 44100, len = Math.ceil(S.dur * SR);
-    const shift = async (buf) => {
+    // Cada parte en su tono: el general más el de su canal.
+    const shift = async (buf, n) => {
+      if (!n) return buf;
       const { pitchShiftBuffer, pitchShiftBufferHQ } = await import('../stems/harmonyShifter.js');
-      return (await pitchShiftBufferHQ(buf, S.semis).catch(() => null)) || pitchShiftBuffer(buf, S.semis);
+      return (await pitchShiftBufferHQ(buf, n).catch(() => null)) || pitchShiftBuffer(buf, n);
     };
     progress('Preparando la canción de fondo…', 0.05);
-    const bed = toMonoAt(S.semis ? await shift(S.mixBuf) : S.mixBuf, SR, len);
+    const bed = toMonoAt(await shift(S.mixBuf, tSemi('mix')), SR, len);
     const ids = ['lead', 'v2', 'v3'];
     const synthIds = ids.filter((id) => id === 'lead' || !useReal(id));
     progress('Preparando las voces…', 0.2);
-    const rendered = await renderSynthVoices(synthIds.map((id) => (id === 'lead' ? S.leadShown : S.voices[id])), S.dur, { semis: S.semis });
+    const rendered = await renderSynthVoices(synthIds.map((id) => (id === 'lead' ? S.leadShown : S.voices[id])), S.dur, { semis: synthIds.map(tSemi) });
     const voice = {};
     synthIds.forEach((id, i) => { voice[id] = toMonoAt(rendered[i], SR, len); });
-    for (const id of ids) if (!voice[id]) voice[id] = toMonoAt(S.semis ? await shift(S.real[id]) : S.real[id], SR, len);
+    for (const id of ids) if (!voice[id]) voice[id] = toMonoAt(await shift(S.real[id], tSemi(id)), SR, len);
     progress('Guardando las voces de referencia…', 0.5);
     const { encodeMp3Async } = await import('../audio/mp3Pool.js');
     const labels = { lead: 'Melodía', v2: '2.ª voz', v3: '3.ª voz' };
@@ -567,9 +592,9 @@ function download(bytes, name, type) {
 async function exportMelody(kind) {
   if (!S || !S.ready) return;
   const semis = Number(S.semis) || 0;
-  const shift = (ns) => (ns || []).map((n) => ({ s: n.s, e: n.e, m: n.m + semis }));
-  const parts = [{ name: 'Melodía', notes: shift(S.leadShown || S.lead) }];
-  if (kind !== 'lead-midi') { const ch = choirNotes(); parts.push({ name: '2.ª voz', notes: shift(ch.v2 && ch.v2.length ? ch.v2 : S.voices.v2) }, { name: '3.ª voz', notes: shift(ch.v3 && ch.v3.length ? ch.v3 : S.voices.v3) }); }
+  const shift = (ns, id) => (ns || []).filter((n) => !n.off).map((n) => ({ s: n.s, e: n.e, m: n.m + tSemi(id) }));
+  const parts = [{ name: 'Melodía', notes: shift(S.leadShown || S.lead, 'lead') }];
+  if (kind !== 'lead-midi') parts.push({ name: '2.ª voz', notes: shift(S.voices.v2, 'v2') }, { name: '3.ª voz', notes: shift(S.voices.v3, 'v3') });
   if (!parts[0].notes.length) { window.showToast?.('Todavía no hay melodía que exportar.', 'info'); return; }
   // Tempo y primer compás: los de la rejilla de pulsos de la canción (si hay); si no, su BPM.
   const beatsPerBar = parseInt(String((S.song && S.song.timeSig) || '4/4').split('/')[0], 10) || 4;
@@ -606,6 +631,8 @@ function onClick(e) {
   if (act === 'real') { if (S.ready) makeRealVoices(); return; }
   if (act === 'reanalyze') { reanalyze(); return; }
   if (act === 'toggle' && chEl) { const c = S.ch[chEl.dataset.ch]; c.on = !c.on; applyGains(); return; }
+  if ((act === 'semi-up' || act === 'semi-down') && chEl) { const id = chEl.dataset.ch; setVoiceSemi(id, vSemi(id) + (act === 'semi-up' ? 1 : -1)); return; }
+  if (act === 'semi-reset' && chEl) { setVoiceSemi(chEl.dataset.ch, 0); return; }
   if (act === 'solo' && chEl) { const c = S.ch[chEl.dataset.ch]; c.solo = !c.solo; applyGains(); return; }
   if (act === 'up') { nudge(1); return; }
   if (act === 'down') { nudge(-1); return; }
@@ -638,7 +665,7 @@ function select(sel) {
 function paintSel() {
   const n = cur(); if (!n) return;
   const name = { lead: 'Melodía', v2: '2.ª voz', v3: '3.ª voz' }[S.sel.v];
-  S.$('[data-ref="ename"]').innerHTML = `<i style="background:${S.ch[S.sel.v].color}"></i>${name} · <b>${noteName(n.m + S.semis, S.flats)}</b>${n.off ? ' · silenciada' : ''}`;
+  S.$('[data-ref="ename"]').innerHTML = `<i style="background:${S.ch[S.sel.v].color}"></i>${name} · <b>${noteName(n.m + tSemi(S.sel.v), S.flats)}</b>${n.off ? ' · silenciada' : ''}`;
   S.$('[data-act="mute-note"]').textContent = n.off ? 'Que cante' : 'Silenciar';
 }
 function editSel(patch) {
@@ -653,7 +680,7 @@ function resetSel() { if (!S.sel) return; delete editsFor(S.style)[S.sel.v][S.se
 function afterEdit() {
   const ed = editsFor(S.style);
   S.voices = { v2: applyEdits(S.base.v2, ed.v2), v3: applyEdits(S.base.v3, ed.v3) };
-  S.leadShown = applyEdits(S.lead, ed.lead);
+  S.leadShown = applyEdits(S.leadFit || S.lead, ed.lead);
   const wasReal = useReal('v2') || useReal('v3');
   bumpVoices();
   if (wasReal) window.showToast?.('Cambiaste notas: la voz real se vuelve a preparar con la corrección (unos segundos).', 'info');
@@ -685,9 +712,8 @@ function onPointer(e) {
 
 // ── Dibujo ───────────────────────────────────────────────────────────────────
 function geometry(w, h) {
-  const all = [...S.leadShown, ...S.voices.v2, ...S.voices.v3];
   let lo = 127, hi = 0;
-  for (const n of all) { if (n.m < lo) lo = n.m; if (n.m > hi) hi = n.m; }
+  for (const v of VOICE_IDS) { const o = vSemi(v); for (const n of listOf(v)) { const m = n.m + o; if (m < lo) lo = m; if (m > hi) hi = m; } }
   if (lo > hi) { lo = 48; hi = 72; }
   lo -= 2; hi += 2;
   const top = Math.max(84, Math.min(130, h * 0.22)), bottom = h - 28;   // ≥ 84: debajo de la barra «Escuchar»
@@ -702,7 +728,7 @@ function hitNote(x, y, w, h) {
     listOf(v).forEach((n, i) => {
       const x1 = g.x(n.s), x2 = g.x(n.e);
       if (x < x1 - 4 || x > x2 + 4) return;
-      const d = Math.abs(g.y(n.m) - y);
+      const d = Math.abs(g.y(n.m + vSemi(v)) - y);
       if (d < bestD) { bestD = d; best = { v, i }; }
     });
   }
@@ -777,7 +803,7 @@ function draw() {
       const n = leadL[ni];
       const m = 69 + 12 * Math.log2(f / 440);
       if (!n || n.s - 0.08 > tt || Math.abs(m - n.m) > 2.5) { pen = false; continue; }
-      const x = g.x(tt), y = g.y(m);
+      const x = g.x(tt), y = g.y(m + vSemi('vocal'));
       if (pen) c.lineTo(x, y); else c.moveTo(x, y);
       pen = true;
     }
@@ -787,7 +813,7 @@ function draw() {
   const order = ['v3', 'v2', 'lead'];
   const labels = [];
   for (const v of order) {
-    const list = listOf(v), ch = S.ch[v];
+    const list = listOf(v), ch = S.ch[v], off = vSemi(v);
     const audible = Object.values(S.ch).some((q) => q.solo) ? ch.solo : ch.on;
     c.save();
     c.globalAlpha = audible ? 1 : 0.28;   // la voz que no suena se ve apagada
@@ -799,10 +825,11 @@ function draw() {
       const n = list[i];
       if (n.e < t0 - 1 || n.s > t1 + 1) { prev = null; continue; }
       if (n.off) { prev = null; continue; }
-      const xs = g.x(n.s), xe = g.x(n.e), y = g.y(n.m);
+      const xs = g.x(n.s), xe = g.x(n.e), y = g.y(n.m + off);
       // Dentro de una frase (respiros y consonantes cortos) la línea sigue, con una curva suave.
-      if (prev && n.s - prev.e < 0.6) {
-        const px = g.x(prev.e), py = g.y(prev.m);
+      // Ligado solo donde también suena ligado (lo que se ve es lo que se oye).
+      if (prev && n.s - prev.e <= 0.12) {
+        const px = g.x(prev.e), py = g.y(prev.m + off);
         if (py === y) c.lineTo(xs, y);
         else { const k = Math.min(18, (xs - px) / 2 + 8); c.lineTo(Math.max(px, xs - k * 2), py); c.bezierCurveTo(xs - k, py, xs - k, y, xs, y); }
       } else c.moveTo(xs, y);
@@ -814,12 +841,12 @@ function draw() {
     // Nota seleccionada
     if (S.sel && S.sel.v === v) {
       const n = list[S.sel.i];
-      if (n) { c.lineWidth = 2; c.strokeStyle = '#fff'; c.setLineDash([4, 3]); c.strokeRect(g.x(n.s) - 4, g.y(n.m) - 9, g.x(n.e) - g.x(n.s) + 8, 18); c.setLineDash([]); }
+      if (n) { c.lineWidth = 2; c.strokeStyle = '#fff'; c.setLineDash([4, 3]); c.strokeRect(g.x(n.s) - 4, g.y(n.m + off) - 9, g.x(n.e) - g.x(n.s) + 8, 18); c.setLineDash([]); }
     }
     c.restore();
     // Punto en la línea de «ahora» y nombre de la nota.
     const on = list.find((n) => !n.off && n.s <= g.t && g.t < n.e);
-    if (on) labels.push({ v, y: g.y(on.m), name: noteName(on.m + S.semis, S.flats), color: ch.color, dim: !audible });
+    if (on) labels.push({ v, y: g.y(on.m + off), name: noteName(on.m + tSemi(v), S.flats), color: ch.color, dim: !audible });
   }
   // Línea de «ahora».
   const hx = w * HEAD;
@@ -878,6 +905,10 @@ export function _vsDebug() {
   if (!S) return null;
   return { timing: S.timing, ready: S.ready, lead: S.lead.length, v2: S.voices.v2.length, v3: S.voices.v3.length, chords: S.chords.length, key: S.key, t: S.t, dur: S.dur, playing: S.playing, real: !!S.real.v2, src: { v2: S.ch.v2.src, v3: S.ch.v3.src }, style: S.style, sel: S.sel, edits: S.edits, leadSec: S.lead.reduce((a, n) => a + n.e - n.s, 0), ch: Object.fromEntries(Object.entries(S.ch).map(([k, c]) => [k, { on: c.on, solo: c.solo }])), alg: S.song && S.song.harmony && S.song.harmony.alg };
 }
+export function _vsGains() { return S && S.choir ? Object.fromEntries(Object.entries(S.choir.outputs).map(([k, g]) => [k, +g.gain.value.toFixed(4)])) : null; }
+export function _vsCtxState() { return S && S.ctx ? S.ctx.state : null; }
+export function _vsKeyInfo() { return S ? { key: S.key, chords: chordsWithPcs(S.chords, CHORD_QUALITIES), fitted: (S.leadFit || []).filter((n) => n.fit != null).length } : null; }
+export function _vsNotes() { return S ? { lead: S.leadShown, v2: S.voices.v2, v3: S.voices.v3, semis: choirSemis() } : null; }
 export function _vsSelect(v, i) { if (S) select({ v, i }); }
 /** Para las pruebas automáticas: nivel (RMS) de cada fuente durante `ms` milisegundos. */
 export async function _vsLevels(ms = 800) {

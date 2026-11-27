@@ -81,7 +81,7 @@ export function trackPitch(mono, sr, { fmin = 70, fmax = 1100, onProgress = null
 function median(arr) { const a = arr.slice().sort((p, q) => p - q); return a[a.length >> 1]; }
 
 /** Curva de tono → notas estables [{ s, e, m }]. Quita vibrato, deslices cortos y saltos de octava. */
-export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55, startConf = 0.7 } = {}) {
+export function segmentNotes({ hop, f0, conf, rms = null }, { minDur = 0.09, minConf = 0.55, startConf = 0.7 } = {}) {
   const N = f0.length;
   const mid = new Float32Array(N);
   for (let i = 0; i < N; i++) mid[i] = f0[i] > 0 && conf[i] >= minConf ? hzToMidi(f0[i]) : NaN;
@@ -155,6 +155,45 @@ export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55,
     const p = out[out.length - 1];
     if (p && p.m === n.m && n.s - p.e < 0.08) p.e = n.e; else out.push({ ...n });
   }
+  return rms ? legato(out, rms, hop) : out;
+}
+
+/**
+ * Fraseo fiel al original: entre dos notas, si la voz sigue sonando (consonantes, deslices,
+ * sílabas sin tono claro) la nota se liga con la siguiente; si hay silencio es una respiración
+ * de verdad y se respeta. Al final de una frase la nota dura mientras la vocal siga sonando.
+ */
+export function legato(notes, rms, hop, { link = 0.06, tail = 0.07, maxGap = 0.7, maxTail = 0.6, head = 0.12, maxHead = 0.35 } = {}) {
+  let peak = 0;
+  for (let i = 0; i < rms.length; i++) if (rms[i] > peak) peak = rms[i];
+  if (!(peak > 0)) return notes;
+  const lv = (k) => (k >= 0 && k < rms.length ? rms[k] / peak : 0);
+  const out = notes.map((n) => ({ ...n }));
+  for (let i = 0; i < out.length; i++) {
+    const n = out[i], nx = out[i + 1];
+    const gap = nx ? nx.s - n.e : Infinity;
+    if (gap <= 0) continue;
+    if (gap <= maxGap) {
+      let mn = 1;
+      for (let k = Math.round(n.e / hop); k < Math.round(nx.s / hop); k++) mn = Math.min(mn, lv(k));
+      if (mn > link) { n.e = nx.s; continue; }
+    }
+    // Cola: la vocal sigue sonando después del último tono claro.
+    const lim = Math.min(n.e + maxTail, nx ? nx.s - 0.06 : Infinity);
+    let k = Math.round(n.e / hop);
+    while (k * hop < lim && lv(k) > tail) k++;
+    n.e = Math.max(n.e, Math.min(lim, k * hop));
+  }
+  // Entrada de cada frase: la voz empieza a sonar (consonante, deslizamiento hacia la nota)
+  // antes de que el tono sea estable; la nota empieza ahí.
+  for (let i = 0; i < out.length; i++) {
+    const n = out[i], p = out[i - 1];
+    if (p && n.s - p.e <= 0.001) continue;
+    const lim = Math.max(n.s - maxHead, p ? p.e + 0.06 : 0);
+    let k = Math.round(n.s / hop) - 1;
+    while (k * hop > lim && lv(k) > head) k--;
+    n.s = Math.min(n.s, Math.max(lim, (k + 1) * hop));
+  }
   return out;
 }
 
@@ -206,24 +245,74 @@ function chordAt(chords, t) {
  * acorde más cercana a la de la escala (sin cruzarse con la melodía); si es de paso,
  * va en paralelo por la escala. Después se suavizan los saltos grandes.
  */
+// Un acorde «de fuera» (alguna de sus notas no es de la escala): ahí sí valen notas cromáticas.
+const chromaticChord = (pcs, scale) => !!pcs && pcs.some((p) => !scale.includes(p));
+const pcsAt = (chords, n) => { const ch = chordAt(chords, (n.s + n.e) / 2); return ch && Array.isArray(ch.pcs) && ch.pcs.length ? ch.pcs : null; };
+
+/**
+ * Melodía en su tonalidad: una nota fuera de la escala casi siempre es el detector oyendo
+ * la voz un poco desafinada (o un deslizamiento). Se lleva a la nota de la escala más cercana,
+ * hacia donde va la melodía. Solo se respeta si es nota de un acorde que también es de fuera
+ * de la tonalidad (un cromatismo de verdad). Mismo número de notas (las correcciones a mano
+ * van por posición). → notas nuevas; las movidas llevan `fit` = la nota oída.
+ */
+export function fitToKey(notes, key, chords = null) {
+  if (!key || !Number.isFinite(key.k)) return notes;
+  const scale = scaleOf(key);
+  return notes.map((n, i) => {
+    if (!n || scale.includes(mod12(n.m))) return n;
+    const pcs = pcsAt(chords, n);
+    if (pcs && pcs.includes(mod12(n.m)) && chromaticChord(pcs, scale)) return n;
+    const up = scale.includes(mod12(n.m + 1)), dn = scale.includes(mod12(n.m - 1));
+    let m;
+    if (up && !dn) m = n.m + 1;
+    else if (dn && !up) m = n.m - 1;
+    else {
+      const nb = notes[i + 1] && notes[i + 1].s - n.e < 0.3 ? notes[i + 1] : notes[i - 1];
+      m = nb && nb.m < n.m ? n.m - 1 : n.m + 1;
+      if (pcs && pcs.includes(mod12(n.m - 1)) && !pcs.includes(mod12(n.m + 1))) m = n.m - 1;
+      else if (pcs && pcs.includes(mod12(n.m + 1)) && !pcs.includes(mod12(n.m - 1))) m = n.m + 1;
+    }
+    return { ...n, m, fit: n.m };
+  });
+}
+
 export function harmonize(notes, { key = null, chords = null, style = 'arriba-abajo' } = {}) {
   const st = STYLES[style] || STYLES['arriba-abajo'];
   const scale = scaleOf(key);
+  notes = key ? fitToKey(notes, key, chords) : notes;
+  const inKey = (m, pcs) => scale.includes(mod12(m)) || (!!pcs && chromaticChord(pcs, scale) && pcs.includes(mod12(m)));
   const voice = (steps) => {
     const out = [];
-    for (const n of notes) {
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
       let h = diatonic(n.m, steps, scale);
-      const ch = chordAt(chords, (n.s + n.e) / 2);
-      const pcs = ch && Array.isArray(ch.pcs) ? ch.pcs : null;
-      if (pcs && pcs.length && pcs.includes(mod12(n.m)) && !pcs.includes(mod12(h))) {
+      const pcs = pcsAt(chords, n);
+      const side = (c) => (steps > 0 ? c > n.m : c < n.m);
+      if (pcs && pcs.includes(mod12(n.m)) && !pcs.includes(mod12(h))) {
         let best = null;
         for (let d = 1; d <= 2 && best == null; d++) {
           for (const cand of [h - d, h + d]) {
-            const side = steps > 0 ? cand > n.m : cand < n.m;
-            if (side && pcs.includes(mod12(cand)) && mod12(cand) !== mod12(n.m)) { best = cand; break; }
+            // Nota del acorde, del lado pedido y DE LA TONALIDAD (salvo acorde de fuera).
+            if (side(cand) && pcs.includes(mod12(cand)) && mod12(cand) !== mod12(n.m) && inKey(cand, pcs)) { best = cand; break; }
           }
         }
         if (best != null) h = best;
+      }
+      // Nunca una nota fuera de la tonalidad: la de la escala más cercana del mismo lado.
+      if (!inKey(h, pcs)) {
+        for (let d = 1; d <= 2; d++) {
+          const c1 = h + (steps > 0 ? d : -d), c2 = h - (steps > 0 ? d : -d);
+          if (side(c1) && inKey(c1, pcs)) { h = c1; break; }
+          if (side(c2) && mod12(c2) !== mod12(n.m) && inKey(c2, pcs)) { h = c2; break; }
+        }
+      }
+      // Figura: en adornos muy cortos la voz se queda en su nota si sigue sonando bien con la
+      // melodía (3.ª, 4.ª, 5.ª o 6.ª), en vez de saltar con cada adorno.
+      const p = out[i - 1];
+      if (p && n.e - n.s < 0.14 && n.s - notes[i - 1].e < 0.05 && side(p.m) && inKey(p.m, pcs)) {
+        const iv = Math.abs(p.m - n.m) % 12;
+        if ([3, 4, 5, 7, 8, 9].includes(iv)) h = p.m;
       }
       out.push({ s: n.s, e: n.e, m: h });
     }

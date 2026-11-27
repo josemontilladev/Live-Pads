@@ -1,4 +1,6 @@
 • Estudio de voces:
-  – Las notas largas ya no se cortan. La melodía se escucha mejor en los finales con reverberación y en las notas sostenidas, y se corrigen los saltos falsos de octava. Si la canción no tenía notas corregidas a mano, la melodía se vuelve a escuchar sola al abrir el estudio.
-  – Barra «Escuchar» encima de las líneas: un clic enciende o calla cada voz (Melodía, 2.ª, 3.ª, Canción, Voz original) y doble clic deja solo esa. También con las teclas 1 a 5 y 0 para «Todo». La voz que no suena se ve apagada.
-  – El acorde que suena pasa a la derecha y el panel ya no deja ver la app de detrás.
+  – Sin microcortes: la melodía, la 2.ª y la 3.ª voz siguen el fraseo del original. Las notas se ligan donde el cantante sigue sonando (consonantes, deslizamientos), cada frase empieza y termina cuando empieza y termina la voz, y solo se corta donde el cantante respira. Cada sílaba se marca con una pequeña bajada de volumen, sin silencio.
+  – Voz real sin huecos ni golpes de volumen entre notas (fundido cruzado).
+  – Siempre en la tonalidad: las notas que el detector oía medio desafinadas vuelven a su nota de la escala, y la 2.ª y la 3.ª voz ya no se salen de la escala (salvo en un acorde de fuera de la tonalidad). En los adornos cortos la voz se queda en su nota, así la figura no salta.
+  – Semitonos: además del «Tono» general (todas las voces y la canción a la vez), cada voz tiene «− 0 +» en su canal para subirla o bajarla sola. Se guarda con la canción y se aplica al guardar las voces y al exportar MIDI o partitura.
+  – Si una canción no tenía notas corregidas a mano, su melodía se vuelve a escuchar sola al abrir el estudio con estas mejoras.

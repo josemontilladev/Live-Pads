@@ -95,3 +95,39 @@ test('un salto falso de octava en medio de una nota se corrige', () => {
   const notes = segmentNotes({ hop, f0, conf });
   assert.deepEqual(notes.map((q) => q.m), [74]);
 });
+
+test('fraseo: se liga donde la voz sigue sonando y se respeta la respiración', async () => {
+  const { legato } = await import('../src/js/voices/harmonyCore.js');
+  const hop = 0.01, rms = new Float32Array(400).fill(0.5);
+  for (let k = 200; k < 260; k++) rms[k] = 0.005;   // respiración (silencio) de 2,0 a 2,6 s
+  for (let k = 330; k < 400; k++) rms[k] = 0.001;   // final: silencio desde 3,3 s
+  const notes = [{ s: 0.1, e: 0.8, m: 60 }, { s: 0.95, e: 1.9, m: 62 }, { s: 2.6, e: 3.0, m: 64 }];
+  const out = legato(notes, rms, hop);
+  assert.equal(out[0].e, 0.95, 'consonante entre notas: ligada');
+  assert.ok(out[1].e < 2.05 && out[1].e >= 1.9, 'antes de la respiración no se alarga de más');
+  assert.ok(Math.abs(out[2].e - 3.3) < 0.02, 'la última nota dura mientras suena la vocal');
+});
+
+test('tonalidad: la melodía oída desafinada vuelve a la escala y las voces nunca se salen', async () => {
+  const { fitToKey } = await import('../src/js/voices/harmonyCore.js');
+  const key = { k: 0, m: false };   // Do mayor
+  const scale = [0, 2, 4, 5, 7, 9, 11];
+  // Melodía con notas «oídas» fuera de la escala (61 = Do#, 66 = Fa#, 70 = Sib)
+  const mel = [60, 61, 64, 66, 67, 70, 69, 65, 62, 63, 60].map((m, i) => ({ s: i * 0.5, e: i * 0.5 + 0.45, m }));
+  const chords = [{ s: 0, e: 2, pcs: [0, 4, 7] }, { s: 2, e: 4, pcs: [5, 9, 0] }, { s: 4, e: 6, pcs: [7, 11, 2] }];
+  const fit = fitToKey(mel, key, chords);
+  assert.ok(fit.every((n) => scale.includes(((n.m % 12) + 12) % 12)), fit.map((n) => n.m).join(','));
+  for (const style of ['arriba-abajo', 'arriba', 'abajo']) {
+    const h = harmonize(mel, { key, chords, style });
+    for (const v of ['v2', 'v3']) assert.ok(h[v].every((n) => scale.includes(((n.m % 12) + 12) % 12)), `${style} ${v}: ${h[v].map((n) => n.m).join(',')}`);
+  }
+});
+
+test('tonalidad: un cromatismo de verdad (nota de un acorde de fuera) se respeta', async () => {
+  const { fitToKey } = await import('../src/js/voices/harmonyCore.js');
+  const key = { k: 0, m: false };
+  const mel = [{ s: 0, e: 1, m: 68 }];                 // Sol# sobre Mi mayor (V/vi en Do)
+  const chords = [{ s: 0, e: 1, pcs: [4, 8, 11] }];
+  assert.equal(fitToKey(mel, key, chords)[0].m, 68);
+  assert.equal(fitToKey(mel, key, [{ s: 0, e: 1, pcs: [4, 7, 11] }])[0].m !== 68, true);
+});

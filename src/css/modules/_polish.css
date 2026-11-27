@@ -2012,19 +2012,27 @@ body:has(.dc-pal) .tb-pill { display: none; }
 .vs-secs button { flex: none; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); background: transparent; color: var(--text); font: 600 12px/1 inherit; cursor: pointer; white-space: nowrap; }
 .vs-secs button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
 .vs-mixer { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-.vs-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 6px 6px; align-items: center; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.vs-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: auto auto; gap: 6px 6px; align-items: center; padding: 8px 10px; border-radius: 12px; background: color-mix(in srgb, var(--text) 5%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
 .vs-ch.is-muted { opacity: .55; }
 .vs-ch-on { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; padding: 0 4px; border: 0; background: transparent; color: var(--text); font: 700 13px/1 inherit; cursor: pointer; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vs-ch-on i { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
 .vs-ch-on[aria-pressed="false"] i { background: transparent; box-shadow: none; border: 2px solid var(--c); }
 .vs-ch-solo { width: 28px; height: 28px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); background: transparent; color: var(--text); font: 800 11px/1 inherit; cursor: pointer; }
 .vs-ch-solo.is-on { background: #facc15; border-color: #facc15; color: #111; }
+/* Semitonos de cada voz (además del «Tono» general) */
+.vs-ch-semi { display: inline-flex; align-items: center; height: 28px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); overflow: hidden; }
+.vs-ch-semi button { width: 24px; height: 100%; border: 0; background: transparent; color: var(--text); font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
+.vs-ch-semi button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
+.vs-ch-semi b { min-width: 26px; text-align: center; font-family: inherit; font-weight: 800; font-size: 12px; line-height: 26px; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--text) 60%, transparent); cursor: pointer; }
+.vs-ch-semi.is-moved { border-color: var(--c); }
+.vs-ch-semi.is-moved b { color: var(--text); background: color-mix(in srgb, var(--c) 28%, transparent); }
 .vs-ch input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--c); }
 .vs-ch-src { grid-column: 1 / -1; display: flex; border-radius: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--text) 16%, transparent); }
 .vs-ch-src button { flex: 1; height: 26px; border: 0; background: transparent; color: var(--text); font: 600 11.5px/1 inherit; cursor: pointer; }
 .vs-ch-src button.is-on { background: color-mix(in srgb, var(--c) 30%, transparent); }
 .vs-ch-src button:disabled { opacity: .4; cursor: default; }
 @media (max-width: 1180px) { .vs-mixer { grid-template-columns: repeat(5, minmax(0, 1fr)); } .vs-ch { padding: 6px 8px; } }
+@media (max-width: 1180px) { .vs-ch { grid-template-columns: auto minmax(0, 1fr) auto; } .vs-ch-on { grid-column: 1 / 3; grid-row: 1; } .vs-ch-solo { grid-column: 3; grid-row: 1; } .vs-ch-semi { grid-column: 1; grid-row: 2; height: 24px; } .vs-ch-semi button { width: 20px; } .vs-ch input[type=range] { grid-column: 2 / -1; grid-row: 2; min-width: 0; } .vs-ch-src { grid-row: 3; } }
 @media (max-height: 760px) { .vs-head { padding: 8px 12px; } .vs-foot { padding: 8px 12px; gap: 8px; } .vs-ch input[type=range] { height: 14px; } }
 
 /* ── Mapa de la canción (ui/songMapEditor.js) ── */
