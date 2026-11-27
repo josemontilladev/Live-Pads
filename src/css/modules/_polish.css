@@ -2648,3 +2648,35 @@ body.live-touch-open :is(.wt-ring, .wt-bubble, .wt-overlay, #plans-announce, #wh
 .lba-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
 .lba-status { margin: 0; font-size: 12.5px; color: var(--text-muted); }
 .lba-log { list-style: none; margin: 0; padding: 0; font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; max-height: 140px; overflow-y: auto; }
+/* Vista táctil · pulido: cabecera compacta, color por sección, Pausa legible, selector grande. */
+.lt-top { grid-template-columns: minmax(0, 260px) minmax(0, 1fr) minmax(0, 260px) auto; }
+.lt-nav { min-height: 60px; gap: 12px; }
+.lt-nav .lt-arrow { font-size: 20px; flex: none; }
+.lt-navtxt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.lt-navtxt em { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.lt-navtxt small { font-size: 14px !important; font-weight: 600; color: var(--text) !important; }
+.lt-nav:disabled .lt-navtxt small { display: none; }
+.lt-nav--next .lt-navtxt { align-items: flex-end; }
+.lt-sec { position: relative; overflow: hidden; border-color: color-mix(in srgb, hsl(var(--h, 210) 70% 60%) 45%, var(--border)); }
+.lt-sec::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: hsl(var(--h, 210) 72% 60%); }
+.lt-sec b { font-size: var(--lt-fs, 22px); }
+.lt-sec small { font-size: max(12px, calc(var(--lt-fs, 22px) * .45)); }
+.lt-sec.is-cur { border-color: hsl(var(--h, 210) 75% 62%); background: color-mix(in srgb, hsl(var(--h, 210) 70% 55%) 26%, transparent); box-shadow: 0 0 0 2px hsl(var(--h, 210) 75% 62%) inset; }
+.lt-play.is-on { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; color: var(--text) !important; border: 2px solid var(--accent) !important; }
+.lt-modes .ui-seg-btn { min-height: 40px; padding: 0 16px; font-size: 14px; }
+.lt-grid { gap: 10px; }
+/* Espectro: la etiqueta pegada al final se coloca hacia la izquierda (antes se cortaba). */
+.sw-pill.is-flip { transform: translateX(calc(-100% + 2px)); border-radius: 6px 6px 2px 6px; max-width: 160px !important; }
+.sw-pill.is-flip:hover { transform: translateX(calc(-100% + 2px)) translateY(-1px); }
+/* Con zoom: barra de desplazamiento visible para recorrer la canción. */
+#seq-wave.is-zoomed .sw-scroll { scrollbar-width: auto; }
+#seq-wave.is-zoomed .sw-scroll::-webkit-scrollbar { height: 10px; }
+#seq-wave.is-zoomed .sw-scroll::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 30%, transparent); border-radius: 5px; }
+#seq-wave.is-zoomed .sw-scroll::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+/* Letra sincronizada: velocidad de la IA, a mano y quitar. */
+.lsy-size .ui-seg-btn { padding: 0 10px; font-size: 12px; }
+.lsy-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lsy-tools .lsy-clear { margin-left: auto; }
+.lsy-tools [hidden] { display: none; }
+.lsy-mark { background: var(--accent) !important; color: var(--on-accent, #0a0a14) !important; border-color: var(--accent) !important; font-weight: 700; }
+.lsy-mark small { font-weight: 500; opacity: .85; margin-left: 4px; max-width: 260px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }

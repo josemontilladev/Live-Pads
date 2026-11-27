@@ -21,6 +21,9 @@ import { getSongs } from '../state/store.js';
 import { canEditActiveLibrary } from '../cloud/libraries.js';
 
 import { markersFor } from '../data/markers.js';
+import { keyMismatch, deltaText } from '../chords/keyMismatchCore.js';
+import { getEffectiveKey } from '../data/service.js';
+import { shiftKey } from '../utils/keyLink.js';
 import { getCurrentType as gctLane } from '../audio/trackPlayer.js';
 const LS_PREFS = 'livepads.chords';
 let root, lane, nowEl, nextEl, btn, seek = () => {};
@@ -76,6 +79,7 @@ function segsNow() {
     const lyr = s ? parseLyricStructure(s.lyrics) : [];
     if (lyr.some((x) => x.chords.length)) {
       songK = keyOffset(lyr, det, getTrackPitch() || (s.audio && s.audio.pitch) || 0).k;
+      maybeAskKey(s, lyr, det);
       const laneMarks = markersFor(s, gctLane());
       if (laneMarks.length) {
         // Con secciones marcadas: los acordes de cada sección dentro de su tramo.
@@ -90,6 +94,36 @@ function segsNow() {
     }
   } catch (e) { console.warn('[LivePads] acordes de la letra:', e); }
   return shown;
+}
+
+// La grabación suena en otro tono que la canción (p. ej. el original en D y la tarjeta y los
+// acordes de la letra en C): se avisa UNA vez por canción y, si se acepta, el audio se mueve
+// al tono de la tarjeta (tono ligado: keyPitch), así audio, carril, pad y acordes van juntos.
+const askedKey = new Set();
+function maybeAskKey(s, lyr, det) {
+  const id = String(s.cloudId || s.id || s.title);
+  if (askedKey.has(id) || (s.audio && s.audio.keyAsked)) return;
+  const total = getTrackPitch() || 0;
+  const m = keyMismatch(lyr, det, total);
+  askedKey.add(id);
+  if (!m) return;
+  const card = getEffectiveKey(s) || s.key || '';
+  const sounding = card ? shiftKey(card, -m.delta) : '';
+  const lib = getSongs().find((x) => String(x.id) === String(s.id)) || s;
+  const remember = () => { for (const x of new Set([lib, s])) { if (!x.audio) x.audio = {}; x.audio.keyAsked = true; } try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {} };
+  window.showToast?.(`La grabación de «${s.title}» suena en ${sounding || 'otro tono'}${card ? ` y la canción está en ${card}` : ''}. ¿${deltaText(m.delta)} el audio para que todo vaya en ${card || 'el tono de la canción'}?`, 'info', {
+    ttl: 20000,
+    action: { label: deltaText(m.delta), onClick: async () => {
+      for (const x of new Set([lib, s])) { if (!x.audio) x.audio = {}; const p = (Number(x.audio.keyPitch) || Number(x.audio.pitch) || 0) + m.delta; x.audio.keyPitch = p; x.audio.pitch = p; x.audio.keyPitchSet = true; x.audio.keyAsked = true; }
+      try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {}
+      try { (await import('../audio/trackPlayer.js')).reapplyKeyShift(s); } catch (_) {}
+      window.dispatchEvent(new CustomEvent('livepads:songs-changed'));
+      window.dispatchEvent(new CustomEvent('livepads:cloud-dirty'));
+      window.showToast?.(`✓ «${s.title}» suena ahora en ${card}.`, 'success');
+    } },
+  });
+  // Si no se pulsa, no se vuelve a preguntar en esta canción.
+  setTimeout(remember, 21000);
 }
 
 function prefs() {
@@ -133,6 +167,7 @@ export function initChordLane(rootEl, seekFn) {
   window.addEventListener('livepads:library-synced', again);
   window.addEventListener('livepads:chords-ready', (e) => {
     if (on && e.detail && e.detail.id === id) { result = e.detail.result; render(); }
+    checkKeyFromChords(e.detail && e.detail.id, e.detail && e.detail.result);
   });
 }
 
@@ -147,6 +182,18 @@ export function laneTrackLoaded(t) {
   if (lane) { lane.innerHTML = ''; lane.classList.remove('is-refining'); }
   if (nowEl) { nowEl.textContent = ''; nextEl.textContent = ''; }
   if (on) request();
+  else mods().then(() => { if (track === t && t.audio && t.audio.buffer) { const cid = T.trackChordId(t.song, t.type, t.audio.buffer); checkKeyFromChords(cid, T.cacheGet(cid)); } }).catch(() => {});
+}
+// Con el carril apagado también: en cuanto hay acordes de la pista cargada, se mira si su tono
+// cuadra con el de la canción (los acordes se analizan igualmente para el pad y las secciones).
+function checkKeyFromChords(cid, res) {
+  const t = track;
+  if (!t || !res || !Array.isArray(res.seg) || !T || !t.audio || !t.audio.buffer || !t.song) return;
+  if (cid !== T.trackChordId(t.song, t.type, t.audio.buffer)) return;
+  try {
+    const lyr = parseLyricStructure(t.song.lyrics);
+    if (lyr.some((x) => x.chords.length)) maybeAskKey(t.song, lyr, snapToBeats(res.seg, grid));
+  } catch (_) {}
 }
 export function laneCleared() {
   track = null; result = null; id = null; grid = null; neededZoom = 0;

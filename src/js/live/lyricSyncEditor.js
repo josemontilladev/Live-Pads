@@ -12,9 +12,76 @@
 
 import { pushModal } from '../ui/modalStack.js';
 import { getSongs } from '../state/store.js';
-import { lyricLines, getLyricSync, setLyricSync, syncState } from './lyricSyncStore.js';
+import { lyricLines, getLyricSync, setLyricSync, syncState, clearLyricSync } from './lyricSyncStore.js';
 import { vocalOf, to16kMono } from './autoLyrics.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
+
+// ── Sincronización con IA en segundo plano ──────────────────────────────────
+// Sigue aunque se cierre la ventana: un chip en la cabecera enseña el avance y, al
+// terminar, se guarda sola y avisa («Revisar» abre la ventana para retocar).
+const jobs = new Map();   // `${id}|${type}` → { song, type, frac, label, subs:Set, promise }
+const SIZE_KEY = 'livepads.syncSize';
+export const syncSize = () => { try { return localStorage.getItem(SIZE_KEY) === 'base' ? 'base' : 'small'; } catch (_) { return 'small'; } };
+const jobKey = (song, type) => `${song.id}|${type}`;
+export const syncJobFor = (song, type) => jobs.get(jobKey(song, type)) || null;
+
+let chip = null;
+function paintChip() {
+  const j = [...jobs.values()][0];
+  if (!j) { if (chip) chip.hidden = true; return; }
+  if (!chip) {
+    chip = document.createElement('button');
+    chip.type = 'button'; chip.id = 'lsy-chip'; chip.className = 'tv-cd-chip lsy-chip';
+    chip.addEventListener('click', () => { const x = [...jobs.values()][0]; if (x) openLyricSync(x.song, { type: x.type }); });
+    const clock = document.getElementById('topbar-clock');
+    if (clock && clock.parentNode) clock.parentNode.insertBefore(chip, clock); else document.body.appendChild(chip);
+  }
+  chip.hidden = false;
+  chip.title = `Sincronizando la letra de «${j.song.title}»: ${j.label} — tocar para verla`;
+  chip.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M4 12h16M4 18h12"/></svg><span>Letra ${Math.round(j.frac * 100)} %</span>`;
+}
+
+/** Lanza (o devuelve, si ya va) la sincronización con IA de una pista. */
+export function startAiSync(song, type, size = syncSize(), { quiet = false } = {}) {
+  const key = jobKey(song, type);
+  if (jobs.has(key)) return jobs.get(key);
+  const api = window.electronAPI;
+  const job = { song, type, frac: 0, label: 'Preparando…', subs: new Set() };
+  const emit = (f, label) => { job.frac = Math.max(job.frac, Math.min(1, f)); if (label) job.label = label; paintChip(); for (const fn of job.subs) { try { fn(job); } catch (_) {} } };
+  jobs.set(key, job);
+  job.promise = (async () => {
+    const offP = api.onLyricsProgress?.((d) => emit(0.35 + 0.65 * (d.frac || 0), d.label || 'Escuchando la letra…'));
+    try {
+      const lines = lyricLines(song.lyrics);
+      const vocal = await vocalOf(song, (f, t) => emit(0.3 * f, t), type);
+      emit(0.32, 'Preparando la voz…');
+      const pcm = await to16kMono(vocal);
+      const idx = lines.map((l, i) => i).filter((i) => singable(lines[i].text));
+      const r = await api.lyricsAlign({ pcm, lines: idx.map((i) => lines[i]), size });
+      if (r && r.cancelled) throw Object.assign(new Error('Cancelado.'), { cancelled: true });
+      const evs = (r && r.events) || [];
+      if (!evs.length) throw new Error('No se reconoció la letra en la voz. ¿Es la letra de esta canción y la pista tiene voz?');
+      const ev = evs.map((e) => (e.conf !== 'exact' ? [e.t, idx[e.line], 0] : [e.t, idx[e.line]]));
+      setLyricSync(song, type, ev, { auto: true });
+      api.saveGiSetlist?.(getSongs());
+      window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id } }));
+      window.dispatchEvent(new CustomEvent('livepads:lyricsync-saved', { detail: { songId: song.id, type } }));
+      job.done = true;
+      const chk = ev.filter((e) => e[2] === 0).length;
+      if (!quiet) window.showToast?.(`✓ Letra de «${song.title}» sincronizada${chk ? ` (${chk} líneas por revisar)` : ''}.`, 'success', { ttl: 12000, action: { label: 'Revisar', onClick: () => openLyricSync(song, { type }) } });
+    } catch (e) {
+      job.error = String((e && e.message) || e);
+      if (!quiet && (!e || !e.cancelled)) window.showToast?.(`No se pudo sincronizar «${song.title}»: ${job.error}`, 'error', { ttl: 10000 });
+    } finally {
+      try { offP && offP(); } catch (_) {}
+      jobs.delete(key);
+      emit(1, job.error ? job.error : 'Listo');
+      paintChip();
+    }
+  })();
+  paintChip();
+  return job;
+}
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 const fmt = (t) => { const m = Math.floor(t / 60), s = t - m * 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
@@ -50,7 +117,7 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
   let type = wantType && types.includes(wantType) ? wantType : types[0];
 
   const lines = lyricLines(song.lyrics);
-  const S = { ev: [], sel: -1, buf: null, peaks: null, ctx: null, src: null, t0: 0, off: 0, playing: false, view0: 0, dirty: false, busy: false, drag: null, raf: 0, vocal: null };
+  const S = { ev: [], sel: -1, buf: null, peaks: null, ctx: null, src: null, t0: 0, off: 0, playing: false, view0: 0, dirty: false, busy: false, drag: null, raf: 0, vocal: null, manual: null };
 
   const ov = document.createElement('div');
   ov.className = 'vn-overlay';
@@ -62,7 +129,15 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
           ${types.map((t) => `<button type="button" class="ui-seg-btn" data-type="${t}">${t === 'original' ? 'Original' : 'Secuencia'}</button>`).join('')}
         </div>
         <span class="lsy-state" data-ref="state"></span>
+        <div class="ui-seg lsy-size" role="group" aria-label="Velocidad de la IA" title="Rápida: 2-3 veces antes, algo menos exacta. Precisa: entiende mejor la voz cantada.">
+          <button type="button" class="ui-seg-btn" data-size="base">Rápida</button><button type="button" class="ui-seg-btn" data-size="small">Precisa</button>
+        </div>
         <button type="button" class="vn-btn" data-act="ai">Sincronizar con IA</button>
+      </div>
+      <div class="lsy-tools">
+        <button type="button" class="vn-btn" data-act="manual" title="Suena la canción y pulsas T (o «Marcar») cuando empieza cada línea">A mano (tocando)</button>
+        <button type="button" class="vn-btn lsy-mark" data-act="mark" hidden>Marcar <small data-ref="nextline"></small></button>
+        <button type="button" class="vn-btn lsy-clear" data-act="clear" title="Quitar la sincronización de esta pista: la letra deja de iluminarse línea a línea">Quitar sincronización</button>
       </div>
       <div class="mt-progress" data-ref="prog" hidden><div class="vs-bar"><i data-ref="bar"></i></div><small data-ref="step"></small></div>
       <div class="lsy-tl" data-ref="tl" tabindex="0" aria-label="Línea de tiempo: arrastra una marca para moverla; clic para escuchar desde ahí">
@@ -124,6 +199,12 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
       : st === 'old' ? 'La letra cambió desde la última vez: vuelve a sincronizarla.' : 'Aún sin sincronizar.';
     $('[data-act="ai"]').textContent = n ? 'Volver a sincronizar con IA' : 'Sincronizar con IA';
     $('[data-act="save"]').disabled = !S.dirty;
+    $('[data-act="clear"]').hidden = !(n || getLyricSync(song, type));
+    ov.querySelectorAll('[data-size]').forEach((b) => b.classList.toggle('is-on', b.dataset.size === syncSize()));
+    const mk = $('[data-act="mark"]');
+    mk.hidden = !S.manual;
+    if (S.manual) { const L = S.manual.length ? lines[S.manual[0]] : null; mk.querySelector('small').textContent = L ? `«${L.text.slice(0, 34)}»` : '(listo)'; }
+    $('[data-act="manual"]').textContent = S.manual ? 'Terminar a mano' : 'A mano (tocando)';
     ov.querySelectorAll('[data-type]').forEach((b) => b.classList.toggle('is-on', b.dataset.type === type));
   }
   const touch = () => { S.dirty = true; paintState(); };
@@ -146,7 +227,7 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
         <button type="button" class="lsy-b" data-row="here" title="Poner donde suena ahora">aquí</button>
         <button type="button" class="lsy-b" data-row="del" title="Quitar esta entrada">✕</button>
       </div>`;
-    }).join('') || '<p class="lsy-empty">Pulsa «Sincronizar con IA»: escucha la voz y pone cada línea en su sitio (unos minutos, en este equipo). Después puedes retocar aquí.</p>';
+    }).join('') || (S.manual ? '<p class="lsy-empty">Escucha y pulsa <b>T</b> (o «Marcar») justo cuando empieza cada línea. Espacio pausa; si te pasas, sigue y luego retoca la línea arrastrando su marca.</p>' : null) || '<p class="lsy-empty">Pulsa «Sincronizar con IA»: escucha la voz y pone cada línea en su sitio (unos minutos, en este equipo). Después puedes retocar aquí.</p>';
     const r = list.querySelector('.is-sel'); if (r) r.scrollIntoView({ block: 'nearest' });
   }
 
@@ -236,36 +317,66 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
 
   // ── Sincronizar con IA ──
   const step = (f, txt) => { $('[data-ref="prog"]').hidden = false; $('[data-ref="bar"]').style.width = `${Math.round(f * 100)}%`; $('[data-ref="step"]').textContent = txt; };
+  // La IA trabaja en segundo plano (startAiSync): esta ventana solo enseña el avance y, al
+  // terminar, carga lo guardado. Si se cierra, sigue y avisa al acabar.
+  let unsub = null;
+  function follow(job) {
+    if (!job) return;
+    S.busy = true;
+    ov.querySelectorAll('[data-act="ai"], [data-act="manual"], [data-type], [data-size]').forEach((b) => { b.disabled = true; });
+    const on = (j) => {
+      if (!ov.isConnected) return;
+      if (jobs.has(jobKey(song, type))) { step(j.frac, j.label); return; }
+      // Terminó.
+      S.busy = false; if (unsub) { unsub(); unsub = null; }
+      ov.querySelectorAll('[data-act="ai"], [data-act="manual"], [data-type], [data-size]').forEach((b) => { b.disabled = false; });
+      if (j.done) { $('[data-ref="prog"]').hidden = true; loadEvents(); window.__lpLyricSync = { events: S.ev.length, check: S.ev.filter((e) => e.check).length }; }
+      else step(0, j.error || 'Cancelado.');
+    };
+    job.subs.add(on); unsub = () => job.subs.delete(on);
+    on(job);
+  }
   async function runAi() {
     if (S.busy) return;
     if (S.ev.length && S.ev.some((e) => !e.check)) {
       const ok = await confirmDialogAsync({ title: 'Volver a sincronizar', message: 'Se rehace la sincronización de esta pista con la IA y se pierden los retoques a mano. ¿Seguir?', confirmLabel: 'Sincronizar' });
       if (!ok) return;
     }
-    S.busy = true; stop();
-    ov.querySelectorAll('[data-act="ai"], [data-type]').forEach((b) => { b.disabled = true; });
-    const offP = api.onLyricsProgress?.((d) => step(0.35 + 0.65 * (d.frac || 0), d.label || 'Escuchando la letra…'));
-    try {
-      const vocal = await vocalOf(song, (f, t) => step(0.3 * f, t), type);
-      step(0.32, 'Preparando la voz…');
-      const pcm = await to16kMono(vocal);
-      const idx = lines.map((l, i) => i).filter((i) => singable(lines[i].text));
-      const r = await api.lyricsAlign({ pcm, lines: idx.map((i) => lines[i]), size: 'small' });
-      if (r && r.cancelled) throw new Error('Cancelado.');
-      const evs = (r && r.events) || [];
-      if (!evs.length) throw new Error('No se reconoció la letra en la voz. ¿Es la letra de esta canción y la pista tiene voz?');
-      S.ev = evs.map((e) => ({ t: e.t, i: idx[e.line], check: e.conf !== 'exact' }));
-      S.sel = 0; S.dirty = true;
-      $('[data-ref="prog"]').hidden = true;
-      paintState(); paintList(); draw();
-      window.__lpLyricSync = { events: S.ev.length, check: S.ev.filter((e) => e.check).length };
-    } catch (e) {
-      step(0, String((e && e.message) || e));
-    } finally {
-      S.busy = false;
-      ov.querySelectorAll('[data-act="ai"], [data-type]').forEach((b) => { b.disabled = false; });
-      try { offP && offP(); } catch (_) {}
+    stop(); S.manual = null;
+    follow(startAiSync(song, type));
+  }
+
+  // ── A mano: suena la canción y cada «Marcar» (o T) pone la siguiente línea donde suena ──
+  function startManual() {
+    if (S.manual) { S.manual = null; stop(); paintState(); return; }
+    if (S.ev.length && !S.ev.every((e) => e.check)) {
+      confirmDialogAsync({ title: 'Sincronizar a mano', message: 'Se empieza de cero: se quitan las líneas ya colocadas de esta pista. ¿Seguir?', confirmLabel: 'Empezar' }).then((ok) => { if (ok) { S.ev = []; beginManual(); } });
+      return;
     }
+    S.ev = []; beginManual();
+  }
+  function beginManual() {
+    S.manual = lines.map((l, i) => i).filter((i) => singable(lines[i].text));
+    S.sel = -1; touch(); paintList(); draw();
+    play(0);
+    window.showToast?.('Pulsa T (o «Marcar») justo cuando empieza cada línea. Espacio pausa.', 'info', { ttl: 7000 });
+  }
+  function markNow() {
+    if (!S.manual || !S.manual.length) return;
+    const i = S.manual.shift();
+    S.ev.push({ t: Math.max(0, Math.round((pos() - 0.08) * 100) / 100), i, check: false });
+    S.sel = S.ev.length - 1; sortEv(); touch(); paintList(); draw();
+    if (!S.manual.length) { S.manual = null; paintState(); window.showToast?.('✓ Todas las líneas marcadas. Retoca lo que haga falta y pulsa «Guardar».', 'success'); }
+  }
+  async function clearSync() {
+    const ok = await confirmDialogAsync({ title: 'Quitar sincronización', message: `La letra de «${song.title}» (${type === 'sequence' ? 'secuencia' : 'original'}) dejará de iluminarse línea a línea. Podrás volver a sincronizarla cuando quieras.`, confirmLabel: 'Quitar', danger: true });
+    if (!ok) return;
+    clearLyricSync(song, type);
+    api.saveGiSetlist?.(getSongs());
+    window.dispatchEvent(new CustomEvent('livepads:songs-changed', { detail: { songId: song.id } }));
+    window.dispatchEvent(new CustomEvent('livepads:lyricsync-saved', { detail: { songId: song.id, type } }));
+    S.manual = null; stop(); loadEvents();
+    window.showToast?.('Sincronización quitada: la letra ya no se ilumina sola.', 'info');
   }
 
   function save() {
@@ -300,6 +411,7 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
     else if (k === 'ArrowRight' || k === 'ArrowLeft') { e.preventDefault(); if (S.ev.length) { S.sel = Math.max(0, Math.min(S.ev.length - 1, S.sel + (k === 'ArrowRight' ? 1 : -1))); if (!S.playing) S.off = S.ev[S.sel].t; paintList(); draw(); } }
     else if ((k === '[' || k === ']') && S.ev[S.sel]) { e.preventDefault(); setTime(S.sel, S.ev[S.sel].t + (k === ']' ? 1 : -1) * (e.shiftKey ? 0.01 : 0.05)); }
     else if (k === 'Enter' && S.ev[S.sel]) { e.preventDefault(); setTime(S.sel, pos()); }
+    else if ((k === 't' || k === 'T') && S.manual) { e.preventDefault(); markNow(); }
     else if ((k === 't' || k === 'T') && S.ev[S.sel]) { e.preventDefault(); const cur = S.ev[S.sel]; setTime(S.sel, pos() - 0.08); S.sel = Math.min(S.ev.length - 1, S.ev.indexOf(cur) + 1); paintList(); draw(); }
   };
   document.addEventListener('keydown', onKey, true);
@@ -309,7 +421,9 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
       const ok = await confirmDialogAsync({ title: 'Sin guardar', message: 'Hay cambios en la sincronización sin guardar. ¿Cerrar y perderlos?', confirmLabel: 'Cerrar sin guardar', danger: true });
       if (!ok) return;
     }
-    if (S.busy) api.lyricsTranscribeCancel?.();
+    // La IA sigue en segundo plano (no se cancela): avisa al terminar.
+    if (S.busy) window.showToast?.(`La letra de «${song.title}» se sigue sincronizando en segundo plano: te aviso al terminar.`, 'info', { ttl: 7000 });
+    if (unsub) { unsub(); unsub = null; }
     stop(); cancelAnimationFrame(S.raf);
     document.removeEventListener('keydown', onKey, true);
     try { S.ctx && S.ctx.close(); } catch (_) {}
@@ -321,16 +435,21 @@ export function openLyricSync(song, { type: wantType = null } = {}) {
     const ty = e.target.closest('[data-type]');
     if (ty && !S.busy && ty.dataset.type !== type) {
       if (S.dirty) { window.showToast?.('Guarda antes de cambiar de pista.', 'warning'); return; }
-      type = ty.dataset.type; loadEvents(); loadTrack(); return;
+      type = ty.dataset.type; S.manual = null; loadEvents(); loadTrack(); follow(syncJobFor(song, type)); return;
     }
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'cancel') close();
     else if (act === 'ai') runAi();
+    else if (act === 'manual') startManual();
+    else if (e.target.closest('[data-size]') && !S.busy) { try { localStorage.setItem(SIZE_KEY, e.target.closest('[data-size]').dataset.size); } catch (_) {} paintState(); }
+    else if (act === 'mark') markNow();
+    else if (act === 'clear') clearSync();
     else if (act === 'save') save();
     else if (act === 'play') { S.playing ? (stop(), draw()) : play(); }
     else if (act === 'add') addHere();
   });
   new ResizeObserver(() => draw()).observe(tl);
   loadEvents(); loadTrack(); loop();
+  follow(syncJobFor(song, type));   // ya se estaba sincronizando (se había cerrado la ventana)
   window.__lpLyricSyncEditor = { S, save, runAi, setTime, play, stop, pos, type: () => type };
 }

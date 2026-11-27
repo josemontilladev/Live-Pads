@@ -423,6 +423,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   q('#tp-planb-btn')?.addEventListener('click', planB); paintPlanB();   // Plan B al instante (pad + click)
   import('./ui/vuMeter.js').then((m) => m.initVuMeter()).catch(() => {});   // vúmetro con aviso de saturación
   import('./live/nextCue.js').then((m) => m.initNextCue()).catch(() => {});   // avisos entre canciones
+  import('./live/miniPlayer.js').then((m) => { m.initMiniPlayer(); const sw = q('#mini-switch'); if (sw) { sw.checked = m.miniPlayerOn(); sw.addEventListener('change', () => m.setMiniPlayer(sw.checked)); } }).catch(() => {});   // reproductor flotante al minimizar
   q('#btn-live-touch')?.addEventListener('click', () => import('./ui/liveTouch.js').then((m) => m.toggleLiveTouch()));   // vista de directo táctil
   initSongMix();      // cada canción recuerda su mezcla (Pads, Batería, Click, Pista)
   initClickSections({ getMetro: () => metro });   // click distinto por sección

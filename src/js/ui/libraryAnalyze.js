@@ -14,6 +14,10 @@ import { markersFor, withMarkersFor } from '../data/markers.js';
 import { bufferLoudness, bufferMaster } from '../audio/loudness.js';
 import { isSounding } from '../state/performing.js';
 import { pushModal } from './modalStack.js';
+import { getLyricSync, lyricLines } from '../live/lyricSyncStore.js';
+
+const SYNC_KEY = 'livepads.libAnalyze.sync';
+const withSync = () => { try { return localStorage.getItem(SYNC_KEY) !== '0'; } catch (_) { return true; } };
 
 const DONE_KEY = 'livepads.libAnalyzed.v1';
 const SLOTS = ['sequence', 'original'];
@@ -28,7 +32,11 @@ const jobKey = (song, slot) => `${song.cloudId || song.id}|${slot}|${song.audio[
 export function libraryJobs() {
   const d = readDone();
   const out = [];
-  for (const s of getSongs()) for (const slot of SLOTS) if (s && s.audio && s.audio[slot]) out.push({ song: s, slot, done: !!d[jobKey(s, slot)] });
+  const sync = withSync();
+  for (const s of getSongs()) for (const slot of SLOTS) if (s && s.audio && s.audio[slot]) {
+    const needsSync = sync && lyricLines(s.lyrics).length >= 4 && !getLyricSync(s, slot);
+    out.push({ song: s, slot, done: !!d[jobKey(s, slot)] && !needsSync });
+  }
   return out;
 }
 
@@ -46,7 +54,7 @@ async function decode(url) {
 }
 
 /** Analiza una pista. → { sections: n|null } */
-export async function analyzeJob({ song, slot }, onStep = () => {}) {
+export async function analyzeJob({ song, slot }, onStep = () => {}, { sync = false } = {}) {
   onStep('Abriendo el audio…');
   const buffer = await decode(song.audio[slot]);
   onStep('Pulsos y compases…');
@@ -56,8 +64,22 @@ export async function analyzeJob({ song, slot }, onStep = () => {}) {
   onStep('Volumen y sonido…');
   const id = `${song.id || song.title}.${slot}.${Math.round(buffer.duration)}`;
   try { bufferLoudness(id, buffer); bufferMaster(id, buffer, slot === 'sequence'); } catch (_) {}
+  // Letra sincronizada (opcional, la parte lenta): con ella las secciones salen casi exactas.
+  let synced = false;
+  if (sync && lyricLines(song.lyrics).length >= 4 && !getLyricSync(song, slot)) {
+    onStep('Sincronizando la letra (unos minutos)…');
+    try {
+      const { startAiSync } = await import('../live/lyricSyncEditor.js');
+      const job = startAiSync(song, slot, undefined, { quiet: true });
+      const sub = (j) => onStep(`Sincronizando la letra… ${Math.round(j.frac * 100)} %`); job.subs.add(sub);
+      await job.promise; job.subs.delete(sub);
+      synced = !!job.done;
+    } catch (_) {}
+  }
   let sections = null;
-  if (!markersFor(song, slot).length) {
+  const ms = markersFor(song, slot);
+  // Sin secciones, o solo con las que puso LivePads y ahora hay letra sincronizada: se (re)calculan.
+  if (!ms.length || (synced && ms.every((m) => m.auto))) {
     onStep('Secciones…');
     try {
       const { computeSections } = await import('./seqWaveform.js');
@@ -81,6 +103,7 @@ export function openLibraryAnalyze() {
   ov.className = 'vn-overlay';
   ov.innerHTML = `<div class="vn-box lba-box" id="lba-box" role="dialog" aria-modal="true" aria-label="Analizar toda la librería">
     <div class="vn-head"><b>Analizar toda la librería</b><span>Pulsos, compases, acordes, secciones y volumen de cada canción, para que el domingo todo llegue listo. Va de una en una y se pone en pausa mientras suena música.</span></div>
+    <label class="sm-use lba-sync"><input type="checkbox" class="mo-switch" data-ref="sync"> <span><b>Sincronizar también la letra</b><small>Las secciones salen casi exactas, pero tarda unos minutos más por canción (la IA escucha la voz). Elige Rápida o Precisa en «Letra sincronizada».</small></span></label>
     <div class="lba-body" data-ref="body"></div>
     <div class="vn-actions"><button type="button" class="vn-btn" data-act="close">Cerrar</button><button type="button" class="vn-btn vn-btn--primary" data-act="go"></button></div>
   </div>`;
@@ -116,7 +139,7 @@ export function openLibraryAnalyze() {
         if (run.stop) break;
         const name = `«${job.song.title}» (${job.slot === 'sequence' ? 'secuencia' : 'original'})`;
         try {
-          const r = await analyzeJob(job, (step) => { status = `${name}: ${step}`; if (ov.isConnected) paint(); });
+          const r = await analyzeJob(job, (step) => { status = `${name}: ${step}`; if (ov.isConnected) paint(); }, { sync: withSync() });
           log.push(`✓ ${name}${r.sections ? ` · ${r.sections} secciones` : ''}`);
           if (r.sections) { save(); window.dispatchEvent(new CustomEvent('livepads:songs-changed')); }
         } catch (e) {
@@ -139,5 +162,8 @@ export function openLibraryAnalyze() {
     if (e.target === ov || e.target.closest('[data-act="close"]')) { close(); return; }
     if (e.target.closest('[data-act="go"]')) start();
   });
+  const sw = $('[data-ref="sync"]');
+  sw.checked = withSync();
+  sw.addEventListener('change', () => { try { localStorage.setItem(SYNC_KEY, sw.checked ? '1' : '0'); } catch (_) {} if (!run) paint(); });
   paint();
 }

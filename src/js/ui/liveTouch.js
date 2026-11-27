@@ -17,12 +17,13 @@ import { arrange, arrangeGoto, arrangeCancel, getPendingJump, jumpMode, setJumpM
 import { JUMP_MODES } from '../live/arrangeCore.js';
 import { attachVuMeter } from './vuMeter.js';
 import { pushModal } from './modalStack.js';
+import { sectionHue } from './seqWaveform.js';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (s) => (Number.isFinite(s) && s >= 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '–:––');
 const click = (sel) => document.querySelector(sel)?.click();
 
-let ov = null, off = null, pop = null, lastSecSig = '';
+let ov = null, off = null, pop = null, lastSecSig = '', ro = null;
 
 export const isLiveTouchOpen = () => !!ov;
 
@@ -60,8 +61,9 @@ function paint() {
   if (sig !== lastSecSig) {
     lastSecSig = sig;
     grid.innerHTML = ms.length
-      ? ms.map((m, k) => `<button type="button" class="lt-sec" data-sec="${k}"><b>${esc(m.label)}</b><small>${fmt(m.t)}</small></button>`).join('')
+      ? ms.map((m, k) => `<button type="button" class="lt-sec" data-sec="${k}" style="--h:${sectionHue(m.label)}"><b>${esc(m.label)}</b><small>${fmt(m.t)}</small></button>`).join('')
       : '<p class="lt-empty">Esta pista no tiene secciones. Márcalas en el espectro o usa «Detectar automáticamente».</p>';
+    fitGrid();
   }
   grid.querySelectorAll('[data-sec]').forEach((b) => {
     const k = Number(b.dataset.sec);
@@ -89,9 +91,33 @@ function paint() {
   ov.querySelectorAll('[data-jm]').forEach((b) => b.classList.toggle('is-on', b.dataset.jm === jumpMode()));
 }
 
+// Columnas que dan los botones más grandes sin dejar media pantalla vacía (ni pasarse de alto).
+function fitGrid() {
+  if (!ov) return;
+  const grid = ov.querySelector('[data-ref="grid"]');
+  const n = grid.querySelectorAll('.lt-sec').length;
+  if (!n) { grid.style.gridTemplateColumns = ''; grid.style.gridAutoRows = ''; return; }
+  const W = grid.clientWidth, H = grid.clientHeight, gap = 10;
+  let best = null;
+  for (let cols = 1; cols <= n; cols++) {
+    const w = (W - gap * (cols - 1)) / cols;
+    if (w < 140 && cols > 1) break;
+    const rows = Math.ceil(n / cols);
+    const h = Math.min((H - gap * (rows - 1)) / rows, w / 1.15, 260);
+    if (h < 72) continue;
+    const score = w * h - (cols * rows - n) * 400;   // poco hueco al final
+    if (!best || score > best.score) best = { cols, h, score };
+  }
+  if (!best) best = { cols: Math.max(1, Math.floor((W + gap) / (150 + gap))), h: 84 };
+  grid.style.gridTemplateColumns = `repeat(${best.cols}, minmax(0, 1fr))`;
+  grid.style.gridAutoRows = `${Math.floor(best.h)}px`;
+  grid.style.setProperty('--lt-fs', `${Math.round(Math.max(17, Math.min(34, best.h / 4.2)))}px`);
+}
+
 export function closeLiveTouch() {
   if (!ov) return;
   if (off) off(); off = null;
+  if (ro) { ro.disconnect(); ro = null; }
   if (pop) pop(); pop = null;
   ov.remove(); ov = null; lastSecSig = '';
   document.body.classList.remove('live-touch-open');
@@ -106,9 +132,9 @@ export function openLiveTouch() {
   ov.setAttribute('aria-label', 'Vista de directo');
   ov.innerHTML = `
     <header class="lt-top">
-      <button type="button" class="lt-btn lt-nav" data-act="prev"><span aria-hidden="true">◀</span><small data-ref="prev"></small></button>
+      <button type="button" class="lt-btn lt-nav" data-act="prev"><span class="lt-arrow" aria-hidden="true">◀</span><span class="lt-navtxt"><em>Anterior</em><small data-ref="prev"></small></span></button>
       <div class="lt-song"><b data-ref="title"></b><span data-ref="meta"></span></div>
-      <button type="button" class="lt-btn lt-nav lt-nav--next" data-act="next"><small data-ref="next"></small><span aria-hidden="true">▶</span></button>
+      <button type="button" class="lt-btn lt-nav lt-nav--next" data-act="next"><span class="lt-navtxt"><em>Siguiente</em><small data-ref="next"></small></span><span class="lt-arrow" aria-hidden="true">▶</span></button>
       <button type="button" class="lt-btn lt-exit" data-act="exit" title="Salir (Esc)">Salir</button>
     </header>
     <div class="lt-status"><span class="lt-now" data-ref="now"></span><span class="lt-then" data-ref="then"></span>
@@ -150,6 +176,7 @@ export function openLiveTouch() {
     setTimeout(paint, 80);
   });
   off = whilePlaying(paint, 250, { idleMs: 1000 });
+  try { let raf = 0; ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(fitGrid); }); ro.observe(ov.querySelector('[data-ref="grid"]')); } catch (_) {}
   window.addEventListener('livepads:planb', paint);
   paint();
 }

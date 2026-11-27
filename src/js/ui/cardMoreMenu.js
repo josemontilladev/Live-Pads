@@ -12,6 +12,9 @@
 let currentMenu = null;
 let currentAnchor = null;
 let anchorRect = null;   // dónde estaba el botón al abrir (para no cerrar por scrolls ajenos)
+// Último clic (para colocar el menú si su botón está escondido).
+const lastPointer = { x: 16, y: 56 };
+try { window.addEventListener('pointerdown', (e) => { lastPointer.x = e.clientX; lastPointer.y = e.clientY; }, true); } catch (_) {}
 
 function close() {
   if (currentMenu) {
@@ -125,7 +128,14 @@ export function openCardMoreMenu(anchorBtn, items) {
   close();
 
   const menu = buildMenu(items);
-  const r = anchorBtn.getBoundingClientRect();
+  let r = anchorBtn.getBoundingClientRect();
+  // Botón escondido (p. ej. una herramienta que la cabecera metió en «⋯»): sin esto el
+  // menú salía en la esquina de arriba a la izquierda. Se ancla a «⋯» o donde se hizo clic.
+  if (!r.width && !r.height) {
+    const more = anchorBtn.classList.contains('tb-over') ? document.querySelector('.tb-more') : null;
+    const mr = more && more.getBoundingClientRect();
+    r = mr && mr.width ? mr : { left: lastPointer.x, right: lastPointer.x, top: lastPointer.y, bottom: lastPointer.y };
+  }
   const mw = menu.offsetWidth, mh = menu.offsetHeight;
   const vw = window.innerWidth, vh = window.innerHeight;
   let left = Math.min(Math.max(8, r.right - mw), vw - mw - 8);

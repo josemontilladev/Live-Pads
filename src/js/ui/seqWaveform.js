@@ -376,7 +376,9 @@ function renderMarkers() {
     const tip = (m.auto ? 'Supuesta por LivePads (revísala) · ' : '') + (edit ? 'clic: ir y seleccionar (← → la mueven por compás) · arrastrar: mover · doble clic en la onda: repetir · ▾ o clic derecho: opciones · ✕: quitar' : 'clic: ir a esta sección');
     // Cada píldora cabe en el hueco hasta la siguiente (se recorta con «…»; al pasar el ratón se ve entera).
     const gapPx = Math.max(22, ((end - m.t) / duration) * sw - 4);
-    pills += `<button type="button" class="sw-pill${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue};--gap:${Math.round(gapPx)}px" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
+    // Cerca del borde derecho no cabe el nombre: la etiqueta se coloca hacia la izquierda de su punto.
+    const flip = sw * (1 - m.t / duration) < Math.min(90, 14 + 7 * m.label.length) && i > 0;
+    pills += `<button type="button" class="sw-pill${flip ? ' is-flip' : ''}${m.auto ? ' is-auto' : ''}${m.id === selectedId ? ' is-selected' : ''}" data-id="${m.id}" style="left:${(m.t / duration) * 100}%;--h:${hue};--gap:${Math.round(gapPx)}px" title="${escapeHtml(m.label)} · ${fmt(m.t)} — ${tip}"><span class="sw-pill-label">${escapeHtml(m.label)}</span>${tools}</button>`;
   });
   regionsEl.innerHTML = reg; markersEl.innerHTML = pills;
   markersEl.querySelectorAll('.sw-pill').forEach(bindPill);
@@ -525,7 +527,8 @@ function wireZoom() {
   scroller.addEventListener('wheel', (e) => {
     if (!(e.ctrlKey || e.altKey)) {
       // Con zoom, la rueda vertical desplaza la onda en horizontal.
-      if (zoom > 1.001 && Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.shiftKey) { e.preventDefault(); scroller.scrollLeft += e.deltaY; }
+      // (sin Mayús: con la onda ampliada, la rueda es la forma natural de recorrer las secciones)
+      if (zoom > 1.001 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); userScrollAt = performance.now(); scroller.scrollLeft += e.deltaY; }
       return;
     }
     e.preventDefault();

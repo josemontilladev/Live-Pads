@@ -1,9 +1,11 @@
-• Plan B al instante (botón en la barra, en la vista táctil o con un pedal): si la secuencia falla, pasa ya a pad en el tono de la canción y click a su tempo, sin silencio. Otra vez para salir.
-• Vista de directo táctil (botón en la cabecera): pantalla completa con las secciones como botones grandes (un toque = saltar, ya, al compás o al final de la sección), canción anterior/siguiente, Play, Repetir, Terminar suave y Plan B. Para pantallas táctiles y tablets junto al teclado.
-• Vúmetro junto al Maestro, con aviso «SAT» cuando la mezcla entra demasiado fuerte y el limitador la está recortando.
-• Avisos entre canciones: en los últimos 20 s aparece qué viene (canción, tono, BPM, cejilla y tus notas para la banda), también en el monitor de escenario.
-• Armar el servicio con ayuda (menú ⋯ del servicio): ordena las canciones para que fluyan (de celebración a adoración, tonos cercanos) o te sugiere canciones de tu librería por tema, sin repetir las de las últimas semanas.
-• Importar un setlist desde una foto, un PDF o texto (menú ⋯ del servicio): arrastra la lista que mandó el líder por WhatsApp; se lee en tu PC, revisas y se crea el servicio con sus tonos.
-• Masterizado automático (Ajustes → Audio → Sonido general): iguala graves y brillo de cada canción para que todas suenen parecidas en la sala.
-• Stems: separar «Voz principal y coros» (experimental), carpetas de pistas con solo y plegar (y grupos propios desde el menú de la pista), y «Analizar toda la librería» en cola (Ajustes → Archivos de audio).
-• Estudio de voces: exportar la melodía (y la 2.ª y 3.ª voz) en MIDI o como partitura MusicXML para MuseScore, Sibelius o Finale.
+• Reproductor flotante: al minimizar LivePads mientras suena algo aparece una ventanita siempre encima con la canción, la sección, el tiempo y play/pausa, siguiente y volver. Se puede apagar en Ajustes → Audio.
+• Tono de la grabación: si el audio suena en otro tono que la canción (p. ej. el original en D y la letra y la tarjeta en C), LivePads lo avisa una vez y con un toque baja o sube el audio para que audio, acordes y pad vayan en el mismo tono.
+• Letra sincronizada:
+  – Sigue en segundo plano aunque cierres la ventana (un chip en la cabecera enseña el avance) y avisa al terminar; se guarda sola.
+  – Elige «Rápida» o «Precisa».
+  – «A mano (tocando)»: suena la canción y pulsas T o «Marcar» cuando empieza cada línea.
+  – «Quitar sincronización» para que la letra deje de iluminarse.
+• Analizar toda la librería puede sincronizar también la letra: así las secciones del espectro salen casi exactas (por ejemplo, Intro y luego Verso 1 en «Adiós al ayer»). Las secciones que puso LivePads se recalculan; las tuyas no se tocan.
+• Vista de directo táctil: las secciones llenan la pantalla con su color, anterior/siguiente más claros y «Pausa» legible en todos los temas.
+• Espectro: la etiqueta de la última sección ya no se corta, y con la onda ampliada la rueda del ratón la recorre de lado a lado.
+• El menú de «Voces» (y cualquier menú de una herramienta metida en «⋯») sale junto a «⋯» y no en una esquina.

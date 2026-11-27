@@ -97,6 +97,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveVoiceNote: (data) => ipcRenderer.invoke('save-voice-note', data),
   // Ruta real de un archivo elegido con <input type=file> (Electron ya no la pone en File.path).
   lyricsWindowLine: (i) => ipcRenderer.send('lyrics-window-line', i),
+  // Reproductor flotante (al minimizar mientras suena).
+  miniState: (s) => ipcRenderer.send('mini-state', s),
+  onMiniState: (cb) => { const h = (_e, s) => cb(s); ipcRenderer.on('mini-state', h); return () => ipcRenderer.removeListener('mini-state', h); },
+  miniCmd: (cmd) => ipcRenderer.send('mini-cmd', cmd),
+  onMiniCmd: (cb) => { const h = (_e, c) => cb(c); ipcRenderer.on('mini-cmd', h); return () => ipcRenderer.removeListener('mini-cmd', h); },
   onLyricsLine: (cb) => ipcRenderer.on('lyrics-line', (_e, i) => cb(i)),
   pathForFile: (file) => { try { return webUtils.getPathForFile(file) || ''; } catch (_) { return ''; } },
   saveZipFile: (data) => ipcRenderer.invoke('save-zip-file', data),

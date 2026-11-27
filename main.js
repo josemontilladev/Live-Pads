@@ -3115,6 +3115,54 @@ function analysisMono({ token, mono } = {}) {
   return {};
 }
 
+// ── Reproductor flotante (mini.html) ───────────────────────────────────────
+// Al minimizar LivePads mientras suena algo, aparece una ventanita siempre encima
+// (abajo a la derecha) con la canción, la sección, el tiempo y play/pausa, siguiente y
+// volver. Se va sola al volver a la app. La interfaz le manda el estado (mini-state) y
+// ella devuelve las órdenes (mini-cmd), que hace la interfaz principal.
+let miniWin = null, miniState = null, miniDismissed = false;
+const miniOn = () => !!(miniState && miniState.enabled !== false);
+function openMini() {
+  if (miniWin && !miniWin.isDestroyed()) { miniWin.showInactive(); return; }
+  const { screen } = require('electron');
+  const wa = screen.getDisplayMatching(mainWindow.getBounds()).workArea;
+  const W = 340, H = 104;
+  miniWin = new BrowserWindow({
+    width: W, height: H, x: wa.x + wa.width - W - 16, y: wa.y + wa.height - H - 16,
+    frame: false, resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+    alwaysOnTop: true, skipTaskbar: true, show: false, backgroundColor: '#101014', title: 'LivePads',
+    icon: path.join(__dirname, 'src/assets/icon.ico'),
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, devTools: !app.isPackaged },
+  });
+  miniWin.setAlwaysOnTop(true, 'floating');
+  miniWin.loadFile('src/mini.html');
+  miniWin.webContents.on('did-finish-load', () => { if (miniState) miniWin.webContents.send('mini-state', miniState); miniWin.showInactive(); });
+  miniWin.on('closed', () => { miniWin = null; });
+}
+function closeMini() { if (miniWin && !miniWin.isDestroyed()) miniWin.close(); miniWin = null; }
+ipcMain.on('mini-state', (_e, s) => {
+  miniState = s || null;
+  if (miniWin && !miniWin.isDestroyed()) miniWin.webContents.send('mini-state', miniState);
+  // Empieza a sonar con la app minimizada (p. ej. desde un pedal): aparece.
+  else if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isMinimized() && miniOn() && miniState.playing && !miniDismissed) openMini();
+});
+ipcMain.on('mini-cmd', (_e, cmd) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (cmd === 'restore') { closeMini(); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); return; }
+  if (cmd === 'close') { miniDismissed = true; closeMini(); return; }
+  try { mainWindow.webContents.send('mini-cmd', cmd); } catch (_) {}
+});
+app.whenReady().then(() => {
+  const hook = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) { setTimeout(hook, 500); return; }
+    mainWindow.on('minimize', () => { miniDismissed = false; if (miniOn() && miniState.playing) openMini(); });
+    mainWindow.on('restore', closeMini);
+    mainWindow.on('focus', closeMini);
+    mainWindow.on('closed', closeMini);
+  };
+  hook();
+});
+
 // ── Ventana de la letra (lyrics.html) ─────────────────────────────────────
 // «Letra» en una canción abre su letra en una ventana propia, que se puede llevar
 // a otra pantalla (TV, segundo monitor): la pantalla de Pads no cambia (el
