@@ -2,6 +2,8 @@
 // Pulsos y compases con Beat This! (CPJKU, Universidad J. Kepler de Linz;
 // código y pesos con licencia MIT), en local con onnxruntime-node (GPU con
 // DirectML si hay, si no CPU). Modelo convertido a ONNX: models/beat_this_final0.onnx
+// (la app usa beat_this_q8.onnx: el mismo cuantizado a INT8 con onnxruntime.quantization.quantize_dynamic,
+// solo MatMul/Gemm, pesos QInt8 por tensor, tras quant_pre_process)
 //
 // Réplica exacta del preprocesado oficial (beat_this/preprocessing.py):
 //   mono 22 050 Hz → STFT 1024 / salto 441 (50 fotogramas/s), Hann periódica,

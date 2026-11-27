@@ -16,7 +16,7 @@ const MODELS = [
   { name: 'kuielab_a_other.onnx',       url: `${REL}/kuielab_a_other.onnx` },
   // Análisis musical (convertidos a ONNX por nosotros; licencia MIT de sus autores).
   // Viven en la prerelease «models-v1» del repo (el actualizador ignora las prereleases).
-  { name: 'beat_this_final0.onnx',      url: `${OWN}/beat_this_final0.onnx` },   // Beat This! (CPJKU): pulsos y compases
+  { name: 'beat_this_q8.onnx',          url: `${OWN}/beat_this_q8.onnx` },       // Beat This! (CPJKU) cuantizado INT8: pulsos y compases
   { name: 'btc_chords_voca.onnx',       url: `${OWN}/btc_chords_voca.onnx` },    // BTC (Park et al.): acordes
 ];
 

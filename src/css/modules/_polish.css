@@ -2461,3 +2461,25 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 /* Letra a pantalla completa: la ayuda del pie en una píldora (no se mezcla con la última línea). */
 .lyr-hint { background: color-mix(in srgb, var(--bg, #000) 82%, transparent); padding: 4px 12px; border-radius: 999px; width: max-content; max-width: calc(100% - 32px); margin-inline: auto; }
 :root[data-theme="clean"] .lyp-next b { color: #92400e !important; }   /* «Después se canta»: ámbar oscuro legible sobre claro */
+/* Pads: al pasar el ratón conservan su color (antes se quedaban en gris) y se iluminan un poco. */
+.drum-btn:hover:not(.hit):not(:active) {
+  background:
+    radial-gradient(130% 100% at 50% 0%, color-mix(in srgb, var(--pad-c) 26%, transparent), transparent 66%),
+    linear-gradient(180deg, var(--surface-1), var(--bg-surface));
+}
+/* Pads pulsados con el ratón: la tecla del atajo se lee igual que al tocarlos con el teclado. */
+.drum-btn:active .kbd-hint { background: rgba(0,0,0,.18); color: rgba(0,0,0,.75); border-color: transparent; }
+.drum-btn:active .drum-tile-pct { color: rgba(0,0,0,.7); }
+:root[data-theme-style="flat"] .drum-btn:active .kbd-hint { border-color: var(--flat-ink); color: var(--flat-ink); background: transparent; }
+/* Tema claro: «Cerrar» del editor de letra (la regla oscura con #lp-boost ganaba por especificidad),
+   herramientas de formato y ▶ de «Sonidos del pad» legibles también al pasar el ratón. */
+:root[data-theme="clean"] :is(.lyrics-modal-panel, #lp-boost) :is(.cancel-btn, .lyrics-cancel-btn, .close-text-btn) { color: var(--text) !important; border-color: rgba(0,0,0,.18) !important; }
+:root[data-theme="clean"] :is(.lyrics-modal-panel, #lp-boost) .cancel-btn:hover { background: rgba(0,0,0,.06) !important; }
+:root[data-theme="clean"] .format-tool-btn:hover { color: var(--text); background: rgba(0,0,0,.06); }
+:root[data-theme="clean"] .spm-play { color: var(--text-muted); background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.12); }
+:root[data-theme="clean"] .spm-play:not(.playing):hover { color: var(--text); background: rgba(0,0,0,.1); }
+/* Estudio de voces: el botón principal conserva su color al pasar el ratón (antes se quedaba gris). */
+.vs-btn--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, #fff); border-color: var(--accent); color: var(--on-accent, #0a0a14); }
+/* Tema claro: el azul de los botones al pasar el ratón, un punto más oscuro para que se lea bien. */
+:root[data-theme="clean"] :is(.mp-io, .pk-oct-btn, .pk-reverb, .cp-newcode, .lyrics-preview-btn):hover, :root[data-theme="clean"] .mtm-tap:hover:not(:active) { color: #0369a1 !important; }
+:root[data-theme="clean"] .gt-del:hover { color: #b91c1c; }
