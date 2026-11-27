@@ -1960,7 +1960,7 @@ body:has(.dc-pal) .tb-pill { display: none; }
 
 /* ── Estudio de voces (voices/voiceStudio.js) ── */
 #vs-overlay { position: fixed; inset: 0; z-index: 10050; background: rgba(0,0,0,.6); display: flex; padding: 14px; }
-.vs-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--menu-bg, #14161c); border: 1px solid color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+.vs-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: var(--flat-side, var(--bg-surface, #14161c)); border: 1px solid color-mix(in srgb, var(--text) 14%, transparent); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.6); }
 .vs-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent); flex-wrap: wrap; }
 .vs-titles { display: flex; flex-direction: column; min-width: 0; flex: 1 1 220px; }
 .vs-titles b { font-size: 16px; }
@@ -1990,6 +1990,19 @@ body:has(.dc-pal) .tb-pill { display: none; }
 .vs-edit button:hover { background: rgba(255,255,255,.18); }
 .vs-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; font-size: 11.5px; color: rgba(255,255,255,.55); white-space: nowrap; pointer-events: none; }
 .vs-hint[hidden] { display: none; }
+/* Estudio de voces: barra «Escuchar» (qué voces suenan, de un clic) */
+.vs-listen { position: absolute; top: 10px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; pointer-events: none; z-index: 2; }
+.vs-listen[hidden] { display: none; }
+.vs-listen > * { pointer-events: auto; }
+.vs-listen-t { pointer-events: none; font: 700 11px/1 inherit; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-right: 2px; }
+.vs-listen button { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c, #fff) 55%, transparent); background: color-mix(in srgb, var(--c, #fff) 18%, rgba(10,10,18,.75)); color: #fff; font: 700 12.5px/1 inherit; cursor: pointer; white-space: nowrap; transition: background .15s, opacity .15s, border-color .15s; }
+.vs-listen button i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.vs-listen button:hover { background: color-mix(in srgb, var(--c, #fff) 30%, rgba(10,10,18,.75)); }
+.vs-listen button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.vs-listen button[aria-pressed="false"] { background: rgba(10,10,18,.6); border-color: rgba(255,255,255,.16); color: rgba(255,255,255,.55); text-decoration: line-through; text-decoration-color: rgba(255,255,255,.35); }
+.vs-listen button[aria-pressed="false"] i { background: transparent; box-shadow: none; border: 2px solid var(--c); opacity: .7; }
+.vs-listen button.vs-listen-all { --c: #ffffff; padding: 0 12px; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.22); }
+@media (max-width: 820px) { .vs-listen-t { display: none; } .vs-listen button { height: 28px; padding: 0 10px 0 8px; font-size: 12px; } }
 .vs-foot { display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; border-top: 1px solid color-mix(in srgb, var(--text) 10%, transparent); }
 .vs-transport { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .vs-play { width: 42px; height: 42px; flex: none; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent, #0a0a14); cursor: pointer; display: grid; place-items: center; }

@@ -37,6 +37,10 @@ const CH = [
   { id: 'v3', label: '3.ª voz', color: '#35d6ff', vol: 0.9, on: true },
 ];
 const VOICE_IDS = ['lead', 'v2', 'v3'];
+const LISTEN = ['lead', 'v2', 'v3', 'mix', 'vocal'];   // orden de la barra «Escuchar» (teclas 1-5)
+// Versión del detector de melodía: 2 = ya no corta las notas largas (finales con reverberación).
+const MELODY_ALG = 2;
+const hasEdits = (ed) => !!ed && Object.values(ed).some((st) => st && Object.values(st).some((v) => v && Object.keys(v).length));
 const WINDOW_SEC = 8, HEAD = 0.3;
 
 let S = null;   // estado del estudio abierto
@@ -75,6 +79,7 @@ function build(song, label) {
       </header>
       <div class="vs-stage">
         <canvas data-ref="cv"></canvas>
+        <div class="vs-listen" role="group" aria-label="Qué escuchar" data-ref="listen" hidden><span class="vs-listen-t">Escuchar</span>${LISTEN.map((id, k) => { const c = CH.find((q) => q.id === id); return `<button type="button" data-listen="${id}" style="--c:${c.color}" aria-pressed="${c.on}" title="${esc(c.label)}: clic para oírla o callarla · doble clic para oír solo esta (tecla ${k + 1})"><i></i>${esc(c.label)}</button>`; }).join('')}<button type="button" class="vs-listen-all" data-listen="all" title="Volver a oír la melodía, las voces y la canción (tecla 0)">Todo</button></div>
         <div class="vs-progress" data-ref="progress"><b data-ref="pstep">Preparando…</b><div class="vs-bar"><i data-ref="pbar"></i></div><small data-ref="pdetail"></small></div>
         <div class="vs-edit" data-ref="edit" hidden>
           <span data-ref="ename"></span>
@@ -185,7 +190,13 @@ async function prepare(song, givenBuffer, givenIsVocal) {
   })();
 
   // 4. Melodía
-  const saved = song && song.harmony && song.harmony.src === S.src && Array.isArray(song.harmony.lead) ? song.harmony : null;
+  let saved = song && song.harmony && song.harmony.src === S.src && Array.isArray(song.harmony.lead) ? song.harmony : null;
+  // Melodía guardada con un detector anterior (cortaba las notas largas): sin correcciones a
+  // mano se vuelve a escuchar sola; con correcciones se conserva y se avisa.
+  if (saved && (saved.alg || 1) < MELODY_ALG) {
+    if (!hasEdits(saved.edits)) saved = null;
+    else setTimeout(() => window.showToast?.('Esta melodía se escuchó con una versión anterior que cortaba algunas notas largas. Pulsa «Volver a analizar» para mejorarla (se pierden tus correcciones).', 'info'), 600);
+  }
   if (saved) {
     // Ya se escuchó antes: las notas están guardadas. La curva fina (cómo cantó de verdad)
     // se calcula en segundo plano y aparece cuando esté.
@@ -240,6 +251,7 @@ async function prepare(song, givenBuffer, givenIsVocal) {
   S.$('[data-ref="secs"]').innerHTML = ms.map((m) => `<button type="button" data-seek="${m.t}">${esc(m.label)}</button>`).join('');
   S.$('[data-ref="progress"]').hidden = true;
   S.$('[data-act="play"]').disabled = false;
+  S.$('[data-ref="listen"]').hidden = false;
   mark('voces');
   S.ready = true; S.dirty = true;
   S.realTimer = setTimeout(() => prepareReal(false), 1200);
@@ -426,6 +438,16 @@ function paintPlay() {
     : '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
   b.setAttribute('aria-label', S.playing ? 'Pausa' : 'Reproducir');
 }
+// Barra «Escuchar»: clic enciende o calla esa voz; doble clic (o Mayús + tecla) deja solo esa.
+// Quita los «S» del mezclador para que siempre suene exactamente lo que se ve encendido.
+function listen(id, only) {
+  if (!S) return;
+  for (const c of Object.values(S.ch)) c.solo = false;
+  if (id === 'all') { for (const v of [...VOICE_IDS, 'mix']) S.ch[v].on = true; }
+  else if (only) { for (const c of Object.values(S.ch)) c.on = c.id === id; }
+  else S.ch[id].on = !S.ch[id].on;
+  applyGains();
+}
 function applyGains() {
   const anySolo = Object.values(S.ch).some((c) => c.solo);
   for (const c of Object.values(S.ch)) {
@@ -438,6 +460,8 @@ function applyGains() {
     el.querySelector('[data-act="toggle"]').setAttribute('aria-pressed', String(c.on));
     el.querySelector('[data-act="solo"]').classList.toggle('is-on', c.solo);
     el.classList.toggle('is-muted', !audible);
+    const lb = S.ov.querySelector(`[data-listen="${c.id}"]`);
+    if (lb) lb.setAttribute('aria-pressed', String(audible));
   }
   S.dirty = true;
 }
@@ -451,7 +475,7 @@ function applyPitch() {
 function persist() {
   const song = S && S.song;
   if (!song) return;
-  song.harmony = { v: 1, src: S.src, style: S.style, semis: S.semis, lead: S.lead, edits: S.edits, at: Date.now() };
+  song.harmony = { v: 1, alg: MELODY_ALG, src: S.src, style: S.style, semis: S.semis, lead: S.lead, edits: S.edits, at: Date.now() };
   try { window.electronAPI?.saveGiSetlist?.(getSongs()); } catch (_) {}
 }
 
@@ -568,6 +592,8 @@ async function exportMelody(kind) {
 function onClick(e) {
   const act = e.target.closest('[data-act]')?.dataset.act;
   const chEl = e.target.closest('.vs-ch');
+  const lis = e.target.closest('[data-listen]');
+  if (lis) { if (S.ready) listen(lis.dataset.listen, e.detail >= 2); return; }
   const seekB = e.target.closest('[data-seek]');
   if (seekB) { seek(Number(seekB.dataset.seek)); return; }
   const srcB = e.target.closest('[data-src]');
@@ -590,6 +616,10 @@ function onKey(e) {
   if (!S) return;
   if (e.target.closest && e.target.closest('input, select, textarea')) return;
   if (e.code === 'Space') { e.preventDefault(); e.stopPropagation(); if (S.ready) { if (S.playing) pauseAll(); else playAll(); } return; }
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && /^(Digit|Numpad)[0-5]$/.test(e.code) && S.ready) {
+    e.preventDefault(); e.stopPropagation();
+    const k = Number(e.code.slice(-1)); listen(k ? LISTEN[k - 1] : 'all', e.shiftKey); return;
+  }
   if (!S.sel) return;
   if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); nudge(1); }
   else if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); nudge(-1); }
@@ -660,7 +690,7 @@ function geometry(w, h) {
   for (const n of all) { if (n.m < lo) lo = n.m; if (n.m > hi) hi = n.m; }
   if (lo > hi) { lo = 48; hi = 72; }
   lo -= 2; hi += 2;
-  const top = Math.min(130, h * 0.22), bottom = h - 28;
+  const top = Math.max(84, Math.min(130, h * 0.22)), bottom = h - 28;   // ≥ 84: debajo de la barra «Escuchar»
   const t = curTime();
   return { t, lo, hi, top, bottom, x: (s) => (s - t) * (w / WINDOW_SEC) + w * HEAD, y: (m) => bottom - ((m - lo) / (hi - lo)) * (bottom - top) };
 }
@@ -728,8 +758,9 @@ function draw() {
     c.fillText(chordName(ch, { shift: S.semis, key: keyObj }), x + 6, g.top - 14);
   }
   if (now) {
-    c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.font = `300 ${Math.max(28, Math.min(64, h * 0.1))}px system-ui, sans-serif`;
-    c.fillText(chordName(now, { shift: S.semis, key: keyObj }), w / 2, Math.max(30, g.top * 0.38));
+    // A la derecha: a la izquierda arriba está la barra «Escuchar».
+    c.fillStyle = '#ffffff'; c.textAlign = 'right'; c.font = `300 ${Math.max(28, Math.min(56, h * 0.09))}px system-ui, sans-serif`;
+    c.fillText(chordName(now, { shift: S.semis, key: keyObj }), w - 18, Math.max(34, g.top * 0.42));
   }
   // Curva real de la voz (fina, tenue): cómo cantó de verdad.
   if (S.f0) {
@@ -758,9 +789,8 @@ function draw() {
   for (const v of order) {
     const list = listOf(v), ch = S.ch[v];
     const audible = Object.values(S.ch).some((q) => q.solo) ? ch.solo : ch.on;
-    if (!audible && v === 'lead' && !S.ch.lead.on) { /* la melodía se dibuja siempre, más tenue si está callada */ }
     c.save();
-    c.globalAlpha = audible || v === 'lead' ? 1 : 0.4;
+    c.globalAlpha = audible ? 1 : 0.28;   // la voz que no suena se ve apagada
     c.strokeStyle = ch.color; c.lineWidth = 5; c.lineCap = 'round'; c.lineJoin = 'round';
     c.shadowColor = ch.color; c.shadowBlur = 16;
     c.beginPath();
@@ -789,7 +819,7 @@ function draw() {
     c.restore();
     // Punto en la línea de «ahora» y nombre de la nota.
     const on = list.find((n) => !n.off && n.s <= g.t && g.t < n.e);
-    if (on) labels.push({ v, y: g.y(on.m), name: noteName(on.m + S.semis, S.flats), color: ch.color, dim: !audible && v !== 'lead' });
+    if (on) labels.push({ v, y: g.y(on.m), name: noteName(on.m + S.semis, S.flats), color: ch.color, dim: !audible });
   }
   // Línea de «ahora».
   const hx = w * HEAD;
@@ -846,7 +876,7 @@ export const isVoiceStudioOpen = () => !!S;
 /** Para las pruebas automáticas: un resumen del estado (sin tocarlo). */
 export function _vsDebug() {
   if (!S) return null;
-  return { timing: S.timing, ready: S.ready, lead: S.lead.length, v2: S.voices.v2.length, v3: S.voices.v3.length, chords: S.chords.length, key: S.key, t: S.t, dur: S.dur, playing: S.playing, real: !!S.real.v2, src: { v2: S.ch.v2.src, v3: S.ch.v3.src }, style: S.style, sel: S.sel, edits: S.edits };
+  return { timing: S.timing, ready: S.ready, lead: S.lead.length, v2: S.voices.v2.length, v3: S.voices.v3.length, chords: S.chords.length, key: S.key, t: S.t, dur: S.dur, playing: S.playing, real: !!S.real.v2, src: { v2: S.ch.v2.src, v3: S.ch.v3.src }, style: S.style, sel: S.sel, edits: S.edits, leadSec: S.lead.reduce((a, n) => a + n.e - n.s, 0), ch: Object.fromEntries(Object.entries(S.ch).map(([k, c]) => [k, { on: c.on, solo: c.solo }])), alg: S.song && S.song.harmony && S.song.harmony.alg };
 }
 export function _vsSelect(v, i) { if (S) select({ v, i }); }
 /** Para las pruebas automáticas: nivel (RMS) de cada fuente durante `ms` milisegundos. */

@@ -24,6 +24,7 @@ export const hzToMidi = (f) => 69 + 12 * Math.log2(f / 440);
  * mono: Float32Array; sr: Hz. Se reduce a ~11 kHz (la voz no necesita más) y se
  * analiza cada 10 ms. → { hop, f0: Float32Array (Hz, 0 = sin voz), conf, rms }
  */
+const YIN_FALLBACK = 0.4;
 export function trackPitch(mono, sr, { fmin = 70, fmax = 1100, onProgress = null } = {}) {
   const dec = Math.max(1, Math.round(sr / 11025));
   const rate = sr / dec;
@@ -59,7 +60,14 @@ export function trackPitch(mono, sr, { fmin = 70, fmax = 1100, onProgress = null
     for (let tau = tauMin; tau < tauMax; tau++) {
       if (d[tau] < 0.15) { while (tau + 1 < tauMax && d[tau + 1] < d[tau]) tau++; best = tau; break; }
     }
-    if (best < 0) continue;
+    if (best < 0) {
+      // Sin un valle claro (la voz separada lleva reverberación y restos de la mezcla, sobre todo
+      // en las notas largas y sus finales): vale el mínimo absoluto si es razonable. Antes estos
+      // cuadros se perdían y las notas largas salían cortadas.
+      let mv = YIN_FALLBACK;
+      for (let tau = tauMin; tau < tauMax; tau++) if (d[tau] < mv) { mv = d[tau]; best = tau; }
+      if (best < 0) continue;
+    }
     const a = d[best - 1], b = d[best], c = d[best + 1];
     const den = a - 2 * b + c;
     const t = den ? best + (a - c) / (2 * den) : best;
@@ -73,7 +81,7 @@ export function trackPitch(mono, sr, { fmin = 70, fmax = 1100, onProgress = null
 function median(arr) { const a = arr.slice().sort((p, q) => p - q); return a[a.length >> 1]; }
 
 /** Curva de tono → notas estables [{ s, e, m }]. Quita vibrato, deslices cortos y saltos de octava. */
-export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55 } = {}) {
+export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55, startConf = 0.7 } = {}) {
   const N = f0.length;
   const mid = new Float32Array(N);
   for (let i = 0; i < N; i++) mid[i] = f0[i] > 0 && conf[i] >= minConf ? hzToMidi(f0[i]) : NaN;
@@ -100,7 +108,8 @@ export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55 
     const v = sm[i];
     if (Number.isNaN(v)) { gap++; if (gap >= 4) close(); continue; }
     gap = 0;
-    if (!cur) { cur = { start: i, end: i, vals: [v], ref: v, off: 0 }; continue; }
+    // Una nota empieza solo con un tono claro; una vez empezada sigue con uno algo menos claro (su final).
+    if (!cur) { if (conf[i] < startConf) continue; cur = { start: i, end: i, vals: [v], ref: v, off: 0 }; continue; }
     const ref = median(cur.vals.slice(-15));
     if (Math.abs(v - ref) > 0.65) {
       cur.off++;
@@ -131,6 +140,14 @@ export function segmentNotes({ hop, f0, conf }, { minDur = 0.09, minConf = 0.55 
         i--;
       }
     }
+  }
+  // Saltos de octava del detector: una nota corta pegada a otra justo una octava al lado.
+  for (let i = 1; i < notes.length; i++) {
+    const a = notes[i - 1], b = notes[i];
+    if (b.s - a.e >= 0.08) continue;
+    const d = b.m - a.m;
+    if (Math.abs(Math.abs(d) - 12) <= 1 && b.e - b.s < 0.6 && b.e - b.s < a.e - a.s) b.m -= 12 * Math.sign(d);
+    else if (Math.abs(Math.abs(d) - 12) <= 1 && a.e - a.s < 0.6 && a.e - a.s < b.e - b.s) a.m += 12 * Math.sign(d);
   }
   // Une notas iguales separadas por un respiro corto.
   const out = [];

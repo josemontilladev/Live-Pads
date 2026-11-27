@@ -74,3 +74,24 @@ test('los picos falsos del detector (notas muy cortas encajadas) se quitan', () 
   const notes = segmentNotes(trackPitch(sing(mel), 44100));
   assert.deepEqual(notes.map((n) => n.m), [66, 69, 71]);
 });
+
+test('una nota larga con reverberación y restos de la mezcla no se corta', () => {
+  // 2,5 s de La (220 Hz) que se apaga, con ruido y un eco (como una voz separada por IA).
+  const sr = 44100, n = Math.round(2.5 * sr), x = new Float32Array(n);
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 - 0.5; };
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, env = Math.exp(-t * 0.9);
+    x[i] = env * (0.5 * Math.sin(2 * Math.PI * 220 * t) + 0.2 * Math.sin(2 * Math.PI * 440 * t)) + 2 * env * rnd();
+    if (i > 2205) x[i] += 0.35 * x[i - 2205] + 0.3 * Math.sin(2 * Math.PI * 233 * t) * env;
+  }
+  const notes = segmentNotes(trackPitch(x, sr));
+  const long = notes.filter((q) => q.m === 57).reduce((s, q) => s + (q.e - q.s), 0);
+  assert.ok(long > 2.2, `la nota dura ${long.toFixed(2)} s`);
+});
+
+test('un salto falso de octava en medio de una nota se corrige', () => {
+  const hop = 0.01, N = 200, f0 = new Float32Array(N), conf = new Float32Array(N).fill(0.95);
+  for (let i = 0; i < N; i++) f0[i] = midiToHz(i >= 100 && i < 130 ? 62 : 74);
+  const notes = segmentNotes({ hop, f0, conf });
+  assert.deepEqual(notes.map((q) => q.m), [74]);
+});
