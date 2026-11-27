@@ -35,7 +35,7 @@ import { mountPianoPanel, togglePiano, closePiano, isPianoOpen, pianoPanic, setI
 import { renderEventsToBuffer, getInstrument, instrumentName as instLabel } from './pianoSampler.js';
 import { openPianoRoll } from './pianoRoll.js';
 import { getIsMidiLearnMode, getMidiLearnTarget, setMidiLearnTarget, getSongs } from '../state/store.js';
-import { confirmDialogAsync } from '../ui/dialog.js';
+import { confirmDialogAsync, showDialog } from '../ui/dialog.js';
 import { openLyricsFullscreen } from '../ui/lyricsFullscreen.js';
 import { pushModal } from '../ui/modalStack.js';
 import { openCardMoreMenu, openContextMenu } from '../ui/cardMoreMenu.js';
@@ -299,6 +299,9 @@ const trackInstrument = new Map(); // trackId → instrumento (piano/rhodes/pad/
 // pistas "de loops" para que los loops nuevos del mismo instrumento se sumen a
 // ellas en vez de crear una pista por loop.
 const trackLoopInstrument = new Map();
+// Carpetas: grupo propio de cada pista (id → { key, label }) y carpetas plegadas.
+const trackGroup = new Map();
+let foldedGroups = new Set();
 let activeRecId = null;        // pista MIDI que se está grabando ahora mismo
 
 let saveTimer = null;
@@ -2716,6 +2719,16 @@ function buildTrackMenuItems(id) {
     import('../voices/voiceStudio.js').then((m) => m.openVoiceStudio(null, { buffer: buf, isVocal: track.kind === 'vocals' || /voz|vocal/i.test(track.name || ''), label: track.name || 'Pista' }));
   } });
   if (btn('export'))     items.push({ icon: ICON_MENU_EXP,  label: 'Exportar pista a MP3',        onSelect: () => btn('export')?.click() });
+  // Carpeta (grupo) de la pista: los grupos propios que ya hay, uno nuevo o ninguno.
+  {
+    const own = trackGroup.get(id);
+    const setGroup = (g) => { const before = trackGroup.get(id) || null; const apply = (v) => { if (v) trackGroup.set(id, v); else trackGroup.delete(id); refreshQuickMix(); scheduleSave(); }; apply(g); pushHistory('Cambiar de grupo', () => apply(before), () => apply(g)); };
+    const custom = [...new Map([...trackGroup.values()].map((g) => [g.key, g])).values()];
+    const chips = custom.slice(0, 5).map((g) => ({ label: g.label, on: !!own && own.key === g.key, onSelect: () => setGroup(g) }));
+    chips.push({ label: 'Nuevo…', on: false, onSelect: () => showDialog('Nuevo grupo de pistas', 'Coros, Guitarras, Teclados…', (name) => { const n = String(name || '').trim().slice(0, 24); if (!n) return; const key = 'c:' + n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-'); setGroup({ key, label: n }); }) });
+    if (own) chips.push({ label: 'Sin grupo', on: false, onSelect: () => setGroup(null) });
+    items.push({ chips, label: 'Grupo' });
+  }
   items.push({ icon: ICON_MENU_RENAME, label: 'Renombrar pista', onSelect: () => { const inp = row.querySelector('.stems-row-name'); if (inp) { inp.focus(); inp.select(); } } });
   items.push({ icon: ICON_MENU_COLOR,  label: 'Cambiar color…',  onSelect: () => btn('color')?.click() });
   if (isCloudPath(row.dataset.path)) items.push({ icon: ICON_MENU_EXP, label: 'Guardar en este equipo (sin internet)', onSelect: () => keepCloudTrackLocal(id) });
@@ -2851,9 +2864,10 @@ function applyTrackMute(id, on) {
 function quickMixGroups() {
   const groups = new Map();
   for (const t of engine.getTracks()) {
+    const own = trackGroup.get(t.id);
     const role = t.kind && t.kind !== 'stem' ? t.kind : null;
-    const key = role || `t:${t.id}`;
-    const label = role ? (STEM_KIND_BADGE[role] || role).toLowerCase() : (t.name || 'pista');
+    const key = own ? own.key : (role || `t:${t.id}`);
+    const label = own ? own.label : role ? (STEM_KIND_BADGE[role] || role).toLowerCase() : (t.name || 'pista');
     if (!groups.has(key)) groups.set(key, { key, label, tracks: [] });
     groups.get(key).tracks.push(t);
   }
@@ -2885,12 +2899,13 @@ const groupMax = (g) => Math.round(Math.max(0, ...g.tracks.map((t) => t.volume |
 function renderGroupBar(groups) {
   const bar = document.getElementById('stems-groups');
   if (!bar) return;
-  const gs = groups.filter((g) => !g.key.startsWith('t:') && g.tracks.length >= 2);
+  const gs = groups.filter((g) => !g.key.startsWith('t:') && (g.tracks.length >= 2 || g.key.startsWith('c:')));
+  applyFolds(gs);
   bar.hidden = gs.length === 0;
   if (!gs.length) { bar.innerHTML = ''; return; }
   // Mientras se arrastra un deslizador no se redibuja (se perdería el arrastre): solo se actualizan los estados.
   const dragging = bar.querySelector('.stems-grp-vol:active');
-  const sig = gs.map((g) => `${g.key}:${g.tracks.length}`).join('|');
+  const sig = gs.map((g) => `${g.key}:${g.tracks.length}:${foldedGroups.has(g.key) ? 1 : 0}`).join('|');
   if (dragging || bar.dataset.sig === sig) {
     for (const g of gs) {
       const el = bar.querySelector(`.stems-grp[data-grp="${CSS.escape(g.key)}"]`);
@@ -2898,6 +2913,9 @@ function renderGroupBar(groups) {
       const muted = g.tracks.every((t) => t.muted);
       const m = el.querySelector('.stems-grp-m');
       m.classList.toggle('is-on', muted); m.setAttribute('aria-pressed', String(muted));
+      const solo = g.tracks.every((t) => t.soloed);
+      const sb = el.querySelector('.stems-grp-s');
+      if (sb) { sb.classList.toggle('is-on', solo); sb.setAttribute('aria-pressed', String(solo)); }
       const v = el.querySelector('.stems-grp-vol');
       if (v !== dragging) v.value = String(groupMax(g));
     }
@@ -2906,12 +2924,22 @@ function renderGroupBar(groups) {
   bar.dataset.sig = sig;
   bar.innerHTML = gs.map((g) => {
     const muted = g.tracks.every((t) => t.muted);
-    return `<div class="stems-grp" data-grp="${esc(g.key)}" style="--grp-c:${STEM_ROLE_COLORS[g.key] || 'var(--accent)'}">
+    const solo = g.tracks.every((t) => t.soloed);
+    const folded = foldedGroups.has(g.key);
+    return `<div class="stems-grp${folded ? ' is-folded' : ''}" data-grp="${esc(g.key)}" style="--grp-c:${STEM_ROLE_COLORS[g.key] || 'var(--accent)'}">
+      <button type="button" class="stems-grp-fold" data-grp-act="fold" aria-pressed="${folded}" title="${folded ? 'Mostrar' : 'Plegar'} las pistas de «${esc(g.label)}» en la línea de tiempo (siguen sonando)">${folded ? '▸' : '▾'}</button>
       <button type="button" class="stems-grp-m${muted ? ' is-on' : ''}" data-grp-act="mute" aria-pressed="${muted}" title="Silenciar todo el grupo «${esc(g.label)}» (${g.tracks.length} pistas)">M</button>
+      <button type="button" class="stems-grp-s${solo ? ' is-on' : ''}" data-grp-act="solo" aria-pressed="${solo}" title="Escuchar solo el grupo «${esc(g.label)}»">S</button>
       <span class="stems-grp-name">${esc(g.label)} <i>${g.tracks.length}</i></span>
       <input type="range" class="stems-range stems-grp-vol" min="0" max="100" value="${groupMax(g)}" aria-label="Volumen del grupo ${esc(g.label)}" title="Volumen del grupo: sube o baja sus ${g.tracks.length} pistas a la vez, conservando el equilibrio entre ellas">
     </div>`;
   }).join('');
+}
+// Carpetas plegadas: sus pistas no ocupan sitio en la línea de tiempo (siguen sonando).
+function applyFolds(gs) {
+  const hidden = new Set();
+  for (const g of gs) if (foldedGroups.has(g.key)) for (const t of g.tracks) hidden.add(t.id);
+  for (const [id, e] of trackRows) for (const el of [e.row, e.strip, e.lane]) if (el && el.classList) el.classList.toggle('is-grp-folded', hidden.has(id));
 }
 function wireGroupBar() {
   const bar = document.getElementById('stems-groups');
@@ -2919,6 +2947,25 @@ function wireGroupBar() {
   bar.dataset.wired = '1';
   const groupOf = (el) => quickMixGroups().find((g) => g.key === el.closest('.stems-grp')?.dataset.grp);
   bar.addEventListener('click', (e) => {
+    const fold = e.target.closest('[data-grp-act="fold"]');
+    if (fold) {
+      const key = fold.closest('.stems-grp')?.dataset.grp;
+      if (!key) return;
+      if (foldedGroups.has(key)) foldedGroups.delete(key); else foldedGroups.add(key);
+      refreshQuickMix(); scheduleSave();
+      return;
+    }
+    const sbtn = e.target.closest('[data-grp-act="solo"]');
+    if (sbtn) {
+      const g = groupOf(sbtn);
+      if (!g) return;
+      const before = g.tracks.map((t) => [t.id, !!t.soloed]);
+      const next = !g.tracks.every((t) => t.soloed);
+      const apply = (list) => list.forEach(([id, on]) => applyTrackSolo(id, on));
+      apply(before.map(([id]) => [id, next]));
+      pushHistory(next ? 'Solo del grupo' : 'Quitar solo del grupo', () => apply(before), () => apply(before.map(([id]) => [id, next])));
+      return;
+    }
     const btn = e.target.closest('[data-grp-act="mute"]');
     if (!btn) return;
     const g = groupOf(btn);
@@ -3404,6 +3451,7 @@ function openSeparateMenu(anchor, id) {
     <button data-mode="4stem">Voz · Batería · Bajo · Otros <span class="stems-ctx-hint">lento</span></button>
     <button data-mode="6stem">6 pistas: + Guitarra y Piano aparte <span class="stems-ctx-hint">lento · nuevo</span></button>
     <button data-mode="otros">Solo "Otros" (teclados, guitarras…) <span class="stems-ctx-hint">medio</span></button>
+    <button data-mode="coros">Voz principal y coros aparte <span class="stems-ctx-hint">experimental</span></button>
     <div class="stems-ctx-sep"></div>
     <button data-toggle="cpu" class="stems-ctx-toggle">${forceCpu ? '☑' : '☐'} Forzar CPU (sin GPU)</button>
     <button data-action="cloud" class="stems-ctx-toggle"><svg aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" width="13" height="13" style="vertical-align:-2px;margin-right:4px"><path d="M17.5 19a4.5 4.5 0 1 0-.42-8.98 6 6 0 1 0-11.06 3.1A3.5 3.5 0 0 0 6.5 19h11z"/></svg>Separación en la nube${getCloudConfig() ? ' ✓' : '…'}</button>
@@ -3801,6 +3849,7 @@ async function onSeparateTrack(id, mode = '2stem') {
   const modeLabel = mode === '2stem' ? 'Voz / Instrumental'
                   : mode === '4stem' ? 'Voz · Batería · Bajo · Otros'
                   : mode === '6stem' ? 'Voz · Batería · Bajo · Guitarra · Piano · Otros'
+                  : mode === 'coros' ? 'Voz principal · Coros (experimental)'
                   : 'Solo "Otros"';
   const reuseCached = lastSeparation && lastSeparation.key === cacheKey;
   if (!reuseCached) {
@@ -3836,7 +3885,7 @@ async function onSeparateTrack(id, mode = '2stem') {
   // offload to the cloud. ANY failure falls through to the local model below,
   // so live use is never blocked.
   const cloudCfg = getCloudConfig();
-  if (cloudCfg && navigator.onLine && window.electronAPI.stemsSeparateCloud) {
+  if (cloudCfg && mode !== 'coros' && navigator.onLine && window.electronAPI.stemsSeparateCloud) {   // voz principal/coros: solo en local
     try {
       toast.update(0.05, `Separando en la nube (${cloudCfg.provider})…`);
       const wavBytes = new Uint8Array(audioBufferToWav(buffer));
@@ -7962,6 +8011,7 @@ function buildSaveState() {
         notes: t.kind === 'midi' ? (trackNotes.get(t.id) || []) : undefined,
         instrument: t.kind === 'midi' ? (trackInstrument.get(t.id) || 'piano') : undefined,
         loopInstrument: trackLoopInstrument.get(t.id) || undefined,
+        group: trackGroup.get(t.id) || undefined,
       };
     }).concat(unrestoredCloudTracks.filter((u) => !engine.getTracks().some((t) => t.id === u.id)));
     return {
@@ -7975,6 +8025,7 @@ function buildSaveState() {
       nextTrackId, nextMarkerId,
       tracks,
       markers,
+      foldedGroups: [...foldedGroups],
       // View / preferences — persisted so a reopen restores the exact state.
       pxPerSec: PX_PER_SEC,
       rowHeight: ROW_HEIGHT,
@@ -8096,6 +8147,7 @@ async function rehydrate(state) {
       if (t.kind === 'midi' && Array.isArray(t.notes)) trackNotes.set(t.id, t.notes);
       if (t.kind === 'midi') trackInstrument.set(t.id, t.instrument || 'piano');
       if (t.loopInstrument) trackLoopInstrument.set(t.id, t.loopInstrument);
+      if (t.group && t.group.key && t.group.label) trackGroup.set(t.id, { key: String(t.group.key), label: String(t.group.label) });
       appendTrackRow(t.id, t.path);
     } catch (e) {
       console.warn('Could not restore stem', t.id, e);
@@ -8109,6 +8161,7 @@ async function rehydrate(state) {
   if (state.markers) markers = state.markers;
   if (typeof state.nextTrackId === 'number') nextTrackId = state.nextTrackId;
   if (typeof state.nextMarkerId === 'number') nextMarkerId = state.nextMarkerId;
+  foldedGroups = new Set(Array.isArray(state.foldedGroups) ? state.foldedGroups : []);
   if (typeof state.pxPerSec === 'number') setZoom(state.pxPerSec);
   if (typeof state.rowHeight === 'number') setRowHeight(state.rowHeight);
   // Snap: nuevo formato (snapDivision) o el viejo booleano (snapToBeat).

@@ -18,7 +18,7 @@ import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
 import { isKeyLinked, setKeyLinked, reconcileLinkedPitch } from '../utils/keyLink.js';
-import { bufferLoudness, gainFor, normalizeOn } from './loudness.js';
+import { bufferLoudness, gainFor, normalizeOn, autoMasterOn, bufferMaster } from './loudness.js';
 import { mainBusInput } from './mainBus.js';
 import { registerInEarSource } from './inEarMix.js';
 
@@ -230,8 +230,11 @@ function connectPanGraph() {
     const split = audioCtx.createChannelSplitter(2), merge = audioCtx.createChannelMerger(2);
     leftGain = audioCtx.createGain();
     normNode.connect(split);
-    split.connect(leftGain, 0); leftGain.connect(merge, 0, 0);
-    split.connect(merge, 1, 1);
+    // Masterizado automático: graves / barro / brillo por canal (audio/autoMasterCore.js).
+    // En las secuencias el canal izquierdo (click y guía) se queda plano.
+    eqL = makeEq(audioCtx); eqR = makeEq(audioCtx);
+    split.connect(leftGain, 0); leftGain.connect(eqL.input); eqL.output.connect(merge, 0, 0);
+    split.connect(eqR.input, 1); eqR.output.connect(merge, 0, 1);
     merge.connect(trackLimiter);
     trackLimiter.connect(pannerNode.input);
     pannerNode.output.connect(trackMasterGain);
@@ -265,6 +268,39 @@ function applyLoudness() {
 }
 window.addEventListener('livepads:normalize', () => applyLoudness());
 
+// ── Masterizado automático ─────────────────────────────────────────────────
+let eqL = null, eqR = null;
+function makeEq(ctx) {
+  const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 120; low.gain.value = 0;
+  const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 350; mud.Q.value = 1; mud.gain.value = 0;
+  const high = ctx.createBiquadFilter(); high.type = 'highshelf'; high.frequency.value = 6000; high.gain.value = 0;
+  low.connect(mud); mud.connect(high);
+  return { input: low, output: high, low, mud, high };
+}
+function setEq(eq, g) {
+  if (!eq || !audioCtx) return;
+  const t = audioCtx.currentTime;
+  for (const k of ['low', 'mud', 'high']) { try { eq[k].gain.setTargetAtTime(g[k] || 0, t, 0.08); } catch (_) { eq[k].gain.value = g[k] || 0; } }
+}
+/** Correcciones del masterizado de la pista cargada ({ low, mud, high } en dB) o null. */
+export const getTrackMaster = () => (eqR ? { low: eqR.low.gain.value, mud: eqR.mud.gain.value, high: eqR.high.gain.value } : null);
+function applyMaster() {
+  const a = audio, song = currentSong, type = currentType, L = eqL, R = eqR;
+  if (!a || !L || !R) return;
+  const set = () => {
+    if (audio !== a || eqL !== L) return;
+    const flat = { low: 0, mud: 0, high: 0 };
+    if (!autoMasterOn() || !a.buffer) { setEq(L, flat); setEq(R, flat); return; }
+    const id = `${(song && (song.id || song.title)) || 'pista'}.${type || ''}.${Math.round(a.buffer.duration)}`;
+    let g = flat;
+    try { g = bufferMaster(id, a.buffer, type === 'sequence'); } catch (_) {}
+    setEq(R, g);
+    setEq(L, type === 'sequence' ? flat : g);
+  };
+  if (a.buffer) set(); else a.addEventListener('loadedmetadata', set, { once: true });
+}
+window.addEventListener('livepads:automaster', () => applyMaster());
+
 const TRACK_SWITCH_FADE_S = 0.14;  // fade-out al cambiar de canción (evita el corte/click seco)
 
 // Libera la fuente actual y el panner para que la siguiente carga arranque limpia.
@@ -278,7 +314,7 @@ export function cleanupTrackAudio() {
   const oldMakeup = makeupNode, oldNorm = normNode, oldLimiter = trackLimiter, oldPanner = pannerNode, oldMaster = trackMasterGain;
   // Liberamos las referencias del módulo YA, para que la próxima carga cree su
   // propio grafo y los dos puedan sonar a la vez durante el fade.
-  audio = null; makeupNode = null; normNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null;
+  audio = null; makeupNode = null; normNode = null; trackLimiter = null; pannerNode = null; trackMasterGain = null; eqL = null; eqR = null;
 
   const dispose = () => {
     try { old.output && old.output.disconnect(); } catch (e) {}
@@ -484,6 +520,7 @@ async function startTrackPlayback(url, title, type) {
   currentType = type;
   connectPanGraph();
   applyLoudness();
+  applyMaster();
   paintPitchUI();
   // El pad sigue al tono real del audio (incluido el transporte del servicio).
   if (typeof deps.onPitchChange === 'function') { try { deps.onPitchChange(currentPitch, currentSong); } catch (_) {} }

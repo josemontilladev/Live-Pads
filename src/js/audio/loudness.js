@@ -81,3 +81,36 @@ export function bufferLoudness(id, buffer) {
   }
   return db;
 }
+
+// ── Masterizado automático (audio/autoMasterCore.js) ───────────────────────
+// Desactivado de serie: se enciende en Ajustes → Audio → Sonido general.
+import { octaveProfile, masterGains } from './autoMasterCore.js';
+const PREF_MASTER = 'livepads.autoMaster';
+const CACHE_MASTER = 'livepads.master.v1';
+export function autoMasterOn() { try { return localStorage.getItem(PREF_MASTER) === '1'; } catch (_) { return false; } }
+export function setAutoMaster(on) {
+  try { localStorage.setItem(PREF_MASTER, on ? '1' : '0'); } catch (_) {}
+  try { window.dispatchEvent(new CustomEvent('livepads:automaster', { detail: { on: !!on } })); } catch (_) {}
+}
+/** Correcciones { low, mud, high } (dB) de un AudioBuffer, de la caché si ya se midió. */
+export function bufferMaster(id, buffer, musicOnRight = false) {
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem(CACHE_MASTER) || '{}'); } catch (_) {}
+  if (id && c[id]) return c[id];
+  // Secuencia: el canal derecho es la música (el izquierdo lleva click y guía). Original: mezcla mono.
+  let mono;
+  if (musicOnRight && buffer.numberOfChannels > 1) mono = buffer.getChannelData(1);
+  else {
+    const a = buffer.getChannelData(0), b = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : a;
+    mono = new Float32Array(a.length);
+    for (let i = 0; i < a.length; i++) mono[i] = 0.5 * (a[i] + b[i]);
+  }
+  const g = masterGains(octaveProfile(mono, buffer.sampleRate));
+  if (id) {
+    const keys = Object.keys(c);
+    if (keys.length > 400) for (const k of keys.slice(0, keys.length - 400)) delete c[k];
+    c[id] = g;
+    try { localStorage.setItem(CACHE_MASTER, JSON.stringify(c)); } catch (_) {}
+  }
+  return g;
+}

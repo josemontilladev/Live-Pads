@@ -358,6 +358,8 @@ function openServiceMenu(anchor) {
   } });
   items.push({ label: 'Abrir paquete de servicio (.lpservicio)…', hint: 'El que se guardó en otro portátil', onSelect: () => import('./servicePack.js').then((m) => m.importServicePack()) });
   items.push({ label: 'Importar de Planning Center…', hint: 'Las canciones y los tonos de un servicio de Planning Center', onSelect: () => import('./planningCenter.js').then((m) => m.openPlanningCenter()) });
+  items.push({ label: 'Importar desde una foto, PDF o texto…', hint: 'La lista que manda el líder por WhatsApp', onSelect: () => import('./setlistImport.js').then((m) => m.openSetlistImport()) });
+  items.push({ label: 'Armar el servicio con ayuda…', hint: 'Ordenar para que fluya o sugerir canciones', onSelect: () => import('./setlistSuggest.js').then((m) => m.openSetlistSuggest()) });
   if (n) items.push({ label: 'Quitar todas las canciones', onSelect: () => click('#btn-clear-service') });
   if (id) items.push({ label: 'Eliminar servicio', danger: true, onSelect: () => {
     const s = listSavedSetlists().find((x) => x.id === id);

@@ -34,7 +34,9 @@
     "electron-updater": "^6.8.3",
     "kissfft-js": "^0.1.8",
     "onnxruntime-node": "^1.26.0",
+    "pdfjs-dist": "^4.10.38",
     "qrcode": "^1.5.4",
+    "tesseract.js": "^5.1.1",
     "ws": "^8.20.1"
   },
   "build": {
@@ -83,7 +85,12 @@
       "!**/node_modules/*/{example,examples,demo,docs,doc,sample,samples}/**",
       "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
       "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
-      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**"
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**",
+      "!node_modules/**/*.map",
+      "!node_modules/pdfjs-dist/{legacy,web,types,image_decoders,cmaps,standard_fonts,lib}/**",
+      "!node_modules/pdfjs-dist/build/{pdf.mjs,pdf.worker.mjs,pdf.sandbox.mjs,pdf.sandbox.min.mjs,pdf.d.mts}",
+      "!node_modules/tesseract.js-core/{tesseract-core.js,tesseract-core.wasm,tesseract-core.wasm.js,tesseract-core-simd.js,tesseract-core-simd.wasm,tesseract-core-simd.wasm.js,tesseract-core-lstm.js,tesseract-core-lstm.wasm,tesseract-core-simd-lstm.js,tesseract-core-simd-lstm.wasm}",
+      "!node_modules/tesseract.js/{src,docs,scripts,tests,benchmarks}/**"
     ],
     "asarUnpack": [
       "node_modules/onnxruntime-node/**",

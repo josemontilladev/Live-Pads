@@ -41,7 +41,10 @@ export function mainBusInput(ctx) {
     const lim = ctx.createDynamicsCompressor();
     lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12;
     input.connect(low); low.connect(high); high.connect(lim); lim.connect(ctx.destination);
-    b = { ctx, input, low, high, lim };
+    // Medidor (vúmetro): lee la salida tras el limitador. No va a ningún sitio (solo se mide).
+    const an = ctx.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0;
+    lim.connect(an);
+    b = { ctx, input, low, high, lim, an, buf: new Float32Array(an.fftSize) };
     buses.set(ctx, b);
     apply(b, mainEqPrefs());
     allBuses.add(b);
@@ -56,6 +59,24 @@ export function setMainEq(patch) {
   const q = mainEqPrefs();
   for (const b of allBuses) apply(b, q);
   return q;
+}
+
+/**
+ * Nivel de la salida del bus principal ahora mismo (para el vúmetro):
+ *   { peak, rms } en dBFS (−∞…0) y `reduction`: cuántos dB está recortando el limitador
+ *   (0 = nada; −6 o menos sostenido = la mezcla entra demasiado fuerte: satura).
+ */
+export function mainMeter() {
+  let peak = 0, sum = 0, n = 0, reduction = 0;
+  for (const b of allBuses) {
+    try { b.an.getFloatTimeDomainData(b.buf); } catch (_) { continue; }
+    for (let i = 0; i < b.buf.length; i++) { const v = Math.abs(b.buf[i]); if (v > peak) peak = v; sum += b.buf[i] * b.buf[i]; }
+    n += b.buf.length;
+    const r = Number(b.lim.reduction);
+    if (Number.isFinite(r) && r < reduction) reduction = r;
+  }
+  const db = (x) => (x > 1e-6 ? 20 * Math.log10(x) : -120);
+  return { peak: db(peak), rms: db(n ? Math.sqrt(sum / n) : 0), reduction };
 }
 
 // ── Terminar suave ────────────────────────────────────────────────────────

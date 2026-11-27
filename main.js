@@ -2971,6 +2971,8 @@ const MODEL_FILES = {
   // HT-Demucs 6 pistas (guitarra y piano aparte). Exportación ONNX MIT de StemSplit (HF).
   'htdemucs_6s_fp16weights.onnx': { url: 'https://huggingface.co/StemSplitio/htdemucs-6s-onnx/resolve/main/htdemucs_6s_fp16weights.onnx?download=true', size: 136428532, sha256: '7ce55792e2231c93fbf92de95f5fd5b3a5e6c89f7db690dfd693e8f1dce56869' },
   'kuielab_a_vocals.onnx':      { url: `${MODEL_REL}/kuielab_a_vocals.onnx`,      size: 29703204, sha256: 'daba83c2ee1afee9139766ad64c9b6808d6b6f092fff04bed3338be50baac721' },
+  // Voz principal / coros (UVR karaoke 2): solo se baja si alguien usa ese modo.
+  'UVR_MDXNET_KARA_2.onnx':     { url: `${MODEL_REL}/UVR_MDXNET_KARA_2.onnx`,     size: 52786726, sha256: 'bf32e15105a09c0f7dddd2b67346146334d6f3ecb399ed7638eba2ab07cbf5f4' },
   'kuielab_a_drums.onnx':       { url: `${MODEL_REL}/kuielab_a_drums.onnx`,       size: 29703204, sha256: '40f586b7091934dd6f5563f0cba8f14bad57ce88440da1098bf388ea716c2901' },
   'kuielab_a_bass.onnx':        { url: `${MODEL_REL}/kuielab_a_bass.onnx`,        size: 29703204, sha256: '0c3e77b9963185b1ea6bb46a4b8924137d9370fc1ccdefec7b1b416ef550dcaa' },
   'kuielab_a_other.onnx':       { url: `${MODEL_REL}/kuielab_a_other.onnx`,       size: 29703204, sha256: '7b67a1dcb5f232153528c59960b4c7bf8dc736b8114de360af0e719633f53358' },
@@ -3232,6 +3234,8 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
     ? ['d6']
     : (mode === 'voz')
     ? ['k_vocals']
+    : (mode === 'coros')
+    ? ['k_vocals', 'kara2']
     : (mode === '4stem')
     ? ['k_vocals', 'k_drums', 'k_bass', 'k_other']
     : (mode === 'otros')
@@ -3249,7 +3253,7 @@ ipcMain.handle('stems-separate', async (e, { channels, sampleRate, mode, ep } = 
     workerData: {
       channels: channels.map(c => (c instanceof Float32Array ? c : new Float32Array(c))),
       sampleRate: sampleRate || 44100,
-      mode: (mode === '4stem' || mode === 'otros' || mode === '6stem' || mode === 'voz') ? mode : '2stem',
+      mode: (mode === '4stem' || mode === 'otros' || mode === '6stem' || mode === 'voz' || mode === 'coros') ? mode : '2stem',
       modelsDir,
       ep: ep || undefined,  // undefined → auto (DML then CPU)
     },

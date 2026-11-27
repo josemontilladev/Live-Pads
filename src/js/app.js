@@ -90,7 +90,7 @@ import { isKeyLinked, linkedKeyChange, linkedPitchStep, recordingSemitone, shift
 import {
   initTrackPlayer, loadAndPlayTrack, clearTrackUI,
   bindTrackPlayerControls, isTrackLoaded, isTrackPlaying, clickPlayPause, getCurrentSong, getCurrentType,
-  setPlayBtnIcon, reapplyKeyShift, getTrackPitch
+  setPlayBtnIcon, reapplyKeyShift, getTrackPitch, getTrackAudio
 } from './audio/trackPlayer.js';
 import {
   setMidiMap, getMapping, addMapping, clearMappingForTarget, findKeyboardMappingFor, setMidiScope
@@ -420,6 +420,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   initChordDiagrams(); // tocar un acorde de la letra = cómo se toca en guitarra y piano
   initMidiOut();       // sonidos del teclado automáticos (salida MIDI) por canción y sección
   q('#tp-softend-btn')?.addEventListener('click', softEnd); paintSoftEnd(false);
+  q('#tp-planb-btn')?.addEventListener('click', planB); paintPlanB();   // Plan B al instante (pad + click)
+  import('./ui/vuMeter.js').then((m) => m.initVuMeter()).catch(() => {});   // vúmetro con aviso de saturación
+  import('./live/nextCue.js').then((m) => m.initNextCue()).catch(() => {});   // avisos entre canciones
+  q('#btn-live-touch')?.addEventListener('click', () => import('./ui/liveTouch.js').then((m) => m.toggleLiveTouch()));   // vista de directo táctil
   initSongMix();      // cada canción recuerda su mezcla (Pads, Batería, Click, Pista)
   initClickSections({ getMetro: () => metro });   // click distinto por sección
   initVoiceGuide({ getEngine: () => engine });     // cuenta hablada + guía hablada automática
@@ -444,6 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initStagePublish();  // monitor de escenario (Companion con ?escenario)
   // Respaldo entre 2 PCs (live/redundancy.js): tarjeta en Ajustes → Audio y chip en la cabecera.
   q('#btn-redundancy')?.addEventListener('click', () => import('./live/redundancy.js').then((m) => m.openRedundancyPanel()));
+  q('#btn-lib-analyze')?.addEventListener('click', () => import('./ui/libraryAnalyze.js').then((m) => m.openLibraryAnalyze()));   // analizar toda la librería en cola
   import('./live/redundancy.js').then((m) => {
     const paintCard = () => { const el = q('#red-card-state'); if (el) el.textContent = m.redundancyInfo().text; };
     m.onRedundancyChange(paintCard); paintCard();
@@ -1409,7 +1414,12 @@ function spotlightProviderItems() {
   items.push({ id: 'tool:midiclock', kind: 'panel', label: 'Reloj MIDI: tempo con Ableton, Logic, cajas de ritmos…', sub: 'Herramienta', search: 'reloj midi clock tempo sincronizar ableton logic link caja de ritmos looper sync', run: () => import('./midi/midiClock.js').then((m) => m.openMidiClockSettings()) });
   items.push({ id: 'tool:lyricsync', kind: 'panel', label: 'Sincronizar la letra (cada línea en su momento exacto)', sub: 'Herramienta', search: 'sincronizar letra karaoke lrc tiempos lineas exacta ia proyeccion tv', run: () => { const sg = (getCurrentSong && getCurrentSong()) || getSongs().find((x) => x.id === getActiveSongIdFromStore()); if (!sg) { window.showToast?.('Elige primero una canción.', 'info'); return; } import('./live/lyricSyncEditor.js').then((m) => m.openLyricSync(sg, { type: getCurrentType ? getCurrentType() : null })); } });
   items.push({ id: 'tool:projection', kind: 'panel', label: 'Letras en el programa de proyección (FreeShow, OpenLP, ProPresenter)', sub: 'Herramienta', search: 'proyeccion proyector letras freeshow openlp propresenter pantalla congregacion diapositivas', run: () => import('./live/projectionLink.js').then((m) => m.openProjectionSettings()) });
+  items.push({ id: 'tool:livetouch', kind: 'panel', label: 'Vista de directo táctil (secciones y controles grandes)', sub: 'Herramienta', search: 'tactil táctil tablet pantalla directo vivo botones grandes secciones saltar', run: () => import('./ui/liveTouch.js').then((m) => m.openLiveTouch()) });
+  items.push({ id: 'cmd:planb', kind: 'command', label: 'Plan B: pad y click al instante', sub: 'Si la secuencia falla', search: 'plan b falla secuencia emergencia pad click rescate', run: () => window.__lpPlanB && window.__lpPlanB.toggle() });
   items.push({ id: 'tool:redundancy', kind: 'panel', label: 'Respaldo entre 2 PCs (si el principal falla, suena el otro)', sub: 'Herramienta', search: 'respaldo redundancia backup dos pc portatil segundo equipo falla relevo principal', run: () => import('./live/redundancy.js').then((m) => m.openRedundancyPanel()) });
+  items.push({ id: 'tool:libanalyze', kind: 'panel', label: 'Analizar toda la librería (pulsos, acordes, secciones y volumen)', sub: 'Herramienta', search: 'analizar libreria librería toda lote cola pulsos acordes secciones volumen preparar', run: () => import('./ui/libraryAnalyze.js').then((m) => m.openLibraryAnalyze()) });
+  items.push({ id: 'tool:suggest', kind: 'panel', label: 'Armar el servicio con ayuda (ordenar o sugerir canciones)', sub: 'Herramienta', search: 'sugerir sugerencias armar setlist servicio orden fluir tono tempo tema canciones ayuda', run: () => import('./ui/setlistSuggest.js').then((m) => m.openSetlistSuggest()) });
+  items.push({ id: 'tool:import-list', kind: 'panel', label: 'Importar un setlist desde una foto, PDF o texto', sub: 'Herramienta', search: 'importar foto imagen pdf texto whatsapp lista setlist ocr leer captura', run: () => import('./ui/setlistImport.js').then((m) => m.openSetlistImport()) });
   items.push({ id: 'tool:pco', kind: 'panel', label: 'Importar un servicio de Planning Center', sub: 'Herramienta', search: 'planning center pco services importar servicio plan canciones domingo', run: () => import('./ui/planningCenter.js').then((m) => m.openPlanningCenter()) });
   items.push({ id: 'tool:sysstats', kind: 'command', label: 'Consumo en la barra: mostrar u ocultar (CPU · RAM · audio)', sub: 'Vista', search: 'consumo cpu ram memoria rendimiento estadisticas audio cortes', run: () => import('./ui/sysStats.js').then((m) => { const on = !m.sysStatsOn(); m.setSysStats(on); window.showToast?.(on ? 'Consumo visible en la barra superior.' : 'Consumo oculto.', 'info'); }) });
   items.push({ id: 'tool:mtlib', kind: 'panel', label: 'Mis carpetas de multitracks (subir a la Biblioteca o crear canciones)', sub: 'Herramienta', search: 'biblioteca multitracks carpetas carpeta descargas importar canciones stems', run: () => import('./stems/multitrackLibrary.js').then((m) => m.openMultitrackLibrary()) });
@@ -2342,6 +2352,47 @@ function softEnd() {
     paintSoftEnd(false);
   }, sec * 1000 + 60);
 }
+
+// ── Plan B al instante ─────────────────────────────────────────────────────
+// Si la secuencia falla (se corta, suena mal, no carga), un botón pasa YA a pad en el
+// tono de la canción + click a su tempo, sin silencio. Otra vez = salir (pad y click
+// se apagan con fundido). Botón en la barra (#tp-planb-btn), en la vista táctil y
+// asignable a un pedal/MIDI (midi/extraButtons.js · plan_b).
+const PADS_BY_SEMI = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+let planBOn = false;
+function paintPlanB() {
+  const b = q('#tp-planb-btn');
+  if (b) { b.classList.toggle('is-on', planBOn); b.setAttribute('aria-pressed', String(planBOn)); b.title = planBOn ? 'Plan B activo: pad + click. Pulsa para salir' : 'Plan B: si la secuencia falla, pasa ya a pad en el tono de la canción y click a su tempo'; }
+  window.dispatchEvent(new CustomEvent('livepads:planb', { detail: { on: planBOn } }));
+}
+function planB() {
+  if (planBOn) {
+    planBOn = false;
+    if (getActiveKey()) onKeyClick(getActiveKey());   // el pad se apaga con su fundido
+    if (getMetroRunning()) toggleMetro();
+    paintPlanB();
+    window.showToast?.('Plan B terminado.', 'info');
+    return;
+  }
+  const song = getCurrentSong() || getSongs().find((x) => x.id === getActiveSongIdFromStore()) || getServiceSongs()[getActiveServiceIndex()] || null;
+  const key = song ? (getEffectiveKey(song) || song.key || '') : '';
+  const pk = parseKey(key);
+  if (!song || !pk) { window.showToast?.(song ? `«${song.title}» no tiene tono: elige el pad a mano.` : 'Elige primero una canción.', 'info'); return; }
+  cancelSoftEnd();
+  // 1) Fuera la pista (lo que falla). 2) Pad y click a la vez, sin hueco.
+  try { if (isTrackLoaded() && isTrackPlaying()) getTrackAudio().pause(); } catch (_) {}
+  const bank = PAD_BANKS[getPadBankIdx()];
+  if (bank && bank.minor && padMinorWanted() !== pk.minor) { try { localStorage.setItem(PAD_MINOR_KEY, pk.minor ? '1' : '0'); } catch (_) {} syncPadMode(); }
+  const padKey = PADS_BY_SEMI[((pk.semitone % 12) + 12) % 12];
+  if (getActiveKey() !== padKey) onKeyClick(padKey);
+  const bpm = Number(song.bpm);
+  if (bpm >= 30 && bpm <= 300) { applyBpm(Math.round(bpm)); if (!getMetroRunning()) toggleMetro(); }
+  planBOn = true;
+  paintPlanB();
+  window.showToast?.(`Plan B: pad en ${key}${bpm >= 30 ? ` y click a ${Math.round(bpm)} BPM` : ''}. Pulsa otra vez para salir.`, 'warning', { ttl: 7000 });
+  try { window.electronAPI?.appLog?.('warn', `[plan B] ${song.title} · ${key} · ${bpm || '-'} BPM`); } catch (_) {}
+}
+window.__lpPlanB = { toggle: () => planB(), isOn: () => planBOn };
 
 function panicStopAll() {
   // Cerrar overlays/ayuda/sidebar primero (no bloquean el corte de audio).

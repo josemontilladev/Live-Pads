@@ -67,3 +67,25 @@ export function planJump(action, markers, t, downs, mode = 'bar') {
   if (!target) return null;
   return { at, to: target.t, label: target.label };
 }
+
+/**
+ * Saltar a una sección concreta (vista táctil: tocar «Puente 1»). Entra según el modo,
+ * igual que los demás saltos: ya, al terminar el compás o al terminar la sección en curso.
+ * @param index posición de la sección en la lista ordenada por tiempo
+ */
+export function planGoto(index, markers, t, downs, mode = 'bar') {
+  const ms = sorted(markers);
+  const target = ms[index];
+  if (!target) return null;
+  let i = -1;
+  ms.forEach((m, k) => { if (m.t <= t + 0.05) i = k; });
+  const next = ms[i + 1] || null;
+  let at;
+  if (mode === 'now') at = t + 0.05;
+  else if (mode === 'section') at = next ? next.t : t + 0.05;
+  else {
+    const bar = nextBar(downs, t);
+    at = bar != null && (!next || bar <= next.t + 0.05) ? bar : (next ? next.t : t + 0.05);
+  }
+  return { at, to: target.t, label: target.label };
+}

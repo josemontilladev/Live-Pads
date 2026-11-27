@@ -22,6 +22,8 @@ import { keyTonic } from '../utils/chordNumbers.js';
 import { CHORD_QUALITIES, chordName } from '../chords/chordEngine.js';
 import { analyzeBufferCached, trackChordId } from '../chords/trackChords.js';
 import { harmonize, noteName, STYLES, chordsWithPcs } from './harmonyCore.js';
+import { partsToMidi, partsToMusicXML } from './melodyExportCore.js';
+import { openCardMoreMenu } from '../ui/cardMoreMenu.js';
 import { renderSynthVoices, realVoicesFast, createLiveChoir } from './voiceSynth.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -66,6 +68,7 @@ function build(song, label) {
             <select data-ref="semis">${Array.from({ length: 13 }, (_, i) => i - 6).map((n) => `<option value="${n}" ${n === 0 ? 'selected' : ''}>${n > 0 ? '+' + n : n === 0 ? 'Original' : n}</option>`).join('')}</select></label>
           <button type="button" class="vs-btn" data-act="reanalyze" hidden title="Esta canción se analizó antes: vuelve a escuchar la melodía con la versión actual del estudio (se pierden las notas corregidas a mano)">Volver a analizar</button>
           <button type="button" class="vs-btn" data-act="real" title="La 2.ª y la 3.ª voz cantadas con la voz del cantante (con letra). Tarda alrededor de un minuto.">Voz real (con letra)</button>
+          <button type="button" class="vs-btn" data-act="export" title="Exportar la melodía (y la 2.ª y 3.ª voz) en MIDI o como partitura para MuseScore, Sibelius o Finale">Exportar ▾</button>
           <button type="button" class="vs-btn vs-btn--primary" data-act="save" title="Guarda la melodía, la 2.ª y la 3.ª voz (con la canción de fondo) como voces de referencia: se escuchan en «Voces» y en GI App">Guardar como voces</button>
           <button type="button" class="vs-close" data-act="close" aria-label="Cerrar" title="Cerrar (Esc)">✕</button>
         </div>
@@ -227,6 +230,7 @@ async function prepare(song, givenBuffer, givenIsVocal) {
   }
   S.choir = createLiveChoir(S.ctx, ['lead', 'v2', 'v3']);
   for (const id of ['lead', 'v2', 'v3']) S.choir.outputs[id].connect(S.ctx.destination);
+  S.mixBuf = mix;
   S.players.mix.setBuffer(mix, 'mix');
   S.players.vocal.setBuffer(vocal, 'vocal');
   setVoiceBuffers();
@@ -522,6 +526,44 @@ async function saveAsVoices() {
   } finally { if (S) btn.disabled = false; }
 }
 
+// ── Exportar la melodía (MIDI / partitura MusicXML) ───────────────────────────
+function openExportMenu(anchor) {
+  openCardMoreMenu(anchor, [
+    { label: 'Melodía en MIDI', hint: 'Un archivo .mid con la melodía', onSelect: () => exportMelody('lead-midi') },
+    { label: 'Melodía y voces en MIDI', hint: 'Melodía, 2.ª y 3.ª voz en pistas separadas', onSelect: () => exportMelody('all-midi') },
+    { label: 'Partitura (MusicXML)', hint: 'Melodía, 2.ª y 3.ª voz para MuseScore, Sibelius o Finale', onSelect: () => exportMelody('score') },
+  ]);
+}
+function download(bytes, name, type) {
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a = document.createElement('a'); a.href = url; a.download = name.replace(/[<>:"/\\|?*]+/g, ' ');
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+async function exportMelody(kind) {
+  if (!S || !S.ready) return;
+  const semis = Number(S.semis) || 0;
+  const shift = (ns) => (ns || []).map((n) => ({ s: n.s, e: n.e, m: n.m + semis }));
+  const parts = [{ name: 'Melodía', notes: shift(S.leadShown || S.lead) }];
+  if (kind !== 'lead-midi') { const ch = choirNotes(); parts.push({ name: '2.ª voz', notes: shift(ch.v2 && ch.v2.length ? ch.v2 : S.voices.v2) }, { name: '3.ª voz', notes: shift(ch.v3 && ch.v3.length ? ch.v3 : S.voices.v3) }); }
+  if (!parts[0].notes.length) { window.showToast?.('Todavía no hay melodía que exportar.', 'info'); return; }
+  // Tempo y primer compás: los de la rejilla de pulsos de la canción (si hay); si no, su BPM.
+  const beatsPerBar = parseInt(String((S.song && S.song.timeSig) || '4/4').split('/')[0], 10) || 4;
+  let bpm = Number(S.song && S.song.bpm) || 0, offset = 0;
+  try {
+    const B = await import('../analysis/beatGrid.js');
+    if (S.mixBuf) { const r = await B.analyzeBeats(S.mixBuf, B.trackKey(S.song, 'original', S.mixBuf)); if (r) { if (r.bpm > 0) bpm = r.bpm; if (r.downbeats && Number.isFinite(r.downbeats[0])) offset = r.downbeats[0]; } }
+  } catch (_) {}
+  bpm = bpm > 0 ? Math.round(bpm * 10) / 10 : 120;
+  const barSec = (60 / bpm) * beatsPerBar;
+  offset = ((offset % barSec) + barSec) % barSec;
+  const key = S.key ? { k: (((S.key.k + semis) % 12) + 12) % 12, m: S.key.m } : null;
+  const title = (S.song && S.song.title) || 'Melodía';
+  if (kind === 'score') download(new TextEncoder().encode(partsToMusicXML(parts, { bpm, beatsPerBar, key, offsetSec: offset, title })), `${title} - partitura.musicxml`, 'application/vnd.recordare.musicxml+xml');
+  else download(partsToMidi(parts, bpm), `${title} - ${kind === 'lead-midi' ? 'melodía' : 'voces'}.mid`, 'audio/midi');
+  window.showToast?.(kind === 'score' ? '✓ Partitura lista: ábrela con MuseScore (gratis), Sibelius o Finale.' : '✓ MIDI listo.', 'success');
+}
+
 // ── Interacción ─────────────────────────────────────────────────────────────
 function onClick(e) {
   const act = e.target.closest('[data-act]')?.dataset.act;
@@ -534,6 +576,7 @@ function onClick(e) {
   if (act === 'close') { close(); return; }
   if (act === 'play') { if (S.playing) pauseAll(); else playAll(); return; }
   if (act === 'save') { if (S.ready) saveAsVoices(); return; }
+  if (act === 'export') { if (S.ready) openExportMenu(e.target.closest('[data-act]')); return; }
   if (act === 'real') { if (S.ready) makeRealVoices(); return; }
   if (act === 'reanalyze') { reanalyze(); return; }
   if (act === 'toggle' && chEl) { const c = S.ch[chEl.dataset.ch]; c.on = !c.on; applyGains(); return; }

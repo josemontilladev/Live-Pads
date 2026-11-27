@@ -22,6 +22,9 @@ const MODELS = {
   k_bass:   { file: 'kuielab_a_bass.onnx',        nfft: 16384, dimF: 2048, dimT: 512 },
   k_other:  { file: 'kuielab_a_other.onnx',       nfft: 8192,  dimF: 2048, dimT: 512 },
   d6:       { file: 'htdemucs_6s_fp16weights.onnx' },   // HT-Demucs 6 pistas (STFT dentro del modelo)
+  // UVR «karaoke» 2 (MDX-Net): devuelve todo MENOS la voz principal. Pasado por la pista de
+  // voces, lo que devuelve son los coros (UVR: compensate 1.065, n_fft 5120, dim_f 2048, dim_t 2^8).
+  kara2:    { file: 'UVR_MDXNET_KARA_2.onnx',     nfft: 5120,  dimF: 2048, dimT: 256, compensate: 1.065 },
 };
 
 const winCache = new Map();
@@ -240,6 +243,26 @@ async function separate({ channels, sampleRate = SR, mode = '2stem', modelsDir, 
     const order = ['vocals', 'drums', 'bass', 'guitar', 'keys', 'other'];
     stems.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
     return { sampleRate: SR, ep: chosenEp, stems };
+  }
+
+  // Voz principal y coros (experimental): 1) las voces con el modelo de voces; 2) el modelo
+  // karaoke sobre esas voces da los coros; 3) la voz principal = voces − coros.
+  if (mode === 'coros') {
+    report(0.02, 'Cargando modelo');
+    const { channels: voc, ep: used } = await runModel(L, R, mp('k_vocals'), MODELS.k_vocals, chosenEp,
+      (lf) => report(0.02 + 0.48 * lf, 'Separando las voces…'), shouldCancel, onEp);
+    chosenEp = used;
+    if (shouldCancel && shouldCancel()) throw cancelledError();
+    const { channels: back } = await runModel(voc[0], voc[1], mp('kara2'), MODELS.kara2, chosenEp,
+      (lf) => report(0.5 + 0.46 * lf, 'Separando los coros de la voz principal…'), shouldCancel, onEp);
+    const k = MODELS.kara2.compensate || 1;
+    const leadL = new Float32Array(voc[0].length), leadR = new Float32Array(voc[1].length);
+    for (let i = 0; i < leadL.length; i++) { back[0][i] *= k; back[1][i] *= k; leadL[i] = voc[0][i] - back[0][i]; leadR[i] = voc[1][i] - back[1][i]; }
+    report(1, 'Listo');
+    return { sampleRate: SR, ep: chosenEp, stems: [
+      { name: 'Voz principal', kind: 'vocals', channels: [leadL, leadR] },
+      { name: 'Coros', kind: 'vocals', channels: back },
+    ] };
   }
 
   // Solo la voz (modelo kuielab de voces): 2-3 veces más rápido que «Voz / Instrumental»;

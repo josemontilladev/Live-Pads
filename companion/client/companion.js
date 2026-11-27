@@ -134,7 +134,15 @@
     $('sv-next-chord').textContent = m.nextChord ? chordText(m.nextChord) : '—';
     $('sv-time').textContent = m.dur ? '−' + fmtT(m.dur - m.pos) : '';
     $('sv-progress').style.width = m.dur ? Math.min(100, 100 * m.pos / m.dur) + '%' : '0';
-    $('sv-after').textContent = m.next ? 'Siguiente canción: ' + m.next.title + (m.next.key ? ' (' + m.next.key + ')' : '') : '';
+    const af = $('sv-after');
+    if (m.nextCue) {
+      // Aviso entre canciones: lo que viene, grande (cejilla, notas para la banda).
+      af.classList.add('is-cue');
+      af.innerHTML = '<b>Siguiente: ' + esc(m.nextCue.title) + '</b>' + (m.nextCue.meta ? ' <span>' + esc(m.nextCue.meta) + '</span>' : '') + (m.nextCue.inSec != null ? ' <span class="sv-in">en ' + m.nextCue.inSec + ' s</span>' : '') + (m.nextCue.lines && m.nextCue.lines.length ? '<ul>' + m.nextCue.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ul>' : '');
+    } else {
+      af.classList.remove('is-cue');
+      af.textContent = m.next ? 'Siguiente canción: ' + m.next.title + (m.next.key ? ' (' + m.next.key + ')' : '') : '';
+    }
     songKey = m.song.key || songKey;
   }
 

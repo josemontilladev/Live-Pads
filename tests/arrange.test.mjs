@@ -31,3 +31,16 @@ test('modos de salto: ya, al compás (por defecto) y al final de la sección', (
   // Por defecto, como siempre (al compás).
   assert.deepEqual(A.planJump('chorus', ms, 41, downs), { at: 42, to: 56, label: 'Coro' });
 });
+
+test('ir a una sección concreta (vista táctil) respeta el modo de salto', async () => {
+  const { planGoto } = await import('../src/js/live/arrangeCore.js');
+  const ms = [{ label: 'Intro', t: 0 }, { label: 'Verso 1', t: 10 }, { label: 'Coro', t: 30 }, { label: 'Puente 1', t: 60 }];
+  const downs = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+  assert.deepEqual(planGoto(3, ms, 13, downs, 'bar'), { at: 14, to: 60, label: 'Puente 1' });
+  assert.deepEqual(planGoto(3, ms, 13, downs, 'section'), { at: 30, to: 60, label: 'Puente 1' });
+  const now = planGoto(0, ms, 13, downs, 'now');
+  assert.equal(now.to, 0); assert.ok(Math.abs(now.at - 13.05) < 1e-9);
+  // En la última sección y sin compases: entra ya.
+  assert.ok(Math.abs(planGoto(1, ms, 70, [], 'section').at - 70.05) < 1e-9);
+  assert.equal(planGoto(9, ms, 13, downs), null);
+});

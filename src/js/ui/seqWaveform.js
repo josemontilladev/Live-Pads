@@ -675,6 +675,74 @@ function onSyncSaved({ songId, type }) {
   });
 }
 
+/**
+ * Secciones de una pista (las usa la detección automática del espectro y el análisis de toda
+ * la librería en cola). s = canción, buffer = AudioBuffer, type = sequence | original,
+ * gridP = promesa de la rejilla de compases (o null). → { found: [{ label, t }], how }
+ */
+export async function computeSections(s, buffer, type, gridP) {
+  let found = [], how = '';
+  const a = { buffer };
+  const bpm = parseFloat(s.bpm) || 0;
+  const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
+  const lyr = parseLyricStructure(s.lyrics);
+  const sync = getLyricSync(s, type);
+  const syncLines = sync ? lyricLines(s.lyrics) : null;
+  // La letra trae sus secciones: se analizan también los acordes de la pista para
+  // saber qué tramo es cada sección (verso, coro…) comparando acordes.
+  // Acordes de la pista: con letra, para saber qué tramo es cada sección; sin
+  // letra, para reconocer el mismo coro por su progresión (unifyRepeats).
+  const chordsP = trackChordsFor(s, a, type).catch(() => null);
+  // Pista de voz (stems en este equipo): el detector distingue lo cantado de lo instrumental.
+  let vocalBuffer = null;
+  try { vocalBuffer = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).vocals; } catch (_) { vocalBuffer = null; }
+  // Secuencia con guía (canal izquierdo = click + voz que dice cada sección): la guía da
+  // los cortes y el detector analiza solo la música (canal derecho).
+  const guide = type === 'sequence' ? await sequenceGuide(a.buffer) : null;
+  const [raw, ch] = await Promise.all([detectSectionsInBackground(guide ? guide.music : a.buffer, { bpm, beatsPerBar, vocalBuffer }), chordsP]);
+  const dur = a.buffer.duration;
+  const det = (ch && ch.seg) || [];
+  // La rejilla de compases (si llega a tiempo): límites en compás y frases de 4/8.
+  const g = await Promise.race([gridP || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
+  const guideB = guide && g ? guideBoundaries(guideEvents(guide.words, g.barSec || 2), g, dur) : null;
+  const lyrChords = lyr.filter((x) => x.chords.length).length;
+  if (guideB && guideB.length >= 2 && lyr.length >= 2 && lyrChords >= 2 && det.length) {
+    // Guía + letra con acordes: cortes de la guía, nombres por los acordes y el orden de la letra.
+    const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+    found = alignSections(lyr, det, g, k, { duration: dur, guide: guideB, novelty: raw.map((x) => x.atSec) })
+      .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+  } else if (guideB && guideB.length >= 2) {
+    // Guía sin acordes en la letra: los cortes de la guía con el tipo de tramo que oye el detector.
+    const cueAt = (t) => { let c = raw[0] ? raw[0].cueId : 'verso'; for (const x of raw) if (x.atSec <= t + 1) c = x.cueId; return c; };
+    const segs = [{ atSec: 0, cueId: 'intro' }, ...guideB.map((t) => ({ atSec: t, cueId: cueAt(t + (g.barSec || 2)) }))];
+    found = buildAutoMarkers(segs, s.lyrics, dur);
+  } else if (sync && syncCoversSections(syncLines, sync.ev)) {
+    // Letra sincronizada de ESTA pista: cada sección cantada empieza en el compás donde entra
+    // su primera línea; intro, interludios y final salen de los huecos sin canto.
+    found = sectionsFromSync(syncLines, sync.ev, { grid: g, dur, novelty: raw.map((x) => x.atSec) });
+    how = 'sync';
+  } else if (lyrChords >= 2 && raw.length >= 2 && det.length && g && g.downbeats && g.downbeats.length) {
+    // Sin guía, letra con acordes: los cambios de textura (pegados al compás real) son los
+    // candidatos; los acordes y el orden de la letra eligen cuáles son secciones y su nombre.
+    // (Medido con las guías de 20 secuencias: más cortes en su sitio que el método anterior.)
+    const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+    const cand = raw.map((x) => { let b = x.atSec; for (const d of g.downbeats) if (Math.abs(d - x.atSec) < Math.abs(b - x.atSec) || b === x.atSec) b = d; return b; });
+    found = alignSections(lyr, det, g, k, { duration: dur, guide: cand })
+      .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+  } else if (lyr.length >= 2 && raw.length >= 2) {
+    const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
+    const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
+    // Cada sección empieza donde entra su primer acorde de la letra (a menos de un compás).
+    found = refineSectionStarts(labelSegments(segs, lyr, det, k), lyr, det, k, g, dur)
+      .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
+    found = regularizePhrases(found, g, dur);
+  } else {
+    // Sin letra: compás y frases, y el mismo coro con el mismo nombre.
+    found = unifyRepeats(regularizePhrases(buildAutoMarkers(raw, s.lyrics, dur), g, dur), det, g, dur);
+  }
+  return { found, how };
+}
+
 async function autoDetect({ auto = false, replaceAuto = false } = {}) {
   const s = song, a = audio;
   if (!s || !a || !a.buffer || detecting) return;
@@ -690,63 +758,7 @@ async function autoDetect({ auto = false, replaceAuto = false } = {}) {
   detecting = s; root.classList.add('is-detecting'); tick(true);
   let found = [], how = '';
   try {
-    const bpm = parseFloat(s.bpm) || 0;
-    const beatsPerBar = parseInt(String(s.timeSig || '4/4').split('/')[0], 10) || 4;
-    const lyr = parseLyricStructure(s.lyrics);
-    const sync = getLyricSync(s, trackType);
-    const syncLines = sync ? lyricLines(s.lyrics) : null;
-    // La letra trae sus secciones: se analizan también los acordes de la pista para
-    // saber qué tramo es cada sección (verso, coro…) comparando acordes.
-    // Acordes de la pista: con letra, para saber qué tramo es cada sección; sin
-    // letra, para reconocer el mismo coro por su progresión (unifyRepeats).
-    const chordsP = trackChordsFor(s, a).catch(() => null);
-    // Pista de voz (stems en este equipo): el detector distingue lo cantado de lo instrumental.
-    let vocalBuffer = null;
-    try { vocalBuffer = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).vocals; } catch (_) { vocalBuffer = null; }
-    // Secuencia con guía (canal izquierdo = click + voz que dice cada sección): la guía da
-    // los cortes y el detector analiza solo la música (canal derecho).
-    const guide = trackType === 'sequence' ? await sequenceGuide(a.buffer) : null;
-    const [raw, ch] = await Promise.all([detectSectionsInBackground(guide ? guide.music : a.buffer, { bpm, beatsPerBar, vocalBuffer }), chordsP]);
-    const dur = a.buffer.duration;
-    const det = (ch && ch.seg) || [];
-    // La rejilla de compases (si llega a tiempo): límites en compás y frases de 4/8.
-    const g = grid || await Promise.race([gridPromise || Promise.resolve(null), new Promise((r) => setTimeout(() => r(null), 15000))]);
-    const guideB = guide && g ? guideBoundaries(guideEvents(guide.words, g.barSec || 2), g, dur) : null;
-    const lyrChords = lyr.filter((x) => x.chords.length).length;
-    if (guideB && guideB.length >= 2 && lyr.length >= 2 && lyrChords >= 2 && det.length) {
-      // Guía + letra con acordes: cortes de la guía, nombres por los acordes y el orden de la letra.
-      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
-      found = alignSections(lyr, det, g, k, { duration: dur, guide: guideB, novelty: raw.map((x) => x.atSec) })
-        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
-    } else if (guideB && guideB.length >= 2) {
-      // Guía sin acordes en la letra: los cortes de la guía con el tipo de tramo que oye el detector.
-      const cueAt = (t) => { let c = raw[0] ? raw[0].cueId : 'verso'; for (const x of raw) if (x.atSec <= t + 1) c = x.cueId; return c; };
-      const segs = [{ atSec: 0, cueId: 'intro' }, ...guideB.map((t) => ({ atSec: t, cueId: cueAt(t + (g.barSec || 2)) }))];
-      found = buildAutoMarkers(segs, s.lyrics, dur);
-    } else if (sync && syncCoversSections(syncLines, sync.ev)) {
-      // Letra sincronizada de ESTA pista: cada sección cantada empieza en el compás donde entra
-      // su primera línea; intro, interludios y final salen de los huecos sin canto.
-      found = sectionsFromSync(syncLines, sync.ev, { grid: g, dur, novelty: raw.map((x) => x.atSec) });
-      how = 'sync';
-    } else if (lyrChords >= 2 && raw.length >= 2 && det.length && g && g.downbeats && g.downbeats.length) {
-      // Sin guía, letra con acordes: los cambios de textura (pegados al compás real) son los
-      // candidatos; los acordes y el orden de la letra eligen cuáles son secciones y su nombre.
-      // (Medido con las guías de 20 secuencias: más cortes en su sitio que el método anterior.)
-      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
-      const cand = raw.map((x) => { let b = x.atSec; for (const d of g.downbeats) if (Math.abs(d - x.atSec) < Math.abs(b - x.atSec) || b === x.atSec) b = d; return b; });
-      found = alignSections(lyr, det, g, k, { duration: dur, guide: cand })
-        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
-    } else if (lyr.length >= 2 && raw.length >= 2) {
-      const segs = raw.map((x, i) => ({ s: x.atSec, e: i + 1 < raw.length ? raw[i + 1].atSec : dur, cueId: x.cueId }));
-      const k = keyOffset(lyr, det, (s.audio && s.audio.pitch) || 0).k;
-      // Cada sección empieza donde entra su primer acorde de la letra (a menos de un compás).
-      found = refineSectionStarts(labelSegments(segs, lyr, det, k), lyr, det, k, g, dur)
-        .filter((m) => m.t < dur - 1).map((m) => ({ label: m.label, t: Math.round(m.t * 1000) / 1000 }));
-      found = regularizePhrases(found, g, dur);
-    } else {
-      // Sin letra: compás y frases, y el mismo coro con el mismo nombre.
-      found = unifyRepeats(regularizePhrases(buildAutoMarkers(raw, s.lyrics, dur), g, dur), det, g, dur);
-    }
+    ({ found, how } = await computeSections(s, a.buffer, trackType, grid ? Promise.resolve(grid) : gridPromise));
   } catch (e) { console.warn('[LivePads] detección de secciones:', e); }
   detecting = null; root.classList.remove('is-detecting');
   if (song !== s) return;                       // cambió de canción mientras analizaba
@@ -888,14 +900,14 @@ function onKey(e) {
 // Acordes de la pista para ubicar las secciones de la letra: se esperan los del modelo
 // (BTC, unos segundos) porque aciertan bastante más que los rápidos, también el tono
 // letra → audio; si no llegan en 30 s (o no hay modelo), se usan los rápidos.
-async function trackChordsFor(s, a) {
+async function trackChordsFor(s, a, type = trackType) {
   const T = await import('../chords/trackChords.js');
-  const id = T.trackChordId(s, trackType, a.buffer);
+  const id = T.trackChordId(s, type, a.buffer);
   const r = T.cacheGet(id) || await T.analyzeBufferCached(id, a.buffer);
   let harm = null;
   try { harm = (await (await import('../chords/stemMix.js')).stemBuffers(s, a.buffer.duration)).harmonic; } catch (_) { harm = null; }
   const better = await Promise.race([
-    T.refineChords(id, a.buffer, s, trackType, harm).catch(() => null),
+    T.refineChords(id, a.buffer, s, type, harm).catch(() => null),
     new Promise((res) => setTimeout(() => res(null), 30000)),
   ]);
   return better || T.cacheGet(id) || r;

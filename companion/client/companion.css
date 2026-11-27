@@ -514,3 +514,7 @@ body.stage-mode .stage, body.stage-mode #btn-toggle-chords { display: none !impo
 body.lyrics-only .bn-note { display: flex; }
 .sv-notes { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 14px; border-left: 5px solid var(--section); background: var(--soft); font-size: clamp(18px, 3.4vw, 36px); font-weight: 700; line-height: 1.25; color: var(--fg); }
 .sv-notes[hidden] { display: none !important; }
+/* Aviso entre canciones en el monitor de escenario */
+.sv-after.is-cue { padding: 10px 14px; border-radius: 12px; border: 2px solid var(--accent, #f5a524); color: var(--fg, #fff); background: rgba(245, 165, 36, .12); }
+.sv-after.is-cue span { color: var(--fg-soft); margin-left: 6px; }
+.sv-after.is-cue ul { margin: 6px 0 0; padding-left: 1.2em; font-size: .8em; }

@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { markersFor } from '../data/markers.js';
-import { ACTIONS, planJump, JUMP_MODES } from './arrangeCore.js';
+import { ACTIONS, planJump, planGoto, JUMP_MODES } from './arrangeCore.js';
 
 // Cuándo entra el salto: «Ya», «Al compás» (por defecto) o «Al final de la sección». Se recuerda.
 const MODE_KEY = 'livepads.jumpMode';
@@ -74,6 +74,23 @@ export function arrange(action) {
   fast = setInterval(watch, 5);
   document.getElementById('arr-pop')?.setAttribute('hidden', '');
 }
+
+/** Saltar a la sección n.º `index` (ordenadas por tiempo) según el modo de salto elegido. */
+export function arrangeGoto(index) {
+  if (!audio || !song) { window.showToast?.('Carga una canción con su pista para saltar de sección.', 'info'); return false; }
+  ensureGrid();
+  const ms = markersFor(song, type);
+  const j = planGoto(index, ms, audio.currentTime || 0, downs, jumpMode());
+  if (!j) return false;
+  if (audio.paused) { try { audio.currentTime = j.to; } catch (_) {} window.showToast?.(`Preparada en «${j.label}»`, 'info'); return true; }
+  pending = { ...j, action: 'goto' };
+  paint();
+  clearInterval(fast);
+  fast = setInterval(watch, 5);
+  return true;
+}
+/** Cancelar el salto preparado. */
+export function arrangeCancel() { cancel(); }
 
 function watch() {
   if (!pending || !audio) { cancel(true); return; }

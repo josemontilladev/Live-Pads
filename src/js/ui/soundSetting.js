@@ -1,7 +1,7 @@
 // Ajustes → Audio → «Sonido general»: volumen igualado entre canciones (audio/loudness.js) y
 // ecualizador + techo de seguridad del bus principal (audio/mainBus.js).
 import { q } from '../utils/dom.js';
-import { normalizeOn, setNormalize } from '../audio/loudness.js';
+import { normalizeOn, setNormalize, autoMasterOn, setAutoMaster } from '../audio/loudness.js';
 import { mainEqPrefs, setMainEq } from '../audio/mainBus.js';
 import { syncPanSlider } from '../utils/sliders.js';
 
@@ -18,6 +18,8 @@ export function initSoundSetting() {
     try { syncPanSlider(bass); syncPanSlider(treble); } catch (_) {}   // relleno desde el centro (0 dB)
   };
   norm.addEventListener('change', () => setNormalize(norm.checked));
+  const master = q('#master-switch');
+  if (master) { master.checked = autoMasterOn(); master.addEventListener('change', () => setAutoMaster(master.checked)); }
   bass.addEventListener('input', () => { setMainEq({ bass: Number(bass.value) }); paint(); });
   treble.addEventListener('input', () => { setMainEq({ treble: Number(treble.value) }); paint(); });
   ceil.addEventListener('change', () => { setMainEq({ ceiling: Number(ceil.value) }); paint(); });

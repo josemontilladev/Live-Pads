@@ -23,6 +23,7 @@ export const EXTRA_BUTTONS = {
   arr_end:     { sel: '#arr-pop [data-arr="end"]',           label: 'Arreglo: ir al final' },
   arr_cancel:  { sel: '#arr-pop [data-arr="cancel"]',        label: 'Arreglo: cancelar el salto' },
   soft_end:    { sel: '#tp-softend-btn',                    label: 'Terminar suave (bajar todo y parar)' },
+  plan_b:      { sel: '#tp-planb-btn',                      label: 'Plan B: pad + click al instante (si la secuencia falla)' },
   groove_play: { sel: '#gt-play',                           label: 'Caja de ritmos: tocar / parar' },
   groove_intro:{ sel: '#gt-sections [data-part="intro"]',  label: 'Caja de ritmos: intro' },
   groove_a:    { sel: '#gt-sections [data-part="A"]',      label: 'Caja de ritmos: verso' },

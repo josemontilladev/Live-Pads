@@ -21,6 +21,7 @@ import { createSectionCounter } from './sectionCountCore.js';
 const stageCounter = createSectionCounter();
 import { notesForSection, noteLine } from './bandNotesCore.js';
 import { getCurrentType as gctStage } from '../audio/trackPlayer.js';
+import { currentCue } from './nextCue.js';
 let last = '';
 let timer = null;
 
@@ -65,6 +66,7 @@ export function stageState() {
     pos: Math.round(t), dur: Math.round(dur),
     playing: !!(audio && !audio.paused),
     next: next ? { title: next.title || '', key: getEffectiveKey(next) || next.key || '' } : null,
+    nextCue: (() => { try { const c = currentCue(); return c ? { title: c.title, meta: c.meta, lines: c.lines, inSec: c.inSec } : null; } catch (_) { return null; } })(),
   };
 }
 
