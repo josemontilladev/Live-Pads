@@ -120,7 +120,9 @@ function transition(lines, from, to) {
     // Líneas saltadas: cada una cuesta (poco si es un trozo).
     let c = 0;
     for (let k = from + 1; k < to; k++) c += isWeak(lines, k) ? 0.1 : 0.55;
-    return -Math.min(lines[to].secStart ? 0.55 : 2.2, c);
+    // Saltar ADELANTE a una sección cuesta un poco menos que volver a otra ya cantada: con
+    // el mismo texto (el último coro igual que el primero) gana la que viene en la letra.
+    return -Math.min(lines[to].secStart ? 0.5 : 2.2, c);
   }
   if (lines[to].secStart) return -0.55;                // vuelta a una sección (coro de nuevo)
   return -2.2;
@@ -558,7 +560,25 @@ async function phraseAlign(pcm, lines, coarse, m, W, tokenize, langTok, opts = {
  * La transcripción usa `size` (small: entiende mejor la voz cantada); el ajuste fino usa
  * base (muchas ventanas: es 3 veces más rápido y distingue igual de bien el comienzo).
  */
+// Idioma de la letra por sus palabras más comunes → 'es' | 'en' | null (no se sabe).
+// Se alinea una letra QUE YA TENEMOS: su idioma lo dice el texto. Dejar que Whisper lo
+// adivine por el audio falla en canciones con coros gritados o mezcla densa (¡Grita!
+// salía «en» y solo se colocaban 3 de 46 líneas).
+const ES_W = new Set('el la los las de del que y en un una es no me mi tu te se lo le por para con su sus yo tú él al como más pero ya nos mis tus eres soy está estoy hay todo toda todos todas'.split(' '));
+const EN_W = new Set('the and you your i me my is are to of in on for with it that this be we our he his she all will can not no so love lord oh'.split(' '));
+function guessLang(lines) {
+  let es = 0, en = 0;
+  for (const l of lines || []) {
+    const text = String((l && l.text) || l || '').toLowerCase();
+    if (/[ñáéíóú¿¡]/.test(text)) es += 2;
+    for (const w of text.split(/[^a-záéíóúüñ']+/)) { if (ES_W.has(w)) es++; if (EN_W.has(w)) en++; }
+  }
+  if (es + en < 4) return null;
+  return es >= en * 1.5 ? 'es' : en >= es * 1.5 ? 'en' : null;
+}
+
 async function alignLyrics(pcm, dir, lines, { size = 'small', lang = null, onProgress = null, shouldCancel = null, segments = null, noRefine = false, refineSize = 'base', method = 'phrase' } = {}) {
+  if (!lang) lang = guessLang(lines);
   const W = require('./whisperGuide');
   const vocab = JSON.parse(fs.readFileSync(path.join(dir, 'whisper_vocab.json'), 'utf8'));
   const tokenize = makeTokenizer(vocab, W.byteDecoder());
@@ -574,4 +594,4 @@ async function alignLyrics(pcm, dir, lines, { size = 'small', lang = null, onPro
   return { lang: tr.lang, events, transcript: tr };
 }
 
-module.exports = { phon, editDist, similarity, matchSegments, coarseAlign, makeTokenizer, envelope, onsetsIn, alignLyrics, scorePhrases, decodePhrases, PH };
+module.exports = { phon, editDist, similarity, matchSegments, coarseAlign, makeTokenizer, envelope, onsetsIn, alignLyrics, scorePhrases, decodePhrases, guessLang, PH };

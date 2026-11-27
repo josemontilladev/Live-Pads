@@ -77,3 +77,24 @@ test('arranques de la voz: la subida tras un silencio, a 10 ms', () => {
   assert.equal(ons.length, 1);
   assert.ok(Math.abs(ons[0].f * 0.01 - 1.23) <= 0.02, `arranque en ${ons[0].f * 0.01}`);
 });
+
+test('idioma de la letra por su texto (para no dejárselo a Whisper)', () => {
+  const es = ['Me encuentro en frente a Jericó', 'Tierra que mi Padre me entregó', 'Grita y las murallas caerán', 'Grita y todas caerán'];
+  const en = ['Shout and the walls will fall', 'You are the Lord of all', 'I will not be afraid', 'Your love is all I need'];
+  assert.equal(A.guessLang(es.map((text) => ({ text }))), 'es');
+  assert.equal(A.guessLang(en.map((text) => ({ text }))), 'en');
+  assert.equal(A.guessLang([{ text: 'Aleluya' }, { text: 'Hosanna' }]), null);   // no se sabe: lo decide Whisper
+});
+
+test('el último coro (igual que el primero) tras un puente que no se entiende va a SUS líneas', () => {
+  const lyr = L(['# Coro', 'Grita y las murallas caerán', 'Grita y todas caerán',
+    '# Puente', 'Yo tome yo tome yo tome', 'Lo que me robó', 'Yo tome yo tome yo tome', 'Lo que me robó',
+    '# Coro', 'Grita y las murallas caerán', 'Grita y todas caerán']);
+  const segs = [
+    { t0: 10, t1: 14, text: 'Grita y las muras caerán' }, { t0: 14, t1: 18, text: 'Grita y todas caerán' },
+    { t0: 20, t1: 24, text: 'Rescate, rescate' }, { t0: 24, t1: 28, text: 'Rastate, no, no, no' },
+    { t0: 40, t1: 44, text: 'Grita y las muras caerán' }, { t0: 44, t1: 48, text: 'Grita y todas caerán' },
+  ];
+  const ev = A.coarseAlign(lyr, segs).filter((e) => e.conf === 'coarse');
+  assert.deepEqual(ev.map((e) => e.line), [0, 1, 6, 7]);
+});

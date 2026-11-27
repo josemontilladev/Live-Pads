@@ -49,3 +49,14 @@ test('lo guardado se limpia', () => {
   assert.deepEqual(a, { active: 'x', list: [{ id: 'x', name: 'Arreglo 1', order: [{ label: 'Coro', n: 2 }] }] });
   assert.equal(cleanArrangements({ active: 'zz', list: [] }).active, null);
 });
+
+test('pista más corta que sus marcas: las de después del final no cuentan', () => {
+  // Marcas de la secuencia (hasta 130 s) en un original que dura 100 s.
+  const short = sectionsOf(M, 100);
+  assert.deepEqual(short.map((x) => `${x.label}${x.n}`), ['Intro1', 'Verso1', 'Coro1', 'Verso2', 'Coro2', 'Puente1']);
+  assert.equal(short[short.length - 1].e, 100);
+  // «Saltar al 3.er coro» en una pista que solo tiene 2: el último que hay, nunca el 1.º.
+  assert.equal(resolve(short, { label: 'Coro', n: 3 }).s, 70);
+  const o = [{ label: 'Intro', n: 1 }, { label: 'Verso', n: 1 }, { label: 'Coro', n: 1 }, { label: 'Coro', n: 3 }];
+  assert.deepEqual(nextStep(short, o, 2), { at: 50, to: 70, label: 'Coro', ai: 3 });
+});

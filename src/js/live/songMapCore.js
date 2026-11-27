@@ -15,7 +15,10 @@ const norm = (s) => String(s || '').trim().toLowerCase();
 
 /** Marcas → secciones [{ label, n, s, e }] en orden (n = vez de ese nombre en la pista). */
 export function sectionsOf(markers, dur) {
-  const ms = (markers || []).filter((m) => m && Number.isFinite(m.t) && m.label).slice().sort((a, b) => a.t - b.t);
+  // Las marcas que caen pasado el final de ESTA pista no existen en ella (p. ej. marcas
+  // antiguas de la secuencia, más larga, aplicadas al original): saltar ahí acabaría la pista.
+  const end = Number.isFinite(dur) && dur > 0 ? dur - 0.5 : Infinity;
+  const ms = (markers || []).filter((m) => m && Number.isFinite(m.t) && m.label && m.t < end).slice().sort((a, b) => a.t - b.t);
   const count = new Map();
   return ms.map((m, i) => {
     const k = norm(m.label);
@@ -29,9 +32,12 @@ export function sectionsOf(markers, dur) {
 /** La sección de la pista para una entrada del arreglo (o null si esa pista no la tiene). */
 export function resolve(sections, ref) {
   if (!ref) return null;
+  const same = sections.filter((x) => norm(x.label) === norm(ref.label));
+  // Si la pista tiene menos veces de esa sección (el «4.º coro» en una con 3), la última:
+  // volver a la PRIMERA haría que el mapa repitiera la canción desde el principio.
   return sections.find((x) => norm(x.label) === norm(ref.label) && x.n === ref.n)
-    || sections.filter((x) => norm(x.label) === norm(ref.label))[Math.max(0, (ref.n || 1) - 1)]
-    || sections.find((x) => norm(x.label) === norm(ref.label))
+    || same[Math.max(0, (ref.n || 1) - 1)]
+    || same[same.length - 1]
     || null;
 }
 

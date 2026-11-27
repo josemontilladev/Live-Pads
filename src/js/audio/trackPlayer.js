@@ -13,7 +13,7 @@ import { q } from '../utils/dom.js';
 import { audioLatencyHint, registerAudioContext } from './dropoutMonitor.js';
 import { panShort } from '../utils/format.js';
 import { syncPanSlider } from '../utils/sliders.js';
-import { PitchAudio } from './pitchAudio.js';
+import { PitchAudio, preloadAudio } from './pitchAudio.js';
 import { createTruePan } from './truePan.js';
 import { forceStereoOutput } from './stereoOut.js';
 import { confirmDialogAsync } from '../ui/dialog.js';
@@ -790,6 +790,13 @@ export function toggleTrackAudio() {
 // btn.click(); ahora togglea el audio directo (el botón delega en app.js).
 export function clickPlayPause() {
   toggleTrackAudio();
+}
+
+/** Lee y decodifica ya la pista `type` de una canción (la siguiente de un medley) para que abra al instante. */
+export async function preloadTrack(song, type) {
+  const path = song && song.audio && song.audio[type];
+  if (!path || !ensureAudioCtx()) return false;
+  try { preloadAudio(audioCtx, await resolvePlayableUrl(path)); return true; } catch (_) { return false; }
 }
 
 

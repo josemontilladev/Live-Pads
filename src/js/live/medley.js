@@ -9,7 +9,7 @@
 
 import { whilePlaying } from '../audio/playClock.js';
 import { esc } from '../utils/dom.js';
-import { getTrackAudio, getCurrentSong } from '../audio/trackPlayer.js';
+import { getTrackAudio, getCurrentSong, preloadTrack, setPlayBtnIcon } from '../audio/trackPlayer.js';
 import { getServiceSongs, getActiveServiceIndex } from '../data/service.js';
 import { medleyExitAt } from './medleyCore.js';
 
@@ -25,7 +25,11 @@ export function setMedley(serviceId, m) {
 }
 
 let deps = { playCurrent: () => {} };
-let fading = null, timer = null;
+let fading = null, timer = null, preloaded = null;
+
+// Margen para pedir la siguiente ANTES del final del fundido: lo que tarda en abrirse
+// (ya decodificada) + un tick. Así suena justo en el punto de salida, sin hueco.
+const LEAD_S = 0.06;
 
 function tick() {
   if (fading) return;
@@ -39,33 +43,46 @@ function tick() {
   if (!link) return;
   const exit = medleyExitAt(link, audio.duration);
   if (!Number.isFinite(exit)) return;
-  if (audio.currentTime >= exit - (link.fade || 0)) start(audio, link);
+  // La siguiente se lee y decodifica ya, mientras suena esta: al llegar la salida abre al instante.
+  const next = songs[idx + 1];
+  if (next && preloaded !== next.serviceId) { preloaded = next.serviceId; preloadTrack(next, 'sequence'); }
+  if (audio.currentTime >= exit - (link.fade || 0) - 0.12) start(audio, link, exit);
 }
 
-function start(audio, link) {
+// El fundido va por la POSICIÓN de la pista (no por el reloj): termina justo en la salida
+// aunque el tick haya llegado tarde o la pista se haya movido.
+function start(audio, link, exit) {
   const fadeS = Math.max(0, Number(link.fade) || 0);
   const v0 = audio.volume;
-  const t0 = performance.now();
   fading = setInterval(() => {
-    const k = fadeS ? Math.min(1, (performance.now() - t0) / (fadeS * 1000)) : 1;
+    if (getTrackAudio() !== audio) { clearInterval(fading); fading = null; return; }   // cambió de canción a mano
+    if (audio.paused) return;                                                         // en pausa: espera
+    const left = exit - audio.currentTime;
+    const k = fadeS ? Math.min(1, Math.max(0, 1 - left / fadeS)) : (left <= LEAD_S ? 1 : 0);
     try { audio.volume = v0 * (1 - k); } catch (_) {}
-    if (k >= 1) { clearInterval(fading); jump(link, v0); }
-  }, 50);
+    if (left <= LEAD_S) { clearInterval(fading); jump(link, v0); }
+  }, 5);
 }
 
 async function jump(link, vol) {
-  document.querySelector('#btn-service-next')?.click();
-  // Espera a que se cargue la pista de la siguiente; arranca en su punto de entrada.
   const old = getTrackAudio();
-  for (let i = 0; i < 80; i++) {
-    await new Promise((r) => setTimeout(r, 100));
+  document.querySelector('#btn-service-next')?.click();
+  // Espera la pista de la siguiente (abre al instante si ya estaba decodificada) y la
+  // arranca DIRECTAMENTE en su punto de entrada: sin cuenta de entrada ni compás hablado
+  // (meterían un compás de silencio en mitad del medley) y sin depender de la fuente
+  // elegida abajo (con «Click» el Play maestro movería el metrónomo, no la pista).
+  const t0 = performance.now();
+  while (performance.now() - t0 < 30000) {
     const a = getTrackAudio();
-    if (a && a !== old && (a.buffer || a.readyState > 0)) {
+    if (a && a !== old && a.buffer) {
       try { a.volume = vol; } catch (_) {}
       if (link.in > 0) { try { a.currentTime = link.in; } catch (_) {} }
-      if (a.paused) deps.playCurrent();
+      if (a.paused) { try { await a.play(); } catch (_) { deps.playCurrent(); } }
+      setPlayBtnIcon(true);
       break;
     }
+    if (a && a !== old && a.error) break;
+    await new Promise((r) => setTimeout(r, 5));
   }
   fading = null;
 }
@@ -73,7 +90,7 @@ async function jump(link, vol) {
 export function initMedley(d) {
   deps = { ...deps, ...d };
   if (typeof timer === 'function') timer();
-  timer = whilePlaying(tick, 100);
+  timer = whilePlaying(tick, 50);
 }
 
 /** Ventana: unir esta canción del servicio con la siguiente. */

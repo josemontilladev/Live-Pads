@@ -27,6 +27,41 @@ import { SoundTouchNode } from '../../vendor/soundtouch-worklet/SoundTouchNode.j
 // mismo sitio que el procesador de siempre (source → procesador → volumen), así la
 // posición, los bucles y el final no cambian. Si no carga, se usa SoundTouch.
 // Ajustes → Audio → «Cambio de tono de alta calidad» (activado por defecto).
+// Lectura + decodificación de un archivo de audio (lo más lento de abrir una pista).
+async function readAndDecode(ctx, url) {
+  const isLocal = /^(livepads:|file:)/i.test(url) || /^[a-zA-Z]:\\/.test(url);
+  let arr;
+  // En Electron, fetch contra esquemas privilegiados (livepads://) suele
+  // fallar cross-origin. El proceso principal lee el archivo y nos devuelve
+  // el ArrayBuffer crudo (rápido y confiable). Para http(s)/blob seguimos
+  // con fetch normal.
+  if (isLocal && window.electronAPI && typeof window.electronAPI.readAudioFile === 'function') {
+    arr = await window.electronAPI.readAudioFile(url);
+  } else {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    arr = await res.arrayBuffer();
+  }
+  return ctx.decodeAudioData(arr);
+}
+
+// Pista decodificada POR ADELANTADO (la siguiente de un medley): al abrirla no hay
+// que esperar a leer y decodificar, suena al instante. Solo UNA a la vez (una pista
+// de 5 min ocupa ~100 MB decodificada) y se suelta en cuanto se usa.
+let _pre = null;   // { ctx, url, promise }
+export function preloadAudio(ctx, url) {
+  if (!ctx || !url) return;
+  if (_pre && _pre.ctx === ctx && _pre.url === url) return;
+  const promise = readAndDecode(ctx, url);
+  promise.catch(() => { if (_pre && _pre.promise === promise) _pre = null; });
+  _pre = { ctx, url, promise };
+}
+function takePreloaded(ctx, url) {
+  if (!_pre || _pre.ctx !== ctx || _pre.url !== url) return null;
+  const p = _pre.promise; _pre = null;
+  return p;
+}
+
 export const PITCH_HQ_KEY = 'livepads.pitchHQ';
 export const pitchHQOn = () => { try { return localStorage.getItem(PITCH_HQ_KEY) !== '0'; } catch (_) { return true; } };
 let _hqFactory = null;
@@ -134,20 +169,10 @@ export class PitchAudio extends EventTarget {
 
   async _load(url) {
     try {
-      const isLocal = /^(livepads:|file:)/i.test(url) || /^[a-zA-Z]:\\/.test(url);
-      let arr;
-      // En Electron, fetch contra esquemas privilegiados (livepads://) suele
-      // fallar cross-origin. El proceso principal lee el archivo y nos devuelve
-      // el ArrayBuffer crudo (rápido y confiable). Para http(s)/blob seguimos
-      // con fetch normal.
-      if (isLocal && window.electronAPI && typeof window.electronAPI.readAudioFile === 'function') {
-        arr = await window.electronAPI.readAudioFile(url);
-      } else {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        arr = await res.arrayBuffer();
-      }
-      const buf = await this._ctx.decodeAudioData(arr);
+      let buf = null;
+      const pre = takePreloaded(this._ctx, url);
+      if (pre) { try { buf = await pre; } catch (_) { buf = null; } }
+      if (!buf) buf = await readAndDecode(this._ctx, url);
       if (this._src !== url) return; // el src cambió mientras decodificábamos
       this._buffer = buf;
       this.dispatchEvent(new Event('loadedmetadata'));
