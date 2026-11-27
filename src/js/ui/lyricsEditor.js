@@ -71,11 +71,11 @@ function modalHTML(song) {
           <option value="final">Final</option>
         </select>
         <button type="button" class="format-tool-btn chord-btn" data-action="chord" title="Marca como acorde lo seleccionado (lo pone entre [ ])   ·   Ctrl+[">[ ] Acorde</button>
+        <button type="button" class="format-tool-btn chord-btn lyr-format-btn" data-action="autoformat" title="Formatear: marca las secciones (Verso, Coro…) y pone los acordes entre [ ]. La letra no se toca   ·   Ctrl+Shift+F">✦ Formatear</button>
         <!-- Herramientas menos frecuentes: en «⋯ Herramientas» (los botones siguen
              aquí, ocultos, y el menú los pulsa). -->
         <div class="lyr-more-tools" hidden>
           <button type="button" class="format-tool-btn" data-action="clear" title="Limpiar formato de selección">Tx</button>
-          <button type="button" class="format-tool-btn autoformat-btn" data-action="autoformat" title="Auto-formato">Auto</button>
           <button type="button" class="format-tool-btn repair-btn" data-action="repair" title="Reparar letra">Reparar</button>
         </div>
         <div class="toolbar-sep"></div>
@@ -250,11 +250,11 @@ export function openLyricsEditorModal(song, onSaveCallback) {
       } else if (action === 'autoformat') {
         const formatted = autoFormatLyrics(textarea.value);
         if (formatted === textarea.value) {
-          window.showToast?.('No se encontraron secciones nuevas para marcar.', 'info');
+          window.showToast?.('Ya está formateada: no hay secciones ni acordes nuevos que marcar.', 'info');
           return;
         }
         replaceAllText(formatted);
-        window.showToast?.('✓ Secciones marcadas. Revisa la vista previa (👁).', 'success');
+        window.showToast?.('Secciones y acordes marcados (la letra no se tocó). Revisa la vista previa (👁) · Ctrl+Z para deshacer.', 'success');
       } else if (action === 'repair') {
         // Reparación completa: limpiar lo pegado + marcar secciones + unir cada
         // acorde con su sílaba. Se cuenta lo que cambió para que el usuario sepa
@@ -293,17 +293,19 @@ export function openLyricsEditorModal(song, onSaveCallback) {
   /* ── ⋯ Herramientas ── */
   const toolsBtn = overlay.querySelector('.lyr-tools-btn');
   const clickTool = (a) => overlay.querySelector(`[data-action="${a}"]`)?.click();
+  const SHORTCUTS_HINT = 'Ctrl+[ acorde · Ctrl+Shift+F formatear · Ctrl+Shift+R reparar · Alt+1…8 sección (Intro, Verso, Pre-Coro, Coro, Puente, Instrumental, Solo, Final) · Alt+↑/↓ transponer · Ctrl+S guardar';
   const ICO = (d) => `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   if (toolsBtn) toolsBtn.onclick = (e) => {
     e.stopPropagation();
     openCardMoreMenu(toolsBtn, [
       { icon: ICO('<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'), label: 'Cambiar la letra (conservar acordes)', hint: 'Pega la letra nueva y los acordes se quedan en su sitio',
         onSelect: () => openLyricsReplaceDialog({ currentText: textarea.value, onApply: (t) => { replaceAllText(t); window.showToast?.('✓ Letra cambiada con sus acordes. Revísala y pulsa Guardar (Ctrl+Z para deshacer).', 'success'); } }) },
-      { icon: ICO('<path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/>'), label: 'Marcar secciones', hint: 'Detecta Verso, Coro, Puente… en el texto pegado', onSelect: () => clickTool('autoformat') },
-      { icon: ICO('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>'), label: 'Reparar letra pegada', hint: 'Limpia lo copiado de la web y une cada acorde con su sílaba', onSelect: () => clickTool('repair') },
+      { icon: ICO('<path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4"/>'), label: 'Formatear (secciones y acordes)', hint: 'Marca Verso, Coro… y pone los acordes entre [ ]; la letra no se toca · Ctrl+Shift+F', onSelect: () => clickTool('autoformat') },
+      { icon: ICO('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>'), label: 'Reparar letra pegada', hint: 'Limpia lo copiado de la web y une cada acorde con su sílaba · Ctrl+Shift+R', onSelect: () => clickTool('repair') },
       { icon: ICO('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'), label: 'Importar desde un enlace', hint: 'Cifra Club o LaCuerda, con los acordes ya alineados', onSelect: () => clickTool('import-url') },
       { sep: true },
       { icon: ICO('<path d="M4 7V4h16v3M9 20h6M12 4v16"/><line x1="3" y1="21" x2="21" y2="3"/>'), label: 'Quitar formato de lo seleccionado', hint: 'Borra corchetes y marcas del texto marcado', onSelect: () => clickTool('clear') },
+      { icon: ICO('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>'), label: 'Atajos de teclado', hint: SHORTCUTS_HINT, onSelect: () => window.showToast?.(SHORTCUTS_HINT, 'info', { ttl: 12000 }) },
     ]);
   };
 
@@ -540,6 +542,21 @@ export function openLyricsEditorModal(song, onSaveCallback) {
         wrapTextareaSelection(textarea, '[', ']');
       }
       return;
+    }
+    const mod = e.ctrlKey || e.metaKey;
+    // Ctrl+Shift+F: formatear (secciones + acordes entre corchetes) · Ctrl+Shift+R: reparar
+    if (mod && e.shiftKey && (e.key === 'F' || e.key === 'f')) { e.preventDefault(); e.stopPropagation(); clickTool('autoformat'); return; }
+    if (mod && e.shiftKey && (e.key === 'R' || e.key === 'r')) { e.preventDefault(); e.stopPropagation(); clickTool('repair'); return; }
+    // Alt+1…8: insertar la sección en el cursor (mismo orden que «+ SECCIÓN»)
+    if (e.altKey && !mod && /^Digit[1-8]$/.test(e.code)) {
+      const opts = [...formatSelect.options].filter((o) => o.value !== 'normal');
+      const o = opts[Number(e.code.slice(5)) - 1];
+      if (o) { e.preventDefault(); e.stopPropagation(); formatSelect.value = o.value; formatSelect.onchange(); textarea.focus(); }
+      return;
+    }
+    // Alt+↑/↓: transponer medio tono
+    if (e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault(); e.stopPropagation(); clickTool(e.key === 'ArrowUp' ? 'transpose-up' : 'transpose-down'); return;
     }
     // Escape ahora lo gestiona modalStack (push en open / pop en close).
   };

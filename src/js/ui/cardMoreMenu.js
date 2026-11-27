@@ -76,8 +76,29 @@ function buildMenu(items) {
       menu.appendChild(d);
       return;
     }
+    // Fila de opciones rápidas: { chips: [{ label, on, onSelect }], label? }
+    if (it.chips) {
+      const row = document.createElement('div');
+      row.className = 'cmm-chips';
+      row.setAttribute('role', 'group');
+      if (it.label) { const t = document.createElement('span'); t.className = 'cmm-chips-title'; t.textContent = it.label; row.appendChild(t); }
+      for (const c of it.chips) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'cmm-chip' + (c.on ? ' is-on' : '');
+        b.setAttribute('role', 'menuitemradio');
+        b.setAttribute('aria-checked', c.on ? 'true' : 'false');
+        b.textContent = c.label;
+        b.onclick = (e) => { e.stopPropagation(); close(); try { c.onSelect(); } catch (_) {} };
+        row.appendChild(b);
+      }
+      menu.appendChild(row);
+      return;
+    }
     const btn = document.createElement('button');
     btn.type = 'button';
+    // La explicación completa al pasar el ratón (en el menú va en una línea).
+    if (it.hint) btn.title = String(it.hint).replace(/<[^>]+>/g, '');
     btn.className = 'card-more-item' + (it.danger ? ' danger' : '') + (it.hint ? ' has-hint' : '') + (it.checked ? ' is-checked' : '');
     btn.setAttribute('role', it.checked != null ? 'menuitemcheckbox' : 'menuitem');
     if (it.checked != null) btn.setAttribute('aria-checked', it.checked ? 'true' : 'false');

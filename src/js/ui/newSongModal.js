@@ -65,10 +65,10 @@ export function openNewSongModal({ onSaved, defaults = {} } = {}) {
         <span class="newsong-import-hint">ChordPro (.cho, .crd, .pro), OpenSong o texto con acordes. Elige varios para traer tu repertorio de golpe.</span>
         <input type="file" id="ns-file" multiple hidden accept=".cho,.crd,.chopro,.chordpro,.pro,.txt,.xml,text/plain,*/*">
       </div>
-      <div class="newsong-import-row newsong-import-row--file">
+      <div class="newsong-import-row newsong-import-row--file newsong-import-row--mt">
         <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-folder">Multitrack: carpeta…</button>
         <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-zip">Multitrack: ZIP…</button>
-        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-lib">Mis carpetas de multitracks…</button>
+        <button type="button" class="gi-edit-btn newsong-file-btn" data-action="import-mt-lib" title="Mis carpetas de multitracks">Mis carpetas…</button>
         <span class="newsong-import-hint">MultiTracks, Loop Community u otro: crea la canción con sus pistas y la secuencia para Pads (click a la izquierda).</span>
       </div>
     </div>`;

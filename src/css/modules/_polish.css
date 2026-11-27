@@ -2390,3 +2390,45 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 .dgr-name { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
 .dgr-name input { flex: 1 1 auto; min-width: 0; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; }
 .gt-arr[hidden] { display: none; }
+
+/* ── Menús más compactos (1.0.313): filas más bajas y la explicación en una sola
+   línea (entera al pasar el ratón). Valen para todos los «⋯» y menús contextuales. ── */
+:root :is(.card-more-menu, .stems-context-menu, .orig-src-menu) { padding: 4px !important; border-radius: 12px !important; max-width: min(360px, calc(100vw - 16px)); }
+:root :is(.card-more-menu .card-more-item, .stems-context-menu button:not(.smc-type-btn):not(.smc-more), .orig-src-menu button) {
+  min-height: 30px; padding: 0 10px !important; gap: 10px !important; font-size: 12.5px !important; border-radius: 8px !important;
+}
+:root .card-more-menu button.card-more-item.has-hint { min-height: 0; padding-top: 5px !important; padding-bottom: 5px !important; }
+.card-more-menu .cmm-label { gap: 0; }
+.card-more-menu .cmm-hint { font-size: 11px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.card-more-menu .cmm-sep { margin: 3px 6px !important; }
+.card-more-menu .cmm-sep.cmm-sep--label { padding: 4px 10px 2px !important; }
+.card-more-item .cmm-ico, .card-more-item .cmm-ico svg { width: 14px; height: 14px; }
+
+/* Fila de opciones rápidas (p. ej. «Cambiar a» en una sección del espectro). */
+.card-more-menu .cmm-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 6px 4px; max-width: 320px; }
+.card-more-menu .cmm-chips-title { flex: 1 1 100%; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--menu-dim); padding: 0 4px 2px; }
+.card-more-menu .cmm-chip {
+  height: 24px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--menu-line, rgba(255,255,255,.16)); background: transparent; color: var(--menu-text, #fff);
+  transition: background .12s ease, border-color .12s ease;
+}
+.card-more-menu .cmm-chip:hover { background: var(--menu-hover); border-color: transparent; }
+.card-more-menu .cmm-chip.is-on { background: var(--accent, #f5b400); border-color: transparent; color: #111; }
+
+/* Espectro: «Ocultar secciones» (la onda sin bloques ni etiquetas). */
+#seq-wave.sw-sections-hidden :is(.sw-markers, .sw-regions) { display: none !important; }
+#sw-hide-sections[aria-pressed="true"] { color: var(--accent, #f5b400); }
+
+/* Crear canción: los botones de multitrack bajan de línea en vez de salirse del modal. */
+:root .stems-newsong-modal .newsong-import-row--file { flex-wrap: wrap; }
+:root .stems-newsong-modal .newsong-import-row--file .newsong-file-btn { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+:root .stems-newsong-modal .newsong-import-row--mt .newsong-import-hint { flex: 1 1 100%; }
+
+/* Tema claro: textos que estaban en blanco fijo sobre fondo claro (título y etiquetas de
+   «Nueva canción», botones «[ ] Acorde» / «Formatear» y «Cerrar» del editor de letra). */
+:root[data-theme="clean"] .stems-newsong-modal :is(.newsong-head-title, .newsong-import-label) { color: var(--text) !important; }
+:root[data-theme="clean"] :is(.stems-newsong-modal, #lp-boost) .newsong-file-btn { color: var(--text) !important; border-color: color-mix(in srgb, var(--text) 25%, transparent) !important; }
+:root[data-theme="clean"] .lyrics-modal-panel :is(h2, h3, .lyrics-modal-title) { color: var(--text) !important; }
+:root[data-theme="clean"] .lyrics-modal-panel .format-tool-btn.chord-btn { color: var(--text) !important; border-color: color-mix(in srgb, var(--text) 25%, transparent) !important; background: transparent !important; }
+:root[data-theme="clean"] .lyrics-modal-panel :is(.cancel-btn, .lyrics-cancel-btn, .close-text-btn) { color: var(--text) !important; }
+:root[data-theme="clean"] :is(.stems-newsong-modal, #lp-boost) .gi-edit-btn.cancel { color: var(--text) !important; border-color: color-mix(in srgb, var(--text) 25%, transparent) !important; }

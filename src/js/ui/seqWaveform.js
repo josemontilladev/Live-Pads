@@ -44,6 +44,8 @@ import { markersFor, withMarkersFor } from '../data/markers.js';
 import { smoothToggle } from '../utils/smoothCollapse.js';
 import { getPendingJump } from '../live/arrange.js';
 const COLLAPSE_KEY = 'livepads-seqwave-collapsed';
+const HIDE_SECTIONS_KEY = 'livepads-seqwave-hide-sections';   // '1' = onda sin secciones a la vista
+const sectionsHidden = () => !!(root && root.classList.contains('sw-sections-hidden'));
 const AUTO_KEY = 'livepads-autosections';          // '0' = no marcar solas las canciones nuevas
 const TRIED_KEY = 'livepads-autosections-tried';   // canciones ya analizadas (no se repite)
 const ICO_AUTO = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>';
@@ -162,6 +164,21 @@ export function initSeqWaveform() {
   wireZoom();
 
   try { if (localStorage.getItem(COLLAPSE_KEY) === '1') root.classList.add('is-collapsed'); } catch (_) {}
+  // Ocultar secciones: la onda queda limpia (sin bloques ni etiquetas). Las secciones
+  // siguen ahí (saltos, guía, letra…); solo no se ven.
+  const hideBtn = $('#sw-hide-sections');
+  const paintHide = () => {
+    const on = sectionsHidden();
+    if (hideBtn) { hideBtn.setAttribute('aria-pressed', on ? 'true' : 'false'); const l = hideBtn.querySelector('.sw-hide-label'); if (l) l.textContent = on ? 'Mostrar secciones' : 'Ocultar secciones'; }
+  };
+  try { if (localStorage.getItem(HIDE_SECTIONS_KEY) === '1') root.classList.add('sw-sections-hidden'); } catch (_) {}
+  paintHide();
+  hideBtn?.addEventListener('click', () => {
+    const on = !sectionsHidden();
+    root.classList.toggle('sw-sections-hidden', on);
+    try { localStorage.setItem(HIDE_SECTIONS_KEY, on ? '1' : '0'); } catch (_) {}
+    paintHide(); drawWave();
+  });
   collapseBtn.onclick = () => {
     const c = !root.classList.contains('is-collapsed');
     try { localStorage.setItem(COLLAPSE_KEY, c ? '1' : '0'); } catch (_) {}
@@ -299,7 +316,7 @@ function drawOn(canvas, fallback, lit, w, h) {
   ctx.clearRect(0, 0, w, h);
   const n = peaks.length / 2, mid = h / 2, amp = mid - 3;
   const bar = 2, gap = 1, step = bar + gap, cols = Math.floor(w / step);
-  const ms = duration ? sortedMarkers() : [];
+  const ms = duration && !sectionsHidden() ? sortedMarkers() : [];
   let lastHue = -2;
   for (let i = 0; i < cols; i++) {
     const a = Math.floor((i / cols) * n), b = Math.max(a + 1, Math.floor(((i + 1) / cols) * n));
@@ -928,11 +945,14 @@ function openMarkerMenu(x, y, id) {
   const m = getMarkers().find(v => v.id === id); if (!m) return;
   const loopItem = { label: 'Practicar esta sección en bucle', onSelect: () => practiceSection(id) };
   if (!canEditActiveLibrary()) { openContextMenu(x, y, [{ label: 'Ir a esta sección', onSelect: () => seekTo(m.t) }, loopItem]); return; }
+  const setLabel = (v) => { m.label = v; delete m.auto; persist(); renderMarkers(); };
   openContextMenu(x, y, [
+    { chips: QUICK_LABELS.map((l) => ({ label: l, on: l === m.label, onSelect: () => setLabel(l) })), label: 'Cambiar a' },
+    { sep: true },
     { label: 'Ir a esta sección', onSelect: () => seekTo(m.t) },
     loopItem,
     ...(m.auto ? [{ label: 'Está bien (confirmar)', onSelect: () => { delete m.auto; persist(); renderMarkers(); } }] : []),
-    { label: 'Renombrar…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) { m.label = v; delete m.auto; persist(); renderMarkers(); } }) },
+    { label: 'Otro nombre…', onSelect: () => showDialog('Renombrar sección', m.label, (v) => { v = (v || '').trim(); if (v) setLabel(v); }) },
     { label: 'Mover al cabezal', onSelect: () => { m.t = Math.round((audio.currentTime || 0) * 10) / 10; delete m.auto; persist(); renderMarkers(); } },
     { label: 'Eliminar', danger: true, onSelect: () => removeMarker(id) },
   ]);
