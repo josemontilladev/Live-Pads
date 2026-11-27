@@ -137,14 +137,6 @@
 
 /* Cabecera de la consola */
 .stems-console-header { font-weight: 500; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   Tarjetas del servicio (modo en vivo): las flechas de orden van en la
-   esquina superior derecha de la TARJETA (.gi-song-order, fuera de la tira de
-   botones): así la fila Letra · Sec · Orig tiene todo el ancho y, cuando esa
-   tira flota al pasar el ratón, las flechas no le caen encima.
-   ═══════════════════════════════════════════════════════════════════ */
-.gi-song-item { position: relative; }
 .gi-song-actions { position: static; }
 .gi-song-order .btn-move-up,
 .gi-song-order .btn-move-down {

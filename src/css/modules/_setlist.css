@@ -211,14 +211,7 @@ input.pan-slider {
   transition: transform 0.2s, background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
 .toggle-sw.on::after { transform: translateX(20px); background: #000; }
-
-/* ── GI-SETLIST ── */
-.setlist-tabs-toggle { display: flex; gap: 6px; margin-bottom: 10px; background: var(--bg-hover); padding: 3px; border-radius: var(--r-md); }
-.s-toggle { flex: 1; padding: 7px; background: transparent; border: none; border-radius: 6px; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s; }
-.s-toggle.active { background: var(--bg-card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-.gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text); margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }
-.gi-search-input:focus { border-color: var(--blue); }
-/* Drag & Drop: el resto del row (.gi-song-item, .gi-badge, .action-btn,
+.gi-search-input { width: 100%; padding: 8px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text); margin-bottom: 10px; font-size: 13px; outline: none; transition: border-color 0.2s; }/* Drag & Drop: el resto del row (.gi-song-item, .gi-badge, .action-btn,
    .gi-song-actions) lo define el bloque "Spotify-style rows" más abajo. */
 .drag-over { border-top: 3px solid var(--blue) !important; }
 
@@ -1488,72 +1481,6 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 .gi-filter-action .gi-filter-option-label { color: var(--text-muted); font-size: 13px; }
 .gi-filter-action:hover .gi-filter-option-label { color: #fca5a5; }
 
-/* ── Modal "Setlists guardados" (nombre + fecha) ──────────────────────────── */
-.setlists-overlay {
-  position: fixed; inset: 0; z-index: 1000;
-  background: rgba(10, 10, 20, 0.72);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-}
-.setlists-modal {
-  width: 440px; max-width: 92vw; max-height: 82vh; overflow: auto;
-  background: var(--bg-card); border: 1px solid var(--border-strong);
-  border-radius: var(--r-lg); padding: 18px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
-}
-.setlists-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.setlists-head h3 { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
-.setlists-x {
-  background: transparent; border: none; color: var(--text-muted);
-  font-size: 20px; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px;
-}
-.setlists-x:hover { color: #fff; background: rgba(255,255,255,0.08); }
-/* Formulario de guardado: título + fecha (calendario) + botón. */
-.setlists-save-form {
-  display: flex; align-items: flex-end; gap: 8px;
-  margin-bottom: 14px; padding: 12px;
-  background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--r-md);
-}
-.setlists-save-form .sl-field { display: flex; flex-direction: column; gap: 4px; }
-.setlists-save-form .sl-field--title { flex: 1; min-width: 0; }
-.setlists-save-form label {
-  font-size: 10px; font-weight: 500; letter-spacing: 0.04em;
-  text-transform: none; color: var(--text-muted);
-}
-.setlists-save-form input {
-  background: var(--bg-card); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none;
-}
-.setlists-save-form input:focus { border-color: var(--accent); }
-.setlists-save-form .sl-date { color-scheme: dark; cursor: pointer; }
-.setlists-save-form .sl-save-btn {
-  padding: 9px 16px; font-size: 13px; font-weight: 500; color: #000;
-  background: var(--accent); border: none; border-radius: 8px; cursor: pointer;
-  white-space: nowrap; transition: filter 0.15s;
-}
-.setlists-save-form .sl-save-btn:hover { filter: brightness(1.08); }
-.setlists-list { display: flex; flex-direction: column; gap: 6px; }
-.setlists-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 11px; border-radius: var(--r-md);
-  background: var(--bg-hover); border: 1px solid var(--border);
-}
-.setlists-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.setlists-row-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.setlists-row-meta { font-size: 11px; color: var(--text-muted); }
-.setlists-load {
-  font-size: 12px; font-weight: 600; color: var(--text);
-  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
-  border-radius: 7px; padding: 6px 12px; cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s, transform 0.15s;
-}
-.setlists-load:hover { color: #fff; background: rgba(255,255,255,0.12); border-color: var(--accent); }
-.setlists-del {
-  background: transparent; border: none; color: var(--text-muted);
-  font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 7px; border-radius: 6px;
-}
-.setlists-del:hover { color: var(--danger-soft); background: color-mix(in srgb, var(--danger-soft) 12%, transparent); }
-.setlists-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 18px 8px; line-height: 1.5; }
-
 /* ── Selector de setlist (chooser) en la pestaña Servicio ─────────────────── */
 .service-chooser { display: none; }
 /* Cuando se está eligiendo: ocultar la vista de canciones y mostrar el chooser. */
@@ -1610,7 +1537,7 @@ select.gi-edit-input { cursor: pointer; text-align: left; }
 }
 .svc-chooser-current:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
-/* Acciones del modal "Nueva lista de servicio" (reusa .setlists-* y .stt-btn) */
+/* Acciones del modal "Nueva lista de servicio" (reusa .stt-btn) */
 .new-setlist-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 
 /* ── Modal "Nuevo Setlist" (título + fecha + descripción + selector de canciones) ── */

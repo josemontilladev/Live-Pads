@@ -11,6 +11,7 @@
 // Programas 1-128 (como los muestran los teclados); se envían 0-127.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isStandby } from '../live/standby.js';
 import { whilePlaying } from '../audio/playClock.js';
 import { getSongs, getActiveSongId } from '../state/store.js';
 
@@ -61,6 +62,7 @@ export function programMessages({ pc, msb = null, lsb = null }, channel = 1) {
 
 /** Envía un sonido ya mismo. Devuelve false si no hay salida elegida o conectada. */
 export async function sendProgram(patch, channel = deviceSettings().channel) {
+  if (isStandby()) return false;   // PC de respaldo en silencio: el principal ya lo manda
   if (!patch || !(patch.pc >= 1)) return false;
   const o = await output();
   if (!o) return false;

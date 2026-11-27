@@ -37,8 +37,6 @@
 .sw-btn--icon { width: 26px; padding: 0; justify-content: center; }
 .sw-btn--icon svg { transition: transform .2s var(--ease-out); }
 #seq-wave.is-collapsed .sw-btn--icon svg { transform: rotate(180deg); }
-
-.sw-stage { position: relative; }
 .sw-markers { position: relative; height: 22px; }
 .sw-pill {
   position: absolute; top: 1px; transform: translateX(-1px); z-index: 3; max-width: 120px;

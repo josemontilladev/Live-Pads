@@ -357,6 +357,7 @@ function openServiceMenu(anchor) {
     if (c) window.showToast?.(`✓ Duplicado como «${c.name}».`, 'success');
   } });
   items.push({ label: 'Abrir paquete de servicio (.lpservicio)…', hint: 'El que se guardó en otro portátil', onSelect: () => import('./servicePack.js').then((m) => m.importServicePack()) });
+  items.push({ label: 'Importar de Planning Center…', hint: 'Las canciones y los tonos de un servicio de Planning Center', onSelect: () => import('./planningCenter.js').then((m) => m.openPlanningCenter()) });
   if (n) items.push({ label: 'Quitar todas las canciones', onSelect: () => click('#btn-clear-service') });
   if (id) items.push({ label: 'Eliminar servicio', danger: true, onSelect: () => {
     const s = listSavedSetlists().find((x) => x.id === id);

@@ -15,6 +15,7 @@
 // Las peticiones salen del proceso principal (main.js → proj-request): solo http y solo esas rutas.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isStandby } from './standby.js';
 import { markersFor } from '../data/markers.js';
 import { groupName, openlpSlideIndex, bestTitle, planSlides } from './projectionCore.js';
 import { lyricLines, getLyricSync } from './lyricSyncStore.js';
@@ -33,6 +34,7 @@ function saveProjection(c) { try { localStorage.setItem(KEY, JSON.stringify(c));
 
 const base = (c) => `http://${String(c.host || '127.0.0.1').trim()}:${Number(c.port) || APPS[c.app].port}`;
 async function req(method, url, body, headers) {
+  if (isStandby()) return { ok: true, status: 204, json: null };   // respaldo en silencio: proyecta el principal
   const api = window.electronAPI;
   if (!api?.projRequest) throw new Error('Esta versión no puede conectarse.');
   return api.projRequest({ method, url, body, headers });

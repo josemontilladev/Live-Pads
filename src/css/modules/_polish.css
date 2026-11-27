@@ -1078,14 +1078,14 @@ input.mo-switch:checked::after { transform: translateX(16px); }
    paneles de Ajustes: misma superficie translúcida que «Nueva canción», bloques
    internos sin cajas duras, campos velados y botones píldora. (#lp-boost: solo
    sube la especificidad sobre las reglas del tema plano.) */
-:root :is(.lyrics-modal-panel, .setlists-modal, .pl-panel, .stems-export-panel, #lp-boost) {
+:root :is(.lyrics-modal-panel, .pl-panel, .stems-export-panel, #lp-boost) {
   background: var(--menu-bg) !important;
   -webkit-backdrop-filter: blur(26px) saturate(1.35); backdrop-filter: blur(26px) saturate(1.35);
   border: 1px solid var(--menu-line) !important;
   border-radius: 24px !important;
   box-shadow: 0 40px 90px -20px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .07) !important;
 }
-.lyrics-modal-overlay, .setlists-overlay, .pl-overlay, .stems-export-overlay {
+.lyrics-modal-overlay, .pl-overlay, .stems-export-overlay {
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 
@@ -1110,18 +1110,6 @@ input.mo-switch:checked::after { transform: translateX(16px); }
 :root :is(.lyrics-modal-panel, #lp-boost) .cancel-btn { background: transparent !important; border: 1px solid rgba(255, 255, 255, .22) !important; color: #fff !important; }
 :root :is(.lyrics-modal-panel, #lp-boost) .cancel-btn:hover { background: rgba(255, 255, 255, .08) !important; }
 
-/* Setlists guardados */
-:root .setlists-modal { padding: 22px !important; }
-:root .setlists-head { border: 0 !important; }
-:root .setlists-head :is(h2, h3, .setlists-title) { font-size: 19px !important; font-weight: 700 !important; color: #fff !important; }
-:root :is(.setlists-save-form, #lp-boost) { background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 18px !important; padding: 14px !important; }
-:root :is(.setlists-modal, #lp-boost) :is(.sl-title, .sl-date) {
-  height: 42px; border-radius: 999px !important; background-color: rgba(3, 10, 30, .45) !important; border: 1px solid rgba(255, 255, 255, .12) !important; color: #fff !important; padding: 0 14px !important;
-}
-:root :is(.setlists-modal, #lp-boost) .sl-save-btn { height: 42px; border-radius: 999px !important; padding: 0 20px !important; font-weight: 600 !important; }
-:root :is(.setlists-modal, #lp-boost) .setlists-row { background: rgba(255, 255, 255, .05) !important; border: 0 !important; border-radius: 14px !important; }
-:root :is(.setlists-modal, #lp-boost) .setlists-row:hover { background: rgba(255, 255, 255, .09) !important; }
-:root .setlists-empty { color: var(--menu-dim) !important; }
 
 /* Progreso de exportar (Stems) */
 :root .stems-export-panel { padding: 26px 30px !important; }
@@ -1148,7 +1136,7 @@ input.mo-switch:checked::after { transform: translateX(16px); }
 /* Ventanas grandes: casi opacas. El desenfoque propio no actúa cuando el velo de
    detrás ya desenfoca, y el contenido de atrás (pads, letras) se transparentaba. */
 :root { --win-bg: color-mix(in srgb, var(--flat-side, var(--bg-surface)) 97%, transparent); }
-:root :is(.lyrics-modal-panel, .setlists-modal, .pl-panel, .stems-export-panel, .stems-newsong-modal, #lp-boost) {
+:root :is(.lyrics-modal-panel, .pl-panel, .stems-export-panel, .stems-newsong-modal, #lp-boost) {
   background: var(--win-bg) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
 
@@ -2457,7 +2445,6 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 /* Selector de sonido: etiqueta de sección legible en el tema oscuro. */
 .spm-section-label { color: var(--text-muted, rgba(255,255,255,.62)) !important; }
 :root[data-theme="clean"] .spm-badge { color: #075985 !important; background: rgba(14, 165, 233, .14) !important; }
-:root[data-theme="clean"] :is(.setlists-modal h3, .setlists-head h3) { color: var(--text) !important; }
 /* Letra a pantalla completa: la ayuda del pie en una píldora (no se mezcla con la última línea). */
 .lyr-hint { background: color-mix(in srgb, var(--bg, #000) 82%, transparent); padding: 4px 12px; border-radius: 999px; width: max-content; max-width: calc(100% - 32px); margin-inline: auto; }
 :root[data-theme="clean"] .lyp-next b { color: #92400e !important; }   /* «Después se canta»: ámbar oscuro legible sobre claro */
@@ -2483,3 +2470,54 @@ body:has(.vn-overlay, #stems-marker-menu, .stems-proj-dropdown:not([hidden]), .c
 /* Tema claro: el azul de los botones al pasar el ratón, un punto más oscuro para que se lea bien. */
 :root[data-theme="clean"] :is(.mp-io, .pk-oct-btn, .pk-reverb, .cp-newcode, .lyrics-preview-btn):hover, :root[data-theme="clean"] .mtm-tap:hover:not(:active) { color: #0369a1 !important; }
 :root[data-theme="clean"] .gt-del:hover { color: #b91c1c; }
+/* Respaldo entre 2 PCs: panel y chip de la cabecera. */
+.red-box { width: min(560px, 94vw); }
+.red-status { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.red-status[data-tone="ok"] { color: color-mix(in srgb, #22c55e 70%, var(--text)); background: color-mix(in srgb, #22c55e 12%, transparent); }
+.red-status[data-tone="warn"] { color: color-mix(in srgb, #f59e0b 70%, var(--text)); background: color-mix(in srgb, #f59e0b 12%, transparent); }
+.red-status[data-tone="live"] { color: #fff; background: #dc2626; }
+.red-sec { display: flex; flex-direction: column; gap: 10px; }
+.red-sec[hidden] { display: none; }
+.red-pin { font: 800 34px/1 ui-monospace, Consolas, monospace; letter-spacing: .3em; text-align: center; padding: 10px; border-radius: 12px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+.red-found { display: flex; flex-wrap: wrap; gap: 6px; }
+.red-found .red-pc small { opacity: .7; margin-left: 4px; font-weight: 400; }
+.red-found .red-pc.is-on { border-color: var(--accent); }
+.red-none { font-size: 12.5px; color: var(--text-muted); }
+.red-sec .proj-test { flex-wrap: wrap; }
+.red-sec .proj-test [hidden] { display: none; }
+.red-chip[data-tone="ok"] { border-color: color-mix(in srgb, #22c55e 60%, transparent); background: color-mix(in srgb, #22c55e 14%, transparent); }
+.red-chip[data-tone="warn"] { border-color: color-mix(in srgb, #f59e0b 60%, transparent); background: color-mix(in srgb, #f59e0b 14%, transparent); }
+.red-chip[data-tone="live"] { border-color: #dc2626; background: #dc2626; color: #fff; }
+:root[data-theme="clean"] .red-status[data-tone="ok"] { color: #15803d; }
+:root[data-theme="clean"] .red-status[data-tone="warn"] { color: #b45309; }
+.red-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.red-card-row small { display: block; color: var(--text-muted); font-size: 11.5px; margin-top: 2px; }
+/* Planning Center */
+.pco-box { width: min(600px, 94vw); max-height: calc(100vh - 32px); }
+.pco-body { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.pco-steps { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.55; display: flex; flex-direction: column; gap: 4px; }
+.pco-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pco-grid .vn-field input { width: 100%; min-width: 0; box-sizing: border-box; }
+.pco-link { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
+:root[data-theme="clean"] .pco-link { color: #0369a1; }
+.pco-conn { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; font-weight: 600; color: color-mix(in srgb, #22c55e 70%, var(--text)); }
+:root[data-theme="clean"] .pco-conn { color: #15803d; }
+.pco-types { flex-wrap: wrap; }
+.pco-plans { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.pco-plan { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 112px; max-width: 170px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 4%, transparent); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.pco-plan span { font-size: 11.5px; color: var(--text-muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pco-plan b { font-size: 12.5px; text-transform: capitalize; }
+.pco-plan:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.pco-plan.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pco-songs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.pco-songs li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--text) 4%, transparent); font-size: 13px; }
+.pco-n { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
+.pco-t { min-width: 0; }
+.pco-t b, .pco-t small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pco-t small { color: var(--text-muted); font-size: 11.5px; }
+.pco-k { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.pco-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: color-mix(in srgb, #22c55e 16%, transparent); color: color-mix(in srgb, #22c55e 75%, var(--text)); }
+.pco-badge.is-new { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
+:root[data-theme="clean"] .pco-badge { color: #15803d; }
+.pco-err { margin: 0; font-size: 12.5px; color: color-mix(in srgb, #ef4444 75%, var(--text)); }
+@media (max-width: 560px) { .pco-grid { grid-template-columns: 1fr; } .pco-k { display: none; } }

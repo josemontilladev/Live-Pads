@@ -442,6 +442,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   initPowerWatch();    // batería y cargador del portátil (live/powerWatch.js)
   initSongMap();       // arreglo guardado: la pista sigue el mapa de la canción
   initStagePublish();  // monitor de escenario (Companion con ?escenario)
+  // Respaldo entre 2 PCs (live/redundancy.js): tarjeta en Ajustes → Audio y chip en la cabecera.
+  q('#btn-redundancy')?.addEventListener('click', () => import('./live/redundancy.js').then((m) => m.openRedundancyPanel()));
+  import('./live/redundancy.js').then((m) => {
+    const paintCard = () => { const el = q('#red-card-state'); if (el) el.textContent = m.redundancyInfo().text; };
+    m.onRedundancyChange(paintCard); paintCard();
+    m.initRedundancy({ getEngine: () => engine });
+  }).catch(() => {});
   initModulation();    // subir el tono en el último coro (punto marcado por canción)
   initMedley({ playCurrent: () => triggerSourcePlayPause() });   // medleys: unir con la siguiente sin silencio
   // Transición entre tonos: el pad recorre el puente hasta el tono de la siguiente canción.
@@ -1402,6 +1409,8 @@ function spotlightProviderItems() {
   items.push({ id: 'tool:midiclock', kind: 'panel', label: 'Reloj MIDI: tempo con Ableton, Logic, cajas de ritmos…', sub: 'Herramienta', search: 'reloj midi clock tempo sincronizar ableton logic link caja de ritmos looper sync', run: () => import('./midi/midiClock.js').then((m) => m.openMidiClockSettings()) });
   items.push({ id: 'tool:lyricsync', kind: 'panel', label: 'Sincronizar la letra (cada línea en su momento exacto)', sub: 'Herramienta', search: 'sincronizar letra karaoke lrc tiempos lineas exacta ia proyeccion tv', run: () => { const sg = (getCurrentSong && getCurrentSong()) || getSongs().find((x) => x.id === getActiveSongIdFromStore()); if (!sg) { window.showToast?.('Elige primero una canción.', 'info'); return; } import('./live/lyricSyncEditor.js').then((m) => m.openLyricSync(sg, { type: getCurrentType ? getCurrentType() : null })); } });
   items.push({ id: 'tool:projection', kind: 'panel', label: 'Letras en el programa de proyección (FreeShow, OpenLP, ProPresenter)', sub: 'Herramienta', search: 'proyeccion proyector letras freeshow openlp propresenter pantalla congregacion diapositivas', run: () => import('./live/projectionLink.js').then((m) => m.openProjectionSettings()) });
+  items.push({ id: 'tool:redundancy', kind: 'panel', label: 'Respaldo entre 2 PCs (si el principal falla, suena el otro)', sub: 'Herramienta', search: 'respaldo redundancia backup dos pc portatil segundo equipo falla relevo principal', run: () => import('./live/redundancy.js').then((m) => m.openRedundancyPanel()) });
+  items.push({ id: 'tool:pco', kind: 'panel', label: 'Importar un servicio de Planning Center', sub: 'Herramienta', search: 'planning center pco services importar servicio plan canciones domingo', run: () => import('./ui/planningCenter.js').then((m) => m.openPlanningCenter()) });
   items.push({ id: 'tool:sysstats', kind: 'command', label: 'Consumo en la barra: mostrar u ocultar (CPU · RAM · audio)', sub: 'Vista', search: 'consumo cpu ram memoria rendimiento estadisticas audio cortes', run: () => import('./ui/sysStats.js').then((m) => { const on = !m.sysStatsOn(); m.setSysStats(on); window.showToast?.(on ? 'Consumo visible en la barra superior.' : 'Consumo oculto.', 'info'); }) });
   items.push({ id: 'tool:mtlib', kind: 'panel', label: 'Mis carpetas de multitracks (subir a la Biblioteca o crear canciones)', sub: 'Herramienta', search: 'biblioteca multitracks carpetas carpeta descargas importar canciones stems', run: () => import('./stems/multitrackLibrary.js').then((m) => m.openMultitrackLibrary()) });
   items.push({ id: 'tool:rpp', kind: 'panel', label: 'Importar sesión de REAPER (.rpp) a Stems', sub: 'Herramienta', search: 'reaper rpp sesion importar daw stems pistas', run: () => window.dispatchEvent(new CustomEvent('livepads:stems-import-rpp')) });

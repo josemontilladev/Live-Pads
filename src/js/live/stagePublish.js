@@ -8,6 +8,7 @@
 // Companion con «?escenario» (TV, tablet, portátil o móvil).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isStandby } from './standby.js';
 import { whilePlaying } from '../audio/playClock.js';
 import { getTrackAudio, getCurrentSong, getCurrentType, getTrackPitch } from '../audio/trackPlayer.js';
 import { getEffectiveKey, peekNextServiceSong, getServiceSongs } from '../data/service.js';
@@ -68,6 +69,7 @@ export function stageState() {
 }
 
 function tick() {
+  if (isStandby()) return;   // respaldo en silencio: el escenario lo publica el principal
   if (!window.electronAPI?.companionPublishStage) return;
   let s;
   try { s = stageState(); } catch (_) { return; }

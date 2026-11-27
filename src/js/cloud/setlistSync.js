@@ -213,20 +213,6 @@ async function syncServiceProgram(libId, setlistId, name, date, songs, keys) {
   }
 }
 
-// Borra de la nube el setlist compartido con ese nombre (compat con la UI que
-// aún borra por nombre). Deja lápida para que no reaparezca en otras máquinas.
-export async function deleteSharedSetlistByName(name) {
-  const libId = requireContext();
-  const cleanName = (name || '').slice(0, 120).trim();
-  if (!cleanName) return false;
-  const rows = await rest(
-    `/setlists?library_id=eq.${libId}&name=eq.${encodeURIComponent(cleanName)}&select=id`
-  );
-  for (const r of (Array.isArray(rows) ? rows : [])) {
-    await deleteSharedSetlist(r.id, cleanName);
-  }
-  return true;
-}
 
 // Lista los setlists compartidos de la librería activa.
 export async function listSharedSetlists() {

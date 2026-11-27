@@ -7,7 +7,6 @@
 .stems-deck { background: linear-gradient(180deg, var(--surface-1), var(--surface-2)); box-shadow: var(--elev-1); }
 .stems-topbar { padding: 10px 14px; gap: 10px; align-items: center; flex-wrap: nowrap; }
 .stems-tb-left { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; }
-.stems-tb-mid { flex: 0 0 auto; margin-left: auto; }
 .stems-brand { display: none; }
 .stems-tb-left .stems-field { padding-left: 8px; padding-right: 8px; gap: 6px; }
 .stems-tb-left .stems-field > label { letter-spacing: .06em; }

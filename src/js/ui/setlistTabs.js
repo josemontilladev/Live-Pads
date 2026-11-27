@@ -57,7 +57,7 @@ export function bindSetlistTabs() {
   const btnSave = q('#btn-service-save');
   if (btnSave) btnSave.onclick = () => {
     if (!getServiceSongs().length) {
-      window.showToast?.('Agregá canciones al servicio antes de guardarlo como setlist.', 'info');
+      window.showToast?.('Añade canciones al servicio antes de guardarlo.', 'info');
       return;
     }
     showServiceCreate({ prefillCurrent: true });

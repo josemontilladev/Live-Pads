@@ -133,9 +133,6 @@
 /* El botón de cerrar del modal se oculta cuando está embebido (la nav manda). */
 #sidebar .is-embedded .cp-close, #sidebar .is-embedded .acc-x,
 #sidebar .is-embedded .pf-close, #sidebar .is-embedded .mp-close { display: none; }
-
-.stab-body { display: none; }
-.stab-body.visible { display: block; }
 .stab-body { display: none; }
 .stab-body.visible { display: block; }
 .sb-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: none; letter-spacing: 0.2px; margin: 20px 0 10px; }
@@ -172,8 +169,6 @@
 }
 .audio-lib-msg.error { background: color-mix(in srgb, var(--danger) 12%, transparent); color: #fca5a5; }
 .audio-lib-msg.info  { background: rgba(99,102,241,.12); color: #a5b4fc; }
-.sb-label:first-child { margin-top: 0; }
-
 /* Setlist */
 /* min-height = alto de los botones de acción (.accent-btn 34px): así el título
    "Setlist" queda a la MISMA altura en Librería y en Servicio, aunque en

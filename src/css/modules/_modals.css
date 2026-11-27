@@ -349,8 +349,6 @@
 }
 .lfs-bar { -webkit-app-region: no-drag; }
 @keyframes lfs-fade-in { from { opacity: 0; } to { opacity: 1; } }
-body.lyrics-fs-open { overflow: hidden; }
-
 .lfs-bar {
   flex-shrink: 0;
   display: flex;

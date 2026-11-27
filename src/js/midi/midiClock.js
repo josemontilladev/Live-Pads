@@ -10,6 +10,7 @@
 // El puente con el metrónomo lo pone app.js: window.__lpTempo = { get(), set(bpm), running(), toggle() }.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { isStandby } from '../live/standby.js';
 import { CLOCK, START, STOP, scheduleTicks, bpmFromTicks } from './midiClockCore.js';
 import { pushModal } from '../ui/modalStack.js';
 
@@ -42,6 +43,7 @@ function stopAll() {
 }
 
 function sendLoop() {
+  if (isStandby()) return;   // PC de respaldo en silencio: el reloj lo da el principal
   const T = tempo();
   if (!out || !T) return;
   const now = performance.now();

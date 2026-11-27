@@ -91,7 +91,6 @@
   display: flex; gap: 6px; overflow-x: auto; flex-shrink: 0;
   scrollbar-width: thin;
 }
-.stl-packs:empty { display: none; }
 .stl-chip {
   flex: none; padding: 5px 10px; border-radius: 999px;
   background: var(--bg-card); border: 1px solid var(--border);

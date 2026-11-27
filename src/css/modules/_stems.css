@@ -804,7 +804,6 @@ body[data-workspace="stems"] #track-player-bar {
   white-space: nowrap;
 }
 .stems-tb-time #stems-tb-cur { color: var(--text); }
-.stems-tb-time #stems-tb-total { color: var(--text-muted); }
 .stems-tb-time-sep { color: var(--text-muted); opacity: 0.6; }
 .stems-tb-btn--play.is-playing {
   animation: stemsPulse 1.6s ease-in-out infinite;
@@ -1109,7 +1108,6 @@ body[data-workspace="stems"] #track-player-bar {
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 .stems-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
-.stems-btn:active { transform: scale(0.97); }
 .stems-btn:focus { outline: none; }
 .stems-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stems-btn:hover { filter: brightness(1.15); }

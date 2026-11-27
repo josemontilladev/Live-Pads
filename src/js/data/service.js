@@ -21,7 +21,6 @@ let serviceKeys = {};
 // lista de trabajo sin nombre ("Tu lista de hoy").
 let currentSetlistName = '';
 export const getCurrentSetlistName = () => currentSetlistName;
-export const setCurrentSetlistName = (n) => { currentSetlistName = n || ''; };
 // Id del setlist guardado que está ACTIVO (la lista de trabajo ES ese setlist y
 // se auto-guarda al editar). null = lista de hoy sin nombre (no persistida como
 // setlist; se agrega igual, pero no aparece en el selector hasta nombrarla).
@@ -338,28 +337,6 @@ export function removeSavedSetlistByCloudId(cloudId) {
   }
   return true;
 }
-// Guarda el servicio ACTUAL como un setlist con nombre + fecha (YYYY-MM-DD).
-// Devuelve la entrada.
-export function saveCurrentAsSetlist(name, date) {
-  if (!serviceSongs.length) return null;
-  const arr = listSavedSetlists();
-  const entry = {
-    id: 's_' + Date.now() + '_' + Math.floor(performance.now()),
-    name: String(name || 'Servicio').trim() || 'Servicio',
-    date: (typeof date === 'string' && date) ? date : null, // fecha del servicio
-    savedAt: Date.now(),
-    keys: { ...serviceKeys },                            // tonos de hoy
-    songs: serviceSongs.map(({ serviceId, ...s }) => s), // serviceId se re-genera al cargar
-  };
-  arr.unshift(entry);
-  writeSavedSetlists(arr);
-  // La lista de trabajo PASA A SER este setlist (activo): futuras ediciones se
-  // auto-guardan en él.
-  currentSetlistId = entry.id;
-  currentSetlistName = entry.name;
-  saveServiceSongs();
-  return entry;
-}
 // Crea un setlist NUEVO (con canciones iniciales opcionales) y lo deja ACTIVO.
 // songs = array de canciones de la librería a incluir de una. Devuelve la entrada.
 export function createNewSetlist(name, date, songs, description) {
@@ -409,9 +386,6 @@ export function deleteSavedSetlist(id) {
     saveServiceSongs();
   }
   return cloudId;
-}
-export function renameSavedSetlist(id, name) {
-  updateSetlistMeta(id, name);
 }
 // Actualiza nombre y/o fecha de un setlist guardado. Si es el activo, refleja el
 // nombre en la lista de trabajo.

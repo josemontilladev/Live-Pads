@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis.window || new EventTarget();
 const { whilePlaying, _clockDebug } = await import('../src/js/audio/playClock.js');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// Espera a que se cumpla (máx. 1 s): con el equipo ocupado los temporizadores se retrasan.
+const until = async (fn) => { for (let i = 0; i < 100 && !fn(); i++) await wait(10); return fn(); };
 
 class FakeAudio extends EventTarget {
   constructor() { super(); this.paused = true; }
@@ -21,12 +23,10 @@ test('sin sonar no hay temporizadores; sonando sí; al pausar se llama una vez y
   assert.equal(_clockDebug().timers, 0);
   const a = new FakeAudio();
   window.dispatchEvent(new CustomEvent('livepads:track-loaded', { detail: { audio: a } }));
-  await wait(30);
+  assert.ok(await until(() => n >= 1), 'se pone al día al cargar');
   const afterLoad = n;
-  assert.ok(afterLoad >= 1, 'se pone al día al cargar');
   a.play();
-  await wait(80);
-  assert.ok(n - afterLoad >= 4, 'sonando, cada 10 ms');
+  assert.ok(await until(() => n - afterLoad >= 4), 'sonando, cada 10 ms');
   assert.equal(_clockDebug().timers, 1);
   a.pause();
   const atPause = n;
@@ -48,9 +48,8 @@ test('`when` en falso: mientras suena solo se mira despacio', async () => {
   await wait(100);
   assert.equal(n, 0, 'sin mapa activo no se llama');
   on = true;
-  await wait(400);
   // Tarda como mucho 250 ms en notarlo; luego va rápido (Windows redondea los 5 ms a ~15 ms).
-  assert.ok(n >= 8, 'en cuanto hace falta, a su ritmo (' + n + ')');
+  assert.ok(await until(() => n >= 8), 'en cuanto hace falta, a su ritmo (' + n + ')');
   a.pause(); off();
   window.dispatchEvent(new CustomEvent('livepads:track-cleared'));
 });

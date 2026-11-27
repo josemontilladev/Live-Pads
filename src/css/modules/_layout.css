@@ -307,8 +307,6 @@
   opacity: 0.55;
   transition: opacity 0.15s;
 }
-.drum-btn:hover .drum-tile-vol,
-.drum-btn:focus-within .drum-tile-vol { opacity: 1; }
 .drum-tile-vol input[type="range"] { flex: 1; min-width: 0; height: 3px; cursor: pointer; }
 .drum-tile-vol input[type="range"]::-webkit-slider-thumb { width: 12px; height: 12px; }
 .drum-tile-pct {

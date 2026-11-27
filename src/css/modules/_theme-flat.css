@@ -380,8 +380,6 @@
 :root[data-theme-style="flat"] .theme-swatch { border: 0; border-radius: 8px; }
 :root[data-theme-style="flat"] .sb-card { border-color: transparent !important; background: var(--flat-deep) !important; border-radius: var(--flat-r); }
 :root[data-theme-style="flat"] :is(.gi-song-item, .ssl-row, .svc-pick) { border-color: transparent; }
-:root[data-theme-style="flat"] :is(.gi-song-item.active-song, .ssl-row.is-active) { border-color: var(--flat-paper); }
-
 /* ═══ Cápsulas: un solo acabado para todos los grupos de opciones ══════════
    Mismo patrón que «Mayor / Menor»: un contenedor carbón de extremos redondos
    con 3 px de aire, las opciones dentro sin fondo ni borde, y la elegida como
@@ -562,7 +560,7 @@
    con borde verde o turquesa). Ahora: fondo del tema, un filo gris de 1 px y
    esquinas de 18 px. Dentro, los bloques usan un filo más tenue y sin colores. */
 :root[data-theme-style="flat"] :is([role="dialog"], .pf-panel, .mp-panel, .cp-panel, .pl-panel, .chd-panel,
-    .mtm-panel, .tun-panel, .lyp-panel, .stems-newsong-modal, .setlists-modal, .dialog-box, .metro-opts,
+    .mtm-panel, .tun-panel, .lyp-panel, .stems-newsong-modal, .dialog-box, .metro-opts,
     .auth-card, .acc-panel, .modal-content, .stems-tour-card) {
   background: var(--flat-side) !important;
   border: 1px solid var(--flat-outline) !important;
@@ -570,7 +568,7 @@
 }
 /* Bordes interiores: mismo tono para todos, sin verdes, turquesas ni negros. */
 :root[data-theme-style="flat"] :is([role="dialog"], .pf-panel, .mp-panel, .cp-panel, .pl-panel, .chd-panel,
-    .mtm-panel, .tun-panel, .stems-newsong-modal, .setlists-modal, .dialog-box, .metro-opts, .auth-card,
+    .mtm-panel, .tun-panel, .stems-newsong-modal, .dialog-box, .metro-opts, .auth-card,
     .acc-panel, .modal-content, #sidebar) :is(div, section, article, header, footer, li, p, label, form, fieldset) {
   border-color: rgba(255, 255, 255, 0.12) !important;
 }

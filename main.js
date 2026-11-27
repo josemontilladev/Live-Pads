@@ -2735,6 +2735,44 @@ ipcMain.handle('proj-request', async (_e, { method = 'GET', url, body, headers }
   } finally { clearTimeout(timer); }
 });
 
+// ── Planning Center Services (ver planningCenter.js): solo lectura, clave cifrada ──
+const pcoCredsPath = () => path.join(app.getPath('userData'), 'planning_center.bin');
+const pco = require('./planningCenter').createPco({
+  fetch: (url, opts) => net.fetch(url, opts),
+  base: (!app.isPackaged && process.env.LIVEPADS_PCO_BASE) || undefined,
+  readCreds: () => {
+    const fp = pcoCredsPath();
+    if (!fs.existsSync(fp) || !safeStorage.isEncryptionAvailable()) return null;
+    return JSON.parse(safeStorage.decryptString(fs.readFileSync(fp)));
+  },
+  writeCreds: (c) => {
+    const fp = pcoCredsPath();
+    if (!c) { try { fs.unlinkSync(fp); } catch (_) {} return; }
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('Este equipo no permite guardar la clave cifrada');
+    fs.writeFileSync(fp, safeStorage.encryptString(JSON.stringify(c)));
+  },
+});
+const pcoCall = (fn) => async (_e, a = {}) => { try { return { ok: true, ...(await fn(a)) }; } catch (err) { return { ok: false, error: String((err && err.message) || err), code: err && err.code }; } };
+ipcMain.handle('pco-status', () => pco.status());
+ipcMain.handle('pco-connect', pcoCall(({ appId, secret }) => pco.connect(appId, secret)));
+ipcMain.handle('pco-disconnect', () => pco.disconnect());
+ipcMain.handle('pco-get', pcoCall(async ({ path: p, all }) => ({ json: all ? await pco.getAll(p) : await pco.get(p) })));
+
+// ── Respaldo entre dos PCs (ver redundancy.js y src/js/live/redundancy.js) ──
+const redundancy = require('./redundancy').createRedundancy({
+  name: require('os').hostname(),
+  onRemote: (m) => { try { mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.send('red-remote', m); } catch (_) {} },
+  onStatus: (s) => { try { mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.send('red-status', s); } catch (_) {} },
+});
+ipcMain.handle('red-status', () => redundancy.status());
+ipcMain.handle('red-principal', async (_e, { pin } = {}) => { try { return { ok: true, ...(await redundancy.startPrincipal(pin)) }; } catch (err) { redundancy.stop(); return { ok: false, error: err && err.code === 'EADDRINUSE' ? 'El puerto 47833 ya está en uso (¿otro LivePads abierto en este PC?)' : String((err && err.message) || err) }; } });
+ipcMain.handle('red-backup', () => redundancy.startBackup());
+ipcMain.handle('red-connect', (_e, { host, port, pin } = {}) => redundancy.connect(host, port, pin));
+ipcMain.handle('red-stop', () => redundancy.stop());
+ipcMain.on('red-publish', (_e, state) => redundancy.publish(state));
+ipcMain.handle('red-took', () => redundancy.sendToPrincipal({ type: 'took' }));
+app.on('before-quit', () => { try { redundancy.stop(); } catch (_) {} });
+
 // ── Exportar la sesión de Stems a REAPER: una carpeta con Audio/ y el .rpp ──
 const rppExports = new Map();   // token → carpeta de la sesión
 const safeName = (n) => String(n || 'Sesion').replace(/[<>:"/\\|?*\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Sesion';
