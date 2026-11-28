@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "host": "DESKTOP-1QGNAKC",
+  "savedAt": "2026-11-20T17:00:53.761Z",
+  "workspace": "LivePads",
+  "editors": [
+    {
+      "file": "analysisWorker.js",
+      "line": 0,
+      "character": 0,
+      "anchorLine": 0,
+      "anchorCharacter": 0,
+      "viewColumn": 1,
+      "active": false,
+      "pinned": false
+    }
+  ],
+  "terminals": [],
+  "unsaved": []
+}
